@@ -76,31 +76,7 @@ RTDEControlInterface::RTDEControlInterface(std::string hostname, double frequenc
     }
   }
 
-  // Create a connection to the dashboard server
-  db_client_ = std::make_shared<DashboardClient>(hostname_);
-  db_client_->connect();
-  PolyScopeVersion polyscope_version(db_client_->polyscopeVersion());
-  if (polyscope_version.major == 5 && polyscope_version.minor > 5)
-  {
-    serial_number_ = db_client_->getSerialNumber();
-  }
-
-  // Only check if in remote on real robot or when not using the ExternalControl UR Cap.
-  if (!use_external_control_ur_cap_)
-  {
-    // 192.168.56.101 is the CI ursim test ip address.
-    if (hostname_ != "localhost" && hostname_ != "127.0.0.1" && hostname_ != "192.168.56.101")
-    {
-      if (polyscope_version.major == 5 && polyscope_version.minor > 5)
-      {
-        // Check if robot is in remote control
-        if (!db_client_->isInRemoteControl())
-        {
-          throw std::logic_error("ur_rtde: Please enable remote control on the robot!");
-        }
-      }
-    }
-  }
+  // Connect to the RTDE interface and get the controller version
   no_bytes_avail_cnt_ = 0;
   port_ = 30004;
   custom_script_running_ = false;
@@ -108,6 +84,41 @@ RTDEControlInterface::RTDEControlInterface(std::string hostname, double frequenc
   rtde_->connect();
   rtde_->negotiateProtocolVersion();
   versions_ = rtde_->getControllerVersion();
+
+  if (verbose_)
+  {
+    std::cout << "PolyScope major version: " << versions_.major << std::endl;
+    std::cout << "PolyScope minor version: " << versions_.minor << std::endl;
+  }
+
+  if (versions_.major < 10)
+  {
+    // --- Only for PolyScope 5 ---
+    // Create a connection to the dashboard server
+    db_client_ = std::make_shared<DashboardClient>(hostname_);
+    db_client_->connect();
+    if (versions_.major == 5 && versions_.minor > 5)
+    {
+      serial_number_ = db_client_->getSerialNumber();
+    }
+
+    // Only check if in remote on real robot or when not using the ExternalControl UR Cap.
+    if (!use_external_control_ur_cap_ && !(flags & FLAG_DIABLE_REMOTE_CONTROL_CHECK))
+    {
+      // 192.168.56.101 is the CI ursim test ip address.
+      if (hostname_ != "localhost" && hostname_ != "127.0.0.1" && hostname_ != "192.168.56.101")
+      {
+        if (versions_.major == 5 && versions_.minor > 5)
+        {
+          // Check if robot is in remote control
+          if (!db_client_->isInRemoteControl())
+          {
+            throw std::logic_error("ur_rtde: Please enable remote control on the robot!");
+          }
+        }
+      }
+    }
+  }
 
   if (frequency_ < 0)  // frequency not specified, set it based on controller version.
   {
@@ -122,7 +133,11 @@ RTDEControlInterface::RTDEControlInterface(std::string hostname, double frequenc
 
   // Create a connection to the script server
   script_client_ = std::make_shared<ScriptClient>(hostname_, versions_.major, versions_.minor);
-  script_client_->connect();
+  if (versions_.major < 10)
+  {
+    // For PolyScopeX we do not connect with the script client.
+    script_client_->connect();
+  }
 
   // If user want to use upper range of RTDE registers, add the register offset in control script
   if (use_upper_range_registers_)
@@ -168,7 +183,7 @@ RTDEControlInterface::RTDEControlInterface(std::string hostname, double frequenc
     throw std::logic_error("Failed to start RTDE data synchronization, before timeout");
 
   // Start executing receiveCallback
-  th_ = std::make_shared<boost::thread>(boost::bind(&RTDEControlInterface::receiveCallback, this));
+  th_.start(boost::bind(&RTDEControlInterface::receiveCallback, this, boost::placeholders::_1));
 
   // Wait until the first robot state has been received
   while (!robot_state_->getFirstStateReceived())
@@ -178,33 +193,37 @@ RTDEControlInterface::RTDEControlInterface(std::string hostname, double frequenc
 
   // Clear command register
   sendClearCommand();
-
-  if (upload_script_)
+  
+  if (versions_.major < 10)
   {
-    if (!isProgramRunning())
+    // We only upload the control script through the script client on PolyScope5.
+    if (upload_script_)
     {
-      // Send script to the UR Controller
-      if (script_client_->sendScript())
-        waitForProgramRunning();
+      if (!isProgramRunning())
+      {
+        // Send script to the UR Controller
+        if (script_client_->sendScript())
+          waitForProgramRunning();
+        else
+          std::cerr << "Failed to send rtde control script to the controller";
+      }
       else
-        std::cerr << "Failed to send rtde control script to the controller";
-    }
-    else
-    {
-      if (verbose_)
-        std::cout << "A script was running on the controller, killing it!" << std::endl;
-      // Stop the running script first
-      stopScript();
-      db_client_->stop();
-
-      // Wait until terminated
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-      // Send script to the UR Controller
-      if (script_client_->sendScript())
-        waitForProgramRunning();
-      else
-        std::cerr << "Failed to send rtde control script to the controller";
+      {
+        if (verbose_)
+          std::cout << "A script was running on the controller, killing it!" << std::endl;
+        // Stop the running script first
+        stopScript();
+        db_client_->stop();
+  
+        // Wait until terminated
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  
+        // Send script to the UR Controller
+        if (script_client_->sendScript())
+          waitForProgramRunning();
+        else
+          std::cerr << "Failed to send rtde control script to the controller";
+      }
     }
   }
 
@@ -252,7 +271,7 @@ RTDEControlInterface::RTDEControlInterface(std::string hostname, double frequenc
   }
 #endif
 
-  // When the user wants to a custom script / program on the controller interacting with ur_rtde.
+  // When the user wants to use a custom script / program on the controller interacting with ur_rtde.
   if (!upload_script_ && !use_external_control_ur_cap_)
   {
     if (!no_wait_)
@@ -333,9 +352,7 @@ void RTDEControlInterface::waitForProgramRunning()
 void RTDEControlInterface::disconnect()
 {
   // Stop the receive callback function
-  stop_thread_ = true;
-  th_->interrupt();
-  th_->join();
+  th_.stop();
 
   if (rtde_ != nullptr)
   {
@@ -432,8 +449,7 @@ bool RTDEControlInterface::reconnect()
     throw std::logic_error("Failed to start RTDE data synchronization, before timeout");
 
   // Start executing receiveCallback
-  stop_thread_ = false;
-  th_ = std::make_shared<boost::thread>(boost::bind(&RTDEControlInterface::receiveCallback, this));
+  th_.start(boost::bind(&RTDEControlInterface::receiveCallback, this, boost::placeholders::_1));
 
   // Wait until the first robot state has been received
   while (!robot_state_->getFirstStateReceived())
@@ -716,7 +732,7 @@ bool RTDEControlInterface::setupRecipes(const double &frequency)
   return true;
 }
 
-void RTDEControlInterface::receiveCallback()
+void RTDEControlInterface::receiveCallback(std::atomic<bool> *stop_thread)
 {
   bool should_reconnect = false;
   // If someone calls disconnect() stop_thread_ is set to false, so we only
@@ -725,7 +741,7 @@ void RTDEControlInterface::receiveCallback()
   // connection is closed. Therefore we also need to check, if rtde_ is still
   // connected. only if these two requirements are met, it is safe to access
   // the rtde_ functions.
-  while (!stop_thread_ && rtde_->isConnected())
+  while (!*stop_thread && rtde_->isConnected())
   {
     // Receive and update the robot state
     try
@@ -801,7 +817,7 @@ void RTDEControlInterface::receiveCallback()
       catch (std::exception &e)
       {
         std::cerr << "RTDEControlInterface Exception: " << e.what() << std::endl;
-        stop_thread_ = true;
+        th_.signalStop();
         return;
         // is it save to throw exceptions in an ASIO async handler? If this line
         // is not disables, it will crash the application

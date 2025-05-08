@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddtrace
-Version: 3.6.0
+Version: 3.7.0
 Summary: Datadog APM client library
 Author-email: "Datadog, Inc." <dev@datadoghq.com>
 License: LICENSE.BSD3

@@ -1,7 +1,13 @@
 from pathlib import Path
 
 import pytest
-from connector.config import LOG_DIRECTORY_ENV_VAR, LOG_LEVEL_ENV_VAR, Config, LogLevel
+from connector.config import (
+    ADDITIONAL_REDACTED_LOG_KEYS_ENV_VAR,
+    LOG_DIRECTORY_ENV_VAR,
+    LOG_LEVEL_ENV_VAR,
+    Config,
+    LogLevel,
+)
 
 
 @pytest.fixture
@@ -40,3 +46,10 @@ def test_invalid_log_level(monkeypatch):
     with pytest.raises(ValueError) as exc_info:
         Config()
     assert "Invalid log level" in str(exc_info.value)
+
+
+def test_additional_redacted_log_keys(monkeypatch):
+    """Test that Config respects additional redacted log keys from environment"""
+    monkeypatch.setenv(ADDITIONAL_REDACTED_LOG_KEYS_ENV_VAR, "key1 , KEY2")
+    config = Config()
+    assert config.additional_redacted_log_keys == ["key1", "key2"]

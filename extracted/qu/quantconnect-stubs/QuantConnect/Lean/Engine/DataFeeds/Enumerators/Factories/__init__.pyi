@@ -16,6 +16,32 @@ import System
 import System.Collections.Generic
 
 
+class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
+    """
+    Provides an implementation of ISubscriptionEnumeratorFactory that reads
+    an entire SubscriptionDataSource into a single BaseDataCollection
+    to be emitted on the tradable date at midnight
+    """
+
+    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+        """
+        Instanciates a new BaseDataCollectionSubscriptionEnumeratorFactory
+        
+        :param object_store: The object store to use
+        """
+        ...
+
+    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Creates an enumerator to read the specified request
+        
+        :param request: The subscription request to be read
+        :param data_provider: Provider used to get data when it is not present on disk
+        :returns: An enumerator reading the subscription request.
+        """
+        ...
+
+
 class SubscriptionDataReaderSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory, System.IDisposable):
     """Provides an implementation of ISubscriptionEnumeratorFactory that used the SubscriptionDataReader"""
 
@@ -44,60 +70,6 @@ class SubscriptionDataReaderSubscriptionEnumeratorFactory(System.Object, QuantCo
 
     def dispose(self) -> None:
         """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-
-class TimeTriggeredUniverseSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
-    """
-    Provides an implementation of ISubscriptionEnumeratorFactory to emit
-    ticks based on UserDefinedUniverse.GetTriggerTimes, allowing universe
-    selection to fire at planned times.
-    """
-
-    def __init__(self, universe: QuantConnect.Data.UniverseSelection.ITimeTriggeredUniverse, market_hours_database: QuantConnect.Securities.MarketHoursDatabase, time_provider: QuantConnect.ITimeProvider) -> None:
-        """
-        Initializes a new instance of the TimeTriggeredUniverseSubscriptionEnumeratorFactory class
-        
-        :param universe: The user defined universe
-        :param market_hours_database: The market hours database
-        :param time_provider: The time provider
-        """
-        ...
-
-    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Creates an enumerator to read the specified request
-        
-        :param request: The subscription request to be read
-        :param data_provider: Provider used to get data when it is not present on disk
-        :returns: An enumerator reading the subscription request.
-        """
-        ...
-
-
-class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
-    """
-    Provides an implementation of ISubscriptionEnumeratorFactory that reads
-    an entire SubscriptionDataSource into a single BaseDataCollection
-    to be emitted on the tradable date at midnight
-    """
-
-    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
-        """
-        Instanciates a new BaseDataCollectionSubscriptionEnumeratorFactory
-        
-        :param object_store: The object store to use
-        """
-        ...
-
-    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Creates an enumerator to read the specified request
-        
-        :param request: The subscription request to be read
-        :param data_provider: Provider used to get data when it is not present on disk
-        :returns: An enumerator reading the subscription request.
-        """
         ...
 
 
@@ -130,6 +102,34 @@ class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Da
         Gets the ISubscriptionDataSourceReader for the specified source
         
         This method is protected.
+        """
+        ...
+
+
+class TimeTriggeredUniverseSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
+    """
+    Provides an implementation of ISubscriptionEnumeratorFactory to emit
+    ticks based on UserDefinedUniverse.GetTriggerTimes, allowing universe
+    selection to fire at planned times.
+    """
+
+    def __init__(self, universe: QuantConnect.Data.UniverseSelection.ITimeTriggeredUniverse, market_hours_database: QuantConnect.Securities.MarketHoursDatabase, time_provider: QuantConnect.ITimeProvider) -> None:
+        """
+        Initializes a new instance of the TimeTriggeredUniverseSubscriptionEnumeratorFactory class
+        
+        :param universe: The user defined universe
+        :param market_hours_database: The market hours database
+        :param time_provider: The time provider
+        """
+        ...
+
+    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Creates an enumerator to read the specified request
+        
+        :param request: The subscription request to be read
+        :param data_provider: Provider used to get data when it is not present on disk
+        :returns: An enumerator reading the subscription request.
         """
         ...
 

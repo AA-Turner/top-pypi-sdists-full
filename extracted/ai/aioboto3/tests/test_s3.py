@@ -1,3 +1,4 @@
+import asyncio
 import os
 import datetime
 import tempfile
@@ -11,7 +12,7 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_s3_download_file(event_loop, s3_client, bucket_name, region):
+async def test_s3_download_file(s3_client, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
     await s3_client.put_object(Bucket=bucket_name, Key='test_file', Body=b'Hello World\n')
 
@@ -40,7 +41,7 @@ async def test_s3_download_file(event_loop, s3_client, bucket_name, region):
 
 
 @pytest.mark.asyncio
-async def test_s3_download_fileobj(event_loop, s3_client, bucket_name, region):
+async def test_s3_download_fileobj(s3_client, bucket_name, region):
     data = b'Hello World\n'
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
     await s3_client.put_object(Bucket=bucket_name, Key='test_file', Body=data)
@@ -53,7 +54,7 @@ async def test_s3_download_fileobj(event_loop, s3_client, bucket_name, region):
 
 
 @pytest.mark.asyncio
-async def test_s3_download_fileobj_nonseekable_asyncwrite(event_loop, s3_client, bucket_name, region):
+async def test_s3_download_fileobj_nonseekable_asyncwrite(s3_client, bucket_name, region):
     data = b'Hello World\n'
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
     await s3_client.put_object(Bucket=bucket_name, Key='test_file', Body=data)
@@ -73,7 +74,7 @@ async def test_s3_download_fileobj_nonseekable_asyncwrite(event_loop, s3_client,
 
 
 @pytest.mark.asyncio
-async def test_s3_download_fileobj_nonseekable_syncwrite(event_loop, s3_client, bucket_name, region):
+async def test_s3_download_fileobj_nonseekable_syncwrite(s3_client, bucket_name, region):
     data = b'Hello World\n'
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
     await s3_client.put_object(Bucket=bucket_name, Key='test_file', Body=data)
@@ -93,7 +94,7 @@ async def test_s3_download_fileobj_nonseekable_syncwrite(event_loop, s3_client, 
 
 
 @pytest.mark.asyncio
-async def test_s3_download_file_404(event_loop, s3_client, bucket_name, region):
+async def test_s3_download_file_404(s3_client, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
     try:
@@ -104,7 +105,7 @@ async def test_s3_download_file_404(event_loop, s3_client, bucket_name, region):
 
 
 @pytest.mark.asyncio
-async def test_s3_upload_fileobj(event_loop, s3_client, bucket_name, region):
+async def test_s3_upload_fileobj(s3_client, bucket_name, region):
     data = b'Hello World\n'
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
@@ -127,8 +128,54 @@ async def test_s3_upload_fileobj(event_loop, s3_client, bucket_name, region):
     assert (await resp['Body'].read()) == data
 
 
+def _count_running_tasks_excluding_current():
+    current = asyncio.current_task()
+    return len([t for t in asyncio.all_tasks() if t is not current and not t.done() and not t.cancelled()])
+
+
 @pytest.mark.asyncio
-async def test_s3_upload_empty_fileobj(event_loop, s3_client, bucket_name, region):
+async def test_s3_upload_fileobj_cancel(s3_client, bucket_name, region):
+    before = _count_running_tasks_excluding_current()
+
+    data = b"x" * 10_000_000
+    await s3_client.create_bucket(
+        Bucket=bucket_name,
+        CreateBucketConfiguration={'LocationConstraint': region}
+    )
+
+    fh = BytesIO(data)
+
+    class SlowFakeFile:
+        def __init__(self, fileobj):
+            self.fileobj = fileobj
+
+        async def read(self, size):
+            await asyncio.sleep(0.3)
+            return self.fileobj.read(size)
+
+    slow_file = SlowFakeFile(fh)
+
+    upload_task = asyncio.create_task(
+        s3_client.upload_fileobj(
+            slow_file,
+            bucket_name,
+            'test_slow_file'
+        )
+    )
+
+    await asyncio.sleep(0.3)
+
+    upload_task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await upload_task
+
+    after = _count_running_tasks_excluding_current()
+    assert before == after, "Task leak detected"
+
+
+@pytest.mark.asyncio
+async def test_s3_upload_empty_fileobj(s3_client, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
     fh = BytesIO(b'')
@@ -150,7 +197,7 @@ async def test_s3_upload_empty_fileobj(event_loop, s3_client, bucket_name, regio
 
 
 @pytest.mark.asyncio
-async def test_s3_upload_fileobj_async(event_loop, s3_client, bucket_name, region):
+async def test_s3_upload_fileobj_async(s3_client, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
     data = b'Hello World\n'
@@ -168,7 +215,7 @@ async def test_s3_upload_fileobj_async(event_loop, s3_client, bucket_name, regio
 
 
 @pytest.mark.asyncio
-async def test_s3_upload_fileobj_async_multipart(event_loop, s3_client, bucket_name, region):
+async def test_s3_upload_fileobj_async_multipart(s3_client, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
     data = b'Hello World\n'
@@ -188,7 +235,7 @@ async def test_s3_upload_fileobj_async_multipart(event_loop, s3_client, bucket_n
 @pytest.mark.parametrize('checksum_algo', ['CRC32', 'SHA1', None])
 @pytest.mark.asyncio
 async def test_s3_upload_fileobj_async_multipart_completes_with_checksum_on_parts(
-    event_loop, s3_client, bucket_name, region, checksum_algo):
+    s3_client, bucket_name, region, checksum_algo):
     """This test verifies that when performing a multipart upload with a checksum algorithm:
     1. Each uploaded part includes the specified checksum type (e.g. CRC32 or SHA1)
     2. The complete_multipart_upload call receives all part checksums correctly
@@ -230,7 +277,7 @@ async def test_s3_upload_fileobj_async_multipart_completes_with_checksum_on_part
 
 
 @pytest.mark.asyncio
-async def test_s3_upload_fileobj_async_slow(event_loop, s3_client, bucket_name, region):
+async def test_s3_upload_fileobj_async_slow(s3_client, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
     data = b'Hello World\n'
@@ -251,7 +298,7 @@ async def test_s3_upload_fileobj_async_slow(event_loop, s3_client, bucket_name, 
 
 
 @pytest.mark.asyncio
-async def test_s3_upload_broken_fileobj(event_loop, s3_client, bucket_name, region):
+async def test_s3_upload_broken_fileobj(s3_client, bucket_name, region):
     class BrokenFile(object):
         def __init__(self, data: bytes):
             self._data = data
@@ -272,7 +319,7 @@ async def test_s3_upload_broken_fileobj(event_loop, s3_client, bucket_name, regi
 
 
 @pytest.mark.asyncio
-async def test_s3_upload_fileobj_with_transform(event_loop, s3_client, bucket_name, region):
+async def test_s3_upload_fileobj_with_transform(s3_client, bucket_name, region):
     data = b'Hello World\n'
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
@@ -289,7 +336,7 @@ async def test_s3_upload_fileobj_with_transform(event_loop, s3_client, bucket_na
 
 
 @pytest.mark.asyncio
-async def test_s3_upload_file(event_loop, s3_client, bucket_name, region):
+async def test_s3_upload_file(s3_client, bucket_name, region):
     data = b'Hello World\n'
     filename = '/tmp/aioboto3_temp_s3_upload.txt'
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
@@ -303,7 +350,7 @@ async def test_s3_upload_file(event_loop, s3_client, bucket_name, region):
 
 
 @pytest.mark.asyncio
-async def test_s3_copy(event_loop, s3_client, bucket_name, region):
+async def test_s3_copy(s3_client, bucket_name, region):
     data = b'Hello World\n'
 
     filename = '/tmp/aioboto3_temp_s3_upload.txt'
@@ -323,7 +370,7 @@ async def test_s3_copy(event_loop, s3_client, bucket_name, region):
 
 
 @pytest.mark.asyncio
-async def test_s3_copy_multipart(event_loop, s3_client, bucket_name, region):
+async def test_s3_copy_multipart(s3_client, bucket_name, region):
     data = b'Hello World\n'
 
     filename = '/tmp/aioboto3_temp_s3_upload.txt'
@@ -344,7 +391,7 @@ async def test_s3_copy_multipart(event_loop, s3_client, bucket_name, region):
 
 
 @pytest.mark.asyncio
-async def test_s3_copy_from(event_loop, s3_client, s3_resource, bucket_name, region):
+async def test_s3_copy_from(s3_client, s3_resource, bucket_name, region):
     data = b'Hello World\n'
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
@@ -364,7 +411,7 @@ async def test_s3_copy_from(event_loop, s3_client, s3_resource, bucket_name, reg
 
 
 @pytest.mark.asyncio
-async def test_s3_resource_objects_all(event_loop, s3_client, s3_resource, bucket_name, region):
+async def test_s3_resource_objects_all(s3_client, s3_resource, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
     files_to_create = {'test/file1', 'test2/file1', 'test2/file2'}
     for file in files_to_create:
@@ -380,7 +427,7 @@ async def test_s3_resource_objects_all(event_loop, s3_client, s3_resource, bucke
 
 
 @pytest.mark.asyncio
-async def test_s3_resource_objects_filter(event_loop, s3_client, s3_resource, bucket_name, region):
+async def test_s3_resource_objects_filter(s3_client, s3_resource, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
     files_to_create = {'test/file1', 'test2/file1', 'test2/file2'}
     for file in files_to_create:
@@ -396,7 +443,7 @@ async def test_s3_resource_objects_filter(event_loop, s3_client, s3_resource, bu
 
 
 @pytest.mark.asyncio
-async def test_s3_resource_objects_delete(event_loop, s3_client, s3_resource, bucket_name, region):
+async def test_s3_resource_objects_delete(s3_client, s3_resource, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
     files_to_create = {'test/file1', 'test2/file1', 'test2/file2'}
     for file in files_to_create:
@@ -413,7 +460,7 @@ async def test_s3_resource_objects_delete(event_loop, s3_client, s3_resource, bu
 
 
 @pytest.mark.asyncio
-async def test_s3_resource_objects_delete_filter(event_loop, s3_client, s3_resource, bucket_name, region):
+async def test_s3_resource_objects_delete_filter(s3_client, s3_resource, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
     files_to_create = {'test/file1', 'test2/file1', 'test2/file2'}
     for file in files_to_create:
@@ -431,7 +478,7 @@ async def test_s3_resource_objects_delete_filter(event_loop, s3_client, s3_resou
 
 
 @pytest.mark.asyncio
-async def test_s3_object_summary_load(event_loop, s3_client, s3_resource, bucket_name, region):
+async def test_s3_object_summary_load(s3_client, s3_resource, bucket_name, region):
     data = b'Hello World\n'
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
     await s3_client.put_object(Bucket=bucket_name, Key='test_file', Body=data)
@@ -442,7 +489,7 @@ async def test_s3_object_summary_load(event_loop, s3_client, s3_resource, bucket
 
 
 @pytest.mark.asyncio
-async def test_s3_bucket_creation_date(event_loop, s3_client, s3_resource, bucket_name, region):
+async def test_s3_bucket_creation_date(s3_client, s3_resource, bucket_name, region):
     await s3_client.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': region})
 
     bucket = await s3_resource.Bucket(bucket_name)

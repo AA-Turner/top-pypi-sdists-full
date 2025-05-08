@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 1.38.6
+Version: 1.38.7
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, nouamane@huggingface.co, info@nils-reimers.de
 License:                                  Apache License
@@ -219,7 +219,7 @@ Classifier: Programming Language :: Python
 Requires-Python: <3.13,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: datasets<3.0.0,>=2.19.0
+Requires-Dist: datasets>=2.19.0
 Requires-Dist: numpy<3.0.0,>=1.0.0
 Requires-Dist: requests>=2.26.0
 Requires-Dist: scikit_learn>=1.0.2

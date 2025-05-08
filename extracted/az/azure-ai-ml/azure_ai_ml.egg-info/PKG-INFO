@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-ai-ml
-Version: 1.26.5
+Version: 1.27.0
 Summary: Microsoft Azure Machine Learning Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -42,6 +42,7 @@ Requires-Dist: isodate<1.0.0
 Requires-Dist: azure-common>=1.1
 Requires-Dist: typing-extensions<5.0.0
 Requires-Dist: azure-monitor-opentelemetry
+Requires-Dist: six>=1.11.0
 Provides-Extra: designer
 Requires-Dist: mldesigner; extra == "designer"
 Provides-Extra: mount
@@ -192,10 +193,19 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 # Release History
 
-## 1.26.5 (2025-04-28)
+## 1.27.0 (2025-05-06)
 
 ### Features Added
-  - Added Target storage connection for capability host.
+- Added Target storage connection for capability host.
+
+### Bugs Fixed
+- Fix for compute Instance, disableLocalAuth property should be depend on ssh public access enabled.
+- Removing Git-related properties from job properties if a PAT token is detected in the repository URL.
+- Fix deployment creation for registry models
+
+### Other Changes
+- Hub and Project are officially GA'd and no longer experimental.
+- PipelineComponentBatchDeployment, ModelBatchDeployment, ModelBatchDeploymentSettings are GA
 
 ## 1.26.4 (2025-04-23)
 
@@ -205,14 +215,14 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 ## 1.26.3 (2025-04-17)
 
 ### Bugs Fixed
- - Updated `marshmallow` dependency to restrict versions 
- to `>=3.5,<4.0.0` in `install_requires` to ensure compatibility.
+ - Updated `marshmallow` dependency to restrict versions to `>=3.5,<4.0.0` 
+ in `install_requires` to ensure compatibility.
 
 ## 1.26.2 (2025-04-08)
 
 ### Bugs Fixed
  - Made AI Search connections property optional while creating capability host.
-
+  
 ## 1.26.1 (2025-03-27)
 
 ### Bugs Fixed
@@ -223,11 +233,11 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 ### Features Added
   - Adding parent job support for command job.
   - Adding multiple docker argument support for command job.
-  - spark version upgrade from 3.3 to 3.4
 
 ### Bugs Fixed
   - #37464 - Allowing to update a component in register with anonymousEnvironment environment.
   - #39744 - Fixing a serialization issue in RecurrencePattern schedule.
+  - #39793 - Fixing bug in AML OBO to work with KV secret client.
   - Fix environment archiving and restore
 
 ### Other Changes

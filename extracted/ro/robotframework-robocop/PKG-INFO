@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotframework-robocop
-Version: 6.1.0
+Version: 6.1.1
 Summary: Static code analysis tool (linter) and code formatter for Robot Framework
 Project-URL: Bug tracker, https://github.com/MarketSquare/robotframework-robocop/issues
 Project-URL: Source code, https://github.com/MarketSquare/robotframework-robocop

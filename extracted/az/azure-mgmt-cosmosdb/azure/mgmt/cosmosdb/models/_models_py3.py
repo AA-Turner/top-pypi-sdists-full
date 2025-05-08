@@ -1,5 +1,5 @@
+# pylint: disable=line-too-long,useless-suppression,too-many-lines
 # coding=utf-8
-# pylint: disable=too-many-lines
 # --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for license information.
@@ -10,10 +10,9 @@
 import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
-from .. import _serialization
+from .._utils import serialization as _serialization
 
 if TYPE_CHECKING:
-    # pylint: disable=unused-import,ungrouped-imports
     from .. import models as _models
 
 
@@ -39,7 +38,7 @@ class AccountKeyMetadata(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.generation_time = None
+        self.generation_time: Optional[datetime.datetime] = None
 
 
 class AnalyticalStorageConfiguration(_serialization.Model):
@@ -117,9 +116,9 @@ class ARMProxyResource(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
 
 
 class ARMResourceProperties(_serialization.Model):
@@ -171,9 +170,9 @@ class ARMResourceProperties(_serialization.Model):
         :paramtype tags: dict[str, str]
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.location = location
         self.tags = tags
 
@@ -323,7 +322,7 @@ class AutoscaleSettingsResource(_serialization.Model):
         super().__init__(**kwargs)
         self.max_throughput = max_throughput
         self.auto_upgrade_policy = auto_upgrade_policy
-        self.target_max_throughput = None
+        self.target_max_throughput: Optional[int] = None
 
 
 class AutoUpgradePolicyResource(_serialization.Model):
@@ -370,7 +369,7 @@ class BackupInformation(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.continuous_backup_information = None
+        self.continuous_backup_information: Optional["_models.ContinuousBackupInformation"] = None
 
 
 class BackupPolicy(_serialization.Model):
@@ -508,7 +507,7 @@ class Capacity(_serialization.Model):
         self.total_throughput_limit = total_throughput_limit
 
 
-class CassandraClusterDataCenterNodeItem(_serialization.Model):  # pylint: disable=too-many-instance-attributes
+class CassandraClusterDataCenterNodeItem(_serialization.Model):
     """CassandraClusterDataCenterNodeItem.
 
     :ivar address: The node's IP address.
@@ -950,9 +949,9 @@ class ExtendedResourceProperties(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
 
 
 class CassandraKeyspaceResource(_serialization.Model):
@@ -1019,9 +1018,9 @@ class CassandraKeyspaceGetPropertiesResource(CassandraKeyspaceResource, Extended
         :paramtype id: str
         """
         super().__init__(id=id, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
 
 
@@ -1116,7 +1115,7 @@ class CassandraKeyspaceListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.CassandraKeyspaceGetResults"]] = None
 
 
 class CassandraPartitionKey(_serialization.Model):
@@ -1380,9 +1379,9 @@ class CassandraTableGetPropertiesResource(CassandraTableResource, ExtendedResour
         super().__init__(
             id=id, default_ttl=default_ttl, schema=schema, analytical_storage_ttl=analytical_storage_ttl, **kwargs
         )
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.default_ttl = default_ttl
         self.schema = schema
@@ -1480,7 +1479,7 @@ class CassandraTableListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.CassandraTableGetResults"]] = None
 
 
 class Certificate(_serialization.Model):
@@ -1712,9 +1711,9 @@ class ClientEncryptionKeyGetPropertiesResource(ClientEncryptionKeyResource, Exte
             key_wrap_metadata=key_wrap_metadata,
             **kwargs
         )
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.encryption_algorithm = encryption_algorithm
         self.wrapped_data_encryption_key = wrapped_data_encryption_key
@@ -1780,7 +1779,7 @@ class ClientEncryptionKeysListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.ClientEncryptionKeyGetResults"]] = None
 
 
 class ClientEncryptionPolicy(_serialization.Model):
@@ -1911,9 +1910,9 @@ class ManagedCassandraARMResourceProperties(_serialization.Model):
         :paramtype identity: ~azure.mgmt.cosmosdb.models.ManagedCassandraManagedServiceIdentity
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.location = location
         self.tags = tags
         self.identity = identity
@@ -1989,7 +1988,7 @@ class ClusterResource(ManagedCassandraARMResourceProperties):
         self.properties = properties
 
 
-class ClusterResourceProperties(_serialization.Model):  # pylint: disable=too-many-instance-attributes
+class ClusterResourceProperties(_serialization.Model):
     """Properties of a managed Cassandra cluster.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -2004,9 +2003,9 @@ class ClusterResourceProperties(_serialization.Model):  # pylint: disable=too-ma
     :ivar delegated_management_subnet_id: Resource id of a subnet that this cluster's management
      service should have its network interface attached to. The subnet must be routable to all
      subnets that will be delegated to data centers. The resource id must be of the form
-     '/subscriptions/:code:`<subscription id>`/resourceGroups/:code:`<resource
-     group>`/providers/Microsoft.Network/virtualNetworks/:code:`<virtual
-     network>`/subnets/:code:`<subnet>`'.
+     '/subscriptions/\\ :code:`<subscription id>`/resourceGroups/\\ :code:`<resource
+     group>`/providers/Microsoft.Network/virtualNetworks/\\ :code:`<virtual network>`/subnets/\\
+     :code:`<subnet>`'.
     :vartype delegated_management_subnet_id: str
     :ivar cassandra_version: Which version of Cassandra should this cluster converge to running
      (e.g., 3.11). When updated, the cluster may take some time to migrate to the new version.
@@ -2129,9 +2128,9 @@ class ClusterResourceProperties(_serialization.Model):  # pylint: disable=too-ma
         :keyword delegated_management_subnet_id: Resource id of a subnet that this cluster's management
          service should have its network interface attached to. The subnet must be routable to all
          subnets that will be delegated to data centers. The resource id must be of the form
-         '/subscriptions/:code:`<subscription id>`/resourceGroups/:code:`<resource
-         group>`/providers/Microsoft.Network/virtualNetworks/:code:`<virtual
-         network>`/subnets/:code:`<subnet>`'.
+         '/subscriptions/\\ :code:`<subscription id>`/resourceGroups/\\ :code:`<resource
+         group>`/providers/Microsoft.Network/virtualNetworks/\\ :code:`<virtual network>`/subnets/\\
+         :code:`<subnet>`'.
         :paramtype delegated_management_subnet_id: str
         :keyword cassandra_version: Which version of Cassandra should this cluster converge to running
          (e.g., 3.11). When updated, the cluster may take some time to migrate to the new version.
@@ -2193,15 +2192,15 @@ class ClusterResourceProperties(_serialization.Model):  # pylint: disable=too-ma
         self.repair_enabled = repair_enabled
         self.client_certificates = client_certificates
         self.external_gossip_certificates = external_gossip_certificates
-        self.gossip_certificates = None
+        self.gossip_certificates: Optional[List["_models.Certificate"]] = None
         self.external_seed_nodes = external_seed_nodes
-        self.seed_nodes = None
+        self.seed_nodes: Optional[List["_models.SeedNode"]] = None
         self.hours_between_backups = hours_between_backups
         self.deallocated = deallocated
         self.cassandra_audit_logging_enabled = cassandra_audit_logging_enabled
         self.provision_error = provision_error
         self.azure_connection_method = azure_connection_method
-        self.private_link_resource_id = None
+        self.private_link_resource_id: Optional[str] = None
 
 
 class Column(_serialization.Model):
@@ -2590,7 +2589,7 @@ class ContainerPartitionKey(_serialization.Model):
         self.paths = paths
         self.kind = kind
         self.version = version
-        self.system_key = None
+        self.system_key: Optional[bool] = None
 
 
 class ContinuousBackupInformation(_serialization.Model):
@@ -2839,13 +2838,13 @@ class DatabaseAccountConnectionString(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.connection_string = None
-        self.description = None
-        self.key_kind = None
-        self.type = None
+        self.connection_string: Optional[str] = None
+        self.description: Optional[str] = None
+        self.key_kind: Optional[Union[str, "_models.Kind"]] = None
+        self.type: Optional[Union[str, "_models.Type"]] = None
 
 
-class DatabaseAccountCreateUpdateParameters(ARMResourceProperties):  # pylint: disable=too-many-instance-attributes
+class DatabaseAccountCreateUpdateParameters(ARMResourceProperties):
     """Parameters to create and update Cosmos DB database accounts.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -3200,7 +3199,7 @@ class DatabaseAccountCreateUpdateParameters(ARMResourceProperties):  # pylint: d
         self.disable_local_auth = disable_local_auth
         self.restore_parameters = restore_parameters
         self.capacity = capacity
-        self.keys_metadata = None
+        self.keys_metadata: Optional["_models.DatabaseAccountKeysMetadata"] = None
         self.enable_partition_merge = enable_partition_merge
         self.minimal_tls_version = minimal_tls_version
         self.enable_burst_capacity = enable_burst_capacity
@@ -3208,7 +3207,7 @@ class DatabaseAccountCreateUpdateParameters(ARMResourceProperties):  # pylint: d
         self.enable_per_region_per_partition_autoscale = enable_per_region_per_partition_autoscale
 
 
-class DatabaseAccountGetResults(ARMResourceProperties):  # pylint: disable=too-many-instance-attributes
+class DatabaseAccountGetResults(ARMResourceProperties):
     """An Azure Cosmos DB database account.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -3572,21 +3571,21 @@ class DatabaseAccountGetResults(ARMResourceProperties):  # pylint: disable=too-m
         super().__init__(location=location, tags=tags, **kwargs)
         self.kind = kind
         self.identity = identity
-        self.system_data = None
-        self.provisioning_state = None
-        self.document_endpoint = None
-        self.database_account_offer_type = None
+        self.system_data: Optional["_models.SystemData"] = None
+        self.provisioning_state: Optional[str] = None
+        self.document_endpoint: Optional[str] = None
+        self.database_account_offer_type: Optional[Literal["Standard"]] = None
         self.ip_rules = ip_rules
         self.is_virtual_network_filter_enabled = is_virtual_network_filter_enabled
         self.enable_automatic_failover = enable_automatic_failover
         self.consistency_policy = consistency_policy
         self.capabilities = capabilities
-        self.write_locations = None
-        self.read_locations = None
-        self.locations = None
-        self.failover_policies = None
+        self.write_locations: Optional[List["_models.Location"]] = None
+        self.read_locations: Optional[List["_models.Location"]] = None
+        self.locations: Optional[List["_models.Location"]] = None
+        self.failover_policies: Optional[List["_models.FailoverPolicy"]] = None
         self.virtual_network_rules = virtual_network_rules
-        self.private_endpoint_connections = None
+        self.private_endpoint_connections: Optional[List["_models.PrivateEndpointConnection"]] = None
         self.enable_multiple_write_locations = enable_multiple_write_locations
         self.enable_cassandra_connector = enable_cassandra_connector
         self.connector_offer = connector_offer
@@ -3598,7 +3597,7 @@ class DatabaseAccountGetResults(ARMResourceProperties):  # pylint: disable=too-m
         self.api_properties = api_properties
         self.enable_analytical_storage = enable_analytical_storage
         self.analytical_storage_configuration = analytical_storage_configuration
-        self.instance_id = None
+        self.instance_id: Optional[str] = None
         self.create_mode = create_mode
         self.restore_parameters = restore_parameters
         self.backup_policy = backup_policy
@@ -3607,7 +3606,7 @@ class DatabaseAccountGetResults(ARMResourceProperties):  # pylint: disable=too-m
         self.network_acl_bypass_resource_ids = network_acl_bypass_resource_ids
         self.disable_local_auth = disable_local_auth
         self.capacity = capacity
-        self.keys_metadata = None
+        self.keys_metadata: Optional["_models.DatabaseAccountKeysMetadata"] = None
         self.enable_partition_merge = enable_partition_merge
         self.minimal_tls_version = minimal_tls_version
         self.enable_burst_capacity = enable_burst_capacity
@@ -3651,10 +3650,10 @@ class DatabaseAccountKeysMetadata(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.primary_master_key = None
-        self.secondary_master_key = None
-        self.primary_readonly_master_key = None
-        self.secondary_readonly_master_key = None
+        self.primary_master_key: Optional["_models.AccountKeyMetadata"] = None
+        self.secondary_master_key: Optional["_models.AccountKeyMetadata"] = None
+        self.primary_readonly_master_key: Optional["_models.AccountKeyMetadata"] = None
+        self.secondary_readonly_master_key: Optional["_models.AccountKeyMetadata"] = None
 
 
 class DatabaseAccountListConnectionStringsResult(_serialization.Model):  # pylint: disable=name-too-long
@@ -3706,8 +3705,8 @@ class DatabaseAccountListReadOnlyKeysResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.primary_readonly_master_key = None
-        self.secondary_readonly_master_key = None
+        self.primary_readonly_master_key: Optional[str] = None
+        self.secondary_readonly_master_key: Optional[str] = None
 
 
 class DatabaseAccountListKeysResult(DatabaseAccountListReadOnlyKeysResult):
@@ -3742,8 +3741,8 @@ class DatabaseAccountListKeysResult(DatabaseAccountListReadOnlyKeysResult):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.primary_master_key = None
-        self.secondary_master_key = None
+        self.primary_master_key: Optional[str] = None
+        self.secondary_master_key: Optional[str] = None
 
 
 class DatabaseAccountRegenerateKeyParameters(_serialization.Model):
@@ -3794,10 +3793,10 @@ class DatabaseAccountsListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.DatabaseAccountGetResults"]] = None
 
 
-class DatabaseAccountUpdateParameters(_serialization.Model):  # pylint: disable=too-many-instance-attributes
+class DatabaseAccountUpdateParameters(_serialization.Model):
     """Parameters for patching Azure Cosmos DB database account properties.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -4106,7 +4105,7 @@ class DatabaseAccountUpdateParameters(_serialization.Model):  # pylint: disable=
         self.network_acl_bypass_resource_ids = network_acl_bypass_resource_ids
         self.disable_local_auth = disable_local_auth
         self.capacity = capacity
-        self.keys_metadata = None
+        self.keys_metadata: Optional["_models.DatabaseAccountKeysMetadata"] = None
         self.enable_partition_merge = enable_partition_merge
         self.minimal_tls_version = minimal_tls_version
         self.enable_burst_capacity = enable_burst_capacity
@@ -4179,7 +4178,7 @@ class DataCenterResource(ARMProxyResource):
         self.properties = properties
 
 
-class DataCenterResourceProperties(_serialization.Model):  # pylint: disable=too-many-instance-attributes
+class DataCenterResourceProperties(_serialization.Model):
     """Properties of a managed Cassandra data center.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -4193,10 +4192,10 @@ class DataCenterResourceProperties(_serialization.Model):  # pylint: disable=too
     :ivar delegated_subnet_id: Resource id of a subnet the nodes in this data center should have
      their network interfaces connected to. The subnet must be in the same region specified in
      'dataCenterLocation' and must be able to route to the subnet specified in the cluster's
-     'delegatedManagementSubnetId' property. This resource id will be of the form
-     '/subscriptions/:code:`<subscription id>`/resourceGroups/:code:`<resource
-     group>`/providers/Microsoft.Network/virtualNetworks/:code:`<virtual
-     network>`/subnets/:code:`<subnet>`'.
+     'delegatedManagementSubnetId' property. This resource id will be of the form '/subscriptions/\\
+     :code:`<subscription id>`/resourceGroups/\\ :code:`<resource
+     group>`/providers/Microsoft.Network/virtualNetworks/\\ :code:`<virtual network>`/subnets/\\
+     :code:`<subnet>`'.
     :vartype delegated_subnet_id: str
     :ivar node_count: The number of nodes the data center should have. This is the desired number.
      After it is set, it may take some time for the data center to be scaled to match. To monitor
@@ -4294,10 +4293,10 @@ class DataCenterResourceProperties(_serialization.Model):  # pylint: disable=too
         :keyword delegated_subnet_id: Resource id of a subnet the nodes in this data center should have
          their network interfaces connected to. The subnet must be in the same region specified in
          'dataCenterLocation' and must be able to route to the subnet specified in the cluster's
-         'delegatedManagementSubnetId' property. This resource id will be of the form
-         '/subscriptions/:code:`<subscription id>`/resourceGroups/:code:`<resource
-         group>`/providers/Microsoft.Network/virtualNetworks/:code:`<virtual
-         network>`/subnets/:code:`<subnet>`'.
+         'delegatedManagementSubnetId' property. This resource id will be of the form '/subscriptions/\\
+         :code:`<subscription id>`/resourceGroups/\\ :code:`<resource
+         group>`/providers/Microsoft.Network/virtualNetworks/\\ :code:`<virtual network>`/subnets/\\
+         :code:`<subnet>`'.
         :paramtype delegated_subnet_id: str
         :keyword node_count: The number of nodes the data center should have. This is the desired
          number. After it is set, it may take some time for the data center to be scaled to match. To
@@ -4339,7 +4338,7 @@ class DataCenterResourceProperties(_serialization.Model):  # pylint: disable=too
         self.data_center_location = data_center_location
         self.delegated_subnet_id = delegated_subnet_id
         self.node_count = node_count
-        self.seed_nodes = None
+        self.seed_nodes: Optional[List["_models.SeedNode"]] = None
         self.base64_encoded_cassandra_yaml_fragment = base64_encoded_cassandra_yaml_fragment
         self.managed_disk_customer_key_uri = managed_disk_customer_key_uri
         self.backup_storage_customer_key_uri = backup_storage_customer_key_uri
@@ -4382,9 +4381,9 @@ class RegionalServiceResource(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.name = None
-        self.location = None
-        self.status = None
+        self.name: Optional[str] = None
+        self.location: Optional[str] = None
+        self.status: Optional[Union[str, "_models.ServiceStatus"]] = None
 
 
 class DataTransferRegionalServiceResource(RegionalServiceResource):
@@ -4605,11 +4604,11 @@ class ServiceResourceProperties(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.additional_properties = additional_properties
-        self.creation_time = None
+        self.creation_time: Optional[datetime.datetime] = None
         self.instance_size = instance_size
         self.instance_count = instance_count
         self.service_type: Optional[str] = None
-        self.status = None
+        self.status: Optional[Union[str, "_models.ServiceStatus"]] = None
 
 
 class DataTransferServiceResourceProperties(ServiceResourceProperties):
@@ -4682,7 +4681,7 @@ class DataTransferServiceResourceProperties(ServiceResourceProperties):
             **kwargs
         )
         self.service_type: str = "DataTransfer"
-        self.locations = None
+        self.locations: Optional[List["_models.DataTransferRegionalServiceResource"]] = None
 
 
 class ErrorAdditionalInfo(_serialization.Model):
@@ -4709,8 +4708,8 @@ class ErrorAdditionalInfo(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.type = None
-        self.info = None
+        self.type: Optional[str] = None
+        self.info: Optional[JSON] = None
 
 
 class ErrorDetail(_serialization.Model):
@@ -4749,11 +4748,11 @@ class ErrorDetail(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.code = None
-        self.message = None
-        self.target = None
-        self.details = None
-        self.additional_info = None
+        self.code: Optional[str] = None
+        self.message: Optional[str] = None
+        self.target: Optional[str] = None
+        self.details: Optional[List["_models.ErrorDetail"]] = None
+        self.additional_info: Optional[List["_models.ErrorAdditionalInfo"]] = None
 
 
 class ErrorResponse(_serialization.Model):
@@ -4892,9 +4891,73 @@ class FailoverPolicy(_serialization.Model):
         :paramtype failover_priority: int
         """
         super().__init__(**kwargs)
-        self.id = None
+        self.id: Optional[str] = None
         self.location_name = location_name
         self.failover_priority = failover_priority
+
+
+class FullTextPath(_serialization.Model):
+    """Represents the full text path specification.
+
+    All required parameters must be populated in order to send to server.
+
+    :ivar path: The path to the full text field in the document. Required.
+    :vartype path: str
+    :ivar language: The language of the full text field in the document.
+    :vartype language: str
+    """
+
+    _validation = {
+        "path": {"required": True},
+    }
+
+    _attribute_map = {
+        "path": {"key": "path", "type": "str"},
+        "language": {"key": "language", "type": "str"},
+    }
+
+    def __init__(self, *, path: str, language: Optional[str] = None, **kwargs: Any) -> None:
+        """
+        :keyword path: The path to the full text field in the document. Required.
+        :paramtype path: str
+        :keyword language: The language of the full text field in the document.
+        :paramtype language: str
+        """
+        super().__init__(**kwargs)
+        self.path = path
+        self.language = language
+
+
+class FullTextPolicy(_serialization.Model):
+    """Cosmos DB FullText Policy.
+
+    :ivar default_language: The default language for a full text paths.
+    :vartype default_language: str
+    :ivar full_text_paths: List of FullText Paths.
+    :vartype full_text_paths: list[~azure.mgmt.cosmosdb.models.FullTextPath]
+    """
+
+    _attribute_map = {
+        "default_language": {"key": "defaultLanguage", "type": "str"},
+        "full_text_paths": {"key": "fullTextPaths", "type": "[FullTextPath]"},
+    }
+
+    def __init__(
+        self,
+        *,
+        default_language: Optional[str] = None,
+        full_text_paths: Optional[List["_models.FullTextPath"]] = None,
+        **kwargs: Any
+    ) -> None:
+        """
+        :keyword default_language: The default language for a full text paths.
+        :paramtype default_language: str
+        :keyword full_text_paths: List of FullText Paths.
+        :paramtype full_text_paths: list[~azure.mgmt.cosmosdb.models.FullTextPath]
+        """
+        super().__init__(**kwargs)
+        self.default_language = default_language
+        self.full_text_paths = full_text_paths
 
 
 class GraphAPIComputeRegionalServiceResource(RegionalServiceResource):
@@ -4930,7 +4993,7 @@ class GraphAPIComputeRegionalServiceResource(RegionalServiceResource):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.graph_api_compute_endpoint = None
+        self.graph_api_compute_endpoint: Optional[str] = None
 
 
 class GraphAPIComputeServiceResource(_serialization.Model):
@@ -5078,7 +5141,7 @@ class GraphAPIComputeServiceResourceProperties(ServiceResourceProperties):
         )
         self.service_type: str = "GraphAPICompute"
         self.graph_api_compute_endpoint = graph_api_compute_endpoint
-        self.locations = None
+        self.locations: Optional[List["_models.GraphAPIComputeRegionalServiceResource"]] = None
 
 
 class GremlinDatabaseCreateUpdateParameters(ARMResourceProperties):
@@ -5272,9 +5335,9 @@ class GremlinDatabaseGetPropertiesResource(GremlinDatabaseResource, ExtendedReso
         :paramtype create_mode: str or ~azure.mgmt.cosmosdb.models.CreateMode
         """
         super().__init__(id=id, restore_parameters=restore_parameters, create_mode=create_mode, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.restore_parameters = restore_parameters
         self.create_mode = create_mode
@@ -5371,7 +5434,7 @@ class GremlinDatabaseListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.GremlinDatabaseGetResults"]] = None
 
 
 class GremlinDatabaseRestoreResource(_serialization.Model):
@@ -5584,9 +5647,7 @@ class GremlinGraphResource(_serialization.Model):
         self.create_mode = create_mode
 
 
-class GremlinGraphGetPropertiesResource(
-    GremlinGraphResource, ExtendedResourceProperties
-):  # pylint: disable=too-many-instance-attributes
+class GremlinGraphGetPropertiesResource(GremlinGraphResource, ExtendedResourceProperties):
     """GremlinGraphGetPropertiesResource.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -5696,9 +5757,9 @@ class GremlinGraphGetPropertiesResource(
             create_mode=create_mode,
             **kwargs
         )
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.indexing_policy = indexing_policy
         self.partition_key = partition_key
@@ -5801,7 +5862,7 @@ class GremlinGraphListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.GremlinGraphGetResults"]] = None
 
 
 class IncludedPath(_serialization.Model):
@@ -6058,7 +6119,7 @@ class ListDataCenters(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.DataCenterResource"]] = None
 
 
 class Location(_serialization.Model):
@@ -6129,10 +6190,10 @@ class Location(_serialization.Model):
         :paramtype is_zone_redundant: bool
         """
         super().__init__(**kwargs)
-        self.id = None
+        self.id: Optional[str] = None
         self.location_name = location_name
-        self.document_endpoint = None
-        self.provisioning_state = None
+        self.document_endpoint: Optional[str] = None
+        self.provisioning_state: Optional[str] = None
         self.failover_priority = failover_priority
         self.is_zone_redundant = is_zone_redundant
 
@@ -6194,7 +6255,7 @@ class LocationListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.LocationGetResult"]] = None
 
 
 class LocationProperties(_serialization.Model):
@@ -6248,12 +6309,12 @@ class LocationProperties(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.supports_availability_zone = None
-        self.is_residency_restricted = None
-        self.backup_storage_redundancies = None
-        self.is_subscription_region_access_allowed_for_regular = None
-        self.is_subscription_region_access_allowed_for_az = None
-        self.status = None
+        self.supports_availability_zone: Optional[bool] = None
+        self.is_residency_restricted: Optional[bool] = None
+        self.backup_storage_redundancies: Optional[List[Union[str, "_models.BackupStorageRedundancy"]]] = None
+        self.is_subscription_region_access_allowed_for_regular: Optional[bool] = None
+        self.is_subscription_region_access_allowed_for_az: Optional[bool] = None
+        self.status: Optional[Union[str, "_models.Status"]] = None
 
 
 class ManagedCassandraManagedServiceIdentity(_serialization.Model):
@@ -6288,8 +6349,8 @@ class ManagedCassandraManagedServiceIdentity(_serialization.Model):
         :paramtype type: str or ~azure.mgmt.cosmosdb.models.ManagedCassandraResourceIdentityType
         """
         super().__init__(**kwargs)
-        self.principal_id = None
-        self.tenant_id = None
+        self.principal_id: Optional[str] = None
+        self.tenant_id: Optional[str] = None
         self.type = type
 
 
@@ -6350,7 +6411,7 @@ class ManagedServiceIdentity(_serialization.Model):
     :vartype type: str or ~azure.mgmt.cosmosdb.models.ResourceIdentityType
     :ivar user_assigned_identities: The list of user identities associated with resource. The user
      identity dictionary key references will be ARM resource ids in the form:
-     '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.  # pylint: disable=line-too-long
+     '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.
     :vartype user_assigned_identities: dict[str,
      ~azure.mgmt.cosmosdb.models.ManagedServiceIdentityUserAssignedIdentity]
     """
@@ -6385,13 +6446,13 @@ class ManagedServiceIdentity(_serialization.Model):
         :paramtype type: str or ~azure.mgmt.cosmosdb.models.ResourceIdentityType
         :keyword user_assigned_identities: The list of user identities associated with resource. The
          user identity dictionary key references will be ARM resource ids in the form:
-         '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.  # pylint: disable=line-too-long
+         '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}'.
         :paramtype user_assigned_identities: dict[str,
          ~azure.mgmt.cosmosdb.models.ManagedServiceIdentityUserAssignedIdentity]
         """
         super().__init__(**kwargs)
-        self.principal_id = None
-        self.tenant_id = None
+        self.principal_id: Optional[str] = None
+        self.tenant_id: Optional[str] = None
         self.type = type
         self.user_assigned_identities = user_assigned_identities
 
@@ -6420,8 +6481,8 @@ class ManagedServiceIdentityUserAssignedIdentity(_serialization.Model):  # pylin
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.principal_id = None
-        self.client_id = None
+        self.principal_id: Optional[str] = None
+        self.client_id: Optional[str] = None
 
 
 class MaterializedViewsBuilderRegionalServiceResource(RegionalServiceResource):  # pylint: disable=name-too-long
@@ -6580,7 +6641,7 @@ class MaterializedViewsBuilderServiceResourceProperties(ServiceResourcePropertie
             **kwargs
         )
         self.service_type: str = "MaterializedViewsBuilder"
-        self.locations = None
+        self.locations: Optional[List["_models.MaterializedViewsBuilderRegionalServiceResource"]] = None
 
 
 class Metric(_serialization.Model):
@@ -6624,12 +6685,12 @@ class Metric(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.start_time = None
-        self.end_time = None
-        self.time_grain = None
-        self.unit = None
-        self.name = None
-        self.metric_values = None
+        self.start_time: Optional[datetime.datetime] = None
+        self.end_time: Optional[datetime.datetime] = None
+        self.time_grain: Optional[str] = None
+        self.unit: Optional[Union[str, "_models.UnitType"]] = None
+        self.name: Optional["_models.MetricName"] = None
+        self.metric_values: Optional[List["_models.MetricValue"]] = None
 
 
 class MetricAvailability(_serialization.Model):
@@ -6656,8 +6717,8 @@ class MetricAvailability(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.time_grain = None
-        self.retention = None
+        self.time_grain: Optional[str] = None
+        self.retention: Optional[str] = None
 
 
 class MetricDefinition(_serialization.Model):
@@ -6698,11 +6759,11 @@ class MetricDefinition(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.metric_availabilities = None
-        self.primary_aggregation_type = None
-        self.unit = None
-        self.resource_uri = None
-        self.name = None
+        self.metric_availabilities: Optional[List["_models.MetricAvailability"]] = None
+        self.primary_aggregation_type: Optional[Union[str, "_models.PrimaryAggregationType"]] = None
+        self.unit: Optional[Union[str, "_models.UnitType"]] = None
+        self.resource_uri: Optional[str] = None
+        self.name: Optional["_models.MetricName"] = None
 
 
 class MetricDefinitionsListResult(_serialization.Model):
@@ -6725,7 +6786,7 @@ class MetricDefinitionsListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.MetricDefinition"]] = None
 
 
 class MetricListResult(_serialization.Model):
@@ -6748,7 +6809,7 @@ class MetricListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.Metric"]] = None
 
 
 class MetricName(_serialization.Model):
@@ -6775,8 +6836,8 @@ class MetricName(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
-        self.localized_value = None
+        self.value: Optional[str] = None
+        self.localized_value: Optional[str] = None
 
 
 class MetricValue(_serialization.Model):
@@ -6819,12 +6880,12 @@ class MetricValue(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.count = None
-        self.average = None
-        self.maximum = None
-        self.minimum = None
-        self.timestamp = None
-        self.total = None
+        self.count: Optional[int] = None
+        self.average: Optional[float] = None
+        self.maximum: Optional[float] = None
+        self.minimum: Optional[float] = None
+        self.timestamp: Optional[datetime.datetime] = None
+        self.total: Optional[float] = None
 
 
 class MongoDBCollectionCreateUpdateParameters(ARMResourceProperties):
@@ -7065,9 +7126,9 @@ class MongoDBCollectionGetPropertiesResource(MongoDBCollectionResource, Extended
             create_mode=create_mode,
             **kwargs
         )
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.shard_key = shard_key
         self.indexes = indexes
@@ -7167,7 +7228,7 @@ class MongoDBCollectionListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.MongoDBCollectionGetResults"]] = None
 
 
 class MongoDBDatabaseCreateUpdateParameters(ARMResourceProperties):
@@ -7361,9 +7422,9 @@ class MongoDBDatabaseGetPropertiesResource(MongoDBDatabaseResource, ExtendedReso
         :paramtype create_mode: str or ~azure.mgmt.cosmosdb.models.CreateMode
         """
         super().__init__(id=id, restore_parameters=restore_parameters, create_mode=create_mode, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.restore_parameters = restore_parameters
         self.create_mode = create_mode
@@ -7460,7 +7521,7 @@ class MongoDBDatabaseListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.MongoDBDatabaseGetResults"]] = None
 
 
 class MongoIndex(_serialization.Model):
@@ -7706,7 +7767,7 @@ class MongoRoleDefinitionListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.MongoRoleDefinitionGetResults"]] = None
 
 
 class MongoUserDefinitionCreateUpdateParameters(_serialization.Model):  # pylint: disable=name-too-long
@@ -7874,7 +7935,7 @@ class MongoUserDefinitionListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.MongoUserDefinitionGetResults"]] = None
 
 
 class NotebookWorkspace(ARMProxyResource):
@@ -7914,8 +7975,8 @@ class NotebookWorkspace(ARMProxyResource):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.notebook_server_endpoint = None
-        self.status = None
+        self.notebook_server_endpoint: Optional[str] = None
+        self.status: Optional[str] = None
 
 
 class NotebookWorkspaceConnectionInfoResult(_serialization.Model):
@@ -7943,8 +8004,8 @@ class NotebookWorkspaceConnectionInfoResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.auth_token = None
-        self.notebook_server_endpoint = None
+        self.auth_token: Optional[str] = None
+        self.notebook_server_endpoint: Optional[str] = None
 
 
 class NotebookWorkspaceCreateUpdateParameters(ARMProxyResource):
@@ -8134,8 +8195,8 @@ class PartitionMetric(Metric):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.partition_id = None
-        self.partition_key_range_id = None
+        self.partition_id: Optional[str] = None
+        self.partition_key_range_id: Optional[str] = None
 
 
 class PartitionMetricListResult(_serialization.Model):
@@ -8158,7 +8219,7 @@ class PartitionMetricListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.PartitionMetric"]] = None
 
 
 class Usage(_serialization.Model):
@@ -8198,11 +8259,11 @@ class Usage(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.unit = None
-        self.name = None
-        self.quota_period = None
-        self.limit = None
-        self.current_value = None
+        self.unit: Optional[Union[str, "_models.UnitType"]] = None
+        self.name: Optional["_models.MetricName"] = None
+        self.quota_period: Optional[str] = None
+        self.limit: Optional[int] = None
+        self.current_value: Optional[int] = None
 
 
 class PartitionUsage(Usage):
@@ -8250,8 +8311,8 @@ class PartitionUsage(Usage):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.partition_id = None
-        self.partition_key_range_id = None
+        self.partition_id: Optional[str] = None
+        self.partition_key_range_id: Optional[str] = None
 
 
 class PartitionUsagesResult(_serialization.Model):
@@ -8275,7 +8336,7 @@ class PartitionUsagesResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.PartitionUsage"]] = None
 
 
 class PercentileMetric(_serialization.Model):
@@ -8319,12 +8380,12 @@ class PercentileMetric(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.start_time = None
-        self.end_time = None
-        self.time_grain = None
-        self.unit = None
-        self.name = None
-        self.metric_values = None
+        self.start_time: Optional[datetime.datetime] = None
+        self.end_time: Optional[datetime.datetime] = None
+        self.time_grain: Optional[str] = None
+        self.unit: Optional[Union[str, "_models.UnitType"]] = None
+        self.name: Optional["_models.MetricName"] = None
+        self.metric_values: Optional[List["_models.PercentileMetricValue"]] = None
 
 
 class PercentileMetricListResult(_serialization.Model):
@@ -8347,10 +8408,10 @@ class PercentileMetricListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.PercentileMetric"]] = None
 
 
-class PercentileMetricValue(MetricValue):  # pylint: disable=too-many-instance-attributes
+class PercentileMetricValue(MetricValue):
     """Represents percentile metrics values.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -8418,13 +8479,13 @@ class PercentileMetricValue(MetricValue):  # pylint: disable=too-many-instance-a
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.p10 = None
-        self.p25 = None
-        self.p50 = None
-        self.p75 = None
-        self.p90 = None
-        self.p95 = None
-        self.p99 = None
+        self.p10: Optional[float] = None
+        self.p25: Optional[float] = None
+        self.p50: Optional[float] = None
+        self.p75: Optional[float] = None
+        self.p90: Optional[float] = None
+        self.p95: Optional[float] = None
+        self.p99: Optional[float] = None
 
 
 class PeriodicModeBackupPolicy(BackupPolicy):
@@ -8556,7 +8617,7 @@ class Resource(_serialization.Model):
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar id: Fully qualified resource ID for the resource. Ex -
-     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.  # pylint: disable=line-too-long
+     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -8580,9 +8641,9 @@ class Resource(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
 
 
 class ProxyResource(Resource):
@@ -8592,7 +8653,7 @@ class ProxyResource(Resource):
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar id: Fully qualified resource ID for the resource. Ex -
-     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.  # pylint: disable=line-too-long
+     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -8608,7 +8669,7 @@ class PrivateEndpointConnection(ProxyResource):
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar id: Fully qualified resource ID for the resource. Ex -
-     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.  # pylint: disable=line-too-long
+     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -8754,9 +8815,9 @@ class PrivateLinkResource(ARMProxyResource):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.group_id = None
-        self.required_members = None
-        self.required_zone_names = None
+        self.group_id: Optional[str] = None
+        self.required_members: Optional[List[str]] = None
+        self.required_zone_names: Optional[List[str]] = None
 
 
 class PrivateLinkResourceListResult(_serialization.Model):
@@ -8813,7 +8874,7 @@ class PrivateLinkServiceConnectionStateProperty(_serialization.Model):  # pylint
         super().__init__(**kwargs)
         self.status = status
         self.description = description
-        self.actions_required = None
+        self.actions_required: Optional[str] = None
 
 
 class Privilege(_serialization.Model):
@@ -8906,7 +8967,7 @@ class RestoreParametersBase(_serialization.Model):
 
     :ivar restore_source: The id of the restorable database account from which the restore has to
      be initiated. For example:
-     /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.  # pylint: disable=line-too-long
+     /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.
     :vartype restore_source: str
     :ivar restore_timestamp_in_utc: Time to which the account has to be restored (ISO-8601 format).
     :vartype restore_timestamp_in_utc: ~datetime.datetime
@@ -8932,7 +8993,7 @@ class RestoreParametersBase(_serialization.Model):
         """
         :keyword restore_source: The id of the restorable database account from which the restore has
          to be initiated. For example:
-         /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.  # pylint: disable=line-too-long
+         /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.
         :paramtype restore_source: str
         :keyword restore_timestamp_in_utc: Time to which the account has to be restored (ISO-8601
          format).
@@ -8952,7 +9013,7 @@ class ResourceRestoreParameters(RestoreParametersBase):
 
     :ivar restore_source: The id of the restorable database account from which the restore has to
      be initiated. For example:
-     /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.  # pylint: disable=line-too-long
+     /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.
     :vartype restore_source: str
     :ivar restore_timestamp_in_utc: Time to which the account has to be restored (ISO-8601 format).
     :vartype restore_timestamp_in_utc: ~datetime.datetime
@@ -9039,16 +9100,16 @@ class RestorableDatabaseAccountGetResult(_serialization.Model):
         :paramtype oldest_restorable_time: ~datetime.datetime
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.location = location
         self.account_name = account_name
         self.creation_time = creation_time
         self.deletion_time = deletion_time
         self.oldest_restorable_time = oldest_restorable_time
-        self.api_type = None
-        self.restorable_locations = None
+        self.api_type: Optional[Union[str, "_models.ApiType"]] = None
+        self.restorable_locations: Optional[List["_models.RestorableLocationResource"]] = None
 
 
 class RestorableDatabaseAccountsListResult(_serialization.Model):
@@ -9072,7 +9133,7 @@ class RestorableDatabaseAccountsListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableDatabaseAccountGetResult"]] = None
 
 
 class RestorableGremlinDatabaseGetResult(_serialization.Model):
@@ -9111,9 +9172,9 @@ class RestorableGremlinDatabaseGetResult(_serialization.Model):
         :paramtype resource: ~azure.mgmt.cosmosdb.models.RestorableGremlinDatabasePropertiesResource
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.resource = resource
 
 
@@ -9163,13 +9224,13 @@ class RestorableGremlinDatabasePropertiesResource(_serialization.Model):  # pyli
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.rid = None
-        self.operation_type = None
-        self.can_undelete = None
-        self.can_undelete_reason = None
-        self.event_timestamp = None
-        self.owner_id = None
-        self.owner_resource_id = None
+        self.rid: Optional[str] = None
+        self.operation_type: Optional[Union[str, "_models.OperationType"]] = None
+        self.can_undelete: Optional[str] = None
+        self.can_undelete_reason: Optional[str] = None
+        self.event_timestamp: Optional[str] = None
+        self.owner_id: Optional[str] = None
+        self.owner_resource_id: Optional[str] = None
 
 
 class RestorableGremlinDatabasesListResult(_serialization.Model):
@@ -9192,7 +9253,7 @@ class RestorableGremlinDatabasesListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableGremlinDatabaseGetResult"]] = None
 
 
 class RestorableGremlinGraphGetResult(_serialization.Model):
@@ -9231,9 +9292,9 @@ class RestorableGremlinGraphGetResult(_serialization.Model):
         :paramtype resource: ~azure.mgmt.cosmosdb.models.RestorableGremlinGraphPropertiesResource
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.resource = resource
 
 
@@ -9283,13 +9344,13 @@ class RestorableGremlinGraphPropertiesResource(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.rid = None
-        self.operation_type = None
-        self.can_undelete = None
-        self.can_undelete_reason = None
-        self.event_timestamp = None
-        self.owner_id = None
-        self.owner_resource_id = None
+        self.rid: Optional[str] = None
+        self.operation_type: Optional[Union[str, "_models.OperationType"]] = None
+        self.can_undelete: Optional[str] = None
+        self.can_undelete_reason: Optional[str] = None
+        self.event_timestamp: Optional[str] = None
+        self.owner_id: Optional[str] = None
+        self.owner_resource_id: Optional[str] = None
 
 
 class RestorableGremlinGraphsListResult(_serialization.Model):
@@ -9312,7 +9373,7 @@ class RestorableGremlinGraphsListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableGremlinGraphGetResult"]] = None
 
 
 class RestorableGremlinResourcesGetResult(_serialization.Model):
@@ -9356,9 +9417,9 @@ class RestorableGremlinResourcesGetResult(_serialization.Model):
         :paramtype graph_names: list[str]
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.database_name = database_name
         self.graph_names = graph_names
 
@@ -9384,7 +9445,7 @@ class RestorableGremlinResourcesListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableGremlinResourcesGetResult"]] = None
 
 
 class RestorableLocationResource(_serialization.Model):
@@ -9422,10 +9483,10 @@ class RestorableLocationResource(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.location_name = None
-        self.regional_database_account_instance_id = None
-        self.creation_time = None
-        self.deletion_time = None
+        self.location_name: Optional[str] = None
+        self.regional_database_account_instance_id: Optional[str] = None
+        self.creation_time: Optional[datetime.datetime] = None
+        self.deletion_time: Optional[datetime.datetime] = None
 
 
 class RestorableMongodbCollectionGetResult(_serialization.Model):
@@ -9464,9 +9525,9 @@ class RestorableMongodbCollectionGetResult(_serialization.Model):
         :paramtype resource: ~azure.mgmt.cosmosdb.models.RestorableMongodbCollectionPropertiesResource
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.resource = resource
 
 
@@ -9516,13 +9577,13 @@ class RestorableMongodbCollectionPropertiesResource(_serialization.Model):  # py
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.rid = None
-        self.operation_type = None
-        self.can_undelete = None
-        self.can_undelete_reason = None
-        self.event_timestamp = None
-        self.owner_id = None
-        self.owner_resource_id = None
+        self.rid: Optional[str] = None
+        self.operation_type: Optional[Union[str, "_models.OperationType"]] = None
+        self.can_undelete: Optional[str] = None
+        self.can_undelete_reason: Optional[str] = None
+        self.event_timestamp: Optional[str] = None
+        self.owner_id: Optional[str] = None
+        self.owner_resource_id: Optional[str] = None
 
 
 class RestorableMongodbCollectionsListResult(_serialization.Model):
@@ -9545,7 +9606,7 @@ class RestorableMongodbCollectionsListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableMongodbCollectionGetResult"]] = None
 
 
 class RestorableMongodbDatabaseGetResult(_serialization.Model):
@@ -9584,9 +9645,9 @@ class RestorableMongodbDatabaseGetResult(_serialization.Model):
         :paramtype resource: ~azure.mgmt.cosmosdb.models.RestorableMongodbDatabasePropertiesResource
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.resource = resource
 
 
@@ -9636,13 +9697,13 @@ class RestorableMongodbDatabasePropertiesResource(_serialization.Model):  # pyli
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.rid = None
-        self.operation_type = None
-        self.can_undelete = None
-        self.can_undelete_reason = None
-        self.event_timestamp = None
-        self.owner_id = None
-        self.owner_resource_id = None
+        self.rid: Optional[str] = None
+        self.operation_type: Optional[Union[str, "_models.OperationType"]] = None
+        self.can_undelete: Optional[str] = None
+        self.can_undelete_reason: Optional[str] = None
+        self.event_timestamp: Optional[str] = None
+        self.owner_id: Optional[str] = None
+        self.owner_resource_id: Optional[str] = None
 
 
 class RestorableMongodbDatabasesListResult(_serialization.Model):
@@ -9665,7 +9726,7 @@ class RestorableMongodbDatabasesListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableMongodbDatabaseGetResult"]] = None
 
 
 class RestorableMongodbResourcesGetResult(_serialization.Model):
@@ -9709,9 +9770,9 @@ class RestorableMongodbResourcesGetResult(_serialization.Model):
         :paramtype collection_names: list[str]
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.database_name = database_name
         self.collection_names = collection_names
 
@@ -9736,7 +9797,7 @@ class RestorableMongodbResourcesListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableMongodbResourcesGetResult"]] = None
 
 
 class RestorableSqlContainerGetResult(_serialization.Model):
@@ -9775,9 +9836,9 @@ class RestorableSqlContainerGetResult(_serialization.Model):
         :paramtype resource: ~azure.mgmt.cosmosdb.models.RestorableSqlContainerPropertiesResource
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.resource = resource
 
 
@@ -9837,17 +9898,17 @@ class RestorableSqlContainerPropertiesResource(_serialization.Model):
          ~azure.mgmt.cosmosdb.models.RestorableSqlContainerPropertiesResourceContainer
         """
         super().__init__(**kwargs)
-        self.rid = None
-        self.operation_type = None
-        self.can_undelete = None
-        self.can_undelete_reason = None
-        self.event_timestamp = None
-        self.owner_id = None
-        self.owner_resource_id = None
+        self.rid: Optional[str] = None
+        self.operation_type: Optional[Union[str, "_models.OperationType"]] = None
+        self.can_undelete: Optional[str] = None
+        self.can_undelete_reason: Optional[str] = None
+        self.event_timestamp: Optional[str] = None
+        self.owner_id: Optional[str] = None
+        self.owner_resource_id: Optional[str] = None
         self.container = container
 
 
-class SqlContainerResource(_serialization.Model):  # pylint: disable=too-many-instance-attributes
+class SqlContainerResource(_serialization.Model):
     """Cosmos DB SQL container resource object.
 
     All required parameters must be populated in order to send to server.
@@ -9880,6 +9941,8 @@ class SqlContainerResource(_serialization.Model):  # pylint: disable=too-many-in
     :vartype computed_properties: list[~azure.mgmt.cosmosdb.models.ComputedProperty]
     :ivar vector_embedding_policy: The vector embedding policy for the container.
     :vartype vector_embedding_policy: ~azure.mgmt.cosmosdb.models.VectorEmbeddingPolicy
+    :ivar full_text_policy: The FullText policy for the container.
+    :vartype full_text_policy: ~azure.mgmt.cosmosdb.models.FullTextPolicy
     """
 
     _validation = {
@@ -9899,6 +9962,7 @@ class SqlContainerResource(_serialization.Model):  # pylint: disable=too-many-in
         "create_mode": {"key": "createMode", "type": "str"},
         "computed_properties": {"key": "computedProperties", "type": "[ComputedProperty]"},
         "vector_embedding_policy": {"key": "vectorEmbeddingPolicy", "type": "VectorEmbeddingPolicy"},
+        "full_text_policy": {"key": "fullTextPolicy", "type": "FullTextPolicy"},
     }
 
     def __init__(
@@ -9916,6 +9980,7 @@ class SqlContainerResource(_serialization.Model):  # pylint: disable=too-many-in
         create_mode: Union[str, "_models.CreateMode"] = "Default",
         computed_properties: Optional[List["_models.ComputedProperty"]] = None,
         vector_embedding_policy: Optional["_models.VectorEmbeddingPolicy"] = None,
+        full_text_policy: Optional["_models.FullTextPolicy"] = None,
         **kwargs: Any
     ) -> None:
         """
@@ -9947,6 +10012,8 @@ class SqlContainerResource(_serialization.Model):  # pylint: disable=too-many-in
         :paramtype computed_properties: list[~azure.mgmt.cosmosdb.models.ComputedProperty]
         :keyword vector_embedding_policy: The vector embedding policy for the container.
         :paramtype vector_embedding_policy: ~azure.mgmt.cosmosdb.models.VectorEmbeddingPolicy
+        :keyword full_text_policy: The FullText policy for the container.
+        :paramtype full_text_policy: ~azure.mgmt.cosmosdb.models.FullTextPolicy
         """
         super().__init__(**kwargs)
         self.id = id
@@ -9961,11 +10028,12 @@ class SqlContainerResource(_serialization.Model):  # pylint: disable=too-many-in
         self.create_mode = create_mode
         self.computed_properties = computed_properties
         self.vector_embedding_policy = vector_embedding_policy
+        self.full_text_policy = full_text_policy
 
 
 class RestorableSqlContainerPropertiesResourceContainer(
     SqlContainerResource, ExtendedResourceProperties
-):  # pylint: disable=too-many-instance-attributes,name-too-long
+):  # pylint: disable=name-too-long
     """Cosmos DB SQL container resource object.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -10007,6 +10075,8 @@ class RestorableSqlContainerPropertiesResourceContainer(
     :vartype computed_properties: list[~azure.mgmt.cosmosdb.models.ComputedProperty]
     :ivar vector_embedding_policy: The vector embedding policy for the container.
     :vartype vector_embedding_policy: ~azure.mgmt.cosmosdb.models.VectorEmbeddingPolicy
+    :ivar full_text_policy: The FullText policy for the container.
+    :vartype full_text_policy: ~azure.mgmt.cosmosdb.models.FullTextPolicy
     :ivar self_property: A system generated property that specifies the addressable path of the
      container resource.
     :vartype self_property: str
@@ -10036,6 +10106,7 @@ class RestorableSqlContainerPropertiesResourceContainer(
         "create_mode": {"key": "createMode", "type": "str"},
         "computed_properties": {"key": "computedProperties", "type": "[ComputedProperty]"},
         "vector_embedding_policy": {"key": "vectorEmbeddingPolicy", "type": "VectorEmbeddingPolicy"},
+        "full_text_policy": {"key": "fullTextPolicy", "type": "FullTextPolicy"},
         "self_property": {"key": "_self", "type": "str"},
     }
 
@@ -10054,6 +10125,7 @@ class RestorableSqlContainerPropertiesResourceContainer(
         create_mode: Union[str, "_models.CreateMode"] = "Default",
         computed_properties: Optional[List["_models.ComputedProperty"]] = None,
         vector_embedding_policy: Optional["_models.VectorEmbeddingPolicy"] = None,
+        full_text_policy: Optional["_models.FullTextPolicy"] = None,
         **kwargs: Any
     ) -> None:
         """
@@ -10085,6 +10157,8 @@ class RestorableSqlContainerPropertiesResourceContainer(
         :paramtype computed_properties: list[~azure.mgmt.cosmosdb.models.ComputedProperty]
         :keyword vector_embedding_policy: The vector embedding policy for the container.
         :paramtype vector_embedding_policy: ~azure.mgmt.cosmosdb.models.VectorEmbeddingPolicy
+        :keyword full_text_policy: The FullText policy for the container.
+        :paramtype full_text_policy: ~azure.mgmt.cosmosdb.models.FullTextPolicy
         """
         super().__init__(
             id=id,
@@ -10099,12 +10173,13 @@ class RestorableSqlContainerPropertiesResourceContainer(
             create_mode=create_mode,
             computed_properties=computed_properties,
             vector_embedding_policy=vector_embedding_policy,
+            full_text_policy=full_text_policy,
             **kwargs
         )
-        self.rid = None
-        self.ts = None
-        self.etag = None
-        self.self_property = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
+        self.self_property: Optional[str] = None
         self.id = id
         self.indexing_policy = indexing_policy
         self.partition_key = partition_key
@@ -10117,6 +10192,7 @@ class RestorableSqlContainerPropertiesResourceContainer(
         self.create_mode = create_mode
         self.computed_properties = computed_properties
         self.vector_embedding_policy = vector_embedding_policy
+        self.full_text_policy = full_text_policy
 
 
 class RestorableSqlContainersListResult(_serialization.Model):
@@ -10139,7 +10215,7 @@ class RestorableSqlContainersListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableSqlContainerGetResult"]] = None
 
 
 class RestorableSqlDatabaseGetResult(_serialization.Model):
@@ -10178,9 +10254,9 @@ class RestorableSqlDatabaseGetResult(_serialization.Model):
         :paramtype resource: ~azure.mgmt.cosmosdb.models.RestorableSqlDatabasePropertiesResource
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.resource = resource
 
 
@@ -10239,13 +10315,13 @@ class RestorableSqlDatabasePropertiesResource(_serialization.Model):
          ~azure.mgmt.cosmosdb.models.RestorableSqlDatabasePropertiesResourceDatabase
         """
         super().__init__(**kwargs)
-        self.rid = None
-        self.operation_type = None
-        self.can_undelete = None
-        self.can_undelete_reason = None
-        self.event_timestamp = None
-        self.owner_id = None
-        self.owner_resource_id = None
+        self.rid: Optional[str] = None
+        self.operation_type: Optional[Union[str, "_models.OperationType"]] = None
+        self.can_undelete: Optional[str] = None
+        self.can_undelete_reason: Optional[str] = None
+        self.event_timestamp: Optional[str] = None
+        self.owner_id: Optional[str] = None
+        self.owner_resource_id: Optional[str] = None
         self.database = database
 
 
@@ -10370,12 +10446,12 @@ class RestorableSqlDatabasePropertiesResourceDatabase(
         :paramtype create_mode: str or ~azure.mgmt.cosmosdb.models.CreateMode
         """
         super().__init__(id=id, restore_parameters=restore_parameters, create_mode=create_mode, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
-        self.colls = None
-        self.users = None
-        self.self_property = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
+        self.colls: Optional[str] = None
+        self.users: Optional[str] = None
+        self.self_property: Optional[str] = None
         self.id = id
         self.restore_parameters = restore_parameters
         self.create_mode = create_mode
@@ -10401,7 +10477,7 @@ class RestorableSqlDatabasesListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableSqlDatabaseGetResult"]] = None
 
 
 class RestorableSqlResourcesGetResult(_serialization.Model):
@@ -10445,9 +10521,9 @@ class RestorableSqlResourcesGetResult(_serialization.Model):
         :paramtype collection_names: list[str]
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.database_name = database_name
         self.collection_names = collection_names
 
@@ -10472,7 +10548,7 @@ class RestorableSqlResourcesListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableSqlResourcesGetResult"]] = None
 
 
 class RestorableTableGetResult(_serialization.Model):
@@ -10511,9 +10587,9 @@ class RestorableTableGetResult(_serialization.Model):
         :paramtype resource: ~azure.mgmt.cosmosdb.models.RestorableTablePropertiesResource
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.resource = resource
 
 
@@ -10563,13 +10639,13 @@ class RestorableTablePropertiesResource(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.rid = None
-        self.operation_type = None
-        self.can_undelete = None
-        self.can_undelete_reason = None
-        self.event_timestamp = None
-        self.owner_id = None
-        self.owner_resource_id = None
+        self.rid: Optional[str] = None
+        self.operation_type: Optional[Union[str, "_models.OperationType"]] = None
+        self.can_undelete: Optional[str] = None
+        self.can_undelete_reason: Optional[str] = None
+        self.event_timestamp: Optional[str] = None
+        self.owner_id: Optional[str] = None
+        self.owner_resource_id: Optional[str] = None
 
 
 class RestorableTableResourcesGetResult(_serialization.Model):
@@ -10600,9 +10676,9 @@ class RestorableTableResourcesGetResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
 
 
 class RestorableTableResourcesListResult(_serialization.Model):
@@ -10625,7 +10701,7 @@ class RestorableTableResourcesListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableTableResourcesGetResult"]] = None
 
 
 class RestorableTablesListResult(_serialization.Model):
@@ -10648,7 +10724,7 @@ class RestorableTablesListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.RestorableTableGetResult"]] = None
 
 
 class RestoreParameters(RestoreParametersBase):
@@ -10656,7 +10732,7 @@ class RestoreParameters(RestoreParametersBase):
 
     :ivar restore_source: The id of the restorable database account from which the restore has to
      be initiated. For example:
-     /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.  # pylint: disable=line-too-long
+     /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.
     :vartype restore_source: str
     :ivar restore_timestamp_in_utc: Time to which the account has to be restored (ISO-8601 format).
     :vartype restore_timestamp_in_utc: ~datetime.datetime
@@ -10702,7 +10778,7 @@ class RestoreParameters(RestoreParametersBase):
         """
         :keyword restore_source: The id of the restorable database account from which the restore has
          to be initiated. For example:
-         /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.  # pylint: disable=line-too-long
+         /subscriptions/{subscriptionId}/providers/Microsoft.DocumentDB/locations/{location}/restorableDatabaseAccounts/{restorableDatabaseAccountName}.
         :paramtype restore_source: str
         :keyword restore_timestamp_in_utc: Time to which the account has to be restored (ISO-8601
          format).
@@ -10858,7 +10934,7 @@ class ServiceResourceListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.ServiceResource"]] = None
 
 
 class SpatialSpec(_serialization.Model):
@@ -10982,9 +11058,7 @@ class SqlContainerGetPropertiesOptions(OptionsResource):
     """
 
 
-class SqlContainerGetPropertiesResource(
-    SqlContainerResource, ExtendedResourceProperties
-):  # pylint: disable=too-many-instance-attributes
+class SqlContainerGetPropertiesResource(SqlContainerResource, ExtendedResourceProperties):
     """SqlContainerGetPropertiesResource.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -11026,6 +11100,8 @@ class SqlContainerGetPropertiesResource(
     :vartype computed_properties: list[~azure.mgmt.cosmosdb.models.ComputedProperty]
     :ivar vector_embedding_policy: The vector embedding policy for the container.
     :vartype vector_embedding_policy: ~azure.mgmt.cosmosdb.models.VectorEmbeddingPolicy
+    :ivar full_text_policy: The FullText policy for the container.
+    :vartype full_text_policy: ~azure.mgmt.cosmosdb.models.FullTextPolicy
     """
 
     _validation = {
@@ -11051,6 +11127,7 @@ class SqlContainerGetPropertiesResource(
         "create_mode": {"key": "createMode", "type": "str"},
         "computed_properties": {"key": "computedProperties", "type": "[ComputedProperty]"},
         "vector_embedding_policy": {"key": "vectorEmbeddingPolicy", "type": "VectorEmbeddingPolicy"},
+        "full_text_policy": {"key": "fullTextPolicy", "type": "FullTextPolicy"},
     }
 
     def __init__(
@@ -11068,6 +11145,7 @@ class SqlContainerGetPropertiesResource(
         create_mode: Union[str, "_models.CreateMode"] = "Default",
         computed_properties: Optional[List["_models.ComputedProperty"]] = None,
         vector_embedding_policy: Optional["_models.VectorEmbeddingPolicy"] = None,
+        full_text_policy: Optional["_models.FullTextPolicy"] = None,
         **kwargs: Any
     ) -> None:
         """
@@ -11099,6 +11177,8 @@ class SqlContainerGetPropertiesResource(
         :paramtype computed_properties: list[~azure.mgmt.cosmosdb.models.ComputedProperty]
         :keyword vector_embedding_policy: The vector embedding policy for the container.
         :paramtype vector_embedding_policy: ~azure.mgmt.cosmosdb.models.VectorEmbeddingPolicy
+        :keyword full_text_policy: The FullText policy for the container.
+        :paramtype full_text_policy: ~azure.mgmt.cosmosdb.models.FullTextPolicy
         """
         super().__init__(
             id=id,
@@ -11113,11 +11193,12 @@ class SqlContainerGetPropertiesResource(
             create_mode=create_mode,
             computed_properties=computed_properties,
             vector_embedding_policy=vector_embedding_policy,
+            full_text_policy=full_text_policy,
             **kwargs
         )
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.indexing_policy = indexing_policy
         self.partition_key = partition_key
@@ -11130,6 +11211,7 @@ class SqlContainerGetPropertiesResource(
         self.create_mode = create_mode
         self.computed_properties = computed_properties
         self.vector_embedding_policy = vector_embedding_policy
+        self.full_text_policy = full_text_policy
 
 
 class SqlContainerGetResults(ARMResourceProperties):
@@ -11223,7 +11305,7 @@ class SqlContainerListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.SqlContainerGetResults"]] = None
 
 
 class SqlDatabaseCreateUpdateParameters(ARMResourceProperties):
@@ -11386,9 +11468,9 @@ class SqlDatabaseGetPropertiesResource(SqlDatabaseResource, ExtendedResourceProp
         :paramtype users: str
         """
         super().__init__(id=id, restore_parameters=restore_parameters, create_mode=create_mode, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.colls = colls
         self.users = users
         self.id = id
@@ -11487,7 +11569,7 @@ class SqlDatabaseListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.SqlDatabaseGetResults"]] = None
 
 
 class SqlDedicatedGatewayRegionalServiceResource(RegionalServiceResource):  # pylint: disable=name-too-long
@@ -11523,7 +11605,7 @@ class SqlDedicatedGatewayRegionalServiceResource(RegionalServiceResource):  # py
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.sql_dedicated_gateway_endpoint = None
+        self.sql_dedicated_gateway_endpoint: Optional[str] = None
 
 
 class SqlDedicatedGatewayServiceResource(_serialization.Model):
@@ -11690,7 +11772,7 @@ class SqlDedicatedGatewayServiceResourceProperties(ServiceResourceProperties):  
         self.service_type: str = "SqlDedicatedGateway"
         self.sql_dedicated_gateway_endpoint = sql_dedicated_gateway_endpoint
         self.dedicated_gateway_type = dedicated_gateway_type
-        self.locations = None
+        self.locations: Optional[List["_models.SqlDedicatedGatewayRegionalServiceResource"]] = None
 
 
 class SqlRoleAssignmentCreateUpdateParameters(_serialization.Model):
@@ -11820,7 +11902,7 @@ class SqlRoleAssignmentListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.SqlRoleAssignmentGetResults"]] = None
 
 
 class SqlRoleDefinitionCreateUpdateParameters(_serialization.Model):
@@ -11976,7 +12058,7 @@ class SqlRoleDefinitionListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.SqlRoleDefinitionGetResults"]] = None
 
 
 class SqlStoredProcedureCreateUpdateParameters(ARMResourceProperties):
@@ -12134,9 +12216,9 @@ class SqlStoredProcedureGetPropertiesResource(SqlStoredProcedureResource, Extend
         :paramtype body: str
         """
         super().__init__(id=id, body=body, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.body = body
 
@@ -12225,7 +12307,7 @@ class SqlStoredProcedureListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.SqlStoredProcedureGetResults"]] = None
 
 
 class SqlTriggerCreateUpdateParameters(ARMResourceProperties):
@@ -12421,9 +12503,9 @@ class SqlTriggerGetPropertiesResource(SqlTriggerResource, ExtendedResourceProper
         :paramtype trigger_operation: str or ~azure.mgmt.cosmosdb.models.TriggerOperation
         """
         super().__init__(id=id, body=body, trigger_type=trigger_type, trigger_operation=trigger_operation, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.body = body
         self.trigger_type = trigger_type
@@ -12514,7 +12596,7 @@ class SqlTriggerListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.SqlTriggerGetResults"]] = None
 
 
 class SqlUserDefinedFunctionCreateUpdateParameters(ARMResourceProperties):  # pylint: disable=name-too-long
@@ -12674,9 +12756,9 @@ class SqlUserDefinedFunctionGetPropertiesResource(
         :paramtype body: str
         """
         super().__init__(id=id, body=body, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.body = body
 
@@ -12765,7 +12847,7 @@ class SqlUserDefinedFunctionListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.SqlUserDefinedFunctionGetResults"]] = None
 
 
 class SystemData(_serialization.Model):
@@ -13023,9 +13105,9 @@ class TableGetPropertiesResource(TableResource, ExtendedResourceProperties):
         :paramtype create_mode: str or ~azure.mgmt.cosmosdb.models.CreateMode
         """
         super().__init__(id=id, restore_parameters=restore_parameters, create_mode=create_mode, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.id = id
         self.restore_parameters = restore_parameters
         self.create_mode = create_mode
@@ -13122,7 +13204,7 @@ class TableListResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.TableGetResults"]] = None
 
 
 class ThroughputPolicyResource(_serialization.Model):
@@ -13213,10 +13295,10 @@ class ThroughputSettingsResource(_serialization.Model):
         super().__init__(**kwargs)
         self.throughput = throughput
         self.autoscale_settings = autoscale_settings
-        self.minimum_throughput = None
-        self.offer_replace_pending = None
-        self.instant_maximum_throughput = None
-        self.soft_allowed_maximum_throughput = None
+        self.minimum_throughput: Optional[str] = None
+        self.offer_replace_pending: Optional[str] = None
+        self.instant_maximum_throughput: Optional[str] = None
+        self.soft_allowed_maximum_throughput: Optional[str] = None
 
 
 class ThroughputSettingsGetPropertiesResource(ThroughputSettingsResource, ExtendedResourceProperties):
@@ -13287,15 +13369,15 @@ class ThroughputSettingsGetPropertiesResource(ThroughputSettingsResource, Extend
         :paramtype autoscale_settings: ~azure.mgmt.cosmosdb.models.AutoscaleSettingsResource
         """
         super().__init__(throughput=throughput, autoscale_settings=autoscale_settings, **kwargs)
-        self.rid = None
-        self.ts = None
-        self.etag = None
+        self.rid: Optional[str] = None
+        self.ts: Optional[float] = None
+        self.etag: Optional[str] = None
         self.throughput = throughput
         self.autoscale_settings = autoscale_settings
-        self.minimum_throughput = None
-        self.offer_replace_pending = None
-        self.instant_maximum_throughput = None
-        self.soft_allowed_maximum_throughput = None
+        self.minimum_throughput: Optional[str] = None
+        self.offer_replace_pending: Optional[str] = None
+        self.instant_maximum_throughput: Optional[str] = None
+        self.soft_allowed_maximum_throughput: Optional[str] = None
 
 
 class ThroughputSettingsGetResults(ARMResourceProperties):
@@ -13493,7 +13575,7 @@ class UsagesResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.value = None
+        self.value: Optional[List["_models.Usage"]] = None
 
 
 class VectorEmbedding(_serialization.Model):
@@ -13615,7 +13697,7 @@ class VirtualNetworkRule(_serialization.Model):
     """Virtual Network ACL Rule object.
 
     :ivar id: Resource ID of a subnet, for example:
-     /subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}.  # pylint: disable=line-too-long
+     /subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}.
     :vartype id: str
     :ivar ignore_missing_v_net_service_endpoint: Create firewall rule before the virtual network
      has vnet service endpoint enabled.
@@ -13636,7 +13718,7 @@ class VirtualNetworkRule(_serialization.Model):
     ) -> None:
         """
         :keyword id: Resource ID of a subnet, for example:
-         /subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}.  # pylint: disable=line-too-long
+         /subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}/subnets/{subnetName}.
         :paramtype id: str
         :keyword ignore_missing_v_net_service_endpoint: Create firewall rule before the virtual network
          has vnet service endpoint enabled.

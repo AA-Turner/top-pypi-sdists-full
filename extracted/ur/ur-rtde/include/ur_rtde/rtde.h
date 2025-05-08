@@ -4,17 +4,17 @@
 
 #include <ur_rtde/rtde_export.h>
 
-#include <boost/asio/io_service.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/deadline_timer.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <tuple>
 
 // forward declarations
 namespace ur_rtde
@@ -204,14 +204,14 @@ class RTDE
   RTDE_EXPORT bool sendOutputSetup(const std::vector<std::string> &output_names, double frequency);
   RTDE_EXPORT bool sendInputSetup(const std::vector<std::string> &input_names);
 
-private:
+ private:
   std::string hostname_;
   int port_;
   bool verbose_;
   ConnectionState conn_state_;
   std::vector<std::string> output_types_;
   std::vector<std::string> output_names_;
-  boost::asio::io_service io_service_;
+  boost::asio::io_context io_context_;
   std::shared_ptr<boost::asio::ip::tcp::socket> socket_;
   std::shared_ptr<boost::asio::ip::tcp::resolver> resolver_;
   std::vector<char> buffer_;
@@ -224,7 +224,7 @@ private:
    * \return Bytes received
    */
   template <typename AsyncReadStream, typename MutableBufferSequence>
-  std::size_t async_read_some(AsyncReadStream& s, const MutableBufferSequence& buffers,
+  std::size_t async_read_some(AsyncReadStream &s, const MutableBufferSequence &buffers,
                               boost::system::error_code &error, int timeout_ms = -1);
 
   /**

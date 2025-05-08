@@ -9154,14 +9154,18 @@ class RecordTarget(
 
     Example::
 
-        import aws_cdk.aws_cloudfront as cloudfront
+        from aws_cdk.region_info import RegionInfo
         
-        # my_zone: route53.HostedZone
-        # distribution: cloudfront.CloudFrontWebDistribution
+        # zone: route53.HostedZone
+        # ebs_environment_url: str
         
-        route53.AaaaRecord(self, "Alias",
-            zone=my_zone,
-            target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(distribution))
+        
+        route53.ARecord(self, "AliasRecord",
+            zone=zone,
+            target=route53.RecordTarget.from_alias(
+                targets.ElasticBeanstalkEnvironmentEndpointTarget(ebs_environment_url, {
+                    "hosted_zone_id": RegionInfo.get("us-east-1").ebs_env_endpoint_hosted_zone_id
+                }))
         )
     '''
 
@@ -10821,17 +10825,17 @@ class ARecord(
 
     Example::
 
-        import aws_cdk.aws_elasticloadbalancingv2 as elbv2
+        from aws_cdk.region_info import RegionInfo
         
         # zone: route53.HostedZone
-        # lb: elbv2.ApplicationLoadBalancer
+        # ebs_environment_url: str
         
         
         route53.ARecord(self, "AliasRecord",
             zone=zone,
             target=route53.RecordTarget.from_alias(
-                targets.LoadBalancerTarget(lb, {
-                    "evaluate_target_health": True
+                targets.ElasticBeanstalkEnvironmentEndpointTarget(ebs_environment_url, {
+                    "hosted_zone_id": RegionInfo.get("us-east-1").ebs_env_endpoint_hosted_zone_id
                 }))
         )
     '''
@@ -11265,17 +11269,17 @@ class ARecordProps(RecordSetOptions):
 
         Example::
 
-            import aws_cdk.aws_elasticloadbalancingv2 as elbv2
+            from aws_cdk.region_info import RegionInfo
             
             # zone: route53.HostedZone
-            # lb: elbv2.ApplicationLoadBalancer
+            # ebs_environment_url: str
             
             
             route53.ARecord(self, "AliasRecord",
                 zone=zone,
                 target=route53.RecordTarget.from_alias(
-                    targets.LoadBalancerTarget(lb, {
-                        "evaluate_target_health": True
+                    targets.ElasticBeanstalkEnvironmentEndpointTarget(ebs_environment_url, {
+                        "hosted_zone_id": RegionInfo.get("us-east-1").ebs_env_endpoint_hosted_zone_id
                     }))
             )
         '''

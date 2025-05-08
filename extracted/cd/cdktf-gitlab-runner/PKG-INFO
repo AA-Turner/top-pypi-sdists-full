@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdktf-gitlab-runner
-Version: 0.0.1257
+Version: 0.0.1258
 Summary: The CDK for Terraform Construct for Gitlab Runner on GCP
 Home-page: https://github.com/neilkuan/cdktf-gitlab-runner.git
 Author: Neil Kuan<guan840912@gmail.com>
@@ -22,7 +22,7 @@ License-File: LICENSE
 Requires-Dist: cdktf-cdktf-provider-google<14.0.0,>=13.0.0
 Requires-Dist: cdktf<0.21.0,>=0.20.0
 Requires-Dist: constructs<11.0.0,>=10.3.0
-Requires-Dist: jsii<2.0.0,>=1.111.0
+Requires-Dist: jsii<2.0.0,>=1.112.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard<4.3.0,>=2.13.3
 

@@ -105,6 +105,7 @@ class Obj:
     class __update_autoscaler_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             *,
             min_containers: typing.Optional[int] = None,
             max_containers: typing.Optional[int] = None,
@@ -113,6 +114,7 @@ class Obj:
         ) -> None: ...
         async def aio(
             self,
+            /,
             *,
             min_containers: typing.Optional[int] = None,
             max_containers: typing.Optional[int] = None,
@@ -123,8 +125,8 @@ class Obj:
     update_autoscaler: __update_autoscaler_spec[typing_extensions.Self]
 
     class __keep_warm_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, warm_pool_size: int) -> None: ...
-        async def aio(self, warm_pool_size: int) -> None: ...
+        def __call__(self, /, warm_pool_size: int) -> None: ...
+        async def aio(self, /, warm_pool_size: int) -> None: ...
 
     keep_warm: __keep_warm_spec[typing_extensions.Self]
 
@@ -253,6 +255,7 @@ class Cls(modal.object.Object):
     class __lookup_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             app_name: str,
             name: str,
             namespace=1,
@@ -262,6 +265,7 @@ class Cls(modal.object.Object):
         ) -> Cls: ...
         async def aio(
             self,
+            /,
             app_name: str,
             name: str,
             namespace=1,
@@ -277,14 +281,14 @@ class Cls(modal.object.Object):
     def _is_local(self) -> bool: ...
 
 class ___get_constructor_args_spec(typing_extensions.Protocol):
-    def __call__(self, cls: Cls) -> typing.Sequence[modal_proto.api_pb2.ClassParameterSpec]: ...
-    async def aio(self, cls: Cls) -> typing.Sequence[modal_proto.api_pb2.ClassParameterSpec]: ...
+    def __call__(self, /, cls: Cls) -> typing.Sequence[modal_proto.api_pb2.ClassParameterSpec]: ...
+    async def aio(self, /, cls: Cls) -> typing.Sequence[modal_proto.api_pb2.ClassParameterSpec]: ...
 
 _get_constructor_args: ___get_constructor_args_spec
 
 class ___get_method_schemas_spec(typing_extensions.Protocol):
-    def __call__(self, cls: Cls) -> dict[str, modal_proto.api_pb2.FunctionSchema]: ...
-    async def aio(self, cls: Cls) -> dict[str, modal_proto.api_pb2.FunctionSchema]: ...
+    def __call__(self, /, cls: Cls) -> dict[str, modal_proto.api_pb2.FunctionSchema]: ...
+    async def aio(self, /, cls: Cls) -> dict[str, modal_proto.api_pb2.FunctionSchema]: ...
 
 _get_method_schemas: ___get_method_schemas_spec
 

@@ -5782,6 +5782,316 @@ class CfnDomainProps:
 
 
 @jsii.implements(_IInspectable_c2943556)
+class CfnDomainUnit(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_datazone.CfnDomainUnit",
+):
+    '''A domain unit enables you to easily organize your assets and other domain entities under specific business units and teams.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-domainunit.html
+    :cloudformationResource: AWS::DataZone::DomainUnit
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_datazone as datazone
+        
+        cfn_domain_unit = datazone.CfnDomainUnit(self, "MyCfnDomainUnit",
+            domain_identifier="domainIdentifier",
+            name="name",
+            parent_domain_unit_identifier="parentDomainUnitIdentifier",
+        
+            # the properties below are optional
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        domain_identifier: builtins.str,
+        name: builtins.str,
+        parent_domain_unit_identifier: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param domain_identifier: The ID of the domain where you want to create a domain unit.
+        :param name: The name of the domain unit.
+        :param parent_domain_unit_identifier: The ID of the parent domain unit.
+        :param description: The description of the domain unit.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1700595f9c5a7d1c2312abf9e8d15687f79d83e5ead5d4136afe1d562d212c38)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDomainUnitProps(
+            domain_identifier=domain_identifier,
+            name=name,
+            parent_domain_unit_identifier=parent_domain_unit_identifier,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__253603c22b8126a36f68fce57f93a169ab3bae1eea3f4a0ed84da859e1a38444)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a243fcb8e7ead0c756ca762c1cdda3fa9d1e09b6cc2627c55905a3ba1c13d46a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp at which the domain unit was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDomainId")
+    def attr_domain_id(self) -> builtins.str:
+        '''The ID of the domain where the domain unit was created.
+
+        :cloudformationAttribute: DomainId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDomainId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID of the domain unit.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIdentifier")
+    def attr_identifier(self) -> builtins.str:
+        '''The identifier of the domain unit that you want to get.
+
+        :cloudformationAttribute: Identifier
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIdentifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedAt")
+    def attr_last_updated_at(self) -> builtins.str:
+        '''The timestamp at which the domain unit was last updated.
+
+        :cloudformationAttribute: LastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrParentDomainUnitId")
+    def attr_parent_domain_unit_id(self) -> builtins.str:
+        '''The ID of the parent domain unit.
+
+        :cloudformationAttribute: ParentDomainUnitId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrParentDomainUnitId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="domainIdentifier")
+    def domain_identifier(self) -> builtins.str:
+        '''The ID of the domain where you want to create a domain unit.'''
+        return typing.cast(builtins.str, jsii.get(self, "domainIdentifier"))
+
+    @domain_identifier.setter
+    def domain_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf72156aa725b96faaed85404e23d70dc267cd0abb5f25a82730b49e79db3da3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "domainIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the domain unit.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e554b39a08bdebb47a996dd0ed4d2386500e1f97db8b2b102320bf4c229a429)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parentDomainUnitIdentifier")
+    def parent_domain_unit_identifier(self) -> builtins.str:
+        '''The ID of the parent domain unit.'''
+        return typing.cast(builtins.str, jsii.get(self, "parentDomainUnitIdentifier"))
+
+    @parent_domain_unit_identifier.setter
+    def parent_domain_unit_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fc10ab18c77014087fe1354e8f1063236b8830e559cbc2287ef325f51d1ab0c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parentDomainUnitIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the domain unit.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a999765de6c52fcb132be3cd0b216fc666c0809dfc86c99a02dfc71a5fff2974)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_datazone.CfnDomainUnitProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_identifier": "domainIdentifier",
+        "name": "name",
+        "parent_domain_unit_identifier": "parentDomainUnitIdentifier",
+        "description": "description",
+    },
+)
+class CfnDomainUnitProps:
+    def __init__(
+        self,
+        *,
+        domain_identifier: builtins.str,
+        name: builtins.str,
+        parent_domain_unit_identifier: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomainUnit``.
+
+        :param domain_identifier: The ID of the domain where you want to create a domain unit.
+        :param name: The name of the domain unit.
+        :param parent_domain_unit_identifier: The ID of the parent domain unit.
+        :param description: The description of the domain unit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-domainunit.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_datazone as datazone
+            
+            cfn_domain_unit_props = datazone.CfnDomainUnitProps(
+                domain_identifier="domainIdentifier",
+                name="name",
+                parent_domain_unit_identifier="parentDomainUnitIdentifier",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__740935adbb77d29725778a65030d855aa614e033e09a756660d6c3eef6160bd9)
+            check_type(argname="argument domain_identifier", value=domain_identifier, expected_type=type_hints["domain_identifier"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument parent_domain_unit_identifier", value=parent_domain_unit_identifier, expected_type=type_hints["parent_domain_unit_identifier"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_identifier": domain_identifier,
+            "name": name,
+            "parent_domain_unit_identifier": parent_domain_unit_identifier,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def domain_identifier(self) -> builtins.str:
+        '''The ID of the domain where you want to create a domain unit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-domainunit.html#cfn-datazone-domainunit-domainidentifier
+        '''
+        result = self._values.get("domain_identifier")
+        assert result is not None, "Required property 'domain_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the domain unit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-domainunit.html#cfn-datazone-domainunit-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def parent_domain_unit_identifier(self) -> builtins.str:
+        '''The ID of the parent domain unit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-domainunit.html#cfn-datazone-domainunit-parentdomainunitidentifier
+        '''
+        result = self._values.get("parent_domain_unit_identifier")
+        assert result is not None, "Required property 'parent_domain_unit_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the domain unit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-domainunit.html#cfn-datazone-domainunit-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainUnitProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556)
 class CfnEnvironment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9819,6 +10129,8 @@ __all__ = [
     "CfnDataSourceProps",
     "CfnDomain",
     "CfnDomainProps",
+    "CfnDomainUnit",
+    "CfnDomainUnitProps",
     "CfnEnvironment",
     "CfnEnvironmentActions",
     "CfnEnvironmentActionsProps",
@@ -10469,6 +10781,64 @@ def _typecheckingstub__6d98e07f58a8aeb53fe8b36894639594f83be43ac8d182e1c384572cf
     service_role: typing.Optional[builtins.str] = None,
     single_sign_on: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.SingleSignOnProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1700595f9c5a7d1c2312abf9e8d15687f79d83e5ead5d4136afe1d562d212c38(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    domain_identifier: builtins.str,
+    name: builtins.str,
+    parent_domain_unit_identifier: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__253603c22b8126a36f68fce57f93a169ab3bae1eea3f4a0ed84da859e1a38444(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a243fcb8e7ead0c756ca762c1cdda3fa9d1e09b6cc2627c55905a3ba1c13d46a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf72156aa725b96faaed85404e23d70dc267cd0abb5f25a82730b49e79db3da3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e554b39a08bdebb47a996dd0ed4d2386500e1f97db8b2b102320bf4c229a429(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0fc10ab18c77014087fe1354e8f1063236b8830e559cbc2287ef325f51d1ab0c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a999765de6c52fcb132be3cd0b216fc666c0809dfc86c99a02dfc71a5fff2974(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__740935adbb77d29725778a65030d855aa614e033e09a756660d6c3eef6160bd9(
+    *,
+    domain_identifier: builtins.str,
+    name: builtins.str,
+    parent_domain_unit_identifier: builtins.str,
+    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

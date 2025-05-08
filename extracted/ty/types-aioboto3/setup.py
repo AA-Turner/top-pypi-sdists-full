@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-aioboto3",
-    version="14.2.0",
+    version="14.3.0",
     packages=["aioboto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for aioboto3 14.2.0 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for aioboto3 14.3.0 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -56,7 +56,7 @@ setup(
     ],
     extras_require={
         "full": ["types-aiobotocore-full>=2.22.0, <2.23.0"],
-        "aioboto3": ["aioboto3==14.2.0"],
+        "aioboto3": ["aioboto3==14.3.0"],
         "all": [
             "types-aiobotocore-accessanalyzer>=2.22.0, <2.23.0",
             "types-aiobotocore-account>=2.22.0, <2.23.0",

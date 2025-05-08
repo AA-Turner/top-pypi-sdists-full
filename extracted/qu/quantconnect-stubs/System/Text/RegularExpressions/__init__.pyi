@@ -344,30 +344,6 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
     allow use of regular expressions without instantiating a Regex explicitly.
     """
 
-    class ValueMatchEnumerator:
-        """Represents an enumerator containing the set of successful matches found by iteratively applying a regular expression pattern to the input span."""
-
-        @property
-        def current(self) -> System.Text.RegularExpressions.ValueMatch:
-            """Gets the ValueMatch element at the current position of the enumerator."""
-            ...
-
-        def get_enumerator(self) -> System.Text.RegularExpressions.Regex.ValueMatchEnumerator:
-            """
-            Provides an enumerator that iterates through the matches in the input span.
-            
-            :returns: A copy of this enumerator.
-            """
-            ...
-
-        def move_next(self) -> bool:
-            """
-            Advances the enumerator to the next match in the span.
-            
-            :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator cannot find additional matches.
-            """
-            ...
-
     class ValueSplitEnumerator:
         """Represents an enumerator containing the set of splits around successful matches found by iteratively applying a regular expression pattern to the input span."""
 
@@ -392,6 +368,30 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
             """
             ...
 
+    class ValueMatchEnumerator:
+        """Represents an enumerator containing the set of successful matches found by iteratively applying a regular expression pattern to the input span."""
+
+        @property
+        def current(self) -> System.Text.RegularExpressions.ValueMatch:
+            """Gets the ValueMatch element at the current position of the enumerator."""
+            ...
+
+        def get_enumerator(self) -> System.Text.RegularExpressions.Regex.ValueMatchEnumerator:
+            """
+            Provides an enumerator that iterates through the matches in the input span.
+            
+            :returns: A copy of this enumerator.
+            """
+            ...
+
+        def move_next(self) -> bool:
+            """
+            Advances the enumerator to the next match in the span.
+            
+            :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator cannot find additional matches.
+            """
+            ...
+
     INFINITE_MATCH_TIMEOUT: datetime.timedelta = ...
     """Specifies that a pattern-matching operation should not time out."""
 
@@ -399,6 +399,8 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
     def match_timeout(self) -> datetime.timedelta:
         """Gets the timeout interval of the current instance."""
         ...
+
+    cache_size: int
 
     @property
     def caps(self) -> System.Collections.IDictionary:
@@ -427,8 +429,6 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
     def right_to_left(self) -> bool:
         """Indicates whether the regular expression matches from right to left."""
         ...
-
-    cache_size: int
 
     @overload
     def __init__(self) -> None:
@@ -1096,71 +1096,88 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
         warnings.warn("Obsoletions.RegexExtensibilityImplMessage", DeprecationWarning)
 
 
-class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Serialization.ISerializable):
-    """This is the exception that is thrown when a RegEx matching timeout occurs."""
-
-    @property
-    def input(self) -> str:
-        ...
+class GeneratedRegexAttribute(System.Attribute):
+    """Instructs the System.Text.RegularExpressions source generator to generate an implementation of the specified regular expression."""
 
     @property
     def pattern(self) -> str:
+        """Gets the regular expression pattern to match."""
         ...
 
     @property
-    def match_timeout(self) -> datetime.timedelta:
+    def options(self) -> System.Text.RegularExpressions.RegexOptions:
+        """Gets a bitwise combination of the enumeration values that modify the regular expression."""
+        ...
+
+    @property
+    def match_timeout_milliseconds(self) -> int:
+        """Gets a time-out interval (milliseconds), or Timeout.Infinite to indicate that the method should not time out."""
+        ...
+
+    @property
+    def culture_name(self) -> str:
+        """Gets the name of the culture to be used for case sensitive comparisons."""
         ...
 
     @overload
-    def __init__(self, regex_input: str, regex_pattern: str, match_timeout: datetime.timedelta) -> None:
+    def __init__(self, pattern: str) -> None:
         """
-        Constructs a new RegexMatchTimeoutException.
+        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern.
         
-        :param regex_input: Matching timeout occurred during matching within the specified input.
-        :param regex_pattern: Matching timeout occurred during matching to the specified pattern.
-        :param match_timeout: Matching timeout occurred because matching took longer than the specified timeout.
+        :param pattern: The regular expression pattern to match.
         """
         ...
 
     @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
+        """
+        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern and options.
+        
+        :param pattern: The regular expression pattern to match.
+        :param options: A bitwise combination of the enumeration values that modify the regular expression.
+        """
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
+        """
+        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern and options.
+        
+        :param pattern: The regular expression pattern to match.
+        :param options: A bitwise combination of the enumeration values that modify the regular expression.
+        :param culture_name: The name of a culture to be used for case sensitive comparisons.  is not case-sensitive.
+        """
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
+        """
+        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern, options, and timeout.
+        
+        :param pattern: The regular expression pattern to match.
+        :param options: A bitwise combination of the enumeration values that modify the regular expression.
+        :param match_timeout_milliseconds: A time-out interval (milliseconds), or Timeout.Infinite to indicate that the method should not time out.
+        """
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
+        """
+        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern, options, and timeout.
+        
+        :param pattern: The regular expression pattern to match.
+        :param options: A bitwise combination of the enumeration values that modify the regular expression.
+        :param match_timeout_milliseconds: A time-out interval (milliseconds), or Timeout.Infinite to indicate that the method should not time out.
+        :param culture_name: The name of a culture to be used for case sensitive comparisons.  is not case-sensitive.
+        """
+        ...
+
+
+class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
     def __init__(self) -> None:
-        """
-        This constructor is provided in compliance with common .NET Framework design patterns;
-        developers should prefer using the constructor
-        public RegexMatchTimeoutException(string input, string pattern, TimeSpan matchTimeout).
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        This constructor is provided in compliance with common .NET Framework design patterns;
-        developers should prefer using the constructor
-        public RegexMatchTimeoutException(string input, string pattern, TimeSpan matchTimeout).
-        
-        :param message: The error message that explains the reason for the exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        """
-        This constructor is provided in compliance with common .NET Framework design patterns;
-        developers should prefer using the constructor
-        public RegexMatchTimeoutException(string input, string pattern, TimeSpan matchTimeout).
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner: The exception that is the cause of the current exception, or a null.
-        """
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
+        """This method is protected."""
         ...
 
 
@@ -1348,87 +1365,70 @@ class RegexRunner(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
+class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Serialization.ISerializable):
+    """This is the exception that is thrown when a RegEx matching timeout occurs."""
 
-    def __init__(self) -> None:
-        """This method is protected."""
+    @property
+    def input(self) -> str:
         ...
-
-
-class GeneratedRegexAttribute(System.Attribute):
-    """Instructs the System.Text.RegularExpressions source generator to generate an implementation of the specified regular expression."""
 
     @property
     def pattern(self) -> str:
-        """Gets the regular expression pattern to match."""
         ...
 
     @property
-    def options(self) -> System.Text.RegularExpressions.RegexOptions:
-        """Gets a bitwise combination of the enumeration values that modify the regular expression."""
-        ...
-
-    @property
-    def match_timeout_milliseconds(self) -> int:
-        """Gets a time-out interval (milliseconds), or Timeout.Infinite to indicate that the method should not time out."""
-        ...
-
-    @property
-    def culture_name(self) -> str:
-        """Gets the name of the culture to be used for case sensitive comparisons."""
+    def match_timeout(self) -> datetime.timedelta:
         ...
 
     @overload
-    def __init__(self, pattern: str) -> None:
+    def __init__(self, regex_input: str, regex_pattern: str, match_timeout: datetime.timedelta) -> None:
         """
-        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern.
+        Constructs a new RegexMatchTimeoutException.
         
-        :param pattern: The regular expression pattern to match.
+        :param regex_input: Matching timeout occurred during matching within the specified input.
+        :param regex_pattern: Matching timeout occurred during matching to the specified pattern.
+        :param match_timeout: Matching timeout occurred because matching took longer than the specified timeout.
         """
         ...
 
     @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
+    def __init__(self) -> None:
         """
-        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern and options.
-        
-        :param pattern: The regular expression pattern to match.
-        :param options: A bitwise combination of the enumeration values that modify the regular expression.
-        """
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
-        """
-        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern and options.
-        
-        :param pattern: The regular expression pattern to match.
-        :param options: A bitwise combination of the enumeration values that modify the regular expression.
-        :param culture_name: The name of a culture to be used for case sensitive comparisons.  is not case-sensitive.
+        This constructor is provided in compliance with common .NET Framework design patterns;
+        developers should prefer using the constructor
+        public RegexMatchTimeoutException(string input, string pattern, TimeSpan matchTimeout).
         """
         ...
 
     @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
+    def __init__(self, message: str) -> None:
         """
-        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern, options, and timeout.
+        This constructor is provided in compliance with common .NET Framework design patterns;
+        developers should prefer using the constructor
+        public RegexMatchTimeoutException(string input, string pattern, TimeSpan matchTimeout).
         
-        :param pattern: The regular expression pattern to match.
-        :param options: A bitwise combination of the enumeration values that modify the regular expression.
-        :param match_timeout_milliseconds: A time-out interval (milliseconds), or Timeout.Infinite to indicate that the method should not time out.
+        :param message: The error message that explains the reason for the exception.
         """
         ...
 
     @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
+    def __init__(self, message: str, inner: System.Exception) -> None:
         """
-        Initializes a new instance of the GeneratedRegexAttribute with the specified pattern, options, and timeout.
+        This constructor is provided in compliance with common .NET Framework design patterns;
+        developers should prefer using the constructor
+        public RegexMatchTimeoutException(string input, string pattern, TimeSpan matchTimeout).
         
-        :param pattern: The regular expression pattern to match.
-        :param options: A bitwise combination of the enumeration values that modify the regular expression.
-        :param match_timeout_milliseconds: A time-out interval (milliseconds), or Timeout.Infinite to indicate that the method should not time out.
-        :param culture_name: The name of a culture to be used for case sensitive comparisons.  is not case-sensitive.
+        :param message: The error message that explains the reason for the exception.
+        :param inner: The exception that is the cause of the current exception, or a null.
+        """
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
         """
         ...
 

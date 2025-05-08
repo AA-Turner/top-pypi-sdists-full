@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioboto3
-Version: 14.2.0
+Version: 14.3.0
 Summary: Async boto3 wrapper
 Author-email: Terri Cain <terri@dolphincorp.co.uk>
 License: Apache-2.0

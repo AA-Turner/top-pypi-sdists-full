@@ -10,25 +10,6 @@ import QuantConnect.Data.Market
 import System
 
 
-class Tiingo(System.Object):
-    """Helper class for Tiingo configuration"""
-
-    auth_code: str
-    """Gets the Tiingo API token."""
-
-    is_auth_code_set: bool
-    """Returns true if the Tiingo API token has been set."""
-
-    @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """
-        Sets the Tiingo API token.
-        
-        :param auth_code: The Tiingo API token
-        """
-        ...
-
-
 class TiingoPrice(QuantConnect.Data.Market.TradeBar):
     """
     Tiingo daily price data
@@ -233,6 +214,25 @@ class TiingoDailyData(QuantConnect.Data.Custom.Tiingo.TiingoPrice):
     
     This is kept for backwards compatibility, please use TiingoPrice
     """
+
+
+class Tiingo(System.Object):
+    """Helper class for Tiingo configuration"""
+
+    auth_code: str
+    """Gets the Tiingo API token."""
+
+    is_auth_code_set: bool
+    """Returns true if the Tiingo API token has been set."""
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """
+        Sets the Tiingo API token.
+        
+        :param auth_code: The Tiingo API token
+        """
+        ...
 
 
 class TiingoSymbolMapper(System.Object):

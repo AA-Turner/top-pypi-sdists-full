@@ -1812,6 +1812,7 @@ __all__ = (
     "UiConfigTypeDef",
     "UiTemplateInfoTypeDef",
     "UiTemplateTypeDef",
+    "UnifiedStudioSettingsTypeDef",
     "UpdateActionRequestTypeDef",
     "UpdateActionResponseTypeDef",
     "UpdateAppImageConfigRequestTypeDef",
@@ -3526,6 +3527,15 @@ class DomainDetailsTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
     Url: NotRequired[str]
+
+class UnifiedStudioSettingsTypeDef(TypedDict):
+    StudioWebPortalAccess: NotRequired[FeatureStatusType]
+    DomainAccountId: NotRequired[str]
+    DomainRegion: NotRequired[str]
+    DomainId: NotRequired[str]
+    ProjectId: NotRequired[str]
+    EnvironmentId: NotRequired[str]
+    ProjectS3Path: NotRequired[str]
 
 class FileSourceTypeDef(TypedDict):
     S3Uri: str
@@ -6810,10 +6820,10 @@ class QueryFiltersTypeDef(TypedDict):
     Properties: NotRequired[Mapping[str, str]]
 
 class SearchTrainingPlanOfferingsRequestTypeDef(TypedDict):
-    InstanceType: ReservedCapacityInstanceTypeType
-    InstanceCount: int
     DurationHours: int
     TargetResources: Sequence[SageMakerResourceNameType]
+    InstanceType: NotRequired[ReservedCapacityInstanceTypeType]
+    InstanceCount: NotRequired[int]
     StartTimeAfter: NotRequired[TimestampTypeDef]
     EndTimeBefore: NotRequired[TimestampTypeDef]
 
@@ -8724,6 +8734,7 @@ class DomainSettingsOutputTypeDef(TypedDict):
     ExecutionRoleIdentityConfig: NotRequired[ExecutionRoleIdentityConfigType]
     DockerSettings: NotRequired[DockerSettingsOutputTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
+    UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
 
 class DomainSettingsTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[Sequence[str]]
@@ -8731,6 +8742,7 @@ class DomainSettingsTypeDef(TypedDict):
     ExecutionRoleIdentityConfig: NotRequired[ExecutionRoleIdentityConfigType]
     DockerSettings: NotRequired[DockerSettingsTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
+    UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
 
 class CodeEditorAppSettingsOutputTypeDef(TypedDict):
     DefaultResourceSpec: NotRequired[ResourceSpecTypeDef]
@@ -9133,6 +9145,7 @@ class DomainSettingsForUpdateTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[Sequence[str]]
     DockerSettings: NotRequired[DockerSettingsUnionTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
+    UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
 
 class DriftCheckBaselinesTypeDef(TypedDict):
     Bias: NotRequired[DriftCheckBiasTypeDef]
@@ -10749,6 +10762,7 @@ class SpaceSettingsOutputTypeDef(TypedDict):
     JupyterLabAppSettings: NotRequired[SpaceJupyterLabAppSettingsOutputTypeDef]
     AppType: NotRequired[AppTypeType]
     SpaceStorageSettings: NotRequired[SpaceStorageSettingsTypeDef]
+    SpaceManagedResources: NotRequired[FeatureStatusType]
     CustomFileSystems: NotRequired[List[CustomFileSystemTypeDef]]
 
 class SpaceSettingsTypeDef(TypedDict):
@@ -10758,6 +10772,7 @@ class SpaceSettingsTypeDef(TypedDict):
     JupyterLabAppSettings: NotRequired[SpaceJupyterLabAppSettingsTypeDef]
     AppType: NotRequired[AppTypeType]
     SpaceStorageSettings: NotRequired[SpaceStorageSettingsTypeDef]
+    SpaceManagedResources: NotRequired[FeatureStatusType]
     CustomFileSystems: NotRequired[Sequence[CustomFileSystemTypeDef]]
 
 AlgorithmSpecificationUnionTypeDef = Union[

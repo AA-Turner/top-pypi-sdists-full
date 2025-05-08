@@ -208,6 +208,7 @@ class Sandbox(modal.object.Object):
     class __create_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             *entrypoint_args: str,
             app: typing.Optional[modal.app.App] = None,
             environment_name: typing.Optional[str] = None,
@@ -240,6 +241,7 @@ class Sandbox(modal.object.Object):
         ) -> Sandbox: ...
         async def aio(
             self,
+            /,
             *entrypoint_args: str,
             app: typing.Optional[modal.app.App] = None,
             environment_name: typing.Optional[str] = None,
@@ -276,50 +278,50 @@ class Sandbox(modal.object.Object):
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
 
     class __from_id_spec(typing_extensions.Protocol):
-        def __call__(self, sandbox_id: str, client: typing.Optional[modal.client.Client] = None) -> Sandbox: ...
-        async def aio(self, sandbox_id: str, client: typing.Optional[modal.client.Client] = None) -> Sandbox: ...
+        def __call__(self, /, sandbox_id: str, client: typing.Optional[modal.client.Client] = None) -> Sandbox: ...
+        async def aio(self, /, sandbox_id: str, client: typing.Optional[modal.client.Client] = None) -> Sandbox: ...
 
     from_id: __from_id_spec
 
     class __set_tags_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None): ...
-        async def aio(self, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None): ...
+        def __call__(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None): ...
+        async def aio(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None): ...
 
     set_tags: __set_tags_spec[typing_extensions.Self]
 
     class __snapshot_filesystem_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, timeout: int = 55) -> modal.image.Image: ...
-        async def aio(self, timeout: int = 55) -> modal.image.Image: ...
+        def __call__(self, /, timeout: int = 55) -> modal.image.Image: ...
+        async def aio(self, /, timeout: int = 55) -> modal.image.Image: ...
 
     snapshot_filesystem: __snapshot_filesystem_spec[typing_extensions.Self]
 
     class __wait_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, raise_on_termination: bool = True): ...
-        async def aio(self, raise_on_termination: bool = True): ...
+        def __call__(self, /, raise_on_termination: bool = True): ...
+        async def aio(self, /, raise_on_termination: bool = True): ...
 
     wait: __wait_spec[typing_extensions.Self]
 
     class __tunnels_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]: ...
-        async def aio(self, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]: ...
+        def __call__(self, /, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]: ...
+        async def aio(self, /, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]: ...
 
     tunnels: __tunnels_spec[typing_extensions.Self]
 
     class __terminate_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self): ...
-        async def aio(self): ...
+        def __call__(self, /): ...
+        async def aio(self, /): ...
 
     terminate: __terminate_spec[typing_extensions.Self]
 
     class __poll_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self) -> typing.Optional[int]: ...
-        async def aio(self) -> typing.Optional[int]: ...
+        def __call__(self, /) -> typing.Optional[int]: ...
+        async def aio(self, /) -> typing.Optional[int]: ...
 
     poll: __poll_spec[typing_extensions.Self]
 
     class ___get_task_id_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self): ...
-        async def aio(self): ...
+        def __call__(self, /): ...
+        async def aio(self, /): ...
 
     _get_task_id: ___get_task_id_spec[typing_extensions.Self]
 
@@ -327,6 +329,7 @@ class Sandbox(modal.object.Object):
         @typing.overload
         def __call__(
             self,
+            /,
             *cmds: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -341,6 +344,7 @@ class Sandbox(modal.object.Object):
         @typing.overload
         def __call__(
             self,
+            /,
             *cmds: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -355,6 +359,7 @@ class Sandbox(modal.object.Object):
         @typing.overload
         async def aio(
             self,
+            /,
             *cmds: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -369,6 +374,7 @@ class Sandbox(modal.object.Object):
         @typing.overload
         async def aio(
             self,
+            /,
             *cmds: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
@@ -384,54 +390,55 @@ class Sandbox(modal.object.Object):
     exec: __exec_spec[typing_extensions.Self]
 
     class ___experimental_snapshot_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self) -> modal.snapshot.SandboxSnapshot: ...
-        async def aio(self) -> modal.snapshot.SandboxSnapshot: ...
+        def __call__(self, /) -> modal.snapshot.SandboxSnapshot: ...
+        async def aio(self, /) -> modal.snapshot.SandboxSnapshot: ...
 
     _experimental_snapshot: ___experimental_snapshot_spec[typing_extensions.Self]
 
     class ___experimental_from_snapshot_spec(typing_extensions.Protocol):
         def __call__(
-            self, snapshot: modal.snapshot.SandboxSnapshot, client: typing.Optional[modal.client.Client] = None
+            self, /, snapshot: modal.snapshot.SandboxSnapshot, client: typing.Optional[modal.client.Client] = None
         ): ...
         async def aio(
-            self, snapshot: modal.snapshot.SandboxSnapshot, client: typing.Optional[modal.client.Client] = None
+            self, /, snapshot: modal.snapshot.SandboxSnapshot, client: typing.Optional[modal.client.Client] = None
         ): ...
 
     _experimental_from_snapshot: ___experimental_from_snapshot_spec
 
     class __open_spec(typing_extensions.Protocol[SUPERSELF]):
         @typing.overload
-        def __call__(self, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io.FileIO[str]: ...
+        def __call__(self, /, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io.FileIO[str]: ...
         @typing.overload
-        def __call__(self, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io.FileIO[bytes]: ...
+        def __call__(self, /, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io.FileIO[bytes]: ...
         @typing.overload
-        async def aio(self, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io.FileIO[str]: ...
+        async def aio(self, /, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io.FileIO[str]: ...
         @typing.overload
-        async def aio(self, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io.FileIO[bytes]: ...
+        async def aio(self, /, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io.FileIO[bytes]: ...
 
     open: __open_spec[typing_extensions.Self]
 
     class __ls_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, path: str) -> list[str]: ...
-        async def aio(self, path: str) -> list[str]: ...
+        def __call__(self, /, path: str) -> list[str]: ...
+        async def aio(self, /, path: str) -> list[str]: ...
 
     ls: __ls_spec[typing_extensions.Self]
 
     class __mkdir_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, path: str, parents: bool = False) -> None: ...
-        async def aio(self, path: str, parents: bool = False) -> None: ...
+        def __call__(self, /, path: str, parents: bool = False) -> None: ...
+        async def aio(self, /, path: str, parents: bool = False) -> None: ...
 
     mkdir: __mkdir_spec[typing_extensions.Self]
 
     class __rm_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, path: str, recursive: bool = False) -> None: ...
-        async def aio(self, path: str, recursive: bool = False) -> None: ...
+        def __call__(self, /, path: str, recursive: bool = False) -> None: ...
+        async def aio(self, /, path: str, recursive: bool = False) -> None: ...
 
     rm: __rm_spec[typing_extensions.Self]
 
     class __watch_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             path: str,
             filter: typing.Optional[list[modal.file_io.FileWatchEventType]] = None,
             recursive: typing.Optional[bool] = None,
@@ -439,6 +446,7 @@ class Sandbox(modal.object.Object):
         ) -> typing.Iterator[modal.file_io.FileWatchEvent]: ...
         def aio(
             self,
+            /,
             path: str,
             filter: typing.Optional[list[modal.file_io.FileWatchEventType]] = None,
             recursive: typing.Optional[bool] = None,
@@ -459,6 +467,7 @@ class Sandbox(modal.object.Object):
     class __list_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             *,
             app_id: typing.Optional[str] = None,
             tags: typing.Optional[dict[str, str]] = None,
@@ -466,6 +475,7 @@ class Sandbox(modal.object.Object):
         ) -> typing.Generator[Sandbox, None, None]: ...
         def aio(
             self,
+            /,
             *,
             app_id: typing.Optional[str] = None,
             tags: typing.Optional[dict[str, str]] = None,

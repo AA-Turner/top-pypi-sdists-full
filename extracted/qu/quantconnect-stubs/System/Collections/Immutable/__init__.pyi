@@ -8,55 +8,31 @@ import System.Collections
 import System.Collections.Generic
 import System.Collections.Immutable
 
-System_Collections_Immutable_ImmutableList_Enumerator = typing.Any
 System_Collections_Immutable_ImmutableHashSet_Enumerator = typing.Any
+System_Collections_Immutable_ImmutableList_Enumerator = typing.Any
 System_Collections_Immutable_ImmutableArray = typing.Any
 System_Collections_Immutable_ImmutableSortedSet_Enumerator = typing.Any
 
 System_Collections_Immutable_ImmutableDictionary_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_TValue")
 System_Collections_Immutable_ImmutableDictionary_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_TKey")
+System_Collections_Immutable_ImmutableHashSet_T = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_T")
+System_Collections_Immutable_IImmutableSet_T = typing.TypeVar("System_Collections_Immutable_IImmutableSet_T")
+System_Collections_Immutable_ImmutableList_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_T")
+System_Collections_Immutable_ImmutableArray_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_T")
+System_Collections_Immutable_ImmutableSortedSet_T = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_T")
+System_Collections_Immutable_ImmutableQueue_T = typing.TypeVar("System_Collections_Immutable_ImmutableQueue_T")
 System_Collections_Immutable_ImmutableSortedDictionary_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_TValue")
 System_Collections_Immutable_ImmutableSortedDictionary_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_TKey")
-System_Collections_Immutable_ImmutableList_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_T")
-System_Collections_Immutable_ImmutableQueue_T = typing.TypeVar("System_Collections_Immutable_ImmutableQueue_T")
-System_Collections_Immutable_ImmutableHashSet_T = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_T")
-System_Collections_Immutable_ImmutableArray_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_T")
-System_Collections_Immutable_IImmutableList_T = typing.TypeVar("System_Collections_Immutable_IImmutableList_T")
 System_Collections_Immutable_ImmutableStack_T = typing.TypeVar("System_Collections_Immutable_ImmutableStack_T")
-System_Collections_Immutable_ImmutableSortedSet_T = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_T")
-System_Collections_Immutable_IImmutableQueue_T = typing.TypeVar("System_Collections_Immutable_IImmutableQueue_T")
+System_Collections_Immutable_IImmutableList_T = typing.TypeVar("System_Collections_Immutable_IImmutableList_T")
 System_Collections_Immutable_IImmutableDictionary_TKey = typing.TypeVar("System_Collections_Immutable_IImmutableDictionary_TKey")
 System_Collections_Immutable_IImmutableDictionary_TValue = typing.TypeVar("System_Collections_Immutable_IImmutableDictionary_TValue")
 System_Collections_Immutable_IImmutableStack_T = typing.TypeVar("System_Collections_Immutable_IImmutableStack_T")
-System_Collections_Immutable_IImmutableSet_T = typing.TypeVar("System_Collections_Immutable_IImmutableSet_T")
+System_Collections_Immutable_IImmutableQueue_T = typing.TypeVar("System_Collections_Immutable_IImmutableQueue_T")
 
 
 class ImmutableDictionary(typing.Generic[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Object, System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.Immutable.IImmutableDictionaryInternal[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]):
     """An immutable unordered dictionary implementation."""
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]):
-        """Enumerates the contents of the collection in an allocation-free manner."""
-
-        @property
-        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]:
-            """Gets the current element."""
-            ...
-
-        def dispose(self) -> None:
-            """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-            ...
-
-        def move_next(self) -> bool:
-            """
-            Advances the enumerator to the next element of the collection.
-            
-            :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-            """
-            ...
-
-        def reset(self) -> None:
-            """Sets the enumerator to its initial position, which is before the first element in the collection."""
-            ...
 
     class Builder(System.Object, System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]):
         """
@@ -266,6 +242,30 @@ class ImmutableDictionary(typing.Generic[System_Collections_Immutable_ImmutableD
             """
             ...
 
+    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]):
+        """Enumerates the contents of the collection in an allocation-free manner."""
+
+        @property
+        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]:
+            """Gets the current element."""
+            ...
+
+        def dispose(self) -> None:
+            """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+            ...
+
+        def move_next(self) -> bool:
+            """
+            Advances the enumerator to the next element of the collection.
+            
+            :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+            """
+            ...
+
+        def reset(self) -> None:
+            """Sets the enumerator to its initial position, which is before the first element in the collection."""
+            ...
+
     EMPTY: System.Collections.Immutable.ImmutableDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue] = ...
     """An empty immutable dictionary with default equality comparers."""
 
@@ -414,281 +414,237 @@ class ImmutableDictionary(typing.Generic[System_Collections_Immutable_ImmutableD
         ...
 
 
-class ImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Object, System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]):
-    """An immutable sorted dictionary implementation."""
+class ImmutableHashSet(typing.Generic[System_Collections_Immutable_ImmutableHashSet_T], System.Object, System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_ImmutableHashSet_T], System.Collections.Generic.ISet[System_Collections_Immutable_ImmutableHashSet_T], System.Collections.ICollection, System.Collections.Immutable.IStrongEnumerable[System_Collections_Immutable_ImmutableHashSet_T, System_Collections_Immutable_ImmutableHashSet_Enumerator], typing.Iterable[System_Collections_Immutable_ImmutableHashSet_T]):
+    """An immutable unordered hash set implementation."""
 
-    class Builder(System.Object, System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]):
+    class Builder(System.Object, System.Collections.Generic.IReadOnlyCollection[System_Collections_Immutable_ImmutableHashSet_T], System.Collections.Generic.ISet[System_Collections_Immutable_ImmutableHashSet_T], typing.Iterable[System_Collections_Immutable_ImmutableHashSet_T]):
         """
-        A sorted dictionary that mutates with little or no memory allocations,
-        can produce and/or build on immutable sorted dictionary instances very efficiently.
+        A hash set that mutates with little or no memory allocations,
+        can produce and/or build on immutable hash set instances very efficiently.
         """
-
-        @property
-        def keys(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-            """See IReadOnlyDictionary{TKey, TValue}"""
-            ...
-
-        @property
-        def values(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-            """See IReadOnlyDictionary{TKey, TValue}"""
-            ...
 
         @property
         def count(self) -> int:
-            """Gets the number of elements in this map."""
+            """Gets the number of elements contained in the ICollection{T}."""
             ...
 
         @property
-        def key_comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+        def key_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableHashSet_T]:
             """Gets or sets the key comparer."""
             ...
 
         @key_comparer.setter
-        def key_comparer(self, value: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> None:
+        def key_comparer(self, value: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
             ...
 
-        @property
-        def value_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-            """Gets or sets the value comparer."""
+        def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableHashSet_T]:
             ...
 
-        @value_comparer.setter
-        def value_comparer(self, value: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> None:
-            ...
-
-        def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-            """See IDictionary{TKey, TValue}"""
-            ...
-
-        def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+        def add(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> bool:
             """
-            Gets or sets the value for a given key.
+            Adds the specified item.
             
-            :param key: The key.
-            :returns: The value associated with the given key.
-            """
-            ...
-
-        def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
-            ...
-
-        def __len__(self) -> int:
-            ...
-
-        def __setitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> None:
-            """
-            Gets or sets the value for a given key.
-            
-            :param key: The key.
-            :returns: The value associated with the given key.
-            """
-            ...
-
-        @overload
-        def add(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> None:
-            """See IDictionary{TKey, TValue}"""
-            ...
-
-        @overload
-        def add(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> None:
-            """See IDictionary{TKey, TValue}"""
-            ...
-
-        def add_range(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> None:
-            """
-            Removes any entries from the dictionaries with keys that match those found in the specified sequence.
-            
-            :param items: The keys for entries to remove from the dictionary.
+            :param item: The item.
+            :returns: True if the item did not already belong to the collection.
             """
             ...
 
         def clear(self) -> None:
-            """See IDictionary{TKey, TValue}"""
+            """Removes all items from the ICollection{T}."""
             ...
 
-        def contains(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
-            """See IDictionary{TKey, TValue}"""
-            ...
-
-        def contains_key(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-            """See IDictionary{TKey, TValue}"""
-            ...
-
-        def contains_value(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> bool:
+        def contains(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> bool:
             """
-            Determines whether the ImmutableSortedDictionary{TKey, TValue}
-            contains an element with the specified value.
+            Determines whether the ICollection{T} contains a specific value.
             
-            :param value: The value to locate in the ImmutableSortedDictionary{TKey, TValue}. The value can be null for reference types.
-            :returns: true if the ImmutableSortedDictionary{TKey, TValue} contains an element with the specified value; otherwise, false.
+            :param item: The object to locate in the ICollection{T}.
+            :returns: true if  is found in the ICollection{T}; otherwise, false.
             """
             ...
 
-        def get_enumerator(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Enumerator:
-            """See IDictionary{TKey, TValue}"""
-            ...
-
-        @overload
-        def get_value_or_default(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+        def except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
             """
-            Gets the value for a given key if a matching key exists in the dictionary.
+            Removes all elements in the specified collection from the current set.
             
-            :param key: The key to search for.
-            :returns: The value for the key, or the default value for type TValue if no matching key was found.
+            :param other: The collection of items to remove from the set.
             """
             ...
 
-        @overload
-        def get_value_or_default(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, default_value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+        def get_enumerator(self) -> System.Collections.Immutable.ImmutableHashSet.Enumerator:
             """
-            Gets the value for a given key if a matching key exists in the dictionary.
+            Returns an enumerator that iterates through the collection.
             
-            :param key: The key to search for.
-            :param default_value: The default value to return if no matching key is found in the dictionary.
-            :returns: The value for the key, or  if no matching key was found.
+            :returns: A IEnumerator{T} that can be used to iterate through the collection.
             """
             ...
 
-        @overload
-        def remove(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-            """See IDictionary{TKey, TValue}"""
-            ...
-
-        @overload
-        def remove(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
-            """See IDictionary{TKey, TValue}"""
-            ...
-
-        def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> None:
+        def intersect_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
             """
-            Removes any entries from the dictionaries with keys that match those found in the specified sequence.
+            Modifies the current set so that it contains only elements that are also in a specified collection.
             
-            :param keys: The keys for entries to remove from the dictionary.
+            :param other: The collection to compare to the current set.
             """
             ...
 
-        def to_immutable(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
             """
-            Creates an immutable sorted dictionary based on the contents of this instance.
+            Determines whether the current set is a proper (strict) subset of a specified collection.
             
-            :returns: An immutable map.
+            :param other: The collection to compare to the current set.
+            :returns: true if the current set is a correct subset of other; otherwise, false.
             """
             ...
 
-        def try_get_key(self, equal_key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-            """See the IImmutableDictionary{TKey, TValue} interface."""
+        def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+            """
+            Determines whether the current set is a proper (strict) superset of a specified collection.
+            
+            :param other: The collection to compare to the current set.
+            :returns: true if the current set is a superset of other; otherwise, false.
+            """
             ...
 
-        def try_get_value(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-            """See IDictionary{TKey, TValue}"""
+        def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+            """
+            Determines whether the current set is a subset of a specified collection.
+            
+            :param other: The collection to compare to the current set.
+            :returns: true if the current set is a subset of other; otherwise, false.
+            """
             ...
 
-        def value_ref(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> typing.Any:
-            """Returns a read-only reference to the value associated with the provided key."""
+        def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+            """
+            Determines whether the current set is a superset of a specified collection.
+            
+            :param other: The collection to compare to the current set.
+            :returns: true if the current set is a superset of other; otherwise, false.
+            """
             ...
 
-    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]], System.Collections.Immutable.ISecurePooledObjectUser):
-        """Enumerates the contents of a binary tree."""
+        def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+            """
+            Determines whether the current set overlaps with the specified collection.
+            
+            :param other: The collection to compare to the current set.
+            :returns: true if the current set and other share at least one common element; otherwise, false.
+            """
+            ...
+
+        def remove(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> bool:
+            """
+            Removes the first occurrence of a specific object from the ICollection{T}.
+            
+            :param item: The object to remove from the ICollection{T}.
+            :returns: true if  was successfully removed from the ICollection{T}; otherwise, false. This method also returns false if  is not found in the original ICollection{T}.
+            """
+            ...
+
+        def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+            """
+            Determines whether the current set and the specified collection contain the same elements.
+            
+            :param other: The collection to compare to the current set.
+            :returns: true if the current set is equal to other; otherwise, false.
+            """
+            ...
+
+        def symmetric_except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
+            """
+            Modifies the current set so that it contains only elements that are present either in the current set or in the specified collection, but not both.
+            
+            :param other: The collection to compare to the current set.
+            """
+            ...
+
+        def to_immutable(self) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
+            """
+            Creates an immutable hash set based on the contents of this instance.
+            
+            :returns: An immutable set.
+            """
+            ...
+
+        def try_get_value(self, equal_value: System_Collections_Immutable_ImmutableHashSet_T, actual_value: typing.Optional[System_Collections_Immutable_ImmutableHashSet_T]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableHashSet_T]:
+            """
+            Searches the set for a given value and returns the equal value it finds, if any.
+            
+            :param equal_value: The value for which to search.
+            :param actual_value: The value from the set that the search found, or the original value if the search yielded no match.
+            :returns: A value indicating whether the search was successful.
+            """
+            ...
+
+        def union_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
+            """
+            Modifies the current set so that it contains all elements that are present in both the current set and in the specified collection.
+            
+            :param other: The collection to compare to the current set.
+            """
+            ...
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Immutable_ImmutableHashSet_T], System.Collections.Immutable.IStrongEnumerator[System_Collections_Immutable_ImmutableHashSet_T]):
+        """Enumerates the contents of the collection in an allocation-free manner."""
 
         @property
-        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-            """The current element."""
+        def current(self) -> System_Collections_Immutable_ImmutableHashSet_T:
+            """Gets the current element."""
             ...
 
         def dispose(self) -> None:
-            """Disposes of this enumerator and returns the stack reference to the resource pool."""
+            """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
             ...
 
         def move_next(self) -> bool:
             """
-            Advances enumeration to the next element.
+            Advances the enumerator to the next element of the collection.
             
-            :returns: A value indicating whether there is another element in the enumeration.
+            :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
             """
             ...
 
         def reset(self) -> None:
-            """Restarts enumeration."""
+            """Sets the enumerator to its initial position, which is before the first element in the collection."""
             ...
 
-    EMPTY: System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue] = ...
-    """An empty sorted dictionary with default sort and equality comparers."""
+    EMPTY: System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T] = ...
+    """An empty immutable hash set with the default comparer for T."""
 
     @property
-    def value_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """Gets the value comparer used to determine whether values are equal."""
+    def count(self) -> int:
+        """See the IImmutableSet{T} interface."""
         ...
 
     @property
     def is_empty(self) -> bool:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+        """See the IImmutableSet{T} interface."""
         ...
 
     @property
-    def count(self) -> int:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+    def key_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableHashSet_T]:
+        """See the IImmutableSet{T} interface."""
         ...
 
-    @property
-    def keys(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableHashSet_T]:
         ...
 
-    @property
-    def values(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+    def add(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
+        """See the IImmutableSet{T} interface."""
         ...
 
-    @property
-    def key_comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+    def clear(self) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
+        """See the IImmutableSet{T} interface."""
         ...
 
-    def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+    def contains(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> bool:
+        """See the IImmutableSet{T} interface."""
         ...
 
-    def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
-        """Gets the TValue with the specified key."""
+    def Except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
+        """See the IImmutableSet{T} interface."""
         ...
 
-    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def add(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
-        ...
-
-    def add_range(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
-        ...
-
-    def clear(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
-        ...
-
-    def contains(self, pair: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
-        ...
-
-    def contains_key(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
-        ...
-
-    def contains_value(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> bool:
-        """
-        Determines whether the ImmutableSortedDictionary{TKey, TValue}
-        contains an element with the specified value.
-        
-        :param value: The value to locate in the ImmutableSortedDictionary{TKey, TValue}. The value can be null for reference types.
-        :returns: true if the ImmutableSortedDictionary{TKey, TValue} contains an element with the specified value; otherwise, false.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Enumerator:
+    def get_enumerator(self) -> System.Collections.Immutable.ImmutableHashSet.Enumerator:
         """
         Returns an enumerator that iterates through the collection.
         
@@ -696,28 +652,78 @@ class ImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_Immu
         """
         ...
 
-    def remove(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+    def intersect(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
+        """See the IImmutableSet{T} interface."""
         ...
 
-    def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
-        ...
-
-    def set_item(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
-        ...
-
-    def set_items(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
         """
-        Applies a given set of key=value pairs to an immutable dictionary, replacing any conflicting keys in the resulting dictionary.
+        Determines whether the current set is a property (strict) subset of a specified collection.
         
-        :param items: The key=value pairs to set on the map.  Any keys that conflict with existing keys will overwrite the previous values.
-        :returns: An immutable dictionary.
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a correct subset of ; otherwise, false.
         """
         ...
 
-    def to_builder(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
+    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+        """
+        Determines whether the current set is a correct superset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a correct superset of ; otherwise, false.
+        """
+        ...
+
+    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+        """
+        Determines whether a set is a subset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a subset of ; otherwise, false.
+        """
+        ...
+
+    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+        """
+        Determines whether the current set is a superset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a superset of ; otherwise, false.
+        """
+        ...
+
+    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+        """
+        Determines whether the current set overlaps with the specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set and  share at least one common element; otherwise, false.
+        """
+        ...
+
+    def remove(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
+        """See the IImmutableSet{T} interface."""
+        ...
+
+    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
+        """
+        Checks whether a given sequence of items entirely describe the contents of this set.
+        
+        :param other: The sequence of items to check against this set.
+        :returns: A value indicating whether the sets are equal.
+        """
+        ...
+
+    def symmetric_except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
+        """
+        Produces a set that contains elements either in this set or a given sequence, but not both.
+        
+        :param other: The other sequence of items.
+        :returns: The new set.
+        """
+        ...
+
+    def to_builder(self) -> System.Collections.Immutable.ImmutableHashSet.Builder:
         """
         Creates a collection with the same contents as this collection that
         can be efficiently mutated across multiple operations using standard
@@ -725,31 +731,162 @@ class ImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_Immu
         """
         ...
 
-    def try_get_key(self, equal_key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+    def try_get_value(self, equal_value: System_Collections_Immutable_ImmutableHashSet_T, actual_value: typing.Optional[System_Collections_Immutable_ImmutableHashSet_T]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableHashSet_T]:
+        """
+        Searches the set for a given value and returns the equal value it finds, if any.
+        
+        :param equal_value: The value to search for.
+        :param actual_value: The value from the set that the search found, or the original value if the search yielded no match.
+        :returns: A value indicating whether the search was successful.
+        """
         ...
 
-    def try_get_value(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+    def union(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
+        """See the IImmutableSet{T} interface."""
         ...
 
-    def value_ref(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> typing.Any:
-        """Returns a read-only reference to the value associated with the provided key."""
+    def with_comparer(self, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
+        """See the IImmutableSet{T} interface."""
         ...
 
-    @overload
-    def with_comparers(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+
+class IImmutableSet(typing.Generic[System_Collections_Immutable_IImmutableSet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Immutable_IImmutableSet_T], metaclass=abc.ABCMeta):
+    """A set of elements that can only be modified by creating a new instance of the set."""
+
+    def add(self, value: System_Collections_Immutable_IImmutableSet_T) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        """
+        Adds the specified value to this set.
+        
+        :param value: The value to add.
+        :returns: A new set with the element added, or this set if the element is already in this set.
+        """
         ...
 
-    @overload
-    def with_comparers(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        """See the IImmutableDictionary{TKey, TValue} interface."""
+    def clear(self) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        """Gets an empty set that retains the same sort or unordered semantics that this instance has."""
+        ...
+
+    def contains(self, value: System_Collections_Immutable_IImmutableSet_T) -> bool:
+        """
+        Determines whether this set contains the specified value.
+        
+        :param value: The value.
+        :returns: true if the set contains the specified value; otherwise, false.
+        """
+        ...
+
+    def Except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        """
+        Removes a given set of items from this set.
+        
+        :param other: The items to remove from this set.
+        :returns: The new set with the items removed; or the original set if none of the items were in the set.
+        """
+        ...
+
+    def intersect(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        """
+        Produces a set that contains elements that exist in both this set and the specified set.
+        
+        :param other: The set to intersect with this one.
+        :returns: A new set that contains any elements that exist in both sets.
+        """
+        ...
+
+    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        """
+        Determines whether the current set is a proper (strict) subset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a correct subset of other; otherwise, false.
+        """
+        ...
+
+    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        """
+        Determines whether the current set is a proper superset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a correct superset of other; otherwise, false.
+        """
+        ...
+
+    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        """
+        Determines whether a set is a subset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a subset of other; otherwise, false.
+        """
+        ...
+
+    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        """
+        Determines whether the current set is a superset of a specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set is a superset of other; otherwise, false.
+        """
+        ...
+
+    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        """
+        Determines whether the current set overlaps with the specified collection.
+        
+        :param other: The collection to compare to the current set.
+        :returns: true if the current set and other share at least one common element; otherwise, false.
+        """
+        ...
+
+    def remove(self, value: System_Collections_Immutable_IImmutableSet_T) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        """
+        Removes the specified value from this set.
+        
+        :param value: The value to remove.
+        :returns: A new set with the element removed, or this set if the element is not in this set.
+        """
+        ...
+
+    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        """
+        Checks whether a given sequence of items entirely describe the contents of this set.
+        
+        :param other: The sequence of items to check against this set.
+        :returns: A value indicating whether the sets are equal.
+        """
+        ...
+
+    def symmetric_except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        """
+        Produces a set that contains elements either in this set or a given sequence, but not both.
+        
+        :param other: The other sequence of items.
+        :returns: The new set.
+        """
+        ...
+
+    def try_get_value(self, equal_value: System_Collections_Immutable_IImmutableSet_T, actual_value: typing.Optional[System_Collections_Immutable_IImmutableSet_T]) -> typing.Tuple[bool, System_Collections_Immutable_IImmutableSet_T]:
+        """
+        Searches the set for a given value and returns the equal value it finds, if any.
+        
+        :param equal_value: The value to search for.
+        :param actual_value: The value from the set that the search found, or  if the search yielded no match.
+        :returns: A value indicating whether the search was successful.
+        """
+        ...
+
+    def union(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        """
+        Adds a given set of items to this set.
+        
+        :param other: The items to add.
+        :returns: The new set with the items added; or the original set if all the items were already in the set.
+        """
         ...
 
 
 class ImmutableList(typing.Generic[System_Collections_Immutable_ImmutableList_T], System.Object, System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_T], System.Collections.Generic.IList[System_Collections_Immutable_ImmutableList_T], System.Collections.IList, System.Collections.Immutable.IStrongEnumerable[System_Collections_Immutable_ImmutableList_T, System_Collections_Immutable_ImmutableList_Enumerator], typing.Iterable[System_Collections_Immutable_ImmutableList_T]):
-    """A set of initialization methods for instances of ImmutableList{T}."""
+    """An immutable list implementation."""
 
     class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Immutable_ImmutableList_T], System.Collections.Immutable.ISecurePooledObjectUser, System.Collections.Immutable.IStrongEnumerator[System_Collections_Immutable_ImmutableList_T]):
         """Enumerates the contents of a binary tree."""
@@ -1795,423 +1932,24 @@ class ImmutableList(typing.Generic[System_Collections_Immutable_ImmutableList_T]
         ...
 
 
-class ImmutableQueue(typing.Generic[System_Collections_Immutable_ImmutableQueue_T], System.Object, System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_ImmutableQueue_T], typing.Iterable[System_Collections_Immutable_ImmutableQueue_T]):
-    """A set of initialization methods for instances of ImmutableQueue{T}."""
+class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_T], System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableArray_T], System.IEquatable[System_Collections_Immutable_ImmutableArray], System.Collections.Immutable.IImmutableArray, System.Collections.Generic.IList[System_Collections_Immutable_ImmutableArray_T], System.Collections.IList, System.Collections.IStructuralComparable, System.Collections.IStructuralEquatable, System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableArray_T], typing.Iterable[System_Collections_Immutable_ImmutableArray_T]):
+    """A readonly array with O(1) indexable lookup time."""
 
     class Enumerator:
-        """A memory allocation-free enumerator of ImmutableQueue{T}."""
+        """An array enumerator."""
 
         @property
-        def current(self) -> System_Collections_Immutable_ImmutableQueue_T:
-            """The current element."""
+        def current(self) -> System_Collections_Immutable_ImmutableArray_T:
+            """Gets the currently enumerated value."""
             ...
 
         def move_next(self) -> bool:
             """
-            Advances enumeration to the next element.
+            Advances to the next value to be enumerated.
             
-            :returns: A value indicating whether there is another element in the enumeration.
+            :returns: true if another item exists in the array; false otherwise.
             """
             ...
-
-    @property
-    def is_empty(self) -> bool:
-        """Gets a value indicating whether this instance is empty."""
-        ...
-
-    EMPTY: System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]
-    """Gets the empty queue."""
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableQueue_T]:
-        ...
-
-    def clear(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
-        """Gets the empty queue."""
-        ...
-
-    @overload
-    def dequeue(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
-        """
-        Returns a queue that is missing the front element.
-        
-        :returns: A queue; never null.
-        """
-        ...
-
-    @overload
-    def dequeue(self, value: typing.Optional[System_Collections_Immutable_ImmutableQueue_T]) -> typing.Tuple[System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T], System_Collections_Immutable_ImmutableQueue_T]:
-        """
-        Retrieves the item at the head of the queue, and returns a queue with the head element removed.
-        
-        :param value: Receives the value from the head of the queue.
-        :returns: The new queue with the head element removed.
-        """
-        ...
-
-    def enqueue(self, value: System_Collections_Immutable_ImmutableQueue_T) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
-        """
-        Adds an element to the back of the queue.
-        
-        :param value: The value.
-        :returns: The new queue.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Immutable.ImmutableQueue.Enumerator:
-        """
-        Returns an enumerator that iterates through the collection.
-        
-        :returns: An Enumerator that can be used to iterate through the collection.
-        """
-        ...
-
-    def peek(self) -> System_Collections_Immutable_ImmutableQueue_T:
-        """Gets the element at the front of the queue."""
-        ...
-
-    def peek_ref(self) -> typing.Any:
-        """Gets a read-only reference to the element at the front of the queue."""
-        ...
-
-
-class ImmutableHashSet(typing.Generic[System_Collections_Immutable_ImmutableHashSet_T], System.Object, System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_ImmutableHashSet_T], System.Collections.Generic.ISet[System_Collections_Immutable_ImmutableHashSet_T], System.Collections.ICollection, System.Collections.Immutable.IStrongEnumerable[System_Collections_Immutable_ImmutableHashSet_T, System_Collections_Immutable_ImmutableHashSet_Enumerator], typing.Iterable[System_Collections_Immutable_ImmutableHashSet_T]):
-    """A set of initialization methods for instances of ImmutableHashSet{T}."""
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Immutable_ImmutableHashSet_T], System.Collections.Immutable.IStrongEnumerator[System_Collections_Immutable_ImmutableHashSet_T]):
-        """Enumerates the contents of the collection in an allocation-free manner."""
-
-        @property
-        def current(self) -> System_Collections_Immutable_ImmutableHashSet_T:
-            """Gets the current element."""
-            ...
-
-        def dispose(self) -> None:
-            """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-            ...
-
-        def move_next(self) -> bool:
-            """
-            Advances the enumerator to the next element of the collection.
-            
-            :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-            """
-            ...
-
-        def reset(self) -> None:
-            """Sets the enumerator to its initial position, which is before the first element in the collection."""
-            ...
-
-    class Builder(System.Object, System.Collections.Generic.IReadOnlyCollection[System_Collections_Immutable_ImmutableHashSet_T], System.Collections.Generic.ISet[System_Collections_Immutable_ImmutableHashSet_T], typing.Iterable[System_Collections_Immutable_ImmutableHashSet_T]):
-        """
-        A hash set that mutates with little or no memory allocations,
-        can produce and/or build on immutable hash set instances very efficiently.
-        """
-
-        @property
-        def count(self) -> int:
-            """Gets the number of elements contained in the ICollection{T}."""
-            ...
-
-        @property
-        def key_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableHashSet_T]:
-            """Gets or sets the key comparer."""
-            ...
-
-        @key_comparer.setter
-        def key_comparer(self, value: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
-            ...
-
-        def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableHashSet_T]:
-            ...
-
-        def add(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> bool:
-            """
-            Adds the specified item.
-            
-            :param item: The item.
-            :returns: True if the item did not already belong to the collection.
-            """
-            ...
-
-        def clear(self) -> None:
-            """Removes all items from the ICollection{T}."""
-            ...
-
-        def contains(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> bool:
-            """
-            Determines whether the ICollection{T} contains a specific value.
-            
-            :param item: The object to locate in the ICollection{T}.
-            :returns: true if  is found in the ICollection{T}; otherwise, false.
-            """
-            ...
-
-        def except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
-            """
-            Removes all elements in the specified collection from the current set.
-            
-            :param other: The collection of items to remove from the set.
-            """
-            ...
-
-        def get_enumerator(self) -> System.Collections.Immutable.ImmutableHashSet.Enumerator:
-            """
-            Returns an enumerator that iterates through the collection.
-            
-            :returns: A IEnumerator{T} that can be used to iterate through the collection.
-            """
-            ...
-
-        def intersect_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
-            """
-            Modifies the current set so that it contains only elements that are also in a specified collection.
-            
-            :param other: The collection to compare to the current set.
-            """
-            ...
-
-        def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-            """
-            Determines whether the current set is a proper (strict) subset of a specified collection.
-            
-            :param other: The collection to compare to the current set.
-            :returns: true if the current set is a correct subset of other; otherwise, false.
-            """
-            ...
-
-        def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-            """
-            Determines whether the current set is a proper (strict) superset of a specified collection.
-            
-            :param other: The collection to compare to the current set.
-            :returns: true if the current set is a superset of other; otherwise, false.
-            """
-            ...
-
-        def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-            """
-            Determines whether the current set is a subset of a specified collection.
-            
-            :param other: The collection to compare to the current set.
-            :returns: true if the current set is a subset of other; otherwise, false.
-            """
-            ...
-
-        def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-            """
-            Determines whether the current set is a superset of a specified collection.
-            
-            :param other: The collection to compare to the current set.
-            :returns: true if the current set is a superset of other; otherwise, false.
-            """
-            ...
-
-        def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-            """
-            Determines whether the current set overlaps with the specified collection.
-            
-            :param other: The collection to compare to the current set.
-            :returns: true if the current set and other share at least one common element; otherwise, false.
-            """
-            ...
-
-        def remove(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> bool:
-            """
-            Removes the first occurrence of a specific object from the ICollection{T}.
-            
-            :param item: The object to remove from the ICollection{T}.
-            :returns: true if  was successfully removed from the ICollection{T}; otherwise, false. This method also returns false if  is not found in the original ICollection{T}.
-            """
-            ...
-
-        def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-            """
-            Determines whether the current set and the specified collection contain the same elements.
-            
-            :param other: The collection to compare to the current set.
-            :returns: true if the current set is equal to other; otherwise, false.
-            """
-            ...
-
-        def symmetric_except_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
-            """
-            Modifies the current set so that it contains only elements that are present either in the current set or in the specified collection, but not both.
-            
-            :param other: The collection to compare to the current set.
-            """
-            ...
-
-        def to_immutable(self) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
-            """
-            Creates an immutable hash set based on the contents of this instance.
-            
-            :returns: An immutable set.
-            """
-            ...
-
-        def try_get_value(self, equal_value: System_Collections_Immutable_ImmutableHashSet_T, actual_value: typing.Optional[System_Collections_Immutable_ImmutableHashSet_T]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableHashSet_T]:
-            """
-            Searches the set for a given value and returns the equal value it finds, if any.
-            
-            :param equal_value: The value for which to search.
-            :param actual_value: The value from the set that the search found, or the original value if the search yielded no match.
-            :returns: A value indicating whether the search was successful.
-            """
-            ...
-
-        def union_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> None:
-            """
-            Modifies the current set so that it contains all elements that are present in both the current set and in the specified collection.
-            
-            :param other: The collection to compare to the current set.
-            """
-            ...
-
-    EMPTY: System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T] = ...
-    """An empty immutable hash set with the default comparer for T."""
-
-    @property
-    def count(self) -> int:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    @property
-    def is_empty(self) -> bool:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    @property
-    def key_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableHashSet_T]:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableHashSet_T]:
-        ...
-
-    def add(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    def clear(self) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    def contains(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> bool:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    def Except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    def get_enumerator(self) -> System.Collections.Immutable.ImmutableHashSet.Enumerator:
-        """
-        Returns an enumerator that iterates through the collection.
-        
-        :returns: A IEnumerator{T} that can be used to iterate through the collection.
-        """
-        ...
-
-    def intersect(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-        """
-        Determines whether the current set is a property (strict) subset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a correct subset of ; otherwise, false.
-        """
-        ...
-
-    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-        """
-        Determines whether the current set is a correct superset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a correct superset of ; otherwise, false.
-        """
-        ...
-
-    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-        """
-        Determines whether a set is a subset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a subset of ; otherwise, false.
-        """
-        ...
-
-    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-        """
-        Determines whether the current set is a superset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a superset of ; otherwise, false.
-        """
-        ...
-
-    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-        """
-        Determines whether the current set overlaps with the specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set and  share at least one common element; otherwise, false.
-        """
-        ...
-
-    def remove(self, item: System_Collections_Immutable_ImmutableHashSet_T) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> bool:
-        """
-        Checks whether a given sequence of items entirely describe the contents of this set.
-        
-        :param other: The sequence of items to check against this set.
-        :returns: A value indicating whether the sets are equal.
-        """
-        ...
-
-    def symmetric_except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
-        """
-        Produces a set that contains elements either in this set or a given sequence, but not both.
-        
-        :param other: The other sequence of items.
-        :returns: The new set.
-        """
-        ...
-
-    def to_builder(self) -> System.Collections.Immutable.ImmutableHashSet.Builder:
-        """
-        Creates a collection with the same contents as this collection that
-        can be efficiently mutated across multiple operations using standard
-        mutable interfaces.
-        """
-        ...
-
-    def try_get_value(self, equal_value: System_Collections_Immutable_ImmutableHashSet_T, actual_value: typing.Optional[System_Collections_Immutable_ImmutableHashSet_T]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableHashSet_T]:
-        """
-        Searches the set for a given value and returns the equal value it finds, if any.
-        
-        :param equal_value: The value to search for.
-        :param actual_value: The value from the set that the search found, or the original value if the search yielded no match.
-        :returns: A value indicating whether the search was successful.
-        """
-        ...
-
-    def union(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-    def with_comparer(self, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableHashSet_T]) -> System.Collections.Immutable.ImmutableHashSet[System_Collections_Immutable_ImmutableHashSet_T]:
-        """See the IImmutableSet{T} interface."""
-        ...
-
-
-class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_T], System.Collections.Generic.IList[System_Collections_Immutable_ImmutableArray_T], System.IEquatable[System_Collections_Immutable_ImmutableArray], System.Collections.IList, System.Collections.Immutable.IImmutableArray, System.Collections.IStructuralComparable, System.Collections.IStructuralEquatable, System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableArray_T], System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableArray_T], typing.Iterable[System_Collections_Immutable_ImmutableArray_T]):
-    """A set of initialization methods for instances of ImmutableArray{T}."""
 
     class Builder(System.Object, System.Collections.Generic.IList[System_Collections_Immutable_ImmutableArray_T], System.Collections.Generic.IReadOnlyList[System_Collections_Immutable_ImmutableArray_T], typing.Iterable[System_Collections_Immutable_ImmutableArray_T]):
         """
@@ -2681,22 +2419,6 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
             """
             ...
 
-    class Enumerator:
-        """An array enumerator."""
-
-        @property
-        def current(self) -> System_Collections_Immutable_ImmutableArray_T:
-            """Gets the currently enumerated value."""
-            ...
-
-        def move_next(self) -> bool:
-            """
-            Advances to the next value to be enumerated.
-            
-            :returns: true if another item exists in the array; false otherwise.
-            """
-            ...
-
     EMPTY: System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T] = ...
 
     @property
@@ -2801,6 +2523,16 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
         ...
 
     @overload
+    def as_span(self, range: System.Range) -> System.ReadOnlySpan[System_Collections_Immutable_ImmutableArray_T]:
+        """
+        Creates a ReadOnlySpan{T} over the portion of current ImmutableArray{T} based on specified
+        
+        :param range: Range in current ImmutableArray{T}.
+        :returns: The ReadOnlySpan{T} representation of the ImmutableArray{T}.
+        """
+        ...
+
+    @overload
     def as_span(self) -> System.ReadOnlySpan[System_Collections_Immutable_ImmutableArray_T]:
         """
         Creates a new read-only span over this immutable array.
@@ -2816,16 +2548,6 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
         
         :param start: The index at which to begin the span.
         :param length: The number of items in the span.
-        :returns: The ReadOnlySpan{T} representation of the ImmutableArray{T}.
-        """
-        ...
-
-    @overload
-    def as_span(self, range: System.Range) -> System.ReadOnlySpan[System_Collections_Immutable_ImmutableArray_T]:
-        """
-        Creates a ReadOnlySpan{T} over the portion of current ImmutableArray{T} based on specified
-        
-        :param range: Range in current ImmutableArray{T}.
         :returns: The ReadOnlySpan{T} representation of the ImmutableArray{T}.
         """
         ...
@@ -2852,15 +2574,6 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
         :param item: The item to search for.
         :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
         :returns: true if an equal value was found in the array; false otherwise.
-        """
-        ...
-
-    @overload
-    def copy_to(self, destination: System.Span[System_Collections_Immutable_ImmutableArray_T]) -> None:
-        """
-        Copies the elements of current ImmutableArray{T} to an Span{T}.
-        
-        :param destination: The Span{T} that is the destination of the elements copied from current ImmutableArray{T}.
         """
         ...
 
@@ -2892,6 +2605,15 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
         :param destination: The array to copy to.
         :param destination_index: The index into the destination array to which the first copied element is written.
         :param length: The number of elements to copy.
+        """
+        ...
+
+    @overload
+    def copy_to(self, destination: System.Span[System_Collections_Immutable_ImmutableArray_T]) -> None:
+        """
+        Copies the elements of current ImmutableArray{T} to an Span{T}.
+        
+        :param destination: The Span{T} that is the destination of the elements copied from current ImmutableArray{T}.
         """
         ...
 
@@ -3299,240 +3021,6 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
         Returns a builder that is populated with the same contents as this array.
         
         :returns: The new builder.
-        """
-        ...
-
-
-class IImmutableList(typing.Generic[System_Collections_Immutable_IImmutableList_T], System.Collections.Generic.IReadOnlyList[System_Collections_Immutable_IImmutableList_T], metaclass=abc.ABCMeta):
-    """A list of elements that can only be modified by creating a new instance of the list."""
-
-    def add(self, value: System_Collections_Immutable_IImmutableList_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Adds the specified value to this list.
-        
-        :param value: The value to add.
-        :returns: A new list with the element added.
-        """
-        ...
-
-    def add_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Adds the specified values to this list.
-        
-        :param items: The values to add.
-        :returns: A new list with the elements added.
-        """
-        ...
-
-    def clear(self) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """Gets an empty list that retains the same sort semantics that this instance has."""
-        ...
-
-    def index_of(self, item: System_Collections_Immutable_IImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> int:
-        """
-        Searches for the specified object and returns the zero-based index of the
-        first occurrence within the range of elements in the ImmutableList{T}
-        that starts at the specified index and contains the specified number of elements.
-        
-        :param item: The object to locate in the ImmutableList{T}. The value can be null for reference types.
-        :param index: The zero-based starting index of the search. 0 (zero) is valid in an empty list.
-        :param count: The number of elements in the section to search.
-        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
-        :returns: The zero-based index of the first occurrence of item within the range of elements in the ImmutableList{T} that starts at index and contains count number of elements, if found; otherwise, -1.
-        """
-        ...
-
-    def insert(self, index: int, element: System_Collections_Immutable_IImmutableList_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Inserts the specified value at the specified index.
-        
-        :param index: The index at which to insert the value.
-        :param element: The element to insert.
-        :returns: The new immutable list.
-        """
-        ...
-
-    def insert_range(self, index: int, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Inserts the specified values at the specified index.
-        
-        :param index: The index at which to insert the value.
-        :param items: The elements to insert.
-        :returns: The new immutable list.
-        """
-        ...
-
-    def last_index_of(self, item: System_Collections_Immutable_IImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> int:
-        """
-        Searches for the specified object and returns the zero-based index of the
-        last occurrence within the range of elements in the ImmutableList{T}
-        that contains the specified number of elements and ends at the specified
-        index.
-        
-        :param item: The object to locate in the ImmutableList{T}. The value can be null for reference types.
-        :param index: The starting position of the search. The search proceeds from  toward the beginning of this instance.
-        :param count: The number of elements in the section to search.
-        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
-        :returns: The zero-based index of the last occurrence of  within the range of elements in the ImmutableList{T} that contains  number of elements and ends at , if found; otherwise, -1.
-        """
-        ...
-
-    def remove(self, value: System_Collections_Immutable_IImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Removes the specified value from this list.
-        
-        :param value: The value to remove.
-        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
-        :returns: A new list with the element removed, or this list if the element is not in this list.
-        """
-        ...
-
-    def remove_all(self, match: typing.Callable[[System_Collections_Immutable_IImmutableList_T], bool]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Removes all the elements that match the conditions defined by the specified
-        predicate.
-        
-        :param match: The Predicate{T} delegate that defines the conditions of the elements to remove.
-        :returns: The new list.
-        """
-        ...
-
-    def remove_at(self, index: int) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Removes the element at the specified index.
-        
-        :param index: The index.
-        :returns: A new list with the elements removed.
-        """
-        ...
-
-    @overload
-    def remove_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableList_T], equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Removes the specified values from this list.
-        
-        :param items: The items to remove if matches are found in this list.
-        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
-        :returns: A new list with the elements removed.
-        """
-        ...
-
-    @overload
-    def remove_range(self, index: int, count: int) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Removes the specified values from this list.
-        
-        :param index: The starting index to begin removal.
-        :param count: The number of elements to remove.
-        :returns: A new list with the elements removed.
-        """
-        ...
-
-    def replace(self, old_value: System_Collections_Immutable_IImmutableList_T, new_value: System_Collections_Immutable_IImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Replaces the first equal element in the list with the specified element.
-        
-        :param old_value: The element to replace.
-        :param new_value: The element to replace the old element with.
-        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
-        :returns: The new list -- even if the value being replaced is equal to the new value for that position.
-        """
-        ...
-
-    def set_item(self, index: int, value: System_Collections_Immutable_IImmutableList_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
-        """
-        Replaces an element in the list at a given position with the specified element.
-        
-        :param index: The position in the list of the element to replace.
-        :param value: The element to replace the old element with.
-        :returns: The new list -- even if the value being replaced is equal to the new value for that position.
-        """
-        ...
-
-
-class ImmutableStack(typing.Generic[System_Collections_Immutable_ImmutableStack_T], System.Object, System.Collections.Immutable.IImmutableStack[System_Collections_Immutable_ImmutableStack_T], typing.Iterable[System_Collections_Immutable_ImmutableStack_T]):
-    """An immutable stack."""
-
-    class Enumerator:
-        """Enumerates a stack with no memory allocations."""
-
-        @property
-        def current(self) -> System_Collections_Immutable_ImmutableStack_T:
-            """Gets the current element."""
-            ...
-
-        def move_next(self) -> bool:
-            """
-            Moves to the first or next element.
-            
-            :returns: A value indicating whether there are any more elements.
-            """
-            ...
-
-    EMPTY: System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]
-    """Gets the empty stack, upon which all stacks are built."""
-
-    @property
-    def is_empty(self) -> bool:
-        """Gets a value indicating whether this instance is empty."""
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableStack_T]:
-        ...
-
-    def clear(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
-        """Gets the empty stack, upon which all stacks are built."""
-        ...
-
-    def get_enumerator(self) -> System.Collections.Immutable.ImmutableStack.Enumerator:
-        """
-        Returns an enumerator that iterates through the collection.
-        
-        :returns: An Enumerator that can be used to iterate through the collection.
-        """
-        ...
-
-    def peek(self) -> System_Collections_Immutable_ImmutableStack_T:
-        """
-        Gets the element on the top of the stack.
-        
-        :returns: The element on the top of the stack.
-        """
-        ...
-
-    def peek_ref(self) -> typing.Any:
-        """
-        Gets a read-only reference to the element on the top of the stack.
-        
-        :returns: A read-only reference to the element on the top of the stack.
-        """
-        ...
-
-    @overload
-    def pop(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
-        """
-        Returns a stack that lacks the top element on this stack.
-        
-        :returns: A stack; never null.
-        """
-        ...
-
-    @overload
-    def pop(self, value: typing.Optional[System_Collections_Immutable_ImmutableStack_T]) -> typing.Tuple[System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T], System_Collections_Immutable_ImmutableStack_T]:
-        """
-        Pops the top element off the stack.
-        
-        :param value: The value that was removed from the stack.
-        :returns: A stack; never null.
-        """
-        ...
-
-    def push(self, value: System_Collections_Immutable_ImmutableStack_T) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
-        """
-        Pushes an element onto a stack and returns the new stack.
-        
-        :param value: The element to push onto the stack.
-        :returns: The new stack.
         """
         ...
 
@@ -3966,20 +3454,42 @@ class ImmutableSortedSet(typing.Generic[System_Collections_Immutable_ImmutableSo
         ...
 
 
-class IImmutableQueue(typing.Generic[System_Collections_Immutable_IImmutableQueue_T], System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableQueue_T], metaclass=abc.ABCMeta):
+class ImmutableQueue(typing.Generic[System_Collections_Immutable_ImmutableQueue_T], System.Object, System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_ImmutableQueue_T], typing.Iterable[System_Collections_Immutable_ImmutableQueue_T]):
     """An immutable queue."""
 
+    class Enumerator:
+        """A memory allocation-free enumerator of ImmutableQueue{T}."""
+
+        @property
+        def current(self) -> System_Collections_Immutable_ImmutableQueue_T:
+            """The current element."""
+            ...
+
+        def move_next(self) -> bool:
+            """
+            Advances enumeration to the next element.
+            
+            :returns: A value indicating whether there is another element in the enumeration.
+            """
+            ...
+
     @property
-    @abc.abstractmethod
     def is_empty(self) -> bool:
-        """Gets a value indicating whether this is the empty queue."""
+        """Gets a value indicating whether this instance is empty."""
         ...
 
-    def clear(self) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
-        """Gets an empty queue."""
+    EMPTY: System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]
+    """Gets the empty queue."""
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableQueue_T]:
         ...
 
-    def dequeue(self) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
+    def clear(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
+        """Gets the empty queue."""
+        ...
+
+    @overload
+    def dequeue(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
         """
         Returns a queue that is missing the front element.
         
@@ -3987,7 +3497,17 @@ class IImmutableQueue(typing.Generic[System_Collections_Immutable_IImmutableQueu
         """
         ...
 
-    def enqueue(self, value: System_Collections_Immutable_IImmutableQueue_T) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
+    @overload
+    def dequeue(self, value: typing.Optional[System_Collections_Immutable_ImmutableQueue_T]) -> typing.Tuple[System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T], System_Collections_Immutable_ImmutableQueue_T]:
+        """
+        Retrieves the item at the head of the queue, and returns a queue with the head element removed.
+        
+        :param value: Receives the value from the head of the queue.
+        :returns: The new queue with the head element removed.
+        """
+        ...
+
+    def enqueue(self, value: System_Collections_Immutable_ImmutableQueue_T) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
         """
         Adds an element to the back of the queue.
         
@@ -3996,11 +3516,591 @@ class IImmutableQueue(typing.Generic[System_Collections_Immutable_IImmutableQueu
         """
         ...
 
-    def peek(self) -> System_Collections_Immutable_IImmutableQueue_T:
+    def get_enumerator(self) -> System.Collections.Immutable.ImmutableQueue.Enumerator:
         """
-        Gets the element at the front of the queue.
+        Returns an enumerator that iterates through the collection.
         
-        :returns: The element at the front of the queue.
+        :returns: An Enumerator that can be used to iterate through the collection.
+        """
+        ...
+
+    def peek(self) -> System_Collections_Immutable_ImmutableQueue_T:
+        """Gets the element at the front of the queue."""
+        ...
+
+    def peek_ref(self) -> typing.Any:
+        """Gets a read-only reference to the element at the front of the queue."""
+        ...
+
+
+class ImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Object, System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]):
+    """A set of initialization methods for instances of ImmutableSortedDictionary{TKey, TValue}."""
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]], System.Collections.Immutable.ISecurePooledObjectUser):
+        """Enumerates the contents of a binary tree."""
+
+        @property
+        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            """The current element."""
+            ...
+
+        def dispose(self) -> None:
+            """Disposes of this enumerator and returns the stack reference to the resource pool."""
+            ...
+
+        def move_next(self) -> bool:
+            """
+            Advances enumeration to the next element.
+            
+            :returns: A value indicating whether there is another element in the enumeration.
+            """
+            ...
+
+        def reset(self) -> None:
+            """Restarts enumeration."""
+            ...
+
+    class Builder(System.Object, System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]):
+        """
+        A sorted dictionary that mutates with little or no memory allocations,
+        can produce and/or build on immutable sorted dictionary instances very efficiently.
+        """
+
+        @property
+        def keys(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+            """See IReadOnlyDictionary{TKey, TValue}"""
+            ...
+
+        @property
+        def values(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            """See IReadOnlyDictionary{TKey, TValue}"""
+            ...
+
+        @property
+        def count(self) -> int:
+            """Gets the number of elements in this map."""
+            ...
+
+        @property
+        def key_comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+            """Gets or sets the key comparer."""
+            ...
+
+        @key_comparer.setter
+        def key_comparer(self, value: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> None:
+            ...
+
+        @property
+        def value_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            """Gets or sets the value comparer."""
+            ...
+
+        @value_comparer.setter
+        def value_comparer(self, value: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> None:
+            ...
+
+        def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+            """
+            Gets or sets the value for a given key.
+            
+            :param key: The key.
+            :returns: The value associated with the given key.
+            """
+            ...
+
+        def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
+            ...
+
+        def __len__(self) -> int:
+            ...
+
+        def __setitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> None:
+            """
+            Gets or sets the value for a given key.
+            
+            :param key: The key.
+            :returns: The value associated with the given key.
+            """
+            ...
+
+        @overload
+        def add(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> None:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        @overload
+        def add(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> None:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        def add_range(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> None:
+            """
+            Removes any entries from the dictionaries with keys that match those found in the specified sequence.
+            
+            :param items: The keys for entries to remove from the dictionary.
+            """
+            ...
+
+        def clear(self) -> None:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        def contains(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        def contains_key(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        def contains_value(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> bool:
+            """
+            Determines whether the ImmutableSortedDictionary{TKey, TValue}
+            contains an element with the specified value.
+            
+            :param value: The value to locate in the ImmutableSortedDictionary{TKey, TValue}. The value can be null for reference types.
+            :returns: true if the ImmutableSortedDictionary{TKey, TValue} contains an element with the specified value; otherwise, false.
+            """
+            ...
+
+        def get_enumerator(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Enumerator:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        @overload
+        def get_value_or_default(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+            """
+            Gets the value for a given key if a matching key exists in the dictionary.
+            
+            :param key: The key to search for.
+            :returns: The value for the key, or the default value for type TValue if no matching key was found.
+            """
+            ...
+
+        @overload
+        def get_value_or_default(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, default_value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+            """
+            Gets the value for a given key if a matching key exists in the dictionary.
+            
+            :param key: The key to search for.
+            :param default_value: The default value to return if no matching key is found in the dictionary.
+            :returns: The value for the key, or  if no matching key was found.
+            """
+            ...
+
+        @overload
+        def remove(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        @overload
+        def remove(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> None:
+            """
+            Removes any entries from the dictionaries with keys that match those found in the specified sequence.
+            
+            :param keys: The keys for entries to remove from the dictionary.
+            """
+            ...
+
+        def to_immutable(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            """
+            Creates an immutable sorted dictionary based on the contents of this instance.
+            
+            :returns: An immutable map.
+            """
+            ...
+
+        def try_get_key(self, equal_key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+            """See the IImmutableDictionary{TKey, TValue} interface."""
+            ...
+
+        def try_get_value(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            """See IDictionary{TKey, TValue}"""
+            ...
+
+        def value_ref(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> typing.Any:
+            """Returns a read-only reference to the value associated with the provided key."""
+            ...
+
+    EMPTY: System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue] = ...
+    """An empty sorted dictionary with default sort and equality comparers."""
+
+    @property
+    def value_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """Gets the value comparer used to determine whether values are equal."""
+        ...
+
+    @property
+    def is_empty(self) -> bool:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    @property
+    def count(self) -> int:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    @property
+    def keys(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    @property
+    def values(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    @property
+    def key_comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+        """Gets the TValue with the specified key."""
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def add(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def add_range(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def clear(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def contains(self, pair: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def contains_key(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def contains_value(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> bool:
+        """
+        Determines whether the ImmutableSortedDictionary{TKey, TValue}
+        contains an element with the specified value.
+        
+        :param value: The value to locate in the ImmutableSortedDictionary{TKey, TValue}. The value can be null for reference types.
+        :returns: true if the ImmutableSortedDictionary{TKey, TValue} contains an element with the specified value; otherwise, false.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Enumerator:
+        """
+        Returns an enumerator that iterates through the collection.
+        
+        :returns: A IEnumerator{T} that can be used to iterate through the collection.
+        """
+        ...
+
+    def remove(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def set_item(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def set_items(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """
+        Applies a given set of key=value pairs to an immutable dictionary, replacing any conflicting keys in the resulting dictionary.
+        
+        :param items: The key=value pairs to set on the map.  Any keys that conflict with existing keys will overwrite the previous values.
+        :returns: An immutable dictionary.
+        """
+        ...
+
+    def to_builder(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
+        """
+        Creates a collection with the same contents as this collection that
+        can be efficiently mutated across multiple operations using standard
+        mutable interfaces.
+        """
+        ...
+
+    def try_get_key(self, equal_key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def try_get_value(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    def value_ref(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> typing.Any:
+        """Returns a read-only reference to the value associated with the provided key."""
+        ...
+
+    @overload
+    def with_comparers(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+    @overload
+    def with_comparers(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        """See the IImmutableDictionary{TKey, TValue} interface."""
+        ...
+
+
+class ImmutableStack(typing.Generic[System_Collections_Immutable_ImmutableStack_T], System.Object, System.Collections.Immutable.IImmutableStack[System_Collections_Immutable_ImmutableStack_T], typing.Iterable[System_Collections_Immutable_ImmutableStack_T]):
+    """An immutable stack."""
+
+    class Enumerator:
+        """Enumerates a stack with no memory allocations."""
+
+        @property
+        def current(self) -> System_Collections_Immutable_ImmutableStack_T:
+            """Gets the current element."""
+            ...
+
+        def move_next(self) -> bool:
+            """
+            Moves to the first or next element.
+            
+            :returns: A value indicating whether there are any more elements.
+            """
+            ...
+
+    EMPTY: System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]
+    """Gets the empty stack, upon which all stacks are built."""
+
+    @property
+    def is_empty(self) -> bool:
+        """Gets a value indicating whether this instance is empty."""
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableStack_T]:
+        ...
+
+    def clear(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
+        """Gets the empty stack, upon which all stacks are built."""
+        ...
+
+    def get_enumerator(self) -> System.Collections.Immutable.ImmutableStack.Enumerator:
+        """
+        Returns an enumerator that iterates through the collection.
+        
+        :returns: An Enumerator that can be used to iterate through the collection.
+        """
+        ...
+
+    def peek(self) -> System_Collections_Immutable_ImmutableStack_T:
+        """
+        Gets the element on the top of the stack.
+        
+        :returns: The element on the top of the stack.
+        """
+        ...
+
+    def peek_ref(self) -> typing.Any:
+        """
+        Gets a read-only reference to the element on the top of the stack.
+        
+        :returns: A read-only reference to the element on the top of the stack.
+        """
+        ...
+
+    @overload
+    def pop(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
+        """
+        Returns a stack that lacks the top element on this stack.
+        
+        :returns: A stack; never null.
+        """
+        ...
+
+    @overload
+    def pop(self, value: typing.Optional[System_Collections_Immutable_ImmutableStack_T]) -> typing.Tuple[System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T], System_Collections_Immutable_ImmutableStack_T]:
+        """
+        Pops the top element off the stack.
+        
+        :param value: The value that was removed from the stack.
+        :returns: A stack; never null.
+        """
+        ...
+
+    def push(self, value: System_Collections_Immutable_ImmutableStack_T) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
+        """
+        Pushes an element onto a stack and returns the new stack.
+        
+        :param value: The element to push onto the stack.
+        :returns: The new stack.
+        """
+        ...
+
+
+class ImmutableInterlocked(System.Object):
+    """Contains interlocked exchange mechanisms for immutable collections."""
+
+
+class IImmutableList(typing.Generic[System_Collections_Immutable_IImmutableList_T], System.Collections.Generic.IReadOnlyList[System_Collections_Immutable_IImmutableList_T], metaclass=abc.ABCMeta):
+    """A list of elements that can only be modified by creating a new instance of the list."""
+
+    def add(self, value: System_Collections_Immutable_IImmutableList_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Adds the specified value to this list.
+        
+        :param value: The value to add.
+        :returns: A new list with the element added.
+        """
+        ...
+
+    def add_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Adds the specified values to this list.
+        
+        :param items: The values to add.
+        :returns: A new list with the elements added.
+        """
+        ...
+
+    def clear(self) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """Gets an empty list that retains the same sort semantics that this instance has."""
+        ...
+
+    def index_of(self, item: System_Collections_Immutable_IImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> int:
+        """
+        Searches for the specified object and returns the zero-based index of the
+        first occurrence within the range of elements in the ImmutableList{T}
+        that starts at the specified index and contains the specified number of elements.
+        
+        :param item: The object to locate in the ImmutableList{T}. The value can be null for reference types.
+        :param index: The zero-based starting index of the search. 0 (zero) is valid in an empty list.
+        :param count: The number of elements in the section to search.
+        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
+        :returns: The zero-based index of the first occurrence of item within the range of elements in the ImmutableList{T} that starts at index and contains count number of elements, if found; otherwise, -1.
+        """
+        ...
+
+    def insert(self, index: int, element: System_Collections_Immutable_IImmutableList_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Inserts the specified value at the specified index.
+        
+        :param index: The index at which to insert the value.
+        :param element: The element to insert.
+        :returns: The new immutable list.
+        """
+        ...
+
+    def insert_range(self, index: int, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Inserts the specified values at the specified index.
+        
+        :param index: The index at which to insert the value.
+        :param items: The elements to insert.
+        :returns: The new immutable list.
+        """
+        ...
+
+    def last_index_of(self, item: System_Collections_Immutable_IImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> int:
+        """
+        Searches for the specified object and returns the zero-based index of the
+        last occurrence within the range of elements in the ImmutableList{T}
+        that contains the specified number of elements and ends at the specified
+        index.
+        
+        :param item: The object to locate in the ImmutableList{T}. The value can be null for reference types.
+        :param index: The starting position of the search. The search proceeds from  toward the beginning of this instance.
+        :param count: The number of elements in the section to search.
+        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
+        :returns: The zero-based index of the last occurrence of  within the range of elements in the ImmutableList{T} that contains  number of elements and ends at , if found; otherwise, -1.
+        """
+        ...
+
+    def remove(self, value: System_Collections_Immutable_IImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Removes the specified value from this list.
+        
+        :param value: The value to remove.
+        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
+        :returns: A new list with the element removed, or this list if the element is not in this list.
+        """
+        ...
+
+    def remove_all(self, match: typing.Callable[[System_Collections_Immutable_IImmutableList_T], bool]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Removes all the elements that match the conditions defined by the specified
+        predicate.
+        
+        :param match: The Predicate{T} delegate that defines the conditions of the elements to remove.
+        :returns: The new list.
+        """
+        ...
+
+    def remove_at(self, index: int) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Removes the element at the specified index.
+        
+        :param index: The index.
+        :returns: A new list with the elements removed.
+        """
+        ...
+
+    @overload
+    def remove_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableList_T], equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Removes the specified values from this list.
+        
+        :param items: The items to remove if matches are found in this list.
+        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
+        :returns: A new list with the elements removed.
+        """
+        ...
+
+    @overload
+    def remove_range(self, index: int, count: int) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Removes the specified values from this list.
+        
+        :param index: The starting index to begin removal.
+        :param count: The number of elements to remove.
+        :returns: A new list with the elements removed.
+        """
+        ...
+
+    def replace(self, old_value: System_Collections_Immutable_IImmutableList_T, new_value: System_Collections_Immutable_IImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_IImmutableList_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Replaces the first equal element in the list with the specified element.
+        
+        :param old_value: The element to replace.
+        :param new_value: The element to replace the old element with.
+        :param equality_comparer: The equality comparer to use in the search. If null, EqualityComparer{T}.Default is used.
+        :returns: The new list -- even if the value being replaced is equal to the new value for that position.
+        """
+        ...
+
+    def set_item(self, index: int, value: System_Collections_Immutable_IImmutableList_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_IImmutableList_T]:
+        """
+        Replaces an element in the list at a given position with the specified element.
+        
+        :param index: The position in the list of the element to replace.
+        :param value: The element to replace the old element with.
+        :returns: The new list -- even if the value being replaced is equal to the new value for that position.
         """
         ...
 
@@ -4123,141 +4223,41 @@ class IImmutableStack(typing.Generic[System_Collections_Immutable_IImmutableStac
         ...
 
 
-class ImmutableInterlocked(System.Object):
-    """Contains interlocked exchange mechanisms for immutable collections."""
+class IImmutableQueue(typing.Generic[System_Collections_Immutable_IImmutableQueue_T], System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableQueue_T], metaclass=abc.ABCMeta):
+    """An immutable queue."""
 
+    @property
+    @abc.abstractmethod
+    def is_empty(self) -> bool:
+        """Gets a value indicating whether this is the empty queue."""
+        ...
 
-class IImmutableSet(typing.Generic[System_Collections_Immutable_IImmutableSet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Immutable_IImmutableSet_T], metaclass=abc.ABCMeta):
-    """A set of elements that can only be modified by creating a new instance of the set."""
+    def clear(self) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
+        """Gets an empty queue."""
+        ...
 
-    def add(self, value: System_Collections_Immutable_IImmutableSet_T) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+    def dequeue(self) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
         """
-        Adds the specified value to this set.
+        Returns a queue that is missing the front element.
         
-        :param value: The value to add.
-        :returns: A new set with the element added, or this set if the element is already in this set.
+        :returns: A queue; never null.
         """
         ...
 
-    def clear(self) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        """Gets an empty set that retains the same sort or unordered semantics that this instance has."""
-        ...
-
-    def contains(self, value: System_Collections_Immutable_IImmutableSet_T) -> bool:
+    def enqueue(self, value: System_Collections_Immutable_IImmutableQueue_T) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
         """
-        Determines whether this set contains the specified value.
+        Adds an element to the back of the queue.
         
         :param value: The value.
-        :returns: true if the set contains the specified value; otherwise, false.
+        :returns: The new queue.
         """
         ...
 
-    def Except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+    def peek(self) -> System_Collections_Immutable_IImmutableQueue_T:
         """
-        Removes a given set of items from this set.
+        Gets the element at the front of the queue.
         
-        :param other: The items to remove from this set.
-        :returns: The new set with the items removed; or the original set if none of the items were in the set.
-        """
-        ...
-
-    def intersect(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        """
-        Produces a set that contains elements that exist in both this set and the specified set.
-        
-        :param other: The set to intersect with this one.
-        :returns: A new set that contains any elements that exist in both sets.
-        """
-        ...
-
-    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        """
-        Determines whether the current set is a proper (strict) subset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a correct subset of other; otherwise, false.
-        """
-        ...
-
-    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        """
-        Determines whether the current set is a proper superset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a correct superset of other; otherwise, false.
-        """
-        ...
-
-    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        """
-        Determines whether a set is a subset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a subset of other; otherwise, false.
-        """
-        ...
-
-    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        """
-        Determines whether the current set is a superset of a specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set is a superset of other; otherwise, false.
-        """
-        ...
-
-    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        """
-        Determines whether the current set overlaps with the specified collection.
-        
-        :param other: The collection to compare to the current set.
-        :returns: true if the current set and other share at least one common element; otherwise, false.
-        """
-        ...
-
-    def remove(self, value: System_Collections_Immutable_IImmutableSet_T) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        """
-        Removes the specified value from this set.
-        
-        :param value: The value to remove.
-        :returns: A new set with the element removed, or this set if the element is not in this set.
-        """
-        ...
-
-    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        """
-        Checks whether a given sequence of items entirely describe the contents of this set.
-        
-        :param other: The sequence of items to check against this set.
-        :returns: A value indicating whether the sets are equal.
-        """
-        ...
-
-    def symmetric_except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        """
-        Produces a set that contains elements either in this set or a given sequence, but not both.
-        
-        :param other: The other sequence of items.
-        :returns: The new set.
-        """
-        ...
-
-    def try_get_value(self, equal_value: System_Collections_Immutable_IImmutableSet_T, actual_value: typing.Optional[System_Collections_Immutable_IImmutableSet_T]) -> typing.Tuple[bool, System_Collections_Immutable_IImmutableSet_T]:
-        """
-        Searches the set for a given value and returns the equal value it finds, if any.
-        
-        :param equal_value: The value to search for.
-        :param actual_value: The value from the set that the search found, or  if the search yielded no match.
-        :returns: A value indicating whether the search was successful.
-        """
-        ...
-
-    def union(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        """
-        Adds a given set of items to this set.
-        
-        :param other: The items to add.
-        :returns: The new set with the items added; or the original set if all the items were already in the set.
+        :returns: The element at the front of the queue.
         """
         ...
 

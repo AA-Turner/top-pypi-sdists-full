@@ -23,24 +23,11 @@ class If(BaseFn):
     tags = ["functions", "if"]
 
     def __init__(self) -> None:
-        super().__init__("Fn::If", all_types)
+        super().__init__(
+            "Fn::If",
+            all_types,
+        )
         self.child_rules["W1028"] = None
-
-    def schema(self, validator, instance) -> dict[str, Any]:
-        return {
-            "type": ["array"],
-            "minItems": 3,
-            "maxItems": 3,
-            "fn_items": [
-                {
-                    "functions": [],
-                    "schema": {
-                        "type": ["string"],
-                        "enum": list(validator.context.conditions.conditions.keys()),
-                    },
-                },
-            ],
-        }
 
     def fn_if(
         self, validator: Validator, s: Any, instance: Any, schema: Any
@@ -53,7 +40,7 @@ class If(BaseFn):
         errs.extend(
             list(
                 self.fix_errors(
-                    self.validator(validator).descend(
+                    self.validator(validator, schema).descend(
                         value,
                         self.schema(validator, instance),
                         path=key,

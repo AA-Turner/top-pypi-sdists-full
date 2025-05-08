@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cognite-sdk
-Version: 7.74.5
+Version: 7.75.0
 Summary: Cognite Python SDK
 License: Apache-2.0
 Author: Erlend Vollset

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import http
 import os
 import typing
@@ -53,6 +54,32 @@ class CommHandler:
         self._api_origin = client.api_origin
         self._fns = {fn.get_id(): fn for fn in functions}
         self._framework = framework
+
+        # TODO: Graduate this to a config option, rather than an env var.
+        thread_pool_max_workers = env_lib.get_int(
+            const.EnvKey.THREAD_POOL_MAX_WORKERS,
+        )
+        if thread_pool_max_workers == 0:
+            self._client.logger.debug(
+                "Skipping thread pool creation because max workers is 0",
+            )
+            self._thread_pool = None
+        else:
+            # We need a thread pool when both of the following are true:
+            # 1. CommHandler is called from an async context (e.g. using FastAPI
+            #   or Connect).
+            # 2. Executing a non-async function.
+            #
+            # When the aforementioned situation happens, we need a thread pool
+            # to run the function in a non-blocking way. Without a thread pool,
+            # blocking operations will block the event loop.
+            #
+            # We don't need the thread pool when CommHandler is called from a
+            # non-async context because we can assume that the HTTP framework
+            # (e.g.  Flask) created a thread for the request.
+            self._thread_pool = concurrent.futures.ThreadPoolExecutor(
+                max_workers=thread_pool_max_workers,
+            )
 
         signing_key = client.signing_key
         if signing_key is None:
@@ -139,6 +166,7 @@ class CommHandler:
             request,
             step_lib.StepMemos.from_raw(steps),
             params.step_id,
+            self._thread_pool,
         )
 
         return CommResponse.from_call_result(

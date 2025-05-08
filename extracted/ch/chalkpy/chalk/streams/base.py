@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 
 
@@ -12,8 +13,11 @@ class StreamSource:
     def _config_to_json(self) -> Any:
         return self.config_to_json()  # for backcompat
 
-    def config_to_json(self):
+    def config_to_json(self) -> str:
         raise NotImplementedError()
+
+    def config_to_dict(self) -> dict:
+        return json.loads(self.config_to_json())
 
     def _recreate_integration_variables(self) -> dict[str, str]:
         raise NotImplementedError()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.43.0
+Version: 0.44.0
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
@@ -10,7 +10,7 @@ License-File: LICENSE
 Requires-Python: <=3.13,>=3.10
 Requires-Dist: chromadb>=0.4.22
 Requires-Dist: click>=8.1.8
-Requires-Dist: crewai>=0.117.1
+Requires-Dist: crewai>=0.118.0
 Requires-Dist: docker>=7.1.0
 Requires-Dist: embedchain>=0.1.114
 Requires-Dist: lancedb>=0.5.4
@@ -33,6 +33,9 @@ Provides-Extra: exa-py
 Requires-Dist: exa-py>=1.8.7; extra == 'exa-py'
 Provides-Extra: firecrawl-py
 Requires-Dist: firecrawl-py>=1.8.0; extra == 'firecrawl-py'
+Provides-Extra: github
+Requires-Dist: gitpython==3.1.38; extra == 'github'
+Requires-Dist: pygithub==1.59.1; extra == 'github'
 Provides-Extra: hyperbrowser
 Requires-Dist: hyperbrowser>=0.18.0; extra == 'hyperbrowser'
 Provides-Extra: linkup-sdk
@@ -64,6 +67,8 @@ Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy>=2.0.35; extra == 'sqlalchemy'
 Provides-Extra: weaviate-client
 Requires-Dist: weaviate-client>=4.10.2; extra == 'weaviate-client'
+Provides-Extra: xml
+Requires-Dist: unstructured[all-docs,local-inference]>=0.17.2; extra == 'xml'
 Description-Content-Type: text/markdown
 
 <div align="center">

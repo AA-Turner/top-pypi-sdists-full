@@ -225,6 +225,47 @@ route53.ARecord(self, "AliasRecord",
 )
 ```
 
+If Elastic Beanstalk environment URL is not avaiable at synth time, you can specify Hosted Zone ID of the target
+
+```python
+from aws_cdk.region_info import RegionInfo
+
+# zone: route53.HostedZone
+# ebs_environment_url: str
+
+
+route53.ARecord(self, "AliasRecord",
+    zone=zone,
+    target=route53.RecordTarget.from_alias(
+        targets.ElasticBeanstalkEnvironmentEndpointTarget(ebs_environment_url, {
+            "hosted_zone_id": RegionInfo.get("us-east-1").ebs_env_endpoint_hosted_zone_id
+        }))
+)
+```
+
+Or you can specify Stack region for CDK to generate the correct Hosted Zone ID.
+
+```python
+from aws_cdk import App
+
+# app: App
+# zone: route53.HostedZone
+# ebs_environment_url: str
+
+
+stack = Stack(app, "my-stack",
+    env=Environment(
+        region="us-east-1"
+    )
+)
+
+route53.ARecord(stack, "AliasRecord",
+    zone=zone,
+    target=route53.RecordTarget.from_alias(
+        targets.ElasticBeanstalkEnvironmentEndpointTarget(ebs_environment_url))
+)
+```
+
 See the documentation of `aws-cdk-lib/aws-route53` for more information.
 '''
 from pkgutil import extend_path
@@ -652,6 +693,8 @@ class ElasticBeanstalkEnvironmentEndpointTarget(
 
     Example::
 
+        from aws_cdk.region_info import RegionInfo
+        
         # zone: route53.HostedZone
         # ebs_environment_url: str
         
@@ -660,7 +703,7 @@ class ElasticBeanstalkEnvironmentEndpointTarget(
             zone=zone,
             target=route53.RecordTarget.from_alias(
                 targets.ElasticBeanstalkEnvironmentEndpointTarget(ebs_environment_url, {
-                    "evaluate_target_health": True
+                    "hosted_zone_id": RegionInfo.get("us-east-1").ebs_env_endpoint_hosted_zone_id
                 }))
         )
     '''
@@ -818,6 +861,15 @@ class IAliasRecordTargetProps(typing_extensions.Protocol):
         '''
         ...
 
+    @builtins.property
+    @jsii.member(jsii_name="hostedZoneId")
+    def hosted_zone_id(self) -> typing.Optional[builtins.str]:
+        '''Target Hosted zone ID.
+
+        :default: - hosted zone ID for the EBS endpoint will be retrieved based on the stack's region.
+        '''
+        ...
+
 
 class _IAliasRecordTargetPropsProxy:
     '''Properties the alias record target.'''
@@ -832,6 +884,15 @@ class _IAliasRecordTargetPropsProxy:
         :default: - no health check configuration
         '''
         return typing.cast(typing.Optional[builtins.bool], jsii.get(self, "evaluateTargetHealth"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hostedZoneId")
+    def hosted_zone_id(self) -> typing.Optional[builtins.str]:
+        '''Target Hosted zone ID.
+
+        :default: - hosted zone ID for the EBS endpoint will be retrieved based on the stack's region.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hostedZoneId"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAliasRecordTargetProps).__jsii_proxy_class__ = lambda : _IAliasRecordTargetPropsProxy

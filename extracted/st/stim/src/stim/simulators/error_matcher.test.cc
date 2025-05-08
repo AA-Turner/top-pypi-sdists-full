@@ -39,23 +39,29 @@ TEST(ErrorMatcher, X_ERROR) {
             },
             {
                 CircuitErrorLocation{
-                    0,
-                    {
-                        {GateTarget::x(0), {5, 6}},
-                    },
-                    FlippedMeasurement{UINT64_MAX, {}},
-                    CircuitTargetsInsideInstruction{
-                        GateType::X_ERROR,
-                        {0.25},
-                        0,
-                        1,
+                    .noise_tag = "",
+                    .tick_offset = 0,
+                    .flipped_pauli_product =
                         {
-                            {GateTarget::qubit(0), {5, 6}},
+                            {GateTarget::x(0), {5, 6}},
                         },
-                    },
-                    {
-                        CircuitErrorLocationStackFrame{1, 0, 0},
-                    },
+                    .flipped_measurement = FlippedMeasurement{UINT64_MAX, {}},
+                    .instruction_targets =
+                        CircuitTargetsInsideInstruction{
+                            .gate_type = GateType::X_ERROR,
+                            .gate_tag = "",
+                            .args = {0.25},
+                            .target_range_start = 0,
+                            .target_range_end = 1,
+                            .targets_in_range =
+                                {
+                                    {GateTarget::qubit(0), {5, 6}},
+                                },
+                        },
+                    .stack_frames =
+                        {
+                            CircuitErrorLocationStackFrame{1, 0, 0},
+                        },
                 },
             }},
     };

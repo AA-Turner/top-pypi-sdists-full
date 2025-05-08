@@ -6,7 +6,7 @@ from .types.text_to_voice_create_previews_request_output_format import (
     TextToVoiceCreatePreviewsRequestOutputFormat,
 )
 from ..core.request_options import RequestOptions
-from ..types.voice_previews_response_model import VoicePreviewsResponseModel
+from ..types.voice_design_preview_response import VoiceDesignPreviewResponse
 from ..core.unchecked_base_model import construct_type
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.http_validation_error import HttpValidationError
@@ -35,9 +35,9 @@ class TextToVoiceClient:
         seed: typing.Optional[int] = OMIT,
         guidance_scale: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> VoicePreviewsResponseModel:
+    ) -> VoiceDesignPreviewResponse:
         """
-        Generate a custom voice based on voice description. This method returns a list of voice previews. Each preview has a generated_voice_id and a sample of the voice as base64 encoded mp3 audio. If you like the a voice previewand want to create the voice call /v1/text-to-voice/create-voice-from-preview with the generated_voice_id to create the voice.
+        Create a voice from a text prompt.
 
         Parameters
         ----------
@@ -45,7 +45,7 @@ class TextToVoiceClient:
             Description to use for the created voice.
 
         output_format : typing.Optional[TextToVoiceCreatePreviewsRequestOutputFormat]
-            Output format of the generated audio. Formatted as codec_sample_rate_bitrate. So an mp3 with 22.05kHz sample rate at 32kbs is represented as mp3_22050_32. MP3 with 192kbps bitrate requires you to be subscribed to Creator tier or above. PCM with 44.1kHz sample rate requires you to be subscribed to Pro tier or above. Note that the μ-law format (sometimes written mu-law, often approximated as u-law) is commonly used for Twilio audio inputs.
+            The output format of the generated audio.
 
         text : typing.Optional[str]
             Text to generate, text length has to be between 100 and 1000.
@@ -70,7 +70,7 @@ class TextToVoiceClient:
 
         Returns
         -------
-        VoicePreviewsResponseModel
+        VoiceDesignPreviewResponse
             Successful Response
 
         Examples
@@ -109,9 +109,9 @@ class TextToVoiceClient:
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    VoicePreviewsResponseModel,
+                    VoiceDesignPreviewResponse,
                     construct_type(
-                        type_=VoicePreviewsResponseModel,  # type: ignore
+                        type_=VoiceDesignPreviewResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -141,7 +141,7 @@ class TextToVoiceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Voice:
         """
-        Create a voice from previously generated voice preview. This endpoint should be called after you fetched a generated_voice_id using POST /v1/text-to-voice/create-previews.
+        Add a generated voice to the voice library.
 
         Parameters
         ----------
@@ -239,9 +239,9 @@ class AsyncTextToVoiceClient:
         seed: typing.Optional[int] = OMIT,
         guidance_scale: typing.Optional[float] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> VoicePreviewsResponseModel:
+    ) -> VoiceDesignPreviewResponse:
         """
-        Generate a custom voice based on voice description. This method returns a list of voice previews. Each preview has a generated_voice_id and a sample of the voice as base64 encoded mp3 audio. If you like the a voice previewand want to create the voice call /v1/text-to-voice/create-voice-from-preview with the generated_voice_id to create the voice.
+        Create a voice from a text prompt.
 
         Parameters
         ----------
@@ -249,7 +249,7 @@ class AsyncTextToVoiceClient:
             Description to use for the created voice.
 
         output_format : typing.Optional[TextToVoiceCreatePreviewsRequestOutputFormat]
-            Output format of the generated audio. Formatted as codec_sample_rate_bitrate. So an mp3 with 22.05kHz sample rate at 32kbs is represented as mp3_22050_32. MP3 with 192kbps bitrate requires you to be subscribed to Creator tier or above. PCM with 44.1kHz sample rate requires you to be subscribed to Pro tier or above. Note that the μ-law format (sometimes written mu-law, often approximated as u-law) is commonly used for Twilio audio inputs.
+            The output format of the generated audio.
 
         text : typing.Optional[str]
             Text to generate, text length has to be between 100 and 1000.
@@ -274,7 +274,7 @@ class AsyncTextToVoiceClient:
 
         Returns
         -------
-        VoicePreviewsResponseModel
+        VoiceDesignPreviewResponse
             Successful Response
 
         Examples
@@ -321,9 +321,9 @@ class AsyncTextToVoiceClient:
         try:
             if 200 <= _response.status_code < 300:
                 return typing.cast(
-                    VoicePreviewsResponseModel,
+                    VoiceDesignPreviewResponse,
                     construct_type(
-                        type_=VoicePreviewsResponseModel,  # type: ignore
+                        type_=VoiceDesignPreviewResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -353,7 +353,7 @@ class AsyncTextToVoiceClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Voice:
         """
-        Create a voice from previously generated voice preview. This endpoint should be called after you fetched a generated_voice_id using POST /v1/text-to-voice/create-previews.
+        Add a generated voice to the voice library.
 
         Parameters
         ----------

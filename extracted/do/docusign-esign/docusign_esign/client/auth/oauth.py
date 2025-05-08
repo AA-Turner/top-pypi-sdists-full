@@ -1,9 +1,9 @@
 # coding: utf-8
 
 """
-    DocuSign REST API
+    Docusign eSignature REST API
 
-    The DocuSign REST API provides you with a powerful, convenient, and simple Web services API for interacting with DocuSign.  # noqa: E501
+    The Docusign eSignature REST API provides you with a powerful, convenient, and simple Web services API for interacting with Docusign.  # noqa: E501
 
     OpenAPI spec version: v2.1
     Contact: devcenter@docusign.com
@@ -33,8 +33,6 @@ class OAuth(object):
     DEMO_OAUTH_BASE_PATH = "account-d.docusign.com"
     #  Production server base path
     PRODUCTION_OAUTH_BASE_PATH = "account.docusign.com"
-    #  Stage server base path
-    STAGE_OAUTH_BASE_PATH = "account-s.docusign.com"
     #   JWT Grant Type
     GRANT_TYPE_JWT = "urn:ietf:params:oauth:grant-type:jwt-bearer"
 

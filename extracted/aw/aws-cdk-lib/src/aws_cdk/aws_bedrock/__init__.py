@@ -4409,8 +4409,32 @@ class CfnDataAutomationProject(
             },
             kms_key_id="kmsKeyId",
             override_configuration=bedrock.CfnDataAutomationProject.OverrideConfigurationProperty(
+                audio=bedrock.CfnDataAutomationProject.AudioOverrideConfigurationProperty(
+                    modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                        state="state"
+                    )
+                ),
                 document=bedrock.CfnDataAutomationProject.DocumentOverrideConfigurationProperty(
+                    modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                        state="state"
+                    ),
                     splitter=bedrock.CfnDataAutomationProject.SplitterConfigurationProperty(
+                        state="state"
+                    )
+                ),
+                image=bedrock.CfnDataAutomationProject.ImageOverrideConfigurationProperty(
+                    modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                        state="state"
+                    )
+                ),
+                modality_routing=bedrock.CfnDataAutomationProject.ModalityRoutingConfigurationProperty(
+                    jpeg="jpeg",
+                    mov="mov",
+                    mp4="mp4",
+                    png="png"
+                ),
+                video=bedrock.CfnDataAutomationProject.VideoOverrideConfigurationProperty(
+                    modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
                         state="state"
                     )
                 )
@@ -4823,6 +4847,67 @@ class CfnDataAutomationProject(
 
         def __repr__(self) -> str:
             return "AudioExtractionCategoryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.AudioOverrideConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"modality_processing": "modalityProcessing"},
+    )
+    class AudioOverrideConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            modality_processing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.ModalityProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Sets whether your project will process audio or not.
+
+            :param modality_processing: Sets modality processing for audio files. All modalities are enabled by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-audiooverrideconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                audio_override_configuration_property = bedrock.CfnDataAutomationProject.AudioOverrideConfigurationProperty(
+                    modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                        state="state"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9fa0ddf34ba99d172292ec01a5b59e05e41939ae214f174146b2d694461955ce)
+                check_type(argname="argument modality_processing", value=modality_processing, expected_type=type_hints["modality_processing"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if modality_processing is not None:
+                self._values["modality_processing"] = modality_processing
+
+        @builtins.property
+        def modality_processing(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityProcessingConfigurationProperty"]]:
+            '''Sets modality processing for audio files.
+
+            All modalities are enabled by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-audiooverrideconfiguration.html#cfn-bedrock-dataautomationproject-audiooverrideconfiguration-modalityprocessing
+            '''
+            result = self._values.get("modality_processing")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityProcessingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AudioOverrideConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5505,16 +5590,21 @@ class CfnDataAutomationProject(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.DocumentOverrideConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"splitter": "splitter"},
+        name_mapping={
+            "modality_processing": "modalityProcessing",
+            "splitter": "splitter",
+        },
     )
     class DocumentOverrideConfigurationProperty:
         def __init__(
             self,
             *,
+            modality_processing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.ModalityProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             splitter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.SplitterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Additional settings for a project.
 
+            :param modality_processing: Sets modality processing for document files. All modalities are enabled by default.
             :param splitter: Whether document splitter is enabled for a project.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-documentoverrideconfiguration.html
@@ -5527,6 +5617,9 @@ class CfnDataAutomationProject(
                 from aws_cdk import aws_bedrock as bedrock
                 
                 document_override_configuration_property = bedrock.CfnDataAutomationProject.DocumentOverrideConfigurationProperty(
+                    modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                        state="state"
+                    ),
                     splitter=bedrock.CfnDataAutomationProject.SplitterConfigurationProperty(
                         state="state"
                     )
@@ -5534,10 +5627,26 @@ class CfnDataAutomationProject(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__ce28bbcdad808c3d79746aae815f4706b7c664e45cfa21e90b91fef9b498a905)
+                check_type(argname="argument modality_processing", value=modality_processing, expected_type=type_hints["modality_processing"])
                 check_type(argname="argument splitter", value=splitter, expected_type=type_hints["splitter"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if modality_processing is not None:
+                self._values["modality_processing"] = modality_processing
             if splitter is not None:
                 self._values["splitter"] = splitter
+
+        @builtins.property
+        def modality_processing(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityProcessingConfigurationProperty"]]:
+            '''Sets modality processing for document files.
+
+            All modalities are enabled by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-documentoverrideconfiguration.html#cfn-bedrock-dataautomationproject-documentoverrideconfiguration-modalityprocessing
+            '''
+            result = self._values.get("modality_processing")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityProcessingConfigurationProperty"]], result)
 
         @builtins.property
         def splitter(
@@ -5929,6 +6038,67 @@ class CfnDataAutomationProject(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.ImageOverrideConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"modality_processing": "modalityProcessing"},
+    )
+    class ImageOverrideConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            modality_processing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.ModalityProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Sets whether your project will process images or not.
+
+            :param modality_processing: Sets modality processing for image files. All modalities are enabled by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-imageoverrideconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                image_override_configuration_property = bedrock.CfnDataAutomationProject.ImageOverrideConfigurationProperty(
+                    modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                        state="state"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__34a681e35d658a2a736af34f5e6af8631d8d4b6f6f0a517e671c60fc315ac32b)
+                check_type(argname="argument modality_processing", value=modality_processing, expected_type=type_hints["modality_processing"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if modality_processing is not None:
+                self._values["modality_processing"] = modality_processing
+
+        @builtins.property
+        def modality_processing(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityProcessingConfigurationProperty"]]:
+            '''Sets modality processing for image files.
+
+            All modalities are enabled by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-imageoverrideconfiguration.html#cfn-bedrock-dataautomationproject-imageoverrideconfiguration-modalityprocessing
+            '''
+            result = self._values.get("modality_processing")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityProcessingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ImageOverrideConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.ImageStandardExtractionProperty",
         jsii_struct_bases=[],
         name_mapping={"bounding_box": "boundingBox", "category": "category"},
@@ -6176,19 +6346,188 @@ class CfnDataAutomationProject(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"state": "state"},
+    )
+    class ModalityProcessingConfigurationProperty:
+        def __init__(self, *, state: typing.Optional[builtins.str] = None) -> None:
+            '''This element is used to determine if the modality it is associated with is enabled or disabled.
+
+            All modalities are enabled by default.
+
+            :param state: Stores the state of the modality for your project, set to either enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityprocessingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                modality_processing_configuration_property = bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                    state="state"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__11b9621807c12ab2ce46c77ab801b225eb4ba5af317edcb4c0a41ab32f060903)
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if state is not None:
+                self._values["state"] = state
+
+        @builtins.property
+        def state(self) -> typing.Optional[builtins.str]:
+            '''Stores the state of the modality for your project, set to either enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityprocessingconfiguration.html#cfn-bedrock-dataautomationproject-modalityprocessingconfiguration-state
+            '''
+            result = self._values.get("state")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ModalityProcessingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.ModalityRoutingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"jpeg": "jpeg", "mov": "mov", "mp4": "mp4", "png": "png"},
+    )
+    class ModalityRoutingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            jpeg: typing.Optional[builtins.str] = None,
+            mov: typing.Optional[builtins.str] = None,
+            mp4: typing.Optional[builtins.str] = None,
+            png: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''This element allows you to set up where JPEG, PNG, MOV, and MP4 files get routed to for processing.
+
+            JPEG routing applies to both "JPEG" and "JPG" file extensions.
+
+            :param jpeg: Sets whether JPEG files are routed to document or image processing.
+            :param mov: Sets whether MOV files are routed to audio or video processing.
+            :param mp4: Sets whether MP4 files are routed to audio or video processing.
+            :param png: Sets whether PNG files are routed to document or image processing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityroutingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                modality_routing_configuration_property = bedrock.CfnDataAutomationProject.ModalityRoutingConfigurationProperty(
+                    jpeg="jpeg",
+                    mov="mov",
+                    mp4="mp4",
+                    png="png"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__18c2866282470eccc145ca7febde2b3deb2fecf2300c6b32965aa4899588a3a4)
+                check_type(argname="argument jpeg", value=jpeg, expected_type=type_hints["jpeg"])
+                check_type(argname="argument mov", value=mov, expected_type=type_hints["mov"])
+                check_type(argname="argument mp4", value=mp4, expected_type=type_hints["mp4"])
+                check_type(argname="argument png", value=png, expected_type=type_hints["png"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if jpeg is not None:
+                self._values["jpeg"] = jpeg
+            if mov is not None:
+                self._values["mov"] = mov
+            if mp4 is not None:
+                self._values["mp4"] = mp4
+            if png is not None:
+                self._values["png"] = png
+
+        @builtins.property
+        def jpeg(self) -> typing.Optional[builtins.str]:
+            '''Sets whether JPEG files are routed to document or image processing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityroutingconfiguration.html#cfn-bedrock-dataautomationproject-modalityroutingconfiguration-jpeg
+            '''
+            result = self._values.get("jpeg")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def mov(self) -> typing.Optional[builtins.str]:
+            '''Sets whether MOV files are routed to audio or video processing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityroutingconfiguration.html#cfn-bedrock-dataautomationproject-modalityroutingconfiguration-mov
+            '''
+            result = self._values.get("mov")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def mp4(self) -> typing.Optional[builtins.str]:
+            '''Sets whether MP4 files are routed to audio or video processing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityroutingconfiguration.html#cfn-bedrock-dataautomationproject-modalityroutingconfiguration-mp4
+            '''
+            result = self._values.get("mp4")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def png(self) -> typing.Optional[builtins.str]:
+            '''Sets whether PNG files are routed to document or image processing.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-modalityroutingconfiguration.html#cfn-bedrock-dataautomationproject-modalityroutingconfiguration-png
+            '''
+            result = self._values.get("png")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ModalityRoutingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.OverrideConfigurationProperty",
         jsii_struct_bases=[],
-        name_mapping={"document": "document"},
+        name_mapping={
+            "audio": "audio",
+            "document": "document",
+            "image": "image",
+            "modality_routing": "modalityRouting",
+            "video": "video",
+        },
     )
     class OverrideConfigurationProperty:
         def __init__(
             self,
             *,
+            audio: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.AudioOverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             document: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.DocumentOverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            image: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.ImageOverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            modality_routing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.ModalityRoutingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            video: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.VideoOverrideConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Additional settings for a project.
 
+            :param audio: This element declares whether your project will process audio files.
             :param document: Additional settings for a project.
+            :param image: This element declares whether your project will process image files.
+            :param modality_routing: Lets you set which modalities certain file types are processed as.
+            :param video: This element declares whether your project will process video files.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-overrideconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -6200,8 +6539,32 @@ class CfnDataAutomationProject(
                 from aws_cdk import aws_bedrock as bedrock
                 
                 override_configuration_property = bedrock.CfnDataAutomationProject.OverrideConfigurationProperty(
+                    audio=bedrock.CfnDataAutomationProject.AudioOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        )
+                    ),
                     document=bedrock.CfnDataAutomationProject.DocumentOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        ),
                         splitter=bedrock.CfnDataAutomationProject.SplitterConfigurationProperty(
+                            state="state"
+                        )
+                    ),
+                    image=bedrock.CfnDataAutomationProject.ImageOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        )
+                    ),
+                    modality_routing=bedrock.CfnDataAutomationProject.ModalityRoutingConfigurationProperty(
+                        jpeg="jpeg",
+                        mov="mov",
+                        mp4="mp4",
+                        png="png"
+                    ),
+                    video=bedrock.CfnDataAutomationProject.VideoOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
                             state="state"
                         )
                     )
@@ -6209,10 +6572,33 @@ class CfnDataAutomationProject(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__400a92e228907b33f71ad10276a9ad472a21d517da3941d1621dda605806343e)
+                check_type(argname="argument audio", value=audio, expected_type=type_hints["audio"])
                 check_type(argname="argument document", value=document, expected_type=type_hints["document"])
+                check_type(argname="argument image", value=image, expected_type=type_hints["image"])
+                check_type(argname="argument modality_routing", value=modality_routing, expected_type=type_hints["modality_routing"])
+                check_type(argname="argument video", value=video, expected_type=type_hints["video"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if audio is not None:
+                self._values["audio"] = audio
             if document is not None:
                 self._values["document"] = document
+            if image is not None:
+                self._values["image"] = image
+            if modality_routing is not None:
+                self._values["modality_routing"] = modality_routing
+            if video is not None:
+                self._values["video"] = video
+
+        @builtins.property
+        def audio(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.AudioOverrideConfigurationProperty"]]:
+            '''This element declares whether your project will process audio files.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-overrideconfiguration.html#cfn-bedrock-dataautomationproject-overrideconfiguration-audio
+            '''
+            result = self._values.get("audio")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.AudioOverrideConfigurationProperty"]], result)
 
         @builtins.property
         def document(
@@ -6224,6 +6610,39 @@ class CfnDataAutomationProject(
             '''
             result = self._values.get("document")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.DocumentOverrideConfigurationProperty"]], result)
+
+        @builtins.property
+        def image(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ImageOverrideConfigurationProperty"]]:
+            '''This element declares whether your project will process image files.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-overrideconfiguration.html#cfn-bedrock-dataautomationproject-overrideconfiguration-image
+            '''
+            result = self._values.get("image")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ImageOverrideConfigurationProperty"]], result)
+
+        @builtins.property
+        def modality_routing(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityRoutingConfigurationProperty"]]:
+            '''Lets you set which modalities certain file types are processed as.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-overrideconfiguration.html#cfn-bedrock-dataautomationproject-overrideconfiguration-modalityrouting
+            '''
+            result = self._values.get("modality_routing")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityRoutingConfigurationProperty"]], result)
+
+        @builtins.property
+        def video(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.VideoOverrideConfigurationProperty"]]:
+            '''This element declares whether your project will process video files.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-overrideconfiguration.html#cfn-bedrock-dataautomationproject-overrideconfiguration-video
+            '''
+            result = self._values.get("video")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.VideoOverrideConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6599,6 +7018,67 @@ class CfnDataAutomationProject(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.VideoOverrideConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"modality_processing": "modalityProcessing"},
+    )
+    class VideoOverrideConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            modality_processing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataAutomationProject.ModalityProcessingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Sets whether your project will process videos or not.
+
+            :param modality_processing: Sets modality processing for video files. All modalities are enabled by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-videooverrideconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                video_override_configuration_property = bedrock.CfnDataAutomationProject.VideoOverrideConfigurationProperty(
+                    modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                        state="state"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d7326051e3b843174754054dc13d916d949edba4f6f11b266a8a0efb8d081b53)
+                check_type(argname="argument modality_processing", value=modality_processing, expected_type=type_hints["modality_processing"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if modality_processing is not None:
+                self._values["modality_processing"] = modality_processing
+
+        @builtins.property
+        def modality_processing(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityProcessingConfigurationProperty"]]:
+            '''Sets modality processing for video files.
+
+            All modalities are enabled by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationproject-videooverrideconfiguration.html#cfn-bedrock-dataautomationproject-videooverrideconfiguration-modalityprocessing
+            '''
+            result = self._values.get("modality_processing")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataAutomationProject.ModalityProcessingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VideoOverrideConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnDataAutomationProject.VideoStandardExtractionProperty",
         jsii_struct_bases=[],
         name_mapping={"bounding_box": "boundingBox", "category": "category"},
@@ -6911,8 +7391,32 @@ class CfnDataAutomationProjectProps:
                 },
                 kms_key_id="kmsKeyId",
                 override_configuration=bedrock.CfnDataAutomationProject.OverrideConfigurationProperty(
+                    audio=bedrock.CfnDataAutomationProject.AudioOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        )
+                    ),
                     document=bedrock.CfnDataAutomationProject.DocumentOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        ),
                         splitter=bedrock.CfnDataAutomationProject.SplitterConfigurationProperty(
+                            state="state"
+                        )
+                    ),
+                    image=bedrock.CfnDataAutomationProject.ImageOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
+                            state="state"
+                        )
+                    ),
+                    modality_routing=bedrock.CfnDataAutomationProject.ModalityRoutingConfigurationProperty(
+                        jpeg="jpeg",
+                        mov="mov",
+                        mp4="mp4",
+                        png="png"
+                    ),
+                    video=bedrock.CfnDataAutomationProject.VideoOverrideConfigurationProperty(
+                        modality_processing=bedrock.CfnDataAutomationProject.ModalityProcessingConfigurationProperty(
                             state="state"
                         )
                     )
@@ -9532,7 +10036,7 @@ class CfnDataSource(
     )
     class S3LocationProperty:
         def __init__(self, *, uri: builtins.str) -> None:
-            '''A storage location in an S3 bucket.
+            '''A storage location in an Amazon S3 bucket.
 
             :param uri: An object URI starting with ``s3://`` .
 
@@ -24925,7 +25429,7 @@ class CfnKnowledgeBase(
     )
     class S3LocationProperty:
         def __init__(self, *, uri: builtins.str) -> None:
-            '''A storage location in an S3 bucket.
+            '''A storage location in an Amazon S3 bucket.
 
             :param uri: An object URI starting with ``s3://`` .
 
@@ -30812,6 +31316,12 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_MICRO_V1_0_128_K"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_NOVA_PREMIER_V1_0")
+    def AMAZON_NOVA_PREMIER_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "amazon.nova-premier-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "AMAZON_NOVA_PREMIER_V1_0"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_NOVA_PRO_V1_0")
     def AMAZON_NOVA_PRO_V1_0(cls) -> "FoundationModelIdentifier":
         '''Base model "amazon.nova-pro-v1:0".'''
@@ -31425,6 +31935,18 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_3_8B_INSTRUCT_V1"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1_0")
+    def META_LLAMA_4_MAVERICK_17_B_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama4-maverick-17b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_4_MAVERICK_17B_INSTRUCT_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="META_LLAMA_4_SCOUT_17B_INSTRUCT_V1_0")
+    def META_LLAMA_4_SCOUT_17_B_INSTRUCT_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "meta.llama4-scout-17b-instruct-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "META_LLAMA_4_SCOUT_17B_INSTRUCT_V1_0"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="MISTRAL_LARGE_2_V0_1")
     def MISTRAL_LARGE_2_V0_1(cls) -> "FoundationModelIdentifier":
         '''Base model "mistral.mistral-large-2407-v1:0".'''
@@ -31539,6 +32061,18 @@ class FoundationModelIdentifier(
     def STABILITY_STABLE_IMAGE_ULTRA_V1_1(cls) -> "FoundationModelIdentifier":
         '''Base model "stability.stable-image-ultra-v1:1".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "STABILITY_STABLE_IMAGE_ULTRA_V1_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="WRITER_PALMYRA_X4_V1_0")
+    def WRITER_PALMYRA_X4_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "writer.palmyra-x4-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "WRITER_PALMYRA_X4_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="WRITER_PALMYRA_X5_V1_0")
+    def WRITER_PALMYRA_X5_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "writer.palmyra-x5-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "WRITER_PALMYRA_X5_V1_0"))
 
     @builtins.property
     @jsii.member(jsii_name="modelId")
@@ -32399,6 +32933,13 @@ def _typecheckingstub__17b4067ba061b31b33f6982f8b1ce49b15211698a89239a94ac83de6e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9fa0ddf34ba99d172292ec01a5b59e05e41939ae214f174146b2d694461955ce(
+    *,
+    modality_processing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.ModalityProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0cd729d92f87cc8b9ea825fd9aba3f8ad84df311b23d20555e9348067db7ca2d(
     *,
     category: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.AudioExtractionCategoryProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -32476,6 +33017,7 @@ def _typecheckingstub__b22792c9c0de4d07e8431f8ac3df8e64d6ae45cf4035db3f065789509
 
 def _typecheckingstub__ce28bbcdad808c3d79746aae815f4706b7c664e45cfa21e90b91fef9b498a905(
     *,
+    modality_processing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.ModalityProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     splitter: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.SplitterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -32520,6 +33062,13 @@ def _typecheckingstub__b889c5cec633874cf38a0cca25d340045efc344323f8c1f47b451c984
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__34a681e35d658a2a736af34f5e6af8631d8d4b6f6f0a517e671c60fc315ac32b(
+    *,
+    modality_processing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.ModalityProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8509438c1738f2f2a62b74a8b21ad5bb1255f5b381218f083f1a15d23550dae1(
     *,
     bounding_box: typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.ImageBoundingBoxProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -32544,9 +33093,30 @@ def _typecheckingstub__cd2e094ff92095348e69264bdb8606dc0cb4bbaca0f0e5bb44b408709
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__11b9621807c12ab2ce46c77ab801b225eb4ba5af317edcb4c0a41ab32f060903(
+    *,
+    state: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18c2866282470eccc145ca7febde2b3deb2fecf2300c6b32965aa4899588a3a4(
+    *,
+    jpeg: typing.Optional[builtins.str] = None,
+    mov: typing.Optional[builtins.str] = None,
+    mp4: typing.Optional[builtins.str] = None,
+    png: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__400a92e228907b33f71ad10276a9ad472a21d517da3941d1621dda605806343e(
     *,
+    audio: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.AudioOverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     document: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.DocumentOverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    image: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.ImageOverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    modality_routing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.ModalityRoutingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    video: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.VideoOverrideConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32579,6 +33149,13 @@ def _typecheckingstub__e8ab6d9031c06e119e307ce6230035cf42009ab028973d67c75234758
     *,
     state: builtins.str,
     types: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7326051e3b843174754054dc13d916d949edba4f6f11b266a8a0efb8d081b53(
+    *,
+    modality_processing: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataAutomationProject.ModalityProcessingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-secret-manager-wrapper-layer
-Version: 2.1.59
+Version: 2.1.60
 Summary: cdk-secret-manager-wrapper-layer
 Home-page: https://github.com/neilkuan/cdk-secret-manager-wrapper-layer.git
 Author: Neil Kuan<guan840912@gmail.com>
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.181.0
 Requires-Dist: constructs<11.0.0,>=10.0.5
-Requires-Dist: jsii<2.0.0,>=1.111.0
+Requires-Dist: jsii<2.0.0,>=1.112.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard<4.3.0,>=2.13.3
 

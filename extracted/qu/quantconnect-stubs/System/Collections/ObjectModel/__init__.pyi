@@ -10,17 +10,109 @@ import System.Collections.ObjectModel
 import System.Collections.Specialized
 import System.ComponentModel
 
-System_Collections_ObjectModel_Collection_T = typing.TypeVar("System_Collections_ObjectModel_Collection_T")
 System_Collections_ObjectModel_ReadOnlySet_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlySet_T")
+System_Collections_ObjectModel_ReadOnlyCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyCollection_T")
+System_Collections_ObjectModel_Collection_T = typing.TypeVar("System_Collections_ObjectModel_Collection_T")
 System_Collections_ObjectModel_ReadOnlyDictionary_TKey = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyDictionary_TKey")
 System_Collections_ObjectModel_ReadOnlyDictionary_TValue = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyDictionary_TValue")
-System_Collections_ObjectModel_ReadOnlyCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyCollection_T")
-System_Collections_ObjectModel_ReadOnlyObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyObservableCollection_T")
 System_Collections_ObjectModel_KeyedCollection_TItem = typing.TypeVar("System_Collections_ObjectModel_KeyedCollection_TItem")
 System_Collections_ObjectModel_KeyedCollection_TKey = typing.TypeVar("System_Collections_ObjectModel_KeyedCollection_TKey")
 System_Collections_ObjectModel_ObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ObservableCollection_T")
+System_Collections_ObjectModel_ReadOnlyObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyObservableCollection_T")
 System_Collections_ObjectModel__EventContainer_Callable = typing.TypeVar("System_Collections_ObjectModel__EventContainer_Callable")
 System_Collections_ObjectModel__EventContainer_ReturnType = typing.TypeVar("System_Collections_ObjectModel__EventContainer_ReturnType")
+
+
+class ReadOnlySet(typing.Generic[System_Collections_ObjectModel_ReadOnlySet_T], System.Object, System.Collections.Generic.IReadOnlySet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.ICollection, typing.Iterable[System_Collections_ObjectModel_ReadOnlySet_T]):
+    """Represents a read-only, generic set of values."""
+
+    EMPTY: System.Collections.ObjectModel.ReadOnlySet[System_Collections_ObjectModel_ReadOnlySet_T]
+    """Gets an empty ReadOnlySet{T}."""
+
+    @property
+    def set(self) -> System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T]:
+        """
+        Gets the set that is wrapped by this ReadOnlySet{T} object.
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    def __init__(self, set: System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T]) -> None:
+        """
+        Initializes a new instance of the ReadOnlySet{T} class that is a wrapper around the specified set.
+        
+        :param set: The set to wrap.
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlySet_T]:
+        ...
+
+    def contains(self, item: System_Collections_ObjectModel_ReadOnlySet_T) -> bool:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlySet_T]:
+        ...
+
+    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+
+class ReadOnlyCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_ReadOnlyCollection_T], typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_T]):
+    """Provides static methods for read-only collections."""
+
+    EMPTY: System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyCollection_T]
+    """Gets an empty ReadOnlyCollection{T}."""
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def items(self) -> typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+        """This property is protected."""
+        ...
+
+    def __getitem__(self, index: int) -> System_Collections_ObjectModel_ReadOnlyCollection_T:
+        ...
+
+    def __init__(self, list: System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T]) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+        ...
+
+    def contains(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> bool:
+        ...
+
+    def copy_to(self, array: typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T], index: int) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+        ...
+
+    def index_of(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> int:
+        ...
 
 
 class Collection(typing.Generic[System_Collections_ObjectModel_Collection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_Collection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_Collection_T], typing.Iterable[System_Collections_ObjectModel_Collection_T]):
@@ -93,61 +185,6 @@ class Collection(typing.Generic[System_Collections_ObjectModel_Collection_T], Sy
 
     def set_item(self, index: int, item: System_Collections_ObjectModel_Collection_T) -> None:
         """This method is protected."""
-        ...
-
-
-class ReadOnlySet(typing.Generic[System_Collections_ObjectModel_ReadOnlySet_T], System.Object, System.Collections.Generic.IReadOnlySet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.ICollection, typing.Iterable[System_Collections_ObjectModel_ReadOnlySet_T]):
-    """Represents a read-only, generic set of values."""
-
-    EMPTY: System.Collections.ObjectModel.ReadOnlySet[System_Collections_ObjectModel_ReadOnlySet_T]
-    """Gets an empty ReadOnlySet{T}."""
-
-    @property
-    def set(self) -> System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T]:
-        """
-        Gets the set that is wrapped by this ReadOnlySet{T} object.
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    def __init__(self, set: System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T]) -> None:
-        """
-        Initializes a new instance of the ReadOnlySet{T} class that is a wrapper around the specified set.
-        
-        :param set: The set to wrap.
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlySet_T]:
-        ...
-
-    def contains(self, item: System_Collections_ObjectModel_ReadOnlySet_T) -> bool:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlySet_T]:
-        ...
-
-    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
         ...
 
 
@@ -231,99 +268,6 @@ class ReadOnlyDictionary(typing.Generic[System_Collections_ObjectModel_ReadOnlyD
         ...
 
     def try_get_value(self, key: System_Collections_ObjectModel_ReadOnlyDictionary_TKey, value: typing.Optional[System_Collections_ObjectModel_ReadOnlyDictionary_TValue]) -> typing.Tuple[bool, System_Collections_ObjectModel_ReadOnlyDictionary_TValue]:
-        ...
-
-
-class ReadOnlyCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_ReadOnlyCollection_T], typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_T]):
-    """Provides static methods for read-only collections."""
-
-    EMPTY: System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyCollection_T]
-    """Gets an empty ReadOnlyCollection{T}."""
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def items(self) -> typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T]:
-        """This property is protected."""
-        ...
-
-    def __getitem__(self, index: int) -> System_Collections_ObjectModel_ReadOnlyCollection_T:
-        ...
-
-    def __init__(self, list: System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T]) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
-        ...
-
-    def contains(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> bool:
-        ...
-
-    def copy_to(self, array: typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T], index: int) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
-        ...
-
-    def index_of(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> int:
-        ...
-
-
-class ReadOnlyObservableCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyObservableCollection_T], System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T], System.Collections.Specialized.INotifyCollectionChanged, System.ComponentModel.INotifyPropertyChanged):
-    """Read-only wrapper around an ObservableCollection."""
-
-    EMPTY: System.Collections.ObjectModel.ReadOnlyObservableCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T]
-    """Gets an empty ReadOnlyObservableCollection{T}."""
-
-    @property
-    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]:
-        """
-        Occurs when the collection changes, either by adding or removing an item.
-        
-        This field is protected.
-        """
-        ...
-
-    @collection_changed.setter
-    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]) -> None:
-        ...
-
-    @property
-    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]:
-        """
-        Occurs when a property changes.
-        
-        This field is protected.
-        """
-        ...
-
-    @property_changed.setter
-    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]) -> None:
-        ...
-
-    def __init__(self, list: System.Collections.ObjectModel.ObservableCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T]) -> None:
-        """
-        Initializes a new instance of ReadOnlyObservableCollection that
-        wraps the given ObservableCollection.
-        """
-        ...
-
-    def on_collection_changed(self, args: System.Collections.Specialized.NotifyCollectionChangedEventArgs) -> None:
-        """
-        raise CollectionChanged event to any listeners
-        
-        This method is protected.
-        """
-        ...
-
-    def on_property_changed(self, args: System.ComponentModel.PropertyChangedEventArgs) -> None:
-        """
-        raise PropertyChanged event to any listeners
-        
-        This method is protected.
-        """
         ...
 
 
@@ -525,6 +469,62 @@ class ObservableCollection(typing.Generic[System_Collections_ObjectModel_Observa
         """
         Called by base class Collection<T> when an item is set in list;
         raises a CollectionChanged event to any listeners.
+        
+        This method is protected.
+        """
+        ...
+
+
+class ReadOnlyObservableCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyObservableCollection_T], System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T], System.Collections.Specialized.INotifyCollectionChanged, System.ComponentModel.INotifyPropertyChanged):
+    """Read-only wrapper around an ObservableCollection."""
+
+    EMPTY: System.Collections.ObjectModel.ReadOnlyObservableCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T]
+    """Gets an empty ReadOnlyObservableCollection{T}."""
+
+    @property
+    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]:
+        """
+        Occurs when the collection changes, either by adding or removing an item.
+        
+        This field is protected.
+        """
+        ...
+
+    @collection_changed.setter
+    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]) -> None:
+        ...
+
+    @property
+    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]:
+        """
+        Occurs when a property changes.
+        
+        This field is protected.
+        """
+        ...
+
+    @property_changed.setter
+    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]) -> None:
+        ...
+
+    def __init__(self, list: System.Collections.ObjectModel.ObservableCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T]) -> None:
+        """
+        Initializes a new instance of ReadOnlyObservableCollection that
+        wraps the given ObservableCollection.
+        """
+        ...
+
+    def on_collection_changed(self, args: System.Collections.Specialized.NotifyCollectionChangedEventArgs) -> None:
+        """
+        raise CollectionChanged event to any listeners
+        
+        This method is protected.
+        """
+        ...
+
+    def on_property_changed(self, args: System.ComponentModel.PropertyChangedEventArgs) -> None:
+        """
+        raise PropertyChanged event to any listeners
         
         This method is protected.
         """

@@ -23,30 +23,26 @@ JsonConverter = typing.Any
 QuantConnect_Report_NullResultValueTypeJsonConverter_T = typing.TypeVar("QuantConnect_Report_NullResultValueTypeJsonConverter_T")
 
 
-class NullResultValueTypeJsonConverter(typing.Generic[QuantConnect_Report_NullResultValueTypeJsonConverter_T], JsonConverter):
+class OrderTypeNormalizingJsonConverter(JsonConverter):
     """
-    Removes null values in the Result object's x,y values so that
-    deserialization can occur without exceptions.
+    Normalizes the "Type" field to a value that will allow for
+    successful deserialization in the OrderJsonConverter class.
     """
-
-    def __init__(self) -> None:
-        """Initialize a new instance of NullResultValueTypeJsonConverter{T}"""
-        ...
 
     def can_convert(self, object_type: typing.Type) -> bool:
         """
-        Determine if this converter can convert a given type
+        Determine if this Converter can convert a given object type
         
         :param object_type: Object type to convert
-        :returns: Always true.
+        :returns: True if assignable from Order.
         """
         ...
 
     def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
         """
-        Read Json for conversion
+        Read Json and convert
         
-        :returns: Resulting object.
+        :returns: Resulting Order.
         """
         ...
 
@@ -75,6 +71,65 @@ class ResultsUtil(System.Object):
         
         :param result: Result object to extract the chart points
         :param series_name: Series name from which the points will be extracted. By default is Equity series
+        """
+        ...
+
+
+class DeedleUtil(System.Object):
+    """Utility extension methods for Deedle series/frames"""
+
+    @staticmethod
+    def cumulative_max(input: typing.Any) -> typing.Any:
+        """Calculates the cumulative max of the series. This is equal to the python pandas method: `df.cummax()`."""
+        ...
+
+    @staticmethod
+    def cumulative_product(input: typing.Any) -> typing.Any:
+        """
+        Calculates the cumulative product of the series. This is equal to the python pandas method: `df.cumprod()`
+        
+        :param input: Input series
+        :returns: Cumulative product.
+        """
+        ...
+
+    @staticmethod
+    def cumulative_returns(input: typing.Any) -> typing.Any:
+        """
+        Calculates the cumulative returns series of the given input equity curve
+        
+        :param input: Equity curve series
+        :returns: Cumulative returns over time.
+        """
+        ...
+
+    @staticmethod
+    def cumulative_sum(input: typing.Any) -> typing.Any:
+        """
+        Calculates the cumulative sum for the given series
+        
+        :param input: Series to calculate cumulative sum for
+        :returns: Cumulative sum in series form.
+        """
+        ...
+
+    @staticmethod
+    def percent_change(input: typing.Any) -> typing.Any:
+        """
+        Calculates the percentage change from the previous value to the current
+        
+        :param input: Series to calculate percentage change for
+        :returns: Percentage change in series form.
+        """
+        ...
+
+    @staticmethod
+    def total_returns(input: typing.Any) -> float:
+        """
+        Calculates the total returns over a period of time for the given input
+        
+        :param input: Equity curve series
+        :returns: Total returns over time.
         """
         ...
 
@@ -110,6 +165,166 @@ class DrawdownPeriod(System.Object):
         :param end: End of the drawdown period
         :param drawdown: Max drawdown of the period
         """
+        ...
+
+
+class PointInTimePortfolio(System.Object):
+    """Lightweight portfolio at a point in time"""
+
+    class PointInTimeHolding(System.Object):
+        """Holding of an asset at a point in time"""
+
+        @property
+        def symbol(self) -> QuantConnect.Symbol:
+            """Symbol of the holding"""
+            ...
+
+        @property
+        def holdings_value(self) -> float:
+            """Value of the holdings of the asset. Can be negative if shorting an asset"""
+            ...
+
+        @property
+        def quantity(self) -> float:
+            """Quantity of the asset. Can be negative if shorting an asset"""
+            ...
+
+        @property
+        def absolute_holdings_value(self) -> float:
+            """Absolute value of the holdings."""
+            ...
+
+        @property
+        def absolute_holdings_quantity(self) -> float:
+            """Absolute value of the quantity"""
+            ...
+
+        def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], holdings_value: float, holdings_quantity: float) -> None:
+            """
+            Creates an instance of PointInTimeHolding, representing a holding at a given point in time
+            
+            :param symbol: Symbol of the holding
+            :param holdings_value: Value of the holding
+            :param holdings_quantity: Quantity of the holding
+            """
+            ...
+
+    @property
+    def time(self) -> datetime.datetime:
+        """Time that this point in time portfolio is for"""
+        ...
+
+    @property
+    def total_portfolio_value(self) -> float:
+        """The total value of the portfolio. This is cash + absolute value of holdings"""
+        ...
+
+    @property
+    def cash(self) -> float:
+        """The cash the portfolio has"""
+        ...
+
+    @property
+    def order(self) -> QuantConnect.Orders.Order:
+        """The order we just processed"""
+        ...
+
+    @property
+    def holdings(self) -> typing.List[QuantConnect.Report.PointInTimePortfolio.PointInTimeHolding]:
+        """A list of holdings at the current moment in time"""
+        ...
+
+    @property
+    def leverage(self) -> float:
+        """Portfolio leverage - provided for convenience"""
+        ...
+
+    @overload
+    def __init__(self, order: QuantConnect.Orders.Order, portfolio: QuantConnect.Securities.SecurityPortfolioManager) -> None:
+        """
+        Creates an instance of the PointInTimePortfolio object
+        
+        :param order: Order applied to the portfolio
+        :param portfolio: Algorithm portfolio at a point in time
+        """
+        ...
+
+    @overload
+    def __init__(self, portfolio: QuantConnect.Report.PointInTimePortfolio, time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Clones the provided portfolio
+        
+        :param portfolio: Portfolio
+        :param time: Time
+        """
+        ...
+
+    def no_empty_holdings(self) -> QuantConnect.Report.PointInTimePortfolio:
+        """
+        Filters out any empty holdings from the current Holdings
+        
+        :returns: Current object, but without empty holdings.
+        """
+        ...
+
+
+class Rolling(System.Object):
+    """Rolling window functions"""
+
+    @staticmethod
+    def beta(performance_points: System.Collections.Generic.SortedList[datetime.datetime, float], benchmark_points: System.Collections.Generic.SortedList[datetime.datetime, float], window_size: int = 132) -> typing.Any:
+        """
+        Calculate the rolling beta with the given window size (in days)
+        
+        :param performance_points: The performance points you want to measure beta for
+        :param benchmark_points: The benchmark/points you want to calculate beta with
+        :param window_size: Days/window to lookback
+        :returns: Rolling beta.
+        """
+        ...
+
+    @staticmethod
+    def sharpe(equity_curve: typing.Any, months: int, trading_day_per_year: int) -> typing.Any:
+        """
+        Get the rolling sharpe of the given series with a lookback of . The risk free rate is adjustable
+        
+        :param equity_curve: Equity curve to calculate rolling sharpe for
+        :param months: Number of months to calculate the rolling period for
+        :param trading_day_per_year: The number of trading days per year to increase result of Annual statistics
+        :returns: Rolling sharpe ratio.
+        """
+        ...
+
+
+class NullResultValueTypeJsonConverter(typing.Generic[QuantConnect_Report_NullResultValueTypeJsonConverter_T], JsonConverter):
+    """
+    Removes null values in the Result object's x,y values so that
+    deserialization can occur without exceptions.
+    """
+
+    def __init__(self) -> None:
+        """Initialize a new instance of NullResultValueTypeJsonConverter{T}"""
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determine if this converter can convert a given type
+        
+        :param object_type: Object type to convert
+        :returns: Always true.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Read Json for conversion
+        
+        :returns: Resulting object.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Write Json; Not implemented"""
         ...
 
 
@@ -222,93 +437,6 @@ class DrawdownCollection(System.Object):
         ...
 
 
-class OrderTypeNormalizingJsonConverter(JsonConverter):
-    """
-    Normalizes the "Type" field to a value that will allow for
-    successful deserialization in the OrderJsonConverter class.
-    """
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determine if this Converter can convert a given object type
-        
-        :param object_type: Object type to convert
-        :returns: True if assignable from Order.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Read Json and convert
-        
-        :returns: Resulting Order.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Write Json; Not implemented"""
-        ...
-
-
-class DeedleUtil(System.Object):
-    """Utility extension methods for Deedle series/frames"""
-
-    @staticmethod
-    def cumulative_max(input: typing.Any) -> typing.Any:
-        """Calculates the cumulative max of the series. This is equal to the python pandas method: `df.cummax()`."""
-        ...
-
-    @staticmethod
-    def cumulative_product(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative product of the series. This is equal to the python pandas method: `df.cumprod()`
-        
-        :param input: Input series
-        :returns: Cumulative product.
-        """
-        ...
-
-    @staticmethod
-    def cumulative_returns(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative returns series of the given input equity curve
-        
-        :param input: Equity curve series
-        :returns: Cumulative returns over time.
-        """
-        ...
-
-    @staticmethod
-    def cumulative_sum(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative sum for the given series
-        
-        :param input: Series to calculate cumulative sum for
-        :returns: Cumulative sum in series form.
-        """
-        ...
-
-    @staticmethod
-    def percent_change(input: typing.Any) -> typing.Any:
-        """
-        Calculates the percentage change from the previous value to the current
-        
-        :param input: Series to calculate percentage change for
-        :returns: Percentage change in series form.
-        """
-        ...
-
-    @staticmethod
-    def total_returns(input: typing.Any) -> float:
-        """
-        Calculates the total returns over a period of time for the given input
-        
-        :param input: Equity curve series
-        :returns: Total returns over time.
-        """
-        ...
-
-
 class Report(System.Object):
     """Report class"""
 
@@ -342,34 +470,6 @@ class Report(System.Object):
         :param pattern: Regex pattern to be find the input string
         :param input: Input string that may contain the regex pattern
         :returns: The regex pattern in the input string if found. Otherwise, null.
-        """
-        ...
-
-
-class Rolling(System.Object):
-    """Rolling window functions"""
-
-    @staticmethod
-    def beta(performance_points: System.Collections.Generic.SortedList[datetime.datetime, float], benchmark_points: System.Collections.Generic.SortedList[datetime.datetime, float], window_size: int = 132) -> typing.Any:
-        """
-        Calculate the rolling beta with the given window size (in days)
-        
-        :param performance_points: The performance points you want to measure beta for
-        :param benchmark_points: The benchmark/points you want to calculate beta with
-        :param window_size: Days/window to lookback
-        :returns: Rolling beta.
-        """
-        ...
-
-    @staticmethod
-    def sharpe(equity_curve: typing.Any, months: int, trading_day_per_year: int) -> typing.Any:
-        """
-        Get the rolling sharpe of the given series with a lookback of . The risk free rate is adjustable
-        
-        :param equity_curve: Equity curve to calculate rolling sharpe for
-        :param months: Number of months to calculate the rolling period for
-        :param trading_day_per_year: The number of trading days per year to increase result of Annual statistics
-        :returns: Rolling sharpe ratio.
         """
         ...
 
@@ -430,163 +530,6 @@ class CrisisEvent(Enum):
 
     AI_BOOM = 16
     """Artificial intelligence boom (16)"""
-
-
-class Crisis(System.Object):
-    """Crisis events utility class"""
-
-    EVENTS: System.Collections.Generic.Dictionary[QuantConnect.Report.CrisisEvent, QuantConnect.Report.Crisis] = ...
-    """Crisis events and pre-defined values"""
-
-    @property
-    def start(self) -> datetime.datetime:
-        """Start of the crisis event"""
-        ...
-
-    @property
-    def end(self) -> datetime.datetime:
-        """End of the crisis event"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Name of the crisis"""
-        ...
-
-    def __init__(self, name: str, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new crisis instance with the given name and start/end date.
-        
-        :param name: Name of the crisis
-        :param start: Start date of the crisis
-        :param end: End date of the crisis
-        """
-        ...
-
-    @staticmethod
-    def from_crisis(crisis_event: QuantConnect.Report.CrisisEvent) -> QuantConnect.Report.Crisis:
-        """
-        Returns a pre-defined crisis event
-        
-        :param crisis_event: Crisis Event
-        :returns: Pre-defined crisis event.
-        """
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        """Converts instance to string using the dates in the instance as start/end dates"""
-        ...
-
-    @overload
-    def to_string(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> str:
-        """
-        Converts instance to string using the provided dates
-        
-        :param start: Start date
-        :param end: End date
-        """
-        ...
-
-
-class PointInTimePortfolio(System.Object):
-    """Lightweight portfolio at a point in time"""
-
-    class PointInTimeHolding(System.Object):
-        """Holding of an asset at a point in time"""
-
-        @property
-        def symbol(self) -> QuantConnect.Symbol:
-            """Symbol of the holding"""
-            ...
-
-        @property
-        def holdings_value(self) -> float:
-            """Value of the holdings of the asset. Can be negative if shorting an asset"""
-            ...
-
-        @property
-        def quantity(self) -> float:
-            """Quantity of the asset. Can be negative if shorting an asset"""
-            ...
-
-        @property
-        def absolute_holdings_value(self) -> float:
-            """Absolute value of the holdings."""
-            ...
-
-        @property
-        def absolute_holdings_quantity(self) -> float:
-            """Absolute value of the quantity"""
-            ...
-
-        def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], holdings_value: float, holdings_quantity: float) -> None:
-            """
-            Creates an instance of PointInTimeHolding, representing a holding at a given point in time
-            
-            :param symbol: Symbol of the holding
-            :param holdings_value: Value of the holding
-            :param holdings_quantity: Quantity of the holding
-            """
-            ...
-
-    @property
-    def time(self) -> datetime.datetime:
-        """Time that this point in time portfolio is for"""
-        ...
-
-    @property
-    def total_portfolio_value(self) -> float:
-        """The total value of the portfolio. This is cash + absolute value of holdings"""
-        ...
-
-    @property
-    def cash(self) -> float:
-        """The cash the portfolio has"""
-        ...
-
-    @property
-    def order(self) -> QuantConnect.Orders.Order:
-        """The order we just processed"""
-        ...
-
-    @property
-    def holdings(self) -> typing.List[QuantConnect.Report.PointInTimePortfolio.PointInTimeHolding]:
-        """A list of holdings at the current moment in time"""
-        ...
-
-    @property
-    def leverage(self) -> float:
-        """Portfolio leverage - provided for convenience"""
-        ...
-
-    @overload
-    def __init__(self, order: QuantConnect.Orders.Order, portfolio: QuantConnect.Securities.SecurityPortfolioManager) -> None:
-        """
-        Creates an instance of the PointInTimePortfolio object
-        
-        :param order: Order applied to the portfolio
-        :param portfolio: Algorithm portfolio at a point in time
-        """
-        ...
-
-    @overload
-    def __init__(self, portfolio: QuantConnect.Report.PointInTimePortfolio, time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Clones the provided portfolio
-        
-        :param portfolio: Portfolio
-        :param time: Time
-        """
-        ...
-
-    def no_empty_holdings(self) -> QuantConnect.Report.PointInTimePortfolio:
-        """
-        Filters out any empty holdings from the current Holdings
-        
-        :returns: Current object, but without empty holdings.
-        """
-        ...
 
 
 class Metrics(System.Object):
@@ -665,10 +608,67 @@ class Metrics(System.Object):
         ...
 
 
+class Crisis(System.Object):
+    """Crisis events utility class"""
+
+    EVENTS: System.Collections.Generic.Dictionary[QuantConnect.Report.CrisisEvent, QuantConnect.Report.Crisis] = ...
+    """Crisis events and pre-defined values"""
+
+    @property
+    def start(self) -> datetime.datetime:
+        """Start of the crisis event"""
+        ...
+
+    @property
+    def end(self) -> datetime.datetime:
+        """End of the crisis event"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Name of the crisis"""
+        ...
+
+    def __init__(self, name: str, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Creates a new crisis instance with the given name and start/end date.
+        
+        :param name: Name of the crisis
+        :param start: Start date of the crisis
+        :param end: End date of the crisis
+        """
+        ...
+
+    @staticmethod
+    def from_crisis(crisis_event: QuantConnect.Report.CrisisEvent) -> QuantConnect.Report.Crisis:
+        """
+        Returns a pre-defined crisis event
+        
+        :param crisis_event: Crisis Event
+        :returns: Pre-defined crisis event.
+        """
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        """Converts instance to string using the dates in the instance as start/end dates"""
+        ...
+
+    @overload
+    def to_string(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> str:
+        """
+        Converts instance to string using the provided dates
+        
+        :param start: Start date
+        :param end: End date
+        """
+        ...
+
+
 class PortfolioLooperAlgorithm(QuantConnect.Algorithm.QCAlgorithm):
     """Fake algorithm that initializes portfolio and algorithm securities. Never ran."""
 
-    def __init__(self, starting_cash: float, orders: typing.Iterable[QuantConnect.Orders.Order], algorithm_configuration: QuantConnect.AlgorithmConfiguration = None) -> None:
+    def __init__(self, starting_cash: float, orders: typing.List[QuantConnect.Orders.Order], algorithm_configuration: QuantConnect.AlgorithmConfiguration = None) -> None:
         """
         Initialize an instance of PortfolioLooperAlgorithm
         
@@ -678,7 +678,7 @@ class PortfolioLooperAlgorithm(QuantConnect.Algorithm.QCAlgorithm):
         """
         ...
 
-    def from_orders(self, orders: typing.Iterable[QuantConnect.Orders.Order]) -> None:
+    def from_orders(self, orders: typing.List[QuantConnect.Orders.Order]) -> None:
         """
         Initializes all the proper Securities from the orders provided by the user
         
@@ -688,6 +688,57 @@ class PortfolioLooperAlgorithm(QuantConnect.Algorithm.QCAlgorithm):
 
     def initialize(self) -> None:
         """Initialize this algorithm"""
+        ...
+
+
+class PortfolioLooper(System.Object, System.IDisposable):
+    """
+    Runs LEAN to calculate the portfolio at a given time from Order objects.
+    Generates and returns PointInTimePortfolio objects that represents
+    the holdings and other miscellaneous metrics at a point in time by reprocessing the orders
+    as they were filled.
+    """
+
+    @property
+    def algorithm(self) -> QuantConnect.Report.PortfolioLooperAlgorithm:
+        """
+        QCAlgorithm derived class that sets up internal data feeds for
+        use with crypto and forex data, as well as managing the SecurityPortfolioManager
+        """
+        ...
+
+    @algorithm.setter
+    def algorithm(self, value: QuantConnect.Report.PortfolioLooperAlgorithm) -> None:
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    @staticmethod
+    def from_orders(equity_curve: typing.Any, orders: typing.List[QuantConnect.Orders.Order], algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, live_series: bool = False) -> typing.Iterable[QuantConnect.Report.PointInTimePortfolio]:
+        """
+        Gets the point in time portfolio over multiple deployments
+        
+        :param equity_curve: Equity curve series
+        :param orders: Orders
+        :param algorithm_configuration: Optional parameter to override default algorithm configuration
+        :param live_series: Equity curve series originates from LiveResult
+        :returns: Enumerable of PointInTimePortfolio.
+        """
+        ...
+
+    @staticmethod
+    def get_history(symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: QuantConnect.Resolution) -> typing.Iterable[QuantConnect.Data.Slice]:
+        """
+        Gets the history for the given symbols from the  to the
+        
+        :param symbols: Symbols to request history for
+        :param start: Start date of history request
+        :param end: End date of history request
+        :param resolution: Resolution of history request
+        :returns: Enumerable of slices.
+        """
         ...
 
 
@@ -724,57 +775,6 @@ class MockDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IDataFeed):
         Remove Subscription; Not implemented
         
         :param subscription: Subscription to remove
-        """
-        ...
-
-
-class PortfolioLooper(System.Object, System.IDisposable):
-    """
-    Runs LEAN to calculate the portfolio at a given time from Order objects.
-    Generates and returns PointInTimePortfolio objects that represents
-    the holdings and other miscellaneous metrics at a point in time by reprocessing the orders
-    as they were filled.
-    """
-
-    @property
-    def algorithm(self) -> QuantConnect.Report.PortfolioLooperAlgorithm:
-        """
-        QCAlgorithm derived class that sets up internal data feeds for
-        use with crypto and forex data, as well as managing the SecurityPortfolioManager
-        """
-        ...
-
-    @algorithm.setter
-    def algorithm(self, value: QuantConnect.Report.PortfolioLooperAlgorithm) -> None:
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    @staticmethod
-    def from_orders(equity_curve: typing.Any, orders: typing.Iterable[QuantConnect.Orders.Order], algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, live_series: bool = False) -> typing.Iterable[QuantConnect.Report.PointInTimePortfolio]:
-        """
-        Gets the point in time portfolio over multiple deployments
-        
-        :param equity_curve: Equity curve series
-        :param orders: Orders
-        :param algorithm_configuration: Optional parameter to override default algorithm configuration
-        :param live_series: Equity curve series originates from LiveResult
-        :returns: Enumerable of PointInTimePortfolio.
-        """
-        ...
-
-    @staticmethod
-    def get_history(symbols: typing.List[QuantConnect.Symbol], start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], resolution: QuantConnect.Resolution) -> typing.Iterable[QuantConnect.Data.Slice]:
-        """
-        Gets the history for the given symbols from the  to the
-        
-        :param symbols: Symbols to request history for
-        :param start: Start date of history request
-        :param end: End date of history request
-        :param resolution: Resolution of history request
-        :returns: Enumerable of slices.
         """
         ...
 

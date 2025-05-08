@@ -34,7 +34,7 @@ from icalendar import Calendar, Event, Parameters, vCalAddress
                     "ALTREP": ["http://www.wiz.org", "value4"],
                 }
             ),
-            b'ALTREP="http://www.wiz.org",value4;PARAMETER1=Value1;PARAMETER2=Value2,Value3',
+            b'ALTREP="http://www.wiz.org","value4";PARAMETER1=Value1;PARAMETER2=Value2,Value3',
         ),
         # Including empty strings
         (Parameters({"PARAM": ""}), b"PARAM="),
@@ -54,7 +54,7 @@ from icalendar import Calendar, Event, Parameters, vCalAddress
                     "PARAMETER2": ["Value2", "Value3"],
                 }
             ),
-            b'ALTREP="http://www.wiz.org",value4;PARAMETER1=Value1;PARAMETER2=Value2,Value3',
+            b'ALTREP="http://www.wiz.org","value4";PARAMETER1=Value1;PARAMETER2=Value2,Value3',
         ),
     ],
 )
@@ -89,8 +89,9 @@ def test_parameter_keys_are_uppercase():
         # a single quote in parameter value - double quote the value
         ("Aramis d'Alameda", '"Aramis d\'Alameda"'),
         ("Арамис д'Аламеда", '"Арамис д\'Аламеда"'),
-        # double quote is replaced with single quote
-        ('Aramis d"Alameda', '"Aramis d\'Alameda"'),
+        # Before, double quote is replaced with single quote
+        # Since RFC 6868, we replace this with ^'
+        ('Aramis d"Alameda', '"Aramis d^\'Alameda"'),
     ],
 )
 def test_quoting(cn_param, cn_quoted):

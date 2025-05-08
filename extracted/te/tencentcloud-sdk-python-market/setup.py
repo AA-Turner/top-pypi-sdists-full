@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-market',
-    install_requires=["tencentcloud-sdk-python-common==3.0.1373"],
+    install_requires=["tencentcloud-sdk-python-common==3.0.1374"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Market SDK for Python',
     long_description=open('README.rst').read(),

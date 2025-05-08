@@ -166,7 +166,7 @@ class SecurityCurrencyConversion(System.Object, QuantConnect.Securities.Currency
         ...
 
     @staticmethod
-    def linear_search(source_currency: str, destination_currency: str, existing_securities: typing.List[QuantConnect.Securities.Security], potential_symbols: typing.Iterable[QuantConnect.Symbol], make_new_security: typing.Callable[[QuantConnect.Symbol], QuantConnect.Securities.Security]) -> QuantConnect.Securities.CurrencyConversion.SecurityCurrencyConversion:
+    def linear_search(source_currency: str, destination_currency: str, existing_securities: typing.List[QuantConnect.Securities.Security], potential_symbols: typing.List[QuantConnect.Symbol], make_new_security: typing.Callable[[QuantConnect.Symbol], QuantConnect.Securities.Security]) -> QuantConnect.Securities.CurrencyConversion.SecurityCurrencyConversion:
         """
         Finds a conversion between two currencies by looking through all available 1 and 2-leg options
         

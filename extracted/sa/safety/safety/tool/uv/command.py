@@ -4,6 +4,8 @@ from safety.tool.pip.parser import PipParser
 from ..pip.command import PipCommand, PipInstallCommand, PipGenericCommand
 from safety_schemas.models.events.types import ToolType
 
+UV_LOCK = "safety-uv.lock"
+
 
 class UvCommand(PipCommand):
     def __init__(self, *args, **kwargs) -> None:
@@ -12,6 +14,9 @@ class UvCommand(PipCommand):
 
     def get_tool_type(self) -> ToolType:
         return ToolType.UV
+
+    def get_lock_path(self) -> str:
+        return UV_LOCK
 
     def get_package_list_command(self) -> List[str]:
         return [*self._name, "pip", "list", "--format=json"]
@@ -31,16 +36,21 @@ class UvCommand(PipCommand):
         return any(cmd in command_str for cmd in package_modifying_commands)
 
     @classmethod
-    def from_args(cls, args: List[str]):
-        parser = PipParser()
+    def from_args(cls, args: List[str], **kwargs):
+        pip_parser = PipParser()
+        is_pip_interface = args and args[0] == "pip"
 
-        to_parse = args[1:] if args[0] == "pip" else args
+        to_parse = args[1:] if is_pip_interface else args
 
-        if intention := parser.parse(to_parse):
+        if intention := pip_parser.parse(to_parse):
             if intention.intention_type is ToolIntentionType.ADD_PACKAGE:
-                return UvInstallCommand(to_parse, intention=intention)
+                return UvInstallCommand(to_parse, intention=intention, **kwargs)
 
-        return UvGenericCommand(to_parse)
+        # No an install but still a pip interface command
+        if is_pip_interface:
+            to_parse = args
+
+        return UvGenericCommand(to_parse, **kwargs)
 
 
 class UvInstallCommand(PipInstallCommand, UvCommand):
@@ -49,4 +59,5 @@ class UvInstallCommand(PipInstallCommand, UvCommand):
 
 
 class UvGenericCommand(PipGenericCommand, UvCommand):
-    pass
+    def get_command_name(self) -> List[str]:
+        return ["uv"]

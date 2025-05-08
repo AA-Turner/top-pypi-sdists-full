@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: svgpathtools
-Version: 1.6.1
+Version: 1.7.0
 Summary: A collection of tools for manipulating and analyzing SVG Path objects and Bezier curves.
 Home-page: https://github.com/mathandy/svgpathtools
-Download-URL: https://github.com/mathandy/svgpathtools/releases/download/1.6.1/svgpathtools-1.6.1-py2.py3-none-any.whl
+Download-URL: https://github.com/mathandy/svgpathtools/releases/download/1.7.0/svgpathtools-1.7.0-py3-none-any.whl
 Author: Andy Port
 Author-email: AndyAPort@gmail.com
 License: MIT
@@ -13,16 +13,13 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Multimedia :: Graphics :: Editors :: Vector-Based
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Image Recognition
@@ -30,8 +27,12 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Requires-Dist: numpy
+Requires-Dist: svgwrite
+Requires-Dist: scipy
 
 [![Donate](https://img.shields.io/badge/donate-paypal-brightgreen)](https://www.paypal.com/donate?business=4SKJ27AM4EYYA&amp;no_recurring=0&amp;item_name=Support+the+creator+of+svgpathtools?++He%27s+a+student+and+would+appreciate+it.&amp;currency_code=USD)
 ![Python](https://img.shields.io/pypi/pyversions/svgpathtools.svg)

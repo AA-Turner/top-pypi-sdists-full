@@ -9,24 +9,6 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Cfd
 
 
-class CfdExchange(QuantConnect.Securities.SecurityExchange):
-    """CFD exchange class - information and helper tools for CFD exchange properties"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, used for performance statistics."""
-        ...
-
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the CfdExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
 class Cfd(QuantConnect.Securities.Security):
     """CFD Security Object Implementation for CFD Assets"""
 
@@ -82,14 +64,6 @@ class Cfd(QuantConnect.Securities.Security):
         ...
 
 
-class CfdCache(QuantConnect.Securities.SecurityCache):
-    """CFD specific caching support"""
-
-
-class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
-
-
 class CfdHolding(QuantConnect.Securities.SecurityHolding):
     """CFD holdings implementation of the base securities class"""
 
@@ -101,5 +75,31 @@ class CfdHolding(QuantConnect.Securities.SecurityHolding):
         :param currency_converter: A currency converter instance
         """
         ...
+
+
+class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
+class CfdExchange(QuantConnect.Securities.SecurityExchange):
+    """CFD exchange class - information and helper tools for CFD exchange properties"""
+
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, used for performance statistics."""
+        ...
+
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the CfdExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        """
+        ...
+
+
+class CfdCache(QuantConnect.Securities.SecurityCache):
+    """CFD specific caching support"""
 
 

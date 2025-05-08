@@ -48,7 +48,7 @@ async def edit_channel(models, token: Optional[str] = None):
         "auto_ban": 0,
         "other_info": "",
 
-        "group": "default,openai,china,chatfire,enterprise",  # ','.join(GROUP_RATIO),
+        "group": "default,openai,chatfire,enterprise",  # ','.join(GROUP_RATIO),
         "groups": ['default']
     }
     headers = {
@@ -159,3 +159,45 @@ if __name__ == '__main__':
     # arun(create_or_update_channel(tokens))
     # # arun(delete_channel(range(10000, 20000)))
 
+
+"""
+API_KEY=6c255307-7b4d-4be8-984b-5440a3e867eb
+curl --location --request POST 'https://api.ffire.cc/api/channel/' \
+--header 'new-api-user: 1' \
+--header 'Authorization: Bearer 20ff7099a62f441287f47c86431a7f12' \
+--header 'User-Agent: Apifox/1.0.0 (https://apifox.com)' \
+--header 'content-type: application/json' \
+--data-raw '{
+    "type": 8,
+    "key": "${API_KEY}",
+    "openai_organization": "",
+    "test_model": "",
+    "status": 1,
+    "name": "火山-超刷",
+    "weight": 0,
+    "created_time": 1746166915,
+    "test_time": 1746156171,
+    "response_time": 878,
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+    "other": "",
+    "balance": 0,
+    "balance_updated_time": 0,
+    "models": "doubao-1.5-vision-pro-250328,deepseek-v3,deepseek-v3-0324,deepseek-v3-250324,deepseek-v3-8k,deepseek-v3-128k,deepseek-chat,deepseek-chat-8k,deepseek-chat-64k,deepseek-chat-164k,deepseek-chat:function,deepseek-vl2,deepseek-ai/deepseek-vl2,deepseek-r1,deepseek-r1-8k,deepseek-reasoner,deepseek-reasoner-8k,deepseek-r1-250120,deepseek-search,deepseek-r1-search,deepseek-reasoner-search,deepseek-r1-think,deepseek-reasoner-think,deepseek-r1-plus,deepseek-r1:1.5b,deepseek-r1-lite,deepseek-r1-distill-qwen-1.5b,deepseek-r1:7b,deepseek-r1-distill-qwen-7b,deepseek-r1:8b,deepseek-r1-distill-llama-8b,deepseek-r1:14b,deepseek-r1-distill-qwen-14b,deepseek-r1:32b,deepseek-r1-distill-qwen-32b,deepseek-r1:70b,deepseek-r1-distill-llama-70b,deepseek-r1-metasearch,doubao-1-5-pro-32k,doubao-1-5-pro-32k-250115,doubao-1-5-pro-256k,doubao-1-5-pro-256k-250115,doubao-1-5-vision-pro-32k,doubao-1-5-vision-pro-32k-250115,doubao-lite-128k,doubao-lite-32k,doubao-lite-32k-character,doubao-lite-4k,doubao-1.5-lite-32k,doubao-pro-4k,doubao-pro-32k,doubao-pro-32k-character,doubao-pro-128k,doubao-pro-256k,doubao-1.5-pro-32k,doubao-1.5-pro-256k,doubao-1.5-vision-pro-32k,doubao-vision-lite-32k,doubao-vision-pro-32k,doubao-1-5-pro-thinking,doubao-1-5-vision-thinking,doubao-1-5-thinking-pro-250415,doubao-1-5-thinking-pro-vision,doubao-1-5-thinking-pro-vision-250415,doubao-1-5-thinking-pro-m-250415,moonshot-v1-8k,moonshot-v1-32k,moonshot-v1-128k",
+    "group": "default,deepseek,volcengine",
+    "used_quota": 0,
+    "model_mapping": "{\n  \"deepseek-r1\": \"deepseek-r1-250120\",\n  \"deepseek-reasoner\": \"deepseek-r1-250120\",\n  \"deepseek-v3-0324\": \"deepseek-v3-250324\",\n  \"deepseek-v3\": \"deepseek-v3-250324\",\n  \"deepseek-chat\": \"deepseek-v3-250324\",\n  \"doubao-1-5-vision-pro-32k\": \"doubao-1-5-vision-pro-32k-250115\",\n  \"doubao-1.5-vision-pro-32k\": \"doubao-1-5-vision-pro-32k-250115\",\n  \"doubao-pro-32k\": \"doubao-1-5-pro-32k-250115\",\n  \"doubao-pro-256k\": \"doubao-1-5-pro-256k-250115\",\n  \"doubao-1.5-lite-32k\": \"doubao-1-5-lite-32k-250115\",\n  \"doubao-lite-4k\": \"doubao-1-5-lite-32k-250115\",\n  \"doubao-lite-32k\": \"doubao-1-5-lite-32k-250115\",\n  \"doubao-lite-128k\": \"doubao-lite-128k-240828\",\n  \"doubao-pro-128k\": \"doubao-1-5-pro-256k-250115\",\n  \"doubao-1.5-lite\": \"doubao-1-5-lite-32k-250115\",\n  \"doubao-vision-lite-32k\": \"doubao-vision-lite-32k-241015\",\n  \"doubao-vision-pro-32k\": \"doubao-1-5-vision-pro-32k-250115\",\n  \"doubao-1.5-pro-32k\": \"doubao-1-5-pro-32k-250115\",\n  \"doubao-1.5-pro-256k\": \"doubao-1-5-pro-256k-250115\",\n  \"doubao-1-5-thinking-pro\": \"doubao-1-5-thinking-pro-250415\",\n  \"doubao-1-5-thinking-pro-vision\": \"doubao-1-5-thinking-pro-vision-250415\"\n}",
+    "status_code_mapping": "",
+    "priority": 999,
+    "auto_ban": 1,
+    "other_info": "",
+    "settings": "",
+    "tag": "火山",
+    "setting": null,
+    "param_override": null,
+    "groups": [
+        "default",
+        "deepseek",
+        "volcengine"
+    ]
+}'
+"""

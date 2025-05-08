@@ -51,7 +51,7 @@ class IOptimizationStrategy(metaclass=abc.ABCMeta):
         """Estimates amount of parameter sets that can be run"""
         ...
 
-    def initialize(self, target: QuantConnect.Optimizer.Objectives.Target, constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint], parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], settings: QuantConnect.Optimizer.Strategies.OptimizationStrategySettings) -> None:
+    def initialize(self, target: QuantConnect.Optimizer.Objectives.Target, constraints: typing.List[QuantConnect.Optimizer.Objectives.Constraint], parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], settings: QuantConnect.Optimizer.Strategies.OptimizationStrategySettings) -> None:
         """
         Initializes the strategy using generator, extremum settings and optimization parameters
         
@@ -164,7 +164,7 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         """
         ...
 
-    def initialize(self, target: QuantConnect.Optimizer.Objectives.Target, constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint], parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], settings: QuantConnect.Optimizer.Strategies.OptimizationStrategySettings) -> None:
+    def initialize(self, target: QuantConnect.Optimizer.Objectives.Target, constraints: typing.List[QuantConnect.Optimizer.Objectives.Constraint], parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], settings: QuantConnect.Optimizer.Strategies.OptimizationStrategySettings) -> None:
         """
         Initializes the strategy using generator, extremum settings and optimization parameters
         
@@ -236,7 +236,7 @@ class StepBaseOptimizationStrategySettings(QuantConnect.Optimizer.Strategies.Opt
 class EulerSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBaseOptimizationStrategy):
     """Advanced brute-force strategy with search in-depth for best solution on previous step"""
 
-    def initialize(self, target: QuantConnect.Optimizer.Objectives.Target, constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint], parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], settings: QuantConnect.Optimizer.Strategies.OptimizationStrategySettings) -> None:
+    def initialize(self, target: QuantConnect.Optimizer.Objectives.Target, constraints: typing.List[QuantConnect.Optimizer.Objectives.Constraint], parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], settings: QuantConnect.Optimizer.Strategies.OptimizationStrategySettings) -> None:
         """
         Initializes the strategy using generator, extremum settings and optimization parameters
         

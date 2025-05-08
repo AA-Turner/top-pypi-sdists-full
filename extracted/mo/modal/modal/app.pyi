@@ -338,6 +338,7 @@ class App:
     class __lookup_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             name: str,
             *,
             client: typing.Optional[modal.client.Client] = None,
@@ -346,6 +347,7 @@ class App:
         ) -> App: ...
         async def aio(
             self,
+            /,
             name: str,
             *,
             client: typing.Optional[modal.client.Client] = None,
@@ -365,10 +367,10 @@ class App:
 
     class ___set_local_app_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
-            self, client: modal.client.Client, running_app: modal.running_app.RunningApp
+            self, /, client: modal.client.Client, running_app: modal.running_app.RunningApp
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]: ...
         def aio(
-            self, client: modal.client.Client, running_app: modal.running_app.RunningApp
+            self, /, client: modal.client.Client, running_app: modal.running_app.RunningApp
         ) -> typing.AsyncContextManager[None]: ...
 
     _set_local_app: ___set_local_app_spec[typing_extensions.Self]
@@ -376,6 +378,7 @@ class App:
     class __run_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             *,
             client: typing.Optional[modal.client.Client] = None,
             show_progress: typing.Optional[bool] = None,
@@ -385,6 +388,7 @@ class App:
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[App]: ...
         def aio(
             self,
+            /,
             *,
             client: typing.Optional[modal.client.Client] = None,
             show_progress: typing.Optional[bool] = None,
@@ -398,6 +402,7 @@ class App:
     class __deploy_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             *,
             name: typing.Optional[str] = None,
             environment_name: typing.Optional[str] = None,
@@ -406,6 +411,7 @@ class App:
         ) -> SUPERSELF: ...
         async def aio(
             self,
+            /,
             *,
             name: typing.Optional[str] = None,
             environment_name: typing.Optional[str] = None,
@@ -535,6 +541,7 @@ class App:
     class __spawn_sandbox_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             *entrypoint_args: str,
             image: typing.Optional[modal.image.Image] = None,
             mounts: collections.abc.Sequence[modal.mount.Mount] = (),
@@ -559,6 +566,7 @@ class App:
         ) -> None: ...
         async def aio(
             self,
+            /,
             *entrypoint_args: str,
             image: typing.Optional[modal.image.Image] = None,
             mounts: collections.abc.Sequence[modal.mount.Mount] = (),
@@ -588,10 +596,10 @@ class App:
 
     class ___logs_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
-            self, client: typing.Optional[modal.client.Client] = None
+            self, /, client: typing.Optional[modal.client.Client] = None
         ) -> typing.Generator[str, None, None]: ...
         def aio(
-            self, client: typing.Optional[modal.client.Client] = None
+            self, /, client: typing.Optional[modal.client.Client] = None
         ) -> collections.abc.AsyncGenerator[str, None]: ...
 
     _logs: ___logs_spec[typing_extensions.Self]

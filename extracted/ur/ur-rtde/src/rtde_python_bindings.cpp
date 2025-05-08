@@ -66,6 +66,7 @@ PYBIND11_MODULE(rtde_control, m)
       .value("FLAG_NO_WAIT", RTDEControlInterface::Flags::FLAG_NO_WAIT)
       .value("FLAG_CUSTOM_SCRIPT", RTDEControlInterface::Flags::FLAG_CUSTOM_SCRIPT)
       .value("FLAG_NO_EXT_FT", RTDEControlInterface::Flags::FLAG_NO_EXT_FT)
+      .value("FLAG_DIABLE_REMOTE_CONTROL_CHECK", RTDEControlInterface::Flags::FLAG_DIABLE_REMOTE_CONTROL_CHECK)
       .value("FLAGS_DEFAULT", RTDEControlInterface::Flags::FLAGS_DEFAULT)
       .export_values();
 
@@ -233,6 +234,9 @@ PYBIND11_MODULE(rtde_control, m)
               py::arg("inertia") = std::vector<double>{0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
               py::call_guard<py::gil_scoped_release>());
   control.def("__repr__", [](const RTDEControlInterface &a) { return "<rtde_control.RTDEControlInterface>"; });
+  control.def("startContactDetection", &RTDEControlInterface::startContactDetection, py::arg("direction") = std::vector<double>{0, 0, 0, 0, 0, 0}, py::call_guard<py::gil_scoped_release>());
+  control.def("readContactDetection", &RTDEControlInterface::readContactDetection, py::call_guard<py::gil_scoped_release>());
+  control.def("stopContactDetection", &RTDEControlInterface::stopContactDetection, py::call_guard<py::gil_scoped_release>());
 }
 };  // namespace rtde_control
 

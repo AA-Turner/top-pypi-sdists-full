@@ -51,14 +51,6 @@ class SuppressMessageAttribute(System.Attribute):
         ...
 
 
-class UnscopedRefAttribute(System.Attribute):
-    """Used to indicate a byref escapes and is not scoped."""
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the UnscopedRefAttribute class."""
-        ...
-
-
 class ExcludeFromCodeCoverageAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -94,6 +86,14 @@ class ConstantExpectedAttribute(System.Attribute):
 
     @max.setter
     def max(self, value: System.Object) -> None:
+        ...
+
+
+class UnscopedRefAttribute(System.Attribute):
+    """Used to indicate a byref escapes and is not scoped."""
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the UnscopedRefAttribute class."""
         ...
 
 

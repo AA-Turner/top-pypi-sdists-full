@@ -45,19 +45,6 @@ class IndexOptionSymbolProperties(QuantConnect.Securities.Option.OptionSymbolPro
         ...
 
 
-class IndexOptionPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
-    """The index option price variation model"""
-
-    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
-        """
-        Get the minimum price variation from a security
-        
-        :param parameters: An object containing the method parameters
-        :returns: Decimal minimum price variation of a given security.
-        """
-        ...
-
-
 class IndexOptionSymbol(System.Object):
     """Index Option Symbol"""
 
@@ -101,6 +88,19 @@ class IndexOptionSymbol(System.Object):
         
         :param index_option: Index option ticker to map to the underlying
         :returns: Index ticker.
+        """
+        ...
+
+
+class IndexOptionPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
+    """The index option price variation model"""
+
+    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+        """
+        Get the minimum price variation from a security
+        
+        :param parameters: An object containing the method parameters
+        :returns: Decimal minimum price variation of a given security.
         """
         ...
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-crewai
-Version: 0.40.2
+Version: 0.40.3
 Summary: OpenTelemetry crewAI instrumentation
 License: Apache-2.0
 Author: Gal Kleinman

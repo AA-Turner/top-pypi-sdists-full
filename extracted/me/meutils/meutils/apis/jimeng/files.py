@@ -102,11 +102,13 @@ class JJRequest:
         return hash256("")
 
 
-@cache(ttl=15 * 60)
+# @cache(ttl=15 * 60)
 async def upload(image: bytes, upload_token: dict):  # oss 跨账号不知道是否可以使用
     # e = auth = upload_token['data']['auth'] # 豆包
     data = upload_token['data']
-    service_id = data.get('service_id', '3jr8j4ixpe')  # 即梦 3jr8j4ixpe 豆包 a9rns2rl98
+    # service_id = data.get('service_id', '3jr8j4ixpe')  # 即梦 3jr8j4ixpe 豆包 a9rns2rl98
+
+    service_id = data.get('space_name') or "3jr8j4ixpe"  # 即梦视频 tb4s082cfz
 
     if 'auth' in data:
         data = data['auth']
@@ -115,13 +117,14 @@ async def upload(image: bytes, upload_token: dict):  # oss 跨账号不知道是
 
     t = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
 
+    # "ServiceId": "tb4s082cfz",
     params = {
         "Action": "ApplyImageUpload",
         "Version": "2018-08-01",
         "ServiceId": service_id,
         "s": random_str(10),
 
-        "FileExtension": ".png",  #####
+        # "FileExtension": ".png",  #####
         "FileSize": len(image),
     }
 
@@ -193,7 +196,7 @@ async def upload_for_vod(image: bytes, upload_token: dict):  # oss 跨账号不�
     """
     # e = auth = upload_token['data']['auth'] # 豆包
     data = upload_token['data']
-    service_id = data.get('service_id', '3jr8j4ixpe')  # 即梦 3jr8j4ixpe 豆包 a9rns2rl98
+    service_id = data.get('space_name', 'tb4s082cfz')  # 即梦 3jr8j4ixpe 豆包 a9rns2rl98
 
     if 'auth' in data:
         data = data['auth']
@@ -205,9 +208,10 @@ async def upload_for_vod(image: bytes, upload_token: dict):  # oss 跨账号不�
     params = {
         "Action": "ApplyUploadInner",
         "Version": "2020-11-19",
-        # "ServiceId": service_id,
+
+        "ServiceId": service_id,
         # "SpaceName": "artist_op",
-        "SpaceName": "dreamina",
+        # "SpaceName": "dreamina",
 
         "IsInner": "1",
 
@@ -274,11 +278,11 @@ async def upload_for_vod(image: bytes, upload_token: dict):  # oss 跨账号不�
     return vid, oss_uri
 
 
-async def upload_for_image(image, token):  # todo: 跨账号token
+async def upload_for_image(image, token, biz: Optional[str] = None):  # todo: 跨账号token
     """image url base64 bytes"""
     if not image: return
 
-    upload_token = await get_upload_token(token)
+    upload_token = await get_upload_token(token, biz)
     image_uri = await upload(await to_bytes(image), upload_token)
     return image_uri
 
@@ -356,5 +360,9 @@ if __name__ == "__main__":
     #     # arun(upload_for_video("https://oss.ffire.cc/files/lipsync.mp3", token))
     #     arun(upload_for_video(url, token))
     image_url = "https://oss.ffire.cc/files/kling_watermark.png"
-    arun(face_recognize(image_url, token))
-    arun(face_recognize(image_url))
+    # arun(face_recognize(image_url, token))
+    # arun(face_recognize(image_url))
+
+    token = "ed16bb360a4744696f88a7b52b7c10a3"
+
+    arun(upload_for_image(image_url, token, "video"))

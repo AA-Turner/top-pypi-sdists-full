@@ -32,6 +32,7 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ResourceToTagType",
+    "RunTypeType",
     "ServiceName",
     "SyntheticsServiceName",
 )
@@ -67,6 +68,7 @@ CanaryStateType = Literal[
 EncryptionModeType = Literal["SSE_KMS", "SSE_S3"]
 ProvisionedResourceCleanupSettingType = Literal["AUTOMATIC", "OFF"]
 ResourceToTagType = Literal["lambda-function"]
+RunTypeType = Literal["CANARY_RUN", "DRY_RUN"]
 SyntheticsServiceName = Literal["synthetics"]
 ServiceName = Literal[
     "accessanalyzer",

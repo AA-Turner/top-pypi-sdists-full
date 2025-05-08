@@ -10,20 +10,6 @@ import System
 import System.Collections.Generic
 
 
-class DownloaderDataProviderArgumentParser(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """
-        Parses the command-line arguments and returns a dictionary containing parsed values.
-        
-        :param args: An array of command-line arguments.
-        :returns: A dictionary containing parsed values from the command-line arguments.
-        """
-        ...
-
-
 class Program(System.Object):
     """This class has no documentation."""
 
@@ -54,6 +40,20 @@ class Program(System.Object):
         :param data_directory: The directory where the downloaded data will be stored.
         :param data_cache_provider: The provider used to cache history data files
         :param map_symbol: True if the symbol should be mapped while writing the data
+        """
+        ...
+
+
+class DownloaderDataProviderArgumentParser(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """
+        Parses the command-line arguments and returns a dictionary containing parsed values.
+        
+        :param args: An array of command-line arguments.
+        :returns: A dictionary containing parsed values from the command-line arguments.
         """
         ...
 

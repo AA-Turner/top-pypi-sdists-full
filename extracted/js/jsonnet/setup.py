@@ -13,82 +13,117 @@
 # limitations under the License.
 
 import os
-from setuptools import setup
-from setuptools import Extension
+import re
+import setuptools
 from setuptools.command.build_ext import build_ext as BuildExt
-from subprocess import Popen
 
 DIR = os.path.abspath(os.path.dirname(__file__))
 # NOTE: If you are editing the array below then you probably also need
 # to change MANIFEST.in.
-LIB_OBJECTS = [
-    'core/desugarer.o',
-    'core/formatter.o',
-    'core/libjsonnet.o',
-    'core/lexer.o',
-    'core/parser.o',
-    'core/pass.o',
-    'core/static_analysis.o',
-    'core/string_utils.o',
-    'core/vm.o',
-    'third_party/md5/md5.o',
-    'third_party/rapidyaml/rapidyaml/ext/c4core/src/c4/char_traits.o',
-    'third_party/rapidyaml/rapidyaml/ext/c4core/src/c4/base64.o',
-    'third_party/rapidyaml/rapidyaml/ext/c4core/src/c4/language.o',
-    'third_party/rapidyaml/rapidyaml/ext/c4core/src/c4/memory_util.o',
-    'third_party/rapidyaml/rapidyaml/ext/c4core/src/c4/format.o',
-    'third_party/rapidyaml/rapidyaml/ext/c4core/src/c4/time.o',
-    'third_party/rapidyaml/rapidyaml/ext/c4core/src/c4/memory_resource.o',
-    'third_party/rapidyaml/rapidyaml/ext/c4core/src/c4/error.o',
-    'third_party/rapidyaml/rapidyaml/src/c4/yml/parse.o',
-    'third_party/rapidyaml/rapidyaml/src/c4/yml/preprocess.o',
-    'third_party/rapidyaml/rapidyaml/src/c4/yml/common.o',
-    'third_party/rapidyaml/rapidyaml/src/c4/yml/tree.o',
+LIB_SOURCES = [
+    "core/desugarer.cpp",
+    "core/formatter.cpp",
+    "core/libjsonnet.cpp",
+    "core/lexer.cpp",
+    "core/parser.cpp",
+    "core/pass.cpp",
+    "core/path_utils.cpp",
+    "core/static_analysis.cpp",
+    "core/string_utils.cpp",
+    "core/vm.cpp",
+    "third_party/md5/md5.cpp",
+    "third_party/rapidyaml/rapidyaml.cpp",
+    "python/_jsonnet.c",
 ]
 
-MODULE_SOURCES = ['python/_jsonnet.c']
 
 def get_version():
     """
     Parses the version out of libjsonnet.h
     """
-    with open(os.path.join(DIR, 'include/libjsonnet.h')) as f:
+    rx = re.compile(
+        r'^\s*#\s*define\s+LIB_JSONNET_VERSION\s+"v([0-9.]+(?:-?[a-z][a-z0-9]*)?)"\s*$'
+    )
+    with open(os.path.join(DIR, "include/libjsonnet.h")) as f:
         for line in f:
-            if '#define' in line and 'LIB_JSONNET_VERSION' in line:
-                v_code = line.partition('LIB_JSONNET_VERSION')[2].strip('\n "')
-                if v_code[0] == "v":
-                    v_code = v_code[1:]
-                return v_code
+            m = rx.match(line)
+            if m:
+                return m.group(1)
+    raise Exception(
+        "could not find LIB_JSONNET_VERSION definition in include/libjsonnet.h"
+    )
+
 
 class BuildJsonnetExt(BuildExt):
+    def _pack_std_jsonnet(self):
+        print("generating core/std.jsonnet.h from stdlib/std.jsonnet")
+        with open("stdlib/std.jsonnet", "rb") as f:
+            stdlib = f.read()
+        with open("core/std.jsonnet.h", "w", encoding="utf-8") as f:
+            f.write(",".join(str(x) for x in stdlib))
+            f.write(",0\n\n")
+
+    def build_extensions(self):
+        # At this point, the compiler has been chosen so we add compiler-specific flags.
+        # There is unfortunately no built in support for this in setuptools.
+        # Feature request: https://github.com/pypa/setuptools/issues/1819
+        print("Adjusting compiler for compiler type " + self.compiler.compiler_type)
+        # This is quite hacky as we're modifying the Extension object itself.
+        if self.compiler.compiler_type == "msvc":
+            for ext in self.extensions:
+                ext.extra_compile_args.append("/std:c++17")
+        else:
+            # -std=c++17 should only be applied to C++ build,
+            # not when compiling C source code. Unfortunately,
+            # the extra_compile_args applies to both. Instead,
+            # patch the CC/CXX commands in the compiler object.
+            #
+            # Note that older versions of distutils/setuptools do not
+            # have the necessary separation between C and C++ compilers.
+            # This requires setuptools 72.2.
+            for v in ("compiler_cxx", "compiler_so_cxx"):
+                if not hasattr(self.compiler, v):
+                    print(
+                        f"WARNING: cannot adjust flag {v}, "
+                        f"compiler type {self.compiler.compiler_type}, "
+                        f"compiler class {type(self.compiler).__name__}"
+                    )
+                    continue
+                current = getattr(self.compiler, v)
+                self.compiler.set_executable(v, current + ["-std=c++17"])
+        super().build_extensions()
+
     def run(self):
-        p = Popen(['make'] + LIB_OBJECTS, cwd=DIR)
-        p.wait()
-        if p.returncode != 0:
-            raise Exception('Could not build %s' % (', '.join(LIB_OBJECTS)))
-        BuildExt.run(self)
+        self._pack_std_jsonnet()
+        super().run()
 
-jsonnet_ext = Extension(
-    '_jsonnet',
-    sources=MODULE_SOURCES,
-    extra_objects=LIB_OBJECTS,
-    include_dirs = ['include'],
-    language='c++'
-)
 
-setup(name='jsonnet',
-      url='https://jsonnet.org',
-      project_urls={
-        'Source': 'https://github.com/google/jsonnet',
-      },
-      description='Python bindings for Jsonnet - The data templating language ',
-      license="Apache License 2.0",
-      author='David Cunningham',
-      author_email='dcunnin@google.com',
-      version=get_version(),
-      cmdclass={
-          'build_ext': BuildJsonnetExt,
-      },
-      ext_modules=[jsonnet_ext],
-      test_suite="python._jsonnet_test",
+setuptools.setup(
+    name="jsonnet",
+    url="https://jsonnet.org",
+    project_urls={
+        "Source": "https://github.com/google/jsonnet",
+    },
+    description="Python bindings for Jsonnet - The data templating language ",
+    license="Apache License 2.0",
+    author="David Cunningham",
+    author_email="dcunnin@google.com",
+    version=get_version(),
+    cmdclass={
+        "build_ext": BuildJsonnetExt,
+    },
+    ext_modules=[
+        setuptools.Extension(
+            "_jsonnet",
+            sources=LIB_SOURCES,
+            include_dirs=[
+                "include",
+                "third_party/md5",
+                "third_party/json",
+                "third_party/rapidyaml",
+            ],
+            language="c++",
+        )
+    ],
+    test_suite="python._jsonnet_test",
 )

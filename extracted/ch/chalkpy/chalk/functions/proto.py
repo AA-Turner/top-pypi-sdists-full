@@ -1,10 +1,11 @@
 from typing import Any, Mapping, Union
 
-from google.protobuf.descriptor import FileDescriptor
-from google.protobuf.descriptor_pb2 import FileDescriptorProto, FileDescriptorSet
 from google.protobuf.message import Message
 
-from chalk.features._encoding.protobuf import create_empty_pyarrow_scalar_from_proto_type
+from chalk.features._encoding.protobuf import (
+    create_empty_pyarrow_scalar_from_proto_type,
+    serialize_message_file_descriptor,
+)
 from chalk.features.underscore import Underscore, UnderscoreFunction
 
 
@@ -22,29 +23,6 @@ def _is_protobuf_message(obj: Any) -> bool:
     return all(hasattr(obj, method) for method in required_methods)
 
 
-def serialize_message_file_descriptor(message: Message) -> bytes:
-    """Create a FileDescriptorSet containing the given message and its dependencies."""
-    file_descriptor = message.DESCRIPTOR.file
-    file_descriptor_set = FileDescriptorSet()
-    processed_files = set()
-
-    def add_file_and_deps(fd: FileDescriptor):
-        if fd.name in processed_files:
-            return
-
-        for dep in fd.dependencies:
-            add_file_and_deps(dep)
-
-        fd_proto = FileDescriptorProto()
-        fd.CopyToProto(fd_proto)
-
-        file_descriptor_set.file.append(fd_proto)
-        processed_files.add(fd.name)
-
-    add_file_and_deps(file_descriptor)
-    return file_descriptor_set.SerializeToString()
-
-
 class UnderscoreProtoSerialize(UnderscoreFunction):
     def __init__(
         self,
@@ -56,7 +34,7 @@ class UnderscoreProtoSerialize(UnderscoreFunction):
         if not _is_protobuf_message(message):
             raise TypeError(f"F.proto_serialize(): message must be a Message: got {type(message)}")
 
-        message_file_descriptor = serialize_message_file_descriptor(message)
+        message_file_descriptor = serialize_message_file_descriptor(message.DESCRIPTOR.file)
         super().__init__(
             "proto_serialize",
             message_file_descriptor,
@@ -106,7 +84,7 @@ class UnderscoreProtoDeserialize(UnderscoreFunction):
         if not _is_protobuf_message(message):
             raise TypeError(f"F.proto_deserialize(): message must be a Message, got {type(message)}")
 
-        message_file_descriptor = serialize_message_file_descriptor(message)
+        message_file_descriptor = serialize_message_file_descriptor(message.DESCRIPTOR.file)
         message_name = message.DESCRIPTOR.full_name
         pa_scalar = create_empty_pyarrow_scalar_from_proto_type(message)
         super().__init__(

@@ -589,6 +589,10 @@ pub struct SelfUpdateArgs {
     /// A token is not required but can be used to reduce the chance of encountering rate limits.
     #[arg(long, env = EnvVars::UV_GITHUB_TOKEN)]
     pub token: Option<String>,
+
+    /// Run without performing the update.
+    #[arg(long)]
+    pub dry_run: bool,
 }
 
 #[derive(Args)]
@@ -4246,11 +4250,11 @@ pub struct ToolInstallArgs {
     #[arg(long, hide = true)]
     pub from: Option<String>,
 
-    /// Include the following extra requirements.
+    /// Include the following additional requirements.
     #[arg(long)]
     pub with: Vec<comma::CommaSeparatedRequirements>,
 
-    /// Run all requirements listed in the given `requirements.txt` files.
+    /// Include all requirements listed in the given `requirements.txt` files.
     #[arg(long, value_delimiter = ',', value_parser = parse_maybe_file_path)]
     pub with_requirements: Vec<Maybe<PathBuf>>,
 
@@ -4333,6 +4337,10 @@ pub struct ToolListArgs {
     /// Whether to display the version specifier(s) used to install each tool.
     #[arg(long)]
     pub show_version_specifiers: bool,
+
+    /// Whether to display the additional requirements installed with each tool.
+    #[arg(long)]
+    pub show_with: bool,
 
     // Hide unused global Python options.
     #[arg(long, hide = true)]
@@ -4728,6 +4736,12 @@ pub struct PythonListArgs {
     /// Select the output format.
     #[arg(long, value_enum, default_value_t = PythonListFormat::default())]
     pub output_format: PythonListFormat,
+
+    /// URL pointing to JSON of custom Python installations.
+    ///
+    /// Note that currently, only local paths are supported.
+    #[arg(long, env = EnvVars::UV_PYTHON_DOWNLOADS_JSON_URL)]
+    pub python_downloads_json_url: Option<String>,
 }
 
 #[derive(Args)]
@@ -4790,6 +4804,12 @@ pub struct PythonInstallArgs {
     /// Distributions can be read from a local directory by using the `file://` URL scheme.
     #[arg(long, env = EnvVars::UV_PYPY_INSTALL_MIRROR)]
     pub pypy_mirror: Option<String>,
+
+    /// URL pointing to JSON of custom Python installations.
+    ///
+    /// Note that currently, only local paths are supported.
+    #[arg(long, env = EnvVars::UV_PYTHON_DOWNLOADS_JSON_URL)]
+    pub python_downloads_json_url: Option<String>,
 
     /// Reinstall the requested Python version, if it's already installed.
     ///

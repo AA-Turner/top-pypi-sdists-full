@@ -12,6 +12,35 @@ import System
 import System.Collections.Generic
 
 
+class LiveDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler):
+    """Live Data Queue is the cut out implementation of how to bind a custom live data source"""
+
+    @property
+    def is_connected(self) -> bool:
+        """Returns whether the data provider is connected"""
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def set_job(self, job: QuantConnect.Packets.LiveNodePacket) -> None:
+        """
+        Sets the job we're subscribing for
+        
+        :param job: Job we're subscribing for
+        """
+        ...
+
+    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """Desktop/Local doesn't support live data from this handler"""
+        ...
+
+    def unsubscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
+        """Desktop/Local doesn't support live data from this handler"""
+        ...
+
+
 class FakeDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler, QuantConnect.Interfaces.IDataQueueUniverseProvider):
     """This is an implementation of IDataQueueHandler used for testing. FakeHistoryProvider"""
 
@@ -82,35 +111,6 @@ class FakeDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler, Qu
         
         :param data_config: Subscription config to be removed
         """
-        ...
-
-
-class LiveDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler):
-    """Live Data Queue is the cut out implementation of how to bind a custom live data source"""
-
-    @property
-    def is_connected(self) -> bool:
-        """Returns whether the data provider is connected"""
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def set_job(self, job: QuantConnect.Packets.LiveNodePacket) -> None:
-        """
-        Sets the job we're subscribing for
-        
-        :param job: Job we're subscribing for
-        """
-        ...
-
-    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """Desktop/Local doesn't support live data from this handler"""
-        ...
-
-    def unsubscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
-        """Desktop/Local doesn't support live data from this handler"""
         ...
 
 

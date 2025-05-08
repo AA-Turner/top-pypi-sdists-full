@@ -1,6 +1,5 @@
-//! Image processing operations.
 #![deny(missing_docs)]
-
+#![doc = env!("CARGO_PKG_DESCRIPTION")]
 /// image undistortion module.
 pub mod calibration;
 
@@ -54,3 +53,6 @@ pub mod threshold;
 
 /// image geometric transformations module.
 pub mod warp;
+
+/// Pyramid operations
+pub mod pyramid;

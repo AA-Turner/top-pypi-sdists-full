@@ -4522,7 +4522,7 @@ class CfnManagedLoginBranding(
         :param client_id: The app client that's assigned to the branding style that you want more information about.
         :param return_merged_resources: When ``true`` , returns values for branding options that are unchanged from Amazon Cognito defaults. When ``false`` or when you omit this parameter, returns only values that you customized in your branding style.
         :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style.
-        :param use_cognito_provided_values: When true, applies the default branding style options. This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding designer. When you specify ``true`` for this option, you must also omit values for ``Settings`` and ``Assets`` in the request.
+        :param use_cognito_provided_values: When true, applies the default branding style options. This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding editor. When you specify ``true`` for this option, you must also omit values for ``Settings`` and ``Assets`` in the request.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__478f8899894ffccc3f20b06ae18c36beb41bf5c5c9aa65a99dbdbf95ce00be03)
@@ -4835,7 +4835,7 @@ class CfnManagedLoginBrandingProps:
         :param client_id: The app client that's assigned to the branding style that you want more information about.
         :param return_merged_resources: When ``true`` , returns values for branding options that are unchanged from Amazon Cognito defaults. When ``false`` or when you omit this parameter, returns only values that you customized in your branding style.
         :param settings: A JSON file, encoded as a ``Document`` type, with the the settings that you want to apply to your style.
-        :param use_cognito_provided_values: When true, applies the default branding style options. This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding designer. When you specify ``true`` for this option, you must also omit values for ``Settings`` and ``Assets`` in the request.
+        :param use_cognito_provided_values: When true, applies the default branding style options. This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding editor. When you specify ``true`` for this option, you must also omit values for ``Settings`` and ``Assets`` in the request.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-managedloginbranding.html
         :exampleMetadata: fixture=_generated
@@ -4949,7 +4949,7 @@ class CfnManagedLoginBrandingProps:
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
         '''When true, applies the default branding style options.
 
-        This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding designer.
+        This option reverts to default style options that are managed by Amazon Cognito. You can modify them later in the branding editor.
 
         When you specify ``true`` for this option, you must also omit values for ``Settings`` and ``Assets`` in the request.
 
@@ -8124,6 +8124,7 @@ class CfnUserPoolClient(
         logout_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.str] = None,
         read_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        refresh_token_rotation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserPoolClient.RefreshTokenRotationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         refresh_token_validity: typing.Optional[jsii.Number] = None,
         supported_identity_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
         token_validity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserPoolClient.TokenValidityUnitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8150,6 +8151,7 @@ class CfnUserPoolClient(
         :param logout_ur_ls: A list of allowed logout URLs for managed login authentication. When you pass ``logout_uri`` and ``client_id`` parameters to ``/logout`` , Amazon Cognito signs out your user and redirects them to the logout URL. This parameter describes the URLs that you want to be the permitted targets of ``logout_uri`` . A typical use of these URLs is when a user selects "Sign out" and you redirect them to your public homepage. For more information, see `Logout endpoint <https://docs.aws.amazon.com/cognito/latest/developerguide/logout-endpoint.html>`_ .
         :param prevent_user_existence_errors: Errors and responses that you want Amazon Cognito APIs to return during authentication, account confirmation, and password recovery when the user doesn't exist in the user pool. When set to ``ENABLED`` and the user doesn't exist, authentication returns an error indicating either the username or password was incorrect. Account confirmation and password recovery return a response indicating a code was sent to a simulated destination. When set to ``LEGACY`` , those APIs return a ``UserNotFoundException`` exception if the user doesn't exist in the user pool. Valid values include: - ``ENABLED`` - This prevents user existence-related errors. - ``LEGACY`` - This represents the early behavior of Amazon Cognito where user existence related errors aren't prevented. Defaults to ``LEGACY`` when you don't provide a value.
         :param read_attributes: The list of user attributes that you want your app client to have read access to. After your user authenticates in your app, their access token authorizes them to read their own attribute value for any attribute in this list. An example of this kind of activity is when your user selects a link to view their profile information. When you don't specify the ``ReadAttributes`` for your app client, your app can read the values of ``email_verified`` , ``phone_number_verified`` , and the Standard attributes of your user pool. When your user pool app client has read access to these default attributes, ``ReadAttributes`` doesn't return any information. Amazon Cognito only populates ``ReadAttributes`` in the API response if you have specified your own custom set of read attributes.
+        :param refresh_token_rotation: 
         :param refresh_token_validity: The refresh token time limit. After this limit expires, your user can't use their refresh token. To specify the time unit for ``RefreshTokenValidity`` as ``seconds`` , ``minutes`` , ``hours`` , or ``days`` , set a ``TokenValidityUnits`` value in your API request. For example, when you set ``RefreshTokenValidity`` as ``10`` and ``TokenValidityUnits`` as ``days`` , your user can refresh their session and retrieve new access and ID tokens for 10 days. The default time unit for ``RefreshTokenValidity`` in an API request is days. You can't set ``RefreshTokenValidity`` to 0. If you do, Amazon Cognito overrides the value with the default value of 30 days. *Valid range* is displayed below in seconds. If you don't specify otherwise in the configuration of your app client, your refresh tokens are valid for 30 days.
         :param supported_identity_providers: A list of provider names for the identity providers (IdPs) that are supported on this client. The following are supported: ``COGNITO`` , ``Facebook`` , ``Google`` , ``SignInWithApple`` , and ``LoginWithAmazon`` . You can also specify the names that you configured for the SAML and OIDC IdPs in your user pool, for example ``MySAMLIdP`` or ``MyOIDCIdP`` . This parameter sets the IdPs that `managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ will display on the login page for your app client. The removal of ``COGNITO`` from this list doesn't prevent authentication operations for local users with the user pools API in an AWS SDK. The only way to prevent SDK-based authentication is to block access with a `AWS WAF rule <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-waf.html>`_ .
         :param token_validity_units: The units that validity times are represented in. The default unit for refresh tokens is days, and the default for ID and access tokens are hours.
@@ -8178,6 +8180,7 @@ class CfnUserPoolClient(
             logout_ur_ls=logout_ur_ls,
             prevent_user_existence_errors=prevent_user_existence_errors,
             read_attributes=read_attributes,
+            refresh_token_rotation=refresh_token_rotation,
             refresh_token_validity=refresh_token_validity,
             supported_identity_providers=supported_identity_providers,
             token_validity_units=token_validity_units,
@@ -8521,6 +8524,23 @@ class CfnUserPoolClient(
         jsii.set(self, "readAttributes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="refreshTokenRotation")
+    def refresh_token_rotation(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserPoolClient.RefreshTokenRotationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserPoolClient.RefreshTokenRotationProperty"]], jsii.get(self, "refreshTokenRotation"))
+
+    @refresh_token_rotation.setter
+    def refresh_token_rotation(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserPoolClient.RefreshTokenRotationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0bbedb8c9ce56c5989c32027dce03245fe2e0733c111bf0e0c1447818d50a781)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "refreshTokenRotation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="refreshTokenValidity")
     def refresh_token_validity(self) -> typing.Optional[jsii.Number]:
         '''The refresh token time limit.'''
@@ -8715,6 +8735,76 @@ class CfnUserPoolClient(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolClient.RefreshTokenRotationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "feature": "feature",
+            "retry_grace_period_seconds": "retryGracePeriodSeconds",
+        },
+    )
+    class RefreshTokenRotationProperty:
+        def __init__(
+            self,
+            *,
+            feature: typing.Optional[builtins.str] = None,
+            retry_grace_period_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param feature: 
+            :param retry_grace_period_seconds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolclient-refreshtokenrotation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                refresh_token_rotation_property = cognito.CfnUserPoolClient.RefreshTokenRotationProperty(
+                    feature="feature",
+                    retry_grace_period_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__695b10a90bf402ec0a4a1ee7c779f22b60df9baa874511aa2a177fac5b949f3f)
+                check_type(argname="argument feature", value=feature, expected_type=type_hints["feature"])
+                check_type(argname="argument retry_grace_period_seconds", value=retry_grace_period_seconds, expected_type=type_hints["retry_grace_period_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if feature is not None:
+                self._values["feature"] = feature
+            if retry_grace_period_seconds is not None:
+                self._values["retry_grace_period_seconds"] = retry_grace_period_seconds
+
+        @builtins.property
+        def feature(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolclient-refreshtokenrotation.html#cfn-cognito-userpoolclient-refreshtokenrotation-feature
+            '''
+            result = self._values.get("feature")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def retry_grace_period_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpoolclient-refreshtokenrotation.html#cfn-cognito-userpoolclient-refreshtokenrotation-retrygraceperiodseconds
+            '''
+            result = self._values.get("retry_grace_period_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RefreshTokenRotationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPoolClient.TokenValidityUnitsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -8834,6 +8924,7 @@ class CfnUserPoolClient(
         "logout_ur_ls": "logoutUrLs",
         "prevent_user_existence_errors": "preventUserExistenceErrors",
         "read_attributes": "readAttributes",
+        "refresh_token_rotation": "refreshTokenRotation",
         "refresh_token_validity": "refreshTokenValidity",
         "supported_identity_providers": "supportedIdentityProviders",
         "token_validity_units": "tokenValidityUnits",
@@ -8862,6 +8953,7 @@ class CfnUserPoolClientProps:
         logout_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
         prevent_user_existence_errors: typing.Optional[builtins.str] = None,
         read_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+        refresh_token_rotation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.RefreshTokenRotationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         refresh_token_validity: typing.Optional[jsii.Number] = None,
         supported_identity_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
         token_validity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.TokenValidityUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8887,6 +8979,7 @@ class CfnUserPoolClientProps:
         :param logout_ur_ls: A list of allowed logout URLs for managed login authentication. When you pass ``logout_uri`` and ``client_id`` parameters to ``/logout`` , Amazon Cognito signs out your user and redirects them to the logout URL. This parameter describes the URLs that you want to be the permitted targets of ``logout_uri`` . A typical use of these URLs is when a user selects "Sign out" and you redirect them to your public homepage. For more information, see `Logout endpoint <https://docs.aws.amazon.com/cognito/latest/developerguide/logout-endpoint.html>`_ .
         :param prevent_user_existence_errors: Errors and responses that you want Amazon Cognito APIs to return during authentication, account confirmation, and password recovery when the user doesn't exist in the user pool. When set to ``ENABLED`` and the user doesn't exist, authentication returns an error indicating either the username or password was incorrect. Account confirmation and password recovery return a response indicating a code was sent to a simulated destination. When set to ``LEGACY`` , those APIs return a ``UserNotFoundException`` exception if the user doesn't exist in the user pool. Valid values include: - ``ENABLED`` - This prevents user existence-related errors. - ``LEGACY`` - This represents the early behavior of Amazon Cognito where user existence related errors aren't prevented. Defaults to ``LEGACY`` when you don't provide a value.
         :param read_attributes: The list of user attributes that you want your app client to have read access to. After your user authenticates in your app, their access token authorizes them to read their own attribute value for any attribute in this list. An example of this kind of activity is when your user selects a link to view their profile information. When you don't specify the ``ReadAttributes`` for your app client, your app can read the values of ``email_verified`` , ``phone_number_verified`` , and the Standard attributes of your user pool. When your user pool app client has read access to these default attributes, ``ReadAttributes`` doesn't return any information. Amazon Cognito only populates ``ReadAttributes`` in the API response if you have specified your own custom set of read attributes.
+        :param refresh_token_rotation: 
         :param refresh_token_validity: The refresh token time limit. After this limit expires, your user can't use their refresh token. To specify the time unit for ``RefreshTokenValidity`` as ``seconds`` , ``minutes`` , ``hours`` , or ``days`` , set a ``TokenValidityUnits`` value in your API request. For example, when you set ``RefreshTokenValidity`` as ``10`` and ``TokenValidityUnits`` as ``days`` , your user can refresh their session and retrieve new access and ID tokens for 10 days. The default time unit for ``RefreshTokenValidity`` in an API request is days. You can't set ``RefreshTokenValidity`` to 0. If you do, Amazon Cognito overrides the value with the default value of 30 days. *Valid range* is displayed below in seconds. If you don't specify otherwise in the configuration of your app client, your refresh tokens are valid for 30 days.
         :param supported_identity_providers: A list of provider names for the identity providers (IdPs) that are supported on this client. The following are supported: ``COGNITO`` , ``Facebook`` , ``Google`` , ``SignInWithApple`` , and ``LoginWithAmazon`` . You can also specify the names that you configured for the SAML and OIDC IdPs in your user pool, for example ``MySAMLIdP`` or ``MyOIDCIdP`` . This parameter sets the IdPs that `managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ will display on the login page for your app client. The removal of ``COGNITO`` from this list doesn't prevent authentication operations for local users with the user pools API in an AWS SDK. The only way to prevent SDK-based authentication is to block access with a `AWS WAF rule <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-waf.html>`_ .
         :param token_validity_units: The units that validity times are represented in. The default unit for refresh tokens is days, and the default for ID and access tokens are hours.
@@ -8928,6 +9021,10 @@ class CfnUserPoolClientProps:
                 logout_ur_ls=["logoutUrLs"],
                 prevent_user_existence_errors="preventUserExistenceErrors",
                 read_attributes=["readAttributes"],
+                refresh_token_rotation=cognito.CfnUserPoolClient.RefreshTokenRotationProperty(
+                    feature="feature",
+                    retry_grace_period_seconds=123
+                ),
                 refresh_token_validity=123,
                 supported_identity_providers=["supportedIdentityProviders"],
                 token_validity_units=cognito.CfnUserPoolClient.TokenValidityUnitsProperty(
@@ -8958,6 +9055,7 @@ class CfnUserPoolClientProps:
             check_type(argname="argument logout_ur_ls", value=logout_ur_ls, expected_type=type_hints["logout_ur_ls"])
             check_type(argname="argument prevent_user_existence_errors", value=prevent_user_existence_errors, expected_type=type_hints["prevent_user_existence_errors"])
             check_type(argname="argument read_attributes", value=read_attributes, expected_type=type_hints["read_attributes"])
+            check_type(argname="argument refresh_token_rotation", value=refresh_token_rotation, expected_type=type_hints["refresh_token_rotation"])
             check_type(argname="argument refresh_token_validity", value=refresh_token_validity, expected_type=type_hints["refresh_token_validity"])
             check_type(argname="argument supported_identity_providers", value=supported_identity_providers, expected_type=type_hints["supported_identity_providers"])
             check_type(argname="argument token_validity_units", value=token_validity_units, expected_type=type_hints["token_validity_units"])
@@ -8999,6 +9097,8 @@ class CfnUserPoolClientProps:
             self._values["prevent_user_existence_errors"] = prevent_user_existence_errors
         if read_attributes is not None:
             self._values["read_attributes"] = read_attributes
+        if refresh_token_rotation is not None:
+            self._values["refresh_token_rotation"] = refresh_token_rotation
         if refresh_token_validity is not None:
             self._values["refresh_token_validity"] = refresh_token_validity
         if supported_identity_providers is not None:
@@ -9278,6 +9378,16 @@ class CfnUserPoolClientProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def refresh_token_rotation(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolClient.RefreshTokenRotationProperty]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html#cfn-cognito-userpoolclient-refreshtokenrotation
+        '''
+        result = self._values.get("refresh_token_rotation")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolClient.RefreshTokenRotationProperty]], result)
+
+    @builtins.property
     def refresh_token_validity(self) -> typing.Optional[jsii.Number]:
         '''The refresh token time limit.
 
@@ -9397,7 +9507,7 @@ class CfnUserPoolDomain(
         :param domain: The name of the domain that you want to update. For custom domains, this is the fully-qualified domain name, for example ``auth.example.com`` . For prefix domains, this is the prefix alone, such as ``myprefix`` .
         :param user_pool_id: The ID of the user pool that is associated with the domain you're updating.
         :param custom_domain_config: The configuration for a custom domain that hosts the sign-up and sign-in pages for your application. Use this object to specify an SSL certificate that is managed by ACM. When you create a custom domain, the passkey RP ID defaults to the custom domain. If you had a prefix domain active, this will cause passkey integration for your prefix domain to stop working due to a mismatch in RP ID. To keep the prefix domain passkey integration working, you can explicitly set RP ID to the prefix domain.
-        :param managed_login_version: A version number that indicates the state of managed login for your domain. Version ``1`` is hosted UI (classic). Version ``2`` is the newer managed login with the branding designer. For more information, see `Managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ .
+        :param managed_login_version: A version number that indicates the state of managed login for your domain. Version ``1`` is hosted UI (classic). Version ``2`` is the newer managed login with the branding editor. For more information, see `Managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e0b36c4d155cfdfa9801e3f221c4fe6c5403bf24a64d17bd90fb5386301d675)
@@ -9595,7 +9705,7 @@ class CfnUserPoolDomainProps:
         :param domain: The name of the domain that you want to update. For custom domains, this is the fully-qualified domain name, for example ``auth.example.com`` . For prefix domains, this is the prefix alone, such as ``myprefix`` .
         :param user_pool_id: The ID of the user pool that is associated with the domain you're updating.
         :param custom_domain_config: The configuration for a custom domain that hosts the sign-up and sign-in pages for your application. Use this object to specify an SSL certificate that is managed by ACM. When you create a custom domain, the passkey RP ID defaults to the custom domain. If you had a prefix domain active, this will cause passkey integration for your prefix domain to stop working due to a mismatch in RP ID. To keep the prefix domain passkey integration working, you can explicitly set RP ID to the prefix domain.
-        :param managed_login_version: A version number that indicates the state of managed login for your domain. Version ``1`` is hosted UI (classic). Version ``2`` is the newer managed login with the branding designer. For more information, see `Managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ .
+        :param managed_login_version: A version number that indicates the state of managed login for your domain. Version ``1`` is hosted UI (classic). Version ``2`` is the newer managed login with the branding editor. For more information, see `Managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooldomain.html
         :exampleMetadata: fixture=_generated
@@ -9673,7 +9783,7 @@ class CfnUserPoolDomainProps:
     def managed_login_version(self) -> typing.Optional[jsii.Number]:
         '''A version number that indicates the state of managed login for your domain.
 
-        Version ``1`` is hosted UI (classic). Version ``2`` is the newer managed login with the branding designer. For more information, see `Managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ .
+        Version ``1`` is hosted UI (classic). Version ``2`` is the newer managed login with the branding editor. For more information, see `Managed login <https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-managed-login.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpooldomain.html#cfn-cognito-userpooldomain-managedloginversion
         '''
@@ -24706,6 +24816,7 @@ def _typecheckingstub__87712ca9ae8faf9f73a6c5d11987fcf280543ea093bcc4253c800c015
     logout_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.str] = None,
     read_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    refresh_token_rotation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.RefreshTokenRotationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     refresh_token_validity: typing.Optional[jsii.Number] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
     token_validity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.TokenValidityUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -24834,6 +24945,12 @@ def _typecheckingstub__d0450b9a1c4091ecc8dc0197c1b8b862535cb1a705df2e839371c83db
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0bbedb8c9ce56c5989c32027dce03245fe2e0733c111bf0e0c1447818d50a781(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUserPoolClient.RefreshTokenRotationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ffd4a00853573a9063ab6bfb4bd488904d41fa8453a02d33cc8b44f6638125c5(
     value: typing.Optional[jsii.Number],
 ) -> None:
@@ -24869,6 +24986,14 @@ def _typecheckingstub__6d6536363f7e284c6e3822670ff24aa20b4a6cc176e0e696a1702da00
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__695b10a90bf402ec0a4a1ee7c779f22b60df9baa874511aa2a177fac5b949f3f(
+    *,
+    feature: typing.Optional[builtins.str] = None,
+    retry_grace_period_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7b0535ba992a4a94b92b965971fc09c8b8c0a72362c42aaf98b5ae4cbef4d7e6(
     *,
     access_token: typing.Optional[builtins.str] = None,
@@ -24898,6 +25023,7 @@ def _typecheckingstub__073ea5893b9cfc70c0362e57cd0c1b5397e1c6374434fc1d5c261da79
     logout_ur_ls: typing.Optional[typing.Sequence[builtins.str]] = None,
     prevent_user_existence_errors: typing.Optional[builtins.str] = None,
     read_attributes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    refresh_token_rotation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.RefreshTokenRotationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     refresh_token_validity: typing.Optional[jsii.Number] = None,
     supported_identity_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
     token_validity_units: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPoolClient.TokenValidityUnitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

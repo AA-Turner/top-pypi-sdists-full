@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import atexit
+import datetime
 import logging
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime
 from types import MethodType
 from typing import Annotated, Any, TypeVar, Union, cast
 
@@ -149,7 +149,7 @@ def _cast_to_imperative_dataset(value: Dataset | list[dict] | str) -> Dataset:
 
 
 def _default_dataset_name() -> str:
-    date = datetime.now().strftime("%Y-%m-%d")
+    date = datetime.datetime.now().strftime("%Y-%m-%d")
     unique_name = make_memorable_name()
     return f"{date}-{unique_name}-dataset"
 
@@ -281,9 +281,9 @@ class EvaluationLogger(BaseModel):
     using the `log_prediction` method, and finished when the `log_summary` method
     is called.
 
-    Each time you log a prediction, you will get back an `ImperativePredictionLogger`
-    object.  You can use this object to log scores and metadata for that specific
-    prediction (see that class for more details).
+    Each time you log a prediction, you will get back a `ScoreLogger` object.
+    You can use this object to log scores and metadata for that specific
+    prediction. For more information, see the `ScoreLogger` class.
 
     Example:
         ```python

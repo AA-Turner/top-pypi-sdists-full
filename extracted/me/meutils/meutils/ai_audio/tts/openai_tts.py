@@ -21,7 +21,9 @@ client = OpenAI(
     # base_url=base_url,
     # api_key=os.getenv('OPENAI_API_KEY'),
 
-    api_key=os.getenv('OPENAI_API_KEY_OPENAI') + "-2738",
+    # api_key=os.getenv('OPENAI_API_KEY_OPENAI') + "-2738",
+    api_key=os.getenv('OPENAI_API_KEY_OPENAI') + "-364",
+
 )
 
 # text = """

@@ -104,6 +104,7 @@ class CfnApp(
             user_profile_name="userProfileName",
         
             # the properties below are optional
+            recovery_mode=False,
             resource_spec=sagemaker.CfnApp.ResourceSpecProperty(
                 instance_type="instanceType",
                 lifecycle_config_arn="lifecycleConfigArn",
@@ -126,6 +127,7 @@ class CfnApp(
         app_type: builtins.str,
         domain_id: builtins.str,
         user_profile_name: builtins.str,
+        recovery_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         resource_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApp.ResourceSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -136,6 +138,7 @@ class CfnApp(
         :param app_type: The type of app.
         :param domain_id: The domain ID.
         :param user_profile_name: The user profile name.
+        :param recovery_mode: Indicates whether the application is launched in recovery mode.
         :param resource_spec: Specifies the ARNs of a SageMaker image and SageMaker image version, and the instance type that the version runs on.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
         '''
@@ -148,6 +151,7 @@ class CfnApp(
             app_type=app_type,
             domain_id=domain_id,
             user_profile_name=user_profile_name,
+            recovery_mode=recovery_mode,
             resource_spec=resource_spec,
             tags=tags,
         )
@@ -192,6 +196,15 @@ class CfnApp(
         :cloudformationAttribute: AppArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrAppArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBuiltInLifecycleConfigArn")
+    def attr_built_in_lifecycle_config_arn(self) -> builtins.str:
+        '''The lifecycle configuration that runs before the default lifecycle configuration.
+
+        :cloudformationAttribute: BuiltInLifecycleConfigArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBuiltInLifecycleConfigArn"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -255,6 +268,24 @@ class CfnApp(
             type_hints = typing.get_type_hints(_typecheckingstub__9231045eaa19a04e645ac4427861d86fb43ed510b73c35bda73d525ca58769ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userProfileName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recoveryMode")
+    def recovery_mode(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether the application is launched in recovery mode.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "recoveryMode"))
+
+    @recovery_mode.setter
+    def recovery_mode(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9db056b4c694b5579e4171517bac256cb919f19041d12d1a8a1c8b09120e81a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recoveryMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="resourceSpec")
@@ -1365,6 +1396,7 @@ class CfnAppImageConfigProps:
         "app_type": "appType",
         "domain_id": "domainId",
         "user_profile_name": "userProfileName",
+        "recovery_mode": "recoveryMode",
         "resource_spec": "resourceSpec",
         "tags": "tags",
     },
@@ -1377,6 +1409,7 @@ class CfnAppProps:
         app_type: builtins.str,
         domain_id: builtins.str,
         user_profile_name: builtins.str,
+        recovery_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         resource_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.ResourceSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -1386,6 +1419,7 @@ class CfnAppProps:
         :param app_type: The type of app.
         :param domain_id: The domain ID.
         :param user_profile_name: The user profile name.
+        :param recovery_mode: Indicates whether the application is launched in recovery mode.
         :param resource_spec: Specifies the ARNs of a SageMaker image and SageMaker image version, and the instance type that the version runs on.
         :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
@@ -1405,6 +1439,7 @@ class CfnAppProps:
                 user_profile_name="userProfileName",
             
                 # the properties below are optional
+                recovery_mode=False,
                 resource_spec=sagemaker.CfnApp.ResourceSpecProperty(
                     instance_type="instanceType",
                     lifecycle_config_arn="lifecycleConfigArn",
@@ -1423,6 +1458,7 @@ class CfnAppProps:
             check_type(argname="argument app_type", value=app_type, expected_type=type_hints["app_type"])
             check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
             check_type(argname="argument user_profile_name", value=user_profile_name, expected_type=type_hints["user_profile_name"])
+            check_type(argname="argument recovery_mode", value=recovery_mode, expected_type=type_hints["recovery_mode"])
             check_type(argname="argument resource_spec", value=resource_spec, expected_type=type_hints["resource_spec"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1431,6 +1467,8 @@ class CfnAppProps:
             "domain_id": domain_id,
             "user_profile_name": user_profile_name,
         }
+        if recovery_mode is not None:
+            self._values["recovery_mode"] = recovery_mode
         if resource_spec is not None:
             self._values["resource_spec"] = resource_spec
         if tags is not None:
@@ -1475,6 +1513,17 @@ class CfnAppProps:
         result = self._values.get("user_profile_name")
         assert result is not None, "Required property 'user_profile_name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def recovery_mode(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether the application is launched in recovery mode.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-app.html#cfn-sagemaker-app-recoverymode
+        '''
+        result = self._values.get("recovery_mode")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
     @builtins.property
     def resource_spec(
@@ -46255,6 +46304,7 @@ class CfnUserProfile(
                 value="value"
             )],
             user_settings=sagemaker.CfnUserProfile.UserSettingsProperty(
+                auto_mount_home_efs="autoMountHomeEfs",
                 code_editor_app_settings=sagemaker.CfnUserProfile.CodeEditorAppSettingsProperty(
                     app_lifecycle_management=sagemaker.CfnUserProfile.AppLifecycleManagementProperty(
                         idle_settings=sagemaker.CfnUserProfile.IdleSettingsProperty(
@@ -46264,6 +46314,7 @@ class CfnUserProfile(
                             min_idle_timeout_in_minutes=123
                         )
                     ),
+                    built_in_lifecycle_config_arn="builtInLifecycleConfigArn",
                     custom_images=[sagemaker.CfnUserProfile.CustomImageProperty(
                         app_image_config_name="appImageConfigName",
                         image_name="imageName",
@@ -46308,6 +46359,7 @@ class CfnUserProfile(
                             min_idle_timeout_in_minutes=123
                         )
                     ),
+                    built_in_lifecycle_config_arn="builtInLifecycleConfigArn",
                     code_repositories=[sagemaker.CfnUserProfile.CodeRepositoryProperty(
                         repository_url="repositoryUrl"
                     )],
@@ -46370,7 +46422,12 @@ class CfnUserProfile(
                 studio_web_portal="studioWebPortal",
                 studio_web_portal_settings=sagemaker.CfnUserProfile.StudioWebPortalSettingsProperty(
                     hidden_app_types=["hiddenAppTypes"],
-                    hidden_ml_tools=["hiddenMlTools"]
+                    hidden_instance_types=["hiddenInstanceTypes"],
+                    hidden_ml_tools=["hiddenMlTools"],
+                    hidden_sage_maker_image_version_aliases=[sagemaker.CfnUserProfile.HiddenSageMakerImageProperty(
+                        sage_maker_image_name="sageMakerImageName",
+                        version_aliases=["versionAliases"]
+                    )]
                 )
             )
         )
@@ -46616,6 +46673,7 @@ class CfnUserProfile(
         jsii_struct_bases=[],
         name_mapping={
             "app_lifecycle_management": "appLifecycleManagement",
+            "built_in_lifecycle_config_arn": "builtInLifecycleConfigArn",
             "custom_images": "customImages",
             "default_resource_spec": "defaultResourceSpec",
             "lifecycle_config_arns": "lifecycleConfigArns",
@@ -46626,6 +46684,7 @@ class CfnUserProfile(
             self,
             *,
             app_lifecycle_management: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.AppLifecycleManagementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            built_in_lifecycle_config_arn: typing.Optional[builtins.str] = None,
             custom_images: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.CustomImageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             default_resource_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.ResourceSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             lifecycle_config_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -46635,6 +46694,7 @@ class CfnUserProfile(
             For more information about Code Editor, see `Get started with Code Editor in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/code-editor.html>`_ .
 
             :param app_lifecycle_management: Settings that are used to configure and manage the lifecycle of CodeEditor applications.
+            :param built_in_lifecycle_config_arn: The lifecycle configuration that runs before the default lifecycle configuration.
             :param custom_images: A list of custom SageMaker images that are configured to run as a Code Editor app.
             :param default_resource_spec: The default instance type and the Amazon Resource Name (ARN) of the default SageMaker image used by the Code Editor app.
             :param lifecycle_config_arns: The Amazon Resource Name (ARN) of the Code Editor application lifecycle configuration.
@@ -46657,6 +46717,7 @@ class CfnUserProfile(
                             min_idle_timeout_in_minutes=123
                         )
                     ),
+                    built_in_lifecycle_config_arn="builtInLifecycleConfigArn",
                     custom_images=[sagemaker.CfnUserProfile.CustomImageProperty(
                         app_image_config_name="appImageConfigName",
                         image_name="imageName",
@@ -46676,12 +46737,15 @@ class CfnUserProfile(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__9102031486b9c90cb4b3d6ac33ecdb4030f0a3c090fb394765dc1cb6cdb4e9b5)
                 check_type(argname="argument app_lifecycle_management", value=app_lifecycle_management, expected_type=type_hints["app_lifecycle_management"])
+                check_type(argname="argument built_in_lifecycle_config_arn", value=built_in_lifecycle_config_arn, expected_type=type_hints["built_in_lifecycle_config_arn"])
                 check_type(argname="argument custom_images", value=custom_images, expected_type=type_hints["custom_images"])
                 check_type(argname="argument default_resource_spec", value=default_resource_spec, expected_type=type_hints["default_resource_spec"])
                 check_type(argname="argument lifecycle_config_arns", value=lifecycle_config_arns, expected_type=type_hints["lifecycle_config_arns"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if app_lifecycle_management is not None:
                 self._values["app_lifecycle_management"] = app_lifecycle_management
+            if built_in_lifecycle_config_arn is not None:
+                self._values["built_in_lifecycle_config_arn"] = built_in_lifecycle_config_arn
             if custom_images is not None:
                 self._values["custom_images"] = custom_images
             if default_resource_spec is not None:
@@ -46699,6 +46763,15 @@ class CfnUserProfile(
             '''
             result = self._values.get("app_lifecycle_management")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserProfile.AppLifecycleManagementProperty"]], result)
+
+        @builtins.property
+        def built_in_lifecycle_config_arn(self) -> typing.Optional[builtins.str]:
+            '''The lifecycle configuration that runs before the default lifecycle configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-codeeditorappsettings.html#cfn-sagemaker-userprofile-codeeditorappsettings-builtinlifecycleconfigarn
+            '''
+            result = self._values.get("built_in_lifecycle_config_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def custom_images(
@@ -47336,6 +47409,77 @@ class CfnUserProfile(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnUserProfile.HiddenSageMakerImageProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "sage_maker_image_name": "sageMakerImageName",
+            "version_aliases": "versionAliases",
+        },
+    )
+    class HiddenSageMakerImageProperty:
+        def __init__(
+            self,
+            *,
+            sage_maker_image_name: typing.Optional[builtins.str] = None,
+            version_aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param sage_maker_image_name: The SageMaker image name that you are hiding from the Studio user interface.
+            :param version_aliases: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-hiddensagemakerimage.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                hidden_sage_maker_image_property = sagemaker.CfnUserProfile.HiddenSageMakerImageProperty(
+                    sage_maker_image_name="sageMakerImageName",
+                    version_aliases=["versionAliases"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__edd8c8d75b169e32821742e84039e1440e15c9a960f261e379e7d4c741f05505)
+                check_type(argname="argument sage_maker_image_name", value=sage_maker_image_name, expected_type=type_hints["sage_maker_image_name"])
+                check_type(argname="argument version_aliases", value=version_aliases, expected_type=type_hints["version_aliases"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if sage_maker_image_name is not None:
+                self._values["sage_maker_image_name"] = sage_maker_image_name
+            if version_aliases is not None:
+                self._values["version_aliases"] = version_aliases
+
+        @builtins.property
+        def sage_maker_image_name(self) -> typing.Optional[builtins.str]:
+            '''The SageMaker image name that you are hiding from the Studio user interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-hiddensagemakerimage.html#cfn-sagemaker-userprofile-hiddensagemakerimage-sagemakerimagename
+            '''
+            result = self._values.get("sage_maker_image_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def version_aliases(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-hiddensagemakerimage.html#cfn-sagemaker-userprofile-hiddensagemakerimage-versionaliases
+            '''
+            result = self._values.get("version_aliases")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HiddenSageMakerImageProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnUserProfile.IdleSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -47445,6 +47589,7 @@ class CfnUserProfile(
         jsii_struct_bases=[],
         name_mapping={
             "app_lifecycle_management": "appLifecycleManagement",
+            "built_in_lifecycle_config_arn": "builtInLifecycleConfigArn",
             "code_repositories": "codeRepositories",
             "custom_images": "customImages",
             "default_resource_spec": "defaultResourceSpec",
@@ -47456,6 +47601,7 @@ class CfnUserProfile(
             self,
             *,
             app_lifecycle_management: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.AppLifecycleManagementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            built_in_lifecycle_config_arn: typing.Optional[builtins.str] = None,
             code_repositories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.CodeRepositoryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             custom_images: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.CustomImageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             default_resource_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.ResourceSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -47464,6 +47610,7 @@ class CfnUserProfile(
             '''The settings for the JupyterLab application.
 
             :param app_lifecycle_management: Indicates whether idle shutdown is activated for JupyterLab applications.
+            :param built_in_lifecycle_config_arn: The lifecycle configuration that runs before the default lifecycle configuration.
             :param code_repositories: A list of Git repositories that SageMaker automatically displays to users for cloning in the JupyterLab application.
             :param custom_images: A list of custom SageMaker images that are configured to run as a JupyterLab app.
             :param default_resource_spec: The default instance type and the Amazon Resource Name (ARN) of the default SageMaker image used by the JupyterLab app.
@@ -47487,6 +47634,7 @@ class CfnUserProfile(
                             min_idle_timeout_in_minutes=123
                         )
                     ),
+                    built_in_lifecycle_config_arn="builtInLifecycleConfigArn",
                     code_repositories=[sagemaker.CfnUserProfile.CodeRepositoryProperty(
                         repository_url="repositoryUrl"
                     )],
@@ -47509,6 +47657,7 @@ class CfnUserProfile(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__8fbb8b52ced6fc617c616b643ca1ddc3673e837117aaeaf2063654aaa5ad3b72)
                 check_type(argname="argument app_lifecycle_management", value=app_lifecycle_management, expected_type=type_hints["app_lifecycle_management"])
+                check_type(argname="argument built_in_lifecycle_config_arn", value=built_in_lifecycle_config_arn, expected_type=type_hints["built_in_lifecycle_config_arn"])
                 check_type(argname="argument code_repositories", value=code_repositories, expected_type=type_hints["code_repositories"])
                 check_type(argname="argument custom_images", value=custom_images, expected_type=type_hints["custom_images"])
                 check_type(argname="argument default_resource_spec", value=default_resource_spec, expected_type=type_hints["default_resource_spec"])
@@ -47516,6 +47665,8 @@ class CfnUserProfile(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if app_lifecycle_management is not None:
                 self._values["app_lifecycle_management"] = app_lifecycle_management
+            if built_in_lifecycle_config_arn is not None:
+                self._values["built_in_lifecycle_config_arn"] = built_in_lifecycle_config_arn
             if code_repositories is not None:
                 self._values["code_repositories"] = code_repositories
             if custom_images is not None:
@@ -47535,6 +47686,15 @@ class CfnUserProfile(
             '''
             result = self._values.get("app_lifecycle_management")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUserProfile.AppLifecycleManagementProperty"]], result)
+
+        @builtins.property
+        def built_in_lifecycle_config_arn(self) -> typing.Optional[builtins.str]:
+            '''The lifecycle configuration that runs before the default lifecycle configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-jupyterlabappsettings.html#cfn-sagemaker-userprofile-jupyterlabappsettings-builtinlifecycleconfigarn
+            '''
+            result = self._values.get("built_in_lifecycle_config_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def code_repositories(
@@ -48081,7 +48241,9 @@ class CfnUserProfile(
         jsii_struct_bases=[],
         name_mapping={
             "hidden_app_types": "hiddenAppTypes",
+            "hidden_instance_types": "hiddenInstanceTypes",
             "hidden_ml_tools": "hiddenMlTools",
+            "hidden_sage_maker_image_version_aliases": "hiddenSageMakerImageVersionAliases",
         },
     )
     class StudioWebPortalSettingsProperty:
@@ -48089,14 +48251,18 @@ class CfnUserProfile(
             self,
             *,
             hidden_app_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            hidden_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
             hidden_ml_tools: typing.Optional[typing.Sequence[builtins.str]] = None,
+            hidden_sage_maker_image_version_aliases: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.HiddenSageMakerImageProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Studio settings.
 
             If these settings are applied on a user level, they take priority over the settings applied on a domain level.
 
             :param hidden_app_types: The `Applications supported in Studio <https://docs.aws.amazon.com/sagemaker/latest/dg/studio-updated-apps.html>`_ that are hidden from the Studio left navigation pane.
+            :param hidden_instance_types: The instance types you are hiding from the Studio user interface.
             :param hidden_ml_tools: The machine learning tools that are hidden from the Studio left navigation pane.
+            :param hidden_sage_maker_image_version_aliases: The version aliases you are hiding from the Studio user interface.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-studiowebportalsettings.html
             :exampleMetadata: fixture=_generated
@@ -48109,18 +48275,29 @@ class CfnUserProfile(
                 
                 studio_web_portal_settings_property = sagemaker.CfnUserProfile.StudioWebPortalSettingsProperty(
                     hidden_app_types=["hiddenAppTypes"],
-                    hidden_ml_tools=["hiddenMlTools"]
+                    hidden_instance_types=["hiddenInstanceTypes"],
+                    hidden_ml_tools=["hiddenMlTools"],
+                    hidden_sage_maker_image_version_aliases=[sagemaker.CfnUserProfile.HiddenSageMakerImageProperty(
+                        sage_maker_image_name="sageMakerImageName",
+                        version_aliases=["versionAliases"]
+                    )]
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__c6593aeb456cd28b3f5fa579713dc8752eed149344ea410599205e8e1c228c0d)
                 check_type(argname="argument hidden_app_types", value=hidden_app_types, expected_type=type_hints["hidden_app_types"])
+                check_type(argname="argument hidden_instance_types", value=hidden_instance_types, expected_type=type_hints["hidden_instance_types"])
                 check_type(argname="argument hidden_ml_tools", value=hidden_ml_tools, expected_type=type_hints["hidden_ml_tools"])
+                check_type(argname="argument hidden_sage_maker_image_version_aliases", value=hidden_sage_maker_image_version_aliases, expected_type=type_hints["hidden_sage_maker_image_version_aliases"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if hidden_app_types is not None:
                 self._values["hidden_app_types"] = hidden_app_types
+            if hidden_instance_types is not None:
+                self._values["hidden_instance_types"] = hidden_instance_types
             if hidden_ml_tools is not None:
                 self._values["hidden_ml_tools"] = hidden_ml_tools
+            if hidden_sage_maker_image_version_aliases is not None:
+                self._values["hidden_sage_maker_image_version_aliases"] = hidden_sage_maker_image_version_aliases
 
         @builtins.property
         def hidden_app_types(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -48132,6 +48309,15 @@ class CfnUserProfile(
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
+        def hidden_instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The instance types you are hiding from the Studio user interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-studiowebportalsettings.html#cfn-sagemaker-userprofile-studiowebportalsettings-hiddeninstancetypes
+            '''
+            result = self._values.get("hidden_instance_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
         def hidden_ml_tools(self) -> typing.Optional[typing.List[builtins.str]]:
             '''The machine learning tools that are hidden from the Studio left navigation pane.
 
@@ -48139,6 +48325,17 @@ class CfnUserProfile(
             '''
             result = self._values.get("hidden_ml_tools")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def hidden_sage_maker_image_version_aliases(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUserProfile.HiddenSageMakerImageProperty"]]]]:
+            '''The version aliases you are hiding from the Studio user interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-studiowebportalsettings.html#cfn-sagemaker-userprofile-studiowebportalsettings-hiddensagemakerimageversionaliases
+            '''
+            result = self._values.get("hidden_sage_maker_image_version_aliases")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUserProfile.HiddenSageMakerImageProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -48155,6 +48352,7 @@ class CfnUserProfile(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnUserProfile.UserSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "auto_mount_home_efs": "autoMountHomeEfs",
             "code_editor_app_settings": "codeEditorAppSettings",
             "custom_file_system_configs": "customFileSystemConfigs",
             "custom_posix_user_config": "customPosixUserConfig",
@@ -48175,6 +48373,7 @@ class CfnUserProfile(
         def __init__(
             self,
             *,
+            auto_mount_home_efs: typing.Optional[builtins.str] = None,
             code_editor_app_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.CodeEditorAppSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             custom_file_system_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.CustomFileSystemConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             custom_posix_user_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUserProfile.CustomPosixUserConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -48196,6 +48395,7 @@ class CfnUserProfile(
 
             ``SecurityGroups`` is aggregated when specified in both calls. For all other settings in ``UserSettings`` , the values specified in ``CreateUserProfile`` take precedence over those specified in ``CreateDomain`` .
 
+            :param auto_mount_home_efs: Indicates whether auto-mounting of an EFS volume is supported for the user profile.
             :param code_editor_app_settings: The Code Editor application settings. SageMaker applies these settings only to private spaces that the user creates in the domain. SageMaker doesn't apply these settings to shared spaces.
             :param custom_file_system_configs: The settings for assigning a custom file system to a user profile. Permitted users can access this file system in Amazon SageMaker AI Studio. SageMaker applies these settings only to private spaces that the user creates in the domain. SageMaker doesn't apply these settings to shared spaces.
             :param custom_posix_user_config: Details about the POSIX identity that is used for file system operations. SageMaker applies these settings only to private spaces that the user creates in the domain. SageMaker doesn't apply these settings to shared spaces.
@@ -48221,6 +48421,7 @@ class CfnUserProfile(
                 from aws_cdk import aws_sagemaker as sagemaker
                 
                 user_settings_property = sagemaker.CfnUserProfile.UserSettingsProperty(
+                    auto_mount_home_efs="autoMountHomeEfs",
                     code_editor_app_settings=sagemaker.CfnUserProfile.CodeEditorAppSettingsProperty(
                         app_lifecycle_management=sagemaker.CfnUserProfile.AppLifecycleManagementProperty(
                             idle_settings=sagemaker.CfnUserProfile.IdleSettingsProperty(
@@ -48230,6 +48431,7 @@ class CfnUserProfile(
                                 min_idle_timeout_in_minutes=123
                             )
                         ),
+                        built_in_lifecycle_config_arn="builtInLifecycleConfigArn",
                         custom_images=[sagemaker.CfnUserProfile.CustomImageProperty(
                             app_image_config_name="appImageConfigName",
                             image_name="imageName",
@@ -48274,6 +48476,7 @@ class CfnUserProfile(
                                 min_idle_timeout_in_minutes=123
                             )
                         ),
+                        built_in_lifecycle_config_arn="builtInLifecycleConfigArn",
                         code_repositories=[sagemaker.CfnUserProfile.CodeRepositoryProperty(
                             repository_url="repositoryUrl"
                         )],
@@ -48336,12 +48539,18 @@ class CfnUserProfile(
                     studio_web_portal="studioWebPortal",
                     studio_web_portal_settings=sagemaker.CfnUserProfile.StudioWebPortalSettingsProperty(
                         hidden_app_types=["hiddenAppTypes"],
-                        hidden_ml_tools=["hiddenMlTools"]
+                        hidden_instance_types=["hiddenInstanceTypes"],
+                        hidden_ml_tools=["hiddenMlTools"],
+                        hidden_sage_maker_image_version_aliases=[sagemaker.CfnUserProfile.HiddenSageMakerImageProperty(
+                            sage_maker_image_name="sageMakerImageName",
+                            version_aliases=["versionAliases"]
+                        )]
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__e97db7f3b3126b5a3d5c763d4d08621d63d98712c98017d6bda1493a96910b7f)
+                check_type(argname="argument auto_mount_home_efs", value=auto_mount_home_efs, expected_type=type_hints["auto_mount_home_efs"])
                 check_type(argname="argument code_editor_app_settings", value=code_editor_app_settings, expected_type=type_hints["code_editor_app_settings"])
                 check_type(argname="argument custom_file_system_configs", value=custom_file_system_configs, expected_type=type_hints["custom_file_system_configs"])
                 check_type(argname="argument custom_posix_user_config", value=custom_posix_user_config, expected_type=type_hints["custom_posix_user_config"])
@@ -48357,6 +48566,8 @@ class CfnUserProfile(
                 check_type(argname="argument studio_web_portal", value=studio_web_portal, expected_type=type_hints["studio_web_portal"])
                 check_type(argname="argument studio_web_portal_settings", value=studio_web_portal_settings, expected_type=type_hints["studio_web_portal_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if auto_mount_home_efs is not None:
+                self._values["auto_mount_home_efs"] = auto_mount_home_efs
             if code_editor_app_settings is not None:
                 self._values["code_editor_app_settings"] = code_editor_app_settings
             if custom_file_system_configs is not None:
@@ -48385,6 +48596,15 @@ class CfnUserProfile(
                 self._values["studio_web_portal"] = studio_web_portal
             if studio_web_portal_settings is not None:
                 self._values["studio_web_portal_settings"] = studio_web_portal_settings
+
+        @builtins.property
+        def auto_mount_home_efs(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether auto-mounting of an EFS volume is supported for the user profile.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-userprofile-usersettings.html#cfn-sagemaker-userprofile-usersettings-automounthomeefs
+            '''
+            result = self._values.get("auto_mount_home_efs")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def code_editor_app_settings(
@@ -48626,6 +48846,7 @@ class CfnUserProfileProps:
                     value="value"
                 )],
                 user_settings=sagemaker.CfnUserProfile.UserSettingsProperty(
+                    auto_mount_home_efs="autoMountHomeEfs",
                     code_editor_app_settings=sagemaker.CfnUserProfile.CodeEditorAppSettingsProperty(
                         app_lifecycle_management=sagemaker.CfnUserProfile.AppLifecycleManagementProperty(
                             idle_settings=sagemaker.CfnUserProfile.IdleSettingsProperty(
@@ -48635,6 +48856,7 @@ class CfnUserProfileProps:
                                 min_idle_timeout_in_minutes=123
                             )
                         ),
+                        built_in_lifecycle_config_arn="builtInLifecycleConfigArn",
                         custom_images=[sagemaker.CfnUserProfile.CustomImageProperty(
                             app_image_config_name="appImageConfigName",
                             image_name="imageName",
@@ -48679,6 +48901,7 @@ class CfnUserProfileProps:
                                 min_idle_timeout_in_minutes=123
                             )
                         ),
+                        built_in_lifecycle_config_arn="builtInLifecycleConfigArn",
                         code_repositories=[sagemaker.CfnUserProfile.CodeRepositoryProperty(
                             repository_url="repositoryUrl"
                         )],
@@ -48741,7 +48964,12 @@ class CfnUserProfileProps:
                     studio_web_portal="studioWebPortal",
                     studio_web_portal_settings=sagemaker.CfnUserProfile.StudioWebPortalSettingsProperty(
                         hidden_app_types=["hiddenAppTypes"],
-                        hidden_ml_tools=["hiddenMlTools"]
+                        hidden_instance_types=["hiddenInstanceTypes"],
+                        hidden_ml_tools=["hiddenMlTools"],
+                        hidden_sage_maker_image_version_aliases=[sagemaker.CfnUserProfile.HiddenSageMakerImageProperty(
+                            sage_maker_image_name="sageMakerImageName",
+                            version_aliases=["versionAliases"]
+                        )]
                     )
                 )
             )
@@ -49748,6 +49976,7 @@ def _typecheckingstub__da207547ea530dc451bd8f33c6174b52ddcb5c9c348d4df84894bf6a2
     app_type: builtins.str,
     domain_id: builtins.str,
     user_profile_name: builtins.str,
+    recovery_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     resource_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.ResourceSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -49786,6 +50015,12 @@ def _typecheckingstub__563ef9985abcabcd774803749869a87550a085a0ba09908e86c235da5
 
 def _typecheckingstub__9231045eaa19a04e645ac4427861d86fb43ed510b73c35bda73d525ca58769ab(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9db056b4c694b5579e4171517bac256cb919f19041d12d1a8a1c8b09120e81a(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -49940,6 +50175,7 @@ def _typecheckingstub__2f03f5ccb1b2c4633c9ef3bee30e7429d047ef909520efe2cbcf88d12
     app_type: builtins.str,
     domain_id: builtins.str,
     user_profile_name: builtins.str,
+    recovery_mode: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     resource_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApp.ResourceSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -55237,6 +55473,7 @@ def _typecheckingstub__1de2f359712adb79d9133bada8d874676f1cf8ddb79c11623d797df1b
 def _typecheckingstub__9102031486b9c90cb4b3d6ac33ecdb4030f0a3c090fb394765dc1cb6cdb4e9b5(
     *,
     app_lifecycle_management: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.AppLifecycleManagementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    built_in_lifecycle_config_arn: typing.Optional[builtins.str] = None,
     custom_images: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.CustomImageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     default_resource_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.ResourceSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lifecycle_config_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -55307,6 +55544,14 @@ def _typecheckingstub__8d6bd8a103ed4cf4233270d8bb52158950a2338a094df3c8ff1cf1fe8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__edd8c8d75b169e32821742e84039e1440e15c9a960f261e379e7d4c741f05505(
+    *,
+    sage_maker_image_name: typing.Optional[builtins.str] = None,
+    version_aliases: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a4f947a25801ba152e8f9b88cabae6d5acefc670d4af60084ef7a8f1a7e21e9f(
     *,
     idle_timeout_in_minutes: typing.Optional[jsii.Number] = None,
@@ -55320,6 +55565,7 @@ def _typecheckingstub__a4f947a25801ba152e8f9b88cabae6d5acefc670d4af60084ef7a8f1a
 def _typecheckingstub__8fbb8b52ced6fc617c616b643ca1ddc3673e837117aaeaf2063654aaa5ad3b72(
     *,
     app_lifecycle_management: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.AppLifecycleManagementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    built_in_lifecycle_config_arn: typing.Optional[builtins.str] = None,
     code_repositories: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.CodeRepositoryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_images: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.CustomImageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     default_resource_spec: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.ResourceSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -55375,13 +55621,16 @@ def _typecheckingstub__f5b8977e0ba203166fc6635e9d4d1a51fbc68b5d6b5b022bb1a4207ff
 def _typecheckingstub__c6593aeb456cd28b3f5fa579713dc8752eed149344ea410599205e8e1c228c0d(
     *,
     hidden_app_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+    hidden_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     hidden_ml_tools: typing.Optional[typing.Sequence[builtins.str]] = None,
+    hidden_sage_maker_image_version_aliases: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.HiddenSageMakerImageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__e97db7f3b3126b5a3d5c763d4d08621d63d98712c98017d6bda1493a96910b7f(
     *,
+    auto_mount_home_efs: typing.Optional[builtins.str] = None,
     code_editor_app_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.CodeEditorAppSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_file_system_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.CustomFileSystemConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     custom_posix_user_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserProfile.CustomPosixUserConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

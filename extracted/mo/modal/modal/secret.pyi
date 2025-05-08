@@ -49,6 +49,7 @@ class Secret(modal.object.Object):
     class __lookup_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             name: str,
             namespace=1,
             client: typing.Optional[modal.client.Client] = None,
@@ -57,6 +58,7 @@ class Secret(modal.object.Object):
         ) -> Secret: ...
         async def aio(
             self,
+            /,
             name: str,
             namespace=1,
             client: typing.Optional[modal.client.Client] = None,
@@ -69,6 +71,7 @@ class Secret(modal.object.Object):
     class __create_deployed_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             deployment_name: str,
             env_dict: dict[str, str],
             namespace=1,
@@ -78,6 +81,7 @@ class Secret(modal.object.Object):
         ) -> str: ...
         async def aio(
             self,
+            /,
             deployment_name: str,
             env_dict: dict[str, str],
             namespace=1,

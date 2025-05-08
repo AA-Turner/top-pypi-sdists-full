@@ -481,7 +481,7 @@ class ImageProcess(BaseModel):
         "expand",
         "rmbg-2.0"
     ]
-    image: str
+    image: Union[str, bytes]
     mask: Optional[str] = None
 
     style: Optional[str] = None

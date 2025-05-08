@@ -37,11 +37,11 @@ class MarketResearchFlow(Flow[MarketResearchState]):
 
     @listen(initialize_research)
     async def analyze_market(self) -> Dict[str, Any]:
-        with open("runner_lite_agent.yaml", "r") as f:
-            config = yaml.safe_load(f)
         # Create an Agent for market research
         analyst = Agent(
-            config=config["agent"],  # type: ignore
+            role="Market Analyst",
+            goal="Analyze the market for the given product",
+            backstory="You are a market analyst with a deep understanding of the market",
             tools=[SerperDevTool()],
         )
 
@@ -111,14 +111,15 @@ class MarketResearchFlow(Flow[MarketResearchState]):
 # Usage example
 async def run_flow():
     flow = MarketResearchFlow()
-    flow.plot()
-    # result = await flow.kickoff_async(
-    #     inputs={"products": ["apple iphone 16", "nvidia nims"]}
-    # )
-    # return result
+    # flow.plot()
+    result = await flow.kickoff_async(
+        inputs={"products": ["apple iphone 16", "nvidia nims"]}
+    )
+    return result
 
 
 # Run the flow
 if __name__ == "__main__":
     # Use asyncio.run at the top level only
+    # asyncio.run(run_flow())
     asyncio.run(run_flow())

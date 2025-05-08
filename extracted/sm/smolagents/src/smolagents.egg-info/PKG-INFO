@@ -1,18 +1,16 @@
 Metadata-Version: 2.4
 Name: smolagents
-Version: 1.14.0
+Version: 1.15.0
 Summary: 🤗 smolagents: a barebones library for agents. Agents write python code to call tools or orchestrate other agents.
 Author-email: Aymeric Roucher <aymeric@hf.co>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: huggingface-hub>=0.28.0
+Requires-Dist: huggingface-hub>=0.30.0
 Requires-Dist: requests>=2.32.3
 Requires-Dist: rich>=13.9.4
 Requires-Dist: jinja2>=3.1.4
-Requires-Dist: pillow>=11.0.0
-Requires-Dist: markdownify>=0.14.1
-Requires-Dist: duckduckgo-search>=6.3.7
+Requires-Dist: pillow>=10.0.1
 Requires-Dist: python-dotenv
 Provides-Extra: bedrock
 Requires-Dist: boto3>=1.36.18; extra == "bedrock"
@@ -45,6 +43,9 @@ Requires-Dist: arize-phoenix; extra == "telemetry"
 Requires-Dist: opentelemetry-sdk; extra == "telemetry"
 Requires-Dist: opentelemetry-exporter-otlp; extra == "telemetry"
 Requires-Dist: openinference-instrumentation-smolagents>=0.1.4; extra == "telemetry"
+Provides-Extra: toolkit
+Requires-Dist: duckduckgo-search>=6.3.7; extra == "toolkit"
+Requires-Dist: markdownify>=0.14.1; extra == "toolkit"
 Provides-Extra: transformers
 Requires-Dist: accelerate; extra == "transformers"
 Requires-Dist: transformers>=4.0.0; extra == "transformers"
@@ -56,7 +57,7 @@ Provides-Extra: vllm
 Requires-Dist: vllm; extra == "vllm"
 Requires-Dist: torch; extra == "vllm"
 Provides-Extra: all
-Requires-Dist: smolagents[audio,bedrock,docker,e2b,gradio,litellm,mcp,mlx-lm,openai,telemetry,transformers,vision]; extra == "all"
+Requires-Dist: smolagents[audio,bedrock,docker,e2b,gradio,litellm,mcp,mlx-lm,openai,telemetry,toolkit,transformers,vision]; extra == "all"
 Provides-Extra: quality
 Requires-Dist: ruff>=0.9.0; extra == "quality"
 Provides-Extra: test
@@ -111,7 +112,7 @@ limitations under the License.
 
 🧑‍💻 **First-class support for Code Agents**. Our [`CodeAgent`](https://huggingface.co/docs/smolagents/reference/agents#smolagents.CodeAgent) writes its actions in code (as opposed to "agents being used to write code"). To make it secure, we support executing in sandboxed environments via [E2B](https://e2b.dev/) or via Docker.
 
-🤗 **Hub integrations**: you can [share/pull tools to/from the Hub](https://huggingface.co/docs/smolagents/reference/tools#smolagents.Tool.from_hub), and more is to come!
+🤗 **Hub integrations**: you can [share/pull tools or agents to/from the Hub](https://huggingface.co/docs/smolagents/reference/tools#smolagents.Tool.from_hub) for instant sharing of the most efficient agents!
 
 🌐 **Model-agnostic**: smolagents supports any LLM. It can be a local `transformers` or `ollama` model, one of [many providers on the Hub](https://huggingface.co/blog/inference-providers), or any model from OpenAI, Anthropic and many others via our [LiteLLM](https://www.litellm.ai/) integration.
 
@@ -126,16 +127,16 @@ Full documentation can be found [here](https://huggingface.co/docs/smolagents/in
 
 ## Quick demo
 
-First install the package.
+First install the package with a default set of tools:
 ```bash
-pip install smolagents
+pip install smolagents[toolkit]
 ```
 Then define your agent, give it the tools it needs and run it!
 ```py
-from smolagents import CodeAgent, DuckDuckGoSearchTool, InferenceClientModel
+from smolagents import CodeAgent, WebSearchTool, InferenceClientModel
 
 model = InferenceClientModel()
-agent = CodeAgent(tools=[DuckDuckGoSearchTool()], model=model)
+agent = CodeAgent(tools=[WebSearchTool()], model=model)
 
 agent.run("How many seconds would it take for a leopard at full speed to run through Pont des Arts?")
 ```

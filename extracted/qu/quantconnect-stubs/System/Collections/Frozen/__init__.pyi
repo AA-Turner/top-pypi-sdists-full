@@ -17,17 +17,7 @@ System_Collections_Frozen_FrozenDictionary_AlternateLookup_TAlternateKey = typin
 
 
 class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Object, System.Collections.Generic.ISet[System_Collections_Frozen_FrozenSet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Frozen_FrozenSet_T], System.Collections.ICollection, typing.Iterable[System_Collections_Frozen_FrozenSet_T], metaclass=abc.ABCMeta):
-    """Provides an immutable, read-only set optimized for fast lookup and enumeration."""
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Frozen_FrozenSet_T]):
-        """Enumerates the values of a FrozenSet{T}."""
-
-        @property
-        def current(self) -> System_Collections_Frozen_FrozenSet_T:
-            ...
-
-        def move_next(self) -> bool:
-            ...
+    """Provides a set of initialization methods for instances of the FrozenSet{T} class."""
 
     class AlternateLookup(typing.Generic[System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate]):
         """
@@ -57,6 +47,16 @@ class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Ob
             :param actual_value: The value from the set that the search found, or the default value of T when the search yielded no match.
             :returns: A value indicating whether the search was successful.
             """
+            ...
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Frozen_FrozenSet_T]):
+        """Enumerates the values of a FrozenSet{T}."""
+
+        @property
+        def current(self) -> System_Collections_Frozen_FrozenSet_T:
+            ...
+
+        def move_next(self) -> bool:
             ...
 
     EMPTY: System.Collections.Frozen.FrozenSet[System_Collections_Frozen_FrozenSet_T]

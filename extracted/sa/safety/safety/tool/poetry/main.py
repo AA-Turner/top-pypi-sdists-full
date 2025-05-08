@@ -6,10 +6,13 @@ import sys
 from typing import Optional
 
 from rich.console import Console
-import urllib.parse
 
 from safety.console import main_console
-from safety.tool.constants import PUBLIC_REPOSITORY_URL, ORGANIZATION_REPOSITORY_URL
+from safety.tool.constants import (
+    PUBLIC_REPOSITORY_URL,
+    ORGANIZATION_REPOSITORY_URL,
+    PROJECT_REPOSITORY_URL,
+)
 from safety.tool.resolver import get_unwrapped_command
 
 if sys.version_info >= (3, 11):
@@ -35,10 +38,17 @@ class Poetry:
     def is_poetry_project_file(cls, file: Path) -> bool:
         try:
             cfg = tomllib.loads(file.read_text())
-            return cfg.get("build-system", {}).get("requires") in [
-                ["poetry-core"],
-                "poetry-core",
-            ]
+
+            # First check: tool.poetry section (most definitive)
+            if "tool" in cfg and "poetry" in cfg.get("tool", {}):
+                return True
+
+            # Extra check on build-system section
+            build_backend = cfg.get("build-system", {}).get("build-backend", "")
+            if build_backend and "poetry.core" in build_backend:
+                return True
+
+            return False
         except (IOError, ValueError):
             return False
 
@@ -64,14 +74,14 @@ class Poetry:
             return None
 
         repository_url = (
-            ORGANIZATION_REPOSITORY_URL.format(org_slug)
-            if org_slug
-            else PUBLIC_REPOSITORY_URL
-        )
-        if project_id:
-            repository_url = repository_url + urllib.parse.urlencode(
-                {"project-id": project_id}
+            PROJECT_REPOSITORY_URL.format(org_slug, project_id)
+            if project_id and org_slug
+            else (
+                ORGANIZATION_REPOSITORY_URL.format(org_slug)
+                if org_slug
+                else PUBLIC_REPOSITORY_URL
             )
+        )
         result = subprocess.run(
             [
                 get_unwrapped_command(name="poetry"),

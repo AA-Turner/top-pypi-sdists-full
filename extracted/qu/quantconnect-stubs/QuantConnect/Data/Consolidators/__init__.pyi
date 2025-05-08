@@ -11,21 +11,140 @@ import QuantConnect.Data.Market
 import QuantConnect.Python
 import System
 
-QuantConnect_Data_Consolidators_RenkoConsolidator = typing.Any
 QuantConnect_Data_Consolidators_ClassicRenkoConsolidator = typing.Any
+QuantConnect_Data_Consolidators_RenkoConsolidator = typing.Any
 
+QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput = typing.TypeVar("QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput")
 QuantConnect_Data_Consolidators_RenkoConsolidator_TInput = typing.TypeVar("QuantConnect_Data_Consolidators_RenkoConsolidator_TInput")
 QuantConnect_Data_Consolidators_WickedRenkoConsolidator_T = typing.TypeVar("QuantConnect_Data_Consolidators_WickedRenkoConsolidator_T")
 QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T = typing.TypeVar("QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T")
-QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T = typing.TypeVar("QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T")
+QuantConnect_Data_Consolidators_IdentityDataConsolidator_T = typing.TypeVar("QuantConnect_Data_Consolidators_IdentityDataConsolidator_T")
 QuantConnect_Data_Consolidators_DataConsolidator_TInput = typing.TypeVar("QuantConnect_Data_Consolidators_DataConsolidator_TInput")
 QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_T = typing.TypeVar("QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_T")
 QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_TConsolidated = typing.TypeVar("QuantConnect_Data_Consolidators_PeriodCountConsolidatorBase_TConsolidated")
+QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T = typing.TypeVar("QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T")
 QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T = typing.TypeVar("QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T")
-QuantConnect_Data_Consolidators_IdentityDataConsolidator_T = typing.TypeVar("QuantConnect_Data_Consolidators_IdentityDataConsolidator_T")
-QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput = typing.TypeVar("QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput")
 QuantConnect_Data_Consolidators__EventContainer_Callable = typing.TypeVar("QuantConnect_Data_Consolidators__EventContainer_Callable")
 QuantConnect_Data_Consolidators__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Data_Consolidators__EventContainer_ReturnType")
+
+
+class CalendarInfo:
+    """Calendar Info for storing information related to the start and period of a consolidator"""
+
+    @property
+    def start(self) -> datetime.datetime:
+        """Calendar Start"""
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """Consolidation Period"""
+        ...
+
+    @property
+    def end(self) -> datetime.datetime:
+        """Calendar End"""
+        ...
+
+    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], period: datetime.timedelta) -> None:
+        """
+        Constructor for CalendarInfo; used for consolidation calendar
+        
+        :param start: Calendar Start
+        :param period: Consolidation Period
+        """
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Indicates whether the given object is equal to this object, this is, the Calendar start
+        and consolidation period is the same for both
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """Returns the hash code for this object as an integer"""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string containing the Calendar start and the consolidation period"""
+        ...
+
+
+class QuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidatorBase[QuantConnect.Data.Market.QuoteBar, QuantConnect.Data.Market.QuoteBar]):
+    """Consolidates QuoteBars into larger QuoteBars"""
+
+    @overload
+    def __init__(self, pyfuncobj: typing.Any) -> None:
+        """
+        Creates a consolidator to produce a new 'QuoteBar' representing the last count pieces of data or the period, whichever comes first
+        
+        :param pyfuncobj: Python function object that defines the start time of a consolidated data
+        """
+        ...
+
+    @overload
+    def __init__(self, period: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of the QuoteBarConsolidator class
+        
+        :param period: The minimum span of time before emitting a consolidated bar
+        """
+        ...
+
+    @overload
+    def __init__(self, max_count: int) -> None:
+        """
+        Initializes a new instance of the QuoteBarConsolidator class
+        
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
+        """
+        ...
+
+    @overload
+    def __init__(self, max_count: int, period: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of the QuoteBarConsolidator class
+        
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
+        :param period: The minimum span of time before emitting a consolidated bar
+        """
+        ...
+
+    @overload
+    def __init__(self, func: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]) -> None:
+        """
+        Creates a consolidator to produce a new 'QuoteBar' representing the last count pieces of data or the period, whichever comes first
+        
+        :param func: Func that defines the start time of a consolidated data
+        """
+        ...
+
+    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.QuoteBar, data: QuantConnect.Data.Market.QuoteBar) -> None:
+        """
+        Aggregates the new 'data' into the 'working_bar'. The 'working_bar' will be
+        null following the event firing
+        
+        This method is protected.
+        
+        :param working_bar: The bar we're building, null if the event was just fired and we're starting a new consolidated bar
+        :param data: The new data
+        """
+        ...
+
+
+class CalendarType(System.Object):
+    """
+    Calendar Type Class; now obsolete routes functions to Calendar
+    
+    CalendarType is obsolete, please use Calendar instead
+    """
+
+    WEEKLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
+    """Computes the start of week (previous Monday) of given date/time"""
+
+    MONTHLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
+    """Computes the start of month (1st of the current month) of given date/time"""
 
 
 class IDataConsolidator(System.IDisposable, metaclass=abc.ABCMeta):
@@ -194,56 +313,35 @@ class SequentialConsolidator(System.Object, QuantConnect.Data.Consolidators.IDat
         ...
 
 
-class CalendarInfo:
-    """Calendar Info for storing information related to the start and period of a consolidator"""
+class Calendar(System.Object):
+    """Helper class that provides Func{DateTime,CalendarInfo} used to define consolidation calendar"""
 
-    @property
-    def start(self) -> datetime.datetime:
-        """Calendar Start"""
-        ...
+    WEEKLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
+    """Computes the start of week (previous Monday) of given date/time"""
 
-    @property
-    def period(self) -> datetime.timedelta:
-        """Consolidation Period"""
-        ...
+    MONTHLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
+    """Computes the start of month (1st of the current month) of given date/time"""
 
-    @property
-    def end(self) -> datetime.datetime:
-        """Calendar End"""
-        ...
+    QUARTERLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
+    """Computes the start of quarter (1st of the starting month of current quarter) of given date/time"""
 
-    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], period: datetime.timedelta) -> None:
-        """
-        Constructor for CalendarInfo; used for consolidation calendar
-        
-        :param start: Calendar Start
-        :param period: Consolidation Period
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Indicates whether the given object is equal to this object, this is, the Calendar start
-        and consolidation period is the same for both
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """Returns the hash code for this object as an integer"""
-        ...
-
-    def to_string(self) -> str:
-        """Returns a string containing the Calendar start and the consolidation period"""
-        ...
+    YEARLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
+    """Computes the start of year (1st of the current year) of given date/time"""
 
 
-class QuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidatorBase[QuantConnect.Data.Market.QuoteBar, QuantConnect.Data.Market.QuoteBar]):
-    """Consolidates QuoteBars into larger QuoteBars"""
+class TradeBarConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.Market.TradeBar]):
+    """
+    A data consolidator that can make bigger bars from smaller ones over a given
+    time span or a count of pieces of data.
+    
+    Use this consolidator to turn data of a lower resolution into data of a higher resolution,
+    for example, if you subscribe to minute data but want to have a 15 minute bar.
+    """
 
     @overload
     def __init__(self, pyfuncobj: typing.Any) -> None:
         """
-        Creates a consolidator to produce a new 'QuoteBar' representing the last count pieces of data or the period, whichever comes first
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
         
         :param pyfuncobj: Python function object that defines the start time of a consolidated data
         """
@@ -252,7 +350,7 @@ class QuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidat
     @overload
     def __init__(self, period: datetime.timedelta) -> None:
         """
-        Initializes a new instance of the QuoteBarConsolidator class
+        Creates a consolidator to produce a new 'TradeBar' representing the period
         
         :param period: The minimum span of time before emitting a consolidated bar
         """
@@ -261,7 +359,7 @@ class QuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidat
     @overload
     def __init__(self, max_count: int) -> None:
         """
-        Initializes a new instance of the QuoteBarConsolidator class
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data
         
         :param max_count: The number of pieces to accept before emitting a consolidated bar
         """
@@ -270,7 +368,7 @@ class QuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidat
     @overload
     def __init__(self, max_count: int, period: datetime.timedelta) -> None:
         """
-        Initializes a new instance of the QuoteBarConsolidator class
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
         
         :param max_count: The number of pieces to accept before emitting a consolidated bar
         :param period: The minimum span of time before emitting a consolidated bar
@@ -280,21 +378,236 @@ class QuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsolidat
     @overload
     def __init__(self, func: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]) -> None:
         """
-        Creates a consolidator to produce a new 'QuoteBar' representing the last count pieces of data or the period, whichever comes first
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
         
         :param func: Func that defines the start time of a consolidated data
         """
         ...
 
-    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.QuoteBar, data: QuantConnect.Data.Market.QuoteBar) -> None:
+    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.TradeBar, data: QuantConnect.Data.Market.TradeBar) -> None:
         """
         Aggregates the new 'data' into the 'working_bar'. The 'working_bar' will be
         null following the event firing
         
         This method is protected.
         
-        :param working_bar: The bar we're building, null if the event was just fired and we're starting a new consolidated bar
+        :param working_bar: The bar we're building, null if the event was just fired and we're starting a new trade bar
         :param data: The new data
+        """
+        ...
+
+    @staticmethod
+    def from_resolution(resolution: QuantConnect.Resolution) -> QuantConnect.Data.Consolidators.TradeBarConsolidator:
+        """
+        Create a new TradeBarConsolidator for the desired resolution
+        
+        :param resolution: The resolution desired
+        :returns: A consolidator that produces data on the resolution interval.
+        """
+        ...
+
+
+class TickConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.Market.Tick]):
+    """
+    A data consolidator that can make bigger bars from ticks over a given
+    time span or a count of pieces of data.
+    """
+
+    @overload
+    def __init__(self, pyfuncobj: typing.Any) -> None:
+        """
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
+        
+        :param pyfuncobj: Python function object that defines the start time of a consolidated data
+        """
+        ...
+
+    @overload
+    def __init__(self, period: datetime.timedelta) -> None:
+        """
+        Creates a consolidator to produce a new 'TradeBar' representing the period
+        
+        :param period: The minimum span of time before emitting a consolidated bar
+        """
+        ...
+
+    @overload
+    def __init__(self, max_count: int) -> None:
+        """
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data
+        
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
+        """
+        ...
+
+    @overload
+    def __init__(self, max_count: int, period: datetime.timedelta) -> None:
+        """
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
+        
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
+        :param period: The minimum span of time before emitting a consolidated bar
+        """
+        ...
+
+    @overload
+    def __init__(self, func: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]) -> None:
+        """
+        Initializes a new instance of the TickQuoteBarConsolidator class
+        
+        :param func: Func that defines the start time of a consolidated data
+        """
+        ...
+
+    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.TradeBar, data: QuantConnect.Data.Market.Tick) -> None:
+        """
+        Aggregates the new 'data' into the 'working_bar'. The 'working_bar' will be
+        null following the event firing
+        
+        This method is protected.
+        
+        :param working_bar: The bar we're building
+        :param data: The new data
+        """
+        ...
+
+    def should_process(self, data: QuantConnect.Data.Market.Tick) -> bool:
+        """
+        Determines whether or not the specified data should be processed
+        
+        This method is protected.
+        
+        :param data: The data to check
+        :returns: True if the consolidator should process this data, false otherwise.
+        """
+        ...
+
+
+class ClassicRenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput], QuantConnect_Data_Consolidators_ClassicRenkoConsolidator):
+    """Provides a type safe wrapper on the RenkoConsolidator class. This just allows us to define our selector functions with the real type they'll be receiving"""
+
+    @property
+    def current_bar(self) -> QuantConnect.Data.Market.RenkoBar:
+        """
+        Bar being created
+        
+        This property is protected.
+        """
+        ...
+
+    @current_bar.setter
+    def current_bar(self, value: QuantConnect.Data.Market.RenkoBar) -> None:
+        ...
+
+    @property
+    def type(self) -> QuantConnect.Data.Market.RenkoType:
+        """Gets the kind of the bar"""
+        ...
+
+    @property
+    def working_data(self) -> QuantConnect.Data.IBaseData:
+        """Gets a clone of the data being currently consolidated"""
+        ...
+
+    @property
+    def output_type(self) -> typing.Type:
+        """Gets RenkoBar which is the type emitted in the IDataConsolidator.DataConsolidated event."""
+        ...
+
+    @overload
+    def __init__(self, bar_size: float, selector: typing.Any, volume_selector: typing.Any = None, even_bars: bool = True) -> None:
+        """
+        Initializes a new instance of the ClassicRenkoConsolidator class.
+        
+        :param bar_size: The size of each bar in units of the value produced by
+        :param selector: Extracts the value from a data instance to be formed into a RenkoBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
+        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
+        :param even_bars: When true bar open/close will be a multiple of the bar_size
+        """
+        ...
+
+    @overload
+    def __init__(self, bar_size: float, even_bars: bool = True) -> None:
+        """
+        Initializes a new instance of the ClassicRenkoConsolidator class using the specified .
+        The value selector will by default select IBaseData.Value
+        The volume selector will by default select zero.
+        
+        :param bar_size: The constant value size of each bar
+        :param even_bars: When true bar open/close will be a multiple of the bar_size
+        """
+        ...
+
+    @overload
+    def __init__(self, bar_size: float, selector: typing.Callable[[QuantConnect.Data.IBaseData], float], volume_selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, even_bars: bool = True) -> None:
+        """
+        Initializes a new instance of the ClassicRenkoConsolidator class.
+        
+        :param bar_size: The size of each bar in units of the value produced by
+        :param selector: Extracts the value from a data instance to be formed into a RenkoBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
+        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
+        :param even_bars: When true bar open/close will be a multiple of the bar_size
+        """
+        ...
+
+    @overload
+    def __init__(self, bar_size: float, selector: typing.Callable[[QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput], float], volume_selector: typing.Callable[[QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput], float] = None, even_bars: bool = True) -> None:
+        """
+        Initializes a new instance of the ClassicRenkoConsolidator class.
+        
+        :param bar_size: The size of each bar in units of the value produced by
+        :param selector: Extracts the value from a data instance to be formed into a RenkoBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
+        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
+        :param even_bars: When true bar open/close will be a multiple of the bar_size
+        """
+        ...
+
+    @overload
+    def __init__(self, bar_size: float, type: QuantConnect.Data.Market.RenkoType) -> None:
+        """
+        Initializes a new instance of the ClassicRenkoConsolidator class.
+        
+        Please use the new RenkoConsolidator if RenkoType is not Classic
+        
+        :param bar_size: The constant value size of each bar
+        :param type: The RenkoType of the bar
+        """
+        ...
+
+    def create_new_bar(self, data: QuantConnect.Data.IBaseData, current_value: float, volume: float) -> None:
+        """
+        Creates a new bar with the given data
+        
+        This method is protected.
+        
+        :param data: The new data for the bar
+        :param current_value: The new value for the bar
+        :param volume: The new volume to the bar
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets the ClassicRenkoConsolidator"""
+        ...
+
+    def update(self, data: QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput) -> None:
+        """
+        Updates this consolidator with the specified data.
+        
+        :param data: The new data for the consolidator
+        """
+        ...
+
+    def update_bar(self, time: typing.Union[datetime.datetime, datetime.date], current_value: float, volume: float) -> None:
+        """
+        Updates the current RangeBar being created with the given data.
+        Additionally, if it's the case, it consolidates the current RangeBar
+        
+        This method is protected.
+        
+        :param time: Time of the given data
+        :param current_value: Value of the given data
+        :param volume: Volume of the given data
         """
         ...
 
@@ -512,6 +825,143 @@ class WickedRenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Wic
         ...
 
 
+class RangeConsolidator(QuantConnect.Data.Consolidators.BaseTimelessConsolidator[QuantConnect.Data.Market.RangeBar]):
+    """This consolidator can transform a stream of IBaseData instances into a stream of RangeBar"""
+
+    @property
+    def current_bar(self) -> QuantConnect.Data.Market.RangeBar:
+        """
+        Bar being created
+        
+        This property is protected.
+        """
+        ...
+
+    @current_bar.setter
+    def current_bar(self, value: QuantConnect.Data.Market.RangeBar) -> None:
+        ...
+
+    @property
+    def range_size(self) -> float:
+        """
+        Range for each RangeBar, this is, the difference between the High and Low for each
+        RangeBar
+        """
+        ...
+
+    @property
+    def range(self) -> int:
+        """Number of MinimumPriceVariation units"""
+        ...
+
+    @property
+    def output_type(self) -> typing.Type:
+        """Gets RangeBar which is the type emitted in the IDataConsolidator.DataConsolidated event."""
+        ...
+
+    @property
+    def working_data(self) -> QuantConnect.Data.IBaseData:
+        """Gets a clone of the data being currently consolidated"""
+        ...
+
+    @overload
+    def __init__(self, range: int, selector: typing.Any, volume_selector: typing.Any = None) -> None:
+        """
+        Initializes a new instance of the RangeConsolidator class.
+        
+        :param range: The Range interval sets the range in which the price moves, which in turn initiates the formation of a new bar. One range equals to one minimum price change, where this last value is defined depending of the RangeBar's symbol
+        :param selector: Extracts the value from a data instance to be formed into a RangeBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
+        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
+        """
+        ...
+
+    @overload
+    def __init__(self, range: int, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, volume_selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
+        """
+        Initializes a new instance of the RangeConsolidator class.
+        
+        :param range: The Range interval sets the range in which the price moves, which in turn initiates the formation of a new bar. One range equals to one minimum price change, where this last value is defined depending of the RangeBar's symbol
+        :param selector: Extracts the value from a data instance to be formed into a RangeBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
+        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar, except if the input is a TradeBar.
+        """
+        ...
+
+    def create_new_bar(self, data: QuantConnect.Data.IBaseData, current_value: float, volume: float) -> None:
+        """
+        Creates a new bar with the given data
+        
+        This method is protected.
+        
+        :param data: The new data for the bar
+        :param current_value: The new value for the bar
+        :param volume: The new volume for the bar
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets the consolidator"""
+        ...
+
+    def update_bar(self, time: typing.Union[datetime.datetime, datetime.date], current_value: float, volume: float) -> None:
+        """
+        Updates the current RangeBar being created with the given data.
+        Additionally, if it's the case, it consolidates the current RangeBar
+        
+        This method is protected.
+        
+        :param time: Time of the given data
+        :param current_value: Value of the given data
+        :param volume: Volume of the given data
+        """
+        ...
+
+
+class ClassicRangeConsolidator(QuantConnect.Data.Consolidators.RangeConsolidator):
+    """
+    This consolidator can transform a stream of IBaseData instances into a stream of RangeBar.
+    The difference between this consolidator and RangeConsolidator, is that this last one creates intermediate/
+    phantom RangeBar's (RangeBar's with zero volume) if the price rises up or falls down by above/below two times the range
+    size. Therefore, RangeConsolidator leaves no space between two adyacent RangeBar's since it always start
+    a new RangeBar one range above the last RangeBar's High value or one range below the last RangeBar's Low value, where
+    one range equals to one minimum price change.
+    """
+
+    @overload
+    def __init__(self, range: int, selector: typing.Any, volume_selector: typing.Any = None) -> None:
+        """
+        Initializes a new instance of the RangeConsolidator class.
+        
+        :param range: The Range interval sets the range in which the price moves, which in turn initiates the formation of a new bar. One range equals to one minimum price change, where this last value is defined depending of the RangeBar's symbol
+        :param selector: Extracts the value from a data instance to be formed into a RangeBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
+        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
+        """
+        ...
+
+    @overload
+    def __init__(self, range: int, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, volume_selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
+        """
+        Initializes a new instance of the ClassicRangeConsolidator class.
+        
+        :param range: The Range interval sets the range in which the price moves, which in turn initiates the formation of a new bar. One range equals to one minimum price change, where this last value is defined depending of the RangeBar's symbol
+        :param selector: Extracts the value from a data instance to be formed into a RangeBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
+        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar, except if the input is a TradeBar.
+        """
+        ...
+
+    def update_bar(self, time: typing.Union[datetime.datetime, datetime.date], current_value: float, volume: float) -> None:
+        """
+        Updates the current RangeBar being created with the given data.
+        Additionally, if it's the case, it consolidates the current RangeBar
+        
+        This method is protected.
+        
+        :param time: Time of the given data
+        :param current_value: Value of the given data
+        :param volume: Volume of the given data
+        """
+        ...
+
+
 class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T], System.Object, QuantConnect.Data.Consolidators.IDataConsolidator, metaclass=abc.ABCMeta):
     """
     Represents a timeless consolidator which depends on the given values. This consolidator
@@ -693,71 +1143,39 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         ...
 
 
-class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T], QuantConnect.Data.Consolidators.PeriodCountConsolidatorBase[QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T, QuantConnect.Data.Market.TradeBar], metaclass=abc.ABCMeta):
+class IdentityDataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_IdentityDataConsolidator_T], QuantConnect.Data.Consolidators.DataConsolidator[QuantConnect_Data_Consolidators_IdentityDataConsolidator_T]):
     """
-    A data consolidator that can make bigger bars from any base data
-    
-    This type acts as the base for other consolidators that produce bars on a given time step or for a count of data.
+    Represents the simplest DataConsolidator implementation, one that is defined
+    by a straight pass through of the data. No projection or aggregation is performed.
     """
 
     @property
-    def working_bar(self) -> QuantConnect.Data.Market.TradeBar:
-        """Gets a copy of the current 'workingBar'."""
+    def working_data(self) -> QuantConnect.Data.IBaseData:
+        """Gets a clone of the data being currently consolidated"""
         ...
 
-    @overload
-    def __init__(self, pyfuncobj: typing.Any) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
-        
-        This method is protected.
-        
-        :param pyfuncobj: Python function object that defines the start time of a consolidated data
-        """
+    @property
+    def output_type(self) -> typing.Type:
+        """Gets the type produced by this consolidator"""
         ...
 
-    @overload
-    def __init__(self, period: datetime.timedelta) -> None:
+    def reset(self) -> None:
+        """Resets the consolidator"""
+        ...
+
+    def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
-        Creates a consolidator to produce a new 'TradeBar' representing the period
+        Scans this consolidator to see if it should emit a bar due to time passing
         
-        This method is protected.
-        
-        :param period: The minimum span of time before emitting a consolidated bar
+        :param current_local_time: The current time in the local time zone (same as BaseData.Time)
         """
         ...
 
-    @overload
-    def __init__(self, max_count: int) -> None:
+    def update(self, data: QuantConnect_Data_Consolidators_IdentityDataConsolidator_T) -> None:
         """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data
+        Updates this consolidator with the specified data
         
-        This method is protected.
-        
-        :param max_count: The number of pieces to accept before emiting a consolidated bar
-        """
-        ...
-
-    @overload
-    def __init__(self, max_count: int, period: datetime.timedelta) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
-        
-        This method is protected.
-        
-        :param max_count: The number of pieces to accept before emiting a consolidated bar
-        :param period: The minimum span of time before emitting a consolidated bar
-        """
-        ...
-
-    @overload
-    def __init__(self, func: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
-        
-        This method is protected.
-        
-        :param func: Func that defines the start time of a consolidated data
+        :param data: The new data for the consolidator
         """
         ...
 
@@ -835,78 +1253,6 @@ class TickQuoteBarConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsol
         ...
 
 
-class BaseDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.BaseData]):
-    """Type capable of consolidating trade bars from any base data instance"""
-
-    @overload
-    def __init__(self, pyfuncobj: typing.Any) -> None:
-        """
-        Initializes a new instance of the BaseDataConsolidator class
-        
-        :param pyfuncobj: Func that defines the start time of a consolidated data
-        """
-        ...
-
-    @overload
-    def __init__(self, period: datetime.timedelta) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the period
-        
-        :param period: The minimum span of time before emitting a consolidated bar
-        """
-        ...
-
-    @overload
-    def __init__(self, max_count: int) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data
-        
-        :param max_count: The number of pieces to accept before emitting a consolidated bar
-        """
-        ...
-
-    @overload
-    def __init__(self, max_count: int, period: datetime.timedelta) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
-        
-        :param max_count: The number of pieces to accept before emitting a consolidated bar
-        :param period: The minimum span of time before emitting a consolidated bar
-        """
-        ...
-
-    @overload
-    def __init__(self, func: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]) -> None:
-        """
-        Initializes a new instance of the BaseDataConsolidator class
-        
-        :param func: Func that defines the start time of a consolidated data
-        """
-        ...
-
-    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.TradeBar, data: QuantConnect.Data.BaseData) -> None:
-        """
-        Aggregates the new 'data' into the 'working_bar'. The 'working_bar' will be
-        null following the event firing
-        
-        This method is protected.
-        
-        :param working_bar: The bar we're building, null if the event was just fired and we're starting a new trade bar
-        :param data: The new data
-        """
-        ...
-
-    @staticmethod
-    def from_resolution(resolution: QuantConnect.Resolution) -> QuantConnect.Data.Consolidators.BaseDataConsolidator:
-        """
-        Create a new TickConsolidator for the desired resolution
-        
-        :param resolution: The resolution desired
-        :returns: A consolidator that produces data on the resolution interval.
-        """
-        ...
-
-
 class VolumeRenkoConsolidator(QuantConnect.Data.Consolidators.DataConsolidator[QuantConnect.Data.BaseData]):
     """
     This consolidator can transform a stream of BaseData instances into a stream of RenkoBar
@@ -980,6 +1326,62 @@ class VolumeRenkoConsolidator(QuantConnect.Data.Consolidators.DataConsolidator[Q
         Updates this consolidator with the specified data
         
         :param data: The new data for the consolidator
+        """
+        ...
+
+
+class DynamicDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.DynamicData]):
+    """
+    A data csolidator that can make trade bars from DynamicData derived types. This is useful for
+    aggregating Quandl and other highly flexible dynamic custom data types.
+    """
+
+    @overload
+    def __init__(self, period: datetime.timedelta) -> None:
+        """
+        Creates a consolidator to produce a new 'TradeBar' representing the period.
+        
+        :param period: The minimum span of time before emitting a consolidated bar
+        """
+        ...
+
+    @overload
+    def __init__(self, max_count: int) -> None:
+        """
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data.
+        
+        :param max_count: The number of pieces to accept before emiting a consolidated bar
+        """
+        ...
+
+    @overload
+    def __init__(self, max_count: int, period: datetime.timedelta) -> None:
+        """
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first.
+        
+        :param max_count: The number of pieces to accept before emiting a consolidated bar
+        :param period: The minimum span of time before emitting a consolidated bar
+        """
+        ...
+
+    @overload
+    def __init__(self, func: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]) -> None:
+        """
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first.
+        
+        :param func: Func that defines the start time of a consolidated data
+        """
+        ...
+
+    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.TradeBar, data: QuantConnect.Data.DynamicData) -> None:
+        """
+        Aggregates the new 'data' into the 'working_bar'. The 'working_bar' will be
+        null following the event firing
+        
+        This method is protected.
+        
+        :param working_bar: The bar we're building, null if the event was just fired and we're starting a new trade bar
+        :param data: The new data
         """
         ...
 
@@ -1071,82 +1473,6 @@ class DataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_DataConsol
         responsible for raising the DataConsolidated event
         
         :param data: The new data for the consolidator
-        """
-        ...
-
-
-class TickConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.Market.Tick]):
-    """
-    A data consolidator that can make bigger bars from ticks over a given
-    time span or a count of pieces of data.
-    """
-
-    @overload
-    def __init__(self, pyfuncobj: typing.Any) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
-        
-        :param pyfuncobj: Python function object that defines the start time of a consolidated data
-        """
-        ...
-
-    @overload
-    def __init__(self, period: datetime.timedelta) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the period
-        
-        :param period: The minimum span of time before emitting a consolidated bar
-        """
-        ...
-
-    @overload
-    def __init__(self, max_count: int) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data
-        
-        :param max_count: The number of pieces to accept before emitting a consolidated bar
-        """
-        ...
-
-    @overload
-    def __init__(self, max_count: int, period: datetime.timedelta) -> None:
-        """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
-        
-        :param max_count: The number of pieces to accept before emitting a consolidated bar
-        :param period: The minimum span of time before emitting a consolidated bar
-        """
-        ...
-
-    @overload
-    def __init__(self, func: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]) -> None:
-        """
-        Initializes a new instance of the TickQuoteBarConsolidator class
-        
-        :param func: Func that defines the start time of a consolidated data
-        """
-        ...
-
-    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.TradeBar, data: QuantConnect.Data.Market.Tick) -> None:
-        """
-        Aggregates the new 'data' into the 'working_bar'. The 'working_bar' will be
-        null following the event firing
-        
-        This method is protected.
-        
-        :param working_bar: The bar we're building
-        :param data: The new data
-        """
-        ...
-
-    def should_process(self, data: QuantConnect.Data.Market.Tick) -> bool:
-        """
-        Determines whether or not the specified data should be processed
-        
-        This method is protected.
-        
-        :param data: The data to check
-        :returns: True if the consolidator should process this data, false otherwise.
         """
         ...
 
@@ -1335,187 +1661,35 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         ...
 
 
-class RangeConsolidator(QuantConnect.Data.Consolidators.BaseTimelessConsolidator[QuantConnect.Data.Market.RangeBar]):
-    """This consolidator can transform a stream of IBaseData instances into a stream of RangeBar"""
+class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T], QuantConnect.Data.Consolidators.PeriodCountConsolidatorBase[QuantConnect_Data_Consolidators_TradeBarConsolidatorBase_T, QuantConnect.Data.Market.TradeBar], metaclass=abc.ABCMeta):
+    """
+    A data consolidator that can make bigger bars from any base data
+    
+    This type acts as the base for other consolidators that produce bars on a given time step or for a count of data.
+    """
 
     @property
-    def current_bar(self) -> QuantConnect.Data.Market.RangeBar:
-        """
-        Bar being created
-        
-        This property is protected.
-        """
-        ...
-
-    @current_bar.setter
-    def current_bar(self, value: QuantConnect.Data.Market.RangeBar) -> None:
-        ...
-
-    @property
-    def range_size(self) -> float:
-        """
-        Range for each RangeBar, this is, the difference between the High and Low for each
-        RangeBar
-        """
-        ...
-
-    @property
-    def range(self) -> int:
-        """Number of MinimumPriceVariation units"""
-        ...
-
-    @property
-    def output_type(self) -> typing.Type:
-        """Gets RangeBar which is the type emitted in the IDataConsolidator.DataConsolidated event."""
-        ...
-
-    @property
-    def working_data(self) -> QuantConnect.Data.IBaseData:
-        """Gets a clone of the data being currently consolidated"""
+    def working_bar(self) -> QuantConnect.Data.Market.TradeBar:
+        """Gets a copy of the current 'workingBar'."""
         ...
 
     @overload
-    def __init__(self, range: int, selector: typing.Any, volume_selector: typing.Any = None) -> None:
+    def __init__(self, pyfuncobj: typing.Any) -> None:
         """
-        Initializes a new instance of the RangeConsolidator class.
-        
-        :param range: The Range interval sets the range in which the price moves, which in turn initiates the formation of a new bar. One range equals to one minimum price change, where this last value is defined depending of the RangeBar's symbol
-        :param selector: Extracts the value from a data instance to be formed into a RangeBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
-        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
-        """
-        ...
-
-    @overload
-    def __init__(self, range: int, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, volume_selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
-        """
-        Initializes a new instance of the RangeConsolidator class.
-        
-        :param range: The Range interval sets the range in which the price moves, which in turn initiates the formation of a new bar. One range equals to one minimum price change, where this last value is defined depending of the RangeBar's symbol
-        :param selector: Extracts the value from a data instance to be formed into a RangeBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
-        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar, except if the input is a TradeBar.
-        """
-        ...
-
-    def create_new_bar(self, data: QuantConnect.Data.IBaseData, current_value: float, volume: float) -> None:
-        """
-        Creates a new bar with the given data
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
         
         This method is protected.
         
-        :param data: The new data for the bar
-        :param current_value: The new value for the bar
-        :param volume: The new volume for the bar
+        :param pyfuncobj: Python function object that defines the start time of a consolidated data
         """
         ...
-
-    def reset(self) -> None:
-        """Resets the consolidator"""
-        ...
-
-    def update_bar(self, time: typing.Union[datetime.datetime, datetime.date], current_value: float, volume: float) -> None:
-        """
-        Updates the current RangeBar being created with the given data.
-        Additionally, if it's the case, it consolidates the current RangeBar
-        
-        This method is protected.
-        
-        :param time: Time of the given data
-        :param current_value: Value of the given data
-        :param volume: Volume of the given data
-        """
-        ...
-
-
-class ClassicRangeConsolidator(QuantConnect.Data.Consolidators.RangeConsolidator):
-    """
-    This consolidator can transform a stream of IBaseData instances into a stream of RangeBar.
-    The difference between this consolidator and RangeConsolidator, is that this last one creates intermediate/
-    phantom RangeBar's (RangeBar's with zero volume) if the price rises up or falls down by above/below two times the range
-    size. Therefore, RangeConsolidator leaves no space between two adyacent RangeBar's since it always start
-    a new RangeBar one range above the last RangeBar's High value or one range below the last RangeBar's Low value, where
-    one range equals to one minimum price change.
-    """
-
-    @overload
-    def __init__(self, range: int, selector: typing.Any, volume_selector: typing.Any = None) -> None:
-        """
-        Initializes a new instance of the RangeConsolidator class.
-        
-        :param range: The Range interval sets the range in which the price moves, which in turn initiates the formation of a new bar. One range equals to one minimum price change, where this last value is defined depending of the RangeBar's symbol
-        :param selector: Extracts the value from a data instance to be formed into a RangeBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
-        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
-        """
-        ...
-
-    @overload
-    def __init__(self, range: int, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, volume_selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> None:
-        """
-        Initializes a new instance of the ClassicRangeConsolidator class.
-        
-        :param range: The Range interval sets the range in which the price moves, which in turn initiates the formation of a new bar. One range equals to one minimum price change, where this last value is defined depending of the RangeBar's symbol
-        :param selector: Extracts the value from a data instance to be formed into a RangeBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
-        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar, except if the input is a TradeBar.
-        """
-        ...
-
-    def update_bar(self, time: typing.Union[datetime.datetime, datetime.date], current_value: float, volume: float) -> None:
-        """
-        Updates the current RangeBar being created with the given data.
-        Additionally, if it's the case, it consolidates the current RangeBar
-        
-        This method is protected.
-        
-        :param time: Time of the given data
-        :param current_value: Value of the given data
-        :param volume: Volume of the given data
-        """
-        ...
-
-
-class FilteredIdentityDataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T], QuantConnect.Data.Consolidators.IdentityDataConsolidator[QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T]):
-    """
-    Provides an implementation of IDataConsolidator that preserve the input
-    data unmodified. The input data is filtering by the specified predicate function
-    """
-
-    def __init__(self, predicate: typing.Callable[[QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T], bool]) -> None:
-        """
-        Initializes a new instance of the FilteredIdentityDataConsolidator{T} class
-        
-        :param predicate: The predicate function, returning true to accept data and false to reject data
-        """
-        ...
-
-    @staticmethod
-    def for_tick_type(tick_type: QuantConnect.TickType) -> QuantConnect.Data.Consolidators.FilteredIdentityDataConsolidator[QuantConnect.Data.Market.Tick]:
-        """
-        Creates a new instance of FilteredIdentityDataConsolidator{T} that filters ticks
-        based on the specified TickType
-        
-        :param tick_type: The tick type of data to accept
-        :returns: A new FilteredIdentityDataConsolidator{T} that filters based on the provided tick type.
-        """
-        ...
-
-    def update(self, data: QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T) -> None:
-        """
-        Updates this consolidator with the specified data
-        
-        :param data: The new data for the consolidator
-        """
-        ...
-
-
-class DynamicDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.DynamicData]):
-    """
-    A data csolidator that can make trade bars from DynamicData derived types. This is useful for
-    aggregating Quandl and other highly flexible dynamic custom data types.
-    """
 
     @overload
     def __init__(self, period: datetime.timedelta) -> None:
         """
-        Creates a consolidator to produce a new 'TradeBar' representing the period.
+        Creates a consolidator to produce a new 'TradeBar' representing the period
+        
+        This method is protected.
         
         :param period: The minimum span of time before emitting a consolidated bar
         """
@@ -1524,7 +1698,9 @@ class DynamicDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidat
     @overload
     def __init__(self, max_count: int) -> None:
         """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data.
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data
+        
+        This method is protected.
         
         :param max_count: The number of pieces to accept before emiting a consolidated bar
         """
@@ -1533,7 +1709,9 @@ class DynamicDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidat
     @overload
     def __init__(self, max_count: int, period: datetime.timedelta) -> None:
         """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first.
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
+        
+        This method is protected.
         
         :param max_count: The number of pieces to accept before emiting a consolidated bar
         :param period: The minimum span of time before emitting a consolidated bar
@@ -1543,21 +1721,11 @@ class DynamicDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidat
     @overload
     def __init__(self, func: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]) -> None:
         """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first.
-        
-        :param func: Func that defines the start time of a consolidated data
-        """
-        ...
-
-    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.TradeBar, data: QuantConnect.Data.DynamicData) -> None:
-        """
-        Aggregates the new 'data' into the 'working_bar'. The 'working_bar' will be
-        null following the event firing
+        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
         
         This method is protected.
         
-        :param working_bar: The bar we're building, null if the event was just fired and we're starting a new trade bar
-        :param data: The new data
+        :param func: Func that defines the start time of a consolidated data
         """
         ...
 
@@ -1655,21 +1823,49 @@ class OpenInterestConsolidator(QuantConnect.Data.Consolidators.PeriodCountConsol
         ...
 
 
-class TradeBarConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.Market.TradeBar]):
+class FilteredIdentityDataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T], QuantConnect.Data.Consolidators.IdentityDataConsolidator[QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T]):
     """
-    A data consolidator that can make bigger bars from smaller ones over a given
-    time span or a count of pieces of data.
-    
-    Use this consolidator to turn data of a lower resolution into data of a higher resolution,
-    for example, if you subscribe to minute data but want to have a 15 minute bar.
+    Provides an implementation of IDataConsolidator that preserve the input
+    data unmodified. The input data is filtering by the specified predicate function
     """
+
+    def __init__(self, predicate: typing.Callable[[QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T], bool]) -> None:
+        """
+        Initializes a new instance of the FilteredIdentityDataConsolidator{T} class
+        
+        :param predicate: The predicate function, returning true to accept data and false to reject data
+        """
+        ...
+
+    @staticmethod
+    def for_tick_type(tick_type: QuantConnect.TickType) -> QuantConnect.Data.Consolidators.FilteredIdentityDataConsolidator[QuantConnect.Data.Market.Tick]:
+        """
+        Creates a new instance of FilteredIdentityDataConsolidator{T} that filters ticks
+        based on the specified TickType
+        
+        :param tick_type: The tick type of data to accept
+        :returns: A new FilteredIdentityDataConsolidator{T} that filters based on the provided tick type.
+        """
+        ...
+
+    def update(self, data: QuantConnect_Data_Consolidators_FilteredIdentityDataConsolidator_T) -> None:
+        """
+        Updates this consolidator with the specified data
+        
+        :param data: The new data for the consolidator
+        """
+        ...
+
+
+class BaseDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.BaseData]):
+    """Type capable of consolidating trade bars from any base data instance"""
 
     @overload
     def __init__(self, pyfuncobj: typing.Any) -> None:
         """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
+        Initializes a new instance of the BaseDataConsolidator class
         
-        :param pyfuncobj: Python function object that defines the start time of a consolidated data
+        :param pyfuncobj: Func that defines the start time of a consolidated data
         """
         ...
 
@@ -1704,13 +1900,13 @@ class TradeBarConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorB
     @overload
     def __init__(self, func: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]) -> None:
         """
-        Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first
+        Initializes a new instance of the BaseDataConsolidator class
         
         :param func: Func that defines the start time of a consolidated data
         """
         ...
 
-    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.TradeBar, data: QuantConnect.Data.Market.TradeBar) -> None:
+    def aggregate_bar(self, working_bar: QuantConnect.Data.Market.TradeBar, data: QuantConnect.Data.BaseData) -> None:
         """
         Aggregates the new 'data' into the 'working_bar'. The 'working_bar' will be
         null following the event firing
@@ -1723,208 +1919,12 @@ class TradeBarConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorB
         ...
 
     @staticmethod
-    def from_resolution(resolution: QuantConnect.Resolution) -> QuantConnect.Data.Consolidators.TradeBarConsolidator:
+    def from_resolution(resolution: QuantConnect.Resolution) -> QuantConnect.Data.Consolidators.BaseDataConsolidator:
         """
-        Create a new TradeBarConsolidator for the desired resolution
+        Create a new TickConsolidator for the desired resolution
         
         :param resolution: The resolution desired
         :returns: A consolidator that produces data on the resolution interval.
-        """
-        ...
-
-
-class CalendarType(System.Object):
-    """
-    Calendar Type Class; now obsolete routes functions to Calendar
-    
-    CalendarType is obsolete, please use Calendar instead
-    """
-
-    WEEKLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
-    """Computes the start of week (previous Monday) of given date/time"""
-
-    MONTHLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
-    """Computes the start of month (1st of the current month) of given date/time"""
-
-
-class IdentityDataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_IdentityDataConsolidator_T], QuantConnect.Data.Consolidators.DataConsolidator[QuantConnect_Data_Consolidators_IdentityDataConsolidator_T]):
-    """
-    Represents the simplest DataConsolidator implementation, one that is defined
-    by a straight pass through of the data. No projection or aggregation is performed.
-    """
-
-    @property
-    def working_data(self) -> QuantConnect.Data.IBaseData:
-        """Gets a clone of the data being currently consolidated"""
-        ...
-
-    @property
-    def output_type(self) -> typing.Type:
-        """Gets the type produced by this consolidator"""
-        ...
-
-    def reset(self) -> None:
-        """Resets the consolidator"""
-        ...
-
-    def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Scans this consolidator to see if it should emit a bar due to time passing
-        
-        :param current_local_time: The current time in the local time zone (same as BaseData.Time)
-        """
-        ...
-
-    def update(self, data: QuantConnect_Data_Consolidators_IdentityDataConsolidator_T) -> None:
-        """
-        Updates this consolidator with the specified data
-        
-        :param data: The new data for the consolidator
-        """
-        ...
-
-
-class Calendar(System.Object):
-    """Helper class that provides Func{DateTime,CalendarInfo} used to define consolidation calendar"""
-
-    WEEKLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
-    """Computes the start of week (previous Monday) of given date/time"""
-
-    MONTHLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
-    """Computes the start of month (1st of the current month) of given date/time"""
-
-    QUARTERLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
-    """Computes the start of quarter (1st of the starting month of current quarter) of given date/time"""
-
-    YEARLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
-    """Computes the start of year (1st of the current year) of given date/time"""
-
-
-class ClassicRenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput], QuantConnect_Data_Consolidators_ClassicRenkoConsolidator):
-    """Provides a type safe wrapper on the RenkoConsolidator class. This just allows us to define our selector functions with the real type they'll be receiving"""
-
-    @property
-    def current_bar(self) -> QuantConnect.Data.Market.RenkoBar:
-        """
-        Bar being created
-        
-        This property is protected.
-        """
-        ...
-
-    @current_bar.setter
-    def current_bar(self, value: QuantConnect.Data.Market.RenkoBar) -> None:
-        ...
-
-    @property
-    def type(self) -> QuantConnect.Data.Market.RenkoType:
-        """Gets the kind of the bar"""
-        ...
-
-    @property
-    def working_data(self) -> QuantConnect.Data.IBaseData:
-        """Gets a clone of the data being currently consolidated"""
-        ...
-
-    @property
-    def output_type(self) -> typing.Type:
-        """Gets RenkoBar which is the type emitted in the IDataConsolidator.DataConsolidated event."""
-        ...
-
-    @overload
-    def __init__(self, bar_size: float, selector: typing.Any, volume_selector: typing.Any = None, even_bars: bool = True) -> None:
-        """
-        Initializes a new instance of the ClassicRenkoConsolidator class.
-        
-        :param bar_size: The size of each bar in units of the value produced by
-        :param selector: Extracts the value from a data instance to be formed into a RenkoBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
-        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
-        :param even_bars: When true bar open/close will be a multiple of the bar_size
-        """
-        ...
-
-    @overload
-    def __init__(self, bar_size: float, even_bars: bool = True) -> None:
-        """
-        Initializes a new instance of the ClassicRenkoConsolidator class using the specified .
-        The value selector will by default select IBaseData.Value
-        The volume selector will by default select zero.
-        
-        :param bar_size: The constant value size of each bar
-        :param even_bars: When true bar open/close will be a multiple of the bar_size
-        """
-        ...
-
-    @overload
-    def __init__(self, bar_size: float, selector: typing.Callable[[QuantConnect.Data.IBaseData], float], volume_selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None, even_bars: bool = True) -> None:
-        """
-        Initializes a new instance of the ClassicRenkoConsolidator class.
-        
-        :param bar_size: The size of each bar in units of the value produced by
-        :param selector: Extracts the value from a data instance to be formed into a RenkoBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
-        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
-        :param even_bars: When true bar open/close will be a multiple of the bar_size
-        """
-        ...
-
-    @overload
-    def __init__(self, bar_size: float, selector: typing.Callable[[QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput], float], volume_selector: typing.Callable[[QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput], float] = None, even_bars: bool = True) -> None:
-        """
-        Initializes a new instance of the ClassicRenkoConsolidator class.
-        
-        :param bar_size: The size of each bar in units of the value produced by
-        :param selector: Extracts the value from a data instance to be formed into a RenkoBar. The default value is (x => x.Value) the IBaseData.Value property on IBaseData
-        :param volume_selector: Extracts the volume from a data instance. The default value is null which does not aggregate volume per bar.
-        :param even_bars: When true bar open/close will be a multiple of the bar_size
-        """
-        ...
-
-    @overload
-    def __init__(self, bar_size: float, type: QuantConnect.Data.Market.RenkoType) -> None:
-        """
-        Initializes a new instance of the ClassicRenkoConsolidator class.
-        
-        Please use the new RenkoConsolidator if RenkoType is not Classic
-        
-        :param bar_size: The constant value size of each bar
-        :param type: The RenkoType of the bar
-        """
-        ...
-
-    def create_new_bar(self, data: QuantConnect.Data.IBaseData, current_value: float, volume: float) -> None:
-        """
-        Creates a new bar with the given data
-        
-        This method is protected.
-        
-        :param data: The new data for the bar
-        :param current_value: The new value for the bar
-        :param volume: The new volume to the bar
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets the ClassicRenkoConsolidator"""
-        ...
-
-    def update(self, data: QuantConnect_Data_Consolidators_ClassicRenkoConsolidator_TInput) -> None:
-        """
-        Updates this consolidator with the specified data.
-        
-        :param data: The new data for the consolidator
-        """
-        ...
-
-    def update_bar(self, time: typing.Union[datetime.datetime, datetime.date], current_value: float, volume: float) -> None:
-        """
-        Updates the current RangeBar being created with the given data.
-        Additionally, if it's the case, it consolidates the current RangeBar
-        
-        This method is protected.
-        
-        :param time: Time of the given data
-        :param current_value: Value of the given data
-        :param volume: Volume of the given data
         """
         ...
 

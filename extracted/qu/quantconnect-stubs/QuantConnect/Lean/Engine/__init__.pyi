@@ -18,69 +18,6 @@ import System
 import System.Threading
 
 
-class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResultProvider):
-    """
-    Provides an implementation of IIsolatorLimitResultProvider that tracks the algorithm
-    manager's time loops and enforces a maximum amount of time that each time loop may take to execute.
-    The isolator uses the result provided by IsWithinLimit to determine if it should
-    terminate the algorithm for violation of the imposed limits.
-    """
-
-    @property
-    def additional_time_bucket(self) -> QuantConnect.Util.RateLimit.ITokenBucket:
-        """
-        Gets the additional time bucket which is responsible for tracking additional time requested
-        for processing via long-running scheduled events. In LEAN, we use the LeakyBucket
-        """
-        ...
-
-    def __init__(self, additional_time_bucket: QuantConnect.Util.RateLimit.ITokenBucket, time_loop_maximum: datetime.timedelta) -> None:
-        """
-        Initializes a new instance of AlgorithmTimeLimitManager to manage the
-        creation of IsolatorLimitResult instances as it pertains to the
-        algorithm manager's time loop
-        
-        :param additional_time_bucket: Provides a bucket of additional time that can be requested to be spent to give execution time for things such as training scheduled events
-        :param time_loop_maximum: Specifies the maximum amount of time the algorithm is permitted to spend in a single time loop. This value can be overriden if certain actions are taken by the algorithm, such as invoking the training methods.
-        """
-        ...
-
-    def is_within_limit(self) -> QuantConnect.IsolatorLimitResult:
-        """Determines whether or not the algorithm time loop is considered within the limits"""
-        ...
-
-    def request_additional_time(self, minutes: int) -> None:
-        """
-        Requests additional time to continue executing the current time step.
-        At time of writing, this is intended to be used to provide training scheduled events
-        additional time to allow complex training models time to execute while also preventing
-        abuse by enforcing certain control parameters set via the job packet.
-        
-        Each time this method is invoked, this time limit manager will increase the allowable
-        execution time by the specified number of whole minutes
-        """
-        ...
-
-    def start_new_time_step(self) -> None:
-        """
-        Invoked by the algorithm at the start of each time loop. This resets the current time step
-        elapsed time.
-        """
-        ...
-
-    def try_request_additional_time(self, minutes: int) -> bool:
-        """
-        Attempts to requests additional time to continue executing the current time step.
-        At time of writing, this is intended to be used to provide training scheduled events
-        additional time to allow complex training models time to execute while also preventing
-        abuse by enforcing certain control parameters set via the job packet.
-        
-        Each time this method is invoked, this time limit manager will increase the allowable
-        execution time by the specified number of whole minutes
-        """
-        ...
-
-
 class LeanEngineSystemHandlers(System.Object, System.IDisposable):
     """Provides a container for the system level handlers"""
 
@@ -235,22 +172,66 @@ class LeanEngineAlgorithmHandlers(System.Object, System.IDisposable):
         ...
 
 
-class Initializer(System.Object):
-    """Helper class to initialize a Lean engine"""
+class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResultProvider):
+    """
+    Provides an implementation of IIsolatorLimitResultProvider that tracks the algorithm
+    manager's time loops and enforces a maximum amount of time that each time loop may take to execute.
+    The isolator uses the result provided by IsWithinLimit to determine if it should
+    terminate the algorithm for violation of the imposed limits.
+    """
 
-    @staticmethod
-    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
-        """Get and initializes Algorithm Handler"""
+    @property
+    def additional_time_bucket(self) -> QuantConnect.Util.RateLimit.ITokenBucket:
+        """
+        Gets the additional time bucket which is responsible for tracking additional time requested
+        for processing via long-running scheduled events. In LEAN, we use the LeakyBucket
+        """
         ...
 
-    @staticmethod
-    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
-        """Get and initializes System Handler"""
+    def __init__(self, additional_time_bucket: QuantConnect.Util.RateLimit.ITokenBucket, time_loop_maximum: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of AlgorithmTimeLimitManager to manage the
+        creation of IsolatorLimitResult instances as it pertains to the
+        algorithm manager's time loop
+        
+        :param additional_time_bucket: Provides a bucket of additional time that can be requested to be spent to give execution time for things such as training scheduled events
+        :param time_loop_maximum: Specifies the maximum amount of time the algorithm is permitted to spend in a single time loop. This value can be overriden if certain actions are taken by the algorithm, such as invoking the training methods.
+        """
         ...
 
-    @staticmethod
-    def start() -> None:
-        """Basic common Lean initialization"""
+    def is_within_limit(self) -> QuantConnect.IsolatorLimitResult:
+        """Determines whether or not the algorithm time loop is considered within the limits"""
+        ...
+
+    def request_additional_time(self, minutes: int) -> None:
+        """
+        Requests additional time to continue executing the current time step.
+        At time of writing, this is intended to be used to provide training scheduled events
+        additional time to allow complex training models time to execute while also preventing
+        abuse by enforcing certain control parameters set via the job packet.
+        
+        Each time this method is invoked, this time limit manager will increase the allowable
+        execution time by the specified number of whole minutes
+        """
+        ...
+
+    def start_new_time_step(self) -> None:
+        """
+        Invoked by the algorithm at the start of each time loop. This resets the current time step
+        elapsed time.
+        """
+        ...
+
+    def try_request_additional_time(self, minutes: int) -> bool:
+        """
+        Attempts to requests additional time to continue executing the current time step.
+        At time of writing, this is intended to be used to provide training scheduled events
+        additional time to allow complex training models time to execute while also preventing
+        abuse by enforcing certain control parameters set via the job packet.
+        
+        Each time this method is invoked, this time limit manager will increase the allowable
+        execution time by the specified number of whole minutes
+        """
         ...
 
 
@@ -376,6 +357,25 @@ class Engine(System.Object):
         :param assembly_path: The path to the algorithm's assembly
         :param worker_thread: The worker thread instance
         """
+        ...
+
+
+class Initializer(System.Object):
+    """Helper class to initialize a Lean engine"""
+
+    @staticmethod
+    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
+        """Get and initializes Algorithm Handler"""
+        ...
+
+    @staticmethod
+    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
+        """Get and initializes System Handler"""
+        ...
+
+    @staticmethod
+    def start() -> None:
+        """Basic common Lean initialization"""
         ...
 
 

@@ -9,6 +9,28 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Crypto
 
 
+class CryptoExchange(QuantConnect.Securities.SecurityExchange):
+    """Crypto exchange class - information and helper tools for Crypto exchange properties"""
+
+    @overload
+    def __init__(self, market: str) -> None:
+        """
+        Initializes a new instance of the CryptoExchange class using market hours
+        derived from the market-hours-database for the Crypto market
+        """
+        ...
+
+    @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the CryptoExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        """
+        ...
+
+
 class Crypto(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurrencySymbol):
     """Crypto Security Object Implementation for Crypto Assets"""
 
@@ -79,28 +101,6 @@ class CryptoHolding(QuantConnect.Securities.SecurityHolding):
         
         :param security: The Crypto security being held
         :param currency_converter: A currency converter instance
-        """
-        ...
-
-
-class CryptoExchange(QuantConnect.Securities.SecurityExchange):
-    """Crypto exchange class - information and helper tools for Crypto exchange properties"""
-
-    @overload
-    def __init__(self, market: str) -> None:
-        """
-        Initializes a new instance of the CryptoExchange class using market hours
-        derived from the market-hours-database for the Crypto market
-        """
-        ...
-
-    @overload
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the CryptoExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
 

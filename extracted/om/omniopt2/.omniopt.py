@@ -104,6 +104,8 @@ try:
         from types import FunctionType
         from typing import Pattern, Optional, Tuple, Any, cast, Union, TextIO, List, Dict, Type, Sequence
 
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         from submitit import LocalExecutor, AutoExecutor
         from submitit import Job
 
@@ -1626,9 +1628,9 @@ def log_nr_of_workers() -> None:
         print_debug("log_nr_of_workers: Could not find jobs in global_vars")
         return None
 
-    nr_of_workers: int = len(global_vars["jobs"])
+    nr_of_workers, nr_of_workers_ok = count_jobs_in_squeue()
 
-    if not nr_of_workers:
+    if not nr_of_workers or not nr_of_workers_ok:
         return None
 
     try:
@@ -1645,6 +1647,11 @@ def log_nr_of_workers() -> None:
 
 @beartype
 def log_what_needs_to_be_logged() -> None:
+    try:
+        log_worker_numbers()
+    except Exception as e:
+        print_debug(f"Error in log_worker_numbers: {e}")
+
     if "write_worker_usage" in globals():
         try:
             write_worker_usage()
@@ -4792,15 +4799,18 @@ def get_workers_string() -> str:
         _values = "/".join(string_values)
 
         if len(_keys):
-            nr_current_workers = len(global_vars["jobs"])
+            nr_current_workers, nr_current_workers_ok = count_jobs_in_squeue()
             if args.generate_all_jobs_at_once:
                 string = f"{_keys} {_values} = ∑{_sum}/{num_parallel_jobs}"
             else:
-                percentage = round((nr_current_workers / num_parallel_jobs) * 100)
-                _sum_and_percentage = ""
-                if num_parallel_jobs > 1:
-                    _sum_and_percentage = f"∑{_sum} ({percentage}%/{num_parallel_jobs})"
-                string = f"{_keys} {_values}{_sum_and_percentage}"
+                if nr_current_workers_ok:
+                    percentage = round((nr_current_workers / num_parallel_jobs) * 100)
+                    _sum_and_percentage = ""
+                    if num_parallel_jobs > 1:
+                        _sum_and_percentage = f"∑{_sum} ({percentage}%/{num_parallel_jobs})"
+                    string = f"{_keys} {_values}{_sum_and_percentage}"
+                else:
+                    string = f"{_keys} {_values} = ∑{_sum}/{num_parallel_jobs}"
 
     return string
 
@@ -4811,22 +4821,66 @@ def submitted_jobs(nr: int = 0) -> int:
     return append_and_read(f'{get_current_run_folder()}/state_files/submitted_jobs', nr)
 
 @beartype
+def count_jobs_in_squeue() -> Tuple[int, bool]: # Returnt die Anzahl von Jobs bzw, wenn gar nix ermittelt werden kann, -1, und ein bool: True wenn OK, False wenn Fehler
+    _len = len(global_vars["jobs"])
+
+    if shutil.which('squeue') is None:
+        print("count_jobs_in_squeue: squeue not found")
+        return _len, True
+
+    experiment_name = global_vars["experiment_name"]
+
+    job_pattern = re.compile(rf"{experiment_name}_{run_uuid}_[a-f0-9-]+")
+
+    try:
+        result = subprocess.run(
+            ['squeue', '-o', '%j'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            text=True
+        )
+
+        if "slurm_load_jobs error" in result.stderr:
+            print_debug("Detected slurm_load_jobs error in stderr.")
+            return _len, False
+
+        jobs = result.stdout.splitlines()
+        job_count = sum(1 for job in jobs if job_pattern.match(job))
+        return job_count, True
+
+    except subprocess.CalledProcessError:
+        print_debug("Error while executing squeue.")
+    except FileNotFoundError:
+        print_debug("squeue is not available on this host.")
+
+    return -1, False
+
+@beartype
+def log_worker_numbers() -> None:
+    if is_slurm_job():
+        nr_current_workers, nr_current_workers_ok = count_jobs_in_squeue()
+        if nr_current_workers_ok:
+            percentage = round((nr_current_workers / num_parallel_jobs) * 100)
+
+            this_time: float = time.time()
+
+            this_values = {
+                "nr_current_workers": nr_current_workers,
+                "num_parallel_jobs": num_parallel_jobs,
+                "percentage": percentage,
+                "time": this_time
+            }
+
+            if len(WORKER_PERCENTAGE_USAGE) == 0 or WORKER_PERCENTAGE_USAGE[len(WORKER_PERCENTAGE_USAGE) - 1] != this_values:
+                WORKER_PERCENTAGE_USAGE.append(this_values)
+        else:
+            print_debug("Failed to get count_jobs_in_squeue()")
+
+@beartype
 def get_slurm_in_brackets(in_brackets: list) -> list:
     if is_slurm_job():
-        nr_current_workers = len(global_vars["jobs"])
-        percentage = round((nr_current_workers / num_parallel_jobs) * 100)
-
-        this_time: float = time.time()
-
-        this_values = {
-            "nr_current_workers": nr_current_workers,
-            "num_parallel_jobs": num_parallel_jobs,
-            "percentage": percentage,
-            "time": this_time
-        }
-
-        if len(WORKER_PERCENTAGE_USAGE) == 0 or WORKER_PERCENTAGE_USAGE[len(WORKER_PERCENTAGE_USAGE) - 1] != this_values:
-            WORKER_PERCENTAGE_USAGE.append(this_values)
+        log_worker_numbers()
 
         workers_strings = get_workers_string()
         if workers_strings:
@@ -5887,68 +5941,58 @@ def save_state_files() -> None:
             write_state_file("main_process_gb", str(args.main_process_gb))
 
 @beartype
-def submit_job(parameters: dict) -> Optional[Job]:
-    try:
-        if executor:
-            new_job = executor.submit(evaluate, parameters)
-            submitted_jobs(1)
-            return new_job
-
-        print_red("executor could not be found")
-        my_exit(9)
-    except Exception as e:
-        print_debug(f"Error while trying to submit job: {e}")
-        raise
-
-    return None
-
-@beartype
 def execute_evaluation(_params: list) -> Optional[int]:
     print_debug(f"execute_evaluation({_params})")
     trial_index, parameters, trial_counter, next_nr_steps, phase = _params
-    if ax_client:
-        _trial = ax_client.get_trial(trial_index)
+    if not ax_client:
+        print_red("Failed to get ax_client")
+        my_exit(9)
 
-        # Helper function for trial stage marking with exception handling
-        def mark_trial_stage(stage: str, error_msg: str) -> None:
-            try:
-                getattr(_trial, stage)()
-            except Exception as e:
-                print_debug(f"execute_evaluation({_params}): {error_msg} with error: {e}")
+        return None
 
-        mark_trial_stage("mark_staged", "Marking the trial as staged failed")
+    if not executor:
+        print_red("executor could not be found")
+        my_exit(9)
 
-        new_job = None
+        return None
 
+    _trial = ax_client.get_trial(trial_index)
+
+    def mark_trial_stage(stage: str, error_msg: str) -> None:
         try:
-            initialize_job_environment()
-            new_job = submit_job(parameters)
-
-            print_debug(f"execute_evaluation: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
-            global_vars["jobs"].append((new_job, trial_index))
-
-            if is_slurm_job() and not args.force_local_execution:
-                _sleep(1)
-
-            mark_trial_stage("mark_running", "Marking the trial as running failed")
-            trial_counter += 1
-
-            update_progress()
-        except submitit.core.utils.FailedJobError as error:
-            handle_failed_job(error, trial_index, new_job)
-            trial_counter += 1
-        except (SignalUSR, SignalINT, SignalCONT):
-            handle_exit_signal()
+            getattr(_trial, stage)()
         except Exception as e:
-            handle_generic_error(e)
+            print_debug(f"execute_evaluation({_params}): {error_msg} with error: {e}")
 
-        add_to_phase_counter(phase, 1)
-        return trial_counter
+    mark_trial_stage("mark_staged", "Marking the trial as staged failed")
 
-    print_red("Failed to get ax_client")
-    my_exit(9)
+    new_job = None
 
-    return None
+    try:
+        initialize_job_environment()
+        new_job = executor.submit(evaluate, parameters)
+        submitted_jobs(1)
+
+        print_debug(f"execute_evaluation: appending job {new_job} to global_vars['jobs'], trial_index: {trial_index}")
+        global_vars["jobs"].append((new_job, trial_index))
+
+        if is_slurm_job() and not args.force_local_execution:
+            _sleep(1)
+
+        mark_trial_stage("mark_running", "Marking the trial as running failed")
+        trial_counter += 1
+
+        update_progress()
+    except submitit.core.utils.FailedJobError as error:
+        handle_failed_job(error, trial_index, new_job)
+        trial_counter += 1
+    except (SignalUSR, SignalINT, SignalCONT):
+        handle_exit_signal()
+    except Exception as e:
+        handle_generic_error(e)
+
+    add_to_phase_counter(phase, 1)
+    return trial_counter
 
 @beartype
 def initialize_job_environment() -> None:
@@ -6686,18 +6730,39 @@ def handle_optimization_completion(optimization_complete: bool) -> bool:
     return False
 
 @beartype
-def execute_trials(trial_index_to_param: dict, next_nr_steps: int, phase: Optional[str], _max_eval: Optional[int], _progress_bar: Any) -> list:
-    results = []
-    i = 1
+def execute_trials(
+    trial_index_to_param: dict,
+    next_nr_steps: int,
+    phase: Optional[str],
+    _max_eval: Optional[int],
+    _progress_bar: Any
+) -> List[Optional[int]]:
+    results: List[Optional[int]] = []
+    index_param_list: List[List[Any]] = []
+    i: int = 1
+
     for trial_index, parameters in trial_index_to_param.items():
         if wait_for_jobs_or_break(_max_eval, _progress_bar):
             break
         if break_run_search("create_and_execute_next_runs", _max_eval, _progress_bar):
             break
+
         progressbar_description(["eval start"])
         _args = [trial_index, parameters, i, next_nr_steps, phase]
-        results.append(execute_evaluation(_args))
+        index_param_list.append(_args)
         i += 1
+
+    with ThreadPoolExecutor(max_workers=min(len(index_param_list), 16)) as tp_executor:
+        future_to_args = {tp_executor.submit(execute_evaluation, args): args for args in index_param_list}
+
+        for future in as_completed(future_to_args):
+            try:
+                result = future.result()
+                results.append(result)
+            except Exception as exc:
+                print_red(f"execute_trials: Error at executing a trial: {exc}")
+                results.append(None)
+
     return results
 
 @beartype
@@ -6810,6 +6875,7 @@ def _set_global_executor() -> None:
     global executor
 
     log_folder: str = f'{get_current_run_folder()}/single_runs/%j'
+    subjob_uuid = str(uuid.uuid4())
 
     if args.force_local_execution:
         executor = LocalExecutor(folder=log_folder)
@@ -6818,7 +6884,7 @@ def _set_global_executor() -> None:
 
     if executor:
         executor.update_parameters(
-            name=f'{global_vars["experiment_name"]}_{run_uuid}_{str(uuid.uuid4())}',
+            name=f'{global_vars["experiment_name"]}_{run_uuid}_{subjob_uuid}',
             timeout_min=args.worker_timeout,
             slurm_gres=f"gpu:{args.gpus}",
             cpus_per_task=args.cpus_per_task,
@@ -6832,7 +6898,7 @@ def _set_global_executor() -> None:
 
         print_debug(f"""
 executor.update_parameters(
-    "name"="{f'{global_vars["experiment_name"]}_{run_uuid}_{str(uuid.uuid4())}'}",
+    "name"="{f'{global_vars["experiment_name"]}_{run_uuid}_{subjob_uuid}'}",
     "timeout_min"={args.worker_timeout},
     "slurm_gres"={f"gpu:{args.gpus}"},
     "cpus_per_task"={args.cpus_per_task},
@@ -6959,7 +7025,8 @@ def execute_next_steps(next_nr_steps: int, _progress_bar: Any) -> int:
 
 @beartype
 def log_worker_status(nr_of_items: int, next_nr_steps: int) -> None:
-    _debug_worker_creation(f"{int(time.time())}, {len(global_vars['jobs'])}, {nr_of_items}, {next_nr_steps}")
+    nr_of_workers, nr_of_workers_ok = count_jobs_in_squeue()
+    _debug_worker_creation(f"{int(time.time())}, {nr_of_workers}, {nr_of_items}, {next_nr_steps}")
 
 @beartype
 def handle_slurm_execution() -> None:

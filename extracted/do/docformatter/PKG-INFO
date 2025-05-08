@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: docformatter
-Version: 1.7.5
+Version: 1.7.6
 Summary: Formats docstrings to follow PEP 257
-Home-page: https://github.com/PyCQA/docformatter
 License: Expat
 Keywords: PEP 257,pep257,style,formatter,docstrings
 Author: Steven Myint
@@ -19,6 +18,8 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -27,6 +28,7 @@ Requires-Dist: charset_normalizer (>=3.0.0,<4.0.0)
 Requires-Dist: tomli (>=2.0.0,<3.0.0) ; (python_version < "3.11") and (extra == "tomli")
 Requires-Dist: untokenize (>=0.1.1,<0.2.0)
 Project-URL: Documentation, https://docformatter.readthedocs.io/en/latest/
+Project-URL: Homepage, https://github.com/PyCQA/docformatter
 Project-URL: Repository, https://github.com/PyCQA/docformatter
 Description-Content-Type: text/x-rst
 

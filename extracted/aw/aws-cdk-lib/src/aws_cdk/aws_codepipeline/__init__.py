@@ -2697,6 +2697,10 @@ class CfnPipeline(
                     # the properties below are optional
                     commands=["commands"],
                     configuration=configuration,
+                    environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
+                        name="name",
+                        value="value"
+                    )],
                     input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
                         name="name"
                     )],
@@ -3178,6 +3182,7 @@ class CfnPipeline(
             "name": "name",
             "commands": "commands",
             "configuration": "configuration",
+            "environment_variables": "environmentVariables",
             "input_artifacts": "inputArtifacts",
             "namespace": "namespace",
             "output_artifacts": "outputArtifacts",
@@ -3196,6 +3201,7 @@ class CfnPipeline(
             name: builtins.str,
             commands: typing.Optional[typing.Sequence[builtins.str]] = None,
             configuration: typing.Any = None,
+            environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             input_artifacts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.InputArtifactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             namespace: typing.Optional[builtins.str] = None,
             output_artifacts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPipeline.OutputArtifactProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -3211,6 +3217,7 @@ class CfnPipeline(
             :param name: The action declaration's name.
             :param commands: The shell commands to run with your compute action in CodePipeline. All commands are supported except multi-line formats. While CodeBuild logs and permissions are used, you do not need to create any resources in CodeBuild. .. epigraph:: Using compute time for this action will incur separate charges in AWS CodeBuild .
             :param configuration: The action's configuration. These are key-value pairs that specify input values for an action. For more information, see `Action Structure Requirements in CodePipeline <https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html#action-requirements>`_ . For the list of configuration properties for the AWS CloudFormation action type in CodePipeline, see `Configuration Properties Reference <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-action-reference.html>`_ in the *AWS CloudFormation User Guide* . For template snippets with examples, see `Using Parameter Override Functions with CodePipeline Pipelines <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/continuous-delivery-codepipeline-parameter-override-functions.html>`_ in the *AWS CloudFormation User Guide* . The values can be represented in either JSON or YAML format. For example, the JSON configuration item format is as follows: *JSON:* ``"Configuration" : { Key : Value },``
+            :param environment_variables: The environment variables for the action.
             :param input_artifacts: The name or ID of the artifact consumed by the action, such as a test or build artifact. While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of input artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* . .. epigraph:: For a CodeBuild action with multiple input artifacts, one of your input sources must be designated the PrimarySource. For more information, see the `CodeBuild action reference page <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-CodeBuild.html>`_ in the *AWS CodePipeline User Guide* .
             :param namespace: The variable namespace associated with the action. All variables produced as output by this action fall under this namespace.
             :param output_artifacts: The name or ID of the result of the action declaration, such as a test or build artifact. While the field is not a required parameter, most actions have an action configuration that requires a specified quantity of output artifacts. To refer to the action configuration specification by action provider, see the `Action structure reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference.html>`_ in the *AWS CodePipeline User Guide* .
@@ -3243,6 +3250,10 @@ class CfnPipeline(
                     # the properties below are optional
                     commands=["commands"],
                     configuration=configuration,
+                    environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
+                        name="name",
+                        value="value"
+                    )],
                     input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
                         name="name"
                     )],
@@ -3266,6 +3277,7 @@ class CfnPipeline(
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument commands", value=commands, expected_type=type_hints["commands"])
                 check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+                check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
                 check_type(argname="argument input_artifacts", value=input_artifacts, expected_type=type_hints["input_artifacts"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
                 check_type(argname="argument output_artifacts", value=output_artifacts, expected_type=type_hints["output_artifacts"])
@@ -3282,6 +3294,8 @@ class CfnPipeline(
                 self._values["commands"] = commands
             if configuration is not None:
                 self._values["configuration"] = configuration
+            if environment_variables is not None:
+                self._values["environment_variables"] = environment_variables
             if input_artifacts is not None:
                 self._values["input_artifacts"] = input_artifacts
             if namespace is not None:
@@ -3351,6 +3365,17 @@ class CfnPipeline(
             '''
             result = self._values.get("configuration")
             return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def environment_variables(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.EnvironmentVariableProperty"]]]]:
+            '''The environment variables for the action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-actiondeclaration.html#cfn-codepipeline-pipeline-actiondeclaration-environmentvariables
+            '''
+            result = self._values.get("environment_variables")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPipeline.EnvironmentVariableProperty"]]]], result)
 
         @builtins.property
         def input_artifacts(
@@ -4078,6 +4103,72 @@ class CfnPipeline(
 
         def __repr__(self) -> str:
             return "EncryptionKeyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_codepipeline.CfnPipeline.EnvironmentVariableProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "value": "value"},
+    )
+    class EnvironmentVariableProperty:
+        def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
+            '''The environment variables for the action.
+
+            :param name: The environment variable name in the key-value pair.
+            :param value: The environment variable value in the key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_codepipeline as codepipeline
+                
+                environment_variable_property = codepipeline.CfnPipeline.EnvironmentVariableProperty(
+                    name="name",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f259d9da088fb308ad8abebb0fb3aca04739c87fd2ed5561a20074f8e2458d5a)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "value": value,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The environment variable name in the key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html#cfn-codepipeline-pipeline-environmentvariable-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''The environment variable value in the key-value pair.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codepipeline-pipeline-environmentvariable.html#cfn-codepipeline-pipeline-environmentvariable-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EnvironmentVariableProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5386,6 +5477,10 @@ class CfnPipeline(
                         # the properties below are optional
                         commands=["commands"],
                         configuration=configuration,
+                        environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
+                            name="name",
+                            value="value"
+                        )],
                         input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
                             name="name"
                         )],
@@ -5900,6 +5995,10 @@ class CfnPipelineProps:
                         # the properties below are optional
                         commands=["commands"],
                         configuration=configuration,
+                        environment_variables=[codepipeline.CfnPipeline.EnvironmentVariableProperty(
+                            name="name",
+                            value="value"
+                        )],
                         input_artifacts=[codepipeline.CfnPipeline.InputArtifactProperty(
                             name="name"
                         )],
@@ -12139,6 +12238,7 @@ def _typecheckingstub__490d89c9ac665593d791c6e187fcf0e47ca3ec8684f1c7a502e1711bc
     name: builtins.str,
     commands: typing.Optional[typing.Sequence[builtins.str]] = None,
     configuration: typing.Any = None,
+    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     input_artifacts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.InputArtifactProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     namespace: typing.Optional[builtins.str] = None,
     output_artifacts: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPipeline.OutputArtifactProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -12205,6 +12305,14 @@ def _typecheckingstub__947de613103ce26163068b14d3b93b5c2d7f86d29fa6fc5cbd1509b11
     *,
     id: builtins.str,
     type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f259d9da088fb308ad8abebb0fb3aca04739c87fd2ed5561a20074f8e2458d5a(
+    *,
+    name: builtins.str,
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -31,7 +31,7 @@ use uv_python::{
     VersionFileDiscoveryOptions,
 };
 use uv_requirements::{RequirementsSource, RequirementsSpecification};
-use uv_resolver::Lock;
+use uv_resolver::{Installable, Lock, Preference};
 use uv_scripts::Pep723Item;
 use uv_settings::PythonInstallMirrors;
 use uv_shell::runnable::WindowsRunnable;
@@ -49,8 +49,9 @@ use crate::commands::project::lock::LockMode;
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
     default_dependency_groups, script_specification, update_environment,
-    validate_project_requires_python, EnvironmentSpecification, ProjectEnvironment, ProjectError,
-    ScriptEnvironment, ScriptInterpreter, UniversalState, WorkspacePython,
+    validate_project_requires_python, EnvironmentSpecification, PreferenceSource,
+    ProjectEnvironment, ProjectError, ScriptEnvironment, ScriptInterpreter, UniversalState,
+    WorkspacePython,
 };
 use crate::commands::reporters::PythonDownloadReporter;
 use crate::commands::run::run_to_completion;
@@ -187,6 +188,9 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
     // Initialize any output reporters.
     let download_reporter = PythonDownloadReporter::single(printer);
 
+    // The lockfile used for the base environment.
+    let mut base_lock: Option<(Lock, PathBuf)> = None;
+
     // Determine whether the command to execute is a PEP 723 script.
     let temp_dir;
     let script_interpreter = if let Some(script) = script {
@@ -224,6 +228,7 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                 python_preference,
                 python_downloads,
                 &install_mirrors,
+                no_sync,
                 no_config,
                 active.map_or(Some(false), Some),
                 cache,
@@ -318,6 +323,10 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                 Err(err) => return Err(err.into()),
             }
 
+            // Respect any locked preferences when resolving `--with` dependencies downstream.
+            let install_path = target.install_path().to_path_buf();
+            base_lock = Some((lock, install_path));
+
             Some(environment.into_interpreter())
         } else {
             // If no lockfile is found, warn against `--locked` and `--frozen`.
@@ -343,6 +352,7 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                     python_preference,
                     python_downloads,
                     &install_mirrors,
+                    no_sync,
                     no_config,
                     active.map_or(Some(false), Some),
                     cache,
@@ -417,6 +427,7 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                     python_preference,
                     python_downloads,
                     &install_mirrors,
+                    no_sync,
                     no_config,
                     active.map_or(Some(false), Some),
                     cache,
@@ -442,9 +453,6 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
     } else {
         None
     };
-
-    // The lockfile used for the base environment.
-    let mut lock: Option<(Lock, PathBuf)> = None;
 
     // Discover and sync the base environment.
     let workspace_cache = WorkspaceCache::default();
@@ -608,6 +616,7 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                     Some(&download_reporter),
                     install_mirrors.python_install_mirror.as_deref(),
                     install_mirrors.pypy_install_mirror.as_deref(),
+                    install_mirrors.python_downloads_json_url.as_deref(),
                 )
                 .await?
                 .into_interpreter();
@@ -642,6 +651,7 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                     &network_settings,
                     python_preference,
                     python_downloads,
+                    no_sync,
                     no_config,
                     active,
                     cache,
@@ -658,7 +668,7 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                 // If we're not syncing, we should still attempt to respect the locked preferences
                 // in any `--with` requirements.
                 if !isolated && !requirements.is_empty() {
-                    lock = LockTarget::from(project.workspace())
+                    base_lock = LockTarget::from(project.workspace())
                         .read()
                         .await
                         .ok()
@@ -801,7 +811,7 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                     Err(err) => return Err(err.into()),
                 }
 
-                lock = Some((
+                base_lock = Some((
                     result.into_lock(),
                     project.workspace().install_path().to_owned(),
                 ));
@@ -841,6 +851,7 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
                     Some(&download_reporter),
                     install_mirrors.python_install_mirror.as_deref(),
                     install_mirrors.pypy_install_mirror.as_deref(),
+                    install_mirrors.python_downloads_json_url.as_deref(),
                 )
                 .await?;
 
@@ -892,22 +903,40 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
     };
 
     // If necessary, create an environment for the ephemeral requirements or command.
+    let base_site_packages = SitePackages::from_interpreter(&base_interpreter)?;
     let ephemeral_env = match spec {
         None => None,
-        Some(spec) if can_skip_ephemeral(&spec, &base_interpreter, &settings) => None,
+        Some(spec)
+            if can_skip_ephemeral(&spec, &base_interpreter, &base_site_packages, &settings) =>
+        {
+            None
+        }
         Some(spec) => {
             debug!("Syncing ephemeral requirements");
 
             // Read the build constraints from the lock file.
-            let build_constraints = lock
+            let build_constraints = base_lock
                 .as_ref()
                 .map(|(lock, path)| lock.build_constraints(path));
 
+            // Read the preferences.
+            let spec = EnvironmentSpecification::from(spec).with_preferences(
+                if let Some((lock, install_path)) = base_lock.as_ref() {
+                    // If we have a lockfile, use the locked versions as preferences.
+                    PreferenceSource::Lock { lock, install_path }
+                } else {
+                    // Otherwise, extract preferences from the base environment.
+                    PreferenceSource::Entries(
+                        base_site_packages
+                            .iter()
+                            .filter_map(Preference::from_installed)
+                            .collect::<Vec<_>>(),
+                    )
+                },
+            );
+
             let result = CachedEnvironment::from_spec(
-                EnvironmentSpecification::from(spec).with_lock(
-                    lock.as_ref()
-                        .map(|(lock, install_path)| (lock, install_path.as_ref())),
-                ),
+                spec,
                 build_constraints.unwrap_or_default(),
                 &base_interpreter,
                 &settings,
@@ -1108,13 +1137,10 @@ hint: If you are running a script with `{}` in the shebang, you may need to incl
 /// Returns `true` if we can skip creating an additional ephemeral environment in `uv run`.
 fn can_skip_ephemeral(
     spec: &RequirementsSpecification,
-    base_interpreter: &Interpreter,
+    interpreter: &Interpreter,
+    site_packages: &SitePackages,
     settings: &ResolverInstallerSettings,
 ) -> bool {
-    let Ok(site_packages) = SitePackages::from_interpreter(base_interpreter) else {
-        return false;
-    };
-
     if !(settings.reinstall.is_none() && settings.reinstall.is_none()) {
         return false;
     }
@@ -1123,7 +1149,7 @@ fn can_skip_ephemeral(
         &spec.requirements,
         &spec.constraints,
         &spec.overrides,
-        &base_interpreter.resolver_marker_environment(),
+        &interpreter.resolver_marker_environment(),
     ) {
         // If the requirements are already satisfied, we're done.
         Ok(SatisfiesResult::Fresh {

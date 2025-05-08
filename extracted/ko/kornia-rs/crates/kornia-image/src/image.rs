@@ -219,6 +219,23 @@ impl<T, const C: usize> Image<T, C> {
         Image::try_from(tensor)
     }
 
+    /// Map the pixel data of the image to a different type.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A function that takes a pixel value and returns a new pixel value.
+    ///
+    /// # Returns
+    ///
+    /// A new image with the pixel data mapped to the new type.
+    pub fn map<U>(&self, f: impl Fn(&T) -> U) -> Result<Image<U, C>, ImageError>
+    where
+        U: Clone,
+    {
+        let data = self.as_slice().iter().map(f).collect::<Vec<U>>();
+        Image::<U, C>::new(self.size(), data)
+    }
+
     /// Cast the pixel data of the image to a different type.
     ///
     /// # Returns
@@ -418,7 +435,8 @@ impl<T, const C: usize> Image<T, C> {
 
     /// Get the pixel data of the image.
     ///
-    /// NOTE: experimental api
+    /// NOTE: this is method is for convenience and not optimized for performance.
+    /// We recommend using iterators over the data slice.
     ///
     /// # Arguments
     ///
@@ -429,11 +447,7 @@ impl<T, const C: usize> Image<T, C> {
     /// # Returns
     ///
     /// The pixel value at the given coordinates.
-    #[deprecated(since = "0.1.6", note = "Please use the `get` method instead.")]
-    pub fn get_pixel(&self, x: usize, y: usize, ch: usize) -> Result<T, ImageError>
-    where
-        T: Copy,
-    {
+    pub fn get_pixel(&self, x: usize, y: usize, ch: usize) -> Result<&T, ImageError> {
         if x >= self.width() || y >= self.height() {
             return Err(ImageError::PixelIndexOutOfBounds(
                 x,
@@ -452,7 +466,42 @@ impl<T, const C: usize> Image<T, C> {
             None => return Err(ImageError::ImageDataNotContiguous),
         };
 
-        Ok(*val)
+        Ok(val)
+    }
+
+    /// Set the pixel value at the given coordinates.
+    ///
+    /// NOTE: this is method is for convenience and not optimized for performance.
+    /// We recommend creating a mutable slice and operating on it directly.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - The x-coordinate of the pixel.
+    /// * `y` - The y-coordinate of the pixel.
+    /// * `ch` - The channel index of the pixel.
+    /// * `val` - The value to set the pixel to.
+    ///
+    /// # Returns
+    ///
+    /// The pixel value at the given coordinates.
+    pub fn set_pixel(&mut self, x: usize, y: usize, ch: usize, val: T) -> Result<(), ImageError> {
+        if x >= self.width() || y >= self.height() {
+            return Err(ImageError::PixelIndexOutOfBounds(
+                x,
+                y,
+                self.width(),
+                self.height(),
+            ));
+        }
+
+        if ch >= C {
+            return Err(ImageError::ChannelIndexOutOfBounds(ch, C));
+        }
+
+        let idx = y * self.width() * C + x * C + ch;
+        self.as_slice_mut()[idx] = val;
+
+        Ok(())
     }
 }
 
@@ -500,7 +549,7 @@ mod tests {
     use kornia_tensor::{CpuAllocator, Tensor};
 
     #[test]
-    fn image_size() {
+    fn test_image_size() {
         let image_size = ImageSize {
             width: 10,
             height: 20,
@@ -510,7 +559,7 @@ mod tests {
     }
 
     #[test]
-    fn image_smoke() -> Result<(), ImageError> {
+    fn test_image_smoke() -> Result<(), ImageError> {
         let image = Image::<u8, 3>::new(
             ImageSize {
                 width: 10,
@@ -526,7 +575,7 @@ mod tests {
     }
 
     #[test]
-    fn image_from_vec() -> Result<(), ImageError> {
+    fn test_image_from_vec() -> Result<(), ImageError> {
         let image: Image<f32, 3> = Image::new(
             ImageSize {
                 height: 3,
@@ -542,7 +591,7 @@ mod tests {
     }
 
     #[test]
-    fn image_cast() -> Result<(), ImageError> {
+    fn test_image_cast() -> Result<(), ImageError> {
         let data = vec![0, 1, 2, 3, 4, 5];
         let image_u8 = Image::<_, 3>::new(
             ImageSize {
@@ -560,7 +609,7 @@ mod tests {
     }
 
     #[test]
-    fn image_rgbd() -> Result<(), ImageError> {
+    fn test_image_rgbd() -> Result<(), ImageError> {
         let image = Image::<f32, 4>::new(
             ImageSize {
                 height: 2,
@@ -576,7 +625,7 @@ mod tests {
     }
 
     #[test]
-    fn image_channel() -> Result<(), ImageError> {
+    fn test_image_channel() -> Result<(), ImageError> {
         let image = Image::<f32, 3>::new(
             ImageSize {
                 height: 2,
@@ -592,7 +641,7 @@ mod tests {
     }
 
     #[test]
-    fn image_split_channels() -> Result<(), ImageError> {
+    fn test_image_split_channels() -> Result<(), ImageError> {
         let image = Image::<f32, 3>::new(
             ImageSize {
                 height: 2,
@@ -611,7 +660,7 @@ mod tests {
     }
 
     #[test]
-    fn scale_and_cast() -> Result<(), ImageError> {
+    fn test_scale_and_cast() -> Result<(), ImageError> {
         let data = vec![0u8, 0, 255, 0, 0, 255];
         let image_u8 = Image::<u8, 3>::new(
             ImageSize {
@@ -627,7 +676,7 @@ mod tests {
     }
 
     #[test]
-    fn cast_and_scale() -> Result<(), ImageError> {
+    fn test_cast_and_scale() -> Result<(), ImageError> {
         let data = vec![0u8, 0, 255, 0, 0, 255];
         let image_u8 = Image::<u8, 3>::new(
             ImageSize {
@@ -643,7 +692,7 @@ mod tests {
     }
 
     #[test]
-    fn image_from_tensor() -> Result<(), ImageError> {
+    fn test_image_from_tensor() -> Result<(), ImageError> {
         let data = vec![0u8, 1, 2, 3, 4, 5];
         let tensor = Tensor::<u8, 2, _>::from_shape_vec([2, 3], data, CpuAllocator)?;
 
@@ -661,7 +710,7 @@ mod tests {
     }
 
     #[test]
-    fn image_from_tensor_3d() -> Result<(), ImageError> {
+    fn test_image_from_tensor_3d() -> Result<(), ImageError> {
         let tensor = Tensor::<u8, 3, CpuAllocator>::from_shape_vec(
             [2, 3, 4],
             vec![0u8; 2 * 3 * 4],
@@ -682,7 +731,7 @@ mod tests {
     }
 
     #[test]
-    fn image_from_raw_parts() -> Result<(), ImageError> {
+    fn test_image_from_raw_parts() -> Result<(), ImageError> {
         let data = vec![0u8, 1, 2, 3, 4, 5];
         let image =
             unsafe { Image::<_, 1>::from_raw_parts([2, 3].into(), data.as_ptr(), data.len())? };
@@ -690,6 +739,64 @@ mod tests {
         assert_eq!(image.size().width, 2);
         assert_eq!(image.size().height, 3);
         assert_eq!(image.num_channels(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_pixel() -> Result<(), ImageError> {
+        let image = Image::<u8, 3>::new(
+            ImageSize {
+                height: 2,
+                width: 1,
+            },
+            vec![1, 2, 5, 19, 255, 128],
+        )?;
+        assert_eq!(image.get_pixel(0, 0, 0)?, &1);
+        assert_eq!(image.get_pixel(0, 0, 1)?, &2);
+        assert_eq!(image.get_pixel(0, 0, 2)?, &5);
+        assert_eq!(image.get_pixel(0, 1, 0)?, &19);
+        assert_eq!(image.get_pixel(0, 1, 1)?, &255);
+        assert_eq!(image.get_pixel(0, 1, 2)?, &128);
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_pixel() -> Result<(), ImageError> {
+        let mut image = Image::<u8, 3>::new(
+            ImageSize {
+                height: 2,
+                width: 1,
+            },
+            vec![1, 2, 5, 19, 255, 128],
+        )?;
+
+        image.set_pixel(0, 0, 0, 128)?;
+        image.set_pixel(0, 1, 1, 25)?;
+
+        assert_eq!(image.get_pixel(0, 0, 0)?, &128);
+        assert_eq!(image.get_pixel(0, 1, 1)?, &25);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_image_map() -> Result<(), ImageError> {
+        let image_u8 = Image::<u8, 1>::new(
+            ImageSize {
+                height: 2,
+                width: 1,
+            },
+            vec![0, 128],
+        )?;
+
+        let image_f32 = image_u8.map(|x| (x + 2) as f32)?;
+
+        assert_eq!(image_f32.size().width, 1);
+        assert_eq!(image_f32.size().height, 2);
+        assert_eq!(image_f32.num_channels(), 1);
+        assert_eq!(image_f32.get([0, 0, 0]), Some(&2.0f32));
+        assert_eq!(image_f32.get([1, 0, 0]), Some(&130.0f32));
+
         Ok(())
     }
 }

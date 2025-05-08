@@ -86,6 +86,7 @@ class NetworkFileSystem(modal.object.Object):
     class __lookup_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             name: str,
             namespace=1,
             client: typing.Optional[modal.client.Client] = None,
@@ -94,6 +95,7 @@ class NetworkFileSystem(modal.object.Object):
         ) -> NetworkFileSystem: ...
         async def aio(
             self,
+            /,
             name: str,
             namespace=1,
             client: typing.Optional[modal.client.Client] = None,
@@ -106,6 +108,7 @@ class NetworkFileSystem(modal.object.Object):
     class __create_deployed_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             deployment_name: str,
             namespace=1,
             client: typing.Optional[modal.client.Client] = None,
@@ -113,6 +116,7 @@ class NetworkFileSystem(modal.object.Object):
         ) -> str: ...
         async def aio(
             self,
+            /,
             deployment_name: str,
             namespace=1,
             client: typing.Optional[modal.client.Client] = None,
@@ -124,12 +128,14 @@ class NetworkFileSystem(modal.object.Object):
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             name: str,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
         ): ...
         async def aio(
             self,
+            /,
             name: str,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
@@ -140,12 +146,14 @@ class NetworkFileSystem(modal.object.Object):
     class __write_file_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             remote_path: str,
             fp: typing.BinaryIO,
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         ) -> int: ...
         async def aio(
             self,
+            /,
             remote_path: str,
             fp: typing.BinaryIO,
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
@@ -154,26 +162,28 @@ class NetworkFileSystem(modal.object.Object):
     write_file: __write_file_spec[typing_extensions.Self]
 
     class __read_file_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, path: str) -> typing.Iterator[bytes]: ...
-        def aio(self, path: str) -> collections.abc.AsyncIterator[bytes]: ...
+        def __call__(self, /, path: str) -> typing.Iterator[bytes]: ...
+        def aio(self, /, path: str) -> collections.abc.AsyncIterator[bytes]: ...
 
     read_file: __read_file_spec[typing_extensions.Self]
 
     class __iterdir_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, path: str) -> typing.Iterator[modal.volume.FileEntry]: ...
-        def aio(self, path: str) -> collections.abc.AsyncIterator[modal.volume.FileEntry]: ...
+        def __call__(self, /, path: str) -> typing.Iterator[modal.volume.FileEntry]: ...
+        def aio(self, /, path: str) -> collections.abc.AsyncIterator[modal.volume.FileEntry]: ...
 
     iterdir: __iterdir_spec[typing_extensions.Self]
 
     class __add_local_file_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             local_path: typing.Union[pathlib.Path, str],
             remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         ): ...
         async def aio(
             self,
+            /,
             local_path: typing.Union[pathlib.Path, str],
             remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
@@ -184,12 +194,14 @@ class NetworkFileSystem(modal.object.Object):
     class __add_local_dir_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             local_path: typing.Union[pathlib.Path, str],
             remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         ): ...
         async def aio(
             self,
+            /,
             local_path: typing.Union[pathlib.Path, str],
             remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
@@ -198,13 +210,13 @@ class NetworkFileSystem(modal.object.Object):
     add_local_dir: __add_local_dir_spec[typing_extensions.Self]
 
     class __listdir_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, path: str) -> list[modal.volume.FileEntry]: ...
-        async def aio(self, path: str) -> list[modal.volume.FileEntry]: ...
+        def __call__(self, /, path: str) -> list[modal.volume.FileEntry]: ...
+        async def aio(self, /, path: str) -> list[modal.volume.FileEntry]: ...
 
     listdir: __listdir_spec[typing_extensions.Self]
 
     class __remove_file_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, path: str, recursive=False): ...
-        async def aio(self, path: str, recursive=False): ...
+        def __call__(self, /, path: str, recursive=False): ...
+        async def aio(self, /, path: str, recursive=False): ...
 
     remove_file: __remove_file_spec[typing_extensions.Self]

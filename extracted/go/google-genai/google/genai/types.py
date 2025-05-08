@@ -117,6 +117,18 @@ class Mode(_common.CaseInSensitiveEnum):
   MODE_DYNAMIC = 'MODE_DYNAMIC'
 
 
+class AuthType(_common.CaseInSensitiveEnum):
+  """Type of auth scheme."""
+
+  AUTH_TYPE_UNSPECIFIED = 'AUTH_TYPE_UNSPECIFIED'
+  NO_AUTH = 'NO_AUTH'
+  API_KEY_AUTH = 'API_KEY_AUTH'
+  HTTP_BASIC_AUTH = 'HTTP_BASIC_AUTH'
+  GOOGLE_SERVICE_ACCOUNT_AUTH = 'GOOGLE_SERVICE_ACCOUNT_AUTH'
+  OAUTH = 'OAUTH'
+  OIDC_AUTH = 'OIDC_AUTH'
+
+
 class Type(_common.CaseInSensitiveEnum):
   """Optional. The type of the data."""
 
@@ -996,6 +1008,210 @@ class GoogleSearchRetrievalDict(TypedDict, total=False):
 GoogleSearchRetrievalOrDict = Union[
     GoogleSearchRetrieval, GoogleSearchRetrievalDict
 ]
+
+
+class EnterpriseWebSearch(_common.BaseModel):
+  """Tool to search public web data, powered by Vertex AI Search and Sec4 compliance."""
+
+  pass
+
+
+class EnterpriseWebSearchDict(TypedDict, total=False):
+  """Tool to search public web data, powered by Vertex AI Search and Sec4 compliance."""
+
+  pass
+
+
+EnterpriseWebSearchOrDict = Union[EnterpriseWebSearch, EnterpriseWebSearchDict]
+
+
+class ApiKeyConfig(_common.BaseModel):
+  """Config for authentication with API key."""
+
+  api_key_string: Optional[str] = Field(
+      default=None,
+      description="""The API key to be used in the request directly.""",
+  )
+
+
+class ApiKeyConfigDict(TypedDict, total=False):
+  """Config for authentication with API key."""
+
+  api_key_string: Optional[str]
+  """The API key to be used in the request directly."""
+
+
+ApiKeyConfigOrDict = Union[ApiKeyConfig, ApiKeyConfigDict]
+
+
+class AuthConfigGoogleServiceAccountConfig(_common.BaseModel):
+  """Config for Google Service Account Authentication."""
+
+  service_account: Optional[str] = Field(
+      default=None,
+      description="""Optional. The service account that the extension execution service runs as. - If the service account is specified, the `iam.serviceAccounts.getAccessToken` permission should be granted to Vertex AI Extension Service Agent (https://cloud.google.com/vertex-ai/docs/general/access-control#service-agents) on the specified service account. - If not specified, the Vertex AI Extension Service Agent will be used to execute the Extension.""",
+  )
+
+
+class AuthConfigGoogleServiceAccountConfigDict(TypedDict, total=False):
+  """Config for Google Service Account Authentication."""
+
+  service_account: Optional[str]
+  """Optional. The service account that the extension execution service runs as. - If the service account is specified, the `iam.serviceAccounts.getAccessToken` permission should be granted to Vertex AI Extension Service Agent (https://cloud.google.com/vertex-ai/docs/general/access-control#service-agents) on the specified service account. - If not specified, the Vertex AI Extension Service Agent will be used to execute the Extension."""
+
+
+AuthConfigGoogleServiceAccountConfigOrDict = Union[
+    AuthConfigGoogleServiceAccountConfig,
+    AuthConfigGoogleServiceAccountConfigDict,
+]
+
+
+class AuthConfigHttpBasicAuthConfig(_common.BaseModel):
+  """Config for HTTP Basic Authentication."""
+
+  credential_secret: Optional[str] = Field(
+      default=None,
+      description="""Required. The name of the SecretManager secret version resource storing the base64 encoded credentials. Format: `projects/{project}/secrets/{secrete}/versions/{version}` - If specified, the `secretmanager.versions.access` permission should be granted to Vertex AI Extension Service Agent (https://cloud.google.com/vertex-ai/docs/general/access-control#service-agents) on the specified resource.""",
+  )
+
+
+class AuthConfigHttpBasicAuthConfigDict(TypedDict, total=False):
+  """Config for HTTP Basic Authentication."""
+
+  credential_secret: Optional[str]
+  """Required. The name of the SecretManager secret version resource storing the base64 encoded credentials. Format: `projects/{project}/secrets/{secrete}/versions/{version}` - If specified, the `secretmanager.versions.access` permission should be granted to Vertex AI Extension Service Agent (https://cloud.google.com/vertex-ai/docs/general/access-control#service-agents) on the specified resource."""
+
+
+AuthConfigHttpBasicAuthConfigOrDict = Union[
+    AuthConfigHttpBasicAuthConfig, AuthConfigHttpBasicAuthConfigDict
+]
+
+
+class AuthConfigOauthConfig(_common.BaseModel):
+  """Config for user oauth."""
+
+  access_token: Optional[str] = Field(
+      default=None,
+      description="""Access token for extension endpoint. Only used to propagate token from [[ExecuteExtensionRequest.runtime_auth_config]] at request time.""",
+  )
+  service_account: Optional[str] = Field(
+      default=None,
+      description="""The service account used to generate access tokens for executing the Extension. - If the service account is specified, the `iam.serviceAccounts.getAccessToken` permission should be granted to Vertex AI Extension Service Agent (https://cloud.google.com/vertex-ai/docs/general/access-control#service-agents) on the provided service account.""",
+  )
+
+
+class AuthConfigOauthConfigDict(TypedDict, total=False):
+  """Config for user oauth."""
+
+  access_token: Optional[str]
+  """Access token for extension endpoint. Only used to propagate token from [[ExecuteExtensionRequest.runtime_auth_config]] at request time."""
+
+  service_account: Optional[str]
+  """The service account used to generate access tokens for executing the Extension. - If the service account is specified, the `iam.serviceAccounts.getAccessToken` permission should be granted to Vertex AI Extension Service Agent (https://cloud.google.com/vertex-ai/docs/general/access-control#service-agents) on the provided service account."""
+
+
+AuthConfigOauthConfigOrDict = Union[
+    AuthConfigOauthConfig, AuthConfigOauthConfigDict
+]
+
+
+class AuthConfigOidcConfig(_common.BaseModel):
+  """Config for user OIDC auth."""
+
+  id_token: Optional[str] = Field(
+      default=None,
+      description="""OpenID Connect formatted ID token for extension endpoint. Only used to propagate token from [[ExecuteExtensionRequest.runtime_auth_config]] at request time.""",
+  )
+  service_account: Optional[str] = Field(
+      default=None,
+      description="""The service account used to generate an OpenID Connect (OIDC)-compatible JWT token signed by the Google OIDC Provider (accounts.google.com) for extension endpoint (https://cloud.google.com/iam/docs/create-short-lived-credentials-direct#sa-credentials-oidc). - The audience for the token will be set to the URL in the server url defined in the OpenApi spec. - If the service account is provided, the service account should grant `iam.serviceAccounts.getOpenIdToken` permission to Vertex AI Extension Service Agent (https://cloud.google.com/vertex-ai/docs/general/access-control#service-agents).""",
+  )
+
+
+class AuthConfigOidcConfigDict(TypedDict, total=False):
+  """Config for user OIDC auth."""
+
+  id_token: Optional[str]
+  """OpenID Connect formatted ID token for extension endpoint. Only used to propagate token from [[ExecuteExtensionRequest.runtime_auth_config]] at request time."""
+
+  service_account: Optional[str]
+  """The service account used to generate an OpenID Connect (OIDC)-compatible JWT token signed by the Google OIDC Provider (accounts.google.com) for extension endpoint (https://cloud.google.com/iam/docs/create-short-lived-credentials-direct#sa-credentials-oidc). - The audience for the token will be set to the URL in the server url defined in the OpenApi spec. - If the service account is provided, the service account should grant `iam.serviceAccounts.getOpenIdToken` permission to Vertex AI Extension Service Agent (https://cloud.google.com/vertex-ai/docs/general/access-control#service-agents)."""
+
+
+AuthConfigOidcConfigOrDict = Union[
+    AuthConfigOidcConfig, AuthConfigOidcConfigDict
+]
+
+
+class AuthConfig(_common.BaseModel):
+  """Auth configuration to run the extension."""
+
+  api_key_config: Optional[ApiKeyConfig] = Field(
+      default=None, description="""Config for API key auth."""
+  )
+  auth_type: Optional[AuthType] = Field(
+      default=None, description="""Type of auth scheme."""
+  )
+  google_service_account_config: Optional[
+      AuthConfigGoogleServiceAccountConfig
+  ] = Field(
+      default=None, description="""Config for Google Service Account auth."""
+  )
+  http_basic_auth_config: Optional[AuthConfigHttpBasicAuthConfig] = Field(
+      default=None, description="""Config for HTTP Basic auth."""
+  )
+  oauth_config: Optional[AuthConfigOauthConfig] = Field(
+      default=None, description="""Config for user oauth."""
+  )
+  oidc_config: Optional[AuthConfigOidcConfig] = Field(
+      default=None, description="""Config for user OIDC auth."""
+  )
+
+
+class AuthConfigDict(TypedDict, total=False):
+  """Auth configuration to run the extension."""
+
+  api_key_config: Optional[ApiKeyConfigDict]
+  """Config for API key auth."""
+
+  auth_type: Optional[AuthType]
+  """Type of auth scheme."""
+
+  google_service_account_config: Optional[
+      AuthConfigGoogleServiceAccountConfigDict
+  ]
+  """Config for Google Service Account auth."""
+
+  http_basic_auth_config: Optional[AuthConfigHttpBasicAuthConfigDict]
+  """Config for HTTP Basic auth."""
+
+  oauth_config: Optional[AuthConfigOauthConfigDict]
+  """Config for user oauth."""
+
+  oidc_config: Optional[AuthConfigOidcConfigDict]
+  """Config for user OIDC auth."""
+
+
+AuthConfigOrDict = Union[AuthConfig, AuthConfigDict]
+
+
+class GoogleMaps(_common.BaseModel):
+  """Tool to support Google Maps in Model."""
+
+  auth_config: Optional[AuthConfig] = Field(
+      default=None,
+      description="""Optional. Auth config for the Google Maps tool.""",
+  )
+
+
+class GoogleMapsDict(TypedDict, total=False):
+  """Tool to support Google Maps in Model."""
+
+  auth_config: Optional[AuthConfigDict]
+  """Optional. Auth config for the Google Maps tool."""
+
+
+GoogleMapsOrDict = Union[GoogleMaps, GoogleMapsDict]
 
 
 class VertexAISearch(_common.BaseModel):
@@ -2120,6 +2336,16 @@ class Tool(_common.BaseModel):
       default=None,
       description="""Optional. GoogleSearchRetrieval tool type. Specialized retrieval tool that is powered by Google search.""",
   )
+  enterprise_web_search: Optional[EnterpriseWebSearch] = Field(
+      default=None,
+      description="""Optional. Enterprise web search tool type. Specialized retrieval
+      tool that is powered by Vertex AI Search and Sec4 compliance.""",
+  )
+  google_maps: Optional[GoogleMaps] = Field(
+      default=None,
+      description="""Optional. Google Maps tool type. Specialized retrieval tool
+      that is powered by Google Maps.""",
+  )
   code_execution: Optional[ToolCodeExecution] = Field(
       default=None,
       description="""Optional. CodeExecution tool type. Enables the model to execute code as part of generation. This field is only used by the Gemini Developer API services.""",
@@ -2142,6 +2368,14 @@ class ToolDict(TypedDict, total=False):
 
   google_search_retrieval: Optional[GoogleSearchRetrievalDict]
   """Optional. GoogleSearchRetrieval tool type. Specialized retrieval tool that is powered by Google search."""
+
+  enterprise_web_search: Optional[EnterpriseWebSearchDict]
+  """Optional. Enterprise web search tool type. Specialized retrieval
+      tool that is powered by Vertex AI Search and Sec4 compliance."""
+
+  google_maps: Optional[GoogleMapsDict]
+  """Optional. Google Maps tool type. Specialized retrieval tool
+      that is powered by Google Maps."""
 
   code_execution: Optional[ToolCodeExecutionDict]
   """Optional. CodeExecution tool type. Enables the model to execute code as part of generation. This field is only used by the Gemini Developer API services."""
@@ -2187,6 +2421,62 @@ FunctionCallingConfigOrDict = Union[
 ]
 
 
+class LatLng(_common.BaseModel):
+  """An object that represents a latitude/longitude pair.
+
+  This is expressed as a pair of doubles to represent degrees latitude and
+  degrees longitude. Unless specified otherwise, this object must conform to the
+  <a href="https://en.wikipedia.org/wiki/World_Geodetic_System#1984_version">
+  WGS84 standard</a>. Values must be within normalized ranges.
+  """
+
+  latitude: Optional[float] = Field(
+      default=None,
+      description="""The latitude in degrees. It must be in the range [-90.0, +90.0].""",
+  )
+  longitude: Optional[float] = Field(
+      default=None,
+      description="""The longitude in degrees. It must be in the range [-180.0, +180.0]""",
+  )
+
+
+class LatLngDict(TypedDict, total=False):
+  """An object that represents a latitude/longitude pair.
+
+  This is expressed as a pair of doubles to represent degrees latitude and
+  degrees longitude. Unless specified otherwise, this object must conform to the
+  <a href="https://en.wikipedia.org/wiki/World_Geodetic_System#1984_version">
+  WGS84 standard</a>. Values must be within normalized ranges.
+  """
+
+  latitude: Optional[float]
+  """The latitude in degrees. It must be in the range [-90.0, +90.0]."""
+
+  longitude: Optional[float]
+  """The longitude in degrees. It must be in the range [-180.0, +180.0]"""
+
+
+LatLngOrDict = Union[LatLng, LatLngDict]
+
+
+class RetrievalConfig(_common.BaseModel):
+  """Retrieval config."""
+
+  lat_lng: Optional[LatLng] = Field(
+      default=None, description="""Optional. The location of the user."""
+  )
+
+
+class RetrievalConfigDict(TypedDict, total=False):
+  """Retrieval config."""
+
+  lat_lng: Optional[LatLngDict]
+  """Optional. The location of the user."""
+
+
+RetrievalConfigOrDict = Union[RetrievalConfig, RetrievalConfigDict]
+
+
 class ToolConfig(_common.BaseModel):
   """Tool config.
 
@@ -2195,6 +2485,9 @@ class ToolConfig(_common.BaseModel):
 
   function_calling_config: Optional[FunctionCallingConfig] = Field(
       default=None, description="""Optional. Function calling config."""
+  )
+  retrieval_config: Optional[RetrievalConfig] = Field(
+      default=None, description="""Optional. Retrieval config."""
   )
 
 
@@ -2206,6 +2499,9 @@ class ToolConfigDict(TypedDict, total=False):
 
   function_calling_config: Optional[FunctionCallingConfigDict]
   """Optional. Function calling config."""
+
+  retrieval_config: Optional[RetrievalConfigDict]
+  """Optional. Retrieval config."""
 
 
 ToolConfigOrDict = Union[ToolConfig, ToolConfigDict]
@@ -9914,11 +10210,23 @@ class LiveServerMessage(_common.BaseModel):
     ):
       return None
     text = ''
+    non_text_parts = []
     for part in self.server_content.model_turn.parts:
+      for field_name, field_value in part.model_dump(
+          exclude={'text', 'thought'}
+      ).items():
+        if field_value is not None:
+          non_text_parts.append(field_name)
       if isinstance(part.text, str):
         if isinstance(part.thought, bool) and part.thought:
           continue
         text += part.text
+    if non_text_parts:
+      logger.warning(
+          'Warning: there are non-text parts in the response:'
+          f' {non_text_parts}, returning concatenated text result from text'
+          ' parts, check out the non text parts for full response from model.'
+      )
     return text if text else None
 
   @property
@@ -9932,9 +10240,21 @@ class LiveServerMessage(_common.BaseModel):
     ):
       return None
     concatenated_data = b''
+    non_data_parts = []
     for part in self.server_content.model_turn.parts:
+      for field_name, field_value in part.model_dump(
+          exclude={'inline_data'}
+      ).items():
+        if field_value is not None:
+          non_data_parts.append(field_name)
       if part.inline_data and isinstance(part.inline_data.data, bytes):
         concatenated_data += part.inline_data.data
+    if non_data_parts:
+      logger.warning(
+          'Warning: there are non-data parts in the response:'
+          f' {non_data_parts}, returning concatenated data result from data'
+          ' parts, check out the non data parts for full response from model.'
+      )
     return concatenated_data if len(concatenated_data) > 0 else None
 
 
@@ -10212,6 +10532,17 @@ class LiveClientSetup(_common.BaseModel):
 
       If included, server will compress context window to fit into given length.""",
   )
+  input_audio_transcription: Optional[AudioTranscriptionConfig] = Field(
+      default=None,
+      description="""The transcription of the input aligns with the input audio language.
+      """,
+  )
+  output_audio_transcription: Optional[AudioTranscriptionConfig] = Field(
+      default=None,
+      description="""The transcription of the output aligns with the language code
+      specified for the output audio.
+      """,
+  )
 
 
 class LiveClientSetupDict(TypedDict, total=False):
@@ -10249,6 +10580,15 @@ class LiveClientSetupDict(TypedDict, total=False):
   """Configures context window compression mechanism.
 
       If included, server will compress context window to fit into given length."""
+
+  input_audio_transcription: Optional[AudioTranscriptionConfigDict]
+  """The transcription of the input aligns with the input audio language.
+      """
+
+  output_audio_transcription: Optional[AudioTranscriptionConfigDict]
+  """The transcription of the output aligns with the language code
+      specified for the output audio.
+      """
 
 
 LiveClientSetupOrDict = Union[LiveClientSetup, LiveClientSetupDict]

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hubspot-api-client
-Version: 11.1.0
+Version: 12.0.0
 Summary: HubSpot API client
 Home-page: https://github.com/HubSpot/hubspot-api-python
 Author: HubSpot
@@ -18,6 +18,17 @@ Requires-Dist: importlib-metadata<5; python_version < "3.8"
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: black; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # hubspot-api-python
 
@@ -68,10 +79,10 @@ Please, note that hapikey is no longer supported after v5.1.0. You can get more 
 #### Obtain OAuth2 access token:
 
 ```python
-from hubspot.auth.oauth import ApiException
+from hubspot.oauth import ApiException
 
 try:
-    tokens = api_client.auth.oauth.tokens_api.create(
+    tokens = api_client.oauth.tokens_api.create(
         grant_type="authorization_code",
         redirect_uri='http://localhost',
         client_id='client_id',
@@ -183,6 +194,36 @@ try:
 except ApiException as e:
     print("Exception when calling cards_api->create: %s\n" % e)
 ```
+
+### Files API
+
+#### Upload files:
+```python
+import hubspot
+import json
+from pprint import pprint
+from hubspot.crm.contacts import ApiException
+
+client = hubspot.Client.create(access_token="your_access_token")
+
+options = json.dumps(
+    {'access': 'PRIVATE',
+     "overwrite": False}
+)
+
+try:
+    response = client.files.files_api.upload(
+        file="/file/path/file.jpeg",
+        file_name="name_in_hubspot",
+        folder_path="folder_in_hubspot",
+        options=options,
+    )
+    pprint(response)
+
+except ApiException as e:
+    print("Exception when calling basic_api->get_page: %s\n" % e)
+```
+
 ## Not wrapped endpoint(s)
 
 It is possible to access the hubspot request method directly,
@@ -311,7 +352,7 @@ api_client = HubSpot(retry=retry)
 
 ```python
 contacts = api_client.crm.contacts.basic_api.get_page()
-for contact in contacts:
+for contact in contacts.results:
     print(contact.to_dict())
 ```
 

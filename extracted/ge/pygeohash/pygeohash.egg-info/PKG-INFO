@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygeohash
-Version: 3.1.1
+Version: 3.1.2
 Summary: Python module for interacting with geohashes
 Author-email: Will McGinnis <will@pedalwrencher.com>
 License: MIT

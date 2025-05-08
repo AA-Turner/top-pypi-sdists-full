@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-nag
-Version: 2.35.91
+Version: 2.35.92
 Summary: Check CDK v2 applications for best practices using a combination on available rule packs.
 Home-page: https://github.com/cdklabs/cdk-nag.git
 Author: Arun Donti<donti@amazon.com>
@@ -22,7 +22,7 @@ License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.156.0
 Requires-Dist: constructs<11.0.0,>=10.0.5
-Requires-Dist: jsii<2.0.0,>=1.111.0
+Requires-Dist: jsii<2.0.0,>=1.112.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard<4.3.0,>=2.13.3
 

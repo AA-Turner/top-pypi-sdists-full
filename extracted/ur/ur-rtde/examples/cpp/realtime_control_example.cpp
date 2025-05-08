@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
   std::string robot_ip = "localhost";
   double rtde_frequency = 500.0; // Hz
   double dt = 1.0 / rtde_frequency; // 2ms
-  uint16_t flags = RTDEControlInterface::FLAG_VERBOSE | RTDEControlInterface::FLAG_UPLOAD_SCRIPT;
+  uint16_t flags = RTDEControlInterface::FLAG_VERBOSE | RTDEControlInterface::FLAG_USE_EXT_UR_CAP;
   int ur_cap_port = 50002;
 
   // ur_rtde realtime priorities

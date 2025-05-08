@@ -19,7 +19,7 @@ agent = Agent(
     ],
     knowledge_config=KnowledgeConfig(results_limit=10, score_threshold=0.5),
     llm=LLM(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         api_key=os.getenv("OPENAI_API_KEY"),
     ),
 )
@@ -35,6 +35,6 @@ crew = Crew(
     verbose=True,
     # memory=True,
 )
-result = crew.kickoff(inputs={"task": "What is RARE’s core philosophy?"})
+result = crew.kickoff(inputs={"task": "what are some large reasoning models?"})
 print(result)
 print("usage metrics", result.token_usage)

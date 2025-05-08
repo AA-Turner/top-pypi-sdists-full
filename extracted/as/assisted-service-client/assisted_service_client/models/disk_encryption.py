@@ -61,7 +61,7 @@ class DiskEncryption(object):
     def enable_on(self):
         """Gets the enable_on of this DiskEncryption.  # noqa: E501
 
-        Enable/disable disk encryption on master nodes, worker nodes, or all nodes.  # noqa: E501
+        Enable/disable disk encryption on master nodes, arbiter nodes, worker nodes, or a combination of them.  # noqa: E501
 
         :return: The enable_on of this DiskEncryption.  # noqa: E501
         :rtype: str
@@ -72,12 +72,12 @@ class DiskEncryption(object):
     def enable_on(self, enable_on):
         """Sets the enable_on of this DiskEncryption.
 
-        Enable/disable disk encryption on master nodes, worker nodes, or all nodes.  # noqa: E501
+        Enable/disable disk encryption on master nodes, arbiter nodes, worker nodes, or a combination of them.  # noqa: E501
 
         :param enable_on: The enable_on of this DiskEncryption.  # noqa: E501
         :type: str
         """
-        allowed_values = ["none", "all", "masters", "workers"]  # noqa: E501
+        allowed_values = ["none", "masters", "arbiters", "workers", "masters,arbiters", "masters,workers", "arbiters,workers", "masters,arbiters,workers", "all"]  # noqa: E501
         if enable_on not in allowed_values:
             raise ValueError(
                 "Invalid value for `enable_on` ({0}), must be one of {1}"  # noqa: E501

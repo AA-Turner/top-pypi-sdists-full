@@ -9,11 +9,11 @@ import System.Drawing
 import System.Globalization
 import System.Numerics
 
-System_Drawing_Color = typing.Any
-System_Drawing_SizeF = typing.Any
-System_Drawing_PointF = typing.Any
 System_Drawing_Point = typing.Any
+System_Drawing_PointF = typing.Any
 System_Drawing_Size = typing.Any
+System_Drawing_SizeF = typing.Any
+System_Drawing_Color = typing.Any
 System_Drawing_Rectangle = typing.Any
 System_Drawing_RectangleF = typing.Any
 
@@ -756,6 +756,138 @@ class Color(System.IEquatable[System_Drawing_Color]):
         ...
 
 
+class ColorTranslator(System.Object):
+    """Translates colors to and from GDI+ Color objects."""
+
+    @staticmethod
+    def from_html(html_color: str) -> System.Drawing.Color:
+        """Translates an Html color representation to a GDI+ Color."""
+        ...
+
+    @staticmethod
+    def from_ole(ole_color: int) -> System.Drawing.Color:
+        """Translates an Ole color value to a GDI+ Color."""
+        ...
+
+    @staticmethod
+    def from_win_32(win_32_color: int) -> System.Drawing.Color:
+        """Translates an Win32 color value to a GDI+ Color."""
+        ...
+
+    @staticmethod
+    def to_html(c: System.Drawing.Color) -> str:
+        """Translates the specified Color to an Html string color representation."""
+        ...
+
+    @staticmethod
+    def to_ole(c: System.Drawing.Color) -> int:
+        """Translates the specified Color to an Ole color."""
+        ...
+
+    @staticmethod
+    def to_win_32(c: System.Drawing.Color) -> int:
+        """Translates the specified Color to a Win32 color."""
+        ...
+
+
+class SizeF(System.IEquatable[System_Drawing_SizeF]):
+    """Represents the size of a rectangular region with an ordered pair of width and height."""
+
+    EMPTY: System.Drawing.SizeF
+    """Initializes a new instance of the System.Drawing.SizeF class."""
+
+    @property
+    def is_empty(self) -> bool:
+        """Tests whether this System.Drawing.SizeF has zero width and height."""
+        ...
+
+    @property
+    def width(self) -> float:
+        """Represents the horizontal component of this System.Drawing.SizeF."""
+        ...
+
+    @width.setter
+    def width(self, value: float) -> None:
+        ...
+
+    @property
+    def height(self) -> float:
+        """Represents the vertical component of this System.Drawing.SizeF."""
+        ...
+
+    @height.setter
+    def height(self, value: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, size: System.Drawing.SizeF) -> None:
+        """
+        Initializes a new instance of the System.Drawing.SizeF class from the specified
+        existing System.Drawing.SizeF.
+        """
+        ...
+
+    @overload
+    def __init__(self, pt: System.Drawing.PointF) -> None:
+        """
+        Initializes a new instance of the System.Drawing.SizeF class from the specified
+        System.Drawing.PointF.
+        """
+        ...
+
+    @overload
+    def __init__(self, vector: System.Numerics.Vector2) -> None:
+        """
+        Initializes a new instance of the System.Drawing.SizeF struct from the specified
+        System.Numerics.Vector2.
+        """
+        ...
+
+    @overload
+    def __init__(self, width: float, height: float) -> None:
+        """Initializes a new instance of the System.Drawing.SizeF class from the specified dimensions."""
+        ...
+
+    @staticmethod
+    def add(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        """Performs vector addition of two System.Drawing.SizeF objects."""
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Tests to see whether the specified object is a System.Drawing.SizeF  with the same dimensions
+        as this System.Drawing.SizeF.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.SizeF) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def subtract(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        """Contracts a System.Drawing.SizeF by another System.Drawing.SizeF."""
+        ...
+
+    def to_point_f(self) -> System.Drawing.PointF:
+        ...
+
+    def to_size(self) -> System.Drawing.Size:
+        ...
+
+    def to_string(self) -> str:
+        """Creates a human-readable string that represents this System.Drawing.SizeF."""
+        ...
+
+    def to_vector_2(self) -> System.Numerics.Vector2:
+        """Creates a new System.Numerics.Vector2 from this System.Drawing.SizeF."""
+        ...
+
+
 class Size(System.IEquatable[System_Drawing_Size]):
     """Represents the size of a rectangular region with an ordered pair of width and height."""
 
@@ -929,104 +1061,6 @@ class PointF(System.IEquatable[System_Drawing_PointF]):
         ...
 
 
-class SizeF(System.IEquatable[System_Drawing_SizeF]):
-    """Represents the size of a rectangular region with an ordered pair of width and height."""
-
-    EMPTY: System.Drawing.SizeF
-    """Initializes a new instance of the System.Drawing.SizeF class."""
-
-    @property
-    def is_empty(self) -> bool:
-        """Tests whether this System.Drawing.SizeF has zero width and height."""
-        ...
-
-    @property
-    def width(self) -> float:
-        """Represents the horizontal component of this System.Drawing.SizeF."""
-        ...
-
-    @width.setter
-    def width(self, value: float) -> None:
-        ...
-
-    @property
-    def height(self) -> float:
-        """Represents the vertical component of this System.Drawing.SizeF."""
-        ...
-
-    @height.setter
-    def height(self, value: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, size: System.Drawing.SizeF) -> None:
-        """
-        Initializes a new instance of the System.Drawing.SizeF class from the specified
-        existing System.Drawing.SizeF.
-        """
-        ...
-
-    @overload
-    def __init__(self, pt: System.Drawing.PointF) -> None:
-        """
-        Initializes a new instance of the System.Drawing.SizeF class from the specified
-        System.Drawing.PointF.
-        """
-        ...
-
-    @overload
-    def __init__(self, vector: System.Numerics.Vector2) -> None:
-        """
-        Initializes a new instance of the System.Drawing.SizeF struct from the specified
-        System.Numerics.Vector2.
-        """
-        ...
-
-    @overload
-    def __init__(self, width: float, height: float) -> None:
-        """Initializes a new instance of the System.Drawing.SizeF class from the specified dimensions."""
-        ...
-
-    @staticmethod
-    def add(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """Performs vector addition of two System.Drawing.SizeF objects."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Tests to see whether the specified object is a System.Drawing.SizeF  with the same dimensions
-        as this System.Drawing.SizeF.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.SizeF) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def subtract(sz_1: System.Drawing.SizeF, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
-        """Contracts a System.Drawing.SizeF by another System.Drawing.SizeF."""
-        ...
-
-    def to_point_f(self) -> System.Drawing.PointF:
-        ...
-
-    def to_size(self) -> System.Drawing.Size:
-        ...
-
-    def to_string(self) -> str:
-        """Creates a human-readable string that represents this System.Drawing.SizeF."""
-        ...
-
-    def to_vector_2(self) -> System.Numerics.Vector2:
-        """Creates a new System.Numerics.Vector2 from this System.Drawing.SizeF."""
-        ...
-
-
 class Point(System.IEquatable[System_Drawing_Point]):
     """Represents an ordered pair of x and y coordinates that define a point in a two-dimensional plane."""
 
@@ -1124,40 +1158,6 @@ class Point(System.IEquatable[System_Drawing_Point]):
     @staticmethod
     def truncate(value: System.Drawing.PointF) -> System.Drawing.Point:
         """Converts a PointF to a Point by performing a truncate operation on all the coordinates."""
-        ...
-
-
-class ColorTranslator(System.Object):
-    """Translates colors to and from GDI+ Color objects."""
-
-    @staticmethod
-    def from_html(html_color: str) -> System.Drawing.Color:
-        """Translates an Html color representation to a GDI+ Color."""
-        ...
-
-    @staticmethod
-    def from_ole(ole_color: int) -> System.Drawing.Color:
-        """Translates an Ole color value to a GDI+ Color."""
-        ...
-
-    @staticmethod
-    def from_win_32(win_32_color: int) -> System.Drawing.Color:
-        """Translates an Win32 color value to a GDI+ Color."""
-        ...
-
-    @staticmethod
-    def to_html(c: System.Drawing.Color) -> str:
-        """Translates the specified Color to an Html string color representation."""
-        ...
-
-    @staticmethod
-    def to_ole(c: System.Drawing.Color) -> int:
-        """Translates the specified Color to an Ole color."""
-        ...
-
-    @staticmethod
-    def to_win_32(c: System.Drawing.Color) -> int:
-        """Translates the specified Color to a Win32 color."""
         ...
 
 
@@ -1709,6 +1709,34 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
         ...
 
 
+class SizeFConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    def create_instance(self, context: System.ComponentModel.ITypeDescriptorContext, property_values: System.Collections.IDictionary) -> System.Object:
+        ...
+
+    def get_create_instance_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+
 class PointConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
@@ -1737,8 +1765,11 @@ class PointConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class SizeConverter(System.ComponentModel.TypeConverter):
+class ColorConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         ...
@@ -1752,20 +1783,14 @@ class SizeConverter(System.ComponentModel.TypeConverter):
     def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
         ...
 
-    def create_instance(self, context: System.ComponentModel.ITypeDescriptorContext, property_values: System.Collections.IDictionary) -> System.Object:
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
         ...
 
-    def get_create_instance_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
         ...
 
 
-class SizeFConverter(System.ComponentModel.TypeConverter):
+class SizeConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -1818,31 +1843,6 @@ class RectangleConverter(System.ComponentModel.TypeConverter):
         ...
 
     def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class ColorConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
         ...
 
 

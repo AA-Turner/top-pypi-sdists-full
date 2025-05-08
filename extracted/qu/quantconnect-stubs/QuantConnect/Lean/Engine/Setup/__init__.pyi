@@ -160,106 +160,69 @@ class ISetupHandler(System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
 
-class BrokerageSetupHandler(System.Object, QuantConnect.Lean.Engine.Setup.ISetupHandler):
-    """Defines a set up handler that initializes the algorithm instance using values retrieved from the user's brokerage account"""
+class BaseSetupHandler(System.Object):
+    """
+    Base class that provides shared code for
+    the ISetupHandler implementations
+    """
 
-    max_allocation_limit_config: str = "max-allocation-limit"
-    """Max allocation limit configuration variable name"""
+    ALGORITHM_CREATION_TIMEOUT: datetime.timedelta
+    """Get the maximum time that the creation of an algorithm can take"""
 
-    @property
-    def worker_thread(self) -> QuantConnect.Util.WorkerThread:
-        """The worker thread instance the setup handler should use"""
+    @staticmethod
+    def get_configured_data_feeds() -> System.Collections.Generic.Dictionary[QuantConnect.SecurityType, typing.List[QuantConnect.TickType]]:
+        """Get the available data feeds from config.json,"""
         ...
 
-    @worker_thread.setter
-    def worker_thread(self, value: QuantConnect.Util.WorkerThread) -> None:
-        ...
-
-    @property
-    def errors(self) -> typing.List[System.Exception]:
-        """Any errors from the initialization stored here:"""
-        ...
-
-    @errors.setter
-    def errors(self, value: typing.List[System.Exception]) -> None:
-        ...
-
-    @property
-    def maximum_runtime(self) -> datetime.timedelta:
-        """Get the maximum runtime for this algorithm job."""
-        ...
-
-    @property
-    def starting_portfolio_value(self) -> float:
-        """Algorithm starting capital for statistics calculations"""
-        ...
-
-    @property
-    def starting_date(self) -> datetime.datetime:
-        """Start date for analysis loops to search for data."""
-        ...
-
-    @property
-    def max_orders(self) -> int:
-        """Maximum number of orders for the algorithm run -- applicable for backtests only."""
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new BrokerageSetupHandler"""
-        ...
-
-    def create_algorithm_instance(self, algorithm_node_packet: QuantConnect.Packets.AlgorithmNodePacket, assembly_path: str) -> QuantConnect.Interfaces.IAlgorithm:
+    @staticmethod
+    def initialize_debugging(algorithm_node_packet: QuantConnect.Packets.AlgorithmNodePacket, worker_thread: QuantConnect.Util.WorkerThread) -> bool:
         """
-        Create a new instance of an algorithm from a physical dll path.
+        Initialize the debugger
         
-        :param algorithm_node_packet: Details of the task required
-        :param assembly_path: The path to the assembly's location
-        :returns: A new instance of IAlgorithm, or throws an exception if there was an error.
+        :param algorithm_node_packet: The algorithm node packet
+        :param worker_thread: The worker thread instance to use
         """
         ...
 
-    def create_brokerage(self, algorithm_node_packet: QuantConnect.Packets.AlgorithmNodePacket, uninitialized_algorithm: QuantConnect.Interfaces.IAlgorithm, factory: typing.Optional[QuantConnect.Interfaces.IBrokerageFactory]) -> typing.Tuple[QuantConnect.Interfaces.IBrokerage, QuantConnect.Interfaces.IBrokerageFactory]:
+    @staticmethod
+    def load_backtest_job_account_currency(algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.BacktestNodePacket) -> None:
+        """Sets the account currency the algorithm should use if set in the job packet"""
+        ...
+
+    @staticmethod
+    def load_backtest_job_cash_amount(algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.BacktestNodePacket) -> None:
+        """Sets the initial cash for the algorithm if set in the job packet."""
+        ...
+
+    @staticmethod
+    def set_brokerage_trading_day_per_year(algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
         """
-        Creates the brokerage as specified by the job packet
+        Set the number of trading days per year based on the specified brokerage model.
         
-        :param algorithm_node_packet: Job packet
-        :param uninitialized_algorithm: The algorithm instance before Initialize has been called
-        :param factory: The brokerage factory
-        :returns: The brokerage instance, or throws if error creating instance.
+        :param algorithm: The algorithm instance
+        :returns: The number of trading days per year. For specific brokerages (Coinbase, Binance, Bitfinex, Bybit, FTX, Kraken), the value is 365. For other brokerages, the default value is 252.
         """
         ...
 
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def get_open_orders(self, algorithm: QuantConnect.Interfaces.IAlgorithm, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, transaction_handler: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, brokerage: QuantConnect.Interfaces.IBrokerage) -> None:
-        """
-        Get the open orders from a brokerage. Adds Orders.Order and Orders.OrderTicket to the transaction handler
-        
-        This method is protected.
-        
-        :param algorithm: Algorithm instance
-        :param result_handler: The configured result handler
-        :param transaction_handler: The configurated transaction handler
-        :param brokerage: Brokerage output instance
-        """
-        ...
-
-    def load_existing_holdings_and_orders(self, brokerage: QuantConnect.Interfaces.IBrokerage, algorithm: QuantConnect.Interfaces.IAlgorithm, parameters: QuantConnect.Lean.Engine.Setup.SetupHandlerParameters) -> bool:
-        """
-        Loads existing holdings and orders
-        
-        This method is protected.
-        """
-        ...
-
-    def setup(self, parameters: QuantConnect.Lean.Engine.Setup.SetupHandlerParameters) -> bool:
+    @staticmethod
+    def setup(parameters: QuantConnect.Lean.Engine.Setup.SetupHandlerParameters) -> bool:
         """
         Primary entry point to setup a new algorithm
         
         :param parameters: The parameters object to use
         :returns: True on successfully setting up the algorithm state, or false on error.
+        """
+        ...
+
+    @staticmethod
+    def setup_currency_conversions(algorithm: QuantConnect.Interfaces.IAlgorithm, universe_selection: QuantConnect.Lean.Engine.DataFeeds.UniverseSelection, currencies_to_update_white_list: typing.List[str] = None) -> None:
+        """
+        Will first check and add all the required conversion rate securities
+        and later will seed an initial value to them.
+        
+        :param algorithm: The algorithm instance
+        :param universe_selection: The universe selection instance
+        :param currencies_to_update_white_list: If passed, the currencies in the CashBook that are contained in this list will be updated. By default, if not passed (null), all currencies in the cashbook without a properly set up currency conversion will be updated. This is not intended for actual algorithms but for tests or for this method to be used as a helper.
         """
         ...
 
@@ -394,69 +357,106 @@ class ConsoleSetupHandler(QuantConnect.Lean.Engine.Setup.BacktestingSetupHandler
     """
 
 
-class BaseSetupHandler(System.Object):
-    """
-    Base class that provides shared code for
-    the ISetupHandler implementations
-    """
+class BrokerageSetupHandler(System.Object, QuantConnect.Lean.Engine.Setup.ISetupHandler):
+    """Defines a set up handler that initializes the algorithm instance using values retrieved from the user's brokerage account"""
 
-    ALGORITHM_CREATION_TIMEOUT: datetime.timedelta
-    """Get the maximum time that the creation of an algorithm can take"""
+    max_allocation_limit_config: str = "max-allocation-limit"
+    """Max allocation limit configuration variable name"""
 
-    @staticmethod
-    def get_configured_data_feeds() -> System.Collections.Generic.Dictionary[QuantConnect.SecurityType, typing.List[QuantConnect.TickType]]:
-        """Get the available data feeds from config.json,"""
+    @property
+    def worker_thread(self) -> QuantConnect.Util.WorkerThread:
+        """The worker thread instance the setup handler should use"""
         ...
 
-    @staticmethod
-    def initialize_debugging(algorithm_node_packet: QuantConnect.Packets.AlgorithmNodePacket, worker_thread: QuantConnect.Util.WorkerThread) -> bool:
+    @worker_thread.setter
+    def worker_thread(self, value: QuantConnect.Util.WorkerThread) -> None:
+        ...
+
+    @property
+    def errors(self) -> typing.List[System.Exception]:
+        """Any errors from the initialization stored here:"""
+        ...
+
+    @errors.setter
+    def errors(self, value: typing.List[System.Exception]) -> None:
+        ...
+
+    @property
+    def maximum_runtime(self) -> datetime.timedelta:
+        """Get the maximum runtime for this algorithm job."""
+        ...
+
+    @property
+    def starting_portfolio_value(self) -> float:
+        """Algorithm starting capital for statistics calculations"""
+        ...
+
+    @property
+    def starting_date(self) -> datetime.datetime:
+        """Start date for analysis loops to search for data."""
+        ...
+
+    @property
+    def max_orders(self) -> int:
+        """Maximum number of orders for the algorithm run -- applicable for backtests only."""
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new BrokerageSetupHandler"""
+        ...
+
+    def create_algorithm_instance(self, algorithm_node_packet: QuantConnect.Packets.AlgorithmNodePacket, assembly_path: str) -> QuantConnect.Interfaces.IAlgorithm:
         """
-        Initialize the debugger
+        Create a new instance of an algorithm from a physical dll path.
         
-        :param algorithm_node_packet: The algorithm node packet
-        :param worker_thread: The worker thread instance to use
+        :param algorithm_node_packet: Details of the task required
+        :param assembly_path: The path to the assembly's location
+        :returns: A new instance of IAlgorithm, or throws an exception if there was an error.
         """
         ...
 
-    @staticmethod
-    def load_backtest_job_account_currency(algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.BacktestNodePacket) -> None:
-        """Sets the account currency the algorithm should use if set in the job packet"""
-        ...
-
-    @staticmethod
-    def load_backtest_job_cash_amount(algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.BacktestNodePacket) -> None:
-        """Sets the initial cash for the algorithm if set in the job packet."""
-        ...
-
-    @staticmethod
-    def set_brokerage_trading_day_per_year(algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
+    def create_brokerage(self, algorithm_node_packet: QuantConnect.Packets.AlgorithmNodePacket, uninitialized_algorithm: QuantConnect.Interfaces.IAlgorithm, factory: typing.Optional[QuantConnect.Interfaces.IBrokerageFactory]) -> typing.Tuple[QuantConnect.Interfaces.IBrokerage, QuantConnect.Interfaces.IBrokerageFactory]:
         """
-        Set the number of trading days per year based on the specified brokerage model.
+        Creates the brokerage as specified by the job packet
         
-        :param algorithm: The algorithm instance
-        :returns: The number of trading days per year. For specific brokerages (Coinbase, Binance, Bitfinex, Bybit, FTX, Kraken), the value is 365. For other brokerages, the default value is 252.
+        :param algorithm_node_packet: Job packet
+        :param uninitialized_algorithm: The algorithm instance before Initialize has been called
+        :param factory: The brokerage factory
+        :returns: The brokerage instance, or throws if error creating instance.
         """
         ...
 
-    @staticmethod
-    def setup(parameters: QuantConnect.Lean.Engine.Setup.SetupHandlerParameters) -> bool:
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def get_open_orders(self, algorithm: QuantConnect.Interfaces.IAlgorithm, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, transaction_handler: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, brokerage: QuantConnect.Interfaces.IBrokerage) -> None:
+        """
+        Get the open orders from a brokerage. Adds Orders.Order and Orders.OrderTicket to the transaction handler
+        
+        This method is protected.
+        
+        :param algorithm: Algorithm instance
+        :param result_handler: The configured result handler
+        :param transaction_handler: The configurated transaction handler
+        :param brokerage: Brokerage output instance
+        """
+        ...
+
+    def load_existing_holdings_and_orders(self, brokerage: QuantConnect.Interfaces.IBrokerage, algorithm: QuantConnect.Interfaces.IAlgorithm, parameters: QuantConnect.Lean.Engine.Setup.SetupHandlerParameters) -> bool:
+        """
+        Loads existing holdings and orders
+        
+        This method is protected.
+        """
+        ...
+
+    def setup(self, parameters: QuantConnect.Lean.Engine.Setup.SetupHandlerParameters) -> bool:
         """
         Primary entry point to setup a new algorithm
         
         :param parameters: The parameters object to use
         :returns: True on successfully setting up the algorithm state, or false on error.
-        """
-        ...
-
-    @staticmethod
-    def setup_currency_conversions(algorithm: QuantConnect.Interfaces.IAlgorithm, universe_selection: QuantConnect.Lean.Engine.DataFeeds.UniverseSelection, currencies_to_update_white_list: typing.Sequence[str] = None) -> None:
-        """
-        Will first check and add all the required conversion rate securities
-        and later will seed an initial value to them.
-        
-        :param algorithm: The algorithm instance
-        :param universe_selection: The universe selection instance
-        :param currencies_to_update_white_list: If passed, the currencies in the CashBook that are contained in this list will be updated. By default, if not passed (null), all currencies in the cashbook without a properly set up currency conversion will be updated. This is not intended for actual algorithms but for tests or for this method to be used as a helper.
         """
         ...
 

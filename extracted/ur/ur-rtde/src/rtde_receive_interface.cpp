@@ -85,7 +85,7 @@ RTDEReceiveInterface::RTDEReceiveInterface(std::string hostname, double frequenc
   rtde_->sendStart();
 
   // Start executing receiveCallback
-  th_ = std::make_shared<boost::thread>(boost::bind(&RTDEReceiveInterface::receiveCallback, this));
+  th_.start(boost::bind(&RTDEReceiveInterface::receiveCallback, this, boost::placeholders::_1));
 
   // Wait until the first robot state has been received
   while (isConnected() && !robot_state_->getFirstStateReceived())
@@ -103,9 +103,7 @@ RTDEReceiveInterface::~RTDEReceiveInterface()
 void RTDEReceiveInterface::disconnect()
 {
   // Stop the receive callback function
-  stop_receive_thread = true;
-  th_->interrupt();
-  th_->join();
+  th_.stop();
 
   if (rtde_ != nullptr)
   {
@@ -221,9 +219,9 @@ bool RTDEReceiveInterface::setupRecipes(const double& frequency)
   return true;
 }
 
-void RTDEReceiveInterface::receiveCallback()
+void RTDEReceiveInterface::receiveCallback(std::atomic<bool> *stop_thread)
 {
-  while (!stop_receive_thread)
+  while (!*stop_thread)
   {
     // Receive and update the robot state
     try
@@ -272,8 +270,8 @@ void RTDEReceiveInterface::receiveCallback()
       if (rtde_->isConnected()) {
         rtde_->disconnect(e.code().value() != boost::asio::error::eof);
       }
-      stop_receive_thread = true;
-      stop_record_thread = true;
+      th_.signalStop();
+      record_thrd_.signalStop();
     }
   }
 }
@@ -305,11 +303,8 @@ bool RTDEReceiveInterface::reconnect()
     // Start RTDE data synchronization
     rtde_->sendStart();
 
-    stop_receive_thread = false;
-    stop_record_thread = false;
-
     // Start executing receiveCallback
-    th_ = std::make_shared<boost::thread>(boost::bind(&RTDEReceiveInterface::receiveCallback, this));
+    th_.start(boost::bind(&RTDEReceiveInterface::receiveCallback, this, boost::placeholders::_1));
 
     // Wait until the first robot state has been received
     while (!robot_state_->getFirstStateReceived())
@@ -376,14 +371,13 @@ bool RTDEReceiveInterface::startFileRecording(const std::string &filename, const
   *file_recording_ << std::endl;
 
   // Start recorder thread
-  record_thrd_ = std::make_shared<boost::thread>(boost::bind(&RTDEReceiveInterface::recordCallback, this));
+  record_thrd_.start(boost::bind(&RTDEReceiveInterface::recordCallback, this, boost::placeholders::_1));
   return true;
 }
 
 bool RTDEReceiveInterface::stopFileRecording()
 {
-  stop_record_thread = true;
-  record_thrd_->join();
+  record_thrd_.stop();
 
   // Close the file
   if (file_recording_ != nullptr)
@@ -392,9 +386,9 @@ bool RTDEReceiveInterface::stopFileRecording()
   return true;
 }
 
-void RTDEReceiveInterface::recordCallback()
+void RTDEReceiveInterface::recordCallback(std::atomic<bool> *stop_thread)
 {
-  while (!stop_record_thread)
+  while (!*stop_thread)
   {
     auto t_start = std::chrono::steady_clock::now();
     for (size_t i=0; i < record_variables_.size() ; i++)

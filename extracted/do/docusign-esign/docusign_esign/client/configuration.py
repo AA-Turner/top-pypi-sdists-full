@@ -1,9 +1,9 @@
 # coding: utf-8
 
 """
-    DocuSign REST API
+    Docusign eSignature REST API
 
-    The DocuSign REST API provides you with a powerful, convenient, and simple Web services API for interacting with DocuSign.  # noqa: E501
+    The Docusign eSignature REST API provides you with a powerful, convenient, and simple Web services API for interacting with Docusign.  # noqa: E501
 
     OpenAPI spec version: v2.1
     Contact: devcenter@docusign.com
@@ -54,9 +54,6 @@ class Configuration(object):
         
         # Default api client
         self.api_client = None
-
-        # Temp file folder for downloading files
-        self.temp_folder_path = None
 
         # Authentication Settings
         # dict to store API key(s)
@@ -119,9 +116,9 @@ class Configuration(object):
         python_version = platform.python_version()
 
         if six.PY3:
-            self.user_agent = "Swagger-Codegen/v2.1/4.0.0/python3/" + f"{python_version}"
+            self.user_agent = "Swagger-Codegen/v2.1/5.0.0/python3/" + f"{python_version}"
         else:
-            self.user_agent = "Swagger-Codegen/v2.1/4.0.0/python2/" + f"{python_version}"
+            self.user_agent = "Swagger-Codegen/v2.1/5.0.0/python2/" + f"{python_version}"
 
 
     @classmethod
@@ -277,5 +274,5 @@ class Configuration(object):
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: v2.1\n"\
-               "SDK Package Version: 4.0.0".\
+               "SDK Package Version: 5.0.0".\
                format(env=sys.platform, pyversion=sys.version)

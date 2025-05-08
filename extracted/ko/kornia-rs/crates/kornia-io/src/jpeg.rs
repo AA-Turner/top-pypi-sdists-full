@@ -1,208 +1,200 @@
-use std::sync::{Arc, Mutex};
-use turbojpeg;
+use crate::error::IoError;
+use jpeg_encoder::{ColorType, Encoder};
+use kornia_image::{Image, ImageSize};
+use std::{fs, path::Path};
 
-use kornia_image::{Image, ImageError, ImageSize};
-
-/// Error types for the JPEG module.
-#[derive(thiserror::Error, Debug)]
-pub enum JpegError {
-    /// Error when the JPEG compressor cannot be created.
-    #[error("Something went wrong with the JPEG compressor")]
-    TurboJpegError(#[from] turbojpeg::Error),
-
-    /// Error when the image data is not contiguous.
-    #[error("Image data is not contiguous")]
-    ImageDataNotContiguous,
-
-    /// Error to create the image.
-    #[error("Failed to create image")]
-    ImageCreationError(#[from] ImageError),
+/// Writes the given JPEG _(rgb8)_ data to the given file path.
+///
+/// # Arguments
+///
+/// - `file_path` - The path to the JPEG image.
+/// - `image` - The tensor containing the JPEG image data
+/// - `quality` - The quality of the JPEG encoding, range from 0 (lowest) to 100 (highest)
+pub fn write_image_jpeg_rgb8(
+    file_path: impl AsRef<Path>,
+    image: &Image<u8, 3>,
+    quality: u8,
+) -> Result<(), IoError> {
+    write_image_jpeg_imp(file_path, image, ColorType::Rgb, quality)
 }
 
-/// A JPEG decoder using the turbojpeg library.
-pub struct ImageDecoder {
-    /// The turbojpeg decompressor.
-    pub decompressor: Arc<Mutex<turbojpeg::Decompressor>>,
+/// Writes the given JPEG _(grayscale)_ data to the given file path.
+///
+/// # Arguments
+///
+/// - `file_path` - The path to the JPEG image.
+/// - `image` - The tensor containing the JPEG image data
+/// - `quality` - The quality of the JPEG encoding, range from 0 (lowest) to 100 (highest)
+pub fn write_image_jpeg_gray8(
+    file_path: impl AsRef<Path>,
+    image: &Image<u8, 1>,
+    quality: u8,
+) -> Result<(), IoError> {
+    write_image_jpeg_imp(file_path, image, ColorType::Luma, quality)
 }
 
-/// A JPEG encoder using the turbojpeg library.
-pub struct ImageEncoder {
-    /// The turbojpeg compressor.
-    pub compressor: Arc<Mutex<turbojpeg::Compressor>>,
+fn write_image_jpeg_imp<const N: usize>(
+    file_path: impl AsRef<Path>,
+    image: &Image<u8, N>,
+    color_type: ColorType,
+    quality: u8,
+) -> Result<(), IoError> {
+    let image_size = image.size();
+    let encoder = Encoder::new_file(file_path, quality)?;
+    encoder.encode(
+        image.as_slice(),
+        image_size.width as u16,
+        image_size.height as u16,
+        color_type,
+    )?;
+    Ok(())
 }
 
-impl Default for ImageDecoder {
-    fn default() -> Self {
-        match Self::new() {
-            Ok(decoder) => decoder,
-            Err(e) => panic!("Failed to create ImageDecoder: {}", e),
-        }
-    }
+/// Read a JPEG image with a four channel _(rgb8)_.
+///
+/// # Arguments
+///
+/// - `file_path` - The path to the JPEG file.
+///
+/// # Returns
+///
+/// A RGB image with four channels _(rgb8)_.
+pub fn read_image_jpeg_rgb8(file_path: impl AsRef<Path>) -> Result<Image<u8, 3>, IoError> {
+    read_image_jpeg_impl(file_path)
 }
 
-impl Default for ImageEncoder {
-    fn default() -> Self {
-        match Self::new() {
-            Ok(encoder) => encoder,
-            Err(e) => panic!("Failed to create ImageEncoder: {}", e),
-        }
-    }
+/// Reads a JPEG file with a single channel _(mono8)_
+///
+/// # Arguments
+///
+/// - `file_path` - The path to the JPEG file.
+///
+/// # Returns
+///
+/// A grayscale image with a single channel _(mono8)_.
+pub fn read_image_jpeg_mono8(file_path: impl AsRef<Path>) -> Result<Image<u8, 1>, IoError> {
+    read_image_jpeg_impl(file_path)
 }
 
-/// Implementation of the ImageEncoder struct.
-impl ImageEncoder {
-    /// Creates a new `ImageEncoder`.
-    ///
-    /// # Returns
-    ///
-    /// A new `ImageEncoder` instance.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the compressor cannot be created.
-    pub fn new() -> Result<Self, JpegError> {
-        let compressor = turbojpeg::Compressor::new()?;
-        Ok(Self {
-            compressor: Arc::new(Mutex::new(compressor)),
-        })
-    }
-
-    /// Encodes the given data into a JPEG image.
-    ///
-    /// # Arguments
-    ///
-    /// * `image` - The image to encode.
-    ///
-    /// # Returns
-    ///
-    /// The encoded data as `Vec<u8>`.
-    pub fn encode(&mut self, image: &Image<u8, 3>) -> Result<Vec<u8>, JpegError> {
-        // get the image data
-        let image_data = image.as_slice();
-
-        // create a turbojpeg image
-        let buf = turbojpeg::Image {
-            pixels: image_data,
-            width: image.width(),
-            pitch: 3 * image.width(),
-            height: image.height(),
-            format: turbojpeg::PixelFormat::RGB,
-        };
-
-        // encode the image
-        Ok(self.compressor.lock().unwrap().compress_to_vec(buf)?)
-    }
-
-    /// Sets the quality of the encoder.
-    ///
-    /// # Arguments
-    ///
-    /// * `quality` - The quality to set.
-    pub fn set_quality(&mut self, quality: i32) -> Result<(), JpegError> {
-        Ok(self.compressor.lock().unwrap().set_quality(quality)?)
-    }
+/// Decodes a JPEG image with three channel (rgb8) from Raw Bytes.
+///
+/// # Arguments
+///
+/// - `image` - A mutable reference to your `Image`
+/// - `bytes` - Raw bytes of the jpeg file
+pub fn decode_image_jpeg_rgb8(src: &[u8], dst: &mut Image<u8, 3>) -> Result<(), IoError> {
+    decode_jpeg_impl(src, dst)
 }
 
-/// Implementation of the ImageDecoder struct.
-impl ImageDecoder {
-    /// Creates a new `ImageDecoder`.
-    ///
-    /// # Returns
-    ///
-    /// A new `ImageDecoder` instance.
-    pub fn new() -> Result<Self, JpegError> {
-        let decompressor = turbojpeg::Decompressor::new()?;
-        Ok(ImageDecoder {
-            decompressor: Arc::new(Mutex::new(decompressor)),
-        })
+/// Decodes a JPEG image with single channel (mono8) from Raw Bytes.
+///
+/// # Arguments
+///
+/// - `image` - A mutable reference to your `Image`
+/// - `bytes` - Raw bytes of the jpeg file
+pub fn decode_image_jpeg_mono8(src: &[u8], dst: &mut Image<u8, 1>) -> Result<(), IoError> {
+    decode_jpeg_impl(src, dst)
+}
+
+fn read_image_jpeg_impl<const N: usize>(
+    file_path: impl AsRef<Path>,
+) -> Result<Image<u8, N>, IoError> {
+    let file_path = file_path.as_ref().to_owned();
+    if !file_path.exists() {
+        return Err(IoError::FileDoesNotExist(file_path.to_path_buf()));
     }
 
-    /// Reads the header of a JPEG image.
-    ///
-    /// # Arguments
-    ///
-    /// * `jpeg_data` - The JPEG data to read the header from.
-    ///
-    /// # Returns
-    ///
-    /// The image size.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the header cannot be read.
-    pub fn read_header(&mut self, jpeg_data: &[u8]) -> Result<ImageSize, JpegError> {
-        // read the JPEG header with image size
-        let header = self.decompressor.lock().unwrap().read_header(jpeg_data)?;
-
-        Ok(ImageSize {
-            width: header.width,
-            height: header.height,
-        })
+    if file_path.extension().map_or(true, |ext| {
+        !ext.eq_ignore_ascii_case("jpg") && !ext.eq_ignore_ascii_case("jpeg")
+    }) {
+        return Err(IoError::InvalidFileExtension(file_path.to_path_buf()));
     }
 
-    /// Decodes the given JPEG data.
-    ///
-    /// # Arguments
-    ///
-    /// * `jpeg_data` - The JPEG data to decode.
-    ///
-    /// # Returns
-    ///
-    /// The decoded data as Tensor.
-    pub fn decode(&mut self, jpeg_data: &[u8]) -> Result<Image<u8, 3>, JpegError> {
-        // get the image size to allocate th data storage
-        let image_size = self.read_header(jpeg_data)?;
+    let jpeg_data = fs::read(file_path)?;
+    let mut decoder = zune_jpeg::JpegDecoder::new(jpeg_data);
+    decoder.decode_headers()?;
 
-        // prepare a storage for the raw pixel data
-        let mut pixels = vec![0u8; image_size.height * image_size.width * 3];
+    let image_info = decoder.info().ok_or_else(|| {
+        IoError::JpegDecodingError(zune_jpeg::errors::DecodeErrors::Format(String::from(
+            "Failed to find image info from its metadata",
+        )))
+    })?;
 
-        // allocate image container
-        let buf = turbojpeg::Image {
-            pixels: pixels.as_mut_slice(),
-            width: image_size.width,
-            pitch: 3 * image_size.width, // we use no padding between rows
-            height: image_size.height,
-            format: turbojpeg::PixelFormat::RGB,
-        };
+    let image_size = ImageSize {
+        width: image_info.width as usize,
+        height: image_info.height as usize,
+    };
 
-        // decompress the JPEG data
-        self.decompressor
-            .lock()
-            .unwrap()
-            .decompress(jpeg_data, buf)?;
+    let img_data = decoder.decode()?;
 
-        Ok(Image::new(image_size, pixels)?)
+    Ok(Image::new(image_size, img_data)?)
+}
+
+fn decode_jpeg_impl<const C: usize>(src: &[u8], dst: &mut Image<u8, C>) -> Result<(), IoError> {
+    let mut decoder = zune_jpeg::JpegDecoder::new(src);
+    decoder.decode_headers()?;
+
+    let image_info = decoder.info().ok_or_else(|| {
+        IoError::JpegDecodingError(zune_jpeg::errors::DecodeErrors::Format(String::from(
+            "Failed to find image info from its metadata",
+        )))
+    })?;
+
+    if [image_info.height as usize, image_info.width as usize] != [dst.height(), dst.width()] {
+        return Err(IoError::DecodeMismatchResolution(
+            image_info.height as usize,
+            image_info.width as usize,
+            dst.height(),
+            dst.width(),
+        ));
     }
+
+    decoder.decode_into(dst.as_slice_mut())?;
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::jpeg::{ImageDecoder, ImageEncoder, JpegError};
+    use super::*;
+    use std::fs::{create_dir_all, read};
 
     #[test]
-    fn image_decoder() -> Result<(), JpegError> {
-        let jpeg_data = std::fs::read("../../tests/data/dog.jpeg").unwrap();
-        // read the header
-        let image_size = ImageDecoder::new()?.read_header(&jpeg_data)?;
-        assert_eq!(image_size.width, 258);
-        assert_eq!(image_size.height, 195);
-        // load the image as file and decode it
-        let image = ImageDecoder::new()?.decode(&jpeg_data)?;
-        assert_eq!(image.size().width, 258);
-        assert_eq!(image.size().height, 195);
-        assert_eq!(image.num_channels(), 3);
+    fn read_jpeg() -> Result<(), IoError> {
+        let image = read_image_jpeg_rgb8("../../tests/data/dog.jpeg")?;
+        assert_eq!(image.cols(), 258);
+        assert_eq!(image.rows(), 195);
         Ok(())
     }
 
     #[test]
-    fn image_encoder() -> Result<(), Box<dyn std::error::Error>> {
-        let jpeg_data_fs = std::fs::read("../../tests/data/dog.jpeg")?;
-        let image = ImageDecoder::new()?.decode(&jpeg_data_fs)?;
-        let jpeg_data = ImageEncoder::new()?.encode(&image)?;
-        let image_back = ImageDecoder::new()?.decode(&jpeg_data)?;
-        assert_eq!(image_back.size().width, 258);
-        assert_eq!(image_back.size().height, 195);
-        assert_eq!(image_back.num_channels(), 3);
+    fn read_write_jpeg() -> Result<(), IoError> {
+        let tmp_dir = tempfile::tempdir()?;
+        create_dir_all(tmp_dir.path())?;
+
+        let file_path = tmp_dir.path().join("dog.jpeg");
+        let image_data = read_image_jpeg_rgb8("../../tests/data/dog.jpeg")?;
+        write_image_jpeg_rgb8(&file_path, &image_data, 100)?;
+
+        let image_data_back = read_image_jpeg_rgb8(&file_path)?;
+        assert!(file_path.exists(), "File does not exist: {:?}", file_path);
+
+        assert_eq!(image_data_back.cols(), 258);
+        assert_eq!(image_data_back.rows(), 195);
+        assert_eq!(image_data_back.num_channels(), 3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn decode_jpeg() -> Result<(), IoError> {
+        let bytes = read("../../tests/data/dog.jpeg")?;
+        let mut image: Image<u8, 3> = Image::from_size_val([258, 195].into(), 0)?;
+        decode_image_jpeg_rgb8(&bytes, &mut image)?;
+
+        assert_eq!(image.cols(), 258);
+        assert_eq!(image.rows(), 195);
+        assert_eq!(image.num_channels(), 3);
+
         Ok(())
     }
 }

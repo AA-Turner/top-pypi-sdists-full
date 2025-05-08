@@ -253,7 +253,7 @@ bool RTDEIOInterface::setAnalogOutputVoltage(std::uint8_t output_id, double volt
   robot_cmd.type_ = RTDE::RobotCommand::Type::SET_STD_ANALOG_OUT;
   robot_cmd.recipe_id_ = 5;
   robot_cmd.std_analog_output_mask_ = static_cast<uint8_t>(1u << output_id);
-  robot_cmd.std_analog_output_type_ = 1;  // set output type to voltage
+  robot_cmd.std_analog_output_type_ = static_cast<uint8_t>(1u << output_id);  // set output type to voltage
   if (output_id == 0)
     robot_cmd.std_analog_output_0_ = voltage_ratio;
   else if (output_id == 1)

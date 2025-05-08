@@ -8,1502 +8,72 @@ import System.Collections.Generic
 import System.Numerics
 import System.Runtime.Intrinsics
 
-System_Numerics_Vector = typing.Any
-System_Numerics_Vector4 = typing.Any
-System_Numerics_Vector2 = typing.Any
 System_Numerics_Matrix3x2 = typing.Any
-System_Numerics_Vector3 = typing.Any
-System_Numerics_TotalOrderIeee754Comparer = typing.Any
-System_Numerics_Quaternion = typing.Any
 System_Numerics_Matrix4x4 = typing.Any
+System_Numerics_Vector = typing.Any
+System_Numerics_Vector2 = typing.Any
+System_Numerics_TotalOrderIeee754Comparer = typing.Any
 System_Numerics_Plane = typing.Any
+System_Numerics_Vector3 = typing.Any
+System_Numerics_Quaternion = typing.Any
+System_Numerics_Vector4 = typing.Any
 
-System_Numerics_IUnaryNegationOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TSelf")
-System_Numerics_IUnaryNegationOperators_TResult = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TResult")
-System_Numerics_IHyperbolicFunctions_TSelf = typing.TypeVar("System_Numerics_IHyperbolicFunctions_TSelf")
-System_Numerics_IComparisonOperators_TSelf = typing.TypeVar("System_Numerics_IComparisonOperators_TSelf")
-System_Numerics_IComparisonOperators_TOther = typing.TypeVar("System_Numerics_IComparisonOperators_TOther")
-System_Numerics_IComparisonOperators_TResult = typing.TypeVar("System_Numerics_IComparisonOperators_TResult")
-System_Numerics_Vector_T = typing.TypeVar("System_Numerics_Vector_T")
-System_Numerics_IAdditiveIdentity_TSelf = typing.TypeVar("System_Numerics_IAdditiveIdentity_TSelf")
-System_Numerics_IAdditiveIdentity_TResult = typing.TypeVar("System_Numerics_IAdditiveIdentity_TResult")
-System_Numerics_IEqualityOperators_TSelf = typing.TypeVar("System_Numerics_IEqualityOperators_TSelf")
-System_Numerics_IEqualityOperators_TOther = typing.TypeVar("System_Numerics_IEqualityOperators_TOther")
-System_Numerics_IEqualityOperators_TResult = typing.TypeVar("System_Numerics_IEqualityOperators_TResult")
-System_Numerics_IBinaryNumber_TSelf = typing.TypeVar("System_Numerics_IBinaryNumber_TSelf")
-System_Numerics_IFloatingPoint_TSelf = typing.TypeVar("System_Numerics_IFloatingPoint_TSelf")
-System_Numerics_TotalOrderIeee754Comparer_T = typing.TypeVar("System_Numerics_TotalOrderIeee754Comparer_T")
-System_Numerics_IAdditionOperators_TSelf = typing.TypeVar("System_Numerics_IAdditionOperators_TSelf")
-System_Numerics_IAdditionOperators_TOther = typing.TypeVar("System_Numerics_IAdditionOperators_TOther")
-System_Numerics_IAdditionOperators_TResult = typing.TypeVar("System_Numerics_IAdditionOperators_TResult")
-System_Numerics_IShiftOperators_TSelf = typing.TypeVar("System_Numerics_IShiftOperators_TSelf")
-System_Numerics_IShiftOperators_TOther = typing.TypeVar("System_Numerics_IShiftOperators_TOther")
-System_Numerics_IShiftOperators_TResult = typing.TypeVar("System_Numerics_IShiftOperators_TResult")
-System_Numerics_IFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IFloatingPointIeee754_TSelf")
-System_Numerics_INumber_TSelf = typing.TypeVar("System_Numerics_INumber_TSelf")
-System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
-System_Numerics_IModulusOperators_TSelf = typing.TypeVar("System_Numerics_IModulusOperators_TSelf")
-System_Numerics_IModulusOperators_TOther = typing.TypeVar("System_Numerics_IModulusOperators_TOther")
-System_Numerics_IModulusOperators_TResult = typing.TypeVar("System_Numerics_IModulusOperators_TResult")
-System_Numerics_IUnaryPlusOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TSelf")
-System_Numerics_IUnaryPlusOperators_TResult = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TResult")
-System_Numerics_IPowerFunctions_TSelf = typing.TypeVar("System_Numerics_IPowerFunctions_TSelf")
-System_Numerics_ISignedNumber_TSelf = typing.TypeVar("System_Numerics_ISignedNumber_TSelf")
-System_Numerics_IBitwiseOperators_TSelf = typing.TypeVar("System_Numerics_IBitwiseOperators_TSelf")
-System_Numerics_IBitwiseOperators_TOther = typing.TypeVar("System_Numerics_IBitwiseOperators_TOther")
-System_Numerics_IBitwiseOperators_TResult = typing.TypeVar("System_Numerics_IBitwiseOperators_TResult")
-System_Numerics_ISubtractionOperators_TSelf = typing.TypeVar("System_Numerics_ISubtractionOperators_TSelf")
-System_Numerics_ISubtractionOperators_TOther = typing.TypeVar("System_Numerics_ISubtractionOperators_TOther")
-System_Numerics_ISubtractionOperators_TResult = typing.TypeVar("System_Numerics_ISubtractionOperators_TResult")
 System_Numerics_IMultiplyOperators_TSelf = typing.TypeVar("System_Numerics_IMultiplyOperators_TSelf")
 System_Numerics_IMultiplyOperators_TOther = typing.TypeVar("System_Numerics_IMultiplyOperators_TOther")
 System_Numerics_IMultiplyOperators_TResult = typing.TypeVar("System_Numerics_IMultiplyOperators_TResult")
-System_Numerics_IIncrementOperators_TSelf = typing.TypeVar("System_Numerics_IIncrementOperators_TSelf")
-System_Numerics_IMultiplicativeIdentity_TSelf = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TSelf")
-System_Numerics_IMultiplicativeIdentity_TResult = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TResult")
-System_Numerics_IBinaryFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IBinaryFloatingPointIeee754_TSelf")
-System_Numerics_IExponentialFunctions_TSelf = typing.TypeVar("System_Numerics_IExponentialFunctions_TSelf")
+System_Numerics_Vector_T = typing.TypeVar("System_Numerics_Vector_T")
+System_Numerics_IUnaryNegationOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TSelf")
+System_Numerics_IUnaryNegationOperators_TResult = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TResult")
 System_Numerics_IRootFunctions_TSelf = typing.TypeVar("System_Numerics_IRootFunctions_TSelf")
-System_Numerics_ILogarithmicFunctions_TSelf = typing.TypeVar("System_Numerics_ILogarithmicFunctions_TSelf")
-System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_TSelf")
+System_Numerics_IBinaryFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IBinaryFloatingPointIeee754_TSelf")
+System_Numerics_ISubtractionOperators_TSelf = typing.TypeVar("System_Numerics_ISubtractionOperators_TSelf")
+System_Numerics_ISubtractionOperators_TOther = typing.TypeVar("System_Numerics_ISubtractionOperators_TOther")
+System_Numerics_ISubtractionOperators_TResult = typing.TypeVar("System_Numerics_ISubtractionOperators_TResult")
+System_Numerics_IFloatingPoint_TSelf = typing.TypeVar("System_Numerics_IFloatingPoint_TSelf")
+System_Numerics_IUnaryPlusOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TSelf")
+System_Numerics_IUnaryPlusOperators_TResult = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TResult")
+System_Numerics_IDecrementOperators_TSelf = typing.TypeVar("System_Numerics_IDecrementOperators_TSelf")
+System_Numerics_TotalOrderIeee754Comparer_T = typing.TypeVar("System_Numerics_TotalOrderIeee754Comparer_T")
+System_Numerics_ITrigonometricFunctions_TSelf = typing.TypeVar("System_Numerics_ITrigonometricFunctions_TSelf")
+System_Numerics_IMinMaxValue_TSelf = typing.TypeVar("System_Numerics_IMinMaxValue_TSelf")
+System_Numerics_IEqualityOperators_TSelf = typing.TypeVar("System_Numerics_IEqualityOperators_TSelf")
+System_Numerics_IEqualityOperators_TOther = typing.TypeVar("System_Numerics_IEqualityOperators_TOther")
+System_Numerics_IEqualityOperators_TResult = typing.TypeVar("System_Numerics_IEqualityOperators_TResult")
 System_Numerics_IDivisionOperators_TSelf = typing.TypeVar("System_Numerics_IDivisionOperators_TSelf")
 System_Numerics_IDivisionOperators_TOther = typing.TypeVar("System_Numerics_IDivisionOperators_TOther")
 System_Numerics_IDivisionOperators_TResult = typing.TypeVar("System_Numerics_IDivisionOperators_TResult")
+System_Numerics_IIncrementOperators_TSelf = typing.TypeVar("System_Numerics_IIncrementOperators_TSelf")
+System_Numerics_IModulusOperators_TSelf = typing.TypeVar("System_Numerics_IModulusOperators_TSelf")
+System_Numerics_IModulusOperators_TOther = typing.TypeVar("System_Numerics_IModulusOperators_TOther")
+System_Numerics_IModulusOperators_TResult = typing.TypeVar("System_Numerics_IModulusOperators_TResult")
+System_Numerics_ISignedNumber_TSelf = typing.TypeVar("System_Numerics_ISignedNumber_TSelf")
+System_Numerics_IAdditionOperators_TSelf = typing.TypeVar("System_Numerics_IAdditionOperators_TSelf")
+System_Numerics_IAdditionOperators_TOther = typing.TypeVar("System_Numerics_IAdditionOperators_TOther")
+System_Numerics_IAdditionOperators_TResult = typing.TypeVar("System_Numerics_IAdditionOperators_TResult")
+System_Numerics_IBitwiseOperators_TSelf = typing.TypeVar("System_Numerics_IBitwiseOperators_TSelf")
+System_Numerics_IBitwiseOperators_TOther = typing.TypeVar("System_Numerics_IBitwiseOperators_TOther")
+System_Numerics_IBitwiseOperators_TResult = typing.TypeVar("System_Numerics_IBitwiseOperators_TResult")
 System_Numerics_IBinaryInteger_TSelf = typing.TypeVar("System_Numerics_IBinaryInteger_TSelf")
-System_Numerics_IMinMaxValue_TSelf = typing.TypeVar("System_Numerics_IMinMaxValue_TSelf")
-System_Numerics_ITrigonometricFunctions_TSelf = typing.TypeVar("System_Numerics_ITrigonometricFunctions_TSelf")
+System_Numerics_ILogarithmicFunctions_TSelf = typing.TypeVar("System_Numerics_ILogarithmicFunctions_TSelf")
+System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
+System_Numerics_IBinaryNumber_TSelf = typing.TypeVar("System_Numerics_IBinaryNumber_TSelf")
+System_Numerics_INumber_TSelf = typing.TypeVar("System_Numerics_INumber_TSelf")
+System_Numerics_IMultiplicativeIdentity_TSelf = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TSelf")
+System_Numerics_IMultiplicativeIdentity_TResult = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TResult")
+System_Numerics_IShiftOperators_TSelf = typing.TypeVar("System_Numerics_IShiftOperators_TSelf")
+System_Numerics_IShiftOperators_TOther = typing.TypeVar("System_Numerics_IShiftOperators_TOther")
+System_Numerics_IShiftOperators_TResult = typing.TypeVar("System_Numerics_IShiftOperators_TResult")
+System_Numerics_IPowerFunctions_TSelf = typing.TypeVar("System_Numerics_IPowerFunctions_TSelf")
+System_Numerics_IHyperbolicFunctions_TSelf = typing.TypeVar("System_Numerics_IHyperbolicFunctions_TSelf")
+System_Numerics_IFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IFloatingPointIeee754_TSelf")
+System_Numerics_IComparisonOperators_TSelf = typing.TypeVar("System_Numerics_IComparisonOperators_TSelf")
+System_Numerics_IComparisonOperators_TOther = typing.TypeVar("System_Numerics_IComparisonOperators_TOther")
+System_Numerics_IComparisonOperators_TResult = typing.TypeVar("System_Numerics_IComparisonOperators_TResult")
+System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_TSelf")
 System_Numerics_IFloatingPointConstants_TSelf = typing.TypeVar("System_Numerics_IFloatingPointConstants_TSelf")
-System_Numerics_IDecrementOperators_TSelf = typing.TypeVar("System_Numerics_IDecrementOperators_TSelf")
-
-
-class IUnaryNegationOperators(typing.Generic[System_Numerics_IUnaryNegationOperators_TSelf, System_Numerics_IUnaryNegationOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the unary negation of a value."""
-
-
-class IHyperbolicFunctions(typing.Generic[System_Numerics_IHyperbolicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IHyperbolicFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for hyperbolic functions."""
-
-
-class IComparisonOperators(typing.Generic[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], System.Numerics.IEqualityOperators[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for comparing two values to determine relative order."""
-
-
-class Matrix3x2(System.IEquatable[System_Numerics_Matrix3x2]):
-    """Represents a 3x2 matrix."""
-
-    @property
-    def m_11(self) -> float:
-        """The first element of the first row."""
-        ...
-
-    @m_11.setter
-    def m_11(self, value: float) -> None:
-        ...
-
-    @property
-    def m_12(self) -> float:
-        """The second element of the first row."""
-        ...
-
-    @m_12.setter
-    def m_12(self, value: float) -> None:
-        ...
-
-    @property
-    def m_21(self) -> float:
-        """The first element of the second row."""
-        ...
-
-    @m_21.setter
-    def m_21(self, value: float) -> None:
-        ...
-
-    @property
-    def m_22(self) -> float:
-        """The second element of the second row."""
-        ...
-
-    @m_22.setter
-    def m_22(self, value: float) -> None:
-        ...
-
-    @property
-    def m_31(self) -> float:
-        """The first element of the third row."""
-        ...
-
-    @m_31.setter
-    def m_31(self, value: float) -> None:
-        ...
-
-    @property
-    def m_32(self) -> float:
-        """The second element of the third row."""
-        ...
-
-    @m_32.setter
-    def m_32(self, value: float) -> None:
-        ...
-
-    IDENTITY: System.Numerics.Matrix3x2
-    """Gets the multiplicative identity matrix."""
-
-    @property
-    def is_identity(self) -> bool:
-        """Gets a value that indicates whether the current matrix is the identity matrix."""
-        ...
-
-    @property
-    def translation(self) -> System.Numerics.Vector2:
-        """Gets or sets the translation component of this matrix."""
-        ...
-
-    @translation.setter
-    def translation(self, value: System.Numerics.Vector2) -> None:
-        ...
-
-    def __getitem__(self, row: int, column: int) -> float:
-        """
-        Gets or sets the element at the specified indices.
-        
-        :param row: The index of the row containing the element to get or set.
-        :param column: The index of the column containing the element to get or set.
-        :returns: The element at [][].
-        """
-        ...
-
-    def __init__(self, m_11: float, m_12: float, m_21: float, m_22: float, m_31: float, m_32: float) -> None:
-        """
-        Creates a 3x2 matrix from the specified components.
-        
-        :param m_11: The value to assign to the first element in the first row.
-        :param m_12: The value to assign to the second element in the first row.
-        :param m_21: The value to assign to the first element in the second row.
-        :param m_22: The value to assign to the second element in the second row.
-        :param m_31: The value to assign to the first element in the third row.
-        :param m_32: The value to assign to the second element in the third row.
-        """
-        ...
-
-    def __setitem__(self, row: int, column: int, value: float) -> None:
-        """
-        Gets or sets the element at the specified indices.
-        
-        :param row: The index of the row containing the element to get or set.
-        :param column: The index of the column containing the element to get or set.
-        :returns: The element at [][].
-        """
-        ...
-
-    @staticmethod
-    def add(value_1: System.Numerics.Matrix3x2, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
-        """
-        Adds each element in one matrix with its corresponding element in a second matrix.
-        
-        :param value_1: The first matrix.
-        :param value_2: The second matrix.
-        :returns: The matrix that contains the summed values of  and .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_rotation(radians: float) -> System.Numerics.Matrix3x2:
-        """
-        Creates a rotation matrix using the given rotation in radians.
-        
-        :param radians: The amount of rotation, in radians.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_rotation(radians: float, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
-        """
-        Creates a rotation matrix using the specified rotation in radians and a center point.
-        
-        :param radians: The amount of rotation, in radians.
-        :param center_point: The center point.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(scales: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
-        """
-        Creates a scaling matrix from the specified vector scale.
-        
-        :param scales: The scale to use.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(x_scale: float, y_scale: float) -> System.Numerics.Matrix3x2:
-        """
-        Creates a scaling matrix from the specified X and Y components.
-        
-        :param x_scale: The value to scale by on the X axis.
-        :param y_scale: The value to scale by on the Y axis.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(x_scale: float, y_scale: float, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
-        """
-        Creates a scaling matrix that is offset by a given center point.
-        
-        :param x_scale: The value to scale by on the X axis.
-        :param y_scale: The value to scale by on the Y axis.
-        :param center_point: The center point.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(scales: System.Numerics.Vector2, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
-        """
-        Creates a scaling matrix from the specified vector scale with an offset from the specified center point.
-        
-        :param scales: The scale to use.
-        :param center_point: The center offset.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(scale: float) -> System.Numerics.Matrix3x2:
-        """
-        Creates a scaling matrix that scales uniformly with the given scale.
-        
-        :param scale: The uniform scale to use.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(scale: float, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
-        """
-        Creates a scaling matrix that scales uniformly with the specified scale with an offset from the specified center.
-        
-        :param scale: The uniform scale to use.
-        :param center_point: The center offset.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_skew(radians_x: float, radians_y: float) -> System.Numerics.Matrix3x2:
-        """
-        Creates a skew matrix from the specified angles in radians.
-        
-        :param radians_x: The X angle, in radians.
-        :param radians_y: The Y angle, in radians.
-        :returns: The skew matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_skew(radians_x: float, radians_y: float, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
-        """
-        Creates a skew matrix from the specified angles in radians and a center point.
-        
-        :param radians_x: The X angle, in radians.
-        :param radians_y: The Y angle, in radians.
-        :param center_point: The center point.
-        :returns: The skew matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_translation(position: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
-        """
-        Creates a translation matrix from the specified 2-dimensional vector.
-        
-        :param position: The translation position.
-        :returns: The translation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_translation(x_position: float, y_position: float) -> System.Numerics.Matrix3x2:
-        """
-        Creates a translation matrix from the specified X and Y components.
-        
-        :param x_position: The X position.
-        :param y_position: The Y position.
-        :returns: The translation matrix.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Returns a value that indicates whether this instance and a specified object are equal.
-        
-        :param obj: The object to compare with the current instance.
-        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.Matrix3x2) -> bool:
-        """
-        Returns a value that indicates whether this instance and another 3x2 matrix are equal.
-        
-        :param other: The other matrix.
-        :returns: true if the two matrices are equal; otherwise, false.
-        """
-        ...
-
-    def get_determinant(self) -> float:
-        """
-        Calculates the determinant for this matrix.
-        
-        :returns: The determinant.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for this instance.
-        
-        :returns: The hash code.
-        """
-        ...
-
-    @staticmethod
-    def invert(matrix: System.Numerics.Matrix3x2, result: typing.Optional[System.Numerics.Matrix3x2]) -> typing.Tuple[bool, System.Numerics.Matrix3x2]:
-        """
-        Tries to invert the specified matrix. The return value indicates whether the operation succeeded.
-        
-        :param matrix: The matrix to invert.
-        :param result: When this method returns, contains the inverted matrix if the operation succeeded.
-        :returns: true if  was converted successfully; otherwise,  false.
-        """
-        ...
-
-    @staticmethod
-    def lerp(matrix_1: System.Numerics.Matrix3x2, matrix_2: System.Numerics.Matrix3x2, amount: float) -> System.Numerics.Matrix3x2:
-        """
-        Performs a linear interpolation from one matrix to a second matrix based on a value that specifies the weighting of the second matrix.
-        
-        :param matrix_1: The first matrix.
-        :param matrix_2: The second matrix.
-        :param amount: The relative weighting of .
-        :returns: The interpolated matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(value_1: System.Numerics.Matrix3x2, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
-        """
-        Multiplies two matrices together to compute the product.
-        
-        :param value_1: The first matrix.
-        :param value_2: The second matrix.
-        :returns: The product matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(value_1: System.Numerics.Matrix3x2, value_2: float) -> System.Numerics.Matrix3x2:
-        """
-        Multiplies a matrix by a float to compute the product.
-        
-        :param value_1: The matrix to scale.
-        :param value_2: The scaling value to use.
-        :returns: The scaled matrix.
-        """
-        ...
-
-    @staticmethod
-    def negate(value: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
-        """
-        Negates the specified matrix by multiplying all its values by -1.
-        
-        :param value: The matrix to negate.
-        :returns: The negated matrix.
-        """
-        ...
-
-    @staticmethod
-    def subtract(value_1: System.Numerics.Matrix3x2, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
-        """
-        Subtracts each element in a second matrix from its corresponding element in a first matrix.
-        
-        :param value_1: The first matrix.
-        :param value_2: The second matrix.
-        :returns: The matrix containing the values that result from subtracting each element in  from its corresponding element in .
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents this matrix.
-        
-        :returns: The string representation of this matrix.
-        """
-        ...
-
-
-class Plane(System.IEquatable[System_Numerics_Plane]):
-    """Represents a plane in three-dimensional space."""
-
-    @property
-    def normal(self) -> System.Numerics.Vector3:
-        """The normal vector of the plane."""
-        ...
-
-    @normal.setter
-    def normal(self, value: System.Numerics.Vector3) -> None:
-        ...
-
-    @property
-    def d(self) -> float:
-        """The distance of the plane along its normal from the origin."""
-        ...
-
-    @d.setter
-    def d(self, value: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, x: float, y: float, z: float, d: float) -> None:
-        """
-        Creates a Plane object from the X, Y, and Z components of its normal, and its distance from the origin on that normal.
-        
-        :param x: The X component of the normal.
-        :param y: The Y component of the normal.
-        :param z: The Z component of the normal.
-        :param d: The distance of the plane along its normal from the origin.
-        """
-        ...
-
-    @overload
-    def __init__(self, normal: System.Numerics.Vector3, d: float) -> None:
-        """
-        Creates a Plane object from a specified normal and the distance along the normal from the origin.
-        
-        :param normal: The plane's normal vector.
-        :param d: The plane's distance from the origin along its normal vector.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: System.Numerics.Vector4) -> None:
-        """
-        Creates a Plane object from a specified four-dimensional vector.
-        
-        :param value: A vector whose first three elements describe the normal vector, and whose Vector4.W defines the distance along that normal from the origin.
-        """
-        ...
-
-    @staticmethod
-    def create_from_vertices(point_1: System.Numerics.Vector3, point_2: System.Numerics.Vector3, point_3: System.Numerics.Vector3) -> System.Numerics.Plane:
-        """
-        Creates a Plane object that contains three specified points.
-        
-        :param point_1: The first point defining the plane.
-        :param point_2: The second point defining the plane.
-        :param point_3: The third point defining the plane.
-        :returns: The plane containing the three points.
-        """
-        ...
-
-    @staticmethod
-    def dot(plane: System.Numerics.Plane, value: System.Numerics.Vector4) -> float:
-        """
-        Calculates the dot product of a plane and a 4-dimensional vector.
-        
-        :param plane: The plane.
-        :param value: The four-dimensional vector.
-        :returns: The dot product.
-        """
-        ...
-
-    @staticmethod
-    def dot_coordinate(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
-        """
-        Returns the dot product of a specified three-dimensional vector and the normal vector of this plane plus the distance (D) value of the plane.
-        
-        :param plane: The plane.
-        :param value: The 3-dimensional vector.
-        :returns: The dot product.
-        """
-        ...
-
-    @staticmethod
-    def dot_normal(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
-        """
-        Returns the dot product of a specified three-dimensional vector and the Normal vector of this plane.
-        
-        :param plane: The plane.
-        :param value: The three-dimensional vector.
-        :returns: The dot product.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Returns a value that indicates whether this instance and a specified object are equal.
-        
-        :param obj: The object to compare with the current instance.
-        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.Plane) -> bool:
-        """
-        Returns a value that indicates whether this instance and another plane object are equal.
-        
-        :param other: The other plane.
-        :returns: true if the two planes are equal; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for this instance.
-        
-        :returns: The hash code.
-        """
-        ...
-
-    @staticmethod
-    def normalize(value: System.Numerics.Plane) -> System.Numerics.Plane:
-        """
-        Creates a new Plane object whose normal vector is the source plane's normal vector normalized.
-        
-        :param value: The source plane.
-        :returns: The normalized plane.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns the string representation of this plane object.
-        
-        :returns: A string that represents this Plane object.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def transform(plane: System.Numerics.Plane, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Plane:
-        """
-        Transforms a normalized plane by a 4x4 matrix.
-        
-        :param plane: The normalized plane to transform.
-        :param matrix: The transformation matrix to apply to .
-        :returns: The transformed plane.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def transform(plane: System.Numerics.Plane, rotation: System.Numerics.Quaternion) -> System.Numerics.Plane:
-        """
-        Transforms a normalized plane by a Quaternion rotation.
-        
-        :param plane: The normalized plane to transform.
-        :param rotation: The Quaternion rotation to apply to the plane.
-        :returns: A new plane that results from applying the Quaternion rotation.
-        """
-        ...
-
-
-class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
-    """Represents a 4x4 matrix."""
-
-    @property
-    def m_11(self) -> float:
-        """The first element of the first row."""
-        ...
-
-    @m_11.setter
-    def m_11(self, value: float) -> None:
-        ...
-
-    @property
-    def m_12(self) -> float:
-        """The second element of the first row."""
-        ...
-
-    @m_12.setter
-    def m_12(self, value: float) -> None:
-        ...
-
-    @property
-    def m_13(self) -> float:
-        """The third element of the first row."""
-        ...
-
-    @m_13.setter
-    def m_13(self, value: float) -> None:
-        ...
-
-    @property
-    def m_14(self) -> float:
-        """The fourth element of the first row."""
-        ...
-
-    @m_14.setter
-    def m_14(self, value: float) -> None:
-        ...
-
-    @property
-    def m_21(self) -> float:
-        """The first element of the second row."""
-        ...
-
-    @m_21.setter
-    def m_21(self, value: float) -> None:
-        ...
-
-    @property
-    def m_22(self) -> float:
-        """The second element of the second row."""
-        ...
-
-    @m_22.setter
-    def m_22(self, value: float) -> None:
-        ...
-
-    @property
-    def m_23(self) -> float:
-        """The third element of the second row."""
-        ...
-
-    @m_23.setter
-    def m_23(self, value: float) -> None:
-        ...
-
-    @property
-    def m_24(self) -> float:
-        """The fourth element of the second row."""
-        ...
-
-    @m_24.setter
-    def m_24(self, value: float) -> None:
-        ...
-
-    @property
-    def m_31(self) -> float:
-        """The first element of the third row."""
-        ...
-
-    @m_31.setter
-    def m_31(self, value: float) -> None:
-        ...
-
-    @property
-    def m_32(self) -> float:
-        """The second element of the third row."""
-        ...
-
-    @m_32.setter
-    def m_32(self, value: float) -> None:
-        ...
-
-    @property
-    def m_33(self) -> float:
-        """The third element of the third row."""
-        ...
-
-    @m_33.setter
-    def m_33(self, value: float) -> None:
-        ...
-
-    @property
-    def m_34(self) -> float:
-        """The fourth element of the third row."""
-        ...
-
-    @m_34.setter
-    def m_34(self, value: float) -> None:
-        ...
-
-    @property
-    def m_41(self) -> float:
-        """The first element of the fourth row."""
-        ...
-
-    @m_41.setter
-    def m_41(self, value: float) -> None:
-        ...
-
-    @property
-    def m_42(self) -> float:
-        """The second element of the fourth row."""
-        ...
-
-    @m_42.setter
-    def m_42(self, value: float) -> None:
-        ...
-
-    @property
-    def m_43(self) -> float:
-        """The third element of the fourth row."""
-        ...
-
-    @m_43.setter
-    def m_43(self, value: float) -> None:
-        ...
-
-    @property
-    def m_44(self) -> float:
-        """The fourth element of the fourth row."""
-        ...
-
-    @m_44.setter
-    def m_44(self, value: float) -> None:
-        ...
-
-    IDENTITY: System.Numerics.Matrix4x4
-    """Gets the multiplicative identity matrix."""
-
-    @property
-    def is_identity(self) -> bool:
-        """Indicates whether the current matrix is the identity matrix."""
-        ...
-
-    @property
-    def translation(self) -> System.Numerics.Vector3:
-        """Gets or sets the translation component of this matrix."""
-        ...
-
-    @translation.setter
-    def translation(self, value: System.Numerics.Vector3) -> None:
-        ...
-
-    def __getitem__(self, row: int, column: int) -> float:
-        """
-        Gets or sets the element at the specified indices.
-        
-        :param row: The index of the row containing the element to get or set.
-        :param column: The index of the column containing the element to get or set.
-        :returns: The element at [][].
-        """
-        ...
-
-    @overload
-    def __init__(self, m_11: float, m_12: float, m_13: float, m_14: float, m_21: float, m_22: float, m_23: float, m_24: float, m_31: float, m_32: float, m_33: float, m_34: float, m_41: float, m_42: float, m_43: float, m_44: float) -> None:
-        """
-        Creates a 4x4 matrix from the specified components.
-        
-        :param m_11: The value to assign to the first element in the first row.
-        :param m_12: The value to assign to the second element in the first row.
-        :param m_13: The value to assign to the third element in the first row.
-        :param m_14: The value to assign to the fourth element in the first row.
-        :param m_21: The value to assign to the first element in the second row.
-        :param m_22: The value to assign to the second element in the second row.
-        :param m_23: The value to assign to the third element in the second row.
-        :param m_24: The value to assign to the third element in the second row.
-        :param m_31: The value to assign to the first element in the third row.
-        :param m_32: The value to assign to the second element in the third row.
-        :param m_33: The value to assign to the third element in the third row.
-        :param m_34: The value to assign to the fourth element in the third row.
-        :param m_41: The value to assign to the first element in the fourth row.
-        :param m_42: The value to assign to the second element in the fourth row.
-        :param m_43: The value to assign to the third element in the fourth row.
-        :param m_44: The value to assign to the fourth element in the fourth row.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: System.Numerics.Matrix3x2) -> None:
-        """
-        Creates a Matrix4x4 object from a specified Matrix3x2 object.
-        
-        :param value: A 3x2 matrix.
-        """
-        ...
-
-    def __setitem__(self, row: int, column: int, value: float) -> None:
-        """
-        Gets or sets the element at the specified indices.
-        
-        :param row: The index of the row containing the element to get or set.
-        :param column: The index of the column containing the element to get or set.
-        :returns: The element at [][].
-        """
-        ...
-
-    @staticmethod
-    def add(value_1: System.Numerics.Matrix4x4, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
-        """
-        Adds each element in one matrix with its corresponding element in a second matrix.
-        
-        :param value_1: The first matrix.
-        :param value_2: The second matrix.
-        :returns: The matrix that contains the summed values of  and .
-        """
-        ...
-
-    @staticmethod
-    def create_billboard(object_position: System.Numerics.Vector3, camera_position: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3, camera_forward_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed spherical billboard matrix that rotates around a specified object position.
-        
-        :param object_position: The position of the object that the billboard will rotate around.
-        :param camera_position: The position of the camera.
-        :param camera_up_vector: The up vector of the camera.
-        :param camera_forward_vector: The forward vector of the camera.
-        :returns: The created billboard.
-        """
-        ...
-
-    @staticmethod
-    def create_billboard_left_handed(object_position: System.Numerics.Vector3, camera_position: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3, camera_forward_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed spherical billboard matrix that rotates around a specified object position.
-        
-        :param object_position: The position of the object that the billboard will rotate around.
-        :param camera_position: The position of the camera.
-        :param camera_up_vector: The up vector of the camera.
-        :param camera_forward_vector: The forward vector of the camera.
-        :returns: The created billboard.
-        """
-        ...
-
-    @staticmethod
-    def create_constrained_billboard(object_position: System.Numerics.Vector3, camera_position: System.Numerics.Vector3, rotate_axis: System.Numerics.Vector3, camera_forward_vector: System.Numerics.Vector3, object_forward_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed cylindrical billboard matrix that rotates around a specified axis.
-        
-        :param object_position: The position of the object that the billboard will rotate around.
-        :param camera_position: The position of the camera.
-        :param rotate_axis: The axis to rotate the billboard around.
-        :param camera_forward_vector: The forward vector of the camera.
-        :param object_forward_vector: The forward vector of the object.
-        :returns: The billboard matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_constrained_billboard_left_handed(object_position: System.Numerics.Vector3, camera_position: System.Numerics.Vector3, rotate_axis: System.Numerics.Vector3, camera_forward_vector: System.Numerics.Vector3, object_forward_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed cylindrical billboard matrix that rotates around a specified axis.
-        
-        :param object_position: The position of the object that the billboard will rotate around.
-        :param camera_position: The position of the camera.
-        :param rotate_axis: The axis to rotate the billboard around.
-        :param camera_forward_vector: The forward vector of the camera.
-        :param object_forward_vector: The forward vector of the object.
-        :returns: The billboard matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_from_axis_angle(axis: System.Numerics.Vector3, angle: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a matrix that rotates around an arbitrary vector.
-        
-        :param axis: The axis to rotate around.
-        :param angle: The angle to rotate around , in radians.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_from_quaternion(quaternion: System.Numerics.Quaternion) -> System.Numerics.Matrix4x4:
-        """
-        Creates a rotation matrix from the specified Quaternion rotation value.
-        
-        :param quaternion: The source Quaternion.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_from_yaw_pitch_roll(yaw: float, pitch: float, roll: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a rotation matrix from the specified yaw, pitch, and roll.
-        
-        :param yaw: The angle of rotation, in radians, around the Y axis.
-        :param pitch: The angle of rotation, in radians, around the X axis.
-        :param roll: The angle of rotation, in radians, around the Z axis.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_look_at(camera_position: System.Numerics.Vector3, camera_target: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed view matrix.
-        
-        :param camera_position: The position of the camera.
-        :param camera_target: The target towards which the camera is pointing.
-        :param camera_up_vector: The direction that is "up" from the camera's point of view.
-        :returns: The right-handed view matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_look_at_left_handed(camera_position: System.Numerics.Vector3, camera_target: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed view matrix.
-        
-        :param camera_position: The position of the camera.
-        :param camera_target: The target towards which the camera is pointing.
-        :param camera_up_vector: The direction that is "up" from the camera's point of view.
-        :returns: The left-handed view matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_look_to(camera_position: System.Numerics.Vector3, camera_direction: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed view matrix.
-        
-        :param camera_position: The position of the camera.
-        :param camera_direction: The direction in which the camera is pointing.
-        :param camera_up_vector: The direction that is "up" from the camera's point of view.
-        :returns: The right-handed view matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_look_to_left_handed(camera_position: System.Numerics.Vector3, camera_direction: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed view matrix.
-        
-        :param camera_position: The position of the camera.
-        :param camera_direction: The direction in which the camera is pointing.
-        :param camera_up_vector: The direction that is "up" from the camera's point of view.
-        :returns: The left-handed view matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_orthographic(width: float, height: float, z_near_plane: float, z_far_plane: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed orthographic perspective matrix from the given view volume dimensions.
-        
-        :param width: The width of the view volume.
-        :param height: The height of the view volume.
-        :param z_near_plane: The minimum Z-value of the view volume.
-        :param z_far_plane: The maximum Z-value of the view volume.
-        :returns: The right-handed orthographic projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_orthographic_left_handed(width: float, height: float, z_near_plane: float, z_far_plane: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed orthographic perspective matrix from the given view volume dimensions.
-        
-        :param width: The width of the view volume.
-        :param height: The height of the view volume.
-        :param z_near_plane: The minimum Z-value of the view volume.
-        :param z_far_plane: The maximum Z-value of the view volume.
-        :returns: The left-handed orthographic projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_orthographic_off_center(left: float, right: float, bottom: float, top: float, z_near_plane: float, z_far_plane: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed customized orthographic projection matrix.
-        
-        :param left: The minimum X-value of the view volume.
-        :param right: The maximum X-value of the view volume.
-        :param bottom: The minimum Y-value of the view volume.
-        :param top: The maximum Y-value of the view volume.
-        :param z_near_plane: The minimum Z-value of the view volume.
-        :param z_far_plane: The maximum Z-value of the view volume.
-        :returns: The right-handed orthographic projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_orthographic_off_center_left_handed(left: float, right: float, bottom: float, top: float, z_near_plane: float, z_far_plane: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed customized orthographic projection matrix.
-        
-        :param left: The minimum X-value of the view volume.
-        :param right: The maximum X-value of the view volume.
-        :param bottom: The minimum Y-value of the view volume.
-        :param top: The maximum Y-value of the view volume.
-        :param z_near_plane: The minimum Z-value of the view volume.
-        :param z_far_plane: The maximum Z-value of the view volume.
-        :returns: The left-handed orthographic projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_perspective(width: float, height: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed perspective projection matrix from the given view volume dimensions.
-        
-        :param width: The width of the view volume at the near view plane.
-        :param height: The height of the view volume at the near view plane.
-        :param near_plane_distance: The distance to the near view plane.
-        :param far_plane_distance: The distance to the far view plane.
-        :returns: The right-handed perspective projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_perspective_field_of_view(field_of_view: float, aspect_ratio: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed perspective projection matrix based on a field of view, aspect ratio, and near and far view plane distances.
-        
-        :param field_of_view: The field of view in the y direction, in radians.
-        :param aspect_ratio: The aspect ratio, defined as view space width divided by height.
-        :param near_plane_distance: The distance to the near view plane.
-        :param far_plane_distance: The distance to the far view plane.
-        :returns: The right-handed perspective projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_perspective_field_of_view_left_handed(field_of_view: float, aspect_ratio: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed perspective projection matrix based on a field of view, aspect ratio, and near and far view plane distances.
-        
-        :param field_of_view: The field of view in the y direction, in radians.
-        :param aspect_ratio: The aspect ratio, defined as view space width divided by height.
-        :param near_plane_distance: The distance to the near view plane.
-        :param far_plane_distance: The distance to the far view plane.
-        :returns: The left-handed perspective projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_perspective_left_handed(width: float, height: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed perspective projection matrix from the given view volume dimensions.
-        
-        :param width: The width of the view volume at the near view plane.
-        :param height: The height of the view volume at the near view plane.
-        :param near_plane_distance: The distance to the near view plane.
-        :param far_plane_distance: The distance to the far view plane.
-        :returns: The left-handed perspective projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_perspective_off_center(left: float, right: float, bottom: float, top: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed customized perspective projection matrix.
-        
-        :param left: The minimum x-value of the view volume at the near view plane.
-        :param right: The maximum x-value of the view volume at the near view plane.
-        :param bottom: The minimum y-value of the view volume at the near view plane.
-        :param top: The maximum y-value of the view volume at the near view plane.
-        :param near_plane_distance: The distance to the near view plane.
-        :param far_plane_distance: The distance to the far view plane.
-        :returns: The right-handed perspective projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_perspective_off_center_left_handed(left: float, right: float, bottom: float, top: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed customized perspective projection matrix.
-        
-        :param left: The minimum x-value of the view volume at the near view plane.
-        :param right: The maximum x-value of the view volume at the near view plane.
-        :param bottom: The minimum y-value of the view volume at the near view plane.
-        :param top: The maximum y-value of the view volume at the near view plane.
-        :param near_plane_distance: The distance to the near view plane.
-        :param far_plane_distance: The distance to the far view plane.
-        :returns: The left-handed perspective projection matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_reflection(value: System.Numerics.Plane) -> System.Numerics.Matrix4x4:
-        """
-        Creates a matrix that reflects the coordinate system about a specified plane.
-        
-        :param value: The plane about which to create a reflection.
-        :returns: A new matrix expressing the reflection.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_rotation_x(radians: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a matrix for rotating points around the X axis.
-        
-        :param radians: The amount, in radians, by which to rotate around the X axis.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_rotation_x(radians: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a matrix for rotating points around the X axis from a center point.
-        
-        :param radians: The amount, in radians, by which to rotate around the X axis.
-        :param center_point: The center point.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_rotation_y(radians: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a matrix for rotating points around the Y axis.
-        
-        :param radians: The amount, in radians, by which to rotate around the Y-axis.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_rotation_y(radians: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        The amount, in radians, by which to rotate around the Y axis from a center point.
-        
-        :param radians: The amount, in radians, by which to rotate around the Y-axis.
-        :param center_point: The center point.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_rotation_z(radians: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a matrix for rotating points around the Z axis.
-        
-        :param radians: The amount, in radians, by which to rotate around the Z-axis.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_rotation_z(radians: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a matrix for rotating points around the Z axis from a center point.
-        
-        :param radians: The amount, in radians, by which to rotate around the Z-axis.
-        :param center_point: The center point.
-        :returns: The rotation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(x_scale: float, y_scale: float, z_scale: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a scaling matrix from the specified X, Y, and Z components.
-        
-        :param x_scale: The value to scale by on the X axis.
-        :param y_scale: The value to scale by on the Y axis.
-        :param z_scale: The value to scale by on the Z axis.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(x_scale: float, y_scale: float, z_scale: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a scaling matrix that is offset by a given center point.
-        
-        :param x_scale: The value to scale by on the X axis.
-        :param y_scale: The value to scale by on the Y axis.
-        :param z_scale: The value to scale by on the Z axis.
-        :param center_point: The center point.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(scales: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a scaling matrix from the specified vector scale.
-        
-        :param scales: The scale to use.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(scales: System.Numerics.Vector3, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a scaling matrix with a center point.
-        
-        :param scales: The vector that contains the amount to scale on each axis.
-        :param center_point: The center point.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(scale: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a uniform scaling matrix that scale equally on each axis.
-        
-        :param scale: The uniform scaling factor.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scale(scale: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a uniform scaling matrix that scales equally on each axis with a center point.
-        
-        :param scale: The uniform scaling factor.
-        :param center_point: The center point.
-        :returns: The scaling matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_shadow(light_direction: System.Numerics.Vector3, plane: System.Numerics.Plane) -> System.Numerics.Matrix4x4:
-        """
-        Creates a matrix that flattens geometry into a specified plane as if casting a shadow from a specified light source.
-        
-        :param light_direction: The direction from which the light that will cast the shadow is coming.
-        :param plane: The plane onto which the new matrix should flatten geometry so as to cast a shadow.
-        :returns: A new matrix that can be used to flatten geometry onto the specified plane from the specified direction.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_translation(position: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a translation matrix from the specified 3-dimensional vector.
-        
-        :param position: The amount to translate in each axis.
-        :returns: The translation matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_translation(x_position: float, y_position: float, z_position: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a translation matrix from the specified X, Y, and Z components.
-        
-        :param x_position: The amount to translate on the X axis.
-        :param y_position: The amount to translate on the Y axis.
-        :param z_position: The amount to translate on the Z axis.
-        :returns: The translation matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_viewport(x: float, y: float, width: float, height: float, min_depth: float, max_depth: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a right-handed viewport matrix from the specified parameters.
-        
-        :param x: X coordinate of the viewport upper left corner.
-        :param y: Y coordinate of the viewport upper left corner.
-        :param width: Viewport width.
-        :param height: Viewport height.
-        :param min_depth: Viewport minimum depth.
-        :param max_depth: Viewport maximum depth.
-        :returns: The right-handed viewport matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_viewport_left_handed(x: float, y: float, width: float, height: float, min_depth: float, max_depth: float) -> System.Numerics.Matrix4x4:
-        """
-        Creates a left-handed viewport matrix from the specified parameters.
-        
-        :param x: X coordinate of the viewport upper left corner.
-        :param y: Y coordinate of the viewport upper left corner.
-        :param width: Viewport width.
-        :param height: Viewport height.
-        :param min_depth: Viewport minimum depth.
-        :param max_depth: Viewport maximum depth.
-        :returns: The left-handed viewport matrix.
-        """
-        ...
-
-    @staticmethod
-    def create_world(position: System.Numerics.Vector3, forward: System.Numerics.Vector3, up: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
-        """
-        Creates a world matrix with the specified parameters.
-        
-        :param position: The position of the object.
-        :param forward: The forward direction of the object.
-        :param up: The upward direction of the object. Its value is usually [0, 1, 0].
-        :returns: The world matrix.
-        """
-        ...
-
-    @staticmethod
-    def decompose(matrix: System.Numerics.Matrix4x4, scale: typing.Optional[System.Numerics.Vector3], rotation: typing.Optional[System.Numerics.Quaternion], translation: typing.Optional[System.Numerics.Vector3]) -> typing.Tuple[bool, System.Numerics.Vector3, System.Numerics.Quaternion, System.Numerics.Vector3]:
-        """
-        Attempts to extract the scale, translation, and rotation components from the given scale, rotation, or translation matrix. The return value indicates whether the operation succeeded.
-        
-        :param matrix: The source matrix.
-        :param scale: When this method returns, contains the scaling component of the transformation matrix if the operation succeeded.
-        :param rotation: When this method returns, contains the rotation component of the transformation matrix if the operation succeeded.
-        :param translation: When the method returns, contains the translation component of the transformation matrix if the operation succeeded.
-        :returns: true if  was decomposed successfully; otherwise,  false.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Returns a value that indicates whether this instance and a specified object are equal.
-        
-        :param obj: The object to compare with the current instance.
-        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.Matrix4x4) -> bool:
-        """
-        Returns a value that indicates whether this instance and another 4x4 matrix are equal.
-        
-        :param other: The other matrix.
-        :returns: true if the two matrices are equal; otherwise, false.
-        """
-        ...
-
-    def get_determinant(self) -> float:
-        """
-        Calculates the determinant of the current 4x4 matrix.
-        
-        :returns: The determinant.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for this instance.
-        
-        :returns: The hash code.
-        """
-        ...
-
-    @staticmethod
-    def invert(matrix: System.Numerics.Matrix4x4, result: typing.Optional[System.Numerics.Matrix4x4]) -> typing.Tuple[bool, System.Numerics.Matrix4x4]:
-        """
-        Tries to invert the specified matrix. The return value indicates whether the operation succeeded.
-        
-        :param matrix: The matrix to invert.
-        :param result: When this method returns, contains the inverted matrix if the operation succeeded.
-        :returns: true if  was converted successfully; otherwise,  false.
-        """
-        ...
-
-    @staticmethod
-    def lerp(matrix_1: System.Numerics.Matrix4x4, matrix_2: System.Numerics.Matrix4x4, amount: float) -> System.Numerics.Matrix4x4:
-        """
-        Performs a linear interpolation from one matrix to a second matrix based on a value that specifies the weighting of the second matrix.
-        
-        :param matrix_1: The first matrix.
-        :param matrix_2: The second matrix.
-        :param amount: The relative weighting of .
-        :returns: The interpolated matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(value_1: System.Numerics.Matrix4x4, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
-        """
-        Multiplies two matrices together to compute the product.
-        
-        :param value_1: The first matrix.
-        :param value_2: The second matrix.
-        :returns: The product matrix.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(value_1: System.Numerics.Matrix4x4, value_2: float) -> System.Numerics.Matrix4x4:
-        """
-        Multiplies a matrix by a float to compute the product.
-        
-        :param value_1: The matrix to scale.
-        :param value_2: The scaling value to use.
-        :returns: The scaled matrix.
-        """
-        ...
-
-    @staticmethod
-    def negate(value: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
-        """
-        Negates the specified matrix by multiplying all its values by -1.
-        
-        :param value: The matrix to negate.
-        :returns: The negated matrix.
-        """
-        ...
-
-    @staticmethod
-    def subtract(value_1: System.Numerics.Matrix4x4, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
-        """
-        Subtracts each element in a second matrix from its corresponding element in a first matrix.
-        
-        :param value_1: The first matrix.
-        :param value_2: The second matrix.
-        :returns: The matrix containing the values that result from subtracting each element in  from its corresponding element in .
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents this matrix.
-        
-        :returns: The string representation of this matrix.
-        """
-        ...
-
-    @staticmethod
-    def transform(value: System.Numerics.Matrix4x4, rotation: System.Numerics.Quaternion) -> System.Numerics.Matrix4x4:
-        """
-        Transforms the specified matrix by applying the specified Quaternion rotation.
-        
-        :param value: The matrix to transform.
-        :param rotation: The rotation t apply.
-        :returns: The transformed matrix.
-        """
-        ...
-
-    @staticmethod
-    def transpose(matrix: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
-        """
-        Transposes the rows and columns of a matrix.
-        
-        :param matrix: The matrix to transpose.
-        :returns: The transposed matrix.
-        """
-        ...
+System_Numerics_IExponentialFunctions_TSelf = typing.TypeVar("System_Numerics_IExponentialFunctions_TSelf")
+System_Numerics_IAdditiveIdentity_TSelf = typing.TypeVar("System_Numerics_IAdditiveIdentity_TSelf")
+System_Numerics_IAdditiveIdentity_TResult = typing.TypeVar("System_Numerics_IAdditiveIdentity_TResult")
 
 
 class Quaternion(System.IEquatable[System_Numerics_Quaternion]):
@@ -2645,6 +1215,383 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
     @staticmethod
     def xor(left: System.Numerics.Vector2, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
         ...
+
+
+class Matrix3x2(System.IEquatable[System_Numerics_Matrix3x2]):
+    """Represents a 3x2 matrix."""
+
+    @property
+    def m_11(self) -> float:
+        """The first element of the first row."""
+        ...
+
+    @m_11.setter
+    def m_11(self, value: float) -> None:
+        ...
+
+    @property
+    def m_12(self) -> float:
+        """The second element of the first row."""
+        ...
+
+    @m_12.setter
+    def m_12(self, value: float) -> None:
+        ...
+
+    @property
+    def m_21(self) -> float:
+        """The first element of the second row."""
+        ...
+
+    @m_21.setter
+    def m_21(self, value: float) -> None:
+        ...
+
+    @property
+    def m_22(self) -> float:
+        """The second element of the second row."""
+        ...
+
+    @m_22.setter
+    def m_22(self, value: float) -> None:
+        ...
+
+    @property
+    def m_31(self) -> float:
+        """The first element of the third row."""
+        ...
+
+    @m_31.setter
+    def m_31(self, value: float) -> None:
+        ...
+
+    @property
+    def m_32(self) -> float:
+        """The second element of the third row."""
+        ...
+
+    @m_32.setter
+    def m_32(self, value: float) -> None:
+        ...
+
+    IDENTITY: System.Numerics.Matrix3x2
+    """Gets the multiplicative identity matrix."""
+
+    @property
+    def is_identity(self) -> bool:
+        """Gets a value that indicates whether the current matrix is the identity matrix."""
+        ...
+
+    @property
+    def translation(self) -> System.Numerics.Vector2:
+        """Gets or sets the translation component of this matrix."""
+        ...
+
+    @translation.setter
+    def translation(self, value: System.Numerics.Vector2) -> None:
+        ...
+
+    def __getitem__(self, row: int, column: int) -> float:
+        """
+        Gets or sets the element at the specified indices.
+        
+        :param row: The index of the row containing the element to get or set.
+        :param column: The index of the column containing the element to get or set.
+        :returns: The element at [][].
+        """
+        ...
+
+    def __init__(self, m_11: float, m_12: float, m_21: float, m_22: float, m_31: float, m_32: float) -> None:
+        """
+        Creates a 3x2 matrix from the specified components.
+        
+        :param m_11: The value to assign to the first element in the first row.
+        :param m_12: The value to assign to the second element in the first row.
+        :param m_21: The value to assign to the first element in the second row.
+        :param m_22: The value to assign to the second element in the second row.
+        :param m_31: The value to assign to the first element in the third row.
+        :param m_32: The value to assign to the second element in the third row.
+        """
+        ...
+
+    def __setitem__(self, row: int, column: int, value: float) -> None:
+        """
+        Gets or sets the element at the specified indices.
+        
+        :param row: The index of the row containing the element to get or set.
+        :param column: The index of the column containing the element to get or set.
+        :returns: The element at [][].
+        """
+        ...
+
+    @staticmethod
+    def add(value_1: System.Numerics.Matrix3x2, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Adds each element in one matrix with its corresponding element in a second matrix.
+        
+        :param value_1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix that contains the summed values of  and .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_rotation(radians: float) -> System.Numerics.Matrix3x2:
+        """
+        Creates a rotation matrix using the given rotation in radians.
+        
+        :param radians: The amount of rotation, in radians.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_rotation(radians: float, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
+        """
+        Creates a rotation matrix using the specified rotation in radians and a center point.
+        
+        :param radians: The amount of rotation, in radians.
+        :param center_point: The center point.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(scales: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
+        """
+        Creates a scaling matrix from the specified vector scale.
+        
+        :param scales: The scale to use.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(x_scale: float, y_scale: float) -> System.Numerics.Matrix3x2:
+        """
+        Creates a scaling matrix from the specified X and Y components.
+        
+        :param x_scale: The value to scale by on the X axis.
+        :param y_scale: The value to scale by on the Y axis.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(x_scale: float, y_scale: float, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
+        """
+        Creates a scaling matrix that is offset by a given center point.
+        
+        :param x_scale: The value to scale by on the X axis.
+        :param y_scale: The value to scale by on the Y axis.
+        :param center_point: The center point.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(scales: System.Numerics.Vector2, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
+        """
+        Creates a scaling matrix from the specified vector scale with an offset from the specified center point.
+        
+        :param scales: The scale to use.
+        :param center_point: The center offset.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(scale: float) -> System.Numerics.Matrix3x2:
+        """
+        Creates a scaling matrix that scales uniformly with the given scale.
+        
+        :param scale: The uniform scale to use.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(scale: float, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
+        """
+        Creates a scaling matrix that scales uniformly with the specified scale with an offset from the specified center.
+        
+        :param scale: The uniform scale to use.
+        :param center_point: The center offset.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_skew(radians_x: float, radians_y: float) -> System.Numerics.Matrix3x2:
+        """
+        Creates a skew matrix from the specified angles in radians.
+        
+        :param radians_x: The X angle, in radians.
+        :param radians_y: The Y angle, in radians.
+        :returns: The skew matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_skew(radians_x: float, radians_y: float, center_point: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
+        """
+        Creates a skew matrix from the specified angles in radians and a center point.
+        
+        :param radians_x: The X angle, in radians.
+        :param radians_y: The Y angle, in radians.
+        :param center_point: The center point.
+        :returns: The skew matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_translation(position: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
+        """
+        Creates a translation matrix from the specified 2-dimensional vector.
+        
+        :param position: The translation position.
+        :returns: The translation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_translation(x_position: float, y_position: float) -> System.Numerics.Matrix3x2:
+        """
+        Creates a translation matrix from the specified X and Y components.
+        
+        :param x_position: The X position.
+        :param y_position: The Y position.
+        :returns: The translation matrix.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Returns a value that indicates whether this instance and a specified object are equal.
+        
+        :param obj: The object to compare with the current instance.
+        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Matrix3x2) -> bool:
+        """
+        Returns a value that indicates whether this instance and another 3x2 matrix are equal.
+        
+        :param other: The other matrix.
+        :returns: true if the two matrices are equal; otherwise, false.
+        """
+        ...
+
+    def get_determinant(self) -> float:
+        """
+        Calculates the determinant for this matrix.
+        
+        :returns: The determinant.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for this instance.
+        
+        :returns: The hash code.
+        """
+        ...
+
+    @staticmethod
+    def invert(matrix: System.Numerics.Matrix3x2, result: typing.Optional[System.Numerics.Matrix3x2]) -> typing.Tuple[bool, System.Numerics.Matrix3x2]:
+        """
+        Tries to invert the specified matrix. The return value indicates whether the operation succeeded.
+        
+        :param matrix: The matrix to invert.
+        :param result: When this method returns, contains the inverted matrix if the operation succeeded.
+        :returns: true if  was converted successfully; otherwise,  false.
+        """
+        ...
+
+    @staticmethod
+    def lerp(matrix_1: System.Numerics.Matrix3x2, matrix_2: System.Numerics.Matrix3x2, amount: float) -> System.Numerics.Matrix3x2:
+        """
+        Performs a linear interpolation from one matrix to a second matrix based on a value that specifies the weighting of the second matrix.
+        
+        :param matrix_1: The first matrix.
+        :param matrix_2: The second matrix.
+        :param amount: The relative weighting of .
+        :returns: The interpolated matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(value_1: System.Numerics.Matrix3x2, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Multiplies two matrices together to compute the product.
+        
+        :param value_1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The product matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(value_1: System.Numerics.Matrix3x2, value_2: float) -> System.Numerics.Matrix3x2:
+        """
+        Multiplies a matrix by a float to compute the product.
+        
+        :param value_1: The matrix to scale.
+        :param value_2: The scaling value to use.
+        :returns: The scaled matrix.
+        """
+        ...
+
+    @staticmethod
+    def negate(value: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Negates the specified matrix by multiplying all its values by -1.
+        
+        :param value: The matrix to negate.
+        :returns: The negated matrix.
+        """
+        ...
+
+    @staticmethod
+    def subtract(value_1: System.Numerics.Matrix3x2, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Subtracts each element in a second matrix from its corresponding element in a first matrix.
+        
+        :param value_1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix containing the values that result from subtracting each element in  from its corresponding element in .
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents this matrix.
+        
+        :returns: The string representation of this matrix.
+        """
+        ...
+
+
+class IMultiplyOperators(typing.Generic[System_Numerics_IMultiplyOperators_TSelf, System_Numerics_IMultiplyOperators_TOther, System_Numerics_IMultiplyOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the product of two values."""
 
 
 class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
@@ -4390,8 +3337,1056 @@ class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
         ...
 
 
+class Plane(System.IEquatable[System_Numerics_Plane]):
+    """Represents a plane in three-dimensional space."""
+
+    @property
+    def normal(self) -> System.Numerics.Vector3:
+        """The normal vector of the plane."""
+        ...
+
+    @normal.setter
+    def normal(self, value: System.Numerics.Vector3) -> None:
+        ...
+
+    @property
+    def d(self) -> float:
+        """The distance of the plane along its normal from the origin."""
+        ...
+
+    @d.setter
+    def d(self, value: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float, z: float, d: float) -> None:
+        """
+        Creates a Plane object from the X, Y, and Z components of its normal, and its distance from the origin on that normal.
+        
+        :param x: The X component of the normal.
+        :param y: The Y component of the normal.
+        :param z: The Z component of the normal.
+        :param d: The distance of the plane along its normal from the origin.
+        """
+        ...
+
+    @overload
+    def __init__(self, normal: System.Numerics.Vector3, d: float) -> None:
+        """
+        Creates a Plane object from a specified normal and the distance along the normal from the origin.
+        
+        :param normal: The plane's normal vector.
+        :param d: The plane's distance from the origin along its normal vector.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: System.Numerics.Vector4) -> None:
+        """
+        Creates a Plane object from a specified four-dimensional vector.
+        
+        :param value: A vector whose first three elements describe the normal vector, and whose Vector4.W defines the distance along that normal from the origin.
+        """
+        ...
+
+    @staticmethod
+    def create_from_vertices(point_1: System.Numerics.Vector3, point_2: System.Numerics.Vector3, point_3: System.Numerics.Vector3) -> System.Numerics.Plane:
+        """
+        Creates a Plane object that contains three specified points.
+        
+        :param point_1: The first point defining the plane.
+        :param point_2: The second point defining the plane.
+        :param point_3: The third point defining the plane.
+        :returns: The plane containing the three points.
+        """
+        ...
+
+    @staticmethod
+    def dot(plane: System.Numerics.Plane, value: System.Numerics.Vector4) -> float:
+        """
+        Calculates the dot product of a plane and a 4-dimensional vector.
+        
+        :param plane: The plane.
+        :param value: The four-dimensional vector.
+        :returns: The dot product.
+        """
+        ...
+
+    @staticmethod
+    def dot_coordinate(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
+        """
+        Returns the dot product of a specified three-dimensional vector and the normal vector of this plane plus the distance (D) value of the plane.
+        
+        :param plane: The plane.
+        :param value: The 3-dimensional vector.
+        :returns: The dot product.
+        """
+        ...
+
+    @staticmethod
+    def dot_normal(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
+        """
+        Returns the dot product of a specified three-dimensional vector and the Normal vector of this plane.
+        
+        :param plane: The plane.
+        :param value: The three-dimensional vector.
+        :returns: The dot product.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Returns a value that indicates whether this instance and a specified object are equal.
+        
+        :param obj: The object to compare with the current instance.
+        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Plane) -> bool:
+        """
+        Returns a value that indicates whether this instance and another plane object are equal.
+        
+        :param other: The other plane.
+        :returns: true if the two planes are equal; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for this instance.
+        
+        :returns: The hash code.
+        """
+        ...
+
+    @staticmethod
+    def normalize(value: System.Numerics.Plane) -> System.Numerics.Plane:
+        """
+        Creates a new Plane object whose normal vector is the source plane's normal vector normalized.
+        
+        :param value: The source plane.
+        :returns: The normalized plane.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns the string representation of this plane object.
+        
+        :returns: A string that represents this Plane object.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def transform(plane: System.Numerics.Plane, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Plane:
+        """
+        Transforms a normalized plane by a 4x4 matrix.
+        
+        :param plane: The normalized plane to transform.
+        :param matrix: The transformation matrix to apply to .
+        :returns: The transformed plane.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def transform(plane: System.Numerics.Plane, rotation: System.Numerics.Quaternion) -> System.Numerics.Plane:
+        """
+        Transforms a normalized plane by a Quaternion rotation.
+        
+        :param plane: The normalized plane to transform.
+        :param rotation: The Quaternion rotation to apply to the plane.
+        :returns: A new plane that results from applying the Quaternion rotation.
+        """
+        ...
+
+
+class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
+    """Represents a 4x4 matrix."""
+
+    @property
+    def m_11(self) -> float:
+        """The first element of the first row."""
+        ...
+
+    @m_11.setter
+    def m_11(self, value: float) -> None:
+        ...
+
+    @property
+    def m_12(self) -> float:
+        """The second element of the first row."""
+        ...
+
+    @m_12.setter
+    def m_12(self, value: float) -> None:
+        ...
+
+    @property
+    def m_13(self) -> float:
+        """The third element of the first row."""
+        ...
+
+    @m_13.setter
+    def m_13(self, value: float) -> None:
+        ...
+
+    @property
+    def m_14(self) -> float:
+        """The fourth element of the first row."""
+        ...
+
+    @m_14.setter
+    def m_14(self, value: float) -> None:
+        ...
+
+    @property
+    def m_21(self) -> float:
+        """The first element of the second row."""
+        ...
+
+    @m_21.setter
+    def m_21(self, value: float) -> None:
+        ...
+
+    @property
+    def m_22(self) -> float:
+        """The second element of the second row."""
+        ...
+
+    @m_22.setter
+    def m_22(self, value: float) -> None:
+        ...
+
+    @property
+    def m_23(self) -> float:
+        """The third element of the second row."""
+        ...
+
+    @m_23.setter
+    def m_23(self, value: float) -> None:
+        ...
+
+    @property
+    def m_24(self) -> float:
+        """The fourth element of the second row."""
+        ...
+
+    @m_24.setter
+    def m_24(self, value: float) -> None:
+        ...
+
+    @property
+    def m_31(self) -> float:
+        """The first element of the third row."""
+        ...
+
+    @m_31.setter
+    def m_31(self, value: float) -> None:
+        ...
+
+    @property
+    def m_32(self) -> float:
+        """The second element of the third row."""
+        ...
+
+    @m_32.setter
+    def m_32(self, value: float) -> None:
+        ...
+
+    @property
+    def m_33(self) -> float:
+        """The third element of the third row."""
+        ...
+
+    @m_33.setter
+    def m_33(self, value: float) -> None:
+        ...
+
+    @property
+    def m_34(self) -> float:
+        """The fourth element of the third row."""
+        ...
+
+    @m_34.setter
+    def m_34(self, value: float) -> None:
+        ...
+
+    @property
+    def m_41(self) -> float:
+        """The first element of the fourth row."""
+        ...
+
+    @m_41.setter
+    def m_41(self, value: float) -> None:
+        ...
+
+    @property
+    def m_42(self) -> float:
+        """The second element of the fourth row."""
+        ...
+
+    @m_42.setter
+    def m_42(self, value: float) -> None:
+        ...
+
+    @property
+    def m_43(self) -> float:
+        """The third element of the fourth row."""
+        ...
+
+    @m_43.setter
+    def m_43(self, value: float) -> None:
+        ...
+
+    @property
+    def m_44(self) -> float:
+        """The fourth element of the fourth row."""
+        ...
+
+    @m_44.setter
+    def m_44(self, value: float) -> None:
+        ...
+
+    IDENTITY: System.Numerics.Matrix4x4
+    """Gets the multiplicative identity matrix."""
+
+    @property
+    def is_identity(self) -> bool:
+        """Indicates whether the current matrix is the identity matrix."""
+        ...
+
+    @property
+    def translation(self) -> System.Numerics.Vector3:
+        """Gets or sets the translation component of this matrix."""
+        ...
+
+    @translation.setter
+    def translation(self, value: System.Numerics.Vector3) -> None:
+        ...
+
+    def __getitem__(self, row: int, column: int) -> float:
+        """
+        Gets or sets the element at the specified indices.
+        
+        :param row: The index of the row containing the element to get or set.
+        :param column: The index of the column containing the element to get or set.
+        :returns: The element at [][].
+        """
+        ...
+
+    @overload
+    def __init__(self, m_11: float, m_12: float, m_13: float, m_14: float, m_21: float, m_22: float, m_23: float, m_24: float, m_31: float, m_32: float, m_33: float, m_34: float, m_41: float, m_42: float, m_43: float, m_44: float) -> None:
+        """
+        Creates a 4x4 matrix from the specified components.
+        
+        :param m_11: The value to assign to the first element in the first row.
+        :param m_12: The value to assign to the second element in the first row.
+        :param m_13: The value to assign to the third element in the first row.
+        :param m_14: The value to assign to the fourth element in the first row.
+        :param m_21: The value to assign to the first element in the second row.
+        :param m_22: The value to assign to the second element in the second row.
+        :param m_23: The value to assign to the third element in the second row.
+        :param m_24: The value to assign to the third element in the second row.
+        :param m_31: The value to assign to the first element in the third row.
+        :param m_32: The value to assign to the second element in the third row.
+        :param m_33: The value to assign to the third element in the third row.
+        :param m_34: The value to assign to the fourth element in the third row.
+        :param m_41: The value to assign to the first element in the fourth row.
+        :param m_42: The value to assign to the second element in the fourth row.
+        :param m_43: The value to assign to the third element in the fourth row.
+        :param m_44: The value to assign to the fourth element in the fourth row.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: System.Numerics.Matrix3x2) -> None:
+        """
+        Creates a Matrix4x4 object from a specified Matrix3x2 object.
+        
+        :param value: A 3x2 matrix.
+        """
+        ...
+
+    def __setitem__(self, row: int, column: int, value: float) -> None:
+        """
+        Gets or sets the element at the specified indices.
+        
+        :param row: The index of the row containing the element to get or set.
+        :param column: The index of the column containing the element to get or set.
+        :returns: The element at [][].
+        """
+        ...
+
+    @staticmethod
+    def add(value_1: System.Numerics.Matrix4x4, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Adds each element in one matrix with its corresponding element in a second matrix.
+        
+        :param value_1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix that contains the summed values of  and .
+        """
+        ...
+
+    @staticmethod
+    def create_billboard(object_position: System.Numerics.Vector3, camera_position: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3, camera_forward_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed spherical billboard matrix that rotates around a specified object position.
+        
+        :param object_position: The position of the object that the billboard will rotate around.
+        :param camera_position: The position of the camera.
+        :param camera_up_vector: The up vector of the camera.
+        :param camera_forward_vector: The forward vector of the camera.
+        :returns: The created billboard.
+        """
+        ...
+
+    @staticmethod
+    def create_billboard_left_handed(object_position: System.Numerics.Vector3, camera_position: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3, camera_forward_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed spherical billboard matrix that rotates around a specified object position.
+        
+        :param object_position: The position of the object that the billboard will rotate around.
+        :param camera_position: The position of the camera.
+        :param camera_up_vector: The up vector of the camera.
+        :param camera_forward_vector: The forward vector of the camera.
+        :returns: The created billboard.
+        """
+        ...
+
+    @staticmethod
+    def create_constrained_billboard(object_position: System.Numerics.Vector3, camera_position: System.Numerics.Vector3, rotate_axis: System.Numerics.Vector3, camera_forward_vector: System.Numerics.Vector3, object_forward_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed cylindrical billboard matrix that rotates around a specified axis.
+        
+        :param object_position: The position of the object that the billboard will rotate around.
+        :param camera_position: The position of the camera.
+        :param rotate_axis: The axis to rotate the billboard around.
+        :param camera_forward_vector: The forward vector of the camera.
+        :param object_forward_vector: The forward vector of the object.
+        :returns: The billboard matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_constrained_billboard_left_handed(object_position: System.Numerics.Vector3, camera_position: System.Numerics.Vector3, rotate_axis: System.Numerics.Vector3, camera_forward_vector: System.Numerics.Vector3, object_forward_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed cylindrical billboard matrix that rotates around a specified axis.
+        
+        :param object_position: The position of the object that the billboard will rotate around.
+        :param camera_position: The position of the camera.
+        :param rotate_axis: The axis to rotate the billboard around.
+        :param camera_forward_vector: The forward vector of the camera.
+        :param object_forward_vector: The forward vector of the object.
+        :returns: The billboard matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_from_axis_angle(axis: System.Numerics.Vector3, angle: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a matrix that rotates around an arbitrary vector.
+        
+        :param axis: The axis to rotate around.
+        :param angle: The angle to rotate around , in radians.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_from_quaternion(quaternion: System.Numerics.Quaternion) -> System.Numerics.Matrix4x4:
+        """
+        Creates a rotation matrix from the specified Quaternion rotation value.
+        
+        :param quaternion: The source Quaternion.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_from_yaw_pitch_roll(yaw: float, pitch: float, roll: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a rotation matrix from the specified yaw, pitch, and roll.
+        
+        :param yaw: The angle of rotation, in radians, around the Y axis.
+        :param pitch: The angle of rotation, in radians, around the X axis.
+        :param roll: The angle of rotation, in radians, around the Z axis.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_look_at(camera_position: System.Numerics.Vector3, camera_target: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed view matrix.
+        
+        :param camera_position: The position of the camera.
+        :param camera_target: The target towards which the camera is pointing.
+        :param camera_up_vector: The direction that is "up" from the camera's point of view.
+        :returns: The right-handed view matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_look_at_left_handed(camera_position: System.Numerics.Vector3, camera_target: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed view matrix.
+        
+        :param camera_position: The position of the camera.
+        :param camera_target: The target towards which the camera is pointing.
+        :param camera_up_vector: The direction that is "up" from the camera's point of view.
+        :returns: The left-handed view matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_look_to(camera_position: System.Numerics.Vector3, camera_direction: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed view matrix.
+        
+        :param camera_position: The position of the camera.
+        :param camera_direction: The direction in which the camera is pointing.
+        :param camera_up_vector: The direction that is "up" from the camera's point of view.
+        :returns: The right-handed view matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_look_to_left_handed(camera_position: System.Numerics.Vector3, camera_direction: System.Numerics.Vector3, camera_up_vector: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed view matrix.
+        
+        :param camera_position: The position of the camera.
+        :param camera_direction: The direction in which the camera is pointing.
+        :param camera_up_vector: The direction that is "up" from the camera's point of view.
+        :returns: The left-handed view matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_orthographic(width: float, height: float, z_near_plane: float, z_far_plane: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed orthographic perspective matrix from the given view volume dimensions.
+        
+        :param width: The width of the view volume.
+        :param height: The height of the view volume.
+        :param z_near_plane: The minimum Z-value of the view volume.
+        :param z_far_plane: The maximum Z-value of the view volume.
+        :returns: The right-handed orthographic projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_orthographic_left_handed(width: float, height: float, z_near_plane: float, z_far_plane: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed orthographic perspective matrix from the given view volume dimensions.
+        
+        :param width: The width of the view volume.
+        :param height: The height of the view volume.
+        :param z_near_plane: The minimum Z-value of the view volume.
+        :param z_far_plane: The maximum Z-value of the view volume.
+        :returns: The left-handed orthographic projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_orthographic_off_center(left: float, right: float, bottom: float, top: float, z_near_plane: float, z_far_plane: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed customized orthographic projection matrix.
+        
+        :param left: The minimum X-value of the view volume.
+        :param right: The maximum X-value of the view volume.
+        :param bottom: The minimum Y-value of the view volume.
+        :param top: The maximum Y-value of the view volume.
+        :param z_near_plane: The minimum Z-value of the view volume.
+        :param z_far_plane: The maximum Z-value of the view volume.
+        :returns: The right-handed orthographic projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_orthographic_off_center_left_handed(left: float, right: float, bottom: float, top: float, z_near_plane: float, z_far_plane: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed customized orthographic projection matrix.
+        
+        :param left: The minimum X-value of the view volume.
+        :param right: The maximum X-value of the view volume.
+        :param bottom: The minimum Y-value of the view volume.
+        :param top: The maximum Y-value of the view volume.
+        :param z_near_plane: The minimum Z-value of the view volume.
+        :param z_far_plane: The maximum Z-value of the view volume.
+        :returns: The left-handed orthographic projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_perspective(width: float, height: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed perspective projection matrix from the given view volume dimensions.
+        
+        :param width: The width of the view volume at the near view plane.
+        :param height: The height of the view volume at the near view plane.
+        :param near_plane_distance: The distance to the near view plane.
+        :param far_plane_distance: The distance to the far view plane.
+        :returns: The right-handed perspective projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_perspective_field_of_view(field_of_view: float, aspect_ratio: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed perspective projection matrix based on a field of view, aspect ratio, and near and far view plane distances.
+        
+        :param field_of_view: The field of view in the y direction, in radians.
+        :param aspect_ratio: The aspect ratio, defined as view space width divided by height.
+        :param near_plane_distance: The distance to the near view plane.
+        :param far_plane_distance: The distance to the far view plane.
+        :returns: The right-handed perspective projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_perspective_field_of_view_left_handed(field_of_view: float, aspect_ratio: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed perspective projection matrix based on a field of view, aspect ratio, and near and far view plane distances.
+        
+        :param field_of_view: The field of view in the y direction, in radians.
+        :param aspect_ratio: The aspect ratio, defined as view space width divided by height.
+        :param near_plane_distance: The distance to the near view plane.
+        :param far_plane_distance: The distance to the far view plane.
+        :returns: The left-handed perspective projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_perspective_left_handed(width: float, height: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed perspective projection matrix from the given view volume dimensions.
+        
+        :param width: The width of the view volume at the near view plane.
+        :param height: The height of the view volume at the near view plane.
+        :param near_plane_distance: The distance to the near view plane.
+        :param far_plane_distance: The distance to the far view plane.
+        :returns: The left-handed perspective projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_perspective_off_center(left: float, right: float, bottom: float, top: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed customized perspective projection matrix.
+        
+        :param left: The minimum x-value of the view volume at the near view plane.
+        :param right: The maximum x-value of the view volume at the near view plane.
+        :param bottom: The minimum y-value of the view volume at the near view plane.
+        :param top: The maximum y-value of the view volume at the near view plane.
+        :param near_plane_distance: The distance to the near view plane.
+        :param far_plane_distance: The distance to the far view plane.
+        :returns: The right-handed perspective projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_perspective_off_center_left_handed(left: float, right: float, bottom: float, top: float, near_plane_distance: float, far_plane_distance: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed customized perspective projection matrix.
+        
+        :param left: The minimum x-value of the view volume at the near view plane.
+        :param right: The maximum x-value of the view volume at the near view plane.
+        :param bottom: The minimum y-value of the view volume at the near view plane.
+        :param top: The maximum y-value of the view volume at the near view plane.
+        :param near_plane_distance: The distance to the near view plane.
+        :param far_plane_distance: The distance to the far view plane.
+        :returns: The left-handed perspective projection matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_reflection(value: System.Numerics.Plane) -> System.Numerics.Matrix4x4:
+        """
+        Creates a matrix that reflects the coordinate system about a specified plane.
+        
+        :param value: The plane about which to create a reflection.
+        :returns: A new matrix expressing the reflection.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_rotation_x(radians: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a matrix for rotating points around the X axis.
+        
+        :param radians: The amount, in radians, by which to rotate around the X axis.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_rotation_x(radians: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a matrix for rotating points around the X axis from a center point.
+        
+        :param radians: The amount, in radians, by which to rotate around the X axis.
+        :param center_point: The center point.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_rotation_y(radians: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a matrix for rotating points around the Y axis.
+        
+        :param radians: The amount, in radians, by which to rotate around the Y-axis.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_rotation_y(radians: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        The amount, in radians, by which to rotate around the Y axis from a center point.
+        
+        :param radians: The amount, in radians, by which to rotate around the Y-axis.
+        :param center_point: The center point.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_rotation_z(radians: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a matrix for rotating points around the Z axis.
+        
+        :param radians: The amount, in radians, by which to rotate around the Z-axis.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_rotation_z(radians: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a matrix for rotating points around the Z axis from a center point.
+        
+        :param radians: The amount, in radians, by which to rotate around the Z-axis.
+        :param center_point: The center point.
+        :returns: The rotation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(x_scale: float, y_scale: float, z_scale: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a scaling matrix from the specified X, Y, and Z components.
+        
+        :param x_scale: The value to scale by on the X axis.
+        :param y_scale: The value to scale by on the Y axis.
+        :param z_scale: The value to scale by on the Z axis.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(x_scale: float, y_scale: float, z_scale: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a scaling matrix that is offset by a given center point.
+        
+        :param x_scale: The value to scale by on the X axis.
+        :param y_scale: The value to scale by on the Y axis.
+        :param z_scale: The value to scale by on the Z axis.
+        :param center_point: The center point.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(scales: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a scaling matrix from the specified vector scale.
+        
+        :param scales: The scale to use.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(scales: System.Numerics.Vector3, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a scaling matrix with a center point.
+        
+        :param scales: The vector that contains the amount to scale on each axis.
+        :param center_point: The center point.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(scale: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a uniform scaling matrix that scale equally on each axis.
+        
+        :param scale: The uniform scaling factor.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scale(scale: float, center_point: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a uniform scaling matrix that scales equally on each axis with a center point.
+        
+        :param scale: The uniform scaling factor.
+        :param center_point: The center point.
+        :returns: The scaling matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_shadow(light_direction: System.Numerics.Vector3, plane: System.Numerics.Plane) -> System.Numerics.Matrix4x4:
+        """
+        Creates a matrix that flattens geometry into a specified plane as if casting a shadow from a specified light source.
+        
+        :param light_direction: The direction from which the light that will cast the shadow is coming.
+        :param plane: The plane onto which the new matrix should flatten geometry so as to cast a shadow.
+        :returns: A new matrix that can be used to flatten geometry onto the specified plane from the specified direction.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_translation(position: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a translation matrix from the specified 3-dimensional vector.
+        
+        :param position: The amount to translate in each axis.
+        :returns: The translation matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_translation(x_position: float, y_position: float, z_position: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a translation matrix from the specified X, Y, and Z components.
+        
+        :param x_position: The amount to translate on the X axis.
+        :param y_position: The amount to translate on the Y axis.
+        :param z_position: The amount to translate on the Z axis.
+        :returns: The translation matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_viewport(x: float, y: float, width: float, height: float, min_depth: float, max_depth: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a right-handed viewport matrix from the specified parameters.
+        
+        :param x: X coordinate of the viewport upper left corner.
+        :param y: Y coordinate of the viewport upper left corner.
+        :param width: Viewport width.
+        :param height: Viewport height.
+        :param min_depth: Viewport minimum depth.
+        :param max_depth: Viewport maximum depth.
+        :returns: The right-handed viewport matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_viewport_left_handed(x: float, y: float, width: float, height: float, min_depth: float, max_depth: float) -> System.Numerics.Matrix4x4:
+        """
+        Creates a left-handed viewport matrix from the specified parameters.
+        
+        :param x: X coordinate of the viewport upper left corner.
+        :param y: Y coordinate of the viewport upper left corner.
+        :param width: Viewport width.
+        :param height: Viewport height.
+        :param min_depth: Viewport minimum depth.
+        :param max_depth: Viewport maximum depth.
+        :returns: The left-handed viewport matrix.
+        """
+        ...
+
+    @staticmethod
+    def create_world(position: System.Numerics.Vector3, forward: System.Numerics.Vector3, up: System.Numerics.Vector3) -> System.Numerics.Matrix4x4:
+        """
+        Creates a world matrix with the specified parameters.
+        
+        :param position: The position of the object.
+        :param forward: The forward direction of the object.
+        :param up: The upward direction of the object. Its value is usually [0, 1, 0].
+        :returns: The world matrix.
+        """
+        ...
+
+    @staticmethod
+    def decompose(matrix: System.Numerics.Matrix4x4, scale: typing.Optional[System.Numerics.Vector3], rotation: typing.Optional[System.Numerics.Quaternion], translation: typing.Optional[System.Numerics.Vector3]) -> typing.Tuple[bool, System.Numerics.Vector3, System.Numerics.Quaternion, System.Numerics.Vector3]:
+        """
+        Attempts to extract the scale, translation, and rotation components from the given scale, rotation, or translation matrix. The return value indicates whether the operation succeeded.
+        
+        :param matrix: The source matrix.
+        :param scale: When this method returns, contains the scaling component of the transformation matrix if the operation succeeded.
+        :param rotation: When this method returns, contains the rotation component of the transformation matrix if the operation succeeded.
+        :param translation: When the method returns, contains the translation component of the transformation matrix if the operation succeeded.
+        :returns: true if  was decomposed successfully; otherwise,  false.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Returns a value that indicates whether this instance and a specified object are equal.
+        
+        :param obj: The object to compare with the current instance.
+        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Matrix4x4) -> bool:
+        """
+        Returns a value that indicates whether this instance and another 4x4 matrix are equal.
+        
+        :param other: The other matrix.
+        :returns: true if the two matrices are equal; otherwise, false.
+        """
+        ...
+
+    def get_determinant(self) -> float:
+        """
+        Calculates the determinant of the current 4x4 matrix.
+        
+        :returns: The determinant.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for this instance.
+        
+        :returns: The hash code.
+        """
+        ...
+
+    @staticmethod
+    def invert(matrix: System.Numerics.Matrix4x4, result: typing.Optional[System.Numerics.Matrix4x4]) -> typing.Tuple[bool, System.Numerics.Matrix4x4]:
+        """
+        Tries to invert the specified matrix. The return value indicates whether the operation succeeded.
+        
+        :param matrix: The matrix to invert.
+        :param result: When this method returns, contains the inverted matrix if the operation succeeded.
+        :returns: true if  was converted successfully; otherwise,  false.
+        """
+        ...
+
+    @staticmethod
+    def lerp(matrix_1: System.Numerics.Matrix4x4, matrix_2: System.Numerics.Matrix4x4, amount: float) -> System.Numerics.Matrix4x4:
+        """
+        Performs a linear interpolation from one matrix to a second matrix based on a value that specifies the weighting of the second matrix.
+        
+        :param matrix_1: The first matrix.
+        :param matrix_2: The second matrix.
+        :param amount: The relative weighting of .
+        :returns: The interpolated matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(value_1: System.Numerics.Matrix4x4, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Multiplies two matrices together to compute the product.
+        
+        :param value_1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The product matrix.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(value_1: System.Numerics.Matrix4x4, value_2: float) -> System.Numerics.Matrix4x4:
+        """
+        Multiplies a matrix by a float to compute the product.
+        
+        :param value_1: The matrix to scale.
+        :param value_2: The scaling value to use.
+        :returns: The scaled matrix.
+        """
+        ...
+
+    @staticmethod
+    def negate(value: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Negates the specified matrix by multiplying all its values by -1.
+        
+        :param value: The matrix to negate.
+        :returns: The negated matrix.
+        """
+        ...
+
+    @staticmethod
+    def subtract(value_1: System.Numerics.Matrix4x4, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Subtracts each element in a second matrix from its corresponding element in a first matrix.
+        
+        :param value_1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix containing the values that result from subtracting each element in  from its corresponding element in .
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents this matrix.
+        
+        :returns: The string representation of this matrix.
+        """
+        ...
+
+    @staticmethod
+    def transform(value: System.Numerics.Matrix4x4, rotation: System.Numerics.Quaternion) -> System.Numerics.Matrix4x4:
+        """
+        Transforms the specified matrix by applying the specified Quaternion rotation.
+        
+        :param value: The matrix to transform.
+        :param rotation: The rotation t apply.
+        :returns: The transformed matrix.
+        """
+        ...
+
+    @staticmethod
+    def transpose(matrix: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Transposes the rows and columns of a matrix.
+        
+        :param matrix: The matrix to transpose.
+        :returns: The transposed matrix.
+        """
+        ...
+
+
 class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics.ISimdVector[System_Numerics_Vector, System_Numerics_Vector_T], System.IFormattable):
     """Represents a single vector of a specified numeric type that is suitable for low-level optimization of parallel algorithms."""
+
+    IS_HARDWARE_ACCELERATED: bool
+    """Gets a value that indicates whether vector operations are subject to hardware acceleration through JIT intrinsic support."""
 
     ALL_BITS_SET: System.Numerics.Vector[System_Numerics_Vector_T]
     """Gets a new Vector{T} with all bits set to 1."""
@@ -4410,9 +4405,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     ZERO: System.Numerics.Vector[System_Numerics_Vector_T]
     """Gets a new Vector{T} with all elements initialized to zero."""
-
-    IS_HARDWARE_ACCELERATED: bool
-    """Gets a value that indicates whether vector operations are subject to hardware acceleration through JIT intrinsic support."""
 
     def __getitem__(self, index: int) -> System_Numerics_Vector_T:
         """
@@ -4526,17 +4518,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def as_vector_4(value: System.Numerics.Plane) -> System.Numerics.Vector4:
-        """
-        Reinterprets a Plane as a new Vector4.
-        
-        :param value: The plane to reinterpret.
-        :returns: reinterpreted as a new Vector4.
-        """
-        ...
-
-    @staticmethod
-    @overload
     def as_vector_4(value: System.Numerics.Quaternion) -> System.Numerics.Vector4:
         """
         Reinterprets a Quaternion as a new Vector4.
@@ -4548,12 +4529,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def as_vector_4(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
+    def as_vector_4(value: System.Numerics.Plane) -> System.Numerics.Vector4:
         """
-        Converts a Vector3 to a new Vector4 with the new elements zeroed.
+        Reinterprets a Plane as a new Vector4.
         
-        :param value: The vector to convert.
-        :returns: converted to a new Vector4 with the new elements zeroed.
+        :param value: The plane to reinterpret.
+        :returns: reinterpreted as a new Vector4.
         """
         ...
 
@@ -4570,12 +4551,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def as_vector_4_unsafe(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
+    def as_vector_4(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
         """
-        Converts a Vector3 to a new Vector4 with the new elements undefined.
+        Converts a Vector3 to a new Vector4 with the new elements zeroed.
         
         :param value: The vector to convert.
-        :returns: converted to a new Vector4 with the new elements undefined.
+        :returns: converted to a new Vector4 with the new elements zeroed.
         """
         ...
 
@@ -4587,6 +4568,17 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         
         :param value: The vector to reinterpret.
         :returns: reinterpreted to a new Vector4 with the new elements undefined.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_4_unsafe(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
+        """
+        Converts a Vector3 to a new Vector4 with the new elements undefined.
+        
+        :param value: The vector to convert.
+        :returns: converted to a new Vector4 with the new elements undefined.
         """
         ...
 
@@ -4767,16 +4759,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         """
         ...
 
-    @overload
-    def equals(self, other: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
-        """
-        Returns a boolean indicating whether the given vector is equal to this vector instance.
-        
-        :param other: The vector to compare this instance to.
-        :returns: True if the other vector is equal to this instance; False otherwise.
-        """
-        ...
-
     @staticmethod
     @overload
     def equals(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[int]:
@@ -4801,13 +4783,18 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         """
         ...
 
-    @staticmethod
-    def exp(vector: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+    @overload
+    def equals(self, other: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
+        """
+        Returns a boolean indicating whether the given vector is equal to this vector instance.
+        
+        :param other: The vector to compare this instance to.
+        :returns: True if the other vector is equal to this instance; False otherwise.
+        """
         ...
 
     @staticmethod
-    @overload
-    def extract_most_significant_bits(vector: System.Numerics.Vector3) -> int:
+    def exp(vector: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
         ...
 
     @staticmethod
@@ -4818,6 +4805,11 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
     @staticmethod
     @overload
     def extract_most_significant_bits(vector: System.Numerics.Vector2) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def extract_most_significant_bits(vector: System.Numerics.Vector3) -> int:
         ...
 
     @staticmethod
@@ -4844,17 +4836,17 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def get_element(vector: System.Numerics.Vector3, index: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
     def get_element(vector: System.Numerics.Vector4, index: int) -> float:
         ...
 
     @staticmethod
     @overload
     def get_element(vector: System.Numerics.Vector2, index: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def get_element(vector: System.Numerics.Vector3, index: int) -> float:
         ...
 
     def get_hash_code(self) -> int:
@@ -5133,17 +5125,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store(source: System.Numerics.Vector3, destination: typing.Any) -> None:
-        """
-        Stores a vector at the given destination.
-        
-        :param source: The vector that will be stored.
-        :param destination: The destination at which  will be stored.
-        """
-        ...
-
-    @staticmethod
-    @overload
     def store(source: System.Numerics.Vector4, destination: typing.Any) -> None:
         """
         Stores a vector at the given destination.
@@ -5166,12 +5147,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store_aligned(source: System.Numerics.Vector3, destination: typing.Any) -> None:
+    def store(source: System.Numerics.Vector3, destination: typing.Any) -> None:
         """
-        Stores a vector at the given 8-byte aligned destination.
+        Stores a vector at the given destination.
         
         :param source: The vector that will be stored.
-        :param destination: The aligned destination at which  will be stored.
+        :param destination: The destination at which  will be stored.
         """
         ...
 
@@ -5199,7 +5180,7 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store_aligned_non_temporal(source: System.Numerics.Vector3, destination: typing.Any) -> None:
+    def store_aligned(source: System.Numerics.Vector3, destination: typing.Any) -> None:
         """
         Stores a vector at the given 8-byte aligned destination.
         
@@ -5232,24 +5213,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def store_unsafe(source: System.Numerics.Vector3, destination: float) -> None:
+    def store_aligned_non_temporal(source: System.Numerics.Vector3, destination: typing.Any) -> None:
         """
-        Stores a vector at the given destination.
+        Stores a vector at the given 8-byte aligned destination.
         
         :param source: The vector that will be stored.
-        :param destination: The destination at which  will be stored.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def store_unsafe(source: System.Numerics.Vector3, destination: float, element_offset: System.UIntPtr) -> None:
-        """
-        Stores a vector at the given destination.
-        
-        :param source: The vector that will be stored.
-        :param destination: The destination to which  will be added before the vector will be stored.
-        :param element_offset: The element offset from  from which the vector will be stored.
+        :param destination: The aligned destination at which  will be stored.
         """
         ...
 
@@ -5301,7 +5270,25 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def to_scalar(vector: System.Numerics.Vector3) -> float:
+    def store_unsafe(source: System.Numerics.Vector3, destination: float) -> None:
+        """
+        Stores a vector at the given destination.
+        
+        :param source: The vector that will be stored.
+        :param destination: The destination at which  will be stored.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def store_unsafe(source: System.Numerics.Vector3, destination: float, element_offset: System.UIntPtr) -> None:
+        """
+        Stores a vector at the given destination.
+        
+        :param source: The vector that will be stored.
+        :param destination: The destination to which  will be added before the vector will be stored.
+        :param element_offset: The element offset from  from which the vector will be stored.
+        """
         ...
 
     @staticmethod
@@ -5312,6 +5299,11 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
     @staticmethod
     @overload
     def to_scalar(vector: System.Numerics.Vector2) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def to_scalar(vector: System.Numerics.Vector3) -> float:
         ...
 
     @overload
@@ -5438,11 +5430,6 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def with_element(vector: System.Numerics.Vector3, index: int, value: float) -> System.Numerics.Vector3:
-        ...
-
-    @staticmethod
-    @overload
     def with_element(vector: System.Numerics.Vector4, index: int, value: float) -> System.Numerics.Vector4:
         ...
 
@@ -5451,13 +5438,316 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
     def with_element(vector: System.Numerics.Vector2, index: int, value: float) -> System.Numerics.Vector2:
         ...
 
+    @staticmethod
+    @overload
+    def with_element(vector: System.Numerics.Vector3, index: int, value: float) -> System.Numerics.Vector3:
+        ...
 
-class IAdditiveIdentity(typing.Generic[System_Numerics_IAdditiveIdentity_TSelf, System_Numerics_IAdditiveIdentity_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for getting the additive identity of a given type."""
+
+class IUnaryNegationOperators(typing.Generic[System_Numerics_IUnaryNegationOperators_TSelf, System_Numerics_IUnaryNegationOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the unary negation of a value."""
+
+
+class IRootFunctions(typing.Generic[System_Numerics_IRootFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IRootFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for root functions."""
+
+
+class IBinaryFloatingPointIeee754(typing.Generic[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IFloatingPointIeee754[System_Numerics_IBinaryFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
+    """Defines an IEEE 754 floating-point type that is represented in a base-2 format."""
+
+
+class ISubtractionOperators(typing.Generic[System_Numerics_ISubtractionOperators_TSelf, System_Numerics_ISubtractionOperators_TOther, System_Numerics_ISubtractionOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the difference of two values."""
+
+
+class IFloatingPoint(typing.Generic[System_Numerics_IFloatingPoint_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IFloatingPoint_TSelf], System.Numerics.INumber[System_Numerics_IFloatingPoint_TSelf], System.Numerics.ISignedNumber[System_Numerics_IFloatingPoint_TSelf], metaclass=abc.ABCMeta):
+    """Defines a floating-point type."""
+
+    def get_exponent_byte_count(self) -> int:
+        """
+        Gets the number of bytes that will be written as part of TryWriteExponentLittleEndian(Span{byte}, out int).
+        
+        :returns: The number of bytes that will be written as part of TryWriteExponentLittleEndian(Span{byte}, out int).
+        """
+        ...
+
+    def get_exponent_shortest_bit_length(self) -> int:
+        """
+        Gets the length, in bits, of the shortest two's complement representation of the current exponent.
+        
+        :returns: The length, in bits, of the shortest two's complement representation of the current exponent.
+        """
+        ...
+
+    def get_significand_bit_length(self) -> int:
+        """
+        Gets the length, in bits, of the current significand.
+        
+        :returns: The length, in bits, of the current significand.
+        """
+        ...
+
+    def get_significand_byte_count(self) -> int:
+        """
+        Gets the number of bytes that will be written as part of TryWriteSignificandLittleEndian(Span{byte}, out int).
+        
+        :returns: The number of bytes that will be written as part of TryWriteSignificandLittleEndian(Span{byte}, out int).
+        """
+        ...
+
+    def try_write_exponent_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current exponent, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current exponent should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the exponent was successfully written to ; otherwise, false.
+        """
+        ...
+
+    def try_write_exponent_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current exponent, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current exponent should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the exponent was successfully written to ; otherwise, false.
+        """
+        ...
+
+    def try_write_significand_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current significand, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current significand should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the significand was successfully written to ; otherwise, false.
+        """
+        ...
+
+    def try_write_significand_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to write the current significand, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current significand should be written.
+        :param bytes_written: The number of bytes written to .
+        :returns: true if the significand was successfully written to ; otherwise, false.
+        """
+        ...
+
+    @overload
+    def write_exponent_big_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current exponent, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current exponent should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_exponent_big_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current exponent, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current exponent should be written.
+        :param start_index: The starting index at which the exponent should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_exponent_big_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current exponent, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current exponent should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_exponent_little_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current exponent, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current exponent should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_exponent_little_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current exponent, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current exponent should be written.
+        :param start_index: The starting index at which the exponent should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_exponent_little_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current exponent, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current exponent should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_significand_big_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current significand, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current significand should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_significand_big_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current significand, in big-endian format, to a given array.
+        
+        :param destination: The array to which the current significand should be written.
+        :param start_index: The starting index at which the significand should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_significand_big_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current significand, in big-endian format, to a given span.
+        
+        :param destination: The span to which the current significand should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_significand_little_endian(self, destination: typing.List[int]) -> int:
+        """
+        Writes the current significand, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current significand should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+    @overload
+    def write_significand_little_endian(self, destination: typing.List[int], start_index: int) -> int:
+        """
+        Writes the current significand, in little-endian format, to a given array.
+        
+        :param destination: The array to which the current significand should be written.
+        :param start_index: The starting index at which the significand should be written.
+        :returns: The number of bytes written to  starting at .
+        """
+        ...
+
+    @overload
+    def write_significand_little_endian(self, destination: System.Span[int]) -> int:
+        """
+        Writes the current significand, in little-endian format, to a given span.
+        
+        :param destination: The span to which the current significand should be written.
+        :returns: The number of bytes written to .
+        """
+        ...
+
+
+class IUnaryPlusOperators(typing.Generic[System_Numerics_IUnaryPlusOperators_TSelf, System_Numerics_IUnaryPlusOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the unary plus of a value."""
+
+
+class IDecrementOperators(typing.Generic[System_Numerics_IDecrementOperators_TSelf], metaclass=abc.ABCMeta):
+    """Defines a mechanism for decrementing a given value."""
+
+
+class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IEqualityComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.IEquatable[System_Numerics_TotalOrderIeee754Comparer]):
+    """
+    Represents a comparison operation that compares floating-point numbers
+    with IEEE 754 totalOrder semantic.
+    """
+
+    def compare(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
+        """
+        Compares two numbers with IEEE 754 totalOrder semantic and returns
+        a value indicating whether one is less than, equal to, or greater than the other.
+        
+        :param x: The first number to compare.
+        :param y: The second number to compare.
+        :returns: A signed integer that indicates the relative values of  and , as shown in the following table.  Value Meaning Less than zero is less than  Zero equals  Greater than zero is greater than.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether this instance and a specified object are equal.
+        
+        :param obj: The object to compare with the current instance.
+        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
+        """
+        ...
+
+    @overload
+    def equals(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> bool:
+        """
+        Determines whether the specified numbers are equal.
+        
+        :param x: The first number of type T to compare.
+        :param y: The second number of type T to compare.
+        :returns: true if the specified numbers are equal; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.TotalOrderIeee754Comparer[System_Numerics_TotalOrderIeee754Comparer_T]) -> bool:
+        ...
+
+    @overload
+    def get_hash_code(self, obj: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
+        """
+        Returns a hash code for the specified number.
+        
+        :param obj: The number for which a hash code is to be returned.
+        :returns: A hash code for the specified number.
+        """
+        ...
+
+    @overload
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for this instance.
+        
+        :returns: The hash code.
+        """
+        ...
+
+
+class ITrigonometricFunctions(typing.Generic[System_Numerics_ITrigonometricFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ITrigonometricFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for trigonometric functions."""
+
+
+class IMinMaxValue(typing.Generic[System_Numerics_IMinMaxValue_TSelf], metaclass=abc.ABCMeta):
+    """Defines a mechanism for getting the minimum and maximum value of a type."""
 
 
 class IEqualityOperators(typing.Generic[System_Numerics_IEqualityOperators_TSelf, System_Numerics_IEqualityOperators_TOther, System_Numerics_IEqualityOperators_TResult], metaclass=abc.ABCMeta):
     """Defines a mechanism for comparing two values to determine equality."""
+
+
+class IDivisionOperators(typing.Generic[System_Numerics_IDivisionOperators_TSelf, System_Numerics_IDivisionOperators_TOther, System_Numerics_IDivisionOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the quotient of two values."""
+
+
+class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
+    """Defines a mechanism for incrementing a given value."""
 
 
 class BitOperations(System.Object):
@@ -5682,353 +5972,20 @@ class BitOperations(System.Object):
         ...
 
 
-class IBinaryNumber(typing.Generic[System_Numerics_IBinaryNumber_TSelf], System.Numerics.IBitwiseOperators[System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf], System.Numerics.INumber[System_Numerics_IBinaryNumber_TSelf], metaclass=abc.ABCMeta):
-    """Defines a number that is represented in a base-2 format."""
-
-
-class IFloatingPoint(typing.Generic[System_Numerics_IFloatingPoint_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IFloatingPoint_TSelf], System.Numerics.INumber[System_Numerics_IFloatingPoint_TSelf], System.Numerics.ISignedNumber[System_Numerics_IFloatingPoint_TSelf], metaclass=abc.ABCMeta):
-    """Defines a floating-point type."""
-
-    def get_exponent_byte_count(self) -> int:
-        """
-        Gets the number of bytes that will be written as part of TryWriteExponentLittleEndian(Span{byte}, out int).
-        
-        :returns: The number of bytes that will be written as part of TryWriteExponentLittleEndian(Span{byte}, out int).
-        """
-        ...
-
-    def get_exponent_shortest_bit_length(self) -> int:
-        """
-        Gets the length, in bits, of the shortest two's complement representation of the current exponent.
-        
-        :returns: The length, in bits, of the shortest two's complement representation of the current exponent.
-        """
-        ...
-
-    def get_significand_bit_length(self) -> int:
-        """
-        Gets the length, in bits, of the current significand.
-        
-        :returns: The length, in bits, of the current significand.
-        """
-        ...
-
-    def get_significand_byte_count(self) -> int:
-        """
-        Gets the number of bytes that will be written as part of TryWriteSignificandLittleEndian(Span{byte}, out int).
-        
-        :returns: The number of bytes that will be written as part of TryWriteSignificandLittleEndian(Span{byte}, out int).
-        """
-        ...
-
-    def try_write_exponent_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current exponent, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current exponent should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the exponent was successfully written to ; otherwise, false.
-        """
-        ...
-
-    def try_write_exponent_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current exponent, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current exponent should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the exponent was successfully written to ; otherwise, false.
-        """
-        ...
-
-    def try_write_significand_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current significand, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current significand should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the significand was successfully written to ; otherwise, false.
-        """
-        ...
-
-    def try_write_significand_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to write the current significand, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current significand should be written.
-        :param bytes_written: The number of bytes written to .
-        :returns: true if the significand was successfully written to ; otherwise, false.
-        """
-        ...
-
-    @overload
-    def write_exponent_big_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current exponent, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current exponent should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_exponent_big_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current exponent, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current exponent should be written.
-        :param start_index: The starting index at which the exponent should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_exponent_big_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current exponent, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current exponent should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_exponent_little_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current exponent, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current exponent should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_exponent_little_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current exponent, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current exponent should be written.
-        :param start_index: The starting index at which the exponent should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_exponent_little_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current exponent, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current exponent should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_significand_big_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current significand, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current significand should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_significand_big_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current significand, in big-endian format, to a given array.
-        
-        :param destination: The array to which the current significand should be written.
-        :param start_index: The starting index at which the significand should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_significand_big_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current significand, in big-endian format, to a given span.
-        
-        :param destination: The span to which the current significand should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_significand_little_endian(self, destination: typing.List[int]) -> int:
-        """
-        Writes the current significand, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current significand should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-    @overload
-    def write_significand_little_endian(self, destination: typing.List[int], start_index: int) -> int:
-        """
-        Writes the current significand, in little-endian format, to a given array.
-        
-        :param destination: The array to which the current significand should be written.
-        :param start_index: The starting index at which the significand should be written.
-        :returns: The number of bytes written to  starting at .
-        """
-        ...
-
-    @overload
-    def write_significand_little_endian(self, destination: System.Span[int]) -> int:
-        """
-        Writes the current significand, in little-endian format, to a given span.
-        
-        :param destination: The span to which the current significand should be written.
-        :returns: The number of bytes written to .
-        """
-        ...
-
-
-class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IEqualityComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.IEquatable[System_Numerics_TotalOrderIeee754Comparer]):
-    """
-    Represents a comparison operation that compares floating-point numbers
-    with IEEE 754 totalOrder semantic.
-    """
-
-    def compare(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
-        """
-        Compares two numbers with IEEE 754 totalOrder semantic and returns
-        a value indicating whether one is less than, equal to, or greater than the other.
-        
-        :param x: The first number to compare.
-        :param y: The second number to compare.
-        :returns: A signed integer that indicates the relative values of  and , as shown in the following table.  Value Meaning Less than zero is less than  Zero equals  Greater than zero is greater than.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether this instance and a specified object are equal.
-        
-        :param obj: The object to compare with the current instance.
-        :returns: true if the current instance and  are equal; otherwise, false. If  is null, the method returns false.
-        """
-        ...
-
-    @overload
-    def equals(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> bool:
-        """
-        Determines whether the specified numbers are equal.
-        
-        :param x: The first number of type T to compare.
-        :param y: The second number of type T to compare.
-        :returns: true if the specified numbers are equal; otherwise, false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.TotalOrderIeee754Comparer[System_Numerics_TotalOrderIeee754Comparer_T]) -> bool:
-        ...
-
-    @overload
-    def get_hash_code(self, obj: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
-        """
-        Returns a hash code for the specified number.
-        
-        :param obj: The number for which a hash code is to be returned.
-        :returns: A hash code for the specified number.
-        """
-        ...
-
-    @overload
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for this instance.
-        
-        :returns: The hash code.
-        """
-        ...
-
-
-class IAdditionOperators(typing.Generic[System_Numerics_IAdditionOperators_TSelf, System_Numerics_IAdditionOperators_TOther, System_Numerics_IAdditionOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the sum of two values."""
-
-
-class IShiftOperators(typing.Generic[System_Numerics_IShiftOperators_TSelf, System_Numerics_IShiftOperators_TOther, System_Numerics_IShiftOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for shifting a value by another value."""
-
-
-class IFloatingPointIeee754(typing.Generic[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IExponentialFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IFloatingPoint[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IHyperbolicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ILogarithmicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IPowerFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IRootFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ITrigonometricFunctions[System_Numerics_IFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
-    """Defines an IEEE 754 floating-point type."""
-
-
-class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[System_Numerics_INumber_TSelf], System.Numerics.IComparisonOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, bool], System.Numerics.IModulusOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf], System.Numerics.INumberBase[System_Numerics_INumber_TSelf], metaclass=abc.ABCMeta):
-    """Defines a number type."""
-
-
-class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_IUnsignedNumber_TSelf], metaclass=abc.ABCMeta):
-    """Defines a number type which can only represent positive values, that is it cannot represent negative values."""
-
-
 class IModulusOperators(typing.Generic[System_Numerics_IModulusOperators_TSelf, System_Numerics_IModulusOperators_TOther, System_Numerics_IModulusOperators_TResult], metaclass=abc.ABCMeta):
     """Defines a mechanism for computing the modulus or remainder of two values."""
-
-
-class IUnaryPlusOperators(typing.Generic[System_Numerics_IUnaryPlusOperators_TSelf, System_Numerics_IUnaryPlusOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the unary plus of a value."""
-
-
-class IPowerFunctions(typing.Generic[System_Numerics_IPowerFunctions_TSelf], System.Numerics.INumberBase[System_Numerics_IPowerFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for power functions."""
 
 
 class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_ISignedNumber_TSelf], metaclass=abc.ABCMeta):
     """Defines a number type which can represent both positive and negative values."""
 
 
+class IAdditionOperators(typing.Generic[System_Numerics_IAdditionOperators_TSelf, System_Numerics_IAdditionOperators_TOther, System_Numerics_IAdditionOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for computing the sum of two values."""
+
+
 class IBitwiseOperators(typing.Generic[System_Numerics_IBitwiseOperators_TSelf, System_Numerics_IBitwiseOperators_TOther, System_Numerics_IBitwiseOperators_TResult], metaclass=abc.ABCMeta):
     """Defines a mechanism for performing bitwise operations over two values."""
-
-
-class ISubtractionOperators(typing.Generic[System_Numerics_ISubtractionOperators_TSelf, System_Numerics_ISubtractionOperators_TOther, System_Numerics_ISubtractionOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the difference of two values."""
-
-
-class IMultiplyOperators(typing.Generic[System_Numerics_IMultiplyOperators_TSelf, System_Numerics_IMultiplyOperators_TOther, System_Numerics_IMultiplyOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the product of two values."""
-
-
-class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
-    """Defines a mechanism for incrementing a given value."""
-
-
-class IMultiplicativeIdentity(typing.Generic[System_Numerics_IMultiplicativeIdentity_TSelf, System_Numerics_IMultiplicativeIdentity_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for getting the multiplicative identity of a given type."""
-
-
-class IBinaryFloatingPointIeee754(typing.Generic[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IFloatingPointIeee754[System_Numerics_IBinaryFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
-    """Defines an IEEE 754 floating-point type that is represented in a base-2 format."""
-
-
-class IExponentialFunctions(typing.Generic[System_Numerics_IExponentialFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IExponentialFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for exponential functions."""
-
-
-class IRootFunctions(typing.Generic[System_Numerics_IRootFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IRootFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for root functions."""
-
-
-class ILogarithmicFunctions(typing.Generic[System_Numerics_ILogarithmicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ILogarithmicFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for logarithmic functions."""
-
-
-class INumberBase(typing.Generic[System_Numerics_INumberBase_TSelf], System.Numerics.IAdditionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IAdditiveIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IDecrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IDivisionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IEquatable[System_Numerics_INumberBase_TSelf], System.Numerics.IEqualityOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, bool], System.Numerics.IIncrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplicativeIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplyOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.ISpanFormattable, System.ISpanParsable[System_Numerics_INumberBase_TSelf], System.Numerics.ISubtractionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryPlusOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryNegationOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_INumberBase_TSelf], metaclass=abc.ABCMeta):
-    """Defines the base of other number types."""
-
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
-        ...
-
-
-class IDivisionOperators(typing.Generic[System_Numerics_IDivisionOperators_TSelf, System_Numerics_IDivisionOperators_TOther, System_Numerics_IDivisionOperators_TResult], metaclass=abc.ABCMeta):
-    """Defines a mechanism for computing the quotient of two values."""
 
 
 class IBinaryInteger(typing.Generic[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IShiftOperators[System_Numerics_IBinaryInteger_TSelf, int, System_Numerics_IBinaryInteger_TSelf], metaclass=abc.ABCMeta):
@@ -6133,19 +6090,62 @@ class IBinaryInteger(typing.Generic[System_Numerics_IBinaryInteger_TSelf], Syste
         ...
 
 
-class IMinMaxValue(typing.Generic[System_Numerics_IMinMaxValue_TSelf], metaclass=abc.ABCMeta):
-    """Defines a mechanism for getting the minimum and maximum value of a type."""
+class ILogarithmicFunctions(typing.Generic[System_Numerics_ILogarithmicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ILogarithmicFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for logarithmic functions."""
 
 
-class ITrigonometricFunctions(typing.Generic[System_Numerics_ITrigonometricFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ITrigonometricFunctions_TSelf], metaclass=abc.ABCMeta):
-    """Defines support for trigonometric functions."""
+class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_IUnsignedNumber_TSelf], metaclass=abc.ABCMeta):
+    """Defines a number type which can only represent positive values, that is it cannot represent negative values."""
+
+
+class IBinaryNumber(typing.Generic[System_Numerics_IBinaryNumber_TSelf], System.Numerics.IBitwiseOperators[System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf], System.Numerics.INumber[System_Numerics_IBinaryNumber_TSelf], metaclass=abc.ABCMeta):
+    """Defines a number that is represented in a base-2 format."""
+
+
+class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[System_Numerics_INumber_TSelf], System.Numerics.IComparisonOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, bool], System.Numerics.IModulusOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf], System.Numerics.INumberBase[System_Numerics_INumber_TSelf], metaclass=abc.ABCMeta):
+    """Defines a number type."""
+
+
+class IMultiplicativeIdentity(typing.Generic[System_Numerics_IMultiplicativeIdentity_TSelf, System_Numerics_IMultiplicativeIdentity_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for getting the multiplicative identity of a given type."""
+
+
+class IShiftOperators(typing.Generic[System_Numerics_IShiftOperators_TSelf, System_Numerics_IShiftOperators_TOther, System_Numerics_IShiftOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for shifting a value by another value."""
+
+
+class IPowerFunctions(typing.Generic[System_Numerics_IPowerFunctions_TSelf], System.Numerics.INumberBase[System_Numerics_IPowerFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for power functions."""
+
+
+class IHyperbolicFunctions(typing.Generic[System_Numerics_IHyperbolicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IHyperbolicFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for hyperbolic functions."""
+
+
+class IFloatingPointIeee754(typing.Generic[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IExponentialFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IFloatingPoint[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IHyperbolicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ILogarithmicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IPowerFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IRootFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ITrigonometricFunctions[System_Numerics_IFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
+    """Defines an IEEE 754 floating-point type."""
+
+
+class IComparisonOperators(typing.Generic[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], System.Numerics.IEqualityOperators[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for comparing two values to determine relative order."""
+
+
+class INumberBase(typing.Generic[System_Numerics_INumberBase_TSelf], System.Numerics.IAdditionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IAdditiveIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IDecrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IDivisionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IEquatable[System_Numerics_INumberBase_TSelf], System.Numerics.IEqualityOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, bool], System.Numerics.IIncrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplicativeIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplyOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.ISpanFormattable, System.ISpanParsable[System_Numerics_INumberBase_TSelf], System.Numerics.ISubtractionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryPlusOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryNegationOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_INumberBase_TSelf], metaclass=abc.ABCMeta):
+    """Defines the base of other number types."""
+
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
+        ...
 
 
 class IFloatingPointConstants(typing.Generic[System_Numerics_IFloatingPointConstants_TSelf], System.Numerics.INumberBase[System_Numerics_IFloatingPointConstants_TSelf], metaclass=abc.ABCMeta):
     """Defines support for floating-point constants."""
 
 
-class IDecrementOperators(typing.Generic[System_Numerics_IDecrementOperators_TSelf], metaclass=abc.ABCMeta):
-    """Defines a mechanism for decrementing a given value."""
+class IExponentialFunctions(typing.Generic[System_Numerics_IExponentialFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IExponentialFunctions_TSelf], metaclass=abc.ABCMeta):
+    """Defines support for exponential functions."""
+
+
+class IAdditiveIdentity(typing.Generic[System_Numerics_IAdditiveIdentity_TSelf, System_Numerics_IAdditiveIdentity_TResult], metaclass=abc.ABCMeta):
+    """Defines a mechanism for getting the additive identity of a given type."""
 
 

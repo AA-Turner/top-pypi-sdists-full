@@ -18,8 +18,10 @@ import oss2
 from meutils.pipe import *
 from meutils.hash_utils import md5
 from meutils.io.files_utils import to_bytes
-from meutils.schemas.hailuo_types import BASE_URL, FEISHU_URL, FEISHU_URL_OSS
-from meutils.schemas.hailuo_types import BASE_URL_ABROAD as BASE_URL, FEISHU_URL_ABROAD as FEISHU_URL
+from meutils.jwt_utils import decode_jwt_token
+from meutils.schemas.hailuo_types import BASE_URL, FEISHU_URL
+# from meutils.schemas.hailuo_types import BASE_URL_ABROAD as BASE_URL, FEISHU_URL_ABROAD as FEISHU_URL
+from meutils.schemas.hailuo_types import BASE_URL_ABROAD
 
 from meutils.schemas.hailuo_types import VideoRequest, VideoResponse
 from meutils.llm.check_utils import check_tokens
@@ -46,6 +48,16 @@ MODEL_MAPPING = {
     "video-01-live2d": "23011",
     "s2v-01": "23021",
 }
+
+
+def get_base_url(token):
+    data = decode_jwt_token(token)
+    if "小螺帽" not in str(data):
+        logger.debug(data)
+
+        return BASE_URL_ABROAD
+    else:
+        return BASE_URL
 
 
 # minimax_video-01,minimax_video-01-live2d,,minimax_t2v-01,minimax_i2v-01,minimax_i2v-01-live,minimax_s2v-01
@@ -95,6 +107,8 @@ async def upload(file: bytes, token: str):
         'token': token
     }
     logger.debug(headers)
+
+    BASE_URL = get_base_url(token)
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers, timeout=120) as client:
         response = await client.post("/v1/api/files/policy_callback", params=params, json=payload)
         response.raise_for_status()
@@ -116,6 +130,9 @@ async def upload(file: bytes, token: str):
 @alru_cache(ttl=1 * 24 * 60 * 60)
 @retrying()
 async def get_access_token(token: str):
+    BASE_URL = get_base_url(token)
+    logger.debug(BASE_URL)
+
     logger.debug(f"get_access_token:{token}")
 
     params = {
@@ -140,6 +157,7 @@ async def get_access_token(token: str):
         'token': token,
         'yy': get_yy(payload, params=params, url="/v1/api/user/renewal")
     }
+
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers, timeout=60) as client:
         response = await client.post("/v1/api/user/renewal", params=params, content=json.dumps(payload))
         response.raise_for_status()
@@ -171,6 +189,9 @@ async def get_request_policy(token):
     }
 
     logger.debug(headers)
+
+    BASE_URL = get_base_url(token)
+
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers, timeout=60) as client:
         response = await client.get("/v1/api/files/request_policy")
         response.raise_for_status()
@@ -187,9 +208,12 @@ async def get_request_policy(token):
 
 @retrying(predicate=lambda r: r.base_resp.status_code in {1000061, 1500009})  # 限流
 async def create_task(request: VideoRequest, token: Optional[str] = None):
+
+
     refresh_token = token or await get_next_token_for_polling(FEISHU_URL, from_redis=True, check_token=check_token)
     # refresh_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDA0NzA4NzgsInVzZXIiOnsiaWQiOiIzMjg2MDg4ODkzNTA4MTU3NDQiLCJuYW1lIjoiUm9idXN0IEdlcnRydWRlIiwiYXZhdGFyIjoiaHR0cHM6Ly9jZG4uaGFpbHVvYWkudmlkZW8vbW9zcy9wcm9kLzIwMjQtMTItMjgtMTYvdXNlci91c2VyX2F2YXRhci8xNzM1Mzc1OTI0OTkyMTcxMDY3LWF2YXRhcl8zMjg2MDg4ODkzNTA4MTU3NDQiLCJkZXZpY2VJRCI6IjMwMjgzMzc1OTUxMjc2NDQxNyIsImlzQW5vbnltb3VzIjpmYWxzZX19.dLNBSHjqnKutGl3ralS2g8A-RodHjOdos11vdpbkPwc"
 
+    BASE_URL = get_base_url(refresh_token)
     token = await get_access_token(refresh_token)
 
     payload = {
@@ -202,12 +226,12 @@ async def create_task(request: VideoRequest, token: Optional[str] = None):
 
     if request.first_frame_image:
         file = await to_bytes(request.first_frame_image)
-        if request.first_frame_image.startswith("http"):
+        if request.first_frame_image.startswith("http") and BASE_URL.endswith(".video"):
             file_data = {
                 # "id": data['data']['fileID'],
                 # "name": "_.png",
                 # "type": "png",
-                "url": request.first_frame_image,
+                "url": request.first_frame_image,  #######
             }
 
             # {"desc": "跳起来", "useOriginPrompt": false, "fileList": [{"id": "338311163211288581",
@@ -318,6 +342,8 @@ async def create_task(request: VideoRequest, token: Optional[str] = None):
 
 # 307134660730421250
 async def get_task(task_id: str, token: str):
+    BASE_URL = get_base_url(token)
+
     task_id = task_id.rsplit('-', 1)[-1]
 
     params = {
@@ -365,6 +391,8 @@ async def get_task(task_id: str, token: str):
 # https://hailuoai.video/v1/api/user/equity?device_platform=web&app_id=3001&version_code=22201&uuid=3de88ad0-8a38-48a9-8ed3-0d63f9c71296&lang=en&device_id=302833759512764417&os_name=Mac&browser_name=chrome&device_memory=8&cpu_core_num=10&browser_language=zh-CN&browser_platform=MacIntel&screen_width=1920&screen_height=1080&unix=1731571578000
 @alru_cache(ttl=3600)
 async def check_token(token, threshold: int = 30, **kwargs):
+    BASE_URL = get_base_url(token)
+
     if not isinstance(token, str):
         return await check_tokens(token, check_token)
 
@@ -381,7 +409,7 @@ async def check_token(token, threshold: int = 30, **kwargs):
 
             logger.debug(bjson(data))
 
-            return "Unlimited" in str(data)  # Unlimited
+            return "Unlimited" in str(data) or "高级会员" in str(data)  # Unlimited
     except Exception as e:
         logger.error(e)
         logger.debug(token)
@@ -421,18 +449,21 @@ if __name__ == '__main__':  # 304752356930580482
 
     token = None
     # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDQ3MDMwNzIsInVzZXIiOnsiaWQiOiIzMDI4MzM4Njc3NzE5NDkwNTgiLCJuYW1lIjoibWUgYmV0dGVyIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMDI4MzM3NTk1MTI3NjQ0MTciLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.Mjb64ZjkKyV9pj-_bXyLczU6kU729VLaKbYj9NmrK-4"
-    # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzUxMTcwNzcsInVzZXIiOnsiaWQiOiIzMTEyOTUzMTkzMjc1NzYwNjQiLCJuYW1lIjoiVUdIUiBKVkJYIiwiYXZhdGFyIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jS3RuR2NjdGZsWV9fR2tiQ1MzdnhzSXdWSEFUX0ZmMFdyb3RvMnN4bFdWZW1KMm53PXM5Ni1jIiwiZGV2aWNlSUQiOiIzMTMzMTU5NTMxMDA0MTA4ODciLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.KsRcfnAoPAR08ygzq-GIiujkFbZ2CgLeww7EP9qcb9Q"
+    # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDg3Mzg4MTQsInVzZXIiOnsiaWQiOiIyMjkwODQ3NTA2MDEzODgwMzciLCJuYW1lIjoi5bCP6J665bi9ODAzNyIsImF2YXRhciI6Imh0dHBzOi8vY2RuLmhhaWx1b2FpLmNvbS9wcm9kL3VzZXJfYXZhdGFyLzE3MDYyNjc3MTEyODI3NzA4NzItMTczMTk0NTcwNjY4OTY1ODk2b3ZlcnNpemUucG5nIiwiZGV2aWNlSUQiOiIyNDM3MTMyNTI1NDU5ODY1NjIiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.o0SoZMSTWkXNHxJjt3Ggby5MJWSfd-rnK_I95T_WMP8"
+    # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTAxMjg4NTIsInVzZXIiOnsiaWQiOiIzNzQwMTM3NzUyNzg4ODY5MTciLCJuYW1lIjoiTmFodWVsIE1vbGluYSIsImF2YXRhciI6IiIsImRldmljZUlEIjoiMzEzMzc0MTIyMjEyMjc4MjczIiwiaXNBbm9ueW1vdXMiOmZhbHNlfX0.uxTtDTcPT07piVA-x3N2ms2VrRN3JwcU99g_HJLwqLE"
     request = VideoRequest(
-        model="I2V-01-live",
+        model="t2v-01",
         # model="S2V-01-live",
 
         # prompt="smile",  # 307145017365086216
         prompt="动起来",  # 307145017365086216
-        first_frame_image="https://oss.ffire.cc/files/kling_watermark.png"  # 307173162217783304
+        # first_frame_image="https://oss.ffire.cc/files/kling_watermark.png"  # 307173162217783304
     )
 
     r = arun(create_task(request, token=token))
     # arun(get_task(task_id=r.task_id, token=r.system_fingerprint))
+
+    # arun(get_access_token(token))
     #
     #
     # data = {
@@ -450,4 +481,5 @@ if __name__ == '__main__':  # 304752356930580482
     # arun(get_task("hailuoai-307495165395488768", token=token))
     # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzUwMTc3ODAsInVzZXIiOnsiaWQiOiIzMTEyOTUzMTkzMjc1NzYwNjQiLCJuYW1lIjoiVUdIUiBKVkJYIiwiYXZhdGFyIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jS3RuR2NjdGZsWV9fR2tiQ1MzdnhzSXdWSEFUX0ZmMFdyb3RvMnN4bFdWZW1KMm53PXM5Ni1jIiwiZGV2aWNlSUQiOiIzMTMzMTU5NTMxMDA0MTA4ODciLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.cyZifq4FQl46P5_acTNT04qu2GVDDeSBbwjw3J1vWPo"
     # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3MzUwMzQ1MjcsInVzZXIiOnsiaWQiOiIzMTMzODk5MjA0NjA5MzkyNjgiLCJuYW1lIjoiY2l4ZiB4YmNnIiwiYXZhdGFyIjoiIiwiZGV2aWNlSUQiOiIzMTM0MDgyMjg0NTEwOTg2MjYiLCJpc0Fub255bW91cyI6ZmFsc2V9fQ.eOtAUe3MmarOGNk64j0bfaLNBZ4yxkqwIi1tUhOFD5c"
+    # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTAxMjg4NTIsInVzZXIiOnsiaWQiOiIzNzQwMTM3NzUyNzg4ODY5MTciLCJuYW1lIjoiTmFodWVsIE1vbGluYSIsImF2YXRhciI6IiIsImRldmljZUlEIjoiMzEzMzc0MTIyMjEyMjc4MjczIiwiaXNBbm9ueW1vdXMiOmZhbHNlfX0.uxTtDTcPT07piVA-x3N2ms2VrRN3JwcU99g_HJLwqLE"
     # arun(check_token(token))

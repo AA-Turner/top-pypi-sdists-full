@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-skylight
-Version: 1.1.773
+Version: 1.1.774
 Summary: cdk-skylight
 Home-page: https://github.com/cdklabs/cdk-skylight.git
 Author: Dudu (David) Twizer<dudut@amazon.com>
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.32.0
 Requires-Dist: constructs<11.0.0,>=10.0.5
-Requires-Dist: jsii<2.0.0,>=1.111.0
+Requires-Dist: jsii<2.0.0,>=1.112.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard<4.3.0,>=2.13.3
 

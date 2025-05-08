@@ -106,6 +106,7 @@ class Queue(modal.object.Object):
     class __lookup_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             name: str,
             namespace=1,
             client: typing.Optional[modal.client.Client] = None,
@@ -114,6 +115,7 @@ class Queue(modal.object.Object):
         ) -> Queue: ...
         async def aio(
             self,
+            /,
             name: str,
             namespace=1,
             client: typing.Optional[modal.client.Client] = None,
@@ -126,6 +128,7 @@ class Queue(modal.object.Object):
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
             self,
+            /,
             name: str,
             *,
             client: typing.Optional[modal.client.Client] = None,
@@ -133,6 +136,7 @@ class Queue(modal.object.Object):
         ): ...
         async def aio(
             self,
+            /,
             name: str,
             *,
             client: typing.Optional[modal.client.Client] = None,
@@ -142,33 +146,43 @@ class Queue(modal.object.Object):
     delete: __delete_spec
 
     class ___get_nonblocking_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, partition: typing.Optional[str], n_values: int) -> list[typing.Any]: ...
-        async def aio(self, partition: typing.Optional[str], n_values: int) -> list[typing.Any]: ...
+        def __call__(self, /, partition: typing.Optional[str], n_values: int) -> list[typing.Any]: ...
+        async def aio(self, /, partition: typing.Optional[str], n_values: int) -> list[typing.Any]: ...
 
     _get_nonblocking: ___get_nonblocking_spec[typing_extensions.Self]
 
     class ___get_blocking_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
-            self, partition: typing.Optional[str], timeout: typing.Optional[float], n_values: int
+            self, /, partition: typing.Optional[str], timeout: typing.Optional[float], n_values: int
         ) -> list[typing.Any]: ...
         async def aio(
-            self, partition: typing.Optional[str], timeout: typing.Optional[float], n_values: int
+            self, /, partition: typing.Optional[str], timeout: typing.Optional[float], n_values: int
         ) -> list[typing.Any]: ...
 
     _get_blocking: ___get_blocking_spec[typing_extensions.Self]
 
     class __clear_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, *, partition: typing.Optional[str] = None, all: bool = False) -> None: ...
-        async def aio(self, *, partition: typing.Optional[str] = None, all: bool = False) -> None: ...
+        def __call__(self, /, *, partition: typing.Optional[str] = None, all: bool = False) -> None: ...
+        async def aio(self, /, *, partition: typing.Optional[str] = None, all: bool = False) -> None: ...
 
     clear: __clear_spec[typing_extensions.Self]
 
     class __get_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
-            self, block: bool = True, timeout: typing.Optional[float] = None, *, partition: typing.Optional[str] = None
+            self,
+            /,
+            block: bool = True,
+            timeout: typing.Optional[float] = None,
+            *,
+            partition: typing.Optional[str] = None,
         ) -> typing.Optional[typing.Any]: ...
         async def aio(
-            self, block: bool = True, timeout: typing.Optional[float] = None, *, partition: typing.Optional[str] = None
+            self,
+            /,
+            block: bool = True,
+            timeout: typing.Optional[float] = None,
+            *,
+            partition: typing.Optional[str] = None,
         ) -> typing.Optional[typing.Any]: ...
 
     get: __get_spec[typing_extensions.Self]
@@ -176,6 +190,7 @@ class Queue(modal.object.Object):
     class __get_many_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             n_values: int,
             block: bool = True,
             timeout: typing.Optional[float] = None,
@@ -184,6 +199,7 @@ class Queue(modal.object.Object):
         ) -> list[typing.Any]: ...
         async def aio(
             self,
+            /,
             n_values: int,
             block: bool = True,
             timeout: typing.Optional[float] = None,
@@ -196,6 +212,7 @@ class Queue(modal.object.Object):
     class __put_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             v: typing.Any,
             block: bool = True,
             timeout: typing.Optional[float] = None,
@@ -205,6 +222,7 @@ class Queue(modal.object.Object):
         ) -> None: ...
         async def aio(
             self,
+            /,
             v: typing.Any,
             block: bool = True,
             timeout: typing.Optional[float] = None,
@@ -218,6 +236,7 @@ class Queue(modal.object.Object):
     class __put_many_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             vs: list[typing.Any],
             block: bool = True,
             timeout: typing.Optional[float] = None,
@@ -227,6 +246,7 @@ class Queue(modal.object.Object):
         ) -> None: ...
         async def aio(
             self,
+            /,
             vs: list[typing.Any],
             block: bool = True,
             timeout: typing.Optional[float] = None,
@@ -240,6 +260,7 @@ class Queue(modal.object.Object):
     class ___put_many_blocking_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             partition: typing.Optional[str],
             partition_ttl: int,
             vs: list[typing.Any],
@@ -247,6 +268,7 @@ class Queue(modal.object.Object):
         ): ...
         async def aio(
             self,
+            /,
             partition: typing.Optional[str],
             partition_ttl: int,
             vs: list[typing.Any],
@@ -256,23 +278,23 @@ class Queue(modal.object.Object):
     _put_many_blocking: ___put_many_blocking_spec[typing_extensions.Self]
 
     class ___put_many_nonblocking_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, partition: typing.Optional[str], partition_ttl: int, vs: list[typing.Any]): ...
-        async def aio(self, partition: typing.Optional[str], partition_ttl: int, vs: list[typing.Any]): ...
+        def __call__(self, /, partition: typing.Optional[str], partition_ttl: int, vs: list[typing.Any]): ...
+        async def aio(self, /, partition: typing.Optional[str], partition_ttl: int, vs: list[typing.Any]): ...
 
     _put_many_nonblocking: ___put_many_nonblocking_spec[typing_extensions.Self]
 
     class __len_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, *, partition: typing.Optional[str] = None, total: bool = False) -> int: ...
-        async def aio(self, *, partition: typing.Optional[str] = None, total: bool = False) -> int: ...
+        def __call__(self, /, *, partition: typing.Optional[str] = None, total: bool = False) -> int: ...
+        async def aio(self, /, *, partition: typing.Optional[str] = None, total: bool = False) -> int: ...
 
     len: __len_spec[typing_extensions.Self]
 
     class __iterate_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
-            self, *, partition: typing.Optional[str] = None, item_poll_timeout: float = 0.0
+            self, /, *, partition: typing.Optional[str] = None, item_poll_timeout: float = 0.0
         ) -> typing.Generator[typing.Any, None, None]: ...
         def aio(
-            self, *, partition: typing.Optional[str] = None, item_poll_timeout: float = 0.0
+            self, /, *, partition: typing.Optional[str] = None, item_poll_timeout: float = 0.0
         ) -> collections.abc.AsyncGenerator[typing.Any, None]: ...
 
     iterate: __iterate_spec[typing_extensions.Self]

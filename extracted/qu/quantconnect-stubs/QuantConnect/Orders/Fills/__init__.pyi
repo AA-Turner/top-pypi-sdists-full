@@ -360,6 +360,34 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         ...
 
 
+class ImmediateFillModel(QuantConnect.Orders.Fills.FillModel):
+    """Represents the default fill model used to simulate order fills"""
+
+
+class FutureFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
+    """Represents the fill model used to simulate order fills for futures"""
+
+    def market_fill(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.MarketOrder) -> QuantConnect.Orders.OrderEvent:
+        """
+        Default market fill model for the base security class. Fills at the last traded price.
+        
+        :param asset: Security asset we're filling
+        :param order: Order packet to model
+        :returns: Order fill information detailing the average price and quantity filled.
+        """
+        ...
+
+    def stop_market_fill(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.StopMarketOrder) -> QuantConnect.Orders.OrderEvent:
+        """
+        Stop fill model implementation for Future.
+        
+        :param asset: Security asset we're filling
+        :param order: Order packet to model
+        :returns: Order fill information detailing the average price and quantity filled.
+        """
+        ...
+
+
 class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
     """Represents the fill model used to simulate order fills for equities"""
 
@@ -464,38 +492,6 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
         ...
 
 
-class ImmediateFillModel(QuantConnect.Orders.Fills.FillModel):
-    """Represents the default fill model used to simulate order fills"""
-
-
-class FutureFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
-    """Represents the fill model used to simulate order fills for futures"""
-
-    def market_fill(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.MarketOrder) -> QuantConnect.Orders.OrderEvent:
-        """
-        Default market fill model for the base security class. Fills at the last traded price.
-        
-        :param asset: Security asset we're filling
-        :param order: Order packet to model
-        :returns: Order fill information detailing the average price and quantity filled.
-        """
-        ...
-
-    def stop_market_fill(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.StopMarketOrder) -> QuantConnect.Orders.OrderEvent:
-        """
-        Stop fill model implementation for Future.
-        
-        :param asset: Security asset we're filling
-        :param order: Order packet to model
-        :returns: Order fill information detailing the average price and quantity filled.
-        """
-        ...
-
-
-class FutureOptionFillModel(QuantConnect.Orders.Fills.FutureFillModel):
-    """Represents the default fill model used to simulate order fills for future options"""
-
-
 class LatestPriceFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
     """
     This fill model is provided for cases where the trade/quote distinction should be
@@ -513,5 +509,9 @@ class LatestPriceFillModel(QuantConnect.Orders.Fills.ImmediateFillModel):
         :param direction: The order direction, decides whether to pick bid or ask
         """
         ...
+
+
+class FutureOptionFillModel(QuantConnect.Orders.Fills.FutureFillModel):
+    """Represents the default fill model used to simulate order fills for future options"""
 
 

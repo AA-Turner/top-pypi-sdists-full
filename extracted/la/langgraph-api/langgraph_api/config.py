@@ -147,7 +147,6 @@ STATS_INTERVAL_SECS = env("STATS_INTERVAL_SECS", cast=int, default=60)
 
 DATABASE_URI = env("DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", undefined))
 MIGRATIONS_PATH = env("MIGRATIONS_PATH", cast=str, default="/storage/migrations")
-
 POSTGRES_POOL_MAX_SIZE = env("LANGGRAPH_POSTGRES_POOL_MAX_SIZE", cast=int, default=150)
 
 
@@ -237,6 +236,9 @@ BG_JOB_HEARTBEAT = 120  # seconds
 BG_JOB_INTERVAL = 30  # seconds
 BG_JOB_MAX_RETRIES = 3
 BG_JOB_ISOLATED_LOOPS = env("BG_JOB_ISOLATED_LOOPS", cast=bool, default=False)
+BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS = env(
+    "BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS", cast=int, default=3600
+)
 
 
 def _parse_thread_ttl(value: str | None) -> ThreadTTLConfig | None:

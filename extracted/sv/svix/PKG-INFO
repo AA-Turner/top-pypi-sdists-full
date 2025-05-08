@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: svix
-Version: 1.64.1
+Version: 1.65.0
 Summary: Svix webhooks API client and webhook verification library
 Home-page: https://www.svix.com
 Author: Svix

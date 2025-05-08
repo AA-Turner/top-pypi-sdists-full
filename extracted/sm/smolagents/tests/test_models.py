@@ -16,7 +16,6 @@ import json
 import sys
 import unittest
 from contextlib import ExitStack
-from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,6 +29,7 @@ from smolagents.models import (
     HfApiModel,
     InferenceClientModel,
     LiteLLMModel,
+    LiteLLMRouterModel,
     MessageRole,
     MLXModel,
     Model,
@@ -75,7 +75,7 @@ class TestModel:
 
     def test_get_json_schema_has_nullable_args(self):
         @tool
-        def get_weather(location: str, celsius: Optional[bool] = False) -> str:
+        def get_weather(location: str, celsius: bool | None = False) -> str:
             """
             Get weather in the next days at given location.
             Secretly this tool does not care about the location, it hates the weather everywhere.
@@ -122,8 +122,14 @@ class TestModel:
             do_sample=False,
         )
         messages = [{"role": "user", "content": [{"type": "text", "text": "Hello!"}]}]
-        output = model(messages, stop_sequences=["great"]).content
+        output = model.generate(messages, stop_sequences=["great"]).content
         assert output == "assistant\nHello"
+
+        output = model.generate_stream(messages, stop_sequences=["great"])
+        output_str = ""
+        for el in output:
+            output_str += el.content
+        assert output_str == "assistant\nHello"
 
     def test_transformers_message_vl_no_tool(self, shared_datadir, monkeypatch):
         monkeypatch.setattr("huggingface_hub.constants.HF_HUB_DOWNLOAD_TIMEOUT", 30)  # instead of 10
@@ -132,13 +138,19 @@ class TestModel:
         img = PIL.Image.open(shared_datadir / "000000039769.png")
         model = TransformersModel(
             model_id="llava-hf/llava-interleave-qwen-0.5b-hf",
-            max_new_tokens=5,
+            max_new_tokens=4,
             device_map="cpu",
             do_sample=False,
         )
         messages = [{"role": "user", "content": [{"type": "text", "text": "Hello!"}, {"type": "image", "image": img}]}]
-        output = model(messages, stop_sequences=["great"]).content
-        assert output == "Hello! How can"
+        output = model.generate(messages, stop_sequences=["great"]).content
+        assert output == "I am"
+
+        output = model.generate_stream(messages, stop_sequences=["great"])
+        output_str = ""
+        for el in output:
+            output_str += el.content
+        assert output_str == "I am"
 
     def test_parse_json_if_needed(self):
         args = "abc"
@@ -211,13 +223,27 @@ class TestHfApiModel:
     def test_get_hfapi_message_no_tool(self):
         model = HfApiModel(model_id="Qwen/Qwen2.5-Coder-32B-Instruct", max_tokens=10)
         messages = [{"role": "user", "content": [{"type": "text", "text": "Hello!"}]}]
-        model(messages, stop_sequences=["great"])
+        model.generate(messages, stop_sequences=["great"])
 
     @require_run_all
     def test_get_hfapi_message_no_tool_external_provider(self):
         model = HfApiModel(model_id="Qwen/Qwen2.5-Coder-32B-Instruct", provider="together", max_tokens=10)
         messages = [{"role": "user", "content": [{"type": "text", "text": "Hello!"}]}]
-        model(messages, stop_sequences=["great"])
+        model.generate(messages, stop_sequences=["great"])
+
+    @require_run_all
+    def test_get_hfapi_message_stream_no_tool(self):
+        model = HfApiModel(model_id="Qwen/Qwen2.5-Coder-32B-Instruct", max_tokens=10)
+        messages = [{"role": "user", "content": [{"type": "text", "text": "Hello!"}]}]
+        for el in model.generate_stream(messages, stop_sequences=["great"]):
+            assert el.content is not None
+
+    @require_run_all
+    def test_get_hfapi_message_stream_no_tool_external_provider(self):
+        model = HfApiModel(model_id="Qwen/Qwen2.5-Coder-32B-Instruct", provider="together", max_tokens=10)
+        messages = [{"role": "user", "content": [{"type": "text", "text": "Hello!"}]}]
+        for el in model.generate_stream(messages, stop_sequences=["great"]):
+            assert el.content is not None
 
 
 class TestLiteLLMModel:
@@ -234,7 +260,12 @@ class TestLiteLLMModel:
         messages = [{"role": "user", "content": [{"type": "text", "text": "Test message"}]}]
         with pytest.raises(Exception) as e:
             # This should raise 401 error because of missing API key, not fail for any "bad format" reason
-            model(messages)
+            model.generate(messages)
+        assert error_flag in str(e)
+        with pytest.raises(Exception) as e:
+            # This should raise 401 error because of missing API key, not fail for any "bad format" reason
+            for el in model.generate_stream(messages):
+                assert el.content is not None
         assert error_flag in str(e)
 
     def test_passing_flatten_messages(self):
@@ -243,6 +274,41 @@ class TestLiteLLMModel:
 
         model = LiteLLMModel(model_id="fal/llama-3.3-70b", flatten_messages_as_text=True)
         assert model.flatten_messages_as_text
+
+
+class TestLiteLLMRouterModel:
+    @pytest.mark.parametrize(
+        "model_id, expected",
+        [
+            ("llama-3.3-70b", False),
+            ("llama-3.3-70b", True),
+            ("mistral-tiny", True),
+        ],
+    )
+    def test_flatten_messages_as_text(self, model_id, expected):
+        model_list = [
+            {"model_name": "llama-3.3-70b", "litellm_params": {"model": "groq/llama-3.3-70b"}},
+            {"model_name": "llama-3.3-70b", "litellm_params": {"model": "cerebras/llama-3.3-70b"}},
+            {"model_name": "mistral-tiny", "litellm_params": {"model": "mistral/mistral-tiny"}},
+        ]
+        model = LiteLLMRouterModel(model_id=model_id, model_list=model_list, flatten_messages_as_text=expected)
+        assert model.flatten_messages_as_text is expected
+
+    def test_create_client(self):
+        model_list = [
+            {"model_name": "llama-3.3-70b", "litellm_params": {"model": "groq/llama-3.3-70b"}},
+            {"model_name": "llama-3.3-70b", "litellm_params": {"model": "cerebras/llama-3.3-70b"}},
+        ]
+        with patch("litellm.Router") as mock_router:
+            router_model = LiteLLMRouterModel(
+                model_id="model-group-1", model_list=model_list, client_kwargs={"routing_strategy": "simple-shuffle"}
+            )
+            # Ensure that the Router constructor was called with the expected keyword arguments
+            mock_router.assert_called_once()
+            assert mock_router.call_count == 1
+            assert mock_router.call_args.kwargs["model_list"] == model_list
+            assert mock_router.call_args.kwargs["routing_strategy"] == "simple-shuffle"
+            assert router_model.client == mock_router.return_value
 
 
 class TestOpenAIServerModel:

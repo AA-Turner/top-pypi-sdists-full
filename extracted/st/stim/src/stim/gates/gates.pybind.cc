@@ -50,7 +50,7 @@ pybind11::object gate_tableau(const Gate &self) {
     return pybind11::none();
 }
 pybind11::object gate_unitary_matrix(const Gate &self) {
-    if (self.flags & GATE_IS_UNITARY) {
+    if (self.has_known_unitary_matrix()) {
         auto r = self.unitary();
         auto n = r.size();
         std::complex<float> *buffer = new std::complex<float>[n * n];
@@ -605,8 +605,8 @@ void stim_pybind::pybind_gate_data_methods(pybind11::module &m, pybind11::class_
                 stim.gate_data('DEPOLARIZE1')
                 >>> stim.gate_data('X_ERROR').hadamard_conjugated()
                 stim.gate_data('Z_ERROR')
-                >>> stim.gate_data('H_XY').hadamard_conjugated(unsigned=True)
-                stim.gate_data('H_YZ')
+                >>> stim.gate_data('H_XY').hadamard_conjugated()
+                stim.gate_data('H_NYZ')
                 >>> stim.gate_data('DETECTOR').hadamard_conjugated(unsigned=True)
                 stim.gate_data('DETECTOR')
         )DOC")

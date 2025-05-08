@@ -660,7 +660,7 @@ class ClusterCreateParams(object):
     def hyperthreading(self):
         """Gets the hyperthreading of this ClusterCreateParams.  # noqa: E501
 
-        Enable/disable hyperthreading on master nodes, worker nodes, or all nodes.  # noqa: E501
+        Enable/disable hyperthreading on master nodes, arbiter nodes, worker nodes, or a combination of them.  # noqa: E501
 
         :return: The hyperthreading of this ClusterCreateParams.  # noqa: E501
         :rtype: str
@@ -671,12 +671,12 @@ class ClusterCreateParams(object):
     def hyperthreading(self, hyperthreading):
         """Sets the hyperthreading of this ClusterCreateParams.
 
-        Enable/disable hyperthreading on master nodes, worker nodes, or all nodes.  # noqa: E501
+        Enable/disable hyperthreading on master nodes, arbiter nodes, worker nodes, or a combination of them.  # noqa: E501
 
         :param hyperthreading: The hyperthreading of this ClusterCreateParams.  # noqa: E501
         :type: str
         """
-        allowed_values = ["masters", "workers", "none", "all"]  # noqa: E501
+        allowed_values = ["none", "masters", "arbiters", "workers", "masters,arbiters", "masters,workers", "arbiters,workers", "masters,arbiters,workers", "all"]  # noqa: E501
         if hyperthreading not in allowed_values:
             raise ValueError(
                 "Invalid value for `hyperthreading` ({0}), must be one of {1}"  # noqa: E501

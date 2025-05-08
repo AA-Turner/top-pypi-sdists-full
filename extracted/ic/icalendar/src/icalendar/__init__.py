@@ -1,10 +1,6 @@
 from icalendar.alarms import (
     Alarms,
     AlarmTime,
-    ComponentEndMissing,
-    ComponentStartMissing,
-    IncompleteAlarmInformation,
-    LocalTimezoneMissing,
 )
 from icalendar.cal import (
     Alarm,
@@ -13,13 +9,20 @@ from icalendar.cal import (
     ComponentFactory,
     Event,
     FreeBusy,
-    IncompleteComponent,
-    InvalidCalendar,
     Journal,
     Timezone,
     TimezoneDaylight,
     TimezoneStandard,
     Todo,
+)
+from icalendar.enums import CUTYPE, FBTYPE, PARTSTAT, RANGE, RELATED, RELTYPE, ROLE
+from icalendar.error import (
+    ComponentEndMissing,
+    ComponentStartMissing,
+    IncompleteAlarmInformation,
+    IncompleteComponent,
+    InvalidCalendar,
+    LocalTimezoneMissing,
 )
 
 # Parameters and helper methods for splitting and joining string with escaped
@@ -47,6 +50,7 @@ from icalendar.prop import (
     vMonth,
     vPeriod,
     vRecur,
+    vSkip,
     vText,
     vTime,
     vUri,
@@ -108,4 +112,13 @@ __all__ = [
     "ComponentStartMissing",
     "IncompleteAlarmInformation",
     "LocalTimezoneMissing",
+    "CUTYPE",
+    "FBTYPE",
+    "PARTSTAT",
+    "RANGE",
+    "vSkip",
+    "RELATED",
+    "vSkip",
+    "RELTYPE",
+    "ROLE",
 ]

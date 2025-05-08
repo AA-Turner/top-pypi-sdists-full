@@ -26,7 +26,6 @@
 #include <stdexcept>
 
 #include "stim/mem/bitword.h"
-#include "stim/mem/simd_util.h"
 
 namespace stim {
 
@@ -49,17 +48,17 @@ struct bitword<128> {
         _mm_free(ptr);
     }
 
-    inline bitword<128>() : val(__m128i{}) {
+    inline bitword() : val(__m128i{}) {
     }
-    inline bitword<128>(__m128i val) : val(val) {
+    inline bitword(__m128i val) : val(val) {
     }
-    inline bitword<128>(std::array<uint64_t, 2> val) : val{_mm_set_epi64x(val[1], val[0])} {
+    inline bitword(std::array<uint64_t, 2> val) : val{_mm_set_epi64x(val[1], val[0])} {
     }
-    inline bitword<128>(uint64_t val) : val{_mm_set_epi64x(0, val)} {
+    inline bitword(uint64_t val) : val{_mm_set_epi64x(0, val)} {
     }
-    inline bitword<128>(int64_t val) : val{_mm_set_epi64x(-(val < 0), val)} {
+    inline bitword(int64_t val) : val{_mm_set_epi64x(-(val < 0), val)} {
     }
-    inline bitword<128>(int val) : val{_mm_set_epi64x(-(val < 0), val)} {
+    inline bitword(int val) : val{_mm_set_epi64x(-(val < 0), val)} {
     }
 
     inline static bitword<128> tile8(uint8_t pattern) {
@@ -193,9 +192,9 @@ struct bitword<128> {
             bitword<128> &x = data[stride * k];
             bitword<128> &y = data[stride * (k + shift)];
             bitword<128> a = x & mask;
-            bitword<128> b = x & ~mask;
+            bitword<128> b = _mm_andnot_si128(mask, x.val);
             bitword<128> c = y & mask;
-            bitword<128> d = y & ~mask;
+            bitword<128> d = _mm_andnot_si128(mask, y.val);
             x = a | bitword<128>(_mm_slli_epi64(c.val, shift));
             y = bitword<128>(_mm_srli_epi64(b.val, shift)) | d;
         }

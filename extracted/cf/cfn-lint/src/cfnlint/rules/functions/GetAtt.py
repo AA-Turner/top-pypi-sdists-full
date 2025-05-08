@@ -29,41 +29,10 @@ class GetAtt(BaseFn):
     tags = ["functions", "getatt"]
 
     def __init__(self) -> None:
-        super().__init__("Fn::GetAtt", all_types)
-
-    def schema(self, validator, instance) -> dict[str, Any]:
-        resource_name_functions = []
-        resource_attribute_functions = ["Ref"]
-        if validator.context.transforms.has_language_extensions_transform():
-            resource_name_functions = resource_attribute_functions = [
-                "Ref",
-                "Fn::Base64",
-                "Fn::FindInMap",
-                "Fn::Sub",
-                "Fn::If",
-                "Fn::Join",
-                "Fn::ToJsonString",
-            ]
-
-        return {
-            "type": ["string", "array"],
-            "minItems": 2,
-            "maxItems": 2,
-            "fn_items": [
-                {
-                    "functions": resource_name_functions,
-                    "schema": {
-                        "type": ["string"],
-                    },
-                },
-                {
-                    "functions": resource_attribute_functions,
-                    "schema": {
-                        "type": ["string"],
-                    },
-                },
-            ],
-        }
+        super().__init__(
+            "Fn::GetAtt",
+            all_types,
+        )
 
     def _resolve_getatt(
         self,
@@ -182,7 +151,7 @@ class GetAtt(BaseFn):
 
         errs = list(
             self._resolve_getatt(
-                self.validator(validator), key, value, instance, s, paths
+                self.validator(validator, schema), key, value, instance, s, paths
             )
         )
         if errs:

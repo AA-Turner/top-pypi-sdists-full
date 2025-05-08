@@ -41,8 +41,8 @@ async def get_access_token(token: str):
         logger.debug(response.json())
         return response.json()["accessToken"]
 
-
-async def edit_image(image, task: Literal["vectorize", "super_resolution",] = "super_resolution"):
+@retrying()
+async def edit_image(image, task: Literal["vectorize", "super_resolution",] = "super_resolution", response_format: Literal["url", "base64"] = "url"):
     token = await get_next_token_for_polling(
         feishu_url=FEISHU_URL,
         check_token=check_token,
@@ -70,6 +70,9 @@ async def edit_image(image, task: Literal["vectorize", "super_resolution",] = "s
         params = {"raster_image_content_type": "image/png"}
         response = await client.get(f"""/image/{data["result"]["image_id"]}""", params=params)
         response.raise_for_status()
+
+        # if response_format == "url":
+
         url = await to_url(response.content, content_type="image/png")
         return {"image": {"url": url}}
 
@@ -194,11 +197,11 @@ if __name__ == '__main__':
         **data
     )
     token = None
-    with timer():
-        arun(generate(request, token=token))
-
     # with timer():
-    #     arun(edit_image("https://oss.ffire.cc/files/kling_watermark.png"))
+    #     arun(generate(request, token=token))
+
+    with timer():
+        arun(edit_image("https://oss.ffire.cc/files/kling_watermark.png"))
     # tokens = [token]
     #
     # tokens = list(arun(aget_spreadsheet_values(feishu_url=FEISHU_URL, to_dataframe=True))[0]) | xfilter_

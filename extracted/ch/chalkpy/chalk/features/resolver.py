@@ -54,7 +54,10 @@ from google.protobuf.descriptor import Descriptor
 from typing_extensions import ParamSpec, TypeAlias, final, get_args, get_origin
 
 from chalk._lsp.error_builder import ResolverErrorBuilder, get_resolver_error_builder
-from chalk.features._encoding.protobuf import convert_proto_message_type_to_pyarrow_type, serialize_proto_descriptor
+from chalk.features._encoding.protobuf import (
+    convert_proto_message_type_to_pyarrow_type,
+    serialize_message_file_descriptor,
+)
 from chalk.features._encoding.pyarrow import rich_to_pyarrow
 from chalk.features.dataframe import DataFrame, DataFrameMeta
 from chalk.features.feature_field import Feature
@@ -257,7 +260,6 @@ class FunctionCapturedGlobalProto(FunctionCapturedGlobal):
     module: str
     name: str
     fd: Descriptor
-    # fd_full_name: str
     serialized_fd: bytes
     pa_dtype: pa.DataType
 
@@ -1559,7 +1561,7 @@ def capture_global(
                     name=global_value.__name__,
                     module=global_value.__module__,
                     fd=global_value.DESCRIPTOR,
-                    serialized_fd=serialize_proto_descriptor(global_value.DESCRIPTOR.file),
+                    serialized_fd=serialize_message_file_descriptor(global_value.DESCRIPTOR.file),
                     pa_dtype=convert_proto_message_type_to_pyarrow_type(global_value.DESCRIPTOR),
                 )
         except RecursionError as recursion_error:

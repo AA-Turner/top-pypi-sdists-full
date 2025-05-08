@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-genai
-Version: 1.13.0
+Version: 1.14.0
 Summary: GenAI Python SDK
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache-2.0
@@ -32,6 +32,8 @@ Dynamic: license-file
 # Google Gen AI SDK
 
 [![PyPI version](https://img.shields.io/pypi/v/google-genai.svg)](https://pypi.org/project/google-genai/)
+![Python support](https://img.shields.io/pypi/pyversions/google-genai)
+[![PyPI - Downloads](https://img.shields.io/pypi/dw/google-genai)](https://pypistats.org/packages/google-genai)
 
 --------
 **Documentation:** https://googleapis.github.io/python-genai/

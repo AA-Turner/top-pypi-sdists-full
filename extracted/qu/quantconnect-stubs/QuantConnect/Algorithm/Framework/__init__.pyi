@@ -11,19 +11,6 @@ import System
 import System.Collections.Generic
 
 
-class INotifiedSecurityChanges(metaclass=abc.ABCMeta):
-    """Types implementing this interface will be called when the algorithm's set of securities changes"""
-
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time the we add/remove securities from the data feed
-        
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-
 class NotifiedSecurityChanges(System.Object):
     """Provides convenience methods for updating collections in responses to securities changed events"""
 
@@ -45,6 +32,19 @@ class NotifiedSecurityChanges(System.Object):
         
         :param securities: The securities collection to be updated with the changes
         :param changes: The changes to be applied to the securities collection
+        """
+        ...
+
+
+class INotifiedSecurityChanges(metaclass=abc.ABCMeta):
+    """Types implementing this interface will be called when the algorithm's set of securities changes"""
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
         """
         ...
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_azure_native
-Version: 3.3.0
+Version: 3.4.0
 Summary: A native Pulumi package for creating and managing Azure resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.com

@@ -1322,12 +1322,12 @@ class Eslint(
 
     @builtins.property
     @jsii.member(jsii_name="rules")
-    def rules(self) -> typing.Mapping[builtins.str, typing.List[typing.Any]]:
+    def rules(self) -> typing.Mapping[builtins.str, typing.Any]:
         '''(experimental) eslint rules.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Mapping[builtins.str, typing.List[typing.Any]], jsii.get(self, "rules"))
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "rules"))
 
 
 @jsii.data_type(

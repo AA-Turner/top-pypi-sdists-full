@@ -3,20 +3,27 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import time  # Added for measuring duration
 from typing import Any, Callable, Iterable, Optional, Set, Tuple, Union, overload
 
 from typing_extensions import TypeAlias
 
 from chalk.features.tag import Environments
 from chalk.utils.collections import ensure_tuple
+from chalk.utils.log_with_context import get_logger
 
 HookFn: TypeAlias = Callable[[], Any]
+
+
+_hook_logger = get_logger("chalk.hook_logger")
 
 
 async def _run_all_hooks(environment: str, hooks: Iterable["Hook"]) -> None:
     for hook in hooks:
         if hook.environment is None or environment in hook.environment:
+            start_time = time.perf_counter()  # Start timing
             try:
+                _hook_logger.info("Starting to run hook %s...", hook.fn.__name__)
                 if inspect.iscoroutinefunction(hook.fn):
                     await hook()
                 else:
@@ -24,6 +31,9 @@ async def _run_all_hooks(environment: str, hooks: Iterable["Hook"]) -> None:
             except Exception as e:
                 logging.error(f"Error running hook {hook.fn.__name__}", exc_info=True)
                 raise e
+            finally:
+                duration = time.perf_counter() - start_time  # Calculate duration
+                _hook_logger.info("Ran hook %s in %.2f seconds", hook.fn.__name__, duration)
 
 
 class Hook:

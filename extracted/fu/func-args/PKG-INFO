@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: func_args
-Version: 1.0.0
+Version: 1.0.1
 Summary: A lightweight Python library for creating wrapper functions with enhanced argument handling using sentinel values to mark parameters as required or optional.
 License: MIT
 Author: Sanhe Hu

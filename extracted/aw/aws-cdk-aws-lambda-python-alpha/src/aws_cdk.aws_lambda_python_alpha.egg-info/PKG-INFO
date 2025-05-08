@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-lambda-python-alpha
-Version: 2.194.0a0
+Version: 2.195.0a0
 Summary: The CDK Construct Library for AWS Lambda in Python
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,7 +22,7 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.194.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.195.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
 Requires-Dist: jsii<2.0.0,>=1.110.0
 Requires-Dist: publication>=0.0.3

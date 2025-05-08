@@ -5,6 +5,35 @@ import QuantConnect.Orders
 import System
 
 
+class CrossZeroOrderResponse:
+    """Represents a response for a cross zero order request."""
+
+    @property
+    def brokerage_order_id(self) -> str:
+        """Gets the brokerage order ID."""
+        ...
+
+    @property
+    def is_order_placed_successfully(self) -> bool:
+        """Gets a value indicating whether the order was placed successfully."""
+        ...
+
+    @property
+    def message(self) -> str:
+        """Gets the message of the order."""
+        ...
+
+    def __init__(self, brokerage_order_id: str, is_order_placed_successfully: bool, message: str = ...) -> None:
+        """
+        Initializes a new instance of the CrossZeroOrderResponse struct.
+        
+        :param brokerage_order_id: The brokerage order ID.
+        :param is_order_placed_successfully: if set to true [is order placed successfully].
+        :param message: The message of the order. This parameter is optional and defaults to null.
+        """
+        ...
+
+
 class CrossZeroFirstOrderRequest(System.Object):
     """Represents a first request to cross zero order."""
 
@@ -47,35 +76,6 @@ class CrossZeroFirstOrderRequest(System.Object):
         :param order_quantity: The quantity of the order.
         :param order_quantityHolding: The current holding quantity of the order's symbol.
         :param order_position: The position of the order, which depends on the .
-        """
-        ...
-
-
-class CrossZeroOrderResponse:
-    """Represents a response for a cross zero order request."""
-
-    @property
-    def brokerage_order_id(self) -> str:
-        """Gets the brokerage order ID."""
-        ...
-
-    @property
-    def is_order_placed_successfully(self) -> bool:
-        """Gets a value indicating whether the order was placed successfully."""
-        ...
-
-    @property
-    def message(self) -> str:
-        """Gets the message of the order."""
-        ...
-
-    def __init__(self, brokerage_order_id: str, is_order_placed_successfully: bool, message: str = ...) -> None:
-        """
-        Initializes a new instance of the CrossZeroOrderResponse struct.
-        
-        :param brokerage_order_id: The brokerage order ID.
-        :param is_order_placed_successfully: if set to true [is order placed successfully].
-        :param message: The message of the order. This parameter is optional and defaults to null.
         """
         ...
 

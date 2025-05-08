@@ -39,10 +39,10 @@ class Environment(modal.object.Object):
 
     class __lookup_spec(typing_extensions.Protocol):
         def __call__(
-            self, name: str, client: typing.Optional[modal.client.Client] = None, create_if_missing: bool = False
+            self, /, name: str, client: typing.Optional[modal.client.Client] = None, create_if_missing: bool = False
         ): ...
         async def aio(
-            self, name: str, client: typing.Optional[modal.client.Client] = None, create_if_missing: bool = False
+            self, /, name: str, client: typing.Optional[modal.client.Client] = None, create_if_missing: bool = False
         ): ...
 
     lookup: __lookup_spec
@@ -50,14 +50,15 @@ class Environment(modal.object.Object):
 async def _get_environment_cached(name: str, client: modal.client._Client) -> _Environment: ...
 
 class __delete_environment_spec(typing_extensions.Protocol):
-    def __call__(self, name: str, client: typing.Optional[modal.client.Client] = None): ...
-    async def aio(self, name: str, client: typing.Optional[modal.client.Client] = None): ...
+    def __call__(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
+    async def aio(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
 
 delete_environment: __delete_environment_spec
 
 class __update_environment_spec(typing_extensions.Protocol):
     def __call__(
         self,
+        /,
         current_name: str,
         *,
         new_name: typing.Optional[str] = None,
@@ -66,6 +67,7 @@ class __update_environment_spec(typing_extensions.Protocol):
     ): ...
     async def aio(
         self,
+        /,
         current_name: str,
         *,
         new_name: typing.Optional[str] = None,
@@ -76,17 +78,17 @@ class __update_environment_spec(typing_extensions.Protocol):
 update_environment: __update_environment_spec
 
 class __create_environment_spec(typing_extensions.Protocol):
-    def __call__(self, name: str, client: typing.Optional[modal.client.Client] = None): ...
-    async def aio(self, name: str, client: typing.Optional[modal.client.Client] = None): ...
+    def __call__(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
+    async def aio(self, /, name: str, client: typing.Optional[modal.client.Client] = None): ...
 
 create_environment: __create_environment_spec
 
 class __list_environments_spec(typing_extensions.Protocol):
     def __call__(
-        self, client: typing.Optional[modal.client.Client] = None
+        self, /, client: typing.Optional[modal.client.Client] = None
     ) -> list[modal_proto.api_pb2.EnvironmentListItem]: ...
     async def aio(
-        self, client: typing.Optional[modal.client.Client] = None
+        self, /, client: typing.Optional[modal.client.Client] = None
     ) -> list[modal_proto.api_pb2.EnvironmentListItem]: ...
 
 list_environments: __list_environments_spec

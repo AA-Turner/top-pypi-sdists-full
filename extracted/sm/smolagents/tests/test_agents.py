@@ -15,11 +15,10 @@
 import io
 import os
 import tempfile
-import unittest
 import uuid
+from collections.abc import Generator
 from contextlib import nullcontext as does_not_raise
 from pathlib import Path
-from typing import Any, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -49,6 +48,7 @@ from smolagents.models import (
     ChatMessageToolCallDefinition,
     InferenceClientModel,
     MessageRole,
+    Model,
     TransformersModel,
 )
 from smolagents.monitoring import AgentLogger, LogLevel
@@ -68,8 +68,8 @@ def agent_logger():
     )
 
 
-class FakeToolCallModel:
-    def __call__(self, messages, tools_to_call_from=None, stop_sequences=None, grammar=None):
+class FakeToolCallModel(Model):
+    def generate(self, messages, tools_to_call_from=None, stop_sequences=None, grammar=None):
         if len(messages) < 3:
             return ChatMessage(
                 role="assistant",
@@ -98,8 +98,8 @@ class FakeToolCallModel:
             )
 
 
-class FakeToolCallModelImage:
-    def __call__(self, messages, tools_to_call_from=None, stop_sequences=None, grammar=None):
+class FakeToolCallModelImage(Model):
+    def generate(self, messages, tools_to_call_from=None, stop_sequences=None, grammar=None):
         if len(messages) < 3:
             return ChatMessage(
                 role="assistant",
@@ -129,8 +129,8 @@ class FakeToolCallModelImage:
             )
 
 
-class FakeToolCallModelVL:
-    def __call__(self, messages, tools_to_call_from=None, stop_sequences=None, grammar=None):
+class FakeToolCallModelVL(Model):
+    def generate(self, messages, tools_to_call_from=None, stop_sequences=None, grammar=None):
         if len(messages) < 3:
             return ChatMessage(
                 role="assistant",
@@ -163,38 +163,40 @@ class FakeToolCallModelVL:
             )
 
 
-def fake_code_model(messages, stop_sequences=None, grammar=None) -> str:
-    prompt = str(messages)
-    if "special_marker" not in prompt:
-        return ChatMessage(
-            role="assistant",
-            content="""
+class FakeCodeModel(Model):
+    def generate(self, messages, stop_sequences=None, grammar=None):
+        prompt = str(messages)
+        if "special_marker" not in prompt:
+            return ChatMessage(
+                role="assistant",
+                content="""
 Thought: I should multiply 2 by 3.6452. special_marker
 Code:
 ```py
 result = 2**3.6452
 ```<end_code>
 """,
-        )
-    else:  # We're at step 2
-        return ChatMessage(
-            role="assistant",
-            content="""
+            )
+        else:  # We're at step 2
+            return ChatMessage(
+                role="assistant",
+                content="""
 Thought: I can now answer the initial question
 Code:
 ```py
 final_answer(7.2904)
 ```<end_code>
 """,
-        )
+            )
 
 
-def fake_code_model_error(messages, stop_sequences=None) -> str:
-    prompt = str(messages)
-    if "special_marker" not in prompt:
-        return ChatMessage(
-            role="assistant",
-            content="""
+class FakeCodeModelError(Model):
+    def generate(self, messages, stop_sequences=None):
+        prompt = str(messages)
+        if "special_marker" not in prompt:
+            return ChatMessage(
+                role="assistant",
+                content="""
 Thought: I should multiply 2 by 3.6452. special_marker
 Code:
 ```py
@@ -205,26 +207,27 @@ def error_function():
 error_function()
 ```<end_code>
 """,
-        )
-    else:  # We're at step 2
-        return ChatMessage(
-            role="assistant",
-            content="""
+            )
+        else:  # We're at step 2
+            return ChatMessage(
+                role="assistant",
+                content="""
 Thought: I faced an error in the previous step.
 Code:
 ```py
 final_answer("got an error")
 ```<end_code>
 """,
-        )
+            )
 
 
-def fake_code_model_syntax_error(messages, stop_sequences=None) -> str:
-    prompt = str(messages)
-    if "special_marker" not in prompt:
-        return ChatMessage(
-            role="assistant",
-            content="""
+class FakeCodeModelSyntaxError(Model):
+    def generate(self, messages, stop_sequences=None):
+        prompt = str(messages)
+        if "special_marker" not in prompt:
+            return ChatMessage(
+                role="assistant",
+                content="""
 Thought: I should multiply 2 by 3.6452. special_marker
 Code:
 ```py
@@ -234,24 +237,25 @@ b = a * 2
 print("Ok, calculation done!")
 ```<end_code>
 """,
-        )
-    else:  # We're at step 2
-        return ChatMessage(
-            role="assistant",
-            content="""
+            )
+        else:  # We're at step 2
+            return ChatMessage(
+                role="assistant",
+                content="""
 Thought: I can now answer the initial question
 Code:
 ```py
 final_answer("got an error")
 ```<end_code>
 """,
-        )
+            )
 
 
-def fake_code_model_import(messages, stop_sequences=None) -> str:
-    return ChatMessage(
-        role="assistant",
-        content="""
+class FakeCodeModelImport(Model):
+    def generate(self, messages, stop_sequences=None):
+        return ChatMessage(
+            role="assistant",
+            content="""
 Thought: I can answer the question
 Code:
 ```py
@@ -259,15 +263,16 @@ import numpy as np
 final_answer("got an error")
 ```<end_code>
 """,
-    )
+        )
 
 
-def fake_code_functiondef(messages, stop_sequences=None) -> str:
-    prompt = str(messages)
-    if "special_marker" not in prompt:
-        return ChatMessage(
-            role="assistant",
-            content="""
+class FakeCodeModelFunctionDef(Model):
+    def generate(self, messages, stop_sequences=None):
+        prompt = str(messages)
+        if "special_marker" not in prompt:
+            return ChatMessage(
+                role="assistant",
+                content="""
 Thought: Let's define the function. special_marker
 Code:
 ```py
@@ -276,12 +281,12 @@ import numpy as np
 def moving_average(x, w):
     return np.convolve(x, np.ones(w), 'valid') / w
 ```<end_code>
-""",
-        )
-    else:  # We're at step 2
-        return ChatMessage(
-            role="assistant",
-            content="""
+    """,
+            )
+        else:  # We're at step 2
+            return ChatMessage(
+                role="assistant",
+                content="""
 Thought: I can now answer the initial question
 Code:
 ```py
@@ -290,13 +295,14 @@ res = moving_average(x, w)
 final_answer(res)
 ```<end_code>
 """,
-        )
+            )
 
 
-def fake_code_model_single_step(messages, stop_sequences=None, grammar=None) -> str:
-    return ChatMessage(
-        role="assistant",
-        content="""
+class FakeCodeModelSingleStep(Model):
+    def generate(self, messages, stop_sequences=None, grammar=None):
+        return ChatMessage(
+            role="assistant",
+            content="""
 Thought: I should multiply 2 by 3.6452. special_marker
 Code:
 ```py
@@ -304,13 +310,14 @@ result = python_interpreter(code="2*3.6452")
 final_answer(result)
 ```
 """,
-    )
+        )
 
 
-def fake_code_model_no_return(messages, stop_sequences=None, grammar=None) -> str:
-    return ChatMessage(
-        role="assistant",
-        content="""
+class FakeCodeModelNoReturn(Model):
+    def generate(self, messages, stop_sequences=None, grammar=None):
+        return ChatMessage(
+            role="assistant",
+            content="""
 Thought: I should multiply 2 by 3.6452. special_marker
 Code:
 ```py
@@ -318,7 +325,7 @@ result = python_interpreter(code="2*3.6452")
 print(result)
 ```
 """,
-    )
+        )
 
 
 class TestAgent:
@@ -371,7 +378,7 @@ class TestAgent:
         assert output == "The image is a cat."
 
     def test_fake_code_agent(self):
-        agent = CodeAgent(tools=[PythonInterpreterTool()], model=fake_code_model)
+        agent = CodeAgent(tools=[PythonInterpreterTool()], model=FakeCodeModel())
         output = agent.run("What is 2 multiplied by 3.6452?")
         assert isinstance(output, float)
         assert output == 7.2904
@@ -381,16 +388,15 @@ class TestAgent:
         ]
 
     def test_additional_args_added_to_task(self):
-        agent = CodeAgent(tools=[], model=fake_code_model)
+        agent = CodeAgent(tools=[], model=FakeCodeModel())
         agent.run(
             "What is 2 multiplied by 3.6452?",
             additional_args={"instruction": "Remember this."},
         )
         assert "Remember this" in agent.task
-        assert "Remember this" in str(agent.input_messages)
 
     def test_reset_conversations(self):
-        agent = CodeAgent(tools=[PythonInterpreterTool()], model=fake_code_model)
+        agent = CodeAgent(tools=[PythonInterpreterTool()], model=FakeCodeModel())
         output = agent.run("What is 2 multiplied by 3.6452?", reset=True)
         assert output == 7.2904
         assert len(agent.memory.steps) == 3
@@ -409,7 +415,7 @@ class TestAgent:
     def test_fails_max_steps(self):
         agent = CodeAgent(
             tools=[PythonInterpreterTool()],
-            model=fake_code_model_no_return,  # use this callable because it never ends
+            model=FakeCodeModelNoReturn(),  # use this callable because it never ends
             max_steps=5,
         )
         answer = agent.run("What is 2 multiplied by 3.6452?")
@@ -419,7 +425,7 @@ class TestAgent:
 
         agent = CodeAgent(
             tools=[PythonInterpreterTool()],
-            model=fake_code_model_no_return,  # use this callable because it never ends
+            model=FakeCodeModelNoReturn(),  # use this callable because it never ends
             max_steps=5,
         )
         answer = agent.run("What is 2 multiplied by 3.6452?", max_steps=3)
@@ -431,46 +437,46 @@ class TestAgent:
         tool = PythonInterpreterTool()
         tool.name = "fake_tool_name"
         tool.description = "fake_tool_description"
-        agent = CodeAgent(tools=[tool], model=fake_code_model)
+        agent = CodeAgent(tools=[tool], model=FakeCodeModel())
         agent.run("Empty task")
         assert agent.system_prompt is not None
         assert f"def {tool.name}(" in agent.system_prompt
         assert f'"""{tool.description}' in agent.system_prompt
 
     def test_module_imports_get_baked_in_system_prompt(self):
-        agent = CodeAgent(tools=[], model=fake_code_model)
+        agent = CodeAgent(tools=[], model=FakeCodeModel())
         agent.run("Empty task")
         for module in BASE_BUILTIN_MODULES:
             assert module in agent.system_prompt
 
     def test_init_agent_with_different_toolsets(self):
         toolset_1 = []
-        agent = CodeAgent(tools=toolset_1, model=fake_code_model)
+        agent = CodeAgent(tools=toolset_1, model=FakeCodeModel())
         assert len(agent.tools) == 1  # when no tools are provided, only the final_answer tool is added by default
 
         toolset_2 = [PythonInterpreterTool(), PythonInterpreterTool()]
         with pytest.raises(ValueError) as e:
-            agent = CodeAgent(tools=toolset_2, model=fake_code_model)
+            agent = CodeAgent(tools=toolset_2, model=FakeCodeModel())
         assert "Each tool or managed_agent should have a unique name!" in str(e)
 
         with pytest.raises(ValueError) as e:
             agent.name = "python_interpreter"
             agent.description = "empty"
-            CodeAgent(tools=[PythonInterpreterTool()], model=fake_code_model, managed_agents=[agent])
+            CodeAgent(tools=[PythonInterpreterTool()], model=FakeCodeModel(), managed_agents=[agent])
         assert "Each tool or managed_agent should have a unique name!" in str(e)
 
         # check that python_interpreter base tool does not get added to CodeAgent
-        agent = CodeAgent(tools=[], model=fake_code_model, add_base_tools=True)
+        agent = CodeAgent(tools=[], model=FakeCodeModel(), add_base_tools=True)
         assert len(agent.tools) == 3  # added final_answer tool + search + visit_webpage
 
         # check that python_interpreter base tool gets added to ToolCallingAgent
-        agent = ToolCallingAgent(tools=[], model=fake_code_model, add_base_tools=True)
+        agent = ToolCallingAgent(tools=[], model=FakeCodeModel(), add_base_tools=True)
         assert len(agent.tools) == 4  # added final_answer tool + search + visit_webpage
 
     def test_function_persistence_across_steps(self):
         agent = CodeAgent(
             tools=[],
-            model=fake_code_functiondef,
+            model=FakeCodeModelFunctionDef(),
             max_steps=2,
             additional_authorized_imports=["numpy"],
         )
@@ -478,15 +484,17 @@ class TestAgent:
         assert res[0] == 0.5
 
     def test_init_managed_agent(self):
-        agent = CodeAgent(tools=[], model=fake_code_functiondef, name="managed_agent", description="Empty")
+        agent = CodeAgent(tools=[], model=FakeCodeModelFunctionDef(), name="managed_agent", description="Empty")
         assert agent.name == "managed_agent"
         assert agent.description == "Empty"
 
     def test_agent_description_gets_correctly_inserted_in_system_prompt(self):
-        managed_agent = CodeAgent(tools=[], model=fake_code_functiondef, name="managed_agent", description="Empty")
+        managed_agent = CodeAgent(
+            tools=[], model=FakeCodeModelFunctionDef(), name="managed_agent", description="Empty"
+        )
         manager_agent = CodeAgent(
             tools=[],
-            model=fake_code_functiondef,
+            model=FakeCodeModelFunctionDef(),
             managed_agents=[managed_agent],
         )
         assert "You can also give tasks to team members." not in managed_agent.system_prompt
@@ -496,7 +504,7 @@ class TestAgent:
     def test_replay_shows_logs(self, agent_logger):
         agent = CodeAgent(
             tools=[],
-            model=fake_code_model_import,
+            model=FakeCodeModelImport(),
             verbosity_level=0,
             additional_authorized_imports=["numpy"],
             logger=agent_logger,
@@ -520,19 +528,20 @@ class TestAgent:
         assert "arguments" in str_output
 
     def test_code_nontrivial_final_answer_works(self):
-        def fake_code_model_final_answer(messages, stop_sequences=None, grammar=None):
-            return ChatMessage(
-                role="assistant",
-                content="""Code:
+        class FakeCodeModelFinalAnswer(Model):
+            def generate(self, messages, stop_sequences=None, grammar=None):
+                return ChatMessage(
+                    role="assistant",
+                    content="""Code:
 ```py
 def nested_answer():
     final_answer("Correct!")
 
 nested_answer()
 ```<end_code>""",
-            )
+                )
 
-        agent = CodeAgent(tools=[], model=fake_code_model_final_answer)
+        agent = CodeAgent(tools=[], model=FakeCodeModelFinalAnswer())
 
         output = agent.run("Count to 3")
         assert output == "Correct!"
@@ -557,7 +566,7 @@ nested_answer()
             do_sample=False,
         )
         agent = ToolCallingAgent(model=model, tools=[weather_api], max_steps=1, verbosity_level=10)
-        task = "Use your weather api to tell me the weather in Paris."
+        task = "What is the weather in Paris? "
         agent.run(task)
         assert agent.memory.steps[0].task == task
         assert agent.memory.steps[1].tool_calls[0].name == "weather_api"
@@ -570,15 +579,16 @@ nested_answer()
         def check_always_fails(final_answer, agent_memory):
             assert False, "Error raised in check"
 
-        agent = CodeAgent(model=fake_code_model, tools=[], final_answer_checks=[check_always_fails])
+        agent = CodeAgent(model=FakeCodeModel(), tools=[], final_answer_checks=[check_always_fails])
         agent.run("Dummy task.")
         assert "Error raised in check" in str(agent.write_memory_to_messages())
 
     def test_generation_errors_are_raised(self):
-        def fake_model(messages, stop_sequences):
-            assert False, "Generation failed"
+        class FakeCodeModel(Model):
+            def generate(self, messages, stop_sequences=None, grammar=None):
+                assert False, "Generation failed"
 
-        agent = CodeAgent(model=fake_model, tools=[])
+        agent = CodeAgent(model=FakeCodeModel(), tools=[])
         with pytest.raises(AgentGenerationError) as e:
             agent.run("Dummy task.")
         assert len(agent.memory.steps) == 2
@@ -609,11 +619,11 @@ class MockAgent:
 
 
 class DummyMultiStepAgent(MultiStepAgent):
-    def step(self, memory_step: ActionStep) -> Union[None, Any]:
-        return super().step(memory_step)
+    def step(self, memory_step: ActionStep) -> Generator[None]:
+        yield None
 
     def initialize_system_prompt(self):
-        return super().initialize_system_prompt()
+        pass
 
 
 class TestMultiStepAgent:
@@ -640,26 +650,28 @@ class TestMultiStepAgent:
         assert isinstance(agent.tools["final_answer"], expected_final_answer_tool)
 
     def test_logs_display_thoughts_even_if_error(self):
-        def fake_json_model_no_call(messages, stop_sequences=None, tools_to_call_from=None):
-            return ChatMessage(
-                role="assistant",
-                content="""I don't want to call tools today""",
-                tool_calls=None,
-                raw="""I don't want to call tools today""",
-            )
+        class FakeJsonModelNoCall(Model):
+            def generate(self, messages, stop_sequences=None, tools_to_call_from=None):
+                return ChatMessage(
+                    role="assistant",
+                    content="""I don't want to call tools today""",
+                    tool_calls=None,
+                    raw="""I don't want to call tools today""",
+                )
 
-        agent_toolcalling = ToolCallingAgent(model=fake_json_model_no_call, tools=[], max_steps=1, verbosity_level=10)
+        agent_toolcalling = ToolCallingAgent(model=FakeJsonModelNoCall(), tools=[], max_steps=1, verbosity_level=10)
         with agent_toolcalling.logger.console.capture() as capture:
             agent_toolcalling.run("Dummy task")
         assert "don't" in capture.get() and "want" in capture.get()
 
-        def fake_code_model_no_call(messages, stop_sequences=None):
-            return ChatMessage(
-                role="assistant",
-                content="""I don't want to write an action today""",
-            )
+        class FakeCodeModelNoCall(Model):
+            def generate(self, messages, stop_sequences=None):
+                return ChatMessage(
+                    role="assistant",
+                    content="""I don't want to write an action today""",
+                )
 
-        agent_code = CodeAgent(model=fake_code_model_no_call, tools=[], max_steps=1, verbosity_level=10)
+        agent_code = CodeAgent(model=FakeCodeModelNoCall(), tools=[], max_steps=1, verbosity_level=10)
         with agent_code.logger.console.capture() as capture:
             agent_code.run("Dummy task")
         assert "don't" in capture.get() and "want" in capture.get()
@@ -669,7 +681,7 @@ class TestMultiStepAgent:
         fake_model.last_input_token_count = 10
         fake_model.last_output_token_count = 20
         max_steps = 2
-        agent = DummyMultiStepAgent(tools=[], model=fake_model, max_steps=max_steps)
+        agent = CodeAgent(tools=[], model=fake_model, max_steps=max_steps)
         assert hasattr(agent, "step_number"), "step_number attribute should be defined"
         assert agent.step_number == 0, "step_number should be initialized to 0"
         agent.run("Test task")
@@ -706,7 +718,8 @@ class TestMultiStepAgent:
             model=fake_model,
         )
         task = "Test task"
-        planning_step = agent._create_planning_step(task, is_first_step=(step == 1), step=step)
+
+        planning_step = list(agent._generate_planning_step(task, is_first_step=(step == 1), step=step))[-1]
         expected_message_texts = {
             "INITIAL_PLAN_USER_PROMPT": populate_template(
                 agent.prompt_templates["planning"]["initial_plan"],
@@ -751,8 +764,8 @@ class TestMultiStepAgent:
             for content, expected_content in zip(message["content"], expected_message["content"]):
                 assert content == expected_content
         # Test calls to model
-        assert len(fake_model.call_args_list) == 1
-        for call_args, expected_messages in zip(fake_model.call_args_list, expected_messages_list):
+        assert len(fake_model.generate.call_args_list) == 1
+        for call_args, expected_messages in zip(fake_model.generate.call_args_list, expected_messages_list):
             assert len(call_args.args) == 1
             messages = call_args.args[0]
             assert isinstance(messages, list)
@@ -949,7 +962,7 @@ class TestMultiStepAgent:
         assert agent.max_steps == 30
 
 
-class TestToolCallingAgent(unittest.TestCase):
+class TestToolCallingAgent:
     @patch("huggingface_hub.InferenceClient")
     def test_toolcalling_agent_api(self, mock_inference_client):
         mock_client = mock_inference_client.return_value
@@ -1009,19 +1022,73 @@ class TestToolCallingAgent(unittest.TestCase):
         mock_response.choices[0].message = ChatCompletionOutputMessage(
             role="assistant", content='{"name": weather_api", "arguments": {"location": "Paris", "date": "today"}}'
         )
+
         mock_response.usage.prompt_tokens = 10
         mock_response.usage.completion_tokens = 20
 
         model = InferenceClientModel(model_id="test-model")
 
-        agent = ToolCallingAgent(model=model, tools=[], max_steps=2, verbosity_level=1)
+        logger = AgentLogger(console=Console(markup=False, no_color=True))
+
+        agent = ToolCallingAgent(model=model, tools=[], max_steps=2, verbosity_level=1, logger=logger)
         with agent.logger.console.capture() as capture:
             agent.run("What's the weather in Paris?")
         assert agent.memory.steps[0].task == "What's the weather in Paris?"
         assert agent.memory.steps[1].tool_calls is None
         assert "The JSON blob you used is invalid" in agent.memory.steps[1].error.message
-        assert "Error while generating or parsing output:" in capture.get()
+        assert "Error while parsing" in capture.get()
         assert len(agent.memory.steps) == 4
+
+    def test_change_tools_after_init(self):
+        from smolagents import tool
+
+        @tool
+        def fake_tool_1() -> str:
+            """Fake tool"""
+            return "1"
+
+        @tool
+        def fake_tool_2() -> str:
+            """Fake tool"""
+            return "2"
+
+        class FakeCodeModel(Model):
+            def generate(self, messages, tools_to_call_from=None, stop_sequences=None, grammar=None):
+                if len(messages) < 3:
+                    return ChatMessage(
+                        role="assistant",
+                        content="",
+                        tool_calls=[
+                            ChatMessageToolCall(
+                                id="call_0",
+                                type="function",
+                                function=ChatMessageToolCallDefinition(name="fake_tool_1", arguments={}),
+                            )
+                        ],
+                    )
+                else:
+                    tool_result = messages[-1]["content"][0]["text"].removeprefix("Observation:\n")
+                    return ChatMessage(
+                        role="assistant",
+                        content="",
+                        tool_calls=[
+                            ChatMessageToolCall(
+                                id="call_1",
+                                type="function",
+                                function=ChatMessageToolCallDefinition(
+                                    name="final_answer", arguments={"answer": tool_result}
+                                ),
+                            )
+                        ],
+                    )
+
+        agent = ToolCallingAgent(tools=[fake_tool_1], model=FakeCodeModel())
+
+        agent.tools["final_answer"] = CustomFinalAnswerTool()
+        agent.tools["fake_tool_1"] = fake_tool_2
+
+        answer = agent.run("Fake task.")
+        assert answer == "2CUSTOM"
 
 
 class TestCodeAgent:
@@ -1044,10 +1111,11 @@ class TestCodeAgent:
         assert result == expected_summary
 
     def test_errors_logging(self):
-        def fake_code_model(messages, stop_sequences=None, grammar=None) -> str:
-            return ChatMessage(role="assistant", content="Code:\n```py\nsecret=3;['1', '2'][secret]\n```")
+        class FakeCodeModel(Model):
+            def generate(self, messages, stop_sequences=None, grammar=None):
+                return ChatMessage(role="assistant", content="Code:\n```py\nsecret=3;['1', '2'][secret]\n```")
 
-        agent = CodeAgent(tools=[], model=fake_code_model, verbosity_level=1)
+        agent = CodeAgent(tools=[], model=FakeCodeModel(), verbosity_level=1)
 
         with agent.logger.console.capture() as capture:
             agent.run("Test request")
@@ -1055,7 +1123,7 @@ class TestCodeAgent:
 
     def test_missing_import_triggers_advice_in_error_log(self):
         # Set explicit verbosity level to 1 to override the default verbosity level of -1 set in CI fixture
-        agent = CodeAgent(tools=[], model=fake_code_model_import, verbosity_level=1)
+        agent = CodeAgent(tools=[], model=FakeCodeModelImport(), verbosity_level=1)
 
         with agent.logger.console.capture() as capture:
             agent.run("Count to 3")
@@ -1063,7 +1131,7 @@ class TestCodeAgent:
         assert "`additional_authorized_imports`" in str_output.replace("\n", "")
 
     def test_errors_show_offending_line_and_error(self):
-        agent = CodeAgent(tools=[PythonInterpreterTool()], model=fake_code_model_error)
+        agent = CodeAgent(tools=[PythonInterpreterTool()], model=FakeCodeModelError())
         output = agent.run("What is 2 multiplied by 3.6452?")
         assert isinstance(output, AgentText)
         assert output == "got an error"
@@ -1071,12 +1139,12 @@ class TestCodeAgent:
         assert "ValueError" in str(agent.memory.steps)
 
     def test_error_saves_previous_print_outputs(self):
-        agent = CodeAgent(tools=[PythonInterpreterTool()], model=fake_code_model_error, verbosity_level=10)
+        agent = CodeAgent(tools=[PythonInterpreterTool()], model=FakeCodeModelError(), verbosity_level=10)
         agent.run("What is 2 multiplied by 3.6452?")
         assert "Flag!" in str(agent.memory.steps[1].observations)
 
     def test_syntax_error_show_offending_lines(self):
-        agent = CodeAgent(tools=[PythonInterpreterTool()], model=fake_code_model_syntax_error)
+        agent = CodeAgent(tools=[PythonInterpreterTool()], model=FakeCodeModelSyntaxError())
         output = agent.run("What is 2 multiplied by 3.6452?")
         assert isinstance(output, AgentText)
         assert output == "got an error"
@@ -1084,13 +1152,13 @@ class TestCodeAgent:
 
     def test_end_code_appending(self):
         # Checking original output message
-        orig_output = fake_code_model_no_return([])
+        orig_output = FakeCodeModelNoReturn().generate([])
         assert not orig_output.content.endswith("<end_code>")
 
         # Checking the step output
         agent = CodeAgent(
             tools=[PythonInterpreterTool()],
-            model=fake_code_model_no_return,
+            model=FakeCodeModelNoReturn(),
             max_steps=1,
         )
         answer = agent.run("What is 2 multiplied by 3.6452?")
@@ -1120,10 +1188,11 @@ class TestCodeAgent:
             """Fake tool"""
             return "2"
 
-        def fake_code_model(messages, stop_sequences=None, grammar=None) -> str:
-            return ChatMessage(role="assistant", content="Code:\n```py\nfinal_answer(fake_tool_1())\n```")
+        class FakeCodeModel(Model):
+            def generate(self, messages, stop_sequences=None, grammar=None):
+                return ChatMessage(role="assistant", content="Code:\n```py\nfinal_answer(fake_tool_1())\n```")
 
-        agent = CodeAgent(tools=[fake_tool_1], model=fake_code_model)
+        agent = CodeAgent(tools=[fake_tool_1], model=FakeCodeModel())
 
         agent.tools["final_answer"] = CustomFinalAnswerTool()
         agent.tools["fake_tool_1"] = fake_tool_2
@@ -1285,10 +1354,10 @@ class TestMultiAgents:
         assert agent2.model.kwargs["temperature"] == pytest.approx(0.5)
 
     def test_multiagents(self):
-        class FakeModelMultiagentsManagerAgent:
+        class FakeModelMultiagentsManagerAgent(Model):
             model_id = "fake_model"
 
-            def __call__(
+            def generate(
                 self,
                 messages,
                 stop_sequences=None,
@@ -1353,10 +1422,10 @@ final_answer("Final report.")
 
         manager_model = FakeModelMultiagentsManagerAgent()
 
-        class FakeModelMultiagentsManagedAgent:
+        class FakeModelMultiagentsManagedAgent(Model):
             model_id = "fake_model"
 
-            def __call__(
+            def generate(
                 self,
                 messages,
                 tools_to_call_from=None,

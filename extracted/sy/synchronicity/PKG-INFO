@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: synchronicity
-Version: 0.9.11
+Version: 0.9.12
 Summary: Export blocking and async library versions from a single async implementation
 Author: Modal Labs
 License-File: LICENSE

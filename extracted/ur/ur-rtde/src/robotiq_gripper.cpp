@@ -39,7 +39,7 @@ static bool isAck(const std::string& data)
 }
 
 RobotiqGripper::RobotiqGripper(const std::string& Hostname, int Port, bool verbose)
-    : hostname_(Hostname), port_(Port), verbose_(verbose), deadline_(io_service_)
+    : hostname_(Hostname), port_(Port), verbose_(verbose), deadline_(io_context_)
 {
   // No deadline is required until the first socket operation is started. We
   // set the deadline to positive infinity so that the actor takes no action
@@ -52,23 +52,23 @@ RobotiqGripper::RobotiqGripper(const std::string& Hostname, int Port, bool verbo
 
 void RobotiqGripper::connect(uint32_t timeout_ms)
 {
-  socket_.reset(new boost::asio::ip::tcp::socket(io_service_));
+  socket_.reset(new boost::asio::ip::tcp::socket(io_context_));
   socket_->open(boost::asio::ip::tcp::v4());
   boost::asio::ip::tcp::no_delay no_delay_option(true);
   boost::asio::socket_base::reuse_address sol_reuse_option(true);
   socket_->set_option(no_delay_option);
   socket_->set_option(sol_reuse_option);
-  resolver_ = std::make_shared<tcp::resolver>(io_service_);
-  tcp::resolver::query query(hostname_, std::to_string(port_));
+  resolver_ = std::make_shared<tcp::resolver>(io_context_);
+  //boost::asio::ip::basic_resolver_query<boost::asio::ip::tcp> query(hostname_, std::to_string(port_));
 
   if (verbose_)
     std::cout << "Connecting..." << std::endl;
   deadline_.expires_from_now(boost::posix_time::milliseconds(timeout_ms));
   boost::system::error_code ec = boost::asio::error::would_block;
-  boost::asio::async_connect(*socket_, resolver_->resolve(query), var(ec) = boost::lambda::_1);
+  boost::asio::async_connect(*socket_, resolver_->resolve(hostname_, std::to_string(port_)), var(ec) = boost::lambda::_1);
   do
   {
-    io_service_.run_one();
+    io_context_.run_one();
   } while (ec == boost::asio::error::would_block);
   if (ec || !socket_->is_open())
   {

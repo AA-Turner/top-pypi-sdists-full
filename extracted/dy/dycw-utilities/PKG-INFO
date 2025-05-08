@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: dycw-utilities
-Version: 0.113.2
+Version: 0.113.3
 Author-email: Derek Wan <d.wan@icloud.com>
 License-File: LICENSE
 Requires-Python: >=3.12
 Requires-Dist: typing-extensions<4.14,>=4.13.1
 Provides-Extra: test
-Requires-Dist: hypothesis<6.132,>=6.131.10; extra == 'test'
+Requires-Dist: hypothesis<6.132,>=6.131.14; extra == 'test'
 Requires-Dist: pytest-asyncio<0.27,>=0.26.0; extra == 'test'
 Requires-Dist: pytest-cov<6.2,>=6.1.1; extra == 'test'
 Requires-Dist: pytest-instafail<0.6,>=0.5.0; extra == 'test'
@@ -80,7 +80,7 @@ Provides-Extra: zzz-test-hypothesis
 Requires-Dist: aiosqlite<0.22,>=0.21.0; extra == 'zzz-test-hypothesis'
 Requires-Dist: asyncpg<0.31,>=0.30.0; extra == 'zzz-test-hypothesis'
 Requires-Dist: greenlet<3.3,>=3.2.0; extra == 'zzz-test-hypothesis'
-Requires-Dist: hypothesis<6.132,>=6.131.10; extra == 'zzz-test-hypothesis'
+Requires-Dist: hypothesis<6.132,>=6.131.14; extra == 'zzz-test-hypothesis'
 Requires-Dist: luigi<3.7,>=3.6.0; extra == 'zzz-test-hypothesis'
 Requires-Dist: numpy<2.3,>=2.2.5; extra == 'zzz-test-hypothesis'
 Requires-Dist: pathvalidate<3.3,>=3.2.3; extra == 'zzz-test-hypothesis'

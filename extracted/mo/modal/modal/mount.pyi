@@ -243,17 +243,17 @@ class Mount(modal.object.Object):
 
     class ___get_files_spec(typing_extensions.Protocol):
         def __call__(
-            self, entries: list[_MountEntry]
+            self, /, entries: list[_MountEntry]
         ) -> typing.Generator[modal._utils.blob_utils.FileUploadSpec, None, None]: ...
         def aio(
-            self, entries: list[_MountEntry]
+            self, /, entries: list[_MountEntry]
         ) -> collections.abc.AsyncGenerator[modal._utils.blob_utils.FileUploadSpec, None]: ...
 
     _get_files: ___get_files_spec
 
     class ___load_mount_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, resolver: modal._resolver.Resolver, existing_object_id: typing.Optional[str]): ...
-        async def aio(self, resolver: modal._resolver.Resolver, existing_object_id: typing.Optional[str]): ...
+        def __call__(self, /, resolver: modal._resolver.Resolver, existing_object_id: typing.Optional[str]): ...
+        async def aio(self, /, resolver: modal._resolver.Resolver, existing_object_id: typing.Optional[str]): ...
 
     _load_mount: ___load_mount_spec[typing_extensions.Self]
 
@@ -285,6 +285,7 @@ class Mount(modal.object.Object):
     class ___deploy_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             deployment_name: typing.Optional[str] = None,
             namespace=1,
             environment_name: typing.Optional[str] = None,
@@ -292,6 +293,7 @@ class Mount(modal.object.Object):
         ) -> None: ...
         async def aio(
             self,
+            /,
             deployment_name: typing.Optional[str] = None,
             namespace=1,
             environment_name: typing.Optional[str] = None,

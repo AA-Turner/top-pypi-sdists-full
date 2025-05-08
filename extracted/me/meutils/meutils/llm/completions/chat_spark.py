@@ -46,7 +46,9 @@ class Completions(object):
 
             if guess_mime_type(url).startswith("image"):  # 图片问答
 
-                request.model = "glm-4v-flash" if "image" not in request.model else request.model
+                if not any(i in request.model for i in {"image", "vl", "vision"}):  ##
+                    request.model = "glm-4v-flash"
+
                 for i, message in enumerate(request.messages):
                     if message.get("role") == "user":
                         user_contents = message.get("content")

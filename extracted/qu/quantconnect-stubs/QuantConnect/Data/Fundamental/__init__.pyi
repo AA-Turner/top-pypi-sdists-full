@@ -17,1210 +17,7282 @@ ReusuableCLRObject = typing.Any
 QuantConnect_Data_Fundamental_MultiPeriodField_T = typing.TypeVar("QuantConnect_Data_Fundamental_MultiPeriodField_T")
 
 
-class StockType(System.Object):
-    """Helper class for the AssetClassification's StockType field AssetClassification.StockType"""
-
-    AGGRESSIVE_GROWTH: int = 1
-    """
-    Companies whose revenues and earnings have both been growing significantly faster than
-    the general economy.
-    """
-
-    CLASSIC_GROWTH: int = 2
-    """
-    Companies that are growing respectably faster than the general economy, and often pay a
-    steady dividend. They tend to be mature and solidly profitable businesses.
-    """
-
-    CYCLICALS: int = 3
-    """
-    Companies in the cyclicals and durables sectors, except those in the three types below.
-    The profits of cyclicals tend to rise and fall with the general economy.
-    """
-
-    DISTRESSED: int = 4
-    """
-    Companies that have had consistently declining cash flows and earnings over the past
-    three years, and/or very high debt.
-    """
-
-    HARD_ASSET: int = 5
-    """
-    Companies that deal in assets such as oil, metals, and real estate, which tend to do
-    well in inflationary environments.
-    """
-
-    HIGH_YIELD: int = 6
-    """
-    Companies that have dividend yields at least twice the average for large-cap stocks.
-    They tend to be mature, slow-growing companies.
-    """
-
-    SLOW_GROWTH: int = 7
-    """
-    Companies that have shown slow revenue and earnings growth (typically less than the rate
-    of GDP growth) over at least three years.
-    """
-
-    SPECULATIVE_GROWTH: int = 8
-    """
-    Companies that have shown strong revenue growth but slower or spotty earnings growth.
-    Very small or young companies also tend to fall into this class.
-    """
-
-
-class StyleBox(System.Object):
-    """
-    Helper class for the AssetClassification's StyleBox field AssetClassification.StyleBox.
-    For stocks and stock funds, it classifies securities according to market capitalization and growth and value factor
-    """
-
-    LARGE_VALUE: int = 1
-
-    LARGE_CORE: int = 2
-
-    LARGE_GROWTH: int = 3
-
-    MID_VALUE: int = 4
-
-    MID_CORE: int = 5
-
-    MID_GROWTH: int = 6
-
-    SMALL_VALUE: int = 7
-
-    SMALL_CORE: int = 8
-
-    SMALL_GROWTH: int = 9
-
-
-class MorningstarEconomySphereCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarEconomySphereCode field AssetClassification.MorningstarEconomySphereCode."""
-
-    CYCLICAL: int = 1
-    """
-    The cyclical Super Sector includes industries significantly affected by economic shifts.
-    When the economy is prosperous, these industries tend to expand, and when the economy is
-    in a downturn they tend to shrink. In general, the stocks in these industries have betas
-    of greater than 1.
-    """
-
-    DEFENSIVE: int = 2
-    """
-    The defensive Super Sector includes industries that are relatively immune to economic
-    cycles. These industries provide services that consumers require in both good and bad
-    times, such as healthcare and utilities. In general, the stocks in these industries have
-    betas of less than 1.
-    """
-
-    SENSITIVE: int = 3
-    """
-    The sensitive Super Sector includes industries that ebb and flow with the overall
-    economy, but not severely. Sensitive industries fall between defensive and cyclical, as
-    they are not immune to a poor economy, but they also may not be as severely affected as
-    industries in the cyclical Super Sector. In general, the stocks in these industries have
-    betas that are close to 1.
-    """
+class FundamentalProperty(Enum):
+    """The fundamental property to access"""
 
+    MARKET = 0
 
-class MorningstarSectorCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarSectorCode field AssetClassification.MorningstarSectorCode."""
+    DOLLAR_VOLUME = 1
 
-    BASIC_MATERIALS: int = 101
-    """
-    Companies that manufacture chemicals, building materials, and paper products. This
-    sector also includes companies engaged in commodities exploration and processing.
-    """
+    VOLUME = 2
 
-    CONSUMER_CYCLICAL: int = 102
-    """
-    This sector includes retail stores, auto and auto-parts manufacturers, restaurants,
-    lodging facilities, specialty retail and travel companies.
-    """
+    HAS_FUNDAMENTAL_DATA = 3
 
-    FINANCIAL_SERVICES: int = 103
-    """
-    Companies that provide financial services include banks, savings and loans, asset
-    management companies, credit services, investment brokerage firms, and insurance companies.
-    """
+    PRICE_FACTOR = 4
 
-    REAL_ESTATE: int = 104
-    """This sector includes companies that develop, acquire, manage, and operate real estate properties."""
+    SPLIT_FACTOR = 5
 
-    CONSUMER_DEFENSIVE: int = 205
-    """
-    Companies that manufacture food, beverages, household and personal products, packaging,
-    or tobacco. Also includes companies that provide services such as education and training services.
-    """
+    VALUE = 6
 
-    HEALTHCARE: int = 206
-    """
-    This sector includes biotechnology, pharmaceuticals, research services, home healthcare,
-    hospitals, long-term-care facilities, and medical equipment and supplies. Also include
-    pharmaceutical retailers and companies which provide health information services.
-    """
+    PRICE = 7
 
-    UTILITIES: int = 207
-    """Electric, gas, and water utilities."""
+    COMPANY_REFERENCE_COMPANY_ID = 8
 
-    COMMUNICATION_SERVICES: int = 308
-    """
-    Companies that provide communication services using fixed-line networks or
-    those that provide wireless access and services. Also includes companies that provide
-    advertising & marketing services, entertainment content and services, as well as
-    interactive media and content provider over internet or through software.
-    """
+    COMPANY_REFERENCE_SHORT_NAME = 9
 
-    ENERGY: int = 309
-    """
-    Companies that produce or refine oil and gas, oilfield-services and equipment companies,
-    and pipeline operators. This sector also includes companies that mine thermal coal and uranium.
-    """
+    COMPANY_REFERENCE_STANDARD_NAME = 10
 
-    INDUSTRIALS: int = 310
-    """
-    Companies that manufacture machinery, hand-held tools, and industrial products. This
-    sector also includes aerospace and defense firms as well as companies engaged in
-    transportation services.
-    """
+    COMPANY_REFERENCE_LEGAL_NAME = 11
 
-    TECHNOLOGY: int = 311
-    """
-    Companies engaged in the design, development, and support of computer operating systems
-    and applications. This sector also includes companies that make computer equipment, data
-    storage products, networking products, semiconductors, and components.
-    """
+    COMPANY_REFERENCE_COUNTRY_ID = 12
 
+    COMPANY_REFERENCE_CIK = 13
 
-class MorningstarIndustryGroupCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarIndustryGroupCode field AssetClassification.MorningstarIndustryGroupCode."""
+    COMPANY_REFERENCE_COMPANY_STATUS = 14
 
-    AGRICULTURE: int = 10110
+    COMPANY_REFERENCE_FISCAL_YEAR_END = 15
 
-    BUILDING_MATERIALS: int = 10120
+    COMPANY_REFERENCE_INDUSTRY_TEMPLATE_CODE = 16
 
-    CHEMICALS: int = 10130
+    COMPANY_REFERENCE_PRIMARY_SHARE_CLASS_ID = 17
 
-    FOREST_PRODUCTS: int = 10140
+    COMPANY_REFERENCE_PRIMARY_SYMBOL = 18
 
-    METALS_AND_MINING: int = 10150
+    COMPANY_REFERENCE_PRIMARY_EXCHANGE_ID = 19
 
-    STEEL: int = 10160
+    COMPANY_REFERENCE_BUSINESS_COUNTRY_ID = 20
 
-    VEHICLES_AND_PARTS: int = 10200
+    COMPANY_REFERENCE_LEGAL_NAME_LANGUAGE_CODE = 21
 
-    FURNISHINGS: int = 10220
+    COMPANY_REFERENCE_AUDITOR = 22
 
-    FIXTURES_AND_APPLIANCES: int = 10220
+    COMPANY_REFERENCE_AUDITOR_LANGUAGE_CODE = 23
 
-    HOMEBUILDING_AND_CONSTRUCTION: int = 10230
+    COMPANY_REFERENCE_ADVISOR = 24
 
-    MANUFACTURING_APPAREL_AND_ACCESSORIES: int = 10240
+    COMPANY_REFERENCE_ADVISOR_LANGUAGE_CODE = 25
 
-    PACKAGING_AND_CONTAINERS: int = 10250
+    COMPANY_REFERENCE_IS_LIMITED_PARTNERSHIP = 26
 
-    PERSONAL_SERVICES: int = 10260
+    COMPANY_REFERENCE_IS_REIT = 27
 
-    RESTAURANTS: int = 10270
+    COMPANY_REFERENCE_PRIMARY_MIC = 28
 
-    RETAIL_CYCLICAL: int = 10280
+    COMPANY_REFERENCE_REPORT_STYLE = 29
 
-    TRAVEL_AND_LEISURE: int = 10290
+    COMPANY_REFERENCE_YEAROF_ESTABLISHMENT = 30
 
-    ASSET_MANAGEMENT: int = 10310
+    COMPANY_REFERENCE_IS_LIMITED_LIABILITY_COMPANY = 31
 
-    BANKS: int = 10320
+    COMPANY_REFERENCE_EXPECTED_FISCAL_YEAR_END = 32
 
-    CAPITAL_MARKETS: int = 10330
+    SECURITY_REFERENCE_SECURITY_SYMBOL = 33
 
-    INSURANCE: int = 10340
+    SECURITY_REFERENCE_EXCHANGE_ID = 34
 
-    DIVERSIFIED_FINANCIAL_SERVICES: int = 10350
+    SECURITY_REFERENCE_CURRENCY_ID = 35
 
-    CREDIT_SERVICES: int = 10360
+    SECURITY_REFERENCE_IPO_DATE = 36
 
-    REAL_ESTATE: int = 10410
+    SECURITY_REFERENCE_IS_DEPOSITARY_RECEIPT = 37
 
-    REI_TS: int = 10420
+    SECURITY_REFERENCE_DEPOSITARY_RECEIPT_RATIO = 38
 
-    BEVERAGES_ALCOHOLIC: int = 20510
+    SECURITY_REFERENCE_SECURITY_TYPE = 39
 
-    BEVERAGES_NON_ALCOHOLIC: int = 20520
+    SECURITY_REFERENCE_SHARE_CLASS_DESCRIPTION = 40
 
-    CONSUMER_PACKAGED_GOODS: int = 20525
+    SECURITY_REFERENCE_SHARE_CLASS_STATUS = 41
 
-    EDUCATION: int = 20540
+    SECURITY_REFERENCE_IS_PRIMARY_SHARE = 42
 
-    RETAIL_DEFENSIVE: int = 20550
+    SECURITY_REFERENCE_IS_DIVIDEND_REINVEST = 43
 
-    TOBACCO_PRODUCTS: int = 20560
+    SECURITY_REFERENCE_IS_DIRECT_INVEST = 44
 
-    BIOTECHNOLOGY: int = 20610
+    SECURITY_REFERENCE_INVESTMENT_ID = 45
 
-    DRUG_MANUFACTURERS: int = 20620
+    SECURITY_REFERENCE_IPO_OFFER_PRICE = 46
 
-    HEALTHCARE_PLANS: int = 20630
+    SECURITY_REFERENCE_DELISTING_DATE = 47
 
-    HEALTHCARE_PROVIDERS_AND_SERVICES: int = 20645
+    SECURITY_REFERENCE_DELISTING_REASON = 48
 
-    MEDICAL_DEVICES_AND_INSTRUMENTS: int = 20650
+    SECURITY_REFERENCE_MIC = 49
 
-    MEDICAL_DIAGNOSTICS_AND_RESEARCH: int = 20660
+    SECURITY_REFERENCE_COMMON_SHARE_SUB_TYPE = 50
 
-    MEDICAL_DISTRIBUTION: int = 20670
+    SECURITY_REFERENCE_IPO_OFFER_PRICE_RANGE = 51
 
-    UTILITIES_INDEPENDENT_POWER_PRODUCERS: int = 20710
+    SECURITY_REFERENCE_EXCHANGE_SUB_MARKET_GLOBAL_ID = 52
 
-    UTILITIES_REGULATED: int = 20720
+    SECURITY_REFERENCE_CONVERSION_RATIO = 53
 
-    TELECOMMUNICATION_SERVICES: int = 30810
+    SECURITY_REFERENCE_PAR_VALUE = 54
 
-    MEDIA_DIVERSIFIED: int = 30820
+    SECURITY_REFERENCE_TRADING_STATUS = 55
 
-    INTERACTIVE_MEDIA: int = 30830
+    SECURITY_REFERENCE_MARKET_DATA_ID = 56
 
-    OIL_AND_GAS: int = 30910
+    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_ONE_MONTH = 57
 
-    OTHER_ENERGY_SOURCES: int = 30920
+    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_TWO_MONTHS = 58
 
-    AEROSPACE_AND_DEFENSE: int = 31010
+    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_THREE_MONTHS = 59
 
-    BUSINESS_SERVICES: int = 31020
+    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_SIX_MONTHS = 60
 
-    CONGLOMERATES: int = 31030
+    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_NINE_MONTHS = 61
 
-    CONSTRUCTION: int = 31040
+    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_TWELVE_MONTHS = 62
 
-    FARM_AND_HEAVY_CONSTRUCTION_MACHINERY: int = 31050
+    FINANCIAL_STATEMENTS_FILE_DATE_ONE_MONTH = 63
 
-    INDUSTRIAL_DISTRIBUTION: int = 31060
+    FINANCIAL_STATEMENTS_FILE_DATE_TWO_MONTHS = 64
 
-    INDUSTRIAL_PRODUCTS: int = 31070
+    FINANCIAL_STATEMENTS_FILE_DATE_THREE_MONTHS = 65
 
-    TRANSPORTATION: int = 31080
+    FINANCIAL_STATEMENTS_FILE_DATE_SIX_MONTHS = 66
 
-    WASTE_MANAGEMENT: int = 31090
+    FINANCIAL_STATEMENTS_FILE_DATE_NINE_MONTHS = 67
 
-    SOFTWARE: int = 31110
+    FINANCIAL_STATEMENTS_FILE_DATE_TWELVE_MONTHS = 68
 
-    HARDWARE: int = 31120
+    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_ONE_MONTH = 69
 
-    SEMICONDUCTORS: int = 31130
+    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_TWO_MONTHS = 70
 
+    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_THREE_MONTHS = 71
 
-class MorningstarIndustryCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarIndustryCode field AssetClassification.MorningstarIndustryCode."""
+    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_SIX_MONTHS = 72
 
-    AGRICULTURAL_INPUTS: int = 10110010
-    """
-    Companies that manufacture nitrogenous and phosphatic fertilizers, pesticides, seed, and
-    other agricultural chemical products.
-    """
+    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_NINE_MONTHS = 73
 
-    BUILDING_MATERIALS: int = 10120010
-    """
-    Companies that manufacture construction materials, including stone, clay, and brick
-    products, cement, lime, gypsum, and concrete and other construction products. Excludes
-    companies that manufacture finished and semi finished building products.
-    """
+    FINANCIAL_STATEMENTS_FORM_TYPE_ONE_MONTH = 74
 
-    CHEMICALS: int = 10130010
-    """
-    Chemical manufacturing companies engaged in diverse chemical and chemical-related
-    operations, and basic chemicals manufacturing.
-    """
+    FINANCIAL_STATEMENTS_FORM_TYPE_TWO_MONTHS = 75
 
-    SPECIALTY_CHEMICALS: int = 10130020
-    """
-    Companies that use base chemicals to produce value-added chemicals that are used in a
-    variety of products. Includes companies that produce polishes, adhesives and sealants,
-    explosives, printing ink, paint, carbon black, acids, repellants, and cleaning solutions.
-    """
+    FINANCIAL_STATEMENTS_FORM_TYPE_THREE_MONTHS = 76
 
-    LUMBER_AND_WOOD_PRODUCTION: int = 10140010
-    """Companies that grow timber, mill lumber, and manufacture wood and wood products for construction."""
+    FINANCIAL_STATEMENTS_FORM_TYPE_SIX_MONTHS = 77
 
-    PAPER_AND_PAPER_PRODUCTS: int = 10140020
-    """
-    Companies that manufacture and market paper and paper-related products from wood pulp
-    and other fibers. Excludes companies that produce paper packaging products and are
-    classified in the packaging and containers industry.
-    """
+    FINANCIAL_STATEMENTS_FORM_TYPE_NINE_MONTHS = 78
 
-    ALUMINUM: int = 10150010
-    """
-    Companies that produce, refine, market, and distribute aluminum and related
-    aluminum-based products.
-    """
+    FINANCIAL_STATEMENTS_FORM_TYPE_TWELVE_MONTHS = 79
 
-    COPPER: int = 10150020
-    """
-    Companies engaged in the exploration, mining, smelting, and refining of copper ores and
-    related copper products.
-    """
+    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_ONE_MONTH = 80
 
-    OTHER_INDUSTRIAL_METALS_AND_MINING: int = 10150030
-    """
-    Companies that mine, refine, produce, smelt, and mill industrial ores, including copper,
-    lead, zinc, radium, vanadium, nickel, tin, titanium, and other related materials.
-    """
+    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_TWO_MONTHS = 81
 
-    GOLD: int = 10150040
-    """Companies principally engaged in gold exploration, mining, processing, extraction, and smelting."""
+    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_THREE_MONTHS = 82
 
-    SILVER: int = 10150050
-    """Companies principally engaged in silver exploration, mining, processing, extraction, and smelting."""
+    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_SIX_MONTHS = 83
 
-    OTHER_PRECIOUS_METALS_AND_MINING: int = 10150060
-    """
-    Companies that mine, refine, produce, smelt, and mill precious metals, including silver,
-    platinum, palladium, diamond, and other related minerals.
-    """
+    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_NINE_MONTHS = 84
 
-    COKING_COAL: int = 10160010
-    """Companies that produce coking coal."""
+    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_TWELVE_MONTHS = 85
 
-    STEEL: int = 10160020
-    """
-    Companies that produce steel plates, steel sheets, bar and rod materials, structural
-    steel, steel pipes and tubes, and stainless steel.
-    """
+    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_ONE_MONTH = 86
 
-    AUTO_AND_TRUCK_DEALERSHIPS: int = 10200010
-    """
-    Companies engaged in the specialty retail of new and used automobiles, trucks, and other
-    vehicles through the operation and/or franchising of dealerships.
-    """
+    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_TWO_MONTHS = 87
 
-    AUTO_MANUFACTURERS: int = 10200020
-    """Leading worldwide designers and manufacturers of passenger cars and trucks."""
+    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_THREE_MONTHS = 88
 
-    AUTO_PARTS: int = 10200030
-    """
-    Companies that manufacture motor vehicle parts and accessories, including rubber and
-    plastic products, such as tires and inner tubes, but do not manufacture complete car bodies.
-    """
+    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_SIX_MONTHS = 89
 
-    RECREATIONAL_VEHICLES: int = 10200040
-    """
-    Companies that manufacture recreational vehicles, including self-contained motor homes,
-    campers, all-terrain vehicles, travel/camper trailers, and snowmobiles.
-    """
+    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_NINE_MONTHS = 90
 
-    FURNISHINGS: int = 10220010
-    """
-    Companies that manufacture and market wooden, metal, and upholstered furniture,
-    mattresses, bedsprings, lighting fixtures, wooden flooring, wallpaper, and household
-    products, such as utensils, cutlery, tableware, and appliances.
-    """
+    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_TWELVE_MONTHS = 91
 
-    FIXTURES_AND_APPLIANCES: int = 10220010
-    """
-    Companies that manufacture and market wooden, metal, and upholstered furniture,
-    mattresses, bedsprings, lighting fixtures, wooden flooring, wallpaper, and household
-    products, such as utensils, cutlery, tableware, and appliances.
-    """
+    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_ONE_MONTH = 92
 
-    RESIDENTIAL_CONSTRUCTION: int = 10230010
-    """
-    Companies that build and renovate residential buildings, such as single-family houses,
-    apartments, and hotels.
-    """
+    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_TWO_MONTHS = 93
 
-    TEXTILE_MANUFACTURING: int = 10240010
-    """
-    Companies that manufacture and mill textile products, including apparel fabrics, bedding
-    and accessories, home furnishing fabrics, carpets and rugs, curtains and drapes, and
-    other milled textile products.
-    """
+    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_THREE_MONTHS = 94
 
-    APPAREL_MANUFACTURING: int = 10240020
-    """
-    Companies that manufacture, design, market, source, and sell all lines of clothing for
-    men, women, and children. Also includes companies that manufacture or distribute
-    buttons, buckles, and other apparel parts.
-    """
+    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_SIX_MONTHS = 95
 
-    FOOTWEAR_AND_ACCESSORIES: int = 10240030
-    """
-    Companies that manufacture, design, market, and sell lines of footwear and luggage,
-    handbags and purses, belts, and other leather goods.
-    """
+    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_NINE_MONTHS = 96
 
-    PACKAGING_AND_CONTAINERS: int = 10250010
-    """
-    Companies that manufacture and market paper, plastic, metal, and glass packaging
-    products, including corrugated boxes, cardboard containers, bottles, cans, and plastic
-    foam and containers.
-    """
+    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_TWELVE_MONTHS = 97
 
-    PERSONAL_SERVICES: int = 10260010
-    """
-    Companies that provide services of a personal nature or that are particularly structured
-    for the individual or group being served, including veterinary services, funeral and
-    cemetery services, child care services, portrait and photo services, tax preparation and
-    legal services, and other miscellaneous personal services.
-    """
+    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_ONE_MONTH = 98
 
-    RESTAURANTS: int = 10270010
-    """
-    Companies that own, operate, and franchise full-service restaurants that engage in the
-    retail sale of prepared food and drink.
-    """
+    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_TWO_MONTHS = 99
 
-    APPAREL_RETAIL: int = 10280010
-    """Companies engaged in the retail sale of clothing, shoes, and accessories."""
+    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_THREE_MONTHS = 100
 
-    DEPARTMENT_STORES: int = 10280020
-    """
-    Companies engaged in the retail sale of a diverse mix of merchandise, emphasizing
-    fashion apparel and accessories, home furnishings, electronics, and cosmetics.
-    """
+    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_SIX_MONTHS = 101
 
-    HOME_IMPROVEMENT_RETAIL: int = 10280030
-    """
-    Companies engaged in the retail sale of home improvement items, such as lumber, carpets,
-    hardware and other building materials, plants and other garden supplies, and various
-    other items for the home.
-    """
+    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_NINE_MONTHS = 102
 
-    LUXURY_GOODS: int = 10280040
-    """
-    Companies engaged in the specialty retail of luxury items, including jewelry, watches,
-    crystal, clothing, handbags, and accessories.
-    """
+    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_TWELVE_MONTHS = 103
 
-    INTERNET_RETAIL: int = 10280050
-    """
-    Companies engaged in the online retail sale of a diverse mix of merchandise. Excludes
-    companies that target the travel industry and are classified in travel services.
-    """
+    FINANCIAL_STATEMENTS_PERIOD_TYPE_ONE_MONTH = 104
 
-    SPECIALTY_RETAIL: int = 10280060
-    """
-    Companies engaged in the specialty retail of various goods and products not covered in a
-    specific industry group. This group includes retailers such as bookstores, office-supply
-    stores, gas stations, pawn shops, novelty shops, auto-parts stores, electronics stores,
-    home furnishing stores, sporting goods stores, toy and hobby stores, music and video
-    stores, and many other miscellaneous retailers.
-    """
+    FINANCIAL_STATEMENTS_PERIOD_TYPE_TWO_MONTHS = 105
 
-    GAMBLING: int = 10290010
-    """
-    Companies that own, operate, or manage lawful gaming activities and events, such as
-    horse and dog racing, online gaming, bingo, and video lottery, as well as companies that
-    supply products or services to gaming operators. It excludes companies operating casinos.
-    """
+    FINANCIAL_STATEMENTS_PERIOD_TYPE_THREE_MONTHS = 106
 
-    LEISURE: int = 10290020
-    """
-    Companies that manufacture, design, market, and sell bicycles, sporting goods,
-    photographic equipment, recreational equipment, toys, and other leisure products or services.
-    """
+    FINANCIAL_STATEMENTS_PERIOD_TYPE_SIX_MONTHS = 107
 
-    LODGING: int = 10290030
-    """
-    Companies that develop, manage, own, and operate lodging facilities, including motels,
-    extended-stay and full-service hotels, and economy hotels and inns.
-    """
+    FINANCIAL_STATEMENTS_PERIOD_TYPE_NINE_MONTHS = 108
 
-    RESORTS_AND_CASINOS: int = 10290040
-    """
-    Companies that own, operate, and manage resort properties, including beach clubs,
-    time-share properties, and luxury resort hotels and that conduct casino gaming operations.
-    """
+    FINANCIAL_STATEMENTS_PERIOD_TYPE_TWELVE_MONTHS = 109
 
-    TRAVEL_SERVICES: int = 10290050
-    """Companies that offer travel-related products or services, including online travel services."""
-
-    ASSET_MANAGEMENT: int = 10310010
-    """
-    Investment management firms offering diversified services such as asset administration,
-    investment advice, portfolio or mutual fund management, money management, and venture capital.
-    """
-
-    BANKS_DIVERSIFIED: int = 10320010
-    """
-    Global, diverse financial institutions serving the corporate and consumer needs of
-    retail banking, investment banking, trust management, credit cards and mortgage banking.
-    """
-
-    BANKS_REGIONAL: int = 10320020
-    """
-    Regional, diverse financial institutions serving the corporate, government, and consumer
-    needs of retail banking, investment banking, trust management, credit cards, mortgage
-    banking, savings and loan associations, building societies, cooperative banks, and homestead.
-    """
-
-    MORTGAGE_FINANCE: int = 10320030
-    """Companies that originate, purchase, sell, and service home mortgage and equity loans."""
-
-    CAPITAL_MARKETS: int = 10330010
-    """
-    Large, major investment houses offering investment banking, merchant banking,
-    underwriting, brokerage, research, advisory, and trading services to broad-based
-    national and international markets.
-    """
-
-    FINANCIAL_DATA_AND_STOCK_EXCHANGES: int = 10330020
-    """
-    Companies that operate security exchanges, including companies that offer financial data
-    such as ratings, investment research, and other research solutions.
-    """
-
-    INSURANCE_LIFE: int = 10340010
-    """
-    Companies that underwrite, market, and distribute life insurance and related products to
-    individuals and families.
-    """
-
-    INSURANCE_PROPERTY_AND_CASUALTY: int = 10340020
-    """
-    Companies that underwrite, market, and distribute fire, marine, and casualty insurance
-    for property and other tangible assets.
-    """
-
-    INSURANCE_REINSURANCE: int = 10340030
-    """Companies that underwrite and sell reinsurance."""
-
-    INSURANCE_SPECIALTY: int = 10340040
-    """
-    Companies that underwrite, market, and distribute accident and health, sickness,
-    mortgage, and other specialty or supplemental insurance to individuals and families.
-    """
-
-    INSURANCE_BROKERS: int = 10340050
-    """
-    Companies acting primarily as agents or intermediaries in creating insurance contracts
-    between clients and insurance companies.
-    """
-
-    INSURANCE_DIVERSIFIED: int = 10340060
-    """
-    Insurance companies with diversified interests in life, health, and property and
-    casualty insurance.
-    """
-
-    SHELL_COMPANIES: int = 10350010
-    """
-    A development-stage company with no or minimal revenue. Includes capital pool, blank
-    check, shell, and holding companies.
-    """
-
-    FINANCIAL_CONGLOMERATES: int = 10350020
-    """
-    Companies that provide financial services, including banking, insurance, and capital
-    markets, but with no dominant business line or source of revenue.
-    """
-
-    CREDIT_SERVICES: int = 10360010
-    """
-    Companies that extend credit and make loans to individuals and businesses through credit
-    cards, installment loans, student loans, and business loans that are associated with
-    other consumer and business credit instruments.
-    """
-
-    REAL_ESTATE_DEVELOPMENT: int = 10410010
-    """
-    Companies that develop real estate and same properties held as inventory, or sold to
-    others after development, with no specific portfolio composition.
-    """
-
-    REAL_ESTATE_SERVICES: int = 10410020
-    """
-    Companies that operate, manage, and lease real property with no specific portfolio
-    composition. Includes real estate services like brokers and agents but excludes
-    companies classified in the real estate â€“ development industry.
-    """
-
-    REAL_ESTATE_DIVERSIFIED: int = 10410030
-    """
-    Companies engaged in multiple real estate activities, including development, sales,
-    management, and related services. Excludes companies classified in real estate
-    development and real estate services.
-    """
-
-    REIT_HEALTHCARE_FACILITIES: int = 10420010
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of healthcare properties, including long-term-care
-    facilities, acute-care and rehab hospitals, psychiatric facilities, and substance-abuse centers.
-    """
-
-    REIT_HOTEL_AND_MOTEL: int = 10420020
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of lodging properties, including full- and limited-service
-    hotels and motels.
-    """
-
-    REIT_INDUSTRIAL: int = 10420030
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of industrial properties, including bulk warehouses,
-    self-storage facilities, distribution facilities, and other light industrial facilities.
-    """
-
-    REIT_OFFICE: int = 10420040
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of office properties, including office buildings, complexes,
-    and centers.
-    """
-
-    REIT_RESIDENTIAL: int = 10420050
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of residential properties, including apartments, multifamily
-    and single-family mortgage loans, manufactured housing, mobile-home parks, and other
-    residential properties.
-    """
-
-    REIT_RETAIL: int = 10420060
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of retail properties, including community shopping centers,
-    factory outlet shopping centers, enclosed shopping malls, strip centers, restaurants,
-    and other retail properties.
-    """
-
-    REIT_MORTGAGE: int = 10420070
-    """
-    Self-administered real estate investment trusts engaged in the acquisition, management,
-    and disposition of mortgage-backed securities. Also includes companies that provide
-    financing for income-producing real estate by purchasing or originating mortgages and
-    mortgage-backed securities; and earns income from the interest on these investments.
-    """
-
-    REIT_SPECIALTY: int = 10420080
-    """
-    Self-administered real estate investment trusts engaged in the acquisition, management,
-    and disposition of properties not classified elsewhere. Includes trusts that operate,
-    lease, and invest in telecom towers, advertising spaces, timberland properties, and
-    other properties not classified elsewhere.
-    """
-
-    REIT_DIVERSIFIED: int = 10420090
-    """
-    Self-administered real estate investment trusts engaged in the acquisition, management,
-    and disposition of diversified property holdings, with no specific portfolio composition.
-    """
-
-    BEVERAGES_BREWERS: int = 20510010
-    """Companies that manufacture, sell, and distribute malt-based beverages, beers, and ales."""
-
-    BEVERAGES_WINERIES_AND_DISTILLERIES: int = 20510020
-    """Companies that manufacture, sell, and distribute distilled liquors and wine."""
-
-    BEVERAGES_NON_ALCOHOLIC: int = 20520010
-    """
-    Companies that manufacture, sell, and distribute soft drinks, carbonated and spring
-    water, fruit juices, and other nonalcoholic beverages.
-    """
-
-    CONFECTIONERS: int = 20525010
-    """
-    Companies that manufacture and refine raw sugar, syrup or finished cane and beet sugar,
-    candy and chewing gum, chocolate, and cocoa products.
-    """
-
-    FARM_PRODUCTS: int = 20525020
-    """
-    Companies that produce, raise, and grow agricultural and farm-based food products,
-    including fruits, vegetables, other crop products, cattle, and eggs. Also includes
-    seafood products.
-    """
-
-    HOUSEHOLD_AND_PERSONAL_PRODUCTS: int = 20525030
-    """
-    Companies that manufacture and market soaps and other detergents, polishing and
-    sanitation goods and produce glycerin from vegetable and animal fats and oils. Also
-    includes companies that manufacture and market personal-care products, including
-    perfume, cosmetics, and other toilet preparations, infant and adult sanitary paper
-    products, shaving razors and blades.
-    """
-
-    PACKAGED_FOODS: int = 20525040
-    """
-    Companies that process and package food products, including frozen foods, grain
-    products, canned foods, snack foods, health supplements, vitamins, and pet products.
-    """
-
-    EDUCATION_AND_TRAINING_SERVICES: int = 20540010
-    """
-    Companies that provide educational and training services, including college and
-    junior-college courses, higher-education programs, technical and vocational training,
-    and other education services.
-    """
-
-    DISCOUNT_STORES: int = 20550010
-    """Companies engaged in the retail sale of a variety of merchandise at low and discounted prices."""
-
-    FOOD_DISTRIBUTION: int = 20550020
-    """
-    Companies primarily engaged in the distribution and supply of food products, including
-    packaged goods, meat, dairy products, frozen foods, and related groceries to grocery
-    stores, restaurants, and other food-service centers.
-    """
-
-    GROCERY_STORES: int = 20550030
-    """
-    Companies engaged in the retail sale of groceries, including dry goods, meat, produce,
-    frozen foods, dairy products, seafood, deli/bakery, and nonfood items.
-    """
-
-    TOBACCO: int = 20560010
-    """
-    Companies that manufacture and market cigarettes, e-cigarettes, snuff, cigars, chewing
-    tobacco, and all other tobacco products.
-    """
-
-    BIOTECHNOLOGY: int = 20610010
-    """
-    Biotech and biopharmaceutical companies engaged in research, discovery, development, and
-    production of innovative drug and drug-related technologies.
-    """
-
-    DRUG_MANUFACTURERS_GENERAL: int = 20620010
-    """
-    Major, global pharmaceutical manufacturers offering a broad and diverse line of drug and
-    healthcare products; industry leaders that have made a significant commitment to the
-    research and development of a long pipeline of drugs.
-    """
-
-    DRUG_MANUFACTURERS_SPECIALTY_AND_GENERIC: int = 20620020
-    """
-    Companies engaged in development and discovery of branded forms of drug, drug-related
-    products, generic drug products, and animal-related drugs. Also includes companies that
-    cultivate, process, and farm cannabis or marijuana.
-    """
-
-    HEALTHCARE_PLANS: int = 20630010
-    """
-    Companies that offer a wide variety of managed health products and services, including
-    HMOs, PPOs, and other health insurance plans, and are largely U.S.-domiciled.
-    """
-
-    MEDICAL_CARE_FACILITIES: int = 20645010
-    """
-    Companies that provide medical services through the ownership and operation of
-    hospitals, and other auxiliary healthcare-related services, including healthcare
-    staffing and ambulatory services. Also, companies that operate long-term-care
-    facilities, such as assisted-living centers, nursing and retirement homes,
-    substance-abuse centers, and centers for rehabilitation services.
-    """
-
-    PHARMACEUTICAL_RETAILERS: int = 20645020
-    """
-    Companies engaged in the retail sale of prescription drugs and patent medicines as well
-    as a number of related lines, such as cosmetics, toiletries, and novelty merchandise.
-    """
-
-    HEALTH_INFORMATION_SERVICES: int = 20645030
-    """
-    Companies that develop and provide comprehensive physician practice management systems
-    and software for hospitals, medical practices, and managed-care organizations.
-    """
-
-    MEDICAL_DEVICES: int = 20650010
-    """
-    Companies that develop, manufacture, and market medical and surgical equipment and
-    machinery, including orthopedic products, respiratory care equipment, x-ray equipment,
-    laser systems, implants, pacemakers, and other major medical machines and apparatus.
-    """
-
-    MEDICAL_INSTRUMENTS_AND_SUPPLIES: int = 20650020
-    """
-    Companies that develop, design, manufacture, and market medical and dental instruments
-    and supplies, including wheelchairs, catheters, needles, syringes, eyewear and eyecare
-    products, and other health-related supplies.
-    """
-
-    DIAGNOSTICS_AND_RESEARCH: int = 20660010
-    """
-    Companies that provide laboratory testing services through imaging and other diagnostic
-    services to the medical industry.
-    """
-
-    MEDICAL_DISTRIBUTION: int = 20670010
-    """
-    Companies primarily engaged in the distribution and supply of medical instruments and
-    supplies, ophthalmic goods, and other health-related items to the medical and healthcare industry.
-    """
-
-    UTILITIES_INDEPENDENT_POWER_PRODUCERS: int = 20710010
-    """
-    Companies that own and operate merchant power generation facilities and sell electricity
-    into retail and wholesale markets.
-    """
-
-    UTILITIES_RENEWABLE: int = 20710020
-    """
-    Companies that generate, produce, or transmit electric energy from renewable sources,
-    including hydropower, wind, geothermal, biomass, solar, tidal, and wave.
-    """
-
-    UTILITIES_REGULATED_WATER: int = 20720010
-    """Companies that distribute water for sale, including water-treatment companies."""
-
-    UTILITIES_REGULATED_ELECTRIC: int = 20720020
-    """Companies that generate, transmit, or distribute electric energy for sale."""
-
-    UTILITIES_REGULATED_GAS: int = 20720030
-    """Companies that transmit, store, or distribute natural gas."""
-
-    UTILITIES_DIVERSIFIED: int = 20720040
-    """
-    Companies engaged in the regulated generation, transmission, or distribution of
-    electricity and natural gas, merchant power generation facilities, and energy marketing operations.
-    """
-
-    TELECOM_SERVICES: int = 30810010
-    """
-    Companies that provide local, national, international, and long-distance phone services,
-    as well as companies offering wireless services. Also includes companies that provide
-    services for faxing, prepaid phone cards, pay phones, and directory assistance, or that
-    provide Internet access services.
-    """
-
-    ADVERTISING_AGENCIES: int = 30820010
-    """
-    Companies engaged in full-service advertising operations, including the planning,
-    creating, producing, and placing of advertising in media such as TV, radio, and print.
-    Also includes companies providing marketing services, including outdoor advertising,
-    promotional materials, direct-mail services, digital marketing, event management
-    services, and marketing research services.
-    """
-
-    PUBLISHING: int = 30820020
-    """
-    Companies that publish periodicals, such as magazines, comic books, trade journals,
-    books, pamphlets, e-publications, and newspapers.
-    """
-
-    BROADCASTING: int = 30820030
-    """
-    Companies that own or operate radio broadcast stations and provide and produce radio
-    programming services, television programming services, and television broadcast
-    stations. Also includes companies providing Internet-based video on demand and
-    pay-per-view programming services.
-    """
-
-    ENTERTAINMENT: int = 30820040
-    """
-    Companies primarily operating with diversified holdings in movies, television, and other
-    media-based entertainment. Also includes companies that produce and distribute motion
-    pictures, television programmers, video, and the operation of movie theaters; and
-    provide cable television services.
-    """
-
-    INTERNET_CONTENT_AND_INFORMATION: int = 30830010
-    """
-    Companies that provide content, Internet navigation services, and reference guide
-    information for the World Wide Web through its platforms, including social media, search
-    engines, and networking platform companies.
-    """
-
-    ELECTRONIC_GAMING_AND_MULTIMEDIA: int = 30830020
-    """
-    Companies that primarily develop or publish video games and other multimedia software
-    applications for devices that include personal computers, video game systems,
-    cellphones, tablets, and other portable media players.
-    """
-
-    OIL_AND_GAS_DRILLING: int = 30910010
-    """Companies primarily engaged in the drilling for petroleum and natural gas."""
-
-    OIL_AND_GAS_E_AND_P: int = 30910020
-    """Energy companies which are primarily engaged in oil and gas exploration and production."""
-
-    OIL_AND_GAS_INTEGRATED: int = 30910030
-    """
-    Major energy companies engaged in the diverse aspects of oil and gas operations,
-    including crude oil and gas exploration, production, manufacturing, refining, marketing,
-    and transportation.
-    """
-
-    OIL_AND_GAS_MIDSTREAM: int = 30910040
-    """
-    Companies that own and operate oilfield pipelines and are involved in the gathering,
-    processing, and transportation of natural crude petroleum.
-    """
-
-    OIL_AND_GAS_REFINING_AND_MARKETING: int = 30910050
-    """Companies that refine, gather, market, and sell petroleum and petroleum products."""
-
-    OIL_AND_GAS_EQUIPMENT_AND_SERVICES: int = 30910060
-    """
-    Companies that provide oilfield services and equipment for activities such as contract
-    drilling and seismic surveys. Also includes equipment and tool rental, pumping and
-    processing services, and inspection and contracting services.
-    """
-
-    THERMAL_COAL: int = 30920010
-    """
-    Companies that mine thermal coal, which is used for generating energy. Excludes
-    companies that mine coking coal to make steel.
-    """
-
-    URANIUM: int = 30920020
-    """Companies that mine, refine, produce, and mill uranium and uranium-related materials."""
-
-    AEROSPACE_AND_DEFENSE: int = 31010010
-    """
-    Companies that manufacture aerospace and defense products, including aircraft and
-    aircraft parts, tanks, guided missiles, space vehicles, ships and marine equipment, and
-    other aerospace and defense components and systems, as well as companies supporting
-    these products through repair and maintenance services.
-    """
-
-    SPECIALTY_BUSINESS_SERVICES: int = 31020010
-    """
-    Companies that provide services to the commercial or business market, including
-    information distribution, warehousing, graphic design, accounting, printing, and
-    miscellaneous services.
-    """
-
-    CONSULTING_SERVICES: int = 31020020
-    """
-    Companies that provide management, research, and consulting services to businesses and
-    other agencies. Includes companies engaged in strategic and management consulting
-    services, interior design, and information and analytics.
-    """
-
-    RENTAL_AND_LEASING_SERVICES: int = 31020030
-    """
-    Companies that rent or lease durable goods to the commercial and consumer market,
-    including cars and trucks, medical and industrial equipment, appliances and tools, and
-    miscellaneous goods.
-    """
-
-    SECURITY_AND_PROTECTION_SERVICES: int = 31020040
-    """
-    Companies that provide security and protective services, including protective or
-    preventive devices, security guards and inspection services, security alarm and
-    monitoring systems, detention and correction facilities, and other security-based services.
-    """
-
-    STAFFING_AND_EMPLOYMENT_SERVICES: int = 31020050
-    """
-    Companies that provide staffing and employment services, including temporary staffing
-    and permanent placement, outsources workforce and other employment-related services to
-    businesses and government. Also includes companies providing online staffing services.
-    """
-
-    CONGLOMERATES: int = 31030010
-    """
-    Companies that are in several separate lines of business with no single line providing
-    the dominant source of revenue or income.
-    """
-
-    ENGINEERING_AND_CONSTRUCTION: int = 31040010
-    """
-    Companies engaged in the design, construction, or contracting of industrial and
-    nonresidential structures, streets and highways, bridges and tunnels, docks and piers,
-    dams and water projects, utility lines, and other large building projects. Also includes
-    companies that provide engineering consulting and architectural services to consumer and
-    commercial clients.
-    """
-
-    INFRASTRUCTURE_OPERATIONS: int = 31040020
-    """
-    Companies that develop, finance, maintain, or manage infrastructure operations such as
-    ports, airports, and roadways.
-    """
-
-    BUILDING_PRODUCTS_AND_EQUIPMENT: int = 31040030
-    """
-    Companies that manufacture building and construction products and materials, including
-    ceramic floor and wall tiles, plumbing, HVAC, framing structures, and doors. Excludes
-    companies that are classified in the building materials industry.
-    """
-
-    FARM_AND_HEAVY_CONSTRUCTION_MACHINERY: int = 31050010
-    """
-    Companies that manufacture agricultural and construction machinery, including tractors,
-    planting and harvesting machines, cranes, earthmovers, excavators, and related equipment
-    and machinery. Includes truck manufacturers that provide local and long-haul trucking
-    and transfer services for freight and cargo.
-    """
-
-    INDUSTRIAL_DISTRIBUTION: int = 31060010
-    """
-    Companies primarily engaged in the distribution and supply of industrial equipment,
-    including construction and farming machinery, garden equipment and supplies, and other
-    industrial items to a diversified market of redistributors and end users.
-    """
-
-    BUSINESS_EQUIPMENT_AND_SUPPLIES: int = 31070010
-    """
-    Companies that manufacture and market office and business machines, such as copiers, fax
-    machines, postage meters, point-of-sale terminals, and ATMs.
-    """
-
-    SPECIALTY_INDUSTRIAL_MACHINERY: int = 31070020
-    """
-    Companies engaged in diversified machinery manufacturing operations, including paper and
-    food production machines, printing machinery, engines and turbines, air and gas
-    processors, blowers and fans, furnaces and ovens, and other general and special industry machines.
-    """
-
-    METAL_FABRICATION: int = 31070030
-    """
-    Companies that fabricate, stamp, or form iron, steel, or other metals into products such
-    as structured components by cutting, bending, and assembling processes of basic metals
-    to create a final product.
-    """
-
-    POLLUTION_AND_TREATMENT_CONTROLS: int = 31070040
-    """
-    Companies that manufacture equipment designed to control pollution, including control
-    systems, hazardous waste disposal systems, recovery systems, treatment processes,
-    filtration systems, cleaning and separation applications, and recycling machinery.
-    """
-
-    TOOLS_AND_ACCESSORIES: int = 31070050
-    """
-    Companies that manufacture small, hand-held tools, including power-driven drills,
-    welding apparatus, lawn and garden equipment, and other power or manually operated tools
-    and accessories, such as hardware, nuts, bolts, rivets, and other fasteners.
-    """
-
-    ELECTRICAL_EQUIPMENT_AND_PARTS: int = 31070060
-    """
-    Companies that manufacture electrical equipment (such as smart-grid electrical
-    equipment, utility metering, high- and low-voltage electrical equipment, transmission
-    control devices, switches, and lighting distribution boxes), batteries, electrical wires
-    and cables, and automation control.
-    """
-
-    AIRPORTS_AND_AIR_SERVICES: int = 31080010
-    """
-    Air transportation companies that provide related air services, including helicopter
-    transportation, air-charter services, in-flight catering services, and air emergency and
-    business-related services.
-    """
-
-    AIRLINES: int = 31080020
-    """
-    Major international passenger airline companies that fly a wide range of domestic and
-    international routes.
-    """
-
-    RAILROADS: int = 31080030
-    """
-    Companies that provide transportation of freight by line-haul railroad as well as
-    related railroad equipment and repair services. Includes companies offering passenger
-    services via railway and roadways.
-    """
-
-    MARINE_SHIPPING: int = 31080040
-    """
-    Companies that transport freight and cargo via water and operate marine ports. Includes
-    companies that provide passenger services via water.
-    """
-
-    TRUCKING: int = 31080050
-    """
-    Companies that provide local and long-haul trucking and transfer services for freight
-    and cargo.
-    """
-
-    INTEGRATED_FREIGHT_AND_LOGISTICS: int = 31080060
-    """
-    Companies that transport freight and cargo via diversified methods such as railroads,
-    airlines, and waterways.
-    """
-
-    WASTE_MANAGEMENT: int = 31090010
-    """
-    Companies that collect, treat, store, transfer, recycle, and dispose of waste materials,
-    as well as companies that provide supporting environmental, engineering, and consulting services.
-    """
-
-    INFORMATION_TECHNOLOGY_SERVICES: int = 31110010
-    """
-    Companies that provide computer-system design, network and systems operations, repair
-    services, technical support, computer technology consulting, development, and
-    implementation services.
-    """
-
-    SOFTWARE_APPLICATION: int = 31110020
-    """
-    Companies that primarily design, develop, market, and support application software
-    programs, including those that are cloud-based, for specific consumer and business functions.
-    """
-
-    SOFTWARE_INFRASTRUCTURE: int = 31110030
-    """
-    Companies that develop, design, support, and provide system software and services,
-    including operating systems, networking software and devices, web portal services, cloud
-    storage, and related services.
-    """
-
-    COMMUNICATION_EQUIPMENT: int = 31120010
-    """
-    Companies that design, develop, manufacture, and market equipment for the communication
-    industry, including fiber-optic cable; telecom peripherals; voice and data transmission
-    and processing equipment; satellite products and equipment; video-conferencing systems
-    and equipment; and interactive communication systems. Also includes companies that offer
-    networking products that provide connectivity solutions for multi-use computing environments.
-    """
-
-    COMPUTER_HARDWARE: int = 31120020
-    """
-    Companies that design, manufacture, and market computer systems, high mainframe servers,
-    supercomputer, and 3D printers and scanners. Also includes companies that manufacture
-    and market data storage products and other storage and backup devices for computers.
-    """
-
-    CONSUMER_ELECTRONICS: int = 31120030
-    """
-    Companies that manufacture and market mobile communication products and household audio
-    and video equipment, including radios, stereos, televisions, DVD player and personal use
-    Drones. Excludes electric household appliances.
-    """
-
-    ELECTRONIC_COMPONENTS: int = 31120040
-    """
-    Companies that design, develop, manufacture, and market electronic devices, including
-    electron tubes; electronic capacitors; electronic resistors; electronic coil and
-    transformers; sensors; LED, TFT, and LCD displays; electronic connectors; printed
-    circuit boards; circuit assemblies; and other general-purpose electronics components and products.
-    """
-
-    ELECTRONICS_AND_COMPUTER_DISTRIBUTION: int = 31120050
-    """
-    Companies primarily engaged in the distribution, supply, and support of computers and
-    computer systems, peripheral equipment, and software and other technological goods,
-    including electronic equipment and appliances, electrical cable, wires, and other
-    components to various consumer, commercial, and manufacturing customers.
-    """
-
-    SCIENTIFIC_AND_TECHNICAL_INSTRUMENTS: int = 31120060
-    """
-    Companies that design, develop, manufacture, and market sophisticated electronics of a
-    technical nature, including lab apparatus, process and flow control devices, precise
-    measurement and signal processing tools, search and navigation equipment, and other
-    scientific or technical analytical or measuring devices.
-    """
-
-    SEMICONDUCTOR_EQUIPMENT_AND_MATERIALS: int = 31130010
-    """
-    Companies that design, develop, manufacture, and market equipment, spare parts, tools,
-    cleaning devices, and related materials for the semiconductor industry.
-    """
-
-    SEMICONDUCTORS: int = 31130020
-    """
-    Semiconductor companies that design, manufacture, and market integrated circuits,
-    microprocessors, logic devices, chipsets, and memory chips for a wide variety of users.
-    Includes companies that design, manufacture, and market general-application integrated
-    circuits and memory and memory-intensive products.
-    """
-
-    SOLAR: int = 31130030
-    """Companies that design, manufacture, market, or install solar power systems and components."""
+    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_ONE_MONTH = 110
+
+    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_THREE_MONTHS = 111
+
+    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_SIX_MONTHS = 112
+
+    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_NINE_MONTHS = 113
+
+    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_TWELVE_MONTHS = 114
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_ONE_MONTH = 115
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_TWO_MONTHS = 116
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_THREE_MONTHS = 117
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_SIX_MONTHS = 118
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_NINE_MONTHS = 119
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_TWELVE_MONTHS = 120
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_ONE_MONTH = 121
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_TWO_MONTHS = 122
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_THREE_MONTHS = 123
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SIX_MONTHS = 124
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_NINE_MONTHS = 125
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_TWELVE_MONTHS = 126
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_ONE_MONTH = 127
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_THREE_MONTHS = 128
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_SIX_MONTHS = 129
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_NINE_MONTHS = 130
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_TWELVE_MONTHS = 131
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_ONE_MONTH = 132
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_TWO_MONTHS = 133
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_THREE_MONTHS = 134
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_SIX_MONTHS = 135
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_NINE_MONTHS = 136
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_TWELVE_MONTHS = 137
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_THREE_MONTHS = 138
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_SIX_MONTHS = 139
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_NINE_MONTHS = 140
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_TWELVE_MONTHS = 141
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_ONE_MONTH = 142
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_THREE_MONTHS = 143
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SIX_MONTHS = 144
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_NINE_MONTHS = 145
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_TWELVE_MONTHS = 146
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_ONE_MONTH = 147
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWO_MONTHS = 148
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_THREE_MONTHS = 149
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_SIX_MONTHS = 150
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_NINE_MONTHS = 151
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWELVE_MONTHS = 152
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_ONE_MONTH = 153
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWO_MONTHS = 154
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_THREE_MONTHS = 155
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_SIX_MONTHS = 156
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_NINE_MONTHS = 157
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWELVE_MONTHS = 158
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_ONE_MONTH = 159
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_TWO_MONTHS = 160
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_THREE_MONTHS = 161
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_SIX_MONTHS = 162
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_NINE_MONTHS = 163
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_TWELVE_MONTHS = 164
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_THREE_MONTHS = 165
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_SIX_MONTHS = 166
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_NINE_MONTHS = 167
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_TWELVE_MONTHS = 168
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_ONE_MONTH = 169
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_TWO_MONTHS = 170
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_THREE_MONTHS = 171
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_SIX_MONTHS = 172
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_NINE_MONTHS = 173
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_TWELVE_MONTHS = 174
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_THREE_MONTHS = 175
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_SIX_MONTHS = 176
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_NINE_MONTHS = 177
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_TWELVE_MONTHS = 178
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_ONE_MONTH = 179
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_TWO_MONTHS = 180
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_THREE_MONTHS = 181
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_SIX_MONTHS = 182
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_NINE_MONTHS = 183
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_TWELVE_MONTHS = 184
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_ONE_MONTH = 185
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_TWO_MONTHS = 186
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_THREE_MONTHS = 187
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_SIX_MONTHS = 188
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_NINE_MONTHS = 189
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_TWELVE_MONTHS = 190
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_ONE_MONTH = 191
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_TWO_MONTHS = 192
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_THREE_MONTHS = 193
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_SIX_MONTHS = 194
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NINE_MONTHS = 195
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_TWELVE_MONTHS = 196
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_ONE_MONTH = 197
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_TWO_MONTHS = 198
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_THREE_MONTHS = 199
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_SIX_MONTHS = 200
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_NINE_MONTHS = 201
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_TWELVE_MONTHS = 202
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_ONE_MONTH = 203
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_TWO_MONTHS = 204
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_THREE_MONTHS = 205
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_SIX_MONTHS = 206
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_NINE_MONTHS = 207
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_TWELVE_MONTHS = 208
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_ONE_MONTH = 209
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_TWO_MONTHS = 210
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_THREE_MONTHS = 211
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_SIX_MONTHS = 212
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_NINE_MONTHS = 213
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_TWELVE_MONTHS = 214
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_ONE_MONTH = 215
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_TWO_MONTHS = 216
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_THREE_MONTHS = 217
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_SIX_MONTHS = 218
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_NINE_MONTHS = 219
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_TWELVE_MONTHS = 220
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_THREE_MONTHS = 221
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_SIX_MONTHS = 222
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_NINE_MONTHS = 223
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_TWELVE_MONTHS = 224
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_ONE_MONTH = 225
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_TWO_MONTHS = 226
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_THREE_MONTHS = 227
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_SIX_MONTHS = 228
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_NINE_MONTHS = 229
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_TWELVE_MONTHS = 230
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_ONE_MONTH = 231
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_TWO_MONTHS = 232
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_THREE_MONTHS = 233
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_SIX_MONTHS = 234
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_NINE_MONTHS = 235
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_TWELVE_MONTHS = 236
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_ONE_MONTH = 237
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_TWO_MONTHS = 238
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_THREE_MONTHS = 239
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_SIX_MONTHS = 240
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_NINE_MONTHS = 241
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_TWELVE_MONTHS = 242
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_ONE_MONTH = 243
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_TWO_MONTHS = 244
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_THREE_MONTHS = 245
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_SIX_MONTHS = 246
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NINE_MONTHS = 247
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_TWELVE_MONTHS = 248
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_ONE_MONTH = 249
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_TWO_MONTHS = 250
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_THREE_MONTHS = 251
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_SIX_MONTHS = 252
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_NINE_MONTHS = 253
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_TWELVE_MONTHS = 254
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_THREE_MONTHS = 255
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_SIX_MONTHS = 256
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_NINE_MONTHS = 257
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_TWELVE_MONTHS = 258
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_ONE_MONTH = 259
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_TWO_MONTHS = 260
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_THREE_MONTHS = 261
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_SIX_MONTHS = 262
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_NINE_MONTHS = 263
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_TWELVE_MONTHS = 264
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_ONE_MONTH = 265
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_TWO_MONTHS = 266
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_THREE_MONTHS = 267
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_SIX_MONTHS = 268
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_NINE_MONTHS = 269
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_TWELVE_MONTHS = 270
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_ONE_MONTH = 271
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_TWO_MONTHS = 272
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_THREE_MONTHS = 273
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_SIX_MONTHS = 274
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_NINE_MONTHS = 275
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_TWELVE_MONTHS = 276
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_ONE_MONTH = 277
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_TWO_MONTHS = 278
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_THREE_MONTHS = 279
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_SIX_MONTHS = 280
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_NINE_MONTHS = 281
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_TWELVE_MONTHS = 282
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_ONE_MONTH = 283
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_TWO_MONTHS = 284
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_THREE_MONTHS = 285
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_SIX_MONTHS = 286
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_NINE_MONTHS = 287
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_TWELVE_MONTHS = 288
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_ONE_MONTH = 289
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_TWO_MONTHS = 290
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_THREE_MONTHS = 291
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_SIX_MONTHS = 292
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_NINE_MONTHS = 293
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_TWELVE_MONTHS = 294
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_ONE_MONTH = 295
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_TWO_MONTHS = 296
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_THREE_MONTHS = 297
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_SIX_MONTHS = 298
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_NINE_MONTHS = 299
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_TWELVE_MONTHS = 300
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_THREE_MONTHS = 301
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_SIX_MONTHS = 302
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_NINE_MONTHS = 303
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_TWELVE_MONTHS = 304
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_THREE_MONTHS = 305
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_SIX_MONTHS = 306
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_NINE_MONTHS = 307
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_TWELVE_MONTHS = 308
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_ONE_MONTH = 309
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_TWO_MONTHS = 310
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_THREE_MONTHS = 311
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_SIX_MONTHS = 312
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_NINE_MONTHS = 313
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_TWELVE_MONTHS = 314
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_THREE_MONTHS = 315
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_SIX_MONTHS = 316
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_NINE_MONTHS = 317
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_TWELVE_MONTHS = 318
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_ONE_MONTH = 319
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_TWO_MONTHS = 320
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_THREE_MONTHS = 321
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_SIX_MONTHS = 322
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_NINE_MONTHS = 323
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_TWELVE_MONTHS = 324
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_ONE_MONTH = 325
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_TWO_MONTHS = 326
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_THREE_MONTHS = 327
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_SIX_MONTHS = 328
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_NINE_MONTHS = 329
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_TWELVE_MONTHS = 330
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_ONE_MONTH = 331
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_THREE_MONTHS = 332
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_SIX_MONTHS = 333
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_NINE_MONTHS = 334
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_TWELVE_MONTHS = 335
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_ONE_MONTH = 336
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_TWO_MONTHS = 337
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_THREE_MONTHS = 338
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_SIX_MONTHS = 339
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_NINE_MONTHS = 340
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_TWELVE_MONTHS = 341
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_ONE_MONTH = 342
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_TWO_MONTHS = 343
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_THREE_MONTHS = 344
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_SIX_MONTHS = 345
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_NINE_MONTHS = 346
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_TWELVE_MONTHS = 347
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_ONE_MONTH = 348
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_TWO_MONTHS = 349
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_THREE_MONTHS = 350
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_SIX_MONTHS = 351
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_NINE_MONTHS = 352
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_TWELVE_MONTHS = 353
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_ONE_MONTH = 354
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_TWO_MONTHS = 355
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_THREE_MONTHS = 356
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_SIX_MONTHS = 357
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_NINE_MONTHS = 358
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_TWELVE_MONTHS = 359
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_ONE_MONTH = 360
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_TWO_MONTHS = 361
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_THREE_MONTHS = 362
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_SIX_MONTHS = 363
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_NINE_MONTHS = 364
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_TWELVE_MONTHS = 365
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_ONE_MONTH = 366
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_TWO_MONTHS = 367
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_THREE_MONTHS = 368
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_SIX_MONTHS = 369
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NINE_MONTHS = 370
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_TWELVE_MONTHS = 371
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_ONE_MONTH = 372
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_TWO_MONTHS = 373
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_THREE_MONTHS = 374
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_SIX_MONTHS = 375
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_NINE_MONTHS = 376
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_TWELVE_MONTHS = 377
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_ONE_MONTH = 378
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_TWO_MONTHS = 379
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_THREE_MONTHS = 380
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_SIX_MONTHS = 381
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_NINE_MONTHS = 382
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_TWELVE_MONTHS = 383
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_THREE_MONTHS = 384
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_SIX_MONTHS = 385
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_NINE_MONTHS = 386
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_TWELVE_MONTHS = 387
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_THREE_MONTHS = 388
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_SIX_MONTHS = 389
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_NINE_MONTHS = 390
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_TWELVE_MONTHS = 391
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_ONE_MONTH = 392
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_TWO_MONTHS = 393
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_THREE_MONTHS = 394
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_SIX_MONTHS = 395
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_NINE_MONTHS = 396
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_TWELVE_MONTHS = 397
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_THREE_MONTHS = 398
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_SIX_MONTHS = 399
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_NINE_MONTHS = 400
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_TWELVE_MONTHS = 401
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_ONE_MONTH = 402
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_TWO_MONTHS = 403
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_THREE_MONTHS = 404
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_SIX_MONTHS = 405
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_NINE_MONTHS = 406
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_TWELVE_MONTHS = 407
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_ONE_MONTH = 408
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_TWO_MONTHS = 409
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_THREE_MONTHS = 410
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_SIX_MONTHS = 411
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_NINE_MONTHS = 412
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_TWELVE_MONTHS = 413
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_THREE_MONTHS = 414
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_SIX_MONTHS = 415
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_NINE_MONTHS = 416
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_TWELVE_MONTHS = 417
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_THREE_MONTHS = 418
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_SIX_MONTHS = 419
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_NINE_MONTHS = 420
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_TWELVE_MONTHS = 421
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_ONE_MONTH = 422
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_THREE_MONTHS = 423
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_SIX_MONTHS = 424
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_NINE_MONTHS = 425
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_TWELVE_MONTHS = 426
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_THREE_MONTHS = 427
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_SIX_MONTHS = 428
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_NINE_MONTHS = 429
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_TWELVE_MONTHS = 430
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_ONE_MONTH = 431
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_TWO_MONTHS = 432
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_THREE_MONTHS = 433
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_SIX_MONTHS = 434
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_NINE_MONTHS = 435
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_TWELVE_MONTHS = 436
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_THREE_MONTHS = 437
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_SIX_MONTHS = 438
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_NINE_MONTHS = 439
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_TWELVE_MONTHS = 440
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_ONE_MONTH = 441
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_TWO_MONTHS = 442
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_THREE_MONTHS = 443
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_SIX_MONTHS = 444
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_NINE_MONTHS = 445
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_TWELVE_MONTHS = 446
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_ONE_MONTH = 447
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_THREE_MONTHS = 448
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_SIX_MONTHS = 449
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_NINE_MONTHS = 450
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_TWELVE_MONTHS = 451
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_ONE_MONTH = 452
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_TWO_MONTHS = 453
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_THREE_MONTHS = 454
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_SIX_MONTHS = 455
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_NINE_MONTHS = 456
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_TWELVE_MONTHS = 457
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_THREE_MONTHS = 458
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_SIX_MONTHS = 459
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_NINE_MONTHS = 460
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_TWELVE_MONTHS = 461
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_ONE_MONTH = 462
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_TWO_MONTHS = 463
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_THREE_MONTHS = 464
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_SIX_MONTHS = 465
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_NINE_MONTHS = 466
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_TWELVE_MONTHS = 467
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_THREE_MONTHS = 468
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_SIX_MONTHS = 469
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_NINE_MONTHS = 470
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_TWELVE_MONTHS = 471
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_THREE_MONTHS = 472
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_SIX_MONTHS = 473
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_NINE_MONTHS = 474
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_TWELVE_MONTHS = 475
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_ONE_MONTH = 476
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_THREE_MONTHS = 477
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_SIX_MONTHS = 478
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_NINE_MONTHS = 479
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_TWELVE_MONTHS = 480
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_THREE_MONTHS = 481
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_SIX_MONTHS = 482
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_NINE_MONTHS = 483
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_TWELVE_MONTHS = 484
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_ONE_MONTH = 485
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_THREE_MONTHS = 486
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_SIX_MONTHS = 487
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_NINE_MONTHS = 488
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_TWELVE_MONTHS = 489
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_THREE_MONTHS = 490
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_SIX_MONTHS = 491
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_NINE_MONTHS = 492
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_TWELVE_MONTHS = 493
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_ONE_MONTH = 494
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_THREE_MONTHS = 495
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_SIX_MONTHS = 496
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_NINE_MONTHS = 497
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_TWELVE_MONTHS = 498
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_THREE_MONTHS = 499
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_SIX_MONTHS = 500
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_NINE_MONTHS = 501
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_TWELVE_MONTHS = 502
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_ONE_MONTH = 503
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_THREE_MONTHS = 504
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_SIX_MONTHS = 505
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_NINE_MONTHS = 506
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_TWELVE_MONTHS = 507
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_ONE_MONTH = 508
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_THREE_MONTHS = 509
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_SIX_MONTHS = 510
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_NINE_MONTHS = 511
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_TWELVE_MONTHS = 512
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_ONE_MONTH = 513
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_THREE_MONTHS = 514
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_SIX_MONTHS = 515
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_NINE_MONTHS = 516
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_TWELVE_MONTHS = 517
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_ONE_MONTH = 518
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_TWO_MONTHS = 519
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_THREE_MONTHS = 520
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_SIX_MONTHS = 521
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_NINE_MONTHS = 522
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_TWELVE_MONTHS = 523
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_THREE_MONTHS = 524
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_SIX_MONTHS = 525
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_NINE_MONTHS = 526
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_TWELVE_MONTHS = 527
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_ONE_MONTH = 528
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_TWO_MONTHS = 529
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_THREE_MONTHS = 530
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_SIX_MONTHS = 531
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_NINE_MONTHS = 532
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_TWELVE_MONTHS = 533
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_THREE_MONTHS = 534
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_SIX_MONTHS = 535
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_NINE_MONTHS = 536
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_TWELVE_MONTHS = 537
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_THREE_MONTHS = 538
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_SIX_MONTHS = 539
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_NINE_MONTHS = 540
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_TWELVE_MONTHS = 541
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_THREE_MONTHS = 542
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_SIX_MONTHS = 543
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_NINE_MONTHS = 544
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_TWELVE_MONTHS = 545
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_THREE_MONTHS = 546
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_SIX_MONTHS = 547
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_NINE_MONTHS = 548
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_TWELVE_MONTHS = 549
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_THREE_MONTHS = 550
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_SIX_MONTHS = 551
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_NINE_MONTHS = 552
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_TWELVE_MONTHS = 553
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_ONE_MONTH = 554
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_TWO_MONTHS = 555
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_THREE_MONTHS = 556
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_SIX_MONTHS = 557
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_NINE_MONTHS = 558
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_TWELVE_MONTHS = 559
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_ONE_MONTH = 560
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_THREE_MONTHS = 561
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_SIX_MONTHS = 562
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_NINE_MONTHS = 563
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_TWELVE_MONTHS = 564
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_ONE_MONTH = 565
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_THREE_MONTHS = 566
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_SIX_MONTHS = 567
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_NINE_MONTHS = 568
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_TWELVE_MONTHS = 569
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_ONE_MONTH = 570
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_THREE_MONTHS = 571
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_SIX_MONTHS = 572
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_NINE_MONTHS = 573
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_TWELVE_MONTHS = 574
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_ONE_MONTH = 575
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_TWO_MONTHS = 576
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_THREE_MONTHS = 577
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_SIX_MONTHS = 578
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_NINE_MONTHS = 579
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_TWELVE_MONTHS = 580
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_TWO_MONTHS = 581
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_THREE_MONTHS = 582
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_SIX_MONTHS = 583
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_NINE_MONTHS = 584
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_TWELVE_MONTHS = 585
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_ONE_MONTH = 586
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_TWO_MONTHS = 587
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_THREE_MONTHS = 588
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_SIX_MONTHS = 589
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_NINE_MONTHS = 590
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_TWELVE_MONTHS = 591
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_CEDED_TWELVE_MONTHS = 592
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_THREE_MONTHS = 593
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_SIX_MONTHS = 594
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_NINE_MONTHS = 595
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_TWELVE_MONTHS = 596
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_THREE_MONTHS = 597
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_SIX_MONTHS = 598
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_NINE_MONTHS = 599
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_TWELVE_MONTHS = 600
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_THREE_MONTHS = 601
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_SIX_MONTHS = 602
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_NINE_MONTHS = 603
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_TWELVE_MONTHS = 604
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_ONE_MONTH = 605
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_TWO_MONTHS = 606
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_THREE_MONTHS = 607
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_SIX_MONTHS = 608
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_NINE_MONTHS = 609
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_TWELVE_MONTHS = 610
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_TWO_MONTHS = 611
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_THREE_MONTHS = 612
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_SIX_MONTHS = 613
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_NINE_MONTHS = 614
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_TWELVE_MONTHS = 615
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_ONE_MONTH = 616
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_TWO_MONTHS = 617
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_THREE_MONTHS = 618
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_SIX_MONTHS = 619
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_NINE_MONTHS = 620
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_TWELVE_MONTHS = 621
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_ONE_MONTH = 622
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_TWO_MONTHS = 623
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_THREE_MONTHS = 624
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_SIX_MONTHS = 625
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_NINE_MONTHS = 626
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_TWELVE_MONTHS = 627
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_ONE_MONTH = 628
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_TWO_MONTHS = 629
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_THREE_MONTHS = 630
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_SIX_MONTHS = 631
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_NINE_MONTHS = 632
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_TWELVE_MONTHS = 633
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_THREE_MONTHS = 634
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_SIX_MONTHS = 635
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_NINE_MONTHS = 636
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_TWELVE_MONTHS = 637
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_ONE_MONTH = 638
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_THREE_MONTHS = 639
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_SIX_MONTHS = 640
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_NINE_MONTHS = 641
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_TWELVE_MONTHS = 642
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_ONE_MONTH = 643
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_THREE_MONTHS = 644
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_SIX_MONTHS = 645
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_NINE_MONTHS = 646
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_TWELVE_MONTHS = 647
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_THREE_MONTHS = 648
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_SIX_MONTHS = 649
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_NINE_MONTHS = 650
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_TWELVE_MONTHS = 651
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_THREE_MONTHS = 652
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_SIX_MONTHS = 653
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_NINE_MONTHS = 654
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_TWELVE_MONTHS = 655
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_THREE_MONTHS = 656
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_SIX_MONTHS = 657
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_NINE_MONTHS = 658
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_TWELVE_MONTHS = 659
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_ONE_MONTH = 660
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_THREE_MONTHS = 661
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_SIX_MONTHS = 662
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_NINE_MONTHS = 663
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_TWELVE_MONTHS = 664
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_ONE_MONTH = 665
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWO_MONTHS = 666
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_THREE_MONTHS = 667
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_SIX_MONTHS = 668
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_NINE_MONTHS = 669
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWELVE_MONTHS = 670
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_ONE_MONTH = 671
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_TWO_MONTHS = 672
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_THREE_MONTHS = 673
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_SIX_MONTHS = 674
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_NINE_MONTHS = 675
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_TWELVE_MONTHS = 676
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_THREE_MONTHS = 677
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_SIX_MONTHS = 678
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_NINE_MONTHS = 679
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_TWELVE_MONTHS = 680
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_ONE_MONTH = 681
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_TWO_MONTHS = 682
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_THREE_MONTHS = 683
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_SIX_MONTHS = 684
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_NINE_MONTHS = 685
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_TWELVE_MONTHS = 686
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_ONE_MONTH = 687
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_THREE_MONTHS = 688
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_SIX_MONTHS = 689
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_NINE_MONTHS = 690
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_TWELVE_MONTHS = 691
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_ONE_MONTH = 692
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_TWO_MONTHS = 693
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_THREE_MONTHS = 694
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_SIX_MONTHS = 695
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_NINE_MONTHS = 696
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_TWELVE_MONTHS = 697
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_ONE_MONTH = 698
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_TWO_MONTHS = 699
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_THREE_MONTHS = 700
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_SIX_MONTHS = 701
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_NINE_MONTHS = 702
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_TWELVE_MONTHS = 703
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_ONE_MONTH = 704
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_TWO_MONTHS = 705
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_THREE_MONTHS = 706
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_SIX_MONTHS = 707
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_NINE_MONTHS = 708
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_TWELVE_MONTHS = 709
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_ONE_MONTH = 710
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_TWO_MONTHS = 711
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_THREE_MONTHS = 712
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_SIX_MONTHS = 713
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_NINE_MONTHS = 714
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_TWELVE_MONTHS = 715
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_ONE_MONTH = 716
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_THREE_MONTHS = 717
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_SIX_MONTHS = 718
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_NINE_MONTHS = 719
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_TWELVE_MONTHS = 720
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_ONE_MONTH = 721
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_THREE_MONTHS = 722
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_SIX_MONTHS = 723
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_NINE_MONTHS = 724
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_TWELVE_MONTHS = 725
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_THREE_MONTHS = 726
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_SIX_MONTHS = 727
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_NINE_MONTHS = 728
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_TWELVE_MONTHS = 729
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_THREE_MONTHS = 730
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_SIX_MONTHS = 731
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_NINE_MONTHS = 732
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_TWELVE_MONTHS = 733
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_ONE_MONTH = 734
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_TWO_MONTHS = 735
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_THREE_MONTHS = 736
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_SIX_MONTHS = 737
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_NINE_MONTHS = 738
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_TWELVE_MONTHS = 739
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_ONE_MONTH = 740
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_TWO_MONTHS = 741
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_THREE_MONTHS = 742
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_SIX_MONTHS = 743
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_NINE_MONTHS = 744
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_TWELVE_MONTHS = 745
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_ONE_MONTH = 746
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_THREE_MONTHS = 747
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_SIX_MONTHS = 748
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_NINE_MONTHS = 749
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_TWELVE_MONTHS = 750
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_TWO_MONTHS = 751
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_THREE_MONTHS = 752
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_SIX_MONTHS = 753
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_NINE_MONTHS = 754
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_TWELVE_MONTHS = 755
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SOCIAL_SECURITY_COSTS_TWELVE_MONTHS = 756
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PENSION_COSTS_TWELVE_MONTHS = 757
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_TWO_MONTHS = 758
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_THREE_MONTHS = 759
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_SIX_MONTHS = 760
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_NINE_MONTHS = 761
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_TWELVE_MONTHS = 762
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_THREE_MONTHS = 763
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_SIX_MONTHS = 764
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_NINE_MONTHS = 765
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_TWELVE_MONTHS = 766
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_THREE_MONTHS = 767
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_SIX_MONTHS = 768
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_NINE_MONTHS = 769
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_TWELVE_MONTHS = 770
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_DIVIDEND_PAYMENT_THREE_MONTHS = 771
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_DIVIDEND_PAYMENT_NINE_MONTHS = 772
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_DIVIDEND_PAYMENT_TWELVE_MONTHS = 773
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_THREE_MONTHS = 774
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_SIX_MONTHS = 775
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_NINE_MONTHS = 776
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_TWELVE_MONTHS = 777
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_THREE_MONTHS = 778
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_SIX_MONTHS = 779
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_NINE_MONTHS = 780
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_TWELVE_MONTHS = 781
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_TRADING_INCOME_TWELVE_MONTHS = 782
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_STAFF_COSTS_TWELVE_MONTHS = 783
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_THREE_MONTHS = 784
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_SIX_MONTHS = 785
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_NINE_MONTHS = 786
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 787
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_THREE_MONTHS = 788
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_SIX_MONTHS = 789
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_NINE_MONTHS = 790
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_TWELVE_MONTHS = 791
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_THREE_MONTHS = 792
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_SIX_MONTHS = 793
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_NINE_MONTHS = 794
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_TWELVE_MONTHS = 795
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_THREE_MONTHS = 796
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_SIX_MONTHS = 797
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_NINE_MONTHS = 798
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_TWELVE_MONTHS = 799
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NEGATIVE_GOODWILL_IMMEDIATELY_RECOGNIZED_THREE_MONTHS = 800
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NEGATIVE_GOODWILL_IMMEDIATELY_RECOGNIZED_SIX_MONTHS = 801
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NEGATIVE_GOODWILL_IMMEDIATELY_RECOGNIZED_TWELVE_MONTHS = 802
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_THREE_MONTHS = 803
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_SIX_MONTHS = 804
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_NINE_MONTHS = 805
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_TWELVE_MONTHS = 806
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_THREE_MONTHS = 807
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_SIX_MONTHS = 808
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_NINE_MONTHS = 809
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_TWELVE_MONTHS = 810
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_THREE_MONTHS = 811
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_SIX_MONTHS = 812
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_NINE_MONTHS = 813
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_TWELVE_MONTHS = 814
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_THREE_MONTHS = 815
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_SIX_MONTHS = 816
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_NINE_MONTHS = 817
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_TWELVE_MONTHS = 818
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_THREE_MONTHS = 819
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_SIX_MONTHS = 820
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_NINE_MONTHS = 821
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_TWELVE_MONTHS = 822
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_THREE_MONTHS = 823
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_SIX_MONTHS = 824
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_NINE_MONTHS = 825
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_TWELVE_MONTHS = 826
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_THREE_MONTHS = 827
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_SIX_MONTHS = 828
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_NINE_MONTHS = 829
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_TWELVE_MONTHS = 830
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WAGESAND_SALARIES_SIX_MONTHS = 831
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WAGESAND_SALARIES_TWELVE_MONTHS = 832
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_TWO_MONTHS = 833
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_THREE_MONTHS = 834
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_SIX_MONTHS = 835
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_NINE_MONTHS = 836
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_TWELVE_MONTHS = 837
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_THREE_MONTHS = 838
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_SIX_MONTHS = 839
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_NINE_MONTHS = 840
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_TWELVE_MONTHS = 841
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_THREE_MONTHS = 842
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_SIX_MONTHS = 843
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_NINE_MONTHS = 844
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_TWELVE_MONTHS = 845
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_ONE_MONTH = 846
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_TWO_MONTHS = 847
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_THREE_MONTHS = 848
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_SIX_MONTHS = 849
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_NINE_MONTHS = 850
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_TWELVE_MONTHS = 851
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_ONE_MONTH = 852
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_TWO_MONTHS = 853
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_THREE_MONTHS = 854
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_SIX_MONTHS = 855
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_NINE_MONTHS = 856
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_TWELVE_MONTHS = 857
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_ONE_MONTH = 858
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_TWO_MONTHS = 859
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_THREE_MONTHS = 860
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_SIX_MONTHS = 861
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_NINE_MONTHS = 862
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_TWELVE_MONTHS = 863
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_ONE_MONTH = 864
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_TWO_MONTHS = 865
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_THREE_MONTHS = 866
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_SIX_MONTHS = 867
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_NINE_MONTHS = 868
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_TWELVE_MONTHS = 869
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_ONE_MONTH = 870
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_TWO_MONTHS = 871
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_THREE_MONTHS = 872
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_SIX_MONTHS = 873
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_NINE_MONTHS = 874
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_TWELVE_MONTHS = 875
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_THREE_MONTHS = 876
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_SIX_MONTHS = 877
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_NINE_MONTHS = 878
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_TWELVE_MONTHS = 879
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_THREE_MONTHS = 880
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_SIX_MONTHS = 881
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_NINE_MONTHS = 882
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_TWELVE_MONTHS = 883
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_THREE_MONTHS = 884
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_SIX_MONTHS = 885
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_NINE_MONTHS = 886
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_TWELVE_MONTHS = 887
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_THREE_MONTHS = 888
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_SIX_MONTHS = 889
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_NINE_MONTHS = 890
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_TWELVE_MONTHS = 891
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_THREE_MONTHS = 892
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_SIX_MONTHS = 893
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_NINE_MONTHS = 894
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_TWELVE_MONTHS = 895
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_THREE_MONTHS = 896
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_SIX_MONTHS = 897
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_NINE_MONTHS = 898
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_TWELVE_MONTHS = 899
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_THREE_MONTHS = 900
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_SIX_MONTHS = 901
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_NINE_MONTHS = 902
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_TWELVE_MONTHS = 903
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_THREE_MONTHS = 904
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_SIX_MONTHS = 905
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_NINE_MONTHS = 906
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_TWELVE_MONTHS = 907
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_THREE_MONTHS = 908
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_SIX_MONTHS = 909
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_NINE_MONTHS = 910
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_TWELVE_MONTHS = 911
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_THREE_MONTHS = 912
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_SIX_MONTHS = 913
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_NINE_MONTHS = 914
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_TWELVE_MONTHS = 915
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_THREE_MONTHS = 916
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_SIX_MONTHS = 917
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_NINE_MONTHS = 918
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_TWELVE_MONTHS = 919
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_THREE_MONTHS = 920
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_SIX_MONTHS = 921
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_NINE_MONTHS = 922
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_TWELVE_MONTHS = 923
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_THREE_MONTHS = 924
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_SIX_MONTHS = 925
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_NINE_MONTHS = 926
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_TWELVE_MONTHS = 927
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_THREE_MONTHS = 928
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_SIX_MONTHS = 929
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_NINE_MONTHS = 930
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_TWELVE_MONTHS = 931
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_THREE_MONTHS = 932
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_SIX_MONTHS = 933
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_NINE_MONTHS = 934
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_TWELVE_MONTHS = 935
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_THREE_MONTHS = 936
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_SIX_MONTHS = 937
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_NINE_MONTHS = 938
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_TWELVE_MONTHS = 939
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_THREE_MONTHS = 940
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_SIX_MONTHS = 941
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_NINE_MONTHS = 942
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_TWELVE_MONTHS = 943
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_THREE_MONTHS = 944
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_SIX_MONTHS = 945
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_NINE_MONTHS = 946
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_TWELVE_MONTHS = 947
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_THREE_MONTHS = 948
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_SIX_MONTHS = 949
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_NINE_MONTHS = 950
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_TWELVE_MONTHS = 951
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_THREE_MONTHS = 952
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_SIX_MONTHS = 953
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_NINE_MONTHS = 954
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_TWELVE_MONTHS = 955
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_THREE_MONTHS = 956
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_SIX_MONTHS = 957
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_NINE_MONTHS = 958
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_TWELVE_MONTHS = 959
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_THREE_MONTHS = 960
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_SIX_MONTHS = 961
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_NINE_MONTHS = 962
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_TWELVE_MONTHS = 963
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_THREE_MONTHS = 964
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_SIX_MONTHS = 965
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_NINE_MONTHS = 966
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_TWELVE_MONTHS = 967
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_THREE_MONTHS = 968
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_SIX_MONTHS = 969
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_NINE_MONTHS = 970
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_TWELVE_MONTHS = 971
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_THREE_MONTHS = 972
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_SIX_MONTHS = 973
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_NINE_MONTHS = 974
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_TWELVE_MONTHS = 975
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_THREE_MONTHS = 976
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_SIX_MONTHS = 977
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_NINE_MONTHS = 978
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_TWELVE_MONTHS = 979
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_THREE_MONTHS = 980
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_SIX_MONTHS = 981
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_NINE_MONTHS = 982
+
+    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_TWELVE_MONTHS = 983
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BS_FILE_DATE_ONE_MONTH = 984
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BS_FILE_DATE_THREE_MONTHS = 985
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BS_FILE_DATE_TWELVE_MONTHS = 986
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_ONE_MONTH = 987
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_TWO_MONTHS = 988
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_THREE_MONTHS = 989
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_SIX_MONTHS = 990
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_NINE_MONTHS = 991
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_TWELVE_MONTHS = 992
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_ONE_MONTH = 993
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_TWO_MONTHS = 994
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 995
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_SIX_MONTHS = 996
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_NINE_MONTHS = 997
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 998
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_ONE_MONTH = 999
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_TWO_MONTHS = 1000
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_THREE_MONTHS = 1001
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_SIX_MONTHS = 1002
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_NINE_MONTHS = 1003
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_TWELVE_MONTHS = 1004
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_THREE_MONTHS = 1005
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_SIX_MONTHS = 1006
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_NINE_MONTHS = 1007
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_TWELVE_MONTHS = 1008
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INVESTMENT_INCOME_THREE_MONTHS = 1009
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INVESTMENT_INCOME_SIX_MONTHS = 1010
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INVESTMENT_INCOME_TWELVE_MONTHS = 1011
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_ONE_MONTH = 1012
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_TWO_MONTHS = 1013
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_THREE_MONTHS = 1014
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_SIX_MONTHS = 1015
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_NINE_MONTHS = 1016
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_TWELVE_MONTHS = 1017
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_ONE_MONTH = 1018
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_TWO_MONTHS = 1019
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_THREE_MONTHS = 1020
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_SIX_MONTHS = 1021
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_NINE_MONTHS = 1022
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_TWELVE_MONTHS = 1023
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_ONE_MONTH = 1024
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_TWO_MONTHS = 1025
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_THREE_MONTHS = 1026
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_SIX_MONTHS = 1027
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_NINE_MONTHS = 1028
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_TWELVE_MONTHS = 1029
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_THREE_MONTHS = 1030
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_SIX_MONTHS = 1031
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_NINE_MONTHS = 1032
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_TWELVE_MONTHS = 1033
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_THREE_MONTHS = 1034
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_SIX_MONTHS = 1035
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_NINE_MONTHS = 1036
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_TWELVE_MONTHS = 1037
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_ONE_MONTH = 1038
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_TWO_MONTHS = 1039
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_THREE_MONTHS = 1040
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_SIX_MONTHS = 1041
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_NINE_MONTHS = 1042
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_TWELVE_MONTHS = 1043
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_ONE_MONTH = 1044
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_TWO_MONTHS = 1045
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_THREE_MONTHS = 1046
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_SIX_MONTHS = 1047
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_NINE_MONTHS = 1048
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_TWELVE_MONTHS = 1049
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_THREE_MONTHS = 1050
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_SIX_MONTHS = 1051
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_NINE_MONTHS = 1052
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_TWELVE_MONTHS = 1053
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_ONE_MONTH = 1054
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_TWO_MONTHS = 1055
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_THREE_MONTHS = 1056
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_SIX_MONTHS = 1057
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_NINE_MONTHS = 1058
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_TWELVE_MONTHS = 1059
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_THREE_MONTHS = 1060
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_SIX_MONTHS = 1061
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_NINE_MONTHS = 1062
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_TWELVE_MONTHS = 1063
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_TWO_MONTHS = 1064
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_THREE_MONTHS = 1065
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_SIX_MONTHS = 1066
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_NINE_MONTHS = 1067
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_TWELVE_MONTHS = 1068
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_ONE_MONTH = 1069
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_TWO_MONTHS = 1070
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_THREE_MONTHS = 1071
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_SIX_MONTHS = 1072
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_NINE_MONTHS = 1073
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_TWELVE_MONTHS = 1074
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_ONE_MONTH = 1075
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_TWO_MONTHS = 1076
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_THREE_MONTHS = 1077
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_SIX_MONTHS = 1078
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_NINE_MONTHS = 1079
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_TWELVE_MONTHS = 1080
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_ONE_MONTH = 1081
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_TWO_MONTHS = 1082
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_THREE_MONTHS = 1083
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_SIX_MONTHS = 1084
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_NINE_MONTHS = 1085
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_TWELVE_MONTHS = 1086
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_ONE_MONTH = 1087
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_TWO_MONTHS = 1088
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_THREE_MONTHS = 1089
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_SIX_MONTHS = 1090
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_NINE_MONTHS = 1091
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_TWELVE_MONTHS = 1092
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1093
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1094
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1095
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1096
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1097
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1098
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_ONE_MONTH = 1099
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_TWO_MONTHS = 1100
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_THREE_MONTHS = 1101
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_SIX_MONTHS = 1102
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_NINE_MONTHS = 1103
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_TWELVE_MONTHS = 1104
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1105
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1106
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1107
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1108
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1109
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1110
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_THREE_MONTHS = 1111
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_SIX_MONTHS = 1112
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_NINE_MONTHS = 1113
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_TWELVE_MONTHS = 1114
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_ONE_MONTH = 1115
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_TWO_MONTHS = 1116
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_THREE_MONTHS = 1117
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_SIX_MONTHS = 1118
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_NINE_MONTHS = 1119
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_TWELVE_MONTHS = 1120
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_ONE_MONTH = 1121
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_TWO_MONTHS = 1122
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_THREE_MONTHS = 1123
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_SIX_MONTHS = 1124
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_NINE_MONTHS = 1125
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_TWELVE_MONTHS = 1126
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_ONE_MONTH = 1127
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_TWO_MONTHS = 1128
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_THREE_MONTHS = 1129
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_SIX_MONTHS = 1130
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_NINE_MONTHS = 1131
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_TWELVE_MONTHS = 1132
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_THREE_MONTHS = 1133
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_SIX_MONTHS = 1134
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_NINE_MONTHS = 1135
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_TWELVE_MONTHS = 1136
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_ONE_MONTH = 1137
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_TWO_MONTHS = 1138
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_THREE_MONTHS = 1139
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_SIX_MONTHS = 1140
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_NINE_MONTHS = 1141
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_TWELVE_MONTHS = 1142
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_ONE_MONTH = 1143
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_TWO_MONTHS = 1144
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_THREE_MONTHS = 1145
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_SIX_MONTHS = 1146
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_NINE_MONTHS = 1147
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_TWELVE_MONTHS = 1148
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_THREE_MONTHS = 1149
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_SIX_MONTHS = 1150
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_NINE_MONTHS = 1151
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_TWELVE_MONTHS = 1152
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_ONE_MONTH = 1153
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_TWO_MONTHS = 1154
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_THREE_MONTHS = 1155
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_SIX_MONTHS = 1156
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_NINE_MONTHS = 1157
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_TWELVE_MONTHS = 1158
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_THREE_MONTHS = 1159
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_SIX_MONTHS = 1160
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_NINE_MONTHS = 1161
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_TWELVE_MONTHS = 1162
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_ONE_MONTH = 1163
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_TWO_MONTHS = 1164
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_THREE_MONTHS = 1165
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_SIX_MONTHS = 1166
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_NINE_MONTHS = 1167
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_TWELVE_MONTHS = 1168
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_ONE_MONTH = 1169
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_TWO_MONTHS = 1170
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_THREE_MONTHS = 1171
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_SIX_MONTHS = 1172
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_NINE_MONTHS = 1173
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_TWELVE_MONTHS = 1174
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_INVESTMENTS_THREE_MONTHS = 1175
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_INVESTMENTS_NINE_MONTHS = 1176
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_INVESTMENTS_TWELVE_MONTHS = 1177
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_AND_SECURITIES_SOLD_UNDER_AGREEMENT_TO_REPURCHASE_THREE_MONTHS = 1178
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_AND_SECURITIES_SOLD_UNDER_AGREEMENT_TO_REPURCHASE_SIX_MONTHS = 1179
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_AND_SECURITIES_SOLD_UNDER_AGREEMENT_TO_REPURCHASE_TWELVE_MONTHS = 1180
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_THREE_MONTHS = 1181
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_SIX_MONTHS = 1182
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_NINE_MONTHS = 1183
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_TWELVE_MONTHS = 1184
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_THREE_MONTHS = 1185
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_SIX_MONTHS = 1186
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_NINE_MONTHS = 1187
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_TWELVE_MONTHS = 1188
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FUTURE_POLICY_BENEFITS_THREE_MONTHS = 1189
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FUTURE_POLICY_BENEFITS_TWELVE_MONTHS = 1190
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GENERAL_PARTNERSHIP_CAPITAL_THREE_MONTHS = 1191
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GENERAL_PARTNERSHIP_CAPITAL_SIX_MONTHS = 1192
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GENERAL_PARTNERSHIP_CAPITAL_TWELVE_MONTHS = 1193
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_ONE_MONTH = 1194
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_TWO_MONTHS = 1195
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_THREE_MONTHS = 1196
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_SIX_MONTHS = 1197
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_NINE_MONTHS = 1198
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_TWELVE_MONTHS = 1199
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_ONE_MONTH = 1200
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_TWO_MONTHS = 1201
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_THREE_MONTHS = 1202
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_SIX_MONTHS = 1203
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_NINE_MONTHS = 1204
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_TWELVE_MONTHS = 1205
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_THREE_MONTHS = 1206
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_SIX_MONTHS = 1207
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_NINE_MONTHS = 1208
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_TWELVE_MONTHS = 1209
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_ONE_MONTH = 1210
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_TWO_MONTHS = 1211
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_THREE_MONTHS = 1212
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_SIX_MONTHS = 1213
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_NINE_MONTHS = 1214
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_TWELVE_MONTHS = 1215
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_THREE_MONTHS = 1216
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_SIX_MONTHS = 1217
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_NINE_MONTHS = 1218
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_TWELVE_MONTHS = 1219
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_ONE_MONTH = 1220
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_THREE_MONTHS = 1221
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_SIX_MONTHS = 1222
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_NINE_MONTHS = 1223
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_TWELVE_MONTHS = 1224
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_THREE_MONTHS = 1225
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_SIX_MONTHS = 1226
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_NINE_MONTHS = 1227
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_TWELVE_MONTHS = 1228
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_ONE_MONTH = 1229
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_TWO_MONTHS = 1230
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_THREE_MONTHS = 1231
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_SIX_MONTHS = 1232
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_NINE_MONTHS = 1233
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_TWELVE_MONTHS = 1234
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_THREE_MONTHS = 1235
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_SIX_MONTHS = 1236
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_NINE_MONTHS = 1237
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_TWELVE_MONTHS = 1238
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_ONE_MONTH = 1239
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_TWO_MONTHS = 1240
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_THREE_MONTHS = 1241
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_SIX_MONTHS = 1242
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_NINE_MONTHS = 1243
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_TWELVE_MONTHS = 1244
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_ONE_MONTH = 1245
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_TWO_MONTHS = 1246
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_THREE_MONTHS = 1247
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_SIX_MONTHS = 1248
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_NINE_MONTHS = 1249
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_TWELVE_MONTHS = 1250
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIMITED_PARTNERSHIP_CAPITAL_THREE_MONTHS = 1251
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIMITED_PARTNERSHIP_CAPITAL_SIX_MONTHS = 1252
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIMITED_PARTNERSHIP_CAPITAL_TWELVE_MONTHS = 1253
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_ONE_MONTH = 1254
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_TWO_MONTHS = 1255
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_THREE_MONTHS = 1256
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_SIX_MONTHS = 1257
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_NINE_MONTHS = 1258
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_TWELVE_MONTHS = 1259
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1260
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1261
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1262
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1263
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1264
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1265
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_INVESTMENTS_THREE_MONTHS = 1266
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_INVESTMENTS_SIX_MONTHS = 1267
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_INVESTMENTS_TWELVE_MONTHS = 1268
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1269
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1270
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1271
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1272
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1273
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1274
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_ONE_MONTH = 1275
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_TWO_MONTHS = 1276
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_THREE_MONTHS = 1277
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_SIX_MONTHS = 1278
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_NINE_MONTHS = 1279
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_TWELVE_MONTHS = 1280
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_THREE_MONTHS = 1281
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_SIX_MONTHS = 1282
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_NINE_MONTHS = 1283
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_TWELVE_MONTHS = 1284
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_THREE_MONTHS = 1285
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_SIX_MONTHS = 1286
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_NINE_MONTHS = 1287
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_TWELVE_MONTHS = 1288
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_ONE_MONTH = 1289
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_TWO_MONTHS = 1290
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_THREE_MONTHS = 1291
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_SIX_MONTHS = 1292
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_NINE_MONTHS = 1293
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_TWELVE_MONTHS = 1294
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_THREE_MONTHS = 1295
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_SIX_MONTHS = 1296
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_NINE_MONTHS = 1297
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_TWELVE_MONTHS = 1298
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_ONE_MONTH = 1299
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_TWO_MONTHS = 1300
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_THREE_MONTHS = 1301
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_SIX_MONTHS = 1302
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_NINE_MONTHS = 1303
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_TWELVE_MONTHS = 1304
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NOTES_RECEIVABLE_THREE_MONTHS = 1305
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NOTES_RECEIVABLE_SIX_MONTHS = 1306
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NOTES_RECEIVABLE_TWELVE_MONTHS = 1307
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_THREE_MONTHS = 1308
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_SIX_MONTHS = 1309
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_NINE_MONTHS = 1310
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_TWELVE_MONTHS = 1311
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_ONE_MONTH = 1312
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_TWO_MONTHS = 1313
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_THREE_MONTHS = 1314
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_SIX_MONTHS = 1315
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_NINE_MONTHS = 1316
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_TWELVE_MONTHS = 1317
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_ONE_MONTH = 1318
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_TWO_MONTHS = 1319
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_THREE_MONTHS = 1320
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_SIX_MONTHS = 1321
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_NINE_MONTHS = 1322
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_TWELVE_MONTHS = 1323
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_ONE_MONTH = 1324
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_THREE_MONTHS = 1325
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_SIX_MONTHS = 1326
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_NINE_MONTHS = 1327
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_TWELVE_MONTHS = 1328
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_ONE_MONTH = 1329
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_TWO_MONTHS = 1330
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_THREE_MONTHS = 1331
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_SIX_MONTHS = 1332
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_NINE_MONTHS = 1333
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_TWELVE_MONTHS = 1334
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_ONE_MONTH = 1335
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_TWO_MONTHS = 1336
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_THREE_MONTHS = 1337
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_SIX_MONTHS = 1338
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_NINE_MONTHS = 1339
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_TWELVE_MONTHS = 1340
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_THREE_MONTHS = 1341
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_SIX_MONTHS = 1342
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_NINE_MONTHS = 1343
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_TWELVE_MONTHS = 1344
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICYHOLDER_FUNDS_THREE_MONTHS = 1345
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICYHOLDER_FUNDS_TWELVE_MONTHS = 1346
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_ONE_MONTH = 1347
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_THREE_MONTHS = 1348
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_SIX_MONTHS = 1349
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_NINE_MONTHS = 1350
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_TWELVE_MONTHS = 1351
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_ONE_MONTH = 1352
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_TWO_MONTHS = 1353
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_THREE_MONTHS = 1354
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_SIX_MONTHS = 1355
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_NINE_MONTHS = 1356
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_TWELVE_MONTHS = 1357
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_ONE_MONTH = 1358
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_TWO_MONTHS = 1359
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_THREE_MONTHS = 1360
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_SIX_MONTHS = 1361
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_NINE_MONTHS = 1362
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_TWELVE_MONTHS = 1363
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_ONE_MONTH = 1364
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_THREE_MONTHS = 1365
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_SIX_MONTHS = 1366
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_TWELVE_MONTHS = 1367
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ONE_MONTH = 1368
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_TWO_MONTHS = 1369
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_THREE_MONTHS = 1370
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_SIX_MONTHS = 1371
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_NINE_MONTHS = 1372
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_TWELVE_MONTHS = 1373
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_RECOVERABLE_THREE_MONTHS = 1374
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_RECOVERABLE_TWELVE_MONTHS = 1375
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_ONE_MONTH = 1376
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_TWO_MONTHS = 1377
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_THREE_MONTHS = 1378
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_SIX_MONTHS = 1379
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_NINE_MONTHS = 1380
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_TWELVE_MONTHS = 1381
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LENDING_COLLATERAL_THREE_MONTHS = 1382
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LENDING_COLLATERAL_TWELVE_MONTHS = 1383
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_AGREE_TO_BE_RESELL_THREE_MONTHS = 1384
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_AGREE_TO_BE_RESELL_TWELVE_MONTHS = 1385
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_SOLD_NOT_YET_REPURCHASED_THREE_MONTHS = 1386
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_SOLD_NOT_YET_REPURCHASED_TWELVE_MONTHS = 1387
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_ASSETS_THREE_MONTHS = 1388
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_ASSETS_TWELVE_MONTHS = 1389
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_BUSINESS_THREE_MONTHS = 1390
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_BUSINESS_TWELVE_MONTHS = 1391
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_AVAILABLE_FOR_SALE_THREE_MONTHS = 1392
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_AVAILABLE_FOR_SALE_TWELVE_MONTHS = 1393
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_HELD_TO_MATURITY_THREE_MONTHS = 1394
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_HELD_TO_MATURITY_TWELVE_MONTHS = 1395
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_TRADING_THREE_MONTHS = 1396
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_TRADING_TWELVE_MONTHS = 1397
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_ONE_MONTH = 1398
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_TWO_MONTHS = 1399
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_THREE_MONTHS = 1400
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_SIX_MONTHS = 1401
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_NINE_MONTHS = 1402
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_TWELVE_MONTHS = 1403
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_ONE_MONTH = 1404
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_TWO_MONTHS = 1405
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_THREE_MONTHS = 1406
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_SIX_MONTHS = 1407
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_NINE_MONTHS = 1408
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_TWELVE_MONTHS = 1409
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_ONE_MONTH = 1410
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_TWO_MONTHS = 1411
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_THREE_MONTHS = 1412
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_SIX_MONTHS = 1413
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_NINE_MONTHS = 1414
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_TWELVE_MONTHS = 1415
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_THREE_MONTHS = 1416
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_SIX_MONTHS = 1417
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_NINE_MONTHS = 1418
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_TWELVE_MONTHS = 1419
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_INVESTMENTS_THREE_MONTHS = 1420
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_INVESTMENTS_SIX_MONTHS = 1421
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_INVESTMENTS_TWELVE_MONTHS = 1422
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_ONE_MONTH = 1423
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_TWO_MONTHS = 1424
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_THREE_MONTHS = 1425
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_SIX_MONTHS = 1426
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_NINE_MONTHS = 1427
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_TWELVE_MONTHS = 1428
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PARTNERSHIP_CAPITAL_THREE_MONTHS = 1429
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PARTNERSHIP_CAPITAL_SIX_MONTHS = 1430
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PARTNERSHIP_CAPITAL_TWELVE_MONTHS = 1431
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_ASSETS_THREE_MONTHS = 1432
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_ASSETS_TWELVE_MONTHS = 1433
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_LIABILITIES_THREE_MONTHS = 1434
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_LIABILITIES_TWELVE_MONTHS = 1435
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_SECURITIES_THREE_MONTHS = 1436
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_SECURITIES_SIX_MONTHS = 1437
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_SECURITIES_TWELVE_MONTHS = 1438
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_ONE_MONTH = 1439
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_TWO_MONTHS = 1440
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_THREE_MONTHS = 1441
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_SIX_MONTHS = 1442
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_NINE_MONTHS = 1443
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_TWELVE_MONTHS = 1444
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_THREE_MONTHS = 1445
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_SIX_MONTHS = 1446
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_NINE_MONTHS = 1447
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_TWELVE_MONTHS = 1448
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_THREE_MONTHS = 1449
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_SIX_MONTHS = 1450
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_NINE_MONTHS = 1451
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_TWELVE_MONTHS = 1452
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_THREE_MONTHS = 1453
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_SIX_MONTHS = 1454
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_NINE_MONTHS = 1455
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_TWELVE_MONTHS = 1456
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_ONE_MONTH = 1457
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_TWO_MONTHS = 1458
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_THREE_MONTHS = 1459
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_SIX_MONTHS = 1460
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_NINE_MONTHS = 1461
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_TWELVE_MONTHS = 1462
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_ONE_MONTH = 1463
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_TWO_MONTHS = 1464
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_THREE_MONTHS = 1465
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_SIX_MONTHS = 1466
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_NINE_MONTHS = 1467
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_TWELVE_MONTHS = 1468
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_ONE_MONTH = 1469
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_TWO_MONTHS = 1470
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_THREE_MONTHS = 1471
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_SIX_MONTHS = 1472
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_NINE_MONTHS = 1473
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_TWELVE_MONTHS = 1474
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_TWO_MONTHS = 1475
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_THREE_MONTHS = 1476
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_SIX_MONTHS = 1477
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_NINE_MONTHS = 1478
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_TWELVE_MONTHS = 1479
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_ONE_MONTH = 1480
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_TWO_MONTHS = 1481
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_THREE_MONTHS = 1482
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_SIX_MONTHS = 1483
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_NINE_MONTHS = 1484
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_TWELVE_MONTHS = 1485
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_ONE_MONTH = 1486
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_TWO_MONTHS = 1487
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_THREE_MONTHS = 1488
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_SIX_MONTHS = 1489
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_NINE_MONTHS = 1490
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_TWELVE_MONTHS = 1491
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_ONE_MONTH = 1492
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_TWO_MONTHS = 1493
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_THREE_MONTHS = 1494
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_SIX_MONTHS = 1495
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_NINE_MONTHS = 1496
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_TWELVE_MONTHS = 1497
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1498
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1499
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1500
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_SIX_MONTHS = 1501
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_NINE_MONTHS = 1502
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1503
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_TWO_MONTHS = 1504
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_THREE_MONTHS = 1505
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_SIX_MONTHS = 1506
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_NINE_MONTHS = 1507
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_TWELVE_MONTHS = 1508
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_THREE_MONTHS = 1509
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_SIX_MONTHS = 1510
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_NINE_MONTHS = 1511
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_TWELVE_MONTHS = 1512
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1513
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1514
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_NOTES_RECEIVABLE_THREE_MONTHS = 1515
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_NOTES_RECEIVABLE_TWELVE_MONTHS = 1516
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_THREE_MONTHS = 1517
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_TWELVE_MONTHS = 1518
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_OF_DISCONTINUED_OPERATIONS_THREE_MONTHS = 1519
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_OF_DISCONTINUED_OPERATIONS_TWELVE_MONTHS = 1520
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_INDEBTEDNESS_THREE_MONTHS = 1521
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_INDEBTEDNESS_TWELVE_MONTHS = 1522
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_THREE_MONTHS = 1523
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_SIX_MONTHS = 1524
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_NINE_MONTHS = 1525
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_TWELVE_MONTHS = 1526
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_BORROWED_THREE_MONTHS = 1527
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_BORROWED_TWELVE_MONTHS = 1528
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_ONE_MONTH = 1529
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_TWO_MONTHS = 1530
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_THREE_MONTHS = 1531
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_SIX_MONTHS = 1532
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_NINE_MONTHS = 1533
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_TWELVE_MONTHS = 1534
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_THREE_MONTHS = 1535
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_SIX_MONTHS = 1536
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_NINE_MONTHS = 1537
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_TWELVE_MONTHS = 1538
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_PAPER_THREE_MONTHS = 1539
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_PAPER_TWELVE_MONTHS = 1540
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_ONE_MONTH = 1541
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_TWO_MONTHS = 1542
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_THREE_MONTHS = 1543
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_SIX_MONTHS = 1544
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_NINE_MONTHS = 1545
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_TWELVE_MONTHS = 1546
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_ONE_MONTH = 1547
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_TWO_MONTHS = 1548
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_THREE_MONTHS = 1549
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_SIX_MONTHS = 1550
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_NINE_MONTHS = 1551
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_TWELVE_MONTHS = 1552
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_THREE_MONTHS = 1553
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_SIX_MONTHS = 1554
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_NINE_MONTHS = 1555
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_TWELVE_MONTHS = 1556
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINIMUM_PENSION_LIABILITIES_THREE_MONTHS = 1557
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINIMUM_PENSION_LIABILITIES_TWELVE_MONTHS = 1558
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCEPTANCES_THREE_MONTHS = 1559
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCEPTANCES_TWELVE_MONTHS = 1560
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFINED_PENSION_BENEFIT_THREE_MONTHS = 1561
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFINED_PENSION_BENEFIT_SIX_MONTHS = 1562
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFINED_PENSION_BENEFIT_TWELVE_MONTHS = 1563
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_ONE_MONTH = 1564
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_TWO_MONTHS = 1565
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_THREE_MONTHS = 1566
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_SIX_MONTHS = 1567
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_NINE_MONTHS = 1568
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_TWELVE_MONTHS = 1569
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_ASSETS_THREE_MONTHS = 1570
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_ASSETS_SIX_MONTHS = 1571
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_ASSETS_TWELVE_MONTHS = 1572
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_ONE_MONTH = 1573
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_TWO_MONTHS = 1574
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_THREE_MONTHS = 1575
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_NINE_MONTHS = 1576
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_TWELVE_MONTHS = 1577
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_TWO_MONTHS = 1578
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_THREE_MONTHS = 1579
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_SIX_MONTHS = 1580
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_NINE_MONTHS = 1581
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_TWELVE_MONTHS = 1582
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_THREE_MONTHS = 1583
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_TWELVE_MONTHS = 1584
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_THREE_MONTHS = 1585
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_SIX_MONTHS = 1586
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_TWELVE_MONTHS = 1587
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_THREE_MONTHS = 1588
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_SIX_MONTHS = 1589
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_NINE_MONTHS = 1590
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_TWELVE_MONTHS = 1591
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_THREE_MONTHS = 1592
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_NINE_MONTHS = 1593
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_TWELVE_MONTHS = 1594
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_INSTRUMENTS_SOLD_UNDER_AGREEMENTS_TO_REPURCHASE_THREE_MONTHS = 1595
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_INSTRUMENTS_SOLD_UNDER_AGREEMENTS_TO_REPURCHASE_SIX_MONTHS = 1596
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_INSTRUMENTS_SOLD_UNDER_AGREEMENTS_TO_REPURCHASE_TWELVE_MONTHS = 1597
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_ONE_MONTH = 1598
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_TWO_MONTHS = 1599
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_THREE_MONTHS = 1600
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_SIX_MONTHS = 1601
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_NINE_MONTHS = 1602
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_TWELVE_MONTHS = 1603
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FLIGHT_FLEET_VEHICLE_AND_RELATED_EQUIPMENTS_THREE_MONTHS = 1604
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FLIGHT_FLEET_VEHICLE_AND_RELATED_EQUIPMENTS_SIX_MONTHS = 1605
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FLIGHT_FLEET_VEHICLE_AND_RELATED_EQUIPMENTS_TWELVE_MONTHS = 1606
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FORECLOSED_ASSETS_THREE_MONTHS = 1607
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FORECLOSED_ASSETS_NINE_MONTHS = 1608
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FORECLOSED_ASSETS_TWELVE_MONTHS = 1609
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_TWO_MONTHS = 1610
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_THREE_MONTHS = 1611
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_SIX_MONTHS = 1612
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_NINE_MONTHS = 1613
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_TWELVE_MONTHS = 1614
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_THREE_MONTHS = 1615
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_SIX_MONTHS = 1616
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_NINE_MONTHS = 1617
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_TWELVE_MONTHS = 1618
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_IN_OTHER_VENTURES_UNDER_EQUITY_METHOD_THREE_MONTHS = 1619
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_IN_OTHER_VENTURES_UNDER_EQUITY_METHOD_TWELVE_MONTHS = 1620
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_ONE_MONTH = 1621
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_TWO_MONTHS = 1622
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_THREE_MONTHS = 1623
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_SIX_MONTHS = 1624
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_NINE_MONTHS = 1625
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_TWELVE_MONTHS = 1626
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_ONE_MONTH = 1627
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_TWO_MONTHS = 1628
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_THREE_MONTHS = 1629
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_SIX_MONTHS = 1630
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_NINE_MONTHS = 1631
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_TWELVE_MONTHS = 1632
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_OF_DISCONTINUED_OPERATIONS_THREE_MONTHS = 1633
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_OF_DISCONTINUED_OPERATIONS_TWELVE_MONTHS = 1634
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_ONE_MONTH = 1635
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_THREE_MONTHS = 1636
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_NINE_MONTHS = 1637
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_TWELVE_MONTHS = 1638
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_THREE_MONTHS = 1639
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_SIX_MONTHS = 1640
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_NINE_MONTHS = 1641
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_TWELVE_MONTHS = 1642
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_TWO_MONTHS = 1643
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_THREE_MONTHS = 1644
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_SIX_MONTHS = 1645
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_NINE_MONTHS = 1646
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_TWELVE_MONTHS = 1647
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_ONE_MONTH = 1648
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_TWO_MONTHS = 1649
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_THREE_MONTHS = 1650
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_SIX_MONTHS = 1651
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_NINE_MONTHS = 1652
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_TWELVE_MONTHS = 1653
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MATERIALS_AND_SUPPLIES_THREE_MONTHS = 1654
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MATERIALS_AND_SUPPLIES_TWELVE_MONTHS = 1655
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_THREE_MONTHS = 1656
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_SIX_MONTHS = 1657
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_NINE_MONTHS = 1658
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_TWELVE_MONTHS = 1659
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_THREE_MONTHS = 1660
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_SIX_MONTHS = 1661
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_NINE_MONTHS = 1662
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_TWELVE_MONTHS = 1663
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_AND_CONSUMERLOANS_THREE_MONTHS = 1664
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_AND_CONSUMERLOANS_TWELVE_MONTHS = 1665
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_NOTES_RECEIVABLE_THREE_MONTHS = 1666
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_NOTES_RECEIVABLE_TWELVE_MONTHS = 1667
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_TWO_MONTHS = 1668
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_THREE_MONTHS = 1669
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_SIX_MONTHS = 1670
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_NINE_MONTHS = 1671
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_TWELVE_MONTHS = 1672
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_ONE_MONTH = 1673
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_THREE_MONTHS = 1674
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_NINE_MONTHS = 1675
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_TWELVE_MONTHS = 1676
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_ONE_MONTH = 1677
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_TWO_MONTHS = 1678
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_THREE_MONTHS = 1679
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_SIX_MONTHS = 1680
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_NINE_MONTHS = 1681
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_TWELVE_MONTHS = 1682
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_THREE_MONTHS = 1683
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_SIX_MONTHS = 1684
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_NINE_MONTHS = 1685
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_TWELVE_MONTHS = 1686
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_TWO_MONTHS = 1687
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_THREE_MONTHS = 1688
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_SIX_MONTHS = 1689
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_TWELVE_MONTHS = 1690
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_ONE_MONTH = 1691
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_THREE_MONTHS = 1692
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_SIX_MONTHS = 1693
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_NINE_MONTHS = 1694
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_TWELVE_MONTHS = 1695
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTED_ASSETS_THREE_MONTHS = 1696
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTED_ASSETS_TWELVE_MONTHS = 1697
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_ONE_MONTH = 1698
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_TWO_MONTHS = 1699
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_THREE_MONTHS = 1700
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_SIX_MONTHS = 1701
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_NINE_MONTHS = 1702
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_TWELVE_MONTHS = 1703
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_ONE_MONTH = 1704
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_THREE_MONTHS = 1705
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_SIX_MONTHS = 1706
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_NINE_MONTHS = 1707
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_TWELVE_MONTHS = 1708
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_THREE_MONTHS = 1709
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_SIX_MONTHS = 1710
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_NINE_MONTHS = 1711
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_TWELVE_MONTHS = 1712
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_TWO_MONTHS = 1713
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_THREE_MONTHS = 1714
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_SIX_MONTHS = 1715
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_NINE_MONTHS = 1716
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_TWELVE_MONTHS = 1717
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TWO_MONTHS = 1718
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_THREE_MONTHS = 1719
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_SIX_MONTHS = 1720
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_NINE_MONTHS = 1721
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TWELVE_MONTHS = 1722
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_LOANS_THREE_MONTHS = 1723
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_LOANS_TWELVE_MONTHS = 1724
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_ONE_MONTH = 1725
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_TWO_MONTHS = 1726
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_THREE_MONTHS = 1727
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_SIX_MONTHS = 1728
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_NINE_MONTHS = 1729
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_TWELVE_MONTHS = 1730
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROPERTIES_THREE_MONTHS = 1731
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROPERTIES_TWELVE_MONTHS = 1732
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_TWO_MONTHS = 1733
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_THREE_MONTHS = 1734
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_SIX_MONTHS = 1735
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_TWELVE_MONTHS = 1736
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_THREE_MONTHS = 1737
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_SIX_MONTHS = 1738
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_NINE_MONTHS = 1739
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_TWELVE_MONTHS = 1740
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_TWO_MONTHS = 1741
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_THREE_MONTHS = 1742
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_SIX_MONTHS = 1743
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_NINE_MONTHS = 1744
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_TWELVE_MONTHS = 1745
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ADJUSTMENTS_ALLOWANCES_THREE_MONTHS = 1746
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ADJUSTMENTS_ALLOWANCES_NINE_MONTHS = 1747
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ADJUSTMENTS_ALLOWANCES_TWELVE_MONTHS = 1748
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_ASSETS_THREE_MONTHS = 1749
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_ASSETS_TWELVE_MONTHS = 1750
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_LIABILITIES_THREE_MONTHS = 1751
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_LIABILITIES_TWELVE_MONTHS = 1752
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_BALANCES_PAYABLE_THREE_MONTHS = 1753
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_BALANCES_PAYABLE_TWELVE_MONTHS = 1754
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_ONE_MONTH = 1755
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_TWO_MONTHS = 1756
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_THREE_MONTHS = 1757
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_SIX_MONTHS = 1758
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_NINE_MONTHS = 1759
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_TWELVE_MONTHS = 1760
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_THREE_MONTHS = 1761
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_SIX_MONTHS = 1762
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_NINE_MONTHS = 1763
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_TWELVE_MONTHS = 1764
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_THREE_MONTHS = 1765
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_SIX_MONTHS = 1766
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_NINE_MONTHS = 1767
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_TWELVE_MONTHS = 1768
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_COMMON_STOCK_THREE_MONTHS = 1769
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_COMMON_STOCK_NINE_MONTHS = 1770
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_COMMON_STOCK_TWELVE_MONTHS = 1771
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_INVESTMENTS_THREE_MONTHS = 1772
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_INVESTMENTS_TWELVE_MONTHS = 1773
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_TWO_MONTHS = 1774
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_THREE_MONTHS = 1775
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_SIX_MONTHS = 1776
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_NINE_MONTHS = 1777
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_TWELVE_MONTHS = 1778
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_ONE_MONTH = 1779
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_TWO_MONTHS = 1780
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_THREE_MONTHS = 1781
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_SIX_MONTHS = 1782
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_NINE_MONTHS = 1783
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_TWELVE_MONTHS = 1784
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_THREE_MONTHS = 1785
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_SIX_MONTHS = 1786
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_NINE_MONTHS = 1787
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_TWELVE_MONTHS = 1788
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNBILLED_RECEIVABLES_THREE_MONTHS = 1789
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNBILLED_RECEIVABLES_TWELVE_MONTHS = 1790
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNREALIZED_GAIN_LOSS_THREE_MONTHS = 1791
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNREALIZED_GAIN_LOSS_SIX_MONTHS = 1792
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNREALIZED_GAIN_LOSS_TWELVE_MONTHS = 1793
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_ONE_MONTH = 1794
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_TWO_MONTHS = 1795
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_THREE_MONTHS = 1796
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_SIX_MONTHS = 1797
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_NINE_MONTHS = 1798
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_TWELVE_MONTHS = 1799
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_ONE_MONTH = 1800
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_TWO_MONTHS = 1801
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_THREE_MONTHS = 1802
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_SIX_MONTHS = 1803
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_NINE_MONTHS = 1804
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_TWELVE_MONTHS = 1805
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_ONE_MONTH = 1806
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_TWO_MONTHS = 1807
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_THREE_MONTHS = 1808
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_SIX_MONTHS = 1809
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_NINE_MONTHS = 1810
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_TWELVE_MONTHS = 1811
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_TWO_MONTHS = 1812
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_THREE_MONTHS = 1813
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_SIX_MONTHS = 1814
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_NINE_MONTHS = 1815
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_TWELVE_MONTHS = 1816
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_ONE_MONTH = 1817
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_TWO_MONTHS = 1818
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_THREE_MONTHS = 1819
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_SIX_MONTHS = 1820
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_NINE_MONTHS = 1821
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_TWELVE_MONTHS = 1822
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_ONE_MONTH = 1823
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_TWO_MONTHS = 1824
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_THREE_MONTHS = 1825
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_SIX_MONTHS = 1826
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_NINE_MONTHS = 1827
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_TWELVE_MONTHS = 1828
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_ONE_MONTH = 1829
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_TWO_MONTHS = 1830
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_THREE_MONTHS = 1831
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_SIX_MONTHS = 1832
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_NINE_MONTHS = 1833
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_TWELVE_MONTHS = 1834
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_ONE_MONTH = 1835
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_TWO_MONTHS = 1836
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_THREE_MONTHS = 1837
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_SIX_MONTHS = 1838
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_NINE_MONTHS = 1839
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_TWELVE_MONTHS = 1840
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_ONE_MONTH = 1841
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_TWO_MONTHS = 1842
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_THREE_MONTHS = 1843
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_SIX_MONTHS = 1844
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_NINE_MONTHS = 1845
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_TWELVE_MONTHS = 1846
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_UTILITY_PLANT_THREE_MONTHS = 1847
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_UTILITY_PLANT_NINE_MONTHS = 1848
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_UTILITY_PLANT_TWELVE_MONTHS = 1849
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ELECTRIC_UTILITY_PLANT_THREE_MONTHS = 1850
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ELECTRIC_UTILITY_PLANT_TWELVE_MONTHS = 1851
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NATURAL_GAS_FUEL_AND_OTHER_THREE_MONTHS = 1852
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NATURAL_GAS_FUEL_AND_OTHER_TWELVE_MONTHS = 1853
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_UTILITY_PLANT_THREE_MONTHS = 1854
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_UTILITY_PLANT_NINE_MONTHS = 1855
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_UTILITY_PLANT_TWELVE_MONTHS = 1856
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WATER_PRODUCTION_THREE_MONTHS = 1857
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_WATER_PRODUCTION_TWELVE_MONTHS = 1858
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ORDINARY_SHARES_NUMBER_THREE_MONTHS = 1859
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ORDINARY_SHARES_NUMBER_TWELVE_MONTHS = 1860
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SHARES_NUMBER_THREE_MONTHS = 1861
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SHARES_NUMBER_TWELVE_MONTHS = 1862
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_SHARES_NUMBER_THREE_MONTHS = 1863
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_SHARES_NUMBER_TWELVE_MONTHS = 1864
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_AND_OTHER_RECEIVABLE_THREE_MONTHS = 1865
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_AND_OTHER_RECEIVABLE_TWELVE_MONTHS = 1866
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_ATTRIBUTABLE_TO_OWNERS_OF_PARENT_TWO_MONTHS = 1867
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_ATTRIBUTABLE_TO_OWNERS_OF_PARENT_THREE_MONTHS = 1868
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_ATTRIBUTABLE_TO_OWNERS_OF_PARENT_TWELVE_MONTHS = 1869
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LOANED_THREE_MONTHS = 1870
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LOANED_TWELVE_MONTHS = 1871
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_ONE_MONTH = 1872
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_TWO_MONTHS = 1873
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_THREE_MONTHS = 1874
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_SIX_MONTHS = 1875
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_NINE_MONTHS = 1876
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_TWELVE_MONTHS = 1877
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_CURRENT_THREE_MONTHS = 1878
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_CURRENT_TWELVE_MONTHS = 1879
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_NON_CURRENT_THREE_MONTHS = 1880
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_NON_CURRENT_TWELVE_MONTHS = 1881
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_THREE_MONTHS = 1882
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_TWELVE_MONTHS = 1883
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_CURRENT_THREE_MONTHS = 1884
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_CURRENT_TWELVE_MONTHS = 1885
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_NON_CURRENT_THREE_MONTHS = 1886
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_NON_CURRENT_TWELVE_MONTHS = 1887
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_PROPERTIES_THREE_MONTHS = 1888
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 1889
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_SUBSIDIARIESAT_COST_THREE_MONTHS = 1890
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_SUBSIDIARIESAT_COST_TWELVE_MONTHS = 1891
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_ASSOCIATESAT_COST_THREE_MONTHS = 1892
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_ASSOCIATESAT_COST_TWELVE_MONTHS = 1893
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_JOINT_VENTURESAT_COST_THREE_MONTHS = 1894
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_JOINT_VENTURESAT_COST_TWELVE_MONTHS = 1895
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTIN_FINANCIAL_ASSETS_TWO_MONTHS = 1896
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTIN_FINANCIAL_ASSETS_THREE_MONTHS = 1897
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTIN_FINANCIAL_ASSETS_TWELVE_MONTHS = 1898
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_THREE_MONTHS = 1899
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_TWELVE_MONTHS = 1900
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_CURRENT_TWELVE_MONTHS = 1901
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_CURRENT_THREE_MONTHS = 1902
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_CURRENT_TWELVE_MONTHS = 1903
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_CURRENT_THREE_MONTHS = 1904
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_CURRENT_TWELVE_MONTHS = 1905
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_THREE_MONTHS = 1906
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_TWELVE_MONTHS = 1907
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_NON_CURRENT_THREE_MONTHS = 1908
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_NON_CURRENT_TWELVE_MONTHS = 1909
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_NON_CURRENT_THREE_MONTHS = 1910
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_NON_CURRENT_TWELVE_MONTHS = 1911
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RESERVES_THREE_MONTHS = 1912
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RESERVES_TWELVE_MONTHS = 1913
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_BANK_THREE_MONTHS = 1914
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_BANK_TWELVE_MONTHS = 1915
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_CUSTOMER_THREE_MONTHS = 1916
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_CUSTOMER_TWELVE_MONTHS = 1917
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_BILLSAND_OTHER_ELIGIBLE_BILLS_THREE_MONTHS = 1918
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_BILLSAND_OTHER_ELIGIBLE_BILLS_TWELVE_MONTHS = 1919
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_SHARES_INVESTMENTS_THREE_MONTHS = 1920
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_SHARES_INVESTMENTS_TWELVE_MONTHS = 1921
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITSBY_BANK_THREE_MONTHS = 1922
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITSBY_BANK_TWELVE_MONTHS = 1923
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCOUNTS_THREE_MONTHS = 1924
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCOUNTS_TWELVE_MONTHS = 1925
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ITEMSIN_THE_COURSEOF_TRANSMISSIONTO_OTHER_BANKS_THREE_MONTHS = 1926
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ITEMSIN_THE_COURSEOF_TRANSMISSIONTO_OTHER_BANKS_TWELVE_MONTHS = 1927
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADINGAND_FINANCIAL_LIABILITIES_THREE_MONTHS = 1928
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADINGAND_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 1929
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIESIN_ISSUE_THREE_MONTHS = 1930
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIESIN_ISSUE_TWELVE_MONTHS = 1931
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SUBORDINATED_LIABILITIES_THREE_MONTHS = 1932
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SUBORDINATED_LIABILITIES_TWELVE_MONTHS = 1933
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROVISIONS_TOTAL_THREE_MONTHS = 1934
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROVISIONS_TOTAL_TWELVE_MONTHS = 1935
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OPERATING_LEASE_ASSETS_THREE_MONTHS = 1936
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OPERATING_LEASE_ASSETS_TWELVE_MONTHS = 1937
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CLAIMS_OUTSTANDING_THREE_MONTHS = 1938
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CLAIMS_OUTSTANDING_TWELVE_MONTHS = 1939
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_CURRENT_THREE_MONTHS = 1940
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_CURRENT_TWELVE_MONTHS = 1941
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_NON_CURRENT_THREE_MONTHS = 1942
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_NON_CURRENT_TWELVE_MONTHS = 1943
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIES_THREE_MONTHS = 1944
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIES_TWELVE_MONTHS = 1945
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_FINANCIAL_LEASE_OBLIGATIONS_THREE_MONTHS = 1946
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_FINANCIAL_LEASE_OBLIGATIONS_TWELVE_MONTHS = 1947
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_CURRENT_THREE_MONTHS = 1948
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_CURRENT_TWELVE_MONTHS = 1949
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_NON_CURRENT_THREE_MONTHS = 1950
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_NON_CURRENT_TWELVE_MONTHS = 1951
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_CURRENT_THREE_MONTHS = 1952
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_CURRENT_TWELVE_MONTHS = 1953
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_NON_CURRENT_THREE_MONTHS = 1954
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_NON_CURRENT_TWELVE_MONTHS = 1955
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_CURRENT_THREE_MONTHS = 1956
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_CURRENT_TWELVE_MONTHS = 1957
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_NON_CURRENT_THREE_MONTHS = 1958
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_NON_CURRENT_TWELVE_MONTHS = 1959
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_THREE_MONTHS = 1960
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_TWELVE_MONTHS = 1961
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_ASSETS_CURRENT_THREE_MONTHS = 1962
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_ASSETS_CURRENT_TWELVE_MONTHS = 1963
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_INTEREST_THREE_MONTHS = 1964
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_INTEREST_TWELVE_MONTHS = 1965
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_BORROWINGS_NON_CURRENT_THREE_MONTHS = 1966
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_BORROWINGS_NON_CURRENT_TWELVE_MONTHS = 1967
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_NON_CURRENT_THREE_MONTHS = 1968
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_NON_CURRENT_TWELVE_MONTHS = 1969
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADEAND_OTHER_PAYABLES_NON_CURRENT_THREE_MONTHS = 1970
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADEAND_OTHER_PAYABLES_NON_CURRENT_TWELVE_MONTHS = 1971
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_CURRENT_THREE_MONTHS = 1972
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_CURRENT_TWELVE_MONTHS = 1973
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSIONAND_OTHER_POST_RETIREMENT_BENEFIT_PLANS_CURRENT_THREE_MONTHS = 1974
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSIONAND_OTHER_POST_RETIREMENT_BENEFIT_PLANS_CURRENT_TWELVE_MONTHS = 1975
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOAN_ASSETS_THREE_MONTHS = 1976
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOAN_ASSETS_TWELVE_MONTHS = 1977
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_PLEDGEDAS_COLLATERAL_SUBJECTTO_SALEOR_REPLEDGING_TOTAL_THREE_MONTHS = 1978
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_PLEDGEDAS_COLLATERAL_SUBJECTTO_SALEOR_REPLEDGING_TOTAL_TWELVE_MONTHS = 1979
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAX_ASSETS_TOTAL_THREE_MONTHS = 1980
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAX_ASSETS_TOTAL_TWELVE_MONTHS = 1981
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCESFROM_CENTRAL_BANKS_THREE_MONTHS = 1982
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCESFROM_CENTRAL_BANKS_TWELVE_MONTHS = 1983
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSIT_CERTIFICATES_THREE_MONTHS = 1984
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSIT_CERTIFICATES_TWELVE_MONTHS = 1985
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_TOTAL_THREE_MONTHS = 1986
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_TOTAL_TWELVE_MONTHS = 1987
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_BORROWED_FUNDS_THREE_MONTHS = 1988
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_BORROWED_FUNDS_TWELVE_MONTHS = 1989
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_THREE_MONTHS = 1990
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_TWELVE_MONTHS = 1991
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_MEASUREDAT_AMORTIZED_COST_TOTAL_THREE_MONTHS = 1992
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_MEASUREDAT_AMORTIZED_COST_TOTAL_TWELVE_MONTHS = 1993
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_LIABILITIES_TOTAL_TWO_MONTHS = 1994
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_LIABILITIES_TOTAL_THREE_MONTHS = 1995
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_LIABILITIES_TOTAL_TWELVE_MONTHS = 1996
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_INCOME_TOTAL_THREE_MONTHS = 1997
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_INCOME_TOTAL_TWELVE_MONTHS = 1998
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_LIABILITIES_TOTAL_THREE_MONTHS = 1999
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_LIABILITIES_TOTAL_TWELVE_MONTHS = 2000
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_ASSETS_THREE_MONTHS = 2001
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_ASSETS_TWELVE_MONTHS = 2002
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_MADEUNDER_ASSUMED_REINSURANCE_CONTRACT_THREE_MONTHS = 2003
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_MADEUNDER_ASSUMED_REINSURANCE_CONTRACT_TWELVE_MONTHS = 2004
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_ASSETS_THREE_MONTHS = 2005
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_ASSETS_TWELVE_MONTHS = 2006
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_LIABILITIES_THREE_MONTHS = 2007
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2008
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_RECEIVEDUNDER_CEDED_INSURANCE_CONTRACT_THREE_MONTHS = 2009
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_RECEIVEDUNDER_CEDED_INSURANCE_CONTRACT_TWELVE_MONTHS = 2010
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_CONTRACT_LIABILITIES_THREE_MONTHS = 2011
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2012
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TOTAL_THREE_MONTHS = 2013
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TOTAL_TWELVE_MONTHS = 2014
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_TOTAL_THREE_MONTHS = 2015
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_TOTAL_TWELVE_MONTHS = 2016
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_HEDGING_ASSETS_CURRENT_THREE_MONTHS = 2017
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_HEDGING_ASSETS_CURRENT_TWELVE_MONTHS = 2018
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_TOTAL_THREE_MONTHS = 2019
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_TOTAL_TWELVE_MONTHS = 2020
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_TOTAL_THREE_MONTHS = 2021
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_TOTAL_TWELVE_MONTHS = 2022
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_TOTAL_THREE_MONTHS = 2023
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_TOTAL_TWELVE_MONTHS = 2024
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_FUNDS_NON_CURRENT_THREE_MONTHS = 2025
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_FUNDS_NON_CURRENT_TWELVE_MONTHS = 2026
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_TOTAL_THREE_MONTHS = 2027
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_TOTAL_TWELVE_MONTHS = 2028
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COM_TRE_SHA_NUM_THREE_MONTHS = 2029
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_COM_TRE_SHA_NUM_TWELVE_MONTHS = 2030
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PRE_TRE_SHA_NUM_THREE_MONTHS = 2031
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_PRE_TRE_SHA_NUM_TWELVE_MONTHS = 2032
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_ONE_MONTH = 2033
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_TWO_MONTHS = 2034
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_THREE_MONTHS = 2035
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_SIX_MONTHS = 2036
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_NINE_MONTHS = 2037
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_TWELVE_MONTHS = 2038
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHARE_ISSUED_THREE_MONTHS = 2039
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHARE_ISSUED_TWELVE_MONTHS = 2040
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_CURRENT_THREE_MONTHS = 2041
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_CURRENT_TWELVE_MONTHS = 2042
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_NON_CURRENT_THREE_MONTHS = 2043
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_NON_CURRENT_TWELVE_MONTHS = 2044
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BIOLOGICAL_ASSETS_THREE_MONTHS = 2045
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_BIOLOGICAL_ASSETS_TWELVE_MONTHS = 2046
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_RESTRICTED_OR_PLEDGED_THREE_MONTHS = 2047
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_RESTRICTED_OR_PLEDGED_TWELVE_MONTHS = 2048
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_NON_CURRENT_THREE_MONTHS = 2049
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_NON_CURRENT_TWELVE_MONTHS = 2050
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_OR_DERIVATIVE_INVESTMENT_CURRENT_LIABILITIES_THREE_MONTHS = 2051
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_OR_DERIVATIVE_INVESTMENT_CURRENT_LIABILITIES_TWELVE_MONTHS = 2052
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTMENTS_THREE_MONTHS = 2053
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTMENTS_TWELVE_MONTHS = 2054
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADE_AND_OTHER_RECEIVABLES_NON_CURRENT_THREE_MONTHS = 2055
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADE_AND_OTHER_RECEIVABLES_NON_CURRENT_TWELVE_MONTHS = 2056
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUE_FROM_RELATED_PARTIES_THREE_MONTHS = 2057
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUE_FROM_RELATED_PARTIES_TWELVE_MONTHS = 2058
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNALLOCATED_SURPLUS_THREE_MONTHS = 2059
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNALLOCATED_SURPLUS_TWELVE_MONTHS = 2060
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_1_THREE_MONTHS = 2061
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_1_TWELVE_MONTHS = 2062
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_2_THREE_MONTHS = 2063
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_2_TWELVE_MONTHS = 2064
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_5_THREE_MONTHS = 2065
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_5_TWELVE_MONTHS = 2066
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_BEYOND_THREE_MONTHS = 2067
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_BEYOND_TWELVE_MONTHS = 2068
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_IN_MATURITY_SCHEDULE_THREE_MONTHS = 2069
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_IN_MATURITY_SCHEDULE_TWELVE_MONTHS = 2070
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_ASSETS_REVALUATION_RESERVE_THREE_MONTHS = 2071
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_ASSETS_REVALUATION_RESERVE_TWELVE_MONTHS = 2072
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_OTHER_FINANCIAL_LIABILITIES_THREE_MONTHS = 2073
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_OTHER_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2074
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_OTHER_FINANCIAL_LIABILITIES_THREE_MONTHS = 2075
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_OTHER_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2076
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_FINANCIAL_LIABILITIES_THREE_MONTHS = 2077
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2078
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_AS_REPORTED_THREE_MONTHS = 2079
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_AS_REPORTED_TWELVE_MONTHS = 2080
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_AS_REPORTED_THREE_MONTHS = 2081
+
+    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_AS_REPORTED_TWELVE_MONTHS = 2082
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_ONE_MONTH = 2083
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_TWO_MONTHS = 2084
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_THREE_MONTHS = 2085
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_SIX_MONTHS = 2086
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_NINE_MONTHS = 2087
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_TWELVE_MONTHS = 2088
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_ONE_MONTH = 2089
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_TWO_MONTHS = 2090
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_THREE_MONTHS = 2091
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_SIX_MONTHS = 2092
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_NINE_MONTHS = 2093
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_TWELVE_MONTHS = 2094
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_ONE_MONTH = 2095
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_TWO_MONTHS = 2096
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_THREE_MONTHS = 2097
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_SIX_MONTHS = 2098
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_NINE_MONTHS = 2099
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_TWELVE_MONTHS = 2100
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_ONE_MONTH = 2101
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_TWO_MONTHS = 2102
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_THREE_MONTHS = 2103
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_SIX_MONTHS = 2104
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_NINE_MONTHS = 2105
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_TWELVE_MONTHS = 2106
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_TWO_MONTHS = 2107
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_THREE_MONTHS = 2108
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_SIX_MONTHS = 2109
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_NINE_MONTHS = 2110
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_TWELVE_MONTHS = 2111
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_TWO_MONTHS = 2112
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_THREE_MONTHS = 2113
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_SIX_MONTHS = 2114
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_NINE_MONTHS = 2115
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_TWELVE_MONTHS = 2116
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_TWO_MONTHS = 2117
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_THREE_MONTHS = 2118
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_SIX_MONTHS = 2119
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_NINE_MONTHS = 2120
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2121
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_THREE_MONTHS = 2122
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_SIX_MONTHS = 2123
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_NINE_MONTHS = 2124
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_TWELVE_MONTHS = 2125
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_ONE_MONTH = 2126
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_TWO_MONTHS = 2127
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_THREE_MONTHS = 2128
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_SIX_MONTHS = 2129
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_NINE_MONTHS = 2130
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_TWELVE_MONTHS = 2131
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_ONE_MONTH = 2132
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_TWO_MONTHS = 2133
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_THREE_MONTHS = 2134
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_SIX_MONTHS = 2135
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_NINE_MONTHS = 2136
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_TWELVE_MONTHS = 2137
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_ONE_MONTH = 2138
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_TWO_MONTHS = 2139
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_THREE_MONTHS = 2140
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_SIX_MONTHS = 2141
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_NINE_MONTHS = 2142
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_TWELVE_MONTHS = 2143
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_ONE_MONTH = 2144
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_TWO_MONTHS = 2145
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_THREE_MONTHS = 2146
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_SIX_MONTHS = 2147
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_NINE_MONTHS = 2148
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_TWELVE_MONTHS = 2149
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_ONE_MONTH = 2150
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_TWO_MONTHS = 2151
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_THREE_MONTHS = 2152
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_SIX_MONTHS = 2153
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_NINE_MONTHS = 2154
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_TWELVE_MONTHS = 2155
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_THREE_MONTHS = 2156
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_SIX_MONTHS = 2157
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_NINE_MONTHS = 2158
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_TWELVE_MONTHS = 2159
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_THREE_MONTHS = 2160
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_SIX_MONTHS = 2161
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_NINE_MONTHS = 2162
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_TWELVE_MONTHS = 2163
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_ONE_MONTH = 2164
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_TWO_MONTHS = 2165
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_THREE_MONTHS = 2166
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_SIX_MONTHS = 2167
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_NINE_MONTHS = 2168
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_TWELVE_MONTHS = 2169
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_ONE_MONTH = 2170
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_TWO_MONTHS = 2171
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_THREE_MONTHS = 2172
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_SIX_MONTHS = 2173
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_NINE_MONTHS = 2174
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_TWELVE_MONTHS = 2175
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_ONE_MONTH = 2176
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_TWO_MONTHS = 2177
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_THREE_MONTHS = 2178
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_SIX_MONTHS = 2179
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_NINE_MONTHS = 2180
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_TWELVE_MONTHS = 2181
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_THREE_MONTHS = 2182
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_SIX_MONTHS = 2183
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_NINE_MONTHS = 2184
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_TWELVE_MONTHS = 2185
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_ONE_MONTH = 2186
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_TWO_MONTHS = 2187
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_THREE_MONTHS = 2188
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_SIX_MONTHS = 2189
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_NINE_MONTHS = 2190
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_TWELVE_MONTHS = 2191
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_THREE_MONTHS = 2192
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_SIX_MONTHS = 2193
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_NINE_MONTHS = 2194
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_TWELVE_MONTHS = 2195
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_THREE_MONTHS = 2196
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_SIX_MONTHS = 2197
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_NINE_MONTHS = 2198
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_TWELVE_MONTHS = 2199
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_THREE_MONTHS = 2200
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_SIX_MONTHS = 2201
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_NINE_MONTHS = 2202
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_TWELVE_MONTHS = 2203
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_ONE_MONTH = 2204
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_TWO_MONTHS = 2205
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_THREE_MONTHS = 2206
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_SIX_MONTHS = 2207
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_NINE_MONTHS = 2208
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_TWELVE_MONTHS = 2209
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_ONE_MONTH = 2210
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_TWO_MONTHS = 2211
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_THREE_MONTHS = 2212
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_SIX_MONTHS = 2213
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_NINE_MONTHS = 2214
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_TWELVE_MONTHS = 2215
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_ONE_MONTH = 2216
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_TWO_MONTHS = 2217
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_THREE_MONTHS = 2218
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_SIX_MONTHS = 2219
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_NINE_MONTHS = 2220
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_TWELVE_MONTHS = 2221
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_THREE_MONTHS = 2222
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_SIX_MONTHS = 2223
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_NINE_MONTHS = 2224
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_TWELVE_MONTHS = 2225
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_THREE_MONTHS = 2226
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_SIX_MONTHS = 2227
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_NINE_MONTHS = 2228
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_TWELVE_MONTHS = 2229
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_ONE_MONTH = 2230
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_TWO_MONTHS = 2231
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_THREE_MONTHS = 2232
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_SIX_MONTHS = 2233
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_NINE_MONTHS = 2234
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_TWELVE_MONTHS = 2235
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_ONE_MONTH = 2236
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_TWO_MONTHS = 2237
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_THREE_MONTHS = 2238
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_SIX_MONTHS = 2239
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_NINE_MONTHS = 2240
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_TWELVE_MONTHS = 2241
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_ONE_MONTH = 2242
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_TWO_MONTHS = 2243
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_THREE_MONTHS = 2244
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_SIX_MONTHS = 2245
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_NINE_MONTHS = 2246
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_TWELVE_MONTHS = 2247
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_ONE_MONTH = 2248
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_TWO_MONTHS = 2249
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_THREE_MONTHS = 2250
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_SIX_MONTHS = 2251
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_NINE_MONTHS = 2252
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_TWELVE_MONTHS = 2253
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_THREE_MONTHS = 2254
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_SIX_MONTHS = 2255
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_NINE_MONTHS = 2256
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_TWELVE_MONTHS = 2257
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RESTRICTED_CASH_SIX_MONTHS = 2258
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RESTRICTED_CASH_TWELVE_MONTHS = 2259
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_THREE_MONTHS = 2260
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_SIX_MONTHS = 2261
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_NINE_MONTHS = 2262
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_TWELVE_MONTHS = 2263
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_ONE_MONTH = 2264
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_TWO_MONTHS = 2265
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_THREE_MONTHS = 2266
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_SIX_MONTHS = 2267
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_NINE_MONTHS = 2268
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_TWELVE_MONTHS = 2269
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_ONE_MONTH = 2270
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_TWO_MONTHS = 2271
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_THREE_MONTHS = 2272
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_SIX_MONTHS = 2273
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_NINE_MONTHS = 2274
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_TWELVE_MONTHS = 2275
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_ONE_MONTH = 2276
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_TWO_MONTHS = 2277
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_THREE_MONTHS = 2278
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_SIX_MONTHS = 2279
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_NINE_MONTHS = 2280
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_TWELVE_MONTHS = 2281
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_THREE_MONTHS = 2282
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_SIX_MONTHS = 2283
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_NINE_MONTHS = 2284
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_TWELVE_MONTHS = 2285
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_ONE_MONTH = 2286
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_TWO_MONTHS = 2287
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_THREE_MONTHS = 2288
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_SIX_MONTHS = 2289
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_NINE_MONTHS = 2290
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_TWELVE_MONTHS = 2291
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_ONE_MONTH = 2292
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWO_MONTHS = 2293
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_THREE_MONTHS = 2294
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_SIX_MONTHS = 2295
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_NINE_MONTHS = 2296
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWELVE_MONTHS = 2297
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_ONE_MONTH = 2298
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWO_MONTHS = 2299
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_THREE_MONTHS = 2300
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_SIX_MONTHS = 2301
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_NINE_MONTHS = 2302
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWELVE_MONTHS = 2303
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_ONE_MONTH = 2304
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_TWO_MONTHS = 2305
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_THREE_MONTHS = 2306
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_SIX_MONTHS = 2307
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_NINE_MONTHS = 2308
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_TWELVE_MONTHS = 2309
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_THREE_MONTHS = 2310
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_SIX_MONTHS = 2311
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_NINE_MONTHS = 2312
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_TWELVE_MONTHS = 2313
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_ONE_MONTH = 2314
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_TWO_MONTHS = 2315
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_THREE_MONTHS = 2316
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_SIX_MONTHS = 2317
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_NINE_MONTHS = 2318
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_TWELVE_MONTHS = 2319
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_ONE_MONTH = 2320
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_TWO_MONTHS = 2321
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_THREE_MONTHS = 2322
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_SIX_MONTHS = 2323
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_NINE_MONTHS = 2324
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_TWELVE_MONTHS = 2325
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_ONE_MONTH = 2326
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2327
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2328
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2329
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2330
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2331
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_ONE_MONTH = 2332
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_TWO_MONTHS = 2333
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_THREE_MONTHS = 2334
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_SIX_MONTHS = 2335
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_NINE_MONTHS = 2336
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_TWELVE_MONTHS = 2337
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_ONE_MONTH = 2338
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2339
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2340
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2341
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2342
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2343
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_THREE_MONTHS = 2344
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_SIX_MONTHS = 2345
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_NINE_MONTHS = 2346
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_TWELVE_MONTHS = 2347
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_ONE_MONTH = 2348
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_THREE_MONTHS = 2349
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_SIX_MONTHS = 2350
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_NINE_MONTHS = 2351
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_TWELVE_MONTHS = 2352
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_ONE_MONTH = 2353
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_TWO_MONTHS = 2354
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_THREE_MONTHS = 2355
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_SIX_MONTHS = 2356
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_NINE_MONTHS = 2357
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_TWELVE_MONTHS = 2358
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_THREE_MONTHS = 2359
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_SIX_MONTHS = 2360
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_NINE_MONTHS = 2361
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_TWELVE_MONTHS = 2362
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_ONE_MONTH = 2363
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_TWO_MONTHS = 2364
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_THREE_MONTHS = 2365
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_SIX_MONTHS = 2366
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_NINE_MONTHS = 2367
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_TWELVE_MONTHS = 2368
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_ONE_MONTH = 2369
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_THREE_MONTHS = 2370
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_SIX_MONTHS = 2371
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_NINE_MONTHS = 2372
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_TWELVE_MONTHS = 2373
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_ONE_MONTH = 2374
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_TWO_MONTHS = 2375
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_THREE_MONTHS = 2376
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_SIX_MONTHS = 2377
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_NINE_MONTHS = 2378
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_TWELVE_MONTHS = 2379
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_ONE_MONTH = 2380
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_TWO_MONTHS = 2381
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_THREE_MONTHS = 2382
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_SIX_MONTHS = 2383
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_NINE_MONTHS = 2384
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_TWELVE_MONTHS = 2385
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_THREE_MONTHS = 2386
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_SIX_MONTHS = 2387
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_NINE_MONTHS = 2388
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_TWELVE_MONTHS = 2389
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_ONE_MONTH = 2390
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_TWO_MONTHS = 2391
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_THREE_MONTHS = 2392
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_SIX_MONTHS = 2393
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_NINE_MONTHS = 2394
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_TWELVE_MONTHS = 2395
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_ONE_MONTH = 2396
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_TWO_MONTHS = 2397
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_THREE_MONTHS = 2398
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_SIX_MONTHS = 2399
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_NINE_MONTHS = 2400
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_TWELVE_MONTHS = 2401
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_ONE_MONTH = 2402
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2403
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2404
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2405
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2406
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2407
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_ONE_MONTH = 2408
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_TWO_MONTHS = 2409
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_THREE_MONTHS = 2410
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_SIX_MONTHS = 2411
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_NINE_MONTHS = 2412
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_TWELVE_MONTHS = 2413
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_ONE_MONTH = 2414
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2415
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2416
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2417
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2418
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2419
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_THREE_MONTHS = 2420
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_SIX_MONTHS = 2421
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_NINE_MONTHS = 2422
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_TWELVE_MONTHS = 2423
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_THREE_MONTHS = 2424
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_SIX_MONTHS = 2425
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_NINE_MONTHS = 2426
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_TWELVE_MONTHS = 2427
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_ONE_MONTH = 2428
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_TWO_MONTHS = 2429
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_THREE_MONTHS = 2430
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_SIX_MONTHS = 2431
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_NINE_MONTHS = 2432
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_TWELVE_MONTHS = 2433
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_ONE_MONTH = 2434
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_TWO_MONTHS = 2435
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_THREE_MONTHS = 2436
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_SIX_MONTHS = 2437
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_NINE_MONTHS = 2438
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_TWELVE_MONTHS = 2439
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_ONE_MONTH = 2440
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_TWO_MONTHS = 2441
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_THREE_MONTHS = 2442
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_SIX_MONTHS = 2443
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_NINE_MONTHS = 2444
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_TWELVE_MONTHS = 2445
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_ONE_MONTH = 2446
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_TWO_MONTHS = 2447
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_THREE_MONTHS = 2448
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_SIX_MONTHS = 2449
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_NINE_MONTHS = 2450
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_TWELVE_MONTHS = 2451
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_ONE_MONTH = 2452
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_TWO_MONTHS = 2453
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_THREE_MONTHS = 2454
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_SIX_MONTHS = 2455
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_NINE_MONTHS = 2456
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_TWELVE_MONTHS = 2457
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_ONE_MONTH = 2458
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_TWO_MONTHS = 2459
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_THREE_MONTHS = 2460
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_SIX_MONTHS = 2461
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_NINE_MONTHS = 2462
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_TWELVE_MONTHS = 2463
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_ONE_MONTH = 2464
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_TWO_MONTHS = 2465
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_THREE_MONTHS = 2466
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_SIX_MONTHS = 2467
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_NINE_MONTHS = 2468
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_TWELVE_MONTHS = 2469
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_ONE_MONTH = 2470
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_TWO_MONTHS = 2471
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_THREE_MONTHS = 2472
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_SIX_MONTHS = 2473
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_NINE_MONTHS = 2474
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_TWELVE_MONTHS = 2475
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_ONE_MONTH = 2476
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_TWO_MONTHS = 2477
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_THREE_MONTHS = 2478
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_SIX_MONTHS = 2479
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_NINE_MONTHS = 2480
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_TWELVE_MONTHS = 2481
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_ONE_MONTH = 2482
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_THREE_MONTHS = 2483
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_SIX_MONTHS = 2484
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_NINE_MONTHS = 2485
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_TWELVE_MONTHS = 2486
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_ONE_MONTH = 2487
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_TWO_MONTHS = 2488
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_THREE_MONTHS = 2489
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_SIX_MONTHS = 2490
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_NINE_MONTHS = 2491
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_TWELVE_MONTHS = 2492
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_ONE_MONTH = 2493
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_TWO_MONTHS = 2494
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_THREE_MONTHS = 2495
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_SIX_MONTHS = 2496
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_NINE_MONTHS = 2497
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_TWELVE_MONTHS = 2498
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_ONE_MONTH = 2499
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_TWO_MONTHS = 2500
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_THREE_MONTHS = 2501
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_SIX_MONTHS = 2502
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_NINE_MONTHS = 2503
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_TWELVE_MONTHS = 2504
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_ONE_MONTH = 2505
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_TWO_MONTHS = 2506
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_THREE_MONTHS = 2507
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_SIX_MONTHS = 2508
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_NINE_MONTHS = 2509
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_TWELVE_MONTHS = 2510
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_ONE_MONTH = 2511
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_TWO_MONTHS = 2512
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_THREE_MONTHS = 2513
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_SIX_MONTHS = 2514
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_NINE_MONTHS = 2515
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_TWELVE_MONTHS = 2516
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_ONE_MONTH = 2517
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_TWO_MONTHS = 2518
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_THREE_MONTHS = 2519
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_SIX_MONTHS = 2520
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_NINE_MONTHS = 2521
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_TWELVE_MONTHS = 2522
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_THREE_MONTHS = 2523
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_SIX_MONTHS = 2524
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_NINE_MONTHS = 2525
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_TWELVE_MONTHS = 2526
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_THREE_MONTHS = 2527
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_SIX_MONTHS = 2528
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_NINE_MONTHS = 2529
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_TWELVE_MONTHS = 2530
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_ONE_MONTH = 2531
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_TWO_MONTHS = 2532
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_THREE_MONTHS = 2533
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_SIX_MONTHS = 2534
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_NINE_MONTHS = 2535
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_TWELVE_MONTHS = 2536
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_ONE_MONTH = 2537
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_TWO_MONTHS = 2538
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_THREE_MONTHS = 2539
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_SIX_MONTHS = 2540
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_NINE_MONTHS = 2541
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_TWELVE_MONTHS = 2542
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_ONE_MONTH = 2543
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_TWO_MONTHS = 2544
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_THREE_MONTHS = 2545
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_SIX_MONTHS = 2546
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_NINE_MONTHS = 2547
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_TWELVE_MONTHS = 2548
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_THREE_MONTHS = 2549
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_SIX_MONTHS = 2550
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_NINE_MONTHS = 2551
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_TWELVE_MONTHS = 2552
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_ONE_MONTH = 2553
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_TWO_MONTHS = 2554
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_THREE_MONTHS = 2555
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_SIX_MONTHS = 2556
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_NINE_MONTHS = 2557
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_TWELVE_MONTHS = 2558
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_ONE_MONTH = 2559
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_TWO_MONTHS = 2560
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_THREE_MONTHS = 2561
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_SIX_MONTHS = 2562
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_NINE_MONTHS = 2563
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_TWELVE_MONTHS = 2564
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_TWO_MONTHS = 2565
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_THREE_MONTHS = 2566
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_SIX_MONTHS = 2567
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_NINE_MONTHS = 2568
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_TWELVE_MONTHS = 2569
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_ONE_MONTH = 2570
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWO_MONTHS = 2571
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_THREE_MONTHS = 2572
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_SIX_MONTHS = 2573
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_NINE_MONTHS = 2574
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWELVE_MONTHS = 2575
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_ONE_MONTH = 2576
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_TWO_MONTHS = 2577
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_THREE_MONTHS = 2578
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_SIX_MONTHS = 2579
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_NINE_MONTHS = 2580
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_TWELVE_MONTHS = 2581
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_ONE_MONTH = 2582
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_TWO_MONTHS = 2583
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_THREE_MONTHS = 2584
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_SIX_MONTHS = 2585
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_NINE_MONTHS = 2586
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_TWELVE_MONTHS = 2587
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_THREE_MONTHS = 2588
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_SIX_MONTHS = 2589
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_NINE_MONTHS = 2590
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_TWELVE_MONTHS = 2591
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_THREE_MONTHS = 2592
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_SIX_MONTHS = 2593
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_NINE_MONTHS = 2594
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2595
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_ONE_MONTH = 2596
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_TWO_MONTHS = 2597
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_THREE_MONTHS = 2598
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_SIX_MONTHS = 2599
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_NINE_MONTHS = 2600
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_TWELVE_MONTHS = 2601
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_ONE_MONTH = 2602
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_TWO_MONTHS = 2603
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_THREE_MONTHS = 2604
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_SIX_MONTHS = 2605
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_NINE_MONTHS = 2606
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_TWELVE_MONTHS = 2607
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_ONE_MONTH = 2608
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_TWO_MONTHS = 2609
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_THREE_MONTHS = 2610
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_SIX_MONTHS = 2611
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_NINE_MONTHS = 2612
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_TWELVE_MONTHS = 2613
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_ONE_MONTH = 2614
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_TWO_MONTHS = 2615
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_THREE_MONTHS = 2616
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_SIX_MONTHS = 2617
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_NINE_MONTHS = 2618
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_TWELVE_MONTHS = 2619
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_ONE_MONTH = 2620
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_TWO_MONTHS = 2621
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_THREE_MONTHS = 2622
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_SIX_MONTHS = 2623
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_NINE_MONTHS = 2624
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_TWELVE_MONTHS = 2625
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_ONE_MONTH = 2626
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_TWO_MONTHS = 2627
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_THREE_MONTHS = 2628
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_SIX_MONTHS = 2629
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_NINE_MONTHS = 2630
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_TWELVE_MONTHS = 2631
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_THREE_MONTHS = 2632
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_SIX_MONTHS = 2633
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_NINE_MONTHS = 2634
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_TWELVE_MONTHS = 2635
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_THREE_MONTHS = 2636
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_SIX_MONTHS = 2637
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_NINE_MONTHS = 2638
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_TWELVE_MONTHS = 2639
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_ONE_MONTH = 2640
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_THREE_MONTHS = 2641
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_SIX_MONTHS = 2642
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_NINE_MONTHS = 2643
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_TWELVE_MONTHS = 2644
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_ONE_MONTH = 2645
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_TWO_MONTHS = 2646
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_THREE_MONTHS = 2647
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_SIX_MONTHS = 2648
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_NINE_MONTHS = 2649
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_TWELVE_MONTHS = 2650
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_ONE_MONTH = 2651
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWO_MONTHS = 2652
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_THREE_MONTHS = 2653
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_SIX_MONTHS = 2654
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_NINE_MONTHS = 2655
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWELVE_MONTHS = 2656
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAINS_LOSSES_ON_DERIVATIVES_THREE_MONTHS = 2657
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAINS_LOSSES_ON_DERIVATIVES_TWELVE_MONTHS = 2658
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_ONE_MONTH = 2659
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWO_MONTHS = 2660
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_THREE_MONTHS = 2661
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_SIX_MONTHS = 2662
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_NINE_MONTHS = 2663
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWELVE_MONTHS = 2664
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_ONE_MONTH = 2665
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_TWO_MONTHS = 2666
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_THREE_MONTHS = 2667
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_SIX_MONTHS = 2668
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_NINE_MONTHS = 2669
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_TWELVE_MONTHS = 2670
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_ONE_MONTH = 2671
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_TWO_MONTHS = 2672
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_THREE_MONTHS = 2673
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_SIX_MONTHS = 2674
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_NINE_MONTHS = 2675
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_TWELVE_MONTHS = 2676
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_ONE_MONTH = 2677
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_TWO_MONTHS = 2678
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_THREE_MONTHS = 2679
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_SIX_MONTHS = 2680
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_NINE_MONTHS = 2681
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_TWELVE_MONTHS = 2682
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_ONE_MONTH = 2683
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_TWO_MONTHS = 2684
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_THREE_MONTHS = 2685
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_SIX_MONTHS = 2686
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_NINE_MONTHS = 2687
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_TWELVE_MONTHS = 2688
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_ONE_MONTH = 2689
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_TWO_MONTHS = 2690
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_THREE_MONTHS = 2691
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_SIX_MONTHS = 2692
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_NINE_MONTHS = 2693
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_TWELVE_MONTHS = 2694
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_ONE_MONTH = 2695
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_TWO_MONTHS = 2696
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_THREE_MONTHS = 2697
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_SIX_MONTHS = 2698
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_NINE_MONTHS = 2699
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_TWELVE_MONTHS = 2700
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_ONE_MONTH = 2701
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TWO_MONTHS = 2702
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_THREE_MONTHS = 2703
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_SIX_MONTHS = 2704
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_NINE_MONTHS = 2705
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TWELVE_MONTHS = 2706
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_THREE_MONTHS = 2707
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_SIX_MONTHS = 2708
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_NINE_MONTHS = 2709
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_TWELVE_MONTHS = 2710
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_THREE_MONTHS = 2711
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_SIX_MONTHS = 2712
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_NINE_MONTHS = 2713
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_TWELVE_MONTHS = 2714
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_THREE_MONTHS = 2715
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_SIX_MONTHS = 2716
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_NINE_MONTHS = 2717
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_TWELVE_MONTHS = 2718
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_THREE_MONTHS = 2719
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_SIX_MONTHS = 2720
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_NINE_MONTHS = 2721
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_TWELVE_MONTHS = 2722
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_THREE_MONTHS = 2723
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_SIX_MONTHS = 2724
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_NINE_MONTHS = 2725
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_TWELVE_MONTHS = 2726
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_THREE_MONTHS = 2727
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_SIX_MONTHS = 2728
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_NINE_MONTHS = 2729
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_TWELVE_MONTHS = 2730
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_SUBSIDIARIES_SIX_MONTHS = 2731
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_SUBSIDIARIES_TWELVE_MONTHS = 2732
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_THREE_MONTHS = 2733
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_SIX_MONTHS = 2734
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_NINE_MONTHS = 2735
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_TWELVE_MONTHS = 2736
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_THREE_MONTHS = 2737
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_SIX_MONTHS = 2738
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_NINE_MONTHS = 2739
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_TWELVE_MONTHS = 2740
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_LEASE_FINANCING_SIX_MONTHS = 2741
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_LEASE_FINANCING_TWELVE_MONTHS = 2742
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_THREE_MONTHS = 2743
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_SIX_MONTHS = 2744
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_NINE_MONTHS = 2745
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_TWELVE_MONTHS = 2746
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_THREE_MONTHS = 2747
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_SIX_MONTHS = 2748
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_NINE_MONTHS = 2749
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_TWELVE_MONTHS = 2750
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_THREE_MONTHS = 2751
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_SIX_MONTHS = 2752
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_NINE_MONTHS = 2753
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_TWELVE_MONTHS = 2754
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_THREE_MONTHS = 2755
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_SIX_MONTHS = 2756
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_NINE_MONTHS = 2757
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_TWELVE_MONTHS = 2758
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OUTWARD_LOANS_TWELVE_MONTHS = 2759
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_TWO_MONTHS = 2760
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_THREE_MONTHS = 2761
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_SIX_MONTHS = 2762
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_NINE_MONTHS = 2763
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_TWELVE_MONTHS = 2764
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEPOSITSBY_BANKSAND_CUSTOMERS_TWELVE_MONTHS = 2765
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_ONE_MONTH = 2766
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_THREE_MONTHS = 2767
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_SIX_MONTHS = 2768
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_NINE_MONTHS = 2769
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_TWELVE_MONTHS = 2770
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_ONE_MONTH = 2771
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2772
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2773
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2774
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2775
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_ONE_MONTH = 2776
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2777
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2778
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2779
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2780
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_ONE_MONTH = 2781
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_THREE_MONTHS = 2782
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_SIX_MONTHS = 2783
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_NINE_MONTHS = 2784
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_TWELVE_MONTHS = 2785
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_THREE_MONTHS = 2786
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_SIX_MONTHS = 2787
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_NINE_MONTHS = 2788
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_TWELVE_MONTHS = 2789
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_THREE_MONTHS = 2790
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_SIX_MONTHS = 2791
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_NINE_MONTHS = 2792
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_TWELVE_MONTHS = 2793
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_ONE_MONTH = 2794
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2795
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2796
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2797
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2798
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_PAID_DIRECT_TWELVE_MONTHS = 2799
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_THREE_MONTHS = 2800
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_SIX_MONTHS = 2801
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_NINE_MONTHS = 2802
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_TWELVE_MONTHS = 2803
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_THREE_MONTHS = 2804
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_SIX_MONTHS = 2805
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_NINE_MONTHS = 2806
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_TWELVE_MONTHS = 2807
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_THREE_MONTHS = 2808
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_SIX_MONTHS = 2809
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_NINE_MONTHS = 2810
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_TWELVE_MONTHS = 2811
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_THREE_MONTHS = 2812
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_SIX_MONTHS = 2813
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_NINE_MONTHS = 2814
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_TWELVE_MONTHS = 2815
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_TWO_MONTHS = 2816
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_THREE_MONTHS = 2817
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_SIX_MONTHS = 2818
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_NINE_MONTHS = 2819
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_TWELVE_MONTHS = 2820
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_THREE_MONTHS = 2821
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_SIX_MONTHS = 2822
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_NINE_MONTHS = 2823
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_TWELVE_MONTHS = 2824
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDEND_PAID_CFO_TWELVE_MONTHS = 2825
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDEND_RECEIVED_CFO_SIX_MONTHS = 2826
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDEND_RECEIVED_CFO_TWELVE_MONTHS = 2827
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_THREE_MONTHS = 2828
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_SIX_MONTHS = 2829
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_NINE_MONTHS = 2830
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_TWELVE_MONTHS = 2831
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_THREE_MONTHS = 2832
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_SIX_MONTHS = 2833
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_NINE_MONTHS = 2834
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_TWELVE_MONTHS = 2835
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_ADVANCESAND_LOANS_MADETO_OTHER_PARTIES_TWELVE_MONTHS = 2836
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_REPAYMENTOF_ADVANCESAND_LOANS_MADETO_OTHER_PARTIES_SIX_MONTHS = 2837
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_REPAYMENTOF_ADVANCESAND_LOANS_MADETO_OTHER_PARTIES_TWELVE_MONTHS = 2838
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_THREE_MONTHS = 2839
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_SIX_MONTHS = 2840
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_NINE_MONTHS = 2841
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_TWELVE_MONTHS = 2842
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_THREE_MONTHS = 2843
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_SIX_MONTHS = 2844
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_NINE_MONTHS = 2845
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_TWELVE_MONTHS = 2846
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_THREE_MONTHS = 2847
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_SIX_MONTHS = 2848
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_NINE_MONTHS = 2849
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_TWELVE_MONTHS = 2850
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_THREE_MONTHS = 2851
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_SIX_MONTHS = 2852
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_NINE_MONTHS = 2853
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_TWELVE_MONTHS = 2854
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_ASSETS_TWELVE_MONTHS = 2855
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_THREE_MONTHS = 2856
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_SIX_MONTHS = 2857
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_NINE_MONTHS = 2858
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_TWELVE_MONTHS = 2859
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_THREE_MONTHS = 2860
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_SIX_MONTHS = 2861
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_NINE_MONTHS = 2862
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2863
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_THREE_MONTHS = 2864
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_SIX_MONTHS = 2865
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_NINE_MONTHS = 2866
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_TWELVE_MONTHS = 2867
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_THREE_MONTHS = 2868
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_SIX_MONTHS = 2869
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_NINE_MONTHS = 2870
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_TWELVE_MONTHS = 2871
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_THREE_MONTHS = 2872
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_SIX_MONTHS = 2873
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_NINE_MONTHS = 2874
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_TWELVE_MONTHS = 2875
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_THREE_MONTHS = 2876
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_SIX_MONTHS = 2877
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_NINE_MONTHS = 2878
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_TWELVE_MONTHS = 2879
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_THREE_MONTHS = 2880
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_SIX_MONTHS = 2881
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_NINE_MONTHS = 2882
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2883
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_THREE_MONTHS = 2884
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_SIX_MONTHS = 2885
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_NINE_MONTHS = 2886
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2887
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_THREE_MONTHS = 2888
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_SIX_MONTHS = 2889
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_NINE_MONTHS = 2890
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_TWELVE_MONTHS = 2891
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_THREE_MONTHS = 2892
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_SIX_MONTHS = 2893
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_NINE_MONTHS = 2894
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_TWELVE_MONTHS = 2895
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_THREE_MONTHS = 2896
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_SIX_MONTHS = 2897
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_NINE_MONTHS = 2898
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_TWELVE_MONTHS = 2899
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_MINORITY_INTEREST_TWELVE_MONTHS = 2900
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_ONE_MONTH = 2901
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_TWO_MONTHS = 2902
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_THREE_MONTHS = 2903
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_SIX_MONTHS = 2904
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_NINE_MONTHS = 2905
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_TWELVE_MONTHS = 2906
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_THREE_MONTHS = 2907
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_SIX_MONTHS = 2908
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_NINE_MONTHS = 2909
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_TWELVE_MONTHS = 2910
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_ONE_MONTH = 2911
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_THREE_MONTHS = 2912
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_SIX_MONTHS = 2913
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_NINE_MONTHS = 2914
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_TWELVE_MONTHS = 2915
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_ONE_MONTH = 2916
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_THREE_MONTHS = 2917
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_SIX_MONTHS = 2918
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_NINE_MONTHS = 2919
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_TWELVE_MONTHS = 2920
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_ONE_MONTH = 2921
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_THREE_MONTHS = 2922
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_SIX_MONTHS = 2923
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_NINE_MONTHS = 2924
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_TWELVE_MONTHS = 2925
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_THREE_MONTHS = 2926
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_SIX_MONTHS = 2927
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_NINE_MONTHS = 2928
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_TWELVE_MONTHS = 2929
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_ONE_MONTH = 2930
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_THREE_MONTHS = 2931
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_SIX_MONTHS = 2932
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_NINE_MONTHS = 2933
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_TWELVE_MONTHS = 2934
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_THREE_MONTHS = 2935
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_SIX_MONTHS = 2936
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_NINE_MONTHS = 2937
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_TWELVE_MONTHS = 2938
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_THREE_MONTHS = 2939
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_SIX_MONTHS = 2940
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_NINE_MONTHS = 2941
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_TWELVE_MONTHS = 2942
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_ONE_MONTH = 2943
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_THREE_MONTHS = 2944
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_SIX_MONTHS = 2945
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_NINE_MONTHS = 2946
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_TWELVE_MONTHS = 2947
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_THREE_MONTHS = 2948
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_SIX_MONTHS = 2949
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_NINE_MONTHS = 2950
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_TWELVE_MONTHS = 2951
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_THREE_MONTHS = 2952
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_SIX_MONTHS = 2953
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_NINE_MONTHS = 2954
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_TWELVE_MONTHS = 2955
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_THREE_MONTHS = 2956
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_SIX_MONTHS = 2957
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_NINE_MONTHS = 2958
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_TWELVE_MONTHS = 2959
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_THREE_MONTHS = 2960
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_SIX_MONTHS = 2961
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_NINE_MONTHS = 2962
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_TWELVE_MONTHS = 2963
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_THREE_MONTHS = 2964
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_SIX_MONTHS = 2965
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_NINE_MONTHS = 2966
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_TWELVE_MONTHS = 2967
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_THREE_MONTHS = 2968
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_SIX_MONTHS = 2969
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_NINE_MONTHS = 2970
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_TWELVE_MONTHS = 2971
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_THREE_MONTHS = 2972
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_SIX_MONTHS = 2973
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_NINE_MONTHS = 2974
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_TWELVE_MONTHS = 2975
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_THREE_MONTHS = 2976
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_SIX_MONTHS = 2977
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_NINE_MONTHS = 2978
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_TWELVE_MONTHS = 2979
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_THREE_MONTHS = 2980
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_SIX_MONTHS = 2981
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_NINE_MONTHS = 2982
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_TWELVE_MONTHS = 2983
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_THREE_MONTHS = 2984
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_SIX_MONTHS = 2985
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_NINE_MONTHS = 2986
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_TWELVE_MONTHS = 2987
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2988
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2989
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2990
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2991
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_THREE_MONTHS = 2992
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_SIX_MONTHS = 2993
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_NINE_MONTHS = 2994
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_TWELVE_MONTHS = 2995
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_THREE_MONTHS = 2996
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_SIX_MONTHS = 2997
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_NINE_MONTHS = 2998
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_TWELVE_MONTHS = 2999
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_THREE_MONTHS = 3000
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_SIX_MONTHS = 3001
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_NINE_MONTHS = 3002
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 3003
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_THREE_MONTHS = 3004
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_SIX_MONTHS = 3005
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_NINE_MONTHS = 3006
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 3007
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_THREE_MONTHS = 3008
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_SIX_MONTHS = 3009
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_NINE_MONTHS = 3010
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_TWELVE_MONTHS = 3011
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_THREE_MONTHS = 3012
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_SIX_MONTHS = 3013
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_NINE_MONTHS = 3014
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_TWELVE_MONTHS = 3015
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_THREE_MONTHS = 3016
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_SIX_MONTHS = 3017
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_NINE_MONTHS = 3018
+
+    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_TWELVE_MONTHS = 3019
+
+    EARNING_REPORTS_PERIOD_ENDING_DATE_ONE_MONTH = 3020
+
+    EARNING_REPORTS_PERIOD_ENDING_DATE_TWO_MONTHS = 3021
+
+    EARNING_REPORTS_PERIOD_ENDING_DATE_THREE_MONTHS = 3022
+
+    EARNING_REPORTS_PERIOD_ENDING_DATE_SIX_MONTHS = 3023
+
+    EARNING_REPORTS_PERIOD_ENDING_DATE_NINE_MONTHS = 3024
+
+    EARNING_REPORTS_PERIOD_ENDING_DATE_TWELVE_MONTHS = 3025
+
+    EARNING_REPORTS_FILE_DATE_ONE_MONTH = 3026
+
+    EARNING_REPORTS_FILE_DATE_TWO_MONTHS = 3027
+
+    EARNING_REPORTS_FILE_DATE_THREE_MONTHS = 3028
+
+    EARNING_REPORTS_FILE_DATE_SIX_MONTHS = 3029
+
+    EARNING_REPORTS_FILE_DATE_NINE_MONTHS = 3030
+
+    EARNING_REPORTS_FILE_DATE_TWELVE_MONTHS = 3031
+
+    EARNING_REPORTS_ACCESSION_NUMBER_ONE_MONTH = 3032
+
+    EARNING_REPORTS_ACCESSION_NUMBER_TWO_MONTHS = 3033
+
+    EARNING_REPORTS_ACCESSION_NUMBER_THREE_MONTHS = 3034
+
+    EARNING_REPORTS_ACCESSION_NUMBER_SIX_MONTHS = 3035
+
+    EARNING_REPORTS_ACCESSION_NUMBER_NINE_MONTHS = 3036
+
+    EARNING_REPORTS_FORM_TYPE_ONE_MONTH = 3037
+
+    EARNING_REPORTS_FORM_TYPE_TWO_MONTHS = 3038
+
+    EARNING_REPORTS_FORM_TYPE_THREE_MONTHS = 3039
+
+    EARNING_REPORTS_FORM_TYPE_SIX_MONTHS = 3040
+
+    EARNING_REPORTS_FORM_TYPE_NINE_MONTHS = 3041
+
+    EARNING_REPORTS_FORM_TYPE_TWELVE_MONTHS = 3042
+
+    EARNING_REPORTS_PERIOD_TYPE_ONE_MONTH = 3043
+
+    EARNING_REPORTS_PERIOD_TYPE_TWO_MONTHS = 3044
+
+    EARNING_REPORTS_PERIOD_TYPE_THREE_MONTHS = 3045
+
+    EARNING_REPORTS_PERIOD_TYPE_SIX_MONTHS = 3046
+
+    EARNING_REPORTS_PERIOD_TYPE_NINE_MONTHS = 3047
+
+    EARNING_REPORTS_PERIOD_TYPE_TWELVE_MONTHS = 3048
+
+    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_ONE_MONTH = 3049
+
+    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_TWO_MONTHS = 3050
+
+    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_THREE_MONTHS = 3051
+
+    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_SIX_MONTHS = 3052
+
+    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_NINE_MONTHS = 3053
+
+    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3054
+
+    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_ONE_MONTH = 3055
+
+    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_TWO_MONTHS = 3056
+
+    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_THREE_MONTHS = 3057
+
+    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_SIX_MONTHS = 3058
+
+    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_NINE_MONTHS = 3059
+
+    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3060
+
+    EARNING_REPORTS_BASIC_EXTRAORDINARY_ONE_MONTH = 3061
+
+    EARNING_REPORTS_BASIC_EXTRAORDINARY_TWO_MONTHS = 3062
+
+    EARNING_REPORTS_BASIC_EXTRAORDINARY_THREE_MONTHS = 3063
+
+    EARNING_REPORTS_BASIC_EXTRAORDINARY_SIX_MONTHS = 3064
+
+    EARNING_REPORTS_BASIC_EXTRAORDINARY_NINE_MONTHS = 3065
+
+    EARNING_REPORTS_BASIC_EXTRAORDINARY_TWELVE_MONTHS = 3066
+
+    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_THREE_MONTHS = 3067
+
+    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_SIX_MONTHS = 3068
+
+    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_NINE_MONTHS = 3069
+
+    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_TWELVE_MONTHS = 3070
+
+    EARNING_REPORTS_BASIC_EPS_ONE_MONTH = 3071
+
+    EARNING_REPORTS_BASIC_EPS_TWO_MONTHS = 3072
+
+    EARNING_REPORTS_BASIC_EPS_THREE_MONTHS = 3073
+
+    EARNING_REPORTS_BASIC_EPS_SIX_MONTHS = 3074
+
+    EARNING_REPORTS_BASIC_EPS_NINE_MONTHS = 3075
+
+    EARNING_REPORTS_BASIC_EPS_TWELVE_MONTHS = 3076
+
+    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_ONE_MONTH = 3077
+
+    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_TWO_MONTHS = 3078
+
+    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_THREE_MONTHS = 3079
+
+    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_SIX_MONTHS = 3080
+
+    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_NINE_MONTHS = 3081
+
+    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3082
+
+    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_ONE_MONTH = 3083
+
+    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_TWO_MONTHS = 3084
+
+    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_THREE_MONTHS = 3085
+
+    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_SIX_MONTHS = 3086
+
+    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_NINE_MONTHS = 3087
+
+    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3088
+
+    EARNING_REPORTS_DILUTED_EXTRAORDINARY_ONE_MONTH = 3089
+
+    EARNING_REPORTS_DILUTED_EXTRAORDINARY_TWO_MONTHS = 3090
+
+    EARNING_REPORTS_DILUTED_EXTRAORDINARY_THREE_MONTHS = 3091
+
+    EARNING_REPORTS_DILUTED_EXTRAORDINARY_SIX_MONTHS = 3092
+
+    EARNING_REPORTS_DILUTED_EXTRAORDINARY_NINE_MONTHS = 3093
+
+    EARNING_REPORTS_DILUTED_EXTRAORDINARY_TWELVE_MONTHS = 3094
+
+    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_THREE_MONTHS = 3095
+
+    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_SIX_MONTHS = 3096
+
+    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_NINE_MONTHS = 3097
+
+    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_TWELVE_MONTHS = 3098
+
+    EARNING_REPORTS_DILUTED_EPS_ONE_MONTH = 3099
+
+    EARNING_REPORTS_DILUTED_EPS_TWO_MONTHS = 3100
+
+    EARNING_REPORTS_DILUTED_EPS_THREE_MONTHS = 3101
+
+    EARNING_REPORTS_DILUTED_EPS_SIX_MONTHS = 3102
+
+    EARNING_REPORTS_DILUTED_EPS_NINE_MONTHS = 3103
+
+    EARNING_REPORTS_DILUTED_EPS_TWELVE_MONTHS = 3104
+
+    EARNING_REPORTS_BASIC_AVERAGE_SHARES_ONE_MONTH = 3105
+
+    EARNING_REPORTS_BASIC_AVERAGE_SHARES_TWO_MONTHS = 3106
+
+    EARNING_REPORTS_BASIC_AVERAGE_SHARES_THREE_MONTHS = 3107
+
+    EARNING_REPORTS_BASIC_AVERAGE_SHARES_SIX_MONTHS = 3108
+
+    EARNING_REPORTS_BASIC_AVERAGE_SHARES_NINE_MONTHS = 3109
+
+    EARNING_REPORTS_BASIC_AVERAGE_SHARES_TWELVE_MONTHS = 3110
+
+    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_ONE_MONTH = 3111
+
+    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_TWO_MONTHS = 3112
+
+    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_THREE_MONTHS = 3113
+
+    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_SIX_MONTHS = 3114
+
+    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_NINE_MONTHS = 3115
+
+    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_TWELVE_MONTHS = 3116
+
+    EARNING_REPORTS_DIVIDEND_PER_SHARE_ONE_MONTH = 3117
+
+    EARNING_REPORTS_DIVIDEND_PER_SHARE_TWO_MONTHS = 3118
+
+    EARNING_REPORTS_DIVIDEND_PER_SHARE_THREE_MONTHS = 3119
+
+    EARNING_REPORTS_DIVIDEND_PER_SHARE_SIX_MONTHS = 3120
+
+    EARNING_REPORTS_DIVIDEND_PER_SHARE_NINE_MONTHS = 3121
+
+    EARNING_REPORTS_DIVIDEND_PER_SHARE_TWELVE_MONTHS = 3122
+
+    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_THREE_MONTHS = 3123
+
+    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_SIX_MONTHS = 3124
+
+    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_NINE_MONTHS = 3125
+
+    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_TWELVE_MONTHS = 3126
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_ONE_MONTH = 3127
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_TWO_MONTHS = 3128
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_THREE_MONTHS = 3129
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_SIX_MONTHS = 3130
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_NINE_MONTHS = 3131
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_TWELVE_MONTHS = 3132
+
+    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_THREE_MONTHS = 3133
+
+    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_SIX_MONTHS = 3134
+
+    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_NINE_MONTHS = 3135
+
+    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_TWELVE_MONTHS = 3136
+
+    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_THREE_MONTHS = 3137
+
+    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_SIX_MONTHS = 3138
+
+    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_NINE_MONTHS = 3139
+
+    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_TWELVE_MONTHS = 3140
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_ONE_MONTH = 3141
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_TWO_MONTHS = 3142
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_THREE_MONTHS = 3143
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_SIX_MONTHS = 3144
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_NINE_MONTHS = 3145
+
+    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_TWELVE_MONTHS = 3146
+
+    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_THREE_MONTHS = 3147
+
+    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_SIX_MONTHS = 3148
+
+    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_NINE_MONTHS = 3149
+
+    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_TWELVE_MONTHS = 3150
+
+    EARNING_REPORTS_NORMALIZED_BASIC_EPS_ONE_MONTH = 3151
+
+    EARNING_REPORTS_NORMALIZED_BASIC_EPS_TWO_MONTHS = 3152
+
+    EARNING_REPORTS_NORMALIZED_BASIC_EPS_THREE_MONTHS = 3153
+
+    EARNING_REPORTS_NORMALIZED_BASIC_EPS_SIX_MONTHS = 3154
+
+    EARNING_REPORTS_NORMALIZED_BASIC_EPS_NINE_MONTHS = 3155
+
+    EARNING_REPORTS_NORMALIZED_BASIC_EPS_TWELVE_MONTHS = 3156
+
+    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_ONE_MONTH = 3157
+
+    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_TWO_MONTHS = 3158
+
+    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_THREE_MONTHS = 3159
+
+    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_SIX_MONTHS = 3160
+
+    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_NINE_MONTHS = 3161
+
+    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_TWELVE_MONTHS = 3162
+
+    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_ONE_MONTH = 3163
+
+    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_TWO_MONTHS = 3164
+
+    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_THREE_MONTHS = 3165
+
+    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_SIX_MONTHS = 3166
+
+    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_NINE_MONTHS = 3167
+
+    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_TWELVE_MONTHS = 3168
+
+    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_THREE_MONTHS = 3169
+
+    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_SIX_MONTHS = 3170
+
+    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_NINE_MONTHS = 3171
+
+    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_TWELVE_MONTHS = 3172
+
+    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_THREE_MONTHS = 3173
+
+    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_SIX_MONTHS = 3174
+
+    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_NINE_MONTHS = 3175
+
+    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_TWELVE_MONTHS = 3176
+
+    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_THREE_MONTHS = 3177
+
+    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_SIX_MONTHS = 3178
+
+    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_NINE_MONTHS = 3179
+
+    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_TWELVE_MONTHS = 3180
+
+    OPERATION_RATIOS_REVENUE_GROWTH_ONE_YEAR = 3181
+
+    OPERATION_RATIOS_REVENUE_GROWTH_THREE_YEARS = 3182
+
+    OPERATION_RATIOS_REVENUE_GROWTH_THREE_MONTHS = 3183
+
+    OPERATION_RATIOS_REVENUE_GROWTH_FIVE_YEARS = 3184
+
+    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_ONE_YEAR = 3185
+
+    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_THREE_YEARS = 3186
+
+    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_THREE_MONTHS = 3187
+
+    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_FIVE_YEARS = 3188
+
+    OPERATION_RATIOS_NET_INCOME_GROWTH_ONE_YEAR = 3189
+
+    OPERATION_RATIOS_NET_INCOME_GROWTH_THREE_YEARS = 3190
+
+    OPERATION_RATIOS_NET_INCOME_GROWTH_THREE_MONTHS = 3191
+
+    OPERATION_RATIOS_NET_INCOME_GROWTH_FIVE_YEARS = 3192
+
+    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_ONE_YEAR = 3193
+
+    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_THREE_YEARS = 3194
+
+    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_THREE_MONTHS = 3195
+
+    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_FIVE_YEARS = 3196
+
+    OPERATION_RATIOS_CFO_GROWTH_ONE_YEAR = 3197
+
+    OPERATION_RATIOS_CFO_GROWTH_THREE_YEARS = 3198
+
+    OPERATION_RATIOS_CFO_GROWTH_FIVE_YEARS = 3199
+
+    OPERATION_RATIOS_FCF_GROWTH_ONE_YEAR = 3200
+
+    OPERATION_RATIOS_FCF_GROWTH_THREE_YEARS = 3201
+
+    OPERATION_RATIOS_FCF_GROWTH_FIVE_YEARS = 3202
+
+    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_ONE_YEAR = 3203
+
+    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_THREE_YEARS = 3204
+
+    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_THREE_MONTHS = 3205
+
+    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_FIVE_YEARS = 3206
+
+    OPERATION_RATIOS_GROSS_MARGIN_ONE_YEAR = 3207
+
+    OPERATION_RATIOS_GROSS_MARGIN_ONE_MONTH = 3208
+
+    OPERATION_RATIOS_GROSS_MARGIN_TWO_MONTHS = 3209
+
+    OPERATION_RATIOS_GROSS_MARGIN_THREE_MONTHS = 3210
+
+    OPERATION_RATIOS_GROSS_MARGIN_SIX_MONTHS = 3211
+
+    OPERATION_RATIOS_GROSS_MARGIN_NINE_MONTHS = 3212
+
+    OPERATION_RATIOS_OPERATION_MARGIN_ONE_YEAR = 3213
+
+    OPERATION_RATIOS_OPERATION_MARGIN_ONE_MONTH = 3214
+
+    OPERATION_RATIOS_OPERATION_MARGIN_TWO_MONTHS = 3215
+
+    OPERATION_RATIOS_OPERATION_MARGIN_THREE_MONTHS = 3216
+
+    OPERATION_RATIOS_OPERATION_MARGIN_SIX_MONTHS = 3217
+
+    OPERATION_RATIOS_OPERATION_MARGIN_NINE_MONTHS = 3218
+
+    OPERATION_RATIOS_PRETAX_MARGIN_ONE_YEAR = 3219
+
+    OPERATION_RATIOS_PRETAX_MARGIN_ONE_MONTH = 3220
+
+    OPERATION_RATIOS_PRETAX_MARGIN_TWO_MONTHS = 3221
+
+    OPERATION_RATIOS_PRETAX_MARGIN_THREE_MONTHS = 3222
+
+    OPERATION_RATIOS_PRETAX_MARGIN_SIX_MONTHS = 3223
+
+    OPERATION_RATIOS_PRETAX_MARGIN_NINE_MONTHS = 3224
+
+    OPERATION_RATIOS_NET_MARGIN_ONE_YEAR = 3225
+
+    OPERATION_RATIOS_NET_MARGIN_ONE_MONTH = 3226
+
+    OPERATION_RATIOS_NET_MARGIN_TWO_MONTHS = 3227
+
+    OPERATION_RATIOS_NET_MARGIN_THREE_MONTHS = 3228
+
+    OPERATION_RATIOS_NET_MARGIN_SIX_MONTHS = 3229
+
+    OPERATION_RATIOS_NET_MARGIN_NINE_MONTHS = 3230
+
+    OPERATION_RATIOS_TAX_RATE_ONE_YEAR = 3231
+
+    OPERATION_RATIOS_TAX_RATE_ONE_MONTH = 3232
+
+    OPERATION_RATIOS_TAX_RATE_TWO_MONTHS = 3233
+
+    OPERATION_RATIOS_TAX_RATE_THREE_MONTHS = 3234
+
+    OPERATION_RATIOS_TAX_RATE_SIX_MONTHS = 3235
+
+    OPERATION_RATIOS_TAX_RATE_NINE_MONTHS = 3236
+
+    OPERATION_RATIOS_EBIT_MARGIN_ONE_YEAR = 3237
+
+    OPERATION_RATIOS_EBIT_MARGIN_ONE_MONTH = 3238
+
+    OPERATION_RATIOS_EBIT_MARGIN_TWO_MONTHS = 3239
+
+    OPERATION_RATIOS_EBIT_MARGIN_THREE_MONTHS = 3240
+
+    OPERATION_RATIOS_EBIT_MARGIN_SIX_MONTHS = 3241
+
+    OPERATION_RATIOS_EBIT_MARGIN_NINE_MONTHS = 3242
+
+    OPERATION_RATIOS_EBITDA_MARGIN_ONE_YEAR = 3243
+
+    OPERATION_RATIOS_EBITDA_MARGIN_ONE_MONTH = 3244
+
+    OPERATION_RATIOS_EBITDA_MARGIN_TWO_MONTHS = 3245
+
+    OPERATION_RATIOS_EBITDA_MARGIN_THREE_MONTHS = 3246
+
+    OPERATION_RATIOS_EBITDA_MARGIN_SIX_MONTHS = 3247
+
+    OPERATION_RATIOS_EBITDA_MARGIN_NINE_MONTHS = 3248
+
+    OPERATION_RATIOS_SALES_PER_EMPLOYEE_ONE_YEAR = 3249
+
+    OPERATION_RATIOS_SALES_PER_EMPLOYEE_ONE_MONTH = 3250
+
+    OPERATION_RATIOS_SALES_PER_EMPLOYEE_TWO_MONTHS = 3251
+
+    OPERATION_RATIOS_SALES_PER_EMPLOYEE_THREE_MONTHS = 3252
+
+    OPERATION_RATIOS_SALES_PER_EMPLOYEE_SIX_MONTHS = 3253
+
+    OPERATION_RATIOS_SALES_PER_EMPLOYEE_NINE_MONTHS = 3254
+
+    OPERATION_RATIOS_CURRENT_RATIO_ONE_YEAR = 3255
+
+    OPERATION_RATIOS_CURRENT_RATIO_ONE_MONTH = 3256
+
+    OPERATION_RATIOS_CURRENT_RATIO_TWO_MONTHS = 3257
+
+    OPERATION_RATIOS_CURRENT_RATIO_THREE_MONTHS = 3258
+
+    OPERATION_RATIOS_CURRENT_RATIO_SIX_MONTHS = 3259
+
+    OPERATION_RATIOS_CURRENT_RATIO_NINE_MONTHS = 3260
+
+    OPERATION_RATIOS_QUICK_RATIO_ONE_YEAR = 3261
+
+    OPERATION_RATIOS_QUICK_RATIO_ONE_MONTH = 3262
+
+    OPERATION_RATIOS_QUICK_RATIO_TWO_MONTHS = 3263
+
+    OPERATION_RATIOS_QUICK_RATIO_THREE_MONTHS = 3264
+
+    OPERATION_RATIOS_QUICK_RATIO_SIX_MONTHS = 3265
+
+    OPERATION_RATIOS_QUICK_RATIO_NINE_MONTHS = 3266
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_ONE_YEAR = 3267
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_ONE_MONTH = 3268
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_TWO_MONTHS = 3269
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_THREE_MONTHS = 3270
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_SIX_MONTHS = 3271
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_NINE_MONTHS = 3272
+
+    OPERATION_RATIOS_INTEREST_COVERAGE_ONE_YEAR = 3273
+
+    OPERATION_RATIOS_INTEREST_COVERAGE_ONE_MONTH = 3274
+
+    OPERATION_RATIOS_INTEREST_COVERAGE_TWO_MONTHS = 3275
+
+    OPERATION_RATIOS_INTEREST_COVERAGE_THREE_MONTHS = 3276
+
+    OPERATION_RATIOS_INTEREST_COVERAGE_SIX_MONTHS = 3277
+
+    OPERATION_RATIOS_INTEREST_COVERAGE_NINE_MONTHS = 3278
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_ONE_YEAR = 3279
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_ONE_MONTH = 3280
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_TWO_MONTHS = 3281
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_THREE_MONTHS = 3282
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_SIX_MONTHS = 3283
+
+    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_NINE_MONTHS = 3284
+
+    OPERATION_RATIOS_FINANCIAL_LEVERAGE_ONE_YEAR = 3285
+
+    OPERATION_RATIOS_FINANCIAL_LEVERAGE_ONE_MONTH = 3286
+
+    OPERATION_RATIOS_FINANCIAL_LEVERAGE_TWO_MONTHS = 3287
+
+    OPERATION_RATIOS_FINANCIAL_LEVERAGE_THREE_MONTHS = 3288
+
+    OPERATION_RATIOS_FINANCIAL_LEVERAGE_SIX_MONTHS = 3289
+
+    OPERATION_RATIOS_FINANCIAL_LEVERAGE_NINE_MONTHS = 3290
+
+    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_ONE_YEAR = 3291
+
+    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_ONE_MONTH = 3292
+
+    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_TWO_MONTHS = 3293
+
+    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_THREE_MONTHS = 3294
+
+    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_SIX_MONTHS = 3295
+
+    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_NINE_MONTHS = 3296
+
+    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_ONE_YEAR = 3297
+
+    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_ONE_MONTH = 3298
+
+    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_TWO_MONTHS = 3299
+
+    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_THREE_MONTHS = 3300
+
+    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_SIX_MONTHS = 3301
+
+    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_NINE_MONTHS = 3302
+
+    OPERATION_RATIOS_DAYS_IN_SALES_ONE_YEAR = 3303
+
+    OPERATION_RATIOS_DAYS_IN_SALES_THREE_MONTHS = 3304
+
+    OPERATION_RATIOS_DAYS_IN_SALES_SIX_MONTHS = 3305
+
+    OPERATION_RATIOS_DAYS_IN_INVENTORY_ONE_YEAR = 3306
+
+    OPERATION_RATIOS_DAYS_IN_INVENTORY_THREE_MONTHS = 3307
+
+    OPERATION_RATIOS_DAYS_IN_INVENTORY_SIX_MONTHS = 3308
+
+    OPERATION_RATIOS_DAYS_IN_PAYMENT_ONE_YEAR = 3309
+
+    OPERATION_RATIOS_DAYS_IN_PAYMENT_THREE_MONTHS = 3310
+
+    OPERATION_RATIOS_DAYS_IN_PAYMENT_SIX_MONTHS = 3311
+
+    OPERATION_RATIOS_CASH_CONVERSION_CYCLE_ONE_YEAR = 3312
+
+    OPERATION_RATIOS_CASH_CONVERSION_CYCLE_THREE_MONTHS = 3313
+
+    OPERATION_RATIOS_CASH_CONVERSION_CYCLE_SIX_MONTHS = 3314
+
+    OPERATION_RATIOS_RECEIVABLE_TURNOVER_ONE_YEAR = 3315
+
+    OPERATION_RATIOS_RECEIVABLE_TURNOVER_THREE_MONTHS = 3316
+
+    OPERATION_RATIOS_RECEIVABLE_TURNOVER_SIX_MONTHS = 3317
+
+    OPERATION_RATIOS_INVENTORY_TURNOVER_ONE_YEAR = 3318
+
+    OPERATION_RATIOS_INVENTORY_TURNOVER_THREE_MONTHS = 3319
+
+    OPERATION_RATIOS_INVENTORY_TURNOVER_SIX_MONTHS = 3320
+
+    OPERATION_RATIOS_PAYMENT_TURNOVER_ONE_YEAR = 3321
+
+    OPERATION_RATIOS_PAYMENT_TURNOVER_THREE_MONTHS = 3322
+
+    OPERATION_RATIOS_PAYMENT_TURNOVER_SIX_MONTHS = 3323
+
+    OPERATION_RATIOS_FIX_ASSETS_TURONVER_ONE_YEAR = 3324
+
+    OPERATION_RATIOS_FIX_ASSETS_TURONVER_THREE_MONTHS = 3325
+
+    OPERATION_RATIOS_FIX_ASSETS_TURONVER_SIX_MONTHS = 3326
+
+    OPERATION_RATIOS_ASSETS_TURNOVER_ONE_YEAR = 3327
+
+    OPERATION_RATIOS_ASSETS_TURNOVER_THREE_MONTHS = 3328
+
+    OPERATION_RATIOS_ASSETS_TURNOVER_SIX_MONTHS = 3329
+
+    OPERATION_RATIOS_ROE_ONE_YEAR = 3330
+
+    OPERATION_RATIOS_ROE_THREE_MONTHS = 3331
+
+    OPERATION_RATIOS_ROE_SIX_MONTHS = 3332
+
+    OPERATION_RATIOS_ROA_ONE_YEAR = 3333
+
+    OPERATION_RATIOS_ROA_THREE_MONTHS = 3334
+
+    OPERATION_RATIOS_ROA_SIX_MONTHS = 3335
+
+    OPERATION_RATIOS_ROIC_ONE_YEAR = 3336
+
+    OPERATION_RATIOS_ROIC_THREE_MONTHS = 3337
+
+    OPERATION_RATIOS_ROIC_SIX_MONTHS = 3338
+
+    OPERATION_RATIOS_FCF_SALES_RATIO_ONE_YEAR = 3339
+
+    OPERATION_RATIOS_FCF_NET_INCOME_RATIO_ONE_YEAR = 3340
+
+    OPERATION_RATIOS_CAP_EX_SALES_RATIO_ONE_YEAR = 3341
+
+    OPERATION_RATIOS_DEBT_TO_ASSETS_ONE_YEAR = 3342
+
+    OPERATION_RATIOS_DEBT_TO_ASSETS_ONE_MONTH = 3343
+
+    OPERATION_RATIOS_DEBT_TO_ASSETS_TWO_MONTHS = 3344
+
+    OPERATION_RATIOS_DEBT_TO_ASSETS_THREE_MONTHS = 3345
+
+    OPERATION_RATIOS_DEBT_TO_ASSETS_SIX_MONTHS = 3346
+
+    OPERATION_RATIOS_DEBT_TO_ASSETS_NINE_MONTHS = 3347
+
+    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_ONE_YEAR = 3348
+
+    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_ONE_MONTH = 3349
+
+    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_TWO_MONTHS = 3350
+
+    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_THREE_MONTHS = 3351
+
+    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_SIX_MONTHS = 3352
+
+    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_NINE_MONTHS = 3353
+
+    OPERATION_RATIOS_CAPITAL_EXPENDITURE_ANNUAL_5_YR_GROWTH_ONE_YEAR = 3354
+
+    OPERATION_RATIOS_CAPITAL_EXPENDITURE_ANNUAL_5_YR_GROWTH_THREE_YEARS = 3355
+
+    OPERATION_RATIOS_CAPITAL_EXPENDITURE_ANNUAL_5_YR_GROWTH_FIVE_YEARS = 3356
+
+    OPERATION_RATIOS_GROSS_PROFIT_ANNUAL_5_YR_GROWTH_ONE_YEAR = 3357
+
+    OPERATION_RATIOS_GROSS_PROFIT_ANNUAL_5_YR_GROWTH_THREE_YEARS = 3358
+
+    OPERATION_RATIOS_GROSS_PROFIT_ANNUAL_5_YR_GROWTH_FIVE_YEARS = 3359
+
+    OPERATION_RATIOS_GROSS_MARGIN_5_YR_AVG_FIVE_YEARS = 3360
+
+    OPERATION_RATIOS_POST_TAX_MARGIN_5_YR_AVG_FIVE_YEARS = 3361
+
+    OPERATION_RATIOS_PRE_TAX_MARGIN_5_YR_AVG_FIVE_YEARS = 3362
+
+    OPERATION_RATIOS_PROFIT_MARGIN_5_YR_AVG_FIVE_YEARS = 3363
+
+    OPERATION_RATIOS_ROE_5_YR_AVG_FIVE_YEARS = 3364
+
+    OPERATION_RATIOS_ROA_5_YR_AVG_FIVE_YEARS = 3365
+
+    OPERATION_RATIOS_AVG_5_YRS_ROIC_FIVE_YEARS = 3366
+
+    OPERATION_RATIOS_NORMALIZED_ROIC_ONE_YEAR = 3367
+
+    OPERATION_RATIOS_NORMALIZED_ROIC_THREE_MONTHS = 3368
+
+    OPERATION_RATIOS_NORMALIZED_ROIC_SIX_MONTHS = 3369
+
+    OPERATION_RATIOS_REGRESSION_GROWTH_OPERATING_REVENUE_5_YEARS_FIVE_YEARS = 3370
+
+    OPERATION_RATIOS_CASH_RATIO_ONE_YEAR = 3371
+
+    OPERATION_RATIOS_CASH_RATIO_THREE_MONTHS = 3372
+
+    OPERATION_RATIOS_CASHTO_TOTAL_ASSETS_ONE_YEAR = 3373
+
+    OPERATION_RATIOS_CASHTO_TOTAL_ASSETS_THREE_MONTHS = 3374
+
+    OPERATION_RATIOS_CAPITAL_EXPENDITURETO_EBITDA_ONE_YEAR = 3375
+
+    OPERATION_RATIOS_FC_FTO_CFO_ONE_YEAR = 3376
+
+    OPERATION_RATIOS_STOCKHOLDERS_EQUITY_GROWTH_ONE_YEAR = 3377
+
+    OPERATION_RATIOS_STOCKHOLDERS_EQUITY_GROWTH_THREE_YEARS = 3378
+
+    OPERATION_RATIOS_STOCKHOLDERS_EQUITY_GROWTH_FIVE_YEARS = 3379
+
+    OPERATION_RATIOS_TOTAL_ASSETS_GROWTH_ONE_YEAR = 3380
+
+    OPERATION_RATIOS_TOTAL_ASSETS_GROWTH_THREE_YEARS = 3381
+
+    OPERATION_RATIOS_TOTAL_ASSETS_GROWTH_FIVE_YEARS = 3382
+
+    OPERATION_RATIOS_TOTAL_LIABILITIES_GROWTH_ONE_YEAR = 3383
+
+    OPERATION_RATIOS_TOTAL_LIABILITIES_GROWTH_THREE_YEARS = 3384
+
+    OPERATION_RATIOS_TOTAL_LIABILITIES_GROWTH_FIVE_YEARS = 3385
+
+    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_GROWTH_ONE_YEAR = 3386
+
+    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_GROWTH_THREE_YEARS = 3387
+
+    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_GROWTH_FIVE_YEARS = 3388
+
+    OPERATION_RATIOS_CASH_RATIO_GROWTH_ONE_YEAR = 3389
+
+    OPERATION_RATIOS_CASH_RATIO_GROWTH_THREE_YEARS = 3390
+
+    OPERATION_RATIOS_CASH_RATIO_GROWTH_FIVE_YEARS = 3391
+
+    OPERATION_RATIOS_EBITDA_GROWTH_ONE_YEAR = 3392
+
+    OPERATION_RATIOS_EBITDA_GROWTH_THREE_YEARS = 3393
+
+    OPERATION_RATIOS_EBITDA_GROWTH_FIVE_YEARS = 3394
+
+    OPERATION_RATIOS_CASH_FLOW_FROM_FINANCING_GROWTH_ONE_YEAR = 3395
+
+    OPERATION_RATIOS_CASH_FLOW_FROM_FINANCING_GROWTH_THREE_YEARS = 3396
+
+    OPERATION_RATIOS_CASH_FLOW_FROM_FINANCING_GROWTH_FIVE_YEARS = 3397
+
+    OPERATION_RATIOS_CASH_FLOW_FROM_INVESTING_GROWTH_ONE_YEAR = 3398
+
+    OPERATION_RATIOS_CASH_FLOW_FROM_INVESTING_GROWTH_THREE_YEARS = 3399
+
+    OPERATION_RATIOS_CASH_FLOW_FROM_INVESTING_GROWTH_FIVE_YEARS = 3400
+
+    OPERATION_RATIOS_CAP_EX_GROWTH_ONE_YEAR = 3401
+
+    OPERATION_RATIOS_CAP_EX_GROWTH_THREE_YEARS = 3402
+
+    OPERATION_RATIOS_CAP_EX_GROWTH_FIVE_YEARS = 3403
+
+    OPERATION_RATIOS_CURRENT_RATIO_GROWTH_ONE_YEAR = 3404
+
+    OPERATION_RATIOS_CURRENT_RATIO_GROWTH_THREE_YEARS = 3405
+
+    OPERATION_RATIOS_CURRENT_RATIO_GROWTH_FIVE_YEARS = 3406
+
+    OPERATION_RATIOS_WORKING_CAPITAL_TURNOVER_RATIO_ONE_YEAR = 3407
+
+    OPERATION_RATIOS_WORKING_CAPITAL_TURNOVER_RATIO_THREE_MONTHS = 3408
+
+    OPERATION_RATIOS_NET_INCOME_PER_EMPLOYEE_ONE_YEAR = 3409
+
+    OPERATION_RATIOS_NET_INCOME_PER_EMPLOYEE_THREE_MONTHS = 3410
+
+    OPERATION_RATIOS_SOLVENCY_RATIO_ONE_YEAR = 3411
+
+    OPERATION_RATIOS_SOLVENCY_RATIO_THREE_MONTHS = 3412
+
+    OPERATION_RATIOS_EXPENSE_RATIO_ONE_YEAR = 3413
+
+    OPERATION_RATIOS_EXPENSE_RATIO_THREE_MONTHS = 3414
+
+    OPERATION_RATIOS_LOSS_RATIO_ONE_YEAR = 3415
+
+    OPERATION_RATIOS_LOSS_RATIO_THREE_MONTHS = 3416
+
+    EARNING_RATIOS_DILUTED_EPS_GROWTH_ONE_YEAR = 3417
+
+    EARNING_RATIOS_DILUTED_EPS_GROWTH_THREE_YEARS = 3418
+
+    EARNING_RATIOS_DILUTED_EPS_GROWTH_THREE_MONTHS = 3419
+
+    EARNING_RATIOS_DILUTED_EPS_GROWTH_FIVE_YEARS = 3420
+
+    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_ONE_YEAR = 3421
+
+    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_THREE_YEARS = 3422
+
+    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_THREE_MONTHS = 3423
+
+    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_FIVE_YEARS = 3424
+
+    EARNING_RATIOS_DPS_GROWTH_ONE_YEAR = 3425
+
+    EARNING_RATIOS_DPS_GROWTH_THREE_MONTHS = 3426
+
+    EARNING_RATIOS_DPS_GROWTH_THREE_YEARS = 3427
+
+    EARNING_RATIOS_DPS_GROWTH_FIVE_YEARS = 3428
+
+    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_ONE_YEAR = 3429
+
+    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_THREE_MONTHS = 3430
+
+    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_THREE_YEARS = 3431
+
+    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_FIVE_YEARS = 3432
+
+    EARNING_RATIOS_REGRESSION_GROWTHOF_DIVIDENDS_5_YEARS_FIVE_YEARS = 3433
+
+    EARNING_RATIOS_FCF_PER_SHARE_GROWTH_ONE_YEAR = 3434
+
+    EARNING_RATIOS_FCF_PER_SHARE_GROWTH_THREE_YEARS = 3435
+
+    EARNING_RATIOS_FCF_PER_SHARE_GROWTH_FIVE_YEARS = 3436
+
+    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_ONE_YEAR = 3437
+
+    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_THREE_MONTHS = 3438
+
+    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_THREE_YEARS = 3439
+
+    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_FIVE_YEARS = 3440
+
+    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_ONE_YEAR = 3441
+
+    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_THREE_MONTHS = 3442
+
+    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_THREE_YEARS = 3443
+
+    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_FIVE_YEARS = 3444
+
+    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_ONE_YEAR = 3445
+
+    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_THREE_MONTHS = 3446
+
+    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_THREE_YEARS = 3447
+
+    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_FIVE_YEARS = 3448
+
+    VALUATION_RATIOS_PAYOUT_RATIO = 3449
+
+    VALUATION_RATIOS_SUSTAINABLE_GROWTH_RATE = 3450
+
+    VALUATION_RATIOS_CASH_RETURN = 3451
+
+    VALUATION_RATIOS_SALES_PER_SHARE = 3452
+
+    VALUATION_RATIOS_BOOK_VALUE_PER_SHARE = 3453
+
+    VALUATION_RATIOS_CFO_PER_SHARE = 3454
+
+    VALUATION_RATIOS_FCF_PER_SHARE = 3455
+
+    VALUATION_RATIOS_EARNING_YIELD = 3456
+
+    VALUATION_RATIOS_PE_RATIO = 3457
+
+    VALUATION_RATIOS_SALES_YIELD = 3458
+
+    VALUATION_RATIOS_PS_RATIO = 3459
+
+    VALUATION_RATIOS_BOOK_VALUE_YIELD = 3460
+
+    VALUATION_RATIOS_PB_RATIO = 3461
+
+    VALUATION_RATIOS_CF_YIELD = 3462
+
+    VALUATION_RATIOS_PCF_RATIO = 3463
+
+    VALUATION_RATIOS_FCF_YIELD = 3464
+
+    VALUATION_RATIOS_FCF_RATIO = 3465
+
+    VALUATION_RATIOS_TRAILING_DIVIDEND_YIELD = 3466
+
+    VALUATION_RATIOS_FORWARD_DIVIDEND_YIELD = 3467
+
+    VALUATION_RATIOS_FORWARD_EARNING_YIELD = 3468
+
+    VALUATION_RATIOS_FORWARD_PE_RATIO = 3469
+
+    VALUATION_RATIOS_PEG_RATIO = 3470
+
+    VALUATION_RATIOS_PEG_PAYBACK = 3471
+
+    VALUATION_RATIOS_TANGIBLE_BOOK_VALUE_PER_SHARE = 3472
+
+    VALUATION_RATIOS_TANGIBLE_BV_PER_SHARE_3_YR_AVG = 3473
+
+    VALUATION_RATIOS_TANGIBLE_BV_PER_SHARE_5_YR_AVG = 3474
+
+    VALUATION_RATIOS_FORWARD_DIVIDEND = 3475
+
+    VALUATION_RATIOS_WORKING_CAPITAL_PER_SHARE = 3476
+
+    VALUATION_RATIOS_WORKING_CAPITAL_PER_SHARE_3_YR_AVG = 3477
+
+    VALUATION_RATIOS_WORKING_CAPITAL_PER_SHARE_5_YR_AVG = 3478
+
+    VALUATION_RATIOS_EV_TO_EBITDA = 3479
+
+    VALUATION_RATIOS_BUY_BACK_YIELD = 3480
+
+    VALUATION_RATIOS_TOTAL_YIELD = 3481
+
+    VALUATION_RATIOS_RATIO_PE_5_YEAR_AVERAGE = 3482
+
+    VALUATION_RATIOS_PRICE_CHANGE_1M = 3483
+
+    VALUATION_RATIOS_NORMALIZED_PE_RATIO = 3484
+
+    VALUATION_RATIOS_PRICE_TO_EBITDA = 3485
+
+    VALUATION_RATIOS_DIV_YIELD_5_YEAR = 3486
+
+    VALUATION_RATIOS_FORWARD_ROE = 3487
+
+    VALUATION_RATIOS_FORWARD_ROA = 3488
+
+    VALUATION_RATIOS_TWO_YEARS_FORWARD_EARNING_YIELD = 3489
+
+    VALUATION_RATIOS_TWO_YEARS_FORWARD_PE_RATIO = 3490
+
+    VALUATION_RATIOS_FORWARD_CALCULATION_STYLE = 3491
+
+    VALUATION_RATIOS_ACTUAL_FORWARD_DIVIDEND = 3492
+
+    VALUATION_RATIOS_TRAILING_CALCULATION_STYLE = 3493
+
+    VALUATION_RATIOS_ACTUAL_TRAILING_DIVIDEND = 3494
+
+    VALUATION_RATIOS_TOTAL_ASSET_PER_SHARE = 3495
+
+    VALUATION_RATIOS_EXPECTED_DIVIDEND_GROWTH_RATE = 3496
+
+    VALUATION_RATIOS_EV_TO_REVENUE = 3497
+
+    VALUATION_RATIOS_EV_TO_PRE_TAX_INCOME = 3498
+
+    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS = 3499
+
+    VALUATION_RATIOS_EV_TO_FCF = 3500
+
+    VALUATION_RATIOS_EV_TO_EBIT = 3501
+
+    VALUATION_RATIOS_FFO_PER_SHARE = 3502
+
+    VALUATION_RATIOS_PRICE_TO_CASH_RATIO = 3503
+
+    VALUATION_RATIOS_EV_TO_FORWARD_EBITDA = 3504
+
+    VALUATION_RATIOS_EV_TO_FORWARD_REVENUE = 3505
+
+    VALUATION_RATIOS_EV_TO_FORWARD_EBIT = 3506
+
+    VALUATION_RATIOS_EV_TO_EBITDA_1_YEAR_GROWTH = 3507
+
+    VALUATION_RATIOS_EV_TO_FCF_1_YEAR_GROWTH = 3508
+
+    VALUATION_RATIOS_EV_TO_REVENUE_1_YEAR_GROWTH = 3509
+
+    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_1_YEAR_GROWTH = 3510
+
+    VALUATION_RATIOS_PFCF_RATIO_1_YEAR_GROWTH = 3511
+
+    VALUATION_RATIOS_PB_RATIO_1_YEAR_GROWTH = 3512
+
+    VALUATION_RATIOS_PE_RATIO_1_YEAR_GROWTH = 3513
+
+    VALUATION_RATIOS_PS_RATIO_1_YEAR_GROWTH = 3514
+
+    VALUATION_RATIOS_EV_TO_EBIT_3_YR_AVG = 3515
+
+    VALUATION_RATIOS_EV_TO_EBITDA_3_YR_AVG = 3516
+
+    VALUATION_RATIOS_EV_TO_FCF_3_YR_AVG = 3517
+
+    VALUATION_RATIOS_EV_TO_REVENUE_3_YR_AVG = 3518
+
+    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_3_YR_AVG = 3519
+
+    VALUATION_RATIOS_EV_TO_EBIT_3_YR_AVG_CHANGE = 3520
+
+    VALUATION_RATIOS_EV_TO_EBITDA_3_YR_AVG_CHANGE = 3521
+
+    VALUATION_RATIOS_EV_TO_FCF_3_YR_AVG_CHANGE = 3522
+
+    VALUATION_RATIOS_EV_TO_REVENUE_3_YR_AVG_CHANGE = 3523
+
+    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_3_YR_AVG_CHANGE = 3524
+
+    VALUATION_RATIOS_PFCF_RATIO_3_YR_AVG = 3525
+
+    VALUATION_RATIOS_PB_RATIO_3_YR_AVG = 3526
+
+    VALUATION_RATIOS_PS_RATIO_3_YR_AVG = 3527
+
+    VALUATION_RATIOS_P_CASH_RATIO_3_YR_AVG = 3528
+
+    VALUATION_RATIOS_PE_RATIO_3_YR_AVG = 3529
+
+    VALUATION_RATIOS_PFCF_RATIO_3_YR_AVG_CHANGE = 3530
+
+    VALUATION_RATIOS_PB_RATIO_3_YR_AVG_CHANGE = 3531
+
+    VALUATION_RATIOS_PS_RATIO_3_YR_AVG_CHANGE = 3532
+
+    VALUATION_RATIOS_PE_RATIO_3_YR_AVG_CHANGE = 3533
+
+    VALUATION_RATIOS_PE_RATIO_1_YEAR_HIGH = 3534
+
+    VALUATION_RATIOS_PE_RATIO_1_YEAR_LOW = 3535
+
+    VALUATION_RATIOS_PE_RATIO_1_YEAR_AVERAGE = 3536
+
+    VALUATION_RATIOS_PE_RATIO_5_YEAR_HIGH = 3537
+
+    VALUATION_RATIOS_PE_RATIO_5_YEAR_LOW = 3538
+
+    VALUATION_RATIOS_PE_RATIO_5_YEAR_AVERAGE = 3539
+
+    VALUATION_RATIOS_PE_RATIO_10_YEAR_HIGH = 3540
+
+    VALUATION_RATIOS_PE_RATIO_10_YEAR_LOW = 3541
+
+    VALUATION_RATIOS_PE_RATIO_10_YEAR_AVERAGE = 3542
+
+    VALUATION_RATIOS_CAPE_RATIO = 3543
+
+    VALUATION_RATIOS_EV_TO_EBITDA_3_YEAR_GROWTH = 3544
+
+    VALUATION_RATIOS_EV_TO_FCF_3_YEAR_GROWTH = 3545
+
+    VALUATION_RATIOS_EV_TO_REVENUE_3_YEAR_GROWTH = 3546
+
+    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_3_YEAR_GROWTH = 3547
+
+    VALUATION_RATIOS_PFCF_RATIO_3_YEAR_GROWTH = 3548
+
+    VALUATION_RATIOS_PB_RATIO_3_YEAR_GROWTH = 3549
+
+    VALUATION_RATIOS_PE_RATIO_3_YEAR_GROWTH = 3550
+
+    VALUATION_RATIOS_PS_RATIO_3_YEAR_GROWTH = 3551
+
+    VALUATION_RATIOS_EV_TO_EBITDA_5_YEAR_GROWTH = 3552
+
+    VALUATION_RATIOS_EV_TO_FCF_5_YEAR_GROWTH = 3553
+
+    VALUATION_RATIOS_EV_TO_REVENUE_5_YEAR_GROWTH = 3554
+
+    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_5_YEAR_GROWTH = 3555
+
+    VALUATION_RATIOS_PFCF_RATIO_5_YEAR_GROWTH = 3556
+
+    VALUATION_RATIOS_PB_RATIO_5_YEAR_GROWTH = 3557
+
+    VALUATION_RATIOS_PE_RATIO_5_YEAR_GROWTH = 3558
+
+    VALUATION_RATIOS_PS_RATIO_5_YEAR_GROWTH = 3559
+
+    VALUATION_RATIOS_EV_TO_EBITDA_10_YEAR_GROWTH = 3560
+
+    VALUATION_RATIOS_EV_TO_FCF_10_YEAR_GROWTH = 3561
+
+    VALUATION_RATIOS_EV_TO_REVENUE_10_YEAR_GROWTH = 3562
+
+    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_10_YEAR_GROWTH = 3563
+
+    VALUATION_RATIOS_PFCF_RATIO_10_YEAR_GROWTH = 3564
+
+    VALUATION_RATIOS_PB_RATIO_10_YEAR_GROWTH = 3565
+
+    VALUATION_RATIOS_PE_RATIO_10_YEAR_GROWTH = 3566
+
+    VALUATION_RATIOS_PS_RATIO_10_YEAR_GROWTH = 3567
+
+    VALUATION_RATIOS_TWO_YRS_EV_TO_FORWARD_EBIT = 3568
+
+    VALUATION_RATIOS_TWO_YRS_EV_TO_FORWARD_EBITDA = 3569
+
+    VALUATION_RATIOS_FIRST_YEAR_ESTIMATED_EPS_GROWTH = 3570
+
+    VALUATION_RATIOS_SECOND_YEAR_ESTIMATED_EPS_GROWTH = 3571
+
+    VALUATION_RATIOS_NORMALIZED_PEG_RATIO = 3572
+
+    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_1 = 3573
+
+    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_2 = 3574
+
+    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_3 = 3575
+
+    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_4 = 3576
+
+    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_5 = 3577
+
+    COMPANY_PROFILE_HEADQUARTER_CITY = 3578
+
+    COMPANY_PROFILE_HEADQUARTER_PROVINCE = 3579
+
+    COMPANY_PROFILE_HEADQUARTER_COUNTRY = 3580
+
+    COMPANY_PROFILE_HEADQUARTER_POSTAL_CODE = 3581
+
+    COMPANY_PROFILE_HEADQUARTER_PHONE = 3582
+
+    COMPANY_PROFILE_HEADQUARTER_FAX = 3583
+
+    COMPANY_PROFILE_HEADQUARTER_HOMEPAGE = 3584
+
+    COMPANY_PROFILE_TOTAL_EMPLOYEE_NUMBER = 3585
+
+    COMPANY_PROFILE_CONTACT_EMAIL = 3586
+
+    COMPANY_PROFILE_AVERAGE_EMPLOYEE_NUMBER = 3587
+
+    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_1 = 3588
+
+    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_2 = 3589
+
+    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_3 = 3590
+
+    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_4 = 3591
+
+    COMPANY_PROFILE_REGISTERED_CITY = 3592
+
+    COMPANY_PROFILE_REGISTERED_PROVINCE = 3593
+
+    COMPANY_PROFILE_REGISTERED_COUNTRY = 3594
+
+    COMPANY_PROFILE_REGISTERED_POSTAL_CODE = 3595
+
+    COMPANY_PROFILE_REGISTERED_PHONE = 3596
+
+    COMPANY_PROFILE_REGISTERED_FAX = 3597
+
+    COMPANY_PROFILE_IS_HEAD_OFFICE_SAME_WITH_REGISTERED_OFFICE_FLAG = 3598
+
+    COMPANY_PROFILE_SHARES_OUTSTANDING = 3599
+
+    COMPANY_PROFILE_MARKET_CAP = 3600
+
+    COMPANY_PROFILE_ENTERPRISE_VALUE = 3601
+
+    COMPANY_PROFILE_SHARE_CLASS_LEVEL_SHARES_OUTSTANDING = 3602
+
+    COMPANY_PROFILE_SHARES_OUTSTANDING_WITH_BALANCE_SHEET_ENDING_DATE = 3603
+
+    COMPANY_PROFILE_REASONOF_SHARES_CHANGE = 3604
+
+    ASSET_CLASSIFICATION_STOCK_TYPE = 3605
+
+    ASSET_CLASSIFICATION_STYLE_BOX = 3606
+
+    ASSET_CLASSIFICATION_GROWTH_GRADE = 3607
+
+    ASSET_CLASSIFICATION_FINANCIAL_HEALTH_GRADE = 3608
+
+    ASSET_CLASSIFICATION_PROFITABILITY_GRADE = 3609
+
+    ASSET_CLASSIFICATION_MORNINGSTAR_INDUSTRY_CODE = 3610
+
+    ASSET_CLASSIFICATION_MORNINGSTAR_INDUSTRY_GROUP_CODE = 3611
+
+    ASSET_CLASSIFICATION_MORNINGSTAR_SECTOR_CODE = 3612
+
+    ASSET_CLASSIFICATION_MORNINGSTAR_ECONOMY_SPHERE_CODE = 3613
+
+    ASSET_CLASSIFICATION_SIC = 3614
+
+    ASSET_CLASSIFICATION_NAICS = 3615
+
+    ASSET_CLASSIFICATION_STYLE_SCORE = 3616
+
+    ASSET_CLASSIFICATION_SIZE_SCORE = 3617
+
+    ASSET_CLASSIFICATION_GROWTH_SCORE = 3618
+
+    ASSET_CLASSIFICATION_VALUE_SCORE = 3619
+
+    ASSET_CLASSIFICATION_NACE = 3620
+
+    ASSET_CLASSIFICATION_CANNAICS = 3621
+
+
+class FundamentalTimeDependentProperty(ReusuableCLRObject, metaclass=abc.ABCMeta):
+    """Simple base class shared by top layer fundamental properties which depend on a time provider"""
+
+    @property
+    def _time_provider(self) -> QuantConnect.ITimeProvider:
+        """
+        The time provider instance to use
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def _security_identifier(self) -> QuantConnect.SecurityIdentifier:
+        """
+        The SID instance to use
+        
+        This property is protected.
+        """
+        ...
+
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def clone(self, time_provider: QuantConnect.ITimeProvider) -> QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty:
+        """Clones this instance"""
+        ...
 
 
 class Period(System.Object):
@@ -1260,11 +7332,14 @@ class Period(System.Object):
     """Period constant for ten years"""
 
 
-class FundamentalTimeDependentProperty(ReusuableCLRObject, metaclass=abc.ABCMeta):
-    """Simple base class shared by top layer fundamental properties which depend on a time provider"""
+class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodField_T], ReusuableCLRObject, metaclass=abc.ABCMeta):
+    """Abstract base class for multi-period fields"""
+
+    NO_VALUE: QuantConnect_Data_Fundamental_MultiPeriodField_T
+    """No Value"""
 
     @property
-    def _time_provider(self) -> QuantConnect.ITimeProvider:
+    def time_provider(self) -> QuantConnect.ITimeProvider:
         """
         The time provider instance to use
         
@@ -1273,20 +7348,118 @@ class FundamentalTimeDependentProperty(ReusuableCLRObject, metaclass=abc.ABCMeta
         ...
 
     @property
-    def _security_identifier(self) -> QuantConnect.SecurityIdentifier:
+    @abc.abstractmethod
+    def default_period(self) -> str:
         """
-        The SID instance to use
+        The default period
         
         This property is protected.
         """
         ...
 
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
+    @property
+    def security_identifier(self) -> QuantConnect.SecurityIdentifier:
+        """
+        The target security identifier
+        
+        This property is protected.
+        """
         ...
 
-    def clone(self, time_provider: QuantConnect.ITimeProvider) -> QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty:
-        """Clones this instance"""
+    @security_identifier.setter
+    def security_identifier(self, value: QuantConnect.SecurityIdentifier) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Creates an empty instance
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """
+        Creates a new instance
+        
+        This method is protected.
+        """
+        ...
+
+    def convert_period(self, period: str) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        This method is protected.
+        """
+        ...
+
+    def get_period_names(self) -> typing.Iterable[str]:
+        """Gets the list of available period names for the field"""
+        ...
+
+    def get_period_value(self, period: str) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
+        """Gets a dictionary of period names and values for the field"""
+        ...
+
+    def has_period_value(self, period: str) -> bool:
+        """
+        Returns true if the field contains a value for the requested period
+        
+        :returns: True if the field contains a value for the requested period.
+        """
+        ...
+
+    def has_values(self) -> bool:
+        """Returns true if the field has at least one value for one period"""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string that represents the current object."""
+        ...
+
+
+class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
+    """Abstract class for multi-period fields long"""
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Creates an empty instance
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """
+        Creates a new instance
+        
+        This method is protected.
+        """
         ...
 
 
@@ -64124,7252 +70297,1210 @@ class Fundamental(QuantConnect.Data.Fundamental.FineFundamental):
         ...
 
 
-class FundamentalProperty(Enum):
-    """The fundamental property to access"""
+class StockType(System.Object):
+    """Helper class for the AssetClassification's StockType field AssetClassification.StockType"""
+
+    AGGRESSIVE_GROWTH: int = 1
+    """
+    Companies whose revenues and earnings have both been growing significantly faster than
+    the general economy.
+    """
+
+    CLASSIC_GROWTH: int = 2
+    """
+    Companies that are growing respectably faster than the general economy, and often pay a
+    steady dividend. They tend to be mature and solidly profitable businesses.
+    """
+
+    CYCLICALS: int = 3
+    """
+    Companies in the cyclicals and durables sectors, except those in the three types below.
+    The profits of cyclicals tend to rise and fall with the general economy.
+    """
+
+    DISTRESSED: int = 4
+    """
+    Companies that have had consistently declining cash flows and earnings over the past
+    three years, and/or very high debt.
+    """
+
+    HARD_ASSET: int = 5
+    """
+    Companies that deal in assets such as oil, metals, and real estate, which tend to do
+    well in inflationary environments.
+    """
+
+    HIGH_YIELD: int = 6
+    """
+    Companies that have dividend yields at least twice the average for large-cap stocks.
+    They tend to be mature, slow-growing companies.
+    """
+
+    SLOW_GROWTH: int = 7
+    """
+    Companies that have shown slow revenue and earnings growth (typically less than the rate
+    of GDP growth) over at least three years.
+    """
+
+    SPECULATIVE_GROWTH: int = 8
+    """
+    Companies that have shown strong revenue growth but slower or spotty earnings growth.
+    Very small or young companies also tend to fall into this class.
+    """
+
+
+class StyleBox(System.Object):
+    """
+    Helper class for the AssetClassification's StyleBox field AssetClassification.StyleBox.
+    For stocks and stock funds, it classifies securities according to market capitalization and growth and value factor
+    """
+
+    LARGE_VALUE: int = 1
+
+    LARGE_CORE: int = 2
+
+    LARGE_GROWTH: int = 3
+
+    MID_VALUE: int = 4
+
+    MID_CORE: int = 5
+
+    MID_GROWTH: int = 6
+
+    SMALL_VALUE: int = 7
+
+    SMALL_CORE: int = 8
+
+    SMALL_GROWTH: int = 9
+
+
+class MorningstarEconomySphereCode(System.Object):
+    """Helper class for the AssetClassification's MorningstarEconomySphereCode field AssetClassification.MorningstarEconomySphereCode."""
+
+    CYCLICAL: int = 1
+    """
+    The cyclical Super Sector includes industries significantly affected by economic shifts.
+    When the economy is prosperous, these industries tend to expand, and when the economy is
+    in a downturn they tend to shrink. In general, the stocks in these industries have betas
+    of greater than 1.
+    """
+
+    DEFENSIVE: int = 2
+    """
+    The defensive Super Sector includes industries that are relatively immune to economic
+    cycles. These industries provide services that consumers require in both good and bad
+    times, such as healthcare and utilities. In general, the stocks in these industries have
+    betas of less than 1.
+    """
+
+    SENSITIVE: int = 3
+    """
+    The sensitive Super Sector includes industries that ebb and flow with the overall
+    economy, but not severely. Sensitive industries fall between defensive and cyclical, as
+    they are not immune to a poor economy, but they also may not be as severely affected as
+    industries in the cyclical Super Sector. In general, the stocks in these industries have
+    betas that are close to 1.
+    """
 
-    MARKET = 0
 
-    DOLLAR_VOLUME = 1
+class MorningstarSectorCode(System.Object):
+    """Helper class for the AssetClassification's MorningstarSectorCode field AssetClassification.MorningstarSectorCode."""
 
-    VOLUME = 2
+    BASIC_MATERIALS: int = 101
+    """
+    Companies that manufacture chemicals, building materials, and paper products. This
+    sector also includes companies engaged in commodities exploration and processing.
+    """
 
-    HAS_FUNDAMENTAL_DATA = 3
+    CONSUMER_CYCLICAL: int = 102
+    """
+    This sector includes retail stores, auto and auto-parts manufacturers, restaurants,
+    lodging facilities, specialty retail and travel companies.
+    """
 
-    PRICE_FACTOR = 4
+    FINANCIAL_SERVICES: int = 103
+    """
+    Companies that provide financial services include banks, savings and loans, asset
+    management companies, credit services, investment brokerage firms, and insurance companies.
+    """
 
-    SPLIT_FACTOR = 5
+    REAL_ESTATE: int = 104
+    """This sector includes companies that develop, acquire, manage, and operate real estate properties."""
 
-    VALUE = 6
+    CONSUMER_DEFENSIVE: int = 205
+    """
+    Companies that manufacture food, beverages, household and personal products, packaging,
+    or tobacco. Also includes companies that provide services such as education and training services.
+    """
 
-    PRICE = 7
+    HEALTHCARE: int = 206
+    """
+    This sector includes biotechnology, pharmaceuticals, research services, home healthcare,
+    hospitals, long-term-care facilities, and medical equipment and supplies. Also include
+    pharmaceutical retailers and companies which provide health information services.
+    """
 
-    COMPANY_REFERENCE_COMPANY_ID = 8
+    UTILITIES: int = 207
+    """Electric, gas, and water utilities."""
 
-    COMPANY_REFERENCE_SHORT_NAME = 9
+    COMMUNICATION_SERVICES: int = 308
+    """
+    Companies that provide communication services using fixed-line networks or
+    those that provide wireless access and services. Also includes companies that provide
+    advertising & marketing services, entertainment content and services, as well as
+    interactive media and content provider over internet or through software.
+    """
 
-    COMPANY_REFERENCE_STANDARD_NAME = 10
+    ENERGY: int = 309
+    """
+    Companies that produce or refine oil and gas, oilfield-services and equipment companies,
+    and pipeline operators. This sector also includes companies that mine thermal coal and uranium.
+    """
 
-    COMPANY_REFERENCE_LEGAL_NAME = 11
+    INDUSTRIALS: int = 310
+    """
+    Companies that manufacture machinery, hand-held tools, and industrial products. This
+    sector also includes aerospace and defense firms as well as companies engaged in
+    transportation services.
+    """
 
-    COMPANY_REFERENCE_COUNTRY_ID = 12
+    TECHNOLOGY: int = 311
+    """
+    Companies engaged in the design, development, and support of computer operating systems
+    and applications. This sector also includes companies that make computer equipment, data
+    storage products, networking products, semiconductors, and components.
+    """
 
-    COMPANY_REFERENCE_CIK = 13
 
-    COMPANY_REFERENCE_COMPANY_STATUS = 14
+class MorningstarIndustryGroupCode(System.Object):
+    """Helper class for the AssetClassification's MorningstarIndustryGroupCode field AssetClassification.MorningstarIndustryGroupCode."""
 
-    COMPANY_REFERENCE_FISCAL_YEAR_END = 15
+    AGRICULTURE: int = 10110
 
-    COMPANY_REFERENCE_INDUSTRY_TEMPLATE_CODE = 16
+    BUILDING_MATERIALS: int = 10120
 
-    COMPANY_REFERENCE_PRIMARY_SHARE_CLASS_ID = 17
+    CHEMICALS: int = 10130
 
-    COMPANY_REFERENCE_PRIMARY_SYMBOL = 18
+    FOREST_PRODUCTS: int = 10140
 
-    COMPANY_REFERENCE_PRIMARY_EXCHANGE_ID = 19
+    METALS_AND_MINING: int = 10150
 
-    COMPANY_REFERENCE_BUSINESS_COUNTRY_ID = 20
+    STEEL: int = 10160
 
-    COMPANY_REFERENCE_LEGAL_NAME_LANGUAGE_CODE = 21
+    VEHICLES_AND_PARTS: int = 10200
 
-    COMPANY_REFERENCE_AUDITOR = 22
+    FURNISHINGS: int = 10220
 
-    COMPANY_REFERENCE_AUDITOR_LANGUAGE_CODE = 23
+    FIXTURES_AND_APPLIANCES: int = 10220
 
-    COMPANY_REFERENCE_ADVISOR = 24
+    HOMEBUILDING_AND_CONSTRUCTION: int = 10230
 
-    COMPANY_REFERENCE_ADVISOR_LANGUAGE_CODE = 25
+    MANUFACTURING_APPAREL_AND_ACCESSORIES: int = 10240
 
-    COMPANY_REFERENCE_IS_LIMITED_PARTNERSHIP = 26
+    PACKAGING_AND_CONTAINERS: int = 10250
 
-    COMPANY_REFERENCE_IS_REIT = 27
+    PERSONAL_SERVICES: int = 10260
 
-    COMPANY_REFERENCE_PRIMARY_MIC = 28
+    RESTAURANTS: int = 10270
 
-    COMPANY_REFERENCE_REPORT_STYLE = 29
+    RETAIL_CYCLICAL: int = 10280
 
-    COMPANY_REFERENCE_YEAROF_ESTABLISHMENT = 30
+    TRAVEL_AND_LEISURE: int = 10290
 
-    COMPANY_REFERENCE_IS_LIMITED_LIABILITY_COMPANY = 31
+    ASSET_MANAGEMENT: int = 10310
 
-    COMPANY_REFERENCE_EXPECTED_FISCAL_YEAR_END = 32
+    BANKS: int = 10320
 
-    SECURITY_REFERENCE_SECURITY_SYMBOL = 33
+    CAPITAL_MARKETS: int = 10330
 
-    SECURITY_REFERENCE_EXCHANGE_ID = 34
+    INSURANCE: int = 10340
 
-    SECURITY_REFERENCE_CURRENCY_ID = 35
+    DIVERSIFIED_FINANCIAL_SERVICES: int = 10350
 
-    SECURITY_REFERENCE_IPO_DATE = 36
+    CREDIT_SERVICES: int = 10360
 
-    SECURITY_REFERENCE_IS_DEPOSITARY_RECEIPT = 37
+    REAL_ESTATE: int = 10410
 
-    SECURITY_REFERENCE_DEPOSITARY_RECEIPT_RATIO = 38
+    REI_TS: int = 10420
 
-    SECURITY_REFERENCE_SECURITY_TYPE = 39
+    BEVERAGES_ALCOHOLIC: int = 20510
 
-    SECURITY_REFERENCE_SHARE_CLASS_DESCRIPTION = 40
+    BEVERAGES_NON_ALCOHOLIC: int = 20520
 
-    SECURITY_REFERENCE_SHARE_CLASS_STATUS = 41
+    CONSUMER_PACKAGED_GOODS: int = 20525
 
-    SECURITY_REFERENCE_IS_PRIMARY_SHARE = 42
+    EDUCATION: int = 20540
 
-    SECURITY_REFERENCE_IS_DIVIDEND_REINVEST = 43
+    RETAIL_DEFENSIVE: int = 20550
 
-    SECURITY_REFERENCE_IS_DIRECT_INVEST = 44
+    TOBACCO_PRODUCTS: int = 20560
 
-    SECURITY_REFERENCE_INVESTMENT_ID = 45
+    BIOTECHNOLOGY: int = 20610
 
-    SECURITY_REFERENCE_IPO_OFFER_PRICE = 46
+    DRUG_MANUFACTURERS: int = 20620
 
-    SECURITY_REFERENCE_DELISTING_DATE = 47
+    HEALTHCARE_PLANS: int = 20630
 
-    SECURITY_REFERENCE_DELISTING_REASON = 48
+    HEALTHCARE_PROVIDERS_AND_SERVICES: int = 20645
 
-    SECURITY_REFERENCE_MIC = 49
+    MEDICAL_DEVICES_AND_INSTRUMENTS: int = 20650
 
-    SECURITY_REFERENCE_COMMON_SHARE_SUB_TYPE = 50
+    MEDICAL_DIAGNOSTICS_AND_RESEARCH: int = 20660
 
-    SECURITY_REFERENCE_IPO_OFFER_PRICE_RANGE = 51
+    MEDICAL_DISTRIBUTION: int = 20670
 
-    SECURITY_REFERENCE_EXCHANGE_SUB_MARKET_GLOBAL_ID = 52
+    UTILITIES_INDEPENDENT_POWER_PRODUCERS: int = 20710
 
-    SECURITY_REFERENCE_CONVERSION_RATIO = 53
+    UTILITIES_REGULATED: int = 20720
 
-    SECURITY_REFERENCE_PAR_VALUE = 54
+    TELECOMMUNICATION_SERVICES: int = 30810
 
-    SECURITY_REFERENCE_TRADING_STATUS = 55
+    MEDIA_DIVERSIFIED: int = 30820
 
-    SECURITY_REFERENCE_MARKET_DATA_ID = 56
+    INTERACTIVE_MEDIA: int = 30830
 
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_ONE_MONTH = 57
+    OIL_AND_GAS: int = 30910
 
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_TWO_MONTHS = 58
+    OTHER_ENERGY_SOURCES: int = 30920
 
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_THREE_MONTHS = 59
+    AEROSPACE_AND_DEFENSE: int = 31010
 
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_SIX_MONTHS = 60
+    BUSINESS_SERVICES: int = 31020
 
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_NINE_MONTHS = 61
+    CONGLOMERATES: int = 31030
 
-    FINANCIAL_STATEMENTS_PERIOD_ENDING_DATE_TWELVE_MONTHS = 62
+    CONSTRUCTION: int = 31040
 
-    FINANCIAL_STATEMENTS_FILE_DATE_ONE_MONTH = 63
+    FARM_AND_HEAVY_CONSTRUCTION_MACHINERY: int = 31050
 
-    FINANCIAL_STATEMENTS_FILE_DATE_TWO_MONTHS = 64
+    INDUSTRIAL_DISTRIBUTION: int = 31060
 
-    FINANCIAL_STATEMENTS_FILE_DATE_THREE_MONTHS = 65
+    INDUSTRIAL_PRODUCTS: int = 31070
 
-    FINANCIAL_STATEMENTS_FILE_DATE_SIX_MONTHS = 66
+    TRANSPORTATION: int = 31080
 
-    FINANCIAL_STATEMENTS_FILE_DATE_NINE_MONTHS = 67
+    WASTE_MANAGEMENT: int = 31090
 
-    FINANCIAL_STATEMENTS_FILE_DATE_TWELVE_MONTHS = 68
+    SOFTWARE: int = 31110
 
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_ONE_MONTH = 69
+    HARDWARE: int = 31120
 
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_TWO_MONTHS = 70
+    SEMICONDUCTORS: int = 31130
 
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_THREE_MONTHS = 71
 
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_SIX_MONTHS = 72
+class MorningstarIndustryCode(System.Object):
+    """Helper class for the AssetClassification's MorningstarIndustryCode field AssetClassification.MorningstarIndustryCode."""
 
-    FINANCIAL_STATEMENTS_ACCESSION_NUMBER_NINE_MONTHS = 73
+    AGRICULTURAL_INPUTS: int = 10110010
+    """
+    Companies that manufacture nitrogenous and phosphatic fertilizers, pesticides, seed, and
+    other agricultural chemical products.
+    """
 
-    FINANCIAL_STATEMENTS_FORM_TYPE_ONE_MONTH = 74
+    BUILDING_MATERIALS: int = 10120010
+    """
+    Companies that manufacture construction materials, including stone, clay, and brick
+    products, cement, lime, gypsum, and concrete and other construction products. Excludes
+    companies that manufacture finished and semi finished building products.
+    """
 
-    FINANCIAL_STATEMENTS_FORM_TYPE_TWO_MONTHS = 75
+    CHEMICALS: int = 10130010
+    """
+    Chemical manufacturing companies engaged in diverse chemical and chemical-related
+    operations, and basic chemicals manufacturing.
+    """
 
-    FINANCIAL_STATEMENTS_FORM_TYPE_THREE_MONTHS = 76
+    SPECIALTY_CHEMICALS: int = 10130020
+    """
+    Companies that use base chemicals to produce value-added chemicals that are used in a
+    variety of products. Includes companies that produce polishes, adhesives and sealants,
+    explosives, printing ink, paint, carbon black, acids, repellants, and cleaning solutions.
+    """
 
-    FINANCIAL_STATEMENTS_FORM_TYPE_SIX_MONTHS = 77
+    LUMBER_AND_WOOD_PRODUCTION: int = 10140010
+    """Companies that grow timber, mill lumber, and manufacture wood and wood products for construction."""
 
-    FINANCIAL_STATEMENTS_FORM_TYPE_NINE_MONTHS = 78
+    PAPER_AND_PAPER_PRODUCTS: int = 10140020
+    """
+    Companies that manufacture and market paper and paper-related products from wood pulp
+    and other fibers. Excludes companies that produce paper packaging products and are
+    classified in the packaging and containers industry.
+    """
 
-    FINANCIAL_STATEMENTS_FORM_TYPE_TWELVE_MONTHS = 79
+    ALUMINUM: int = 10150010
+    """
+    Companies that produce, refine, market, and distribute aluminum and related
+    aluminum-based products.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_ONE_MONTH = 80
+    COPPER: int = 10150020
+    """
+    Companies engaged in the exploration, mining, smelting, and refining of copper ores and
+    related copper products.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_TWO_MONTHS = 81
+    OTHER_INDUSTRIAL_METALS_AND_MINING: int = 10150030
+    """
+    Companies that mine, refine, produce, smelt, and mill industrial ores, including copper,
+    lead, zinc, radium, vanadium, nickel, tin, titanium, and other related materials.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_THREE_MONTHS = 82
+    GOLD: int = 10150040
+    """Companies principally engaged in gold exploration, mining, processing, extraction, and smelting."""
 
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_SIX_MONTHS = 83
+    SILVER: int = 10150050
+    """Companies principally engaged in silver exploration, mining, processing, extraction, and smelting."""
 
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_NINE_MONTHS = 84
+    OTHER_PRECIOUS_METALS_AND_MINING: int = 10150060
+    """
+    Companies that mine, refine, produce, smelt, and mill precious metals, including silver,
+    platinum, palladium, diamond, and other related minerals.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_AUDITOR_TWELVE_MONTHS = 85
+    COKING_COAL: int = 10160010
+    """Companies that produce coking coal."""
 
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_ONE_MONTH = 86
+    STEEL: int = 10160020
+    """
+    Companies that produce steel plates, steel sheets, bar and rod materials, structural
+    steel, steel pipes and tubes, and stainless steel.
+    """
 
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_TWO_MONTHS = 87
+    AUTO_AND_TRUCK_DEALERSHIPS: int = 10200010
+    """
+    Companies engaged in the specialty retail of new and used automobiles, trucks, and other
+    vehicles through the operation and/or franchising of dealerships.
+    """
 
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_THREE_MONTHS = 88
+    AUTO_MANUFACTURERS: int = 10200020
+    """Leading worldwide designers and manufacturers of passenger cars and trucks."""
 
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_SIX_MONTHS = 89
+    AUTO_PARTS: int = 10200030
+    """
+    Companies that manufacture motor vehicle parts and accessories, including rubber and
+    plastic products, such as tires and inner tubes, but do not manufacture complete car bodies.
+    """
 
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_NINE_MONTHS = 90
+    RECREATIONAL_VEHICLES: int = 10200040
+    """
+    Companies that manufacture recreational vehicles, including self-contained motor homes,
+    campers, all-terrain vehicles, travel/camper trailers, and snowmobiles.
+    """
 
-    FINANCIAL_STATEMENTS_AUDITOR_REPORT_STATUS_TWELVE_MONTHS = 91
+    FURNISHINGS: int = 10220010
+    """
+    Companies that manufacture and market wooden, metal, and upholstered furniture,
+    mattresses, bedsprings, lighting fixtures, wooden flooring, wallpaper, and household
+    products, such as utensils, cutlery, tableware, and appliances.
+    """
 
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_ONE_MONTH = 92
+    FIXTURES_AND_APPLIANCES: int = 10220010
+    """
+    Companies that manufacture and market wooden, metal, and upholstered furniture,
+    mattresses, bedsprings, lighting fixtures, wooden flooring, wallpaper, and household
+    products, such as utensils, cutlery, tableware, and appliances.
+    """
 
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_TWO_MONTHS = 93
+    RESIDENTIAL_CONSTRUCTION: int = 10230010
+    """
+    Companies that build and renovate residential buildings, such as single-family houses,
+    apartments, and hotels.
+    """
 
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_THREE_MONTHS = 94
+    TEXTILE_MANUFACTURING: int = 10240010
+    """
+    Companies that manufacture and mill textile products, including apparel fabrics, bedding
+    and accessories, home furnishing fabrics, carpets and rugs, curtains and drapes, and
+    other milled textile products.
+    """
 
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_SIX_MONTHS = 95
+    APPAREL_MANUFACTURING: int = 10240020
+    """
+    Companies that manufacture, design, market, source, and sell all lines of clothing for
+    men, women, and children. Also includes companies that manufacture or distribute
+    buttons, buckles, and other apparel parts.
+    """
 
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_NINE_MONTHS = 96
+    FOOTWEAR_AND_ACCESSORIES: int = 10240030
+    """
+    Companies that manufacture, design, market, and sell lines of footwear and luggage,
+    handbags and purses, belts, and other leather goods.
+    """
 
-    FINANCIAL_STATEMENTS_INVENTORY_VALUATION_METHOD_TWELVE_MONTHS = 97
+    PACKAGING_AND_CONTAINERS: int = 10250010
+    """
+    Companies that manufacture and market paper, plastic, metal, and glass packaging
+    products, including corrugated boxes, cardboard containers, bottles, cans, and plastic
+    foam and containers.
+    """
 
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_ONE_MONTH = 98
+    PERSONAL_SERVICES: int = 10260010
+    """
+    Companies that provide services of a personal nature or that are particularly structured
+    for the individual or group being served, including veterinary services, funeral and
+    cemetery services, child care services, portrait and photo services, tax preparation and
+    legal services, and other miscellaneous personal services.
+    """
 
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_TWO_MONTHS = 99
+    RESTAURANTS: int = 10270010
+    """
+    Companies that own, operate, and franchise full-service restaurants that engage in the
+    retail sale of prepared food and drink.
+    """
 
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_THREE_MONTHS = 100
+    APPAREL_RETAIL: int = 10280010
+    """Companies engaged in the retail sale of clothing, shoes, and accessories."""
 
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_SIX_MONTHS = 101
+    DEPARTMENT_STORES: int = 10280020
+    """
+    Companies engaged in the retail sale of a diverse mix of merchandise, emphasizing
+    fashion apparel and accessories, home furnishings, electronics, and cosmetics.
+    """
 
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_NINE_MONTHS = 102
+    HOME_IMPROVEMENT_RETAIL: int = 10280030
+    """
+    Companies engaged in the retail sale of home improvement items, such as lumber, carpets,
+    hardware and other building materials, plants and other garden supplies, and various
+    other items for the home.
+    """
 
-    FINANCIAL_STATEMENTS_NUMBER_OF_SHARE_HOLDERS_TWELVE_MONTHS = 103
+    LUXURY_GOODS: int = 10280040
+    """
+    Companies engaged in the specialty retail of luxury items, including jewelry, watches,
+    crystal, clothing, handbags, and accessories.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_ONE_MONTH = 104
+    INTERNET_RETAIL: int = 10280050
+    """
+    Companies engaged in the online retail sale of a diverse mix of merchandise. Excludes
+    companies that target the travel industry and are classified in travel services.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_TWO_MONTHS = 105
+    SPECIALTY_RETAIL: int = 10280060
+    """
+    Companies engaged in the specialty retail of various goods and products not covered in a
+    specific industry group. This group includes retailers such as bookstores, office-supply
+    stores, gas stations, pawn shops, novelty shops, auto-parts stores, electronics stores,
+    home furnishing stores, sporting goods stores, toy and hobby stores, music and video
+    stores, and many other miscellaneous retailers.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_THREE_MONTHS = 106
+    GAMBLING: int = 10290010
+    """
+    Companies that own, operate, or manage lawful gaming activities and events, such as
+    horse and dog racing, online gaming, bingo, and video lottery, as well as companies that
+    supply products or services to gaming operators. It excludes companies operating casinos.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_SIX_MONTHS = 107
+    LEISURE: int = 10290020
+    """
+    Companies that manufacture, design, market, and sell bicycles, sporting goods,
+    photographic equipment, recreational equipment, toys, and other leisure products or services.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_NINE_MONTHS = 108
+    LODGING: int = 10290030
+    """
+    Companies that develop, manage, own, and operate lodging facilities, including motels,
+    extended-stay and full-service hotels, and economy hotels and inns.
+    """
 
-    FINANCIAL_STATEMENTS_PERIOD_TYPE_TWELVE_MONTHS = 109
+    RESORTS_AND_CASINOS: int = 10290040
+    """
+    Companies that own, operate, and manage resort properties, including beach clubs,
+    time-share properties, and luxury resort hotels and that conduct casino gaming operations.
+    """
 
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_ONE_MONTH = 110
-
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_THREE_MONTHS = 111
-
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_SIX_MONTHS = 112
-
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_NINE_MONTHS = 113
-
-    FINANCIAL_STATEMENTS_TOTAL_RISK_BASED_CAPITAL_TWELVE_MONTHS = 114
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_ONE_MONTH = 115
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_TWO_MONTHS = 116
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_THREE_MONTHS = 117
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_SIX_MONTHS = 118
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_NINE_MONTHS = 119
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IS_FILE_DATE_TWELVE_MONTHS = 120
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_ONE_MONTH = 121
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_TWO_MONTHS = 122
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_THREE_MONTHS = 123
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SIX_MONTHS = 124
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_NINE_MONTHS = 125
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_TWELVE_MONTHS = 126
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_ONE_MONTH = 127
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_THREE_MONTHS = 128
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_SIX_MONTHS = 129
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_NINE_MONTHS = 130
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_AMORTIZATION_TWELVE_MONTHS = 131
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_ONE_MONTH = 132
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_TWO_MONTHS = 133
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_THREE_MONTHS = 134
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_SIX_MONTHS = 135
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_NINE_MONTHS = 136
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COST_OF_REVENUE_TWELVE_MONTHS = 137
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_THREE_MONTHS = 138
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_SIX_MONTHS = 139
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_NINE_MONTHS = 140
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPLETION_TWELVE_MONTHS = 141
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_ONE_MONTH = 142
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_THREE_MONTHS = 143
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SIX_MONTHS = 144
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_NINE_MONTHS = 145
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_TWELVE_MONTHS = 146
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_ONE_MONTH = 147
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWO_MONTHS = 148
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_THREE_MONTHS = 149
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_SIX_MONTHS = 150
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_NINE_MONTHS = 151
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWELVE_MONTHS = 152
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_ONE_MONTH = 153
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWO_MONTHS = 154
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_THREE_MONTHS = 155
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_SIX_MONTHS = 156
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_NINE_MONTHS = 157
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWELVE_MONTHS = 158
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_ONE_MONTH = 159
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_TWO_MONTHS = 160
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_THREE_MONTHS = 161
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_SIX_MONTHS = 162
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_NINE_MONTHS = 163
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_DISCONTINUOUS_OPERATIONS_TWELVE_MONTHS = 164
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_THREE_MONTHS = 165
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_SIX_MONTHS = 166
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_NINE_MONTHS = 167
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXCISE_TAXES_TWELVE_MONTHS = 168
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_ONE_MONTH = 169
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_TWO_MONTHS = 170
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_THREE_MONTHS = 171
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_SIX_MONTHS = 172
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_NINE_MONTHS = 173
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_EXTRAORDINARY_TWELVE_MONTHS = 174
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_THREE_MONTHS = 175
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_SIX_MONTHS = 176
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_NINE_MONTHS = 177
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEE_REVENUE_AND_OTHER_INCOME_TWELVE_MONTHS = 178
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_ONE_MONTH = 179
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_TWO_MONTHS = 180
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_THREE_MONTHS = 181
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_SIX_MONTHS = 182
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_NINE_MONTHS = 183
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GENERAL_AND_ADMINISTRATIVE_EXPENSE_TWELVE_MONTHS = 184
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_ONE_MONTH = 185
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_TWO_MONTHS = 186
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_THREE_MONTHS = 187
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_SIX_MONTHS = 188
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_NINE_MONTHS = 189
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PROFIT_TWELVE_MONTHS = 190
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_ONE_MONTH = 191
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_TWO_MONTHS = 192
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_THREE_MONTHS = 193
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_SIX_MONTHS = 194
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NINE_MONTHS = 195
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_TWELVE_MONTHS = 196
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_ONE_MONTH = 197
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_TWO_MONTHS = 198
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_THREE_MONTHS = 199
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_SIX_MONTHS = 200
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_NINE_MONTHS = 201
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_NON_OPERATING_TWELVE_MONTHS = 202
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_ONE_MONTH = 203
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_TWO_MONTHS = 204
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_THREE_MONTHS = 205
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_SIX_MONTHS = 206
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_NINE_MONTHS = 207
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_AFTER_PROVISION_FOR_LOAN_LOSS_TWELVE_MONTHS = 208
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_ONE_MONTH = 209
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_TWO_MONTHS = 210
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_THREE_MONTHS = 211
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_SIX_MONTHS = 212
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_NINE_MONTHS = 213
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NON_OPERATING_TWELVE_MONTHS = 214
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_ONE_MONTH = 215
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_TWO_MONTHS = 216
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_THREE_MONTHS = 217
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_SIX_MONTHS = 218
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_NINE_MONTHS = 219
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_NON_OPERATING_INTEREST_INCOME_EXPENSE_TWELVE_MONTHS = 220
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_THREE_MONTHS = 221
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_SIX_MONTHS = 222
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_NINE_MONTHS = 223
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSS_ADJUSTMENT_EXPENSE_TWELVE_MONTHS = 224
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_ONE_MONTH = 225
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_TWO_MONTHS = 226
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_THREE_MONTHS = 227
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_SIX_MONTHS = 228
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_NINE_MONTHS = 229
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MINORITY_INTERESTS_TWELVE_MONTHS = 230
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_ONE_MONTH = 231
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_TWO_MONTHS = 232
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_THREE_MONTHS = 233
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_SIX_MONTHS = 234
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_NINE_MONTHS = 235
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_TWELVE_MONTHS = 236
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_ONE_MONTH = 237
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_TWO_MONTHS = 238
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_THREE_MONTHS = 239
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_SIX_MONTHS = 240
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_NINE_MONTHS = 241
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_COMMON_STOCKHOLDERS_TWELVE_MONTHS = 242
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_ONE_MONTH = 243
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_TWO_MONTHS = 244
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_THREE_MONTHS = 245
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_SIX_MONTHS = 246
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NINE_MONTHS = 247
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_TWELVE_MONTHS = 248
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_ONE_MONTH = 249
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_TWO_MONTHS = 250
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_THREE_MONTHS = 251
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_SIX_MONTHS = 252
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_NINE_MONTHS = 253
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INTEREST_INCOME_TWELVE_MONTHS = 254
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_THREE_MONTHS = 255
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_SIX_MONTHS = 256
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_NINE_MONTHS = 257
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INVESTMENT_INCOME_TWELVE_MONTHS = 258
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_ONE_MONTH = 259
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_TWO_MONTHS = 260
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_THREE_MONTHS = 261
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_SIX_MONTHS = 262
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_NINE_MONTHS = 263
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_TWELVE_MONTHS = 264
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_ONE_MONTH = 265
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_TWO_MONTHS = 266
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_THREE_MONTHS = 267
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_SIX_MONTHS = 268
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_NINE_MONTHS = 269
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_EXPENSE_TWELVE_MONTHS = 270
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_ONE_MONTH = 271
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_TWO_MONTHS = 272
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_THREE_MONTHS = 273
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_SIX_MONTHS = 274
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_NINE_MONTHS = 275
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NON_INTEREST_INCOME_TWELVE_MONTHS = 276
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_ONE_MONTH = 277
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_TWO_MONTHS = 278
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_THREE_MONTHS = 279
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_SIX_MONTHS = 280
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_NINE_MONTHS = 281
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_TWELVE_MONTHS = 282
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_ONE_MONTH = 283
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_TWO_MONTHS = 284
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_THREE_MONTHS = 285
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_SIX_MONTHS = 286
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_NINE_MONTHS = 287
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_INCOME_TWELVE_MONTHS = 288
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_ONE_MONTH = 289
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_TWO_MONTHS = 290
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_THREE_MONTHS = 291
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_SIX_MONTHS = 292
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_NINE_MONTHS = 293
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_REVENUE_TWELVE_MONTHS = 294
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_ONE_MONTH = 295
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_TWO_MONTHS = 296
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_THREE_MONTHS = 297
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_SIX_MONTHS = 298
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_NINE_MONTHS = 299
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INCOME_EXPENSE_TWELVE_MONTHS = 300
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_THREE_MONTHS = 301
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_SIX_MONTHS = 302
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_NINE_MONTHS = 303
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICY_ACQUISITION_EXPENSE_TWELVE_MONTHS = 304
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_THREE_MONTHS = 305
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_SIX_MONTHS = 306
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_NINE_MONTHS = 307
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_POLICYHOLDER_BENEFITS_AND_CLAIMS_TWELVE_MONTHS = 308
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_ONE_MONTH = 309
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_TWO_MONTHS = 310
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_THREE_MONTHS = 311
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_SIX_MONTHS = 312
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_NINE_MONTHS = 313
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PREFERRED_STOCK_DIVIDENDS_TWELVE_MONTHS = 314
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_THREE_MONTHS = 315
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_SIX_MONTHS = 316
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_NINE_MONTHS = 317
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_PREMIUMS_EARNED_TWELVE_MONTHS = 318
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_ONE_MONTH = 319
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_TWO_MONTHS = 320
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_THREE_MONTHS = 321
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_SIX_MONTHS = 322
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_NINE_MONTHS = 323
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PRETAX_INCOME_TWELVE_MONTHS = 324
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_ONE_MONTH = 325
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_TWO_MONTHS = 326
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_THREE_MONTHS = 327
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_SIX_MONTHS = 328
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_NINE_MONTHS = 329
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_PROVISION_TWELVE_MONTHS = 330
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_ONE_MONTH = 331
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_THREE_MONTHS = 332
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_SIX_MONTHS = 333
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_NINE_MONTHS = 334
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_LOSSES_PROVISION_TWELVE_MONTHS = 335
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_ONE_MONTH = 336
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_TWO_MONTHS = 337
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_THREE_MONTHS = 338
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_SIX_MONTHS = 339
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_NINE_MONTHS = 340
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_TWELVE_MONTHS = 341
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_ONE_MONTH = 342
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_TWO_MONTHS = 343
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_THREE_MONTHS = 344
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_SIX_MONTHS = 345
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_NINE_MONTHS = 346
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_AND_MARKETING_EXPENSE_TWELVE_MONTHS = 347
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_ONE_MONTH = 348
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_TWO_MONTHS = 349
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_THREE_MONTHS = 350
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_SIX_MONTHS = 351
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_NINE_MONTHS = 352
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SELLING_GENERAL_AND_ADMINISTRATION_TWELVE_MONTHS = 353
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_ONE_MONTH = 354
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_TWO_MONTHS = 355
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_THREE_MONTHS = 356
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_SIX_MONTHS = 357
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_NINE_MONTHS = 358
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SPECIAL_INCOME_CHARGES_TWELVE_MONTHS = 359
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_ONE_MONTH = 360
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_TWO_MONTHS = 361
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_THREE_MONTHS = 362
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_SIX_MONTHS = 363
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_NINE_MONTHS = 364
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_EXPENSES_TWELVE_MONTHS = 365
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_ONE_MONTH = 366
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_TWO_MONTHS = 367
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_THREE_MONTHS = 368
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_SIX_MONTHS = 369
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_NINE_MONTHS = 370
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_TWELVE_MONTHS = 371
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_ONE_MONTH = 372
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_TWO_MONTHS = 373
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_THREE_MONTHS = 374
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_SIX_MONTHS = 375
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_NINE_MONTHS = 376
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBIT_TWELVE_MONTHS = 377
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_ONE_MONTH = 378
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_TWO_MONTHS = 379
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_THREE_MONTHS = 380
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_SIX_MONTHS = 381
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_NINE_MONTHS = 382
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EBITDA_TWELVE_MONTHS = 383
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_THREE_MONTHS = 384
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_SIX_MONTHS = 385
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_NINE_MONTHS = 386
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_CONTINUOUS_OPERATIONS_NET_MINORITY_INTEREST_TWELVE_MONTHS = 387
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_THREE_MONTHS = 388
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_SIX_MONTHS = 389
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_NINE_MONTHS = 390
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CEDED_PREMIUMS_TWELVE_MONTHS = 391
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_ONE_MONTH = 392
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_TWO_MONTHS = 393
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_THREE_MONTHS = 394
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_SIX_MONTHS = 395
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_NINE_MONTHS = 396
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_COMMISSION_EXPENSES_TWELVE_MONTHS = 397
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_THREE_MONTHS = 398
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_SIX_MONTHS = 399
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_NINE_MONTHS = 400
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_CARD_TWELVE_MONTHS = 401
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_ONE_MONTH = 402
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_TWO_MONTHS = 403
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_THREE_MONTHS = 404
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_SIX_MONTHS = 405
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_NINE_MONTHS = 406
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DIVIDEND_INCOME_TWELVE_MONTHS = 407
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_ONE_MONTH = 408
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_TWO_MONTHS = 409
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_THREE_MONTHS = 410
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_SIX_MONTHS = 411
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_NINE_MONTHS = 412
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGS_FROM_EQUITY_INTEREST_TWELVE_MONTHS = 413
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_THREE_MONTHS = 414
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_SIX_MONTHS = 415
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_NINE_MONTHS = 416
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EQUIPMENT_TWELVE_MONTHS = 417
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_THREE_MONTHS = 418
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_SIX_MONTHS = 419
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_NINE_MONTHS = 420
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EXPLORATION_DEVELOPMENT_AND_MINERAL_PROPERTY_LEASE_EXPENSES_TWELVE_MONTHS = 421
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_ONE_MONTH = 422
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_THREE_MONTHS = 423
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_SIX_MONTHS = 424
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_NINE_MONTHS = 425
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEES_AND_COMMISSIONS_TWELVE_MONTHS = 426
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_THREE_MONTHS = 427
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_SIX_MONTHS = 428
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_NINE_MONTHS = 429
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FOREIGN_EXCHANGE_TRADING_GAINS_TWELVE_MONTHS = 430
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_ONE_MONTH = 431
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_TWO_MONTHS = 432
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_THREE_MONTHS = 433
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_SIX_MONTHS = 434
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_NINE_MONTHS = 435
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_TWELVE_MONTHS = 436
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_THREE_MONTHS = 437
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_SIX_MONTHS = 438
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_NINE_MONTHS = 439
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FUEL_AND_PURCHASE_POWER_TWELVE_MONTHS = 440
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_ONE_MONTH = 441
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_TWO_MONTHS = 442
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_THREE_MONTHS = 443
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_SIX_MONTHS = 444
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_NINE_MONTHS = 445
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_BUSINESS_TWELVE_MONTHS = 446
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_ONE_MONTH = 447
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_THREE_MONTHS = 448
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_SIX_MONTHS = 449
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_NINE_MONTHS = 450
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_PPE_TWELVE_MONTHS = 451
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_ONE_MONTH = 452
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_TWO_MONTHS = 453
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_THREE_MONTHS = 454
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_SIX_MONTHS = 455
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_NINE_MONTHS = 456
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_ON_SALE_OF_SECURITY_TWELVE_MONTHS = 457
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_THREE_MONTHS = 458
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_SIX_MONTHS = 459
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_NINE_MONTHS = 460
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_PREMIUMS_WRITTEN_TWELVE_MONTHS = 461
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_ONE_MONTH = 462
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_TWO_MONTHS = 463
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_THREE_MONTHS = 464
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_SIX_MONTHS = 465
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_NINE_MONTHS = 466
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_OF_CAPITAL_ASSETS_TWELVE_MONTHS = 467
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_THREE_MONTHS = 468
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_SIX_MONTHS = 469
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_NINE_MONTHS = 470
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCREASE_DECREASE_IN_NET_UNEARNED_PREMIUM_RESERVES_TWELVE_MONTHS = 471
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_THREE_MONTHS = 472
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_SIX_MONTHS = 473
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_NINE_MONTHS = 474
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INSURANCE_AND_CLAIMS_TWELVE_MONTHS = 475
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_ONE_MONTH = 476
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_THREE_MONTHS = 477
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_SIX_MONTHS = 478
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_NINE_MONTHS = 479
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_DEPOSIT_TWELVE_MONTHS = 480
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_THREE_MONTHS = 481
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_SIX_MONTHS = 482
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_NINE_MONTHS = 483
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_TWELVE_MONTHS = 484
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_ONE_MONTH = 485
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_THREE_MONTHS = 486
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_SIX_MONTHS = 487
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_NINE_MONTHS = 488
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_LONG_TERM_DEBT_AND_CAPITAL_SECURITIES_TWELVE_MONTHS = 489
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_THREE_MONTHS = 490
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_SIX_MONTHS = 491
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_NINE_MONTHS = 492
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_EXPENSE_FOR_SHORT_TERM_DEBT_TWELVE_MONTHS = 493
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_ONE_MONTH = 494
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_THREE_MONTHS = 495
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_SIX_MONTHS = 496
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_NINE_MONTHS = 497
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_DEPOSITS_TWELVE_MONTHS = 498
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_THREE_MONTHS = 499
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_SIX_MONTHS = 500
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_NINE_MONTHS = 501
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_TWELVE_MONTHS = 502
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_ONE_MONTH = 503
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_THREE_MONTHS = 504
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_SIX_MONTHS = 505
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_NINE_MONTHS = 506
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LEASES_TWELVE_MONTHS = 507
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_ONE_MONTH = 508
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_THREE_MONTHS = 509
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_SIX_MONTHS = 510
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_NINE_MONTHS = 511
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_TWELVE_MONTHS = 512
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_ONE_MONTH = 513
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_THREE_MONTHS = 514
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_SIX_MONTHS = 515
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_NINE_MONTHS = 516
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_LOANS_AND_LEASE_TWELVE_MONTHS = 517
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_ONE_MONTH = 518
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_TWO_MONTHS = 519
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_THREE_MONTHS = 520
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_SIX_MONTHS = 521
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_NINE_MONTHS = 522
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INTEREST_INCOME_FROM_SECURITIES_TWELVE_MONTHS = 523
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_THREE_MONTHS = 524
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_SIX_MONTHS = 525
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_NINE_MONTHS = 526
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_BANKING_PROFIT_TWELVE_MONTHS = 527
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_ONE_MONTH = 528
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_TWO_MONTHS = 529
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_THREE_MONTHS = 530
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_SIX_MONTHS = 531
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_NINE_MONTHS = 532
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_MAINTENANCE_AND_REPAIRS_TWELVE_MONTHS = 533
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_THREE_MONTHS = 534
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_SIX_MONTHS = 535
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_NINE_MONTHS = 536
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_FOREIGN_EXCHANGE_GAIN_LOSS_TWELVE_MONTHS = 537
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_THREE_MONTHS = 538
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_SIX_MONTHS = 539
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_NINE_MONTHS = 540
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_OCCUPANCY_EXPENSE_TWELVE_MONTHS = 541
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_THREE_MONTHS = 542
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_SIX_MONTHS = 543
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_NINE_MONTHS = 544
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_PREMIUMS_WRITTEN_TWELVE_MONTHS = 545
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_THREE_MONTHS = 546
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_SIX_MONTHS = 547
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_NINE_MONTHS = 548
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_REALIZED_GAIN_LOSS_ON_INVESTMENTS_TWELVE_MONTHS = 549
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_THREE_MONTHS = 550
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_SIX_MONTHS = 551
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_NINE_MONTHS = 552
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OCCUPANCY_AND_EQUIPMENT_TWELVE_MONTHS = 553
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_ONE_MONTH = 554
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_TWO_MONTHS = 555
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_THREE_MONTHS = 556
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_SIX_MONTHS = 557
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_NINE_MONTHS = 558
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATION_AND_MAINTENANCE_TWELVE_MONTHS = 559
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_ONE_MONTH = 560
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_THREE_MONTHS = 561
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_SIX_MONTHS = 562
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_NINE_MONTHS = 563
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_CUSTOMER_SERVICES_TWELVE_MONTHS = 564
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_ONE_MONTH = 565
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_THREE_MONTHS = 566
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_SIX_MONTHS = 567
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_NINE_MONTHS = 568
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_EXPENSE_TWELVE_MONTHS = 569
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_ONE_MONTH = 570
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_THREE_MONTHS = 571
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_SIX_MONTHS = 572
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_NINE_MONTHS = 573
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_INTEREST_INCOME_TWELVE_MONTHS = 574
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_ONE_MONTH = 575
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_TWO_MONTHS = 576
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_THREE_MONTHS = 577
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_SIX_MONTHS = 578
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_NINE_MONTHS = 579
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_EXPENSE_TWELVE_MONTHS = 580
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_TWO_MONTHS = 581
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_THREE_MONTHS = 582
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_SIX_MONTHS = 583
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_NINE_MONTHS = 584
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_SPECIAL_CHARGES_TWELVE_MONTHS = 585
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_ONE_MONTH = 586
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_TWO_MONTHS = 587
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_THREE_MONTHS = 588
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_SIX_MONTHS = 589
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_NINE_MONTHS = 590
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_TAXES_TWELVE_MONTHS = 591
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_CEDED_TWELVE_MONTHS = 592
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_THREE_MONTHS = 593
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_SIX_MONTHS = 594
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_NINE_MONTHS = 595
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_BENEFITS_GROSS_TWELVE_MONTHS = 596
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_THREE_MONTHS = 597
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_SIX_MONTHS = 598
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_NINE_MONTHS = 599
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_DIVIDENDS_TWELVE_MONTHS = 600
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_THREE_MONTHS = 601
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_SIX_MONTHS = 602
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_NINE_MONTHS = 603
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_POLICYHOLDER_INTEREST_TWELVE_MONTHS = 604
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_ONE_MONTH = 605
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_TWO_MONTHS = 606
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_THREE_MONTHS = 607
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_SIX_MONTHS = 608
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_NINE_MONTHS = 609
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROFESSIONAL_EXPENSE_AND_CONTRACT_SERVICES_EXPENSE_TWELVE_MONTHS = 610
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_TWO_MONTHS = 611
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_THREE_MONTHS = 612
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_SIX_MONTHS = 613
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_NINE_MONTHS = 614
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PROVISION_FOR_DOUBTFUL_ACCOUNTS_TWELVE_MONTHS = 615
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_ONE_MONTH = 616
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_TWO_MONTHS = 617
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_THREE_MONTHS = 618
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_SIX_MONTHS = 619
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_NINE_MONTHS = 620
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_AND_LANDING_FEES_TWELVE_MONTHS = 621
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_ONE_MONTH = 622
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_TWO_MONTHS = 623
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_THREE_MONTHS = 624
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_SIX_MONTHS = 625
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_NINE_MONTHS = 626
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESTRUCTURING_AND_MERGERN_ACQUISITION_TWELVE_MONTHS = 627
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_ONE_MONTH = 628
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_TWO_MONTHS = 629
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_THREE_MONTHS = 630
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_SIX_MONTHS = 631
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_NINE_MONTHS = 632
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SALARIES_AND_WAGES_TWELVE_MONTHS = 633
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_THREE_MONTHS = 634
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_SIX_MONTHS = 635
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_NINE_MONTHS = 636
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SECURITIES_ACTIVITIES_TWELVE_MONTHS = 637
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_ONE_MONTH = 638
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_THREE_MONTHS = 639
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_SIX_MONTHS = 640
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_NINE_MONTHS = 641
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SERVICE_CHARGE_ON_DEPOSITOR_ACCOUNTS_TWELVE_MONTHS = 642
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_ONE_MONTH = 643
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_THREE_MONTHS = 644
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_SIX_MONTHS = 645
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_NINE_MONTHS = 646
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRADING_GAIN_LOSS_TWELVE_MONTHS = 647
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_THREE_MONTHS = 648
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_SIX_MONTHS = 649
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_NINE_MONTHS = 650
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TRUST_FEESBY_COMMISSIONS_TWELVE_MONTHS = 651
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_THREE_MONTHS = 652
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_SIX_MONTHS = 653
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_NINE_MONTHS = 654
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_UNDERWRITING_EXPENSES_TWELVE_MONTHS = 655
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_THREE_MONTHS = 656
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_SIX_MONTHS = 657
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_NINE_MONTHS = 658
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WRITE_OFF_TWELVE_MONTHS = 659
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_ONE_MONTH = 660
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_THREE_MONTHS = 661
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_SIX_MONTHS = 662
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_NINE_MONTHS = 663
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_INTEREST_INCOME_TWELVE_MONTHS = 664
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_ONE_MONTH = 665
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWO_MONTHS = 666
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_THREE_MONTHS = 667
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_SIX_MONTHS = 668
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_NINE_MONTHS = 669
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWELVE_MONTHS = 670
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_ONE_MONTH = 671
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_TWO_MONTHS = 672
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_THREE_MONTHS = 673
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_SIX_MONTHS = 674
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_NINE_MONTHS = 675
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_AND_DISCONTINUED_OPERATION_TWELVE_MONTHS = 676
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_THREE_MONTHS = 677
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_SIX_MONTHS = 678
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_NINE_MONTHS = 679
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_TAX_LOSS_CARRYFORWARD_TWELVE_MONTHS = 680
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_ONE_MONTH = 681
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_TWO_MONTHS = 682
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_THREE_MONTHS = 683
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_SIX_MONTHS = 684
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_NINE_MONTHS = 685
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_EXPENSES_TWELVE_MONTHS = 686
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_ONE_MONTH = 687
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_THREE_MONTHS = 688
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_SIX_MONTHS = 689
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_NINE_MONTHS = 690
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_MONEY_MARKET_INVESTMENTS_TWELVE_MONTHS = 691
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_ONE_MONTH = 692
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_TWO_MONTHS = 693
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_THREE_MONTHS = 694
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_SIX_MONTHS = 695
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_NINE_MONTHS = 696
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_COST_OF_REVENUE_TWELVE_MONTHS = 697
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_ONE_MONTH = 698
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_TWO_MONTHS = 699
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_THREE_MONTHS = 700
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_SIX_MONTHS = 701
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_NINE_MONTHS = 702
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RECONCILED_DEPRECIATION_TWELVE_MONTHS = 703
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_ONE_MONTH = 704
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_TWO_MONTHS = 705
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_THREE_MONTHS = 706
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_SIX_MONTHS = 707
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_NINE_MONTHS = 708
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_TWELVE_MONTHS = 709
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_ONE_MONTH = 710
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_TWO_MONTHS = 711
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_THREE_MONTHS = 712
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_SIX_MONTHS = 713
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_NINE_MONTHS = 714
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATION_NET_MINORITY_INTEREST_TWELVE_MONTHS = 715
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_ONE_MONTH = 716
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_THREE_MONTHS = 717
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_SIX_MONTHS = 718
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_NINE_MONTHS = 719
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_SALEOF_ASSETS_TWELVE_MONTHS = 720
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_ONE_MONTH = 721
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_THREE_MONTHS = 722
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_SIX_MONTHS = 723
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_NINE_MONTHS = 724
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_LOANS_TWELVE_MONTHS = 725
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_THREE_MONTHS = 726
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_SIX_MONTHS = 727
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_NINE_MONTHS = 728
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_SALEOF_INVESTMENT_PROPERTY_TWELVE_MONTHS = 729
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_THREE_MONTHS = 730
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_SIX_MONTHS = 731
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_NINE_MONTHS = 732
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_LOSSON_EXTINGUISHMENTOF_DEBT_TWELVE_MONTHS = 733
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_ONE_MONTH = 734
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_TWO_MONTHS = 735
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_THREE_MONTHS = 736
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_SIX_MONTHS = 737
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_NINE_MONTHS = 738
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EARNINGSFROM_EQUITY_INTEREST_NET_OF_TAX_TWELVE_MONTHS = 739
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_ONE_MONTH = 740
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_TWO_MONTHS = 741
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_THREE_MONTHS = 742
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_SIX_MONTHS = 743
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_NINE_MONTHS = 744
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_INCOME_INCLUDING_NONCONTROLLING_INTERESTS_TWELVE_MONTHS = 745
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_ONE_MONTH = 746
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_THREE_MONTHS = 747
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_SIX_MONTHS = 748
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_NINE_MONTHS = 749
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHERUNDER_PREFERRED_STOCK_DIVIDEND_TWELVE_MONTHS = 750
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_TWO_MONTHS = 751
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_THREE_MONTHS = 752
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_SIX_MONTHS = 753
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_NINE_MONTHS = 754
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STAFF_COSTS_TWELVE_MONTHS = 755
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_SOCIAL_SECURITY_COSTS_TWELVE_MONTHS = 756
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_PENSION_COSTS_TWELVE_MONTHS = 757
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_TWO_MONTHS = 758
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_THREE_MONTHS = 759
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_SIX_MONTHS = 760
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_NINE_MONTHS = 761
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_OPERATING_INCOME_TOTAL_TWELVE_MONTHS = 762
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_THREE_MONTHS = 763
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_SIX_MONTHS = 764
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_NINE_MONTHS = 765
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INCOMEFROM_ASSOCIATESAND_OTHER_PARTICIPATING_INTERESTS_TWELVE_MONTHS = 766
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_THREE_MONTHS = 767
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_SIX_MONTHS = 768
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_NINE_MONTHS = 769
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OTHER_FINANCE_COST_TWELVE_MONTHS = 770
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_DIVIDEND_PAYMENT_THREE_MONTHS = 771
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_DIVIDEND_PAYMENT_NINE_MONTHS = 772
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GROSS_DIVIDEND_PAYMENT_TWELVE_MONTHS = 773
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_THREE_MONTHS = 774
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_SIX_MONTHS = 775
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_NINE_MONTHS = 776
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_INCOME_TWELVE_MONTHS = 777
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_THREE_MONTHS = 778
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_SIX_MONTHS = 779
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_NINE_MONTHS = 780
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_FEESAND_COMMISSION_EXPENSE_TWELVE_MONTHS = 781
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NET_TRADING_INCOME_TWELVE_MONTHS = 782
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_STAFF_COSTS_TWELVE_MONTHS = 783
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_THREE_MONTHS = 784
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_SIX_MONTHS = 785
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_NINE_MONTHS = 786
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINON_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 787
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_THREE_MONTHS = 788
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_SIX_MONTHS = 789
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_NINE_MONTHS = 790
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AVERAGE_DILUTION_EARNINGS_TWELVE_MONTHS = 791
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_THREE_MONTHS = 792
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_SIX_MONTHS = 793
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_NINE_MONTHS = 794
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_FINANCIAL_INSTRUMENTS_DESIGNATEDAS_CASH_FLOW_HEDGES_TWELVE_MONTHS = 795
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_THREE_MONTHS = 796
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_SIX_MONTHS = 797
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_NINE_MONTHS = 798
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAIN_LOSSON_DERECOGNITIONOF_AVAILABLE_FOR_SALE_FINANCIAL_ASSETS_TWELVE_MONTHS = 799
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NEGATIVE_GOODWILL_IMMEDIATELY_RECOGNIZED_THREE_MONTHS = 800
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NEGATIVE_GOODWILL_IMMEDIATELY_RECOGNIZED_SIX_MONTHS = 801
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NEGATIVE_GOODWILL_IMMEDIATELY_RECOGNIZED_TWELVE_MONTHS = 802
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_THREE_MONTHS = 803
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_SIX_MONTHS = 804
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_NINE_MONTHS = 805
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_GAINS_LOSSESON_FINANCIAL_INSTRUMENTS_DUETO_FAIR_VALUE_ADJUSTMENTSIN_HEDGE_ACCOUNTING_TOTAL_TWELVE_MONTHS = 806
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_THREE_MONTHS = 807
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_SIX_MONTHS = 808
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_NINE_MONTHS = 809
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_IMPAIRMENT_LOSSES_REVERSALS_FINANCIAL_INSTRUMENTS_NET_TWELVE_MONTHS = 810
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_THREE_MONTHS = 811
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_SIX_MONTHS = 812
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_NINE_MONTHS = 813
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_PAID_INCURRED_TWELVE_MONTHS = 814
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_THREE_MONTHS = 815
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_SIX_MONTHS = 816
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_NINE_MONTHS = 817
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIES_CLAIMSAND_BENEFITS_TWELVE_MONTHS = 818
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_THREE_MONTHS = 819
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_SIX_MONTHS = 820
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_NINE_MONTHS = 821
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INSURANCE_LIABILITIES_NETOF_REINSURANCE_TWELVE_MONTHS = 822
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_THREE_MONTHS = 823
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_SIX_MONTHS = 824
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_NINE_MONTHS = 825
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_TWELVE_MONTHS = 826
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_THREE_MONTHS = 827
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_SIX_MONTHS = 828
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_NINE_MONTHS = 829
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CREDIT_RISK_PROVISIONS_TWELVE_MONTHS = 830
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WAGESAND_SALARIES_SIX_MONTHS = 831
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_WAGESAND_SALARIES_TWELVE_MONTHS = 832
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_TWO_MONTHS = 833
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_THREE_MONTHS = 834
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_SIX_MONTHS = 835
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_NINE_MONTHS = 836
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_EXPENSES_TWELVE_MONTHS = 837
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_THREE_MONTHS = 838
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_SIX_MONTHS = 839
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_NINE_MONTHS = 840
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_INCOME_TWELVE_MONTHS = 841
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_THREE_MONTHS = 842
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_SIX_MONTHS = 843
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_NINE_MONTHS = 844
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_NON_OPERATING_EXPENSES_TWELVE_MONTHS = 845
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_ONE_MONTH = 846
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_TWO_MONTHS = 847
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_THREE_MONTHS = 848
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_SIX_MONTHS = 849
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_NINE_MONTHS = 850
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_TWELVE_MONTHS = 851
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_ONE_MONTH = 852
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_TWO_MONTHS = 853
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_THREE_MONTHS = 854
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_SIX_MONTHS = 855
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_NINE_MONTHS = 856
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_UNUSUAL_ITEMS_EXCLUDING_GOODWILL_TWELVE_MONTHS = 857
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_ONE_MONTH = 858
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_TWO_MONTHS = 859
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_THREE_MONTHS = 860
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_SIX_MONTHS = 861
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_NINE_MONTHS = 862
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_RATE_FOR_CALCS_TWELVE_MONTHS = 863
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_ONE_MONTH = 864
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_TWO_MONTHS = 865
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_THREE_MONTHS = 866
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_SIX_MONTHS = 867
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_NINE_MONTHS = 868
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TAX_EFFECT_OF_UNUSUAL_ITEMS_TWELVE_MONTHS = 869
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_ONE_MONTH = 870
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_TWO_MONTHS = 871
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_THREE_MONTHS = 872
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_SIX_MONTHS = 873
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_NINE_MONTHS = 874
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_TWELVE_MONTHS = 875
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_THREE_MONTHS = 876
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_SIX_MONTHS = 877
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_NINE_MONTHS = 878
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_STOCK_BASED_COMPENSATION_TWELVE_MONTHS = 879
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_THREE_MONTHS = 880
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_SIX_MONTHS = 881
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_NINE_MONTHS = 882
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DILUTED_NI_AVAILTO_COM_STOCKHOLDERS_TWELVE_MONTHS = 883
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_THREE_MONTHS = 884
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_SIX_MONTHS = 885
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_NINE_MONTHS = 886
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_INVESTMENT_CONTRACT_LIABILITIES_INCURRED_TWELVE_MONTHS = 887
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_THREE_MONTHS = 888
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_SIX_MONTHS = 889
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_NINE_MONTHS = 890
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INVESTMENT_CONTRACT_TWELVE_MONTHS = 891
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_THREE_MONTHS = 892
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_SIX_MONTHS = 893
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_NINE_MONTHS = 894
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_EQUITY_SHARES_TWELVE_MONTHS = 895
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_THREE_MONTHS = 896
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_SIX_MONTHS = 897
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_NINE_MONTHS = 898
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_DIVIDEND_PAYMENTOF_NON_EQUITY_SHARES_TWELVE_MONTHS = 899
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_THREE_MONTHS = 900
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_SIX_MONTHS = 901
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_NINE_MONTHS = 902
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_TWELVE_MONTHS = 903
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_THREE_MONTHS = 904
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_SIX_MONTHS = 905
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_NINE_MONTHS = 906
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CHANGEIN_THE_GROSS_PROVISIONFOR_UNEARNED_PREMIUMS_REINSURERS_SHARE_TWELVE_MONTHS = 907
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_THREE_MONTHS = 908
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_SIX_MONTHS = 909
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_NINE_MONTHS = 910
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_CLAIMSAND_CHANGEIN_INSURANCE_LIABILITIES_TWELVE_MONTHS = 911
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_THREE_MONTHS = 912
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_SIX_MONTHS = 913
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_NINE_MONTHS = 914
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_REINSURANCE_RECOVERIESOF_INSURANCE_LIABILITIES_TWELVE_MONTHS = 915
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_THREE_MONTHS = 916
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_SIX_MONTHS = 917
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_NINE_MONTHS = 918
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_OPERATING_INCOME_AS_REPORTED_TWELVE_MONTHS = 919
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_THREE_MONTHS = 920
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_SIX_MONTHS = 921
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_NINE_MONTHS = 922
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_GA_TWELVE_MONTHS = 923
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_THREE_MONTHS = 924
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_SIX_MONTHS = 925
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_NINE_MONTHS = 926
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OTHER_COSTOF_REVENUE_TWELVE_MONTHS = 927
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_THREE_MONTHS = 928
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_SIX_MONTHS = 929
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_NINE_MONTHS = 930
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENTAND_LANDING_FEES_COSTOF_REVENUE_TWELVE_MONTHS = 931
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_THREE_MONTHS = 932
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_SIX_MONTHS = 933
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_NINE_MONTHS = 934
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DDA_COSTOF_REVENUE_TWELVE_MONTHS = 935
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_THREE_MONTHS = 936
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_SIX_MONTHS = 937
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_NINE_MONTHS = 938
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RENT_EXPENSE_SUPPLEMENTAL_TWELVE_MONTHS = 939
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_THREE_MONTHS = 940
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_SIX_MONTHS = 941
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_NINE_MONTHS = 942
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_PRE_TAX_INCOME_TWELVE_MONTHS = 943
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_THREE_MONTHS = 944
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_SIX_MONTHS = 945
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_NINE_MONTHS = 946
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_RESEARCH_AND_DEVELOPMENT_EXPENSES_SUPPLEMENTAL_TWELVE_MONTHS = 947
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_THREE_MONTHS = 948
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_SIX_MONTHS = 949
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_NINE_MONTHS = 950
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_DEPRECIATION_SUPPLEMENTAL_TWELVE_MONTHS = 951
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_THREE_MONTHS = 952
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_SIX_MONTHS = 953
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_NINE_MONTHS = 954
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_AMORTIZATION_SUPPLEMENTAL_TWELVE_MONTHS = 955
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_THREE_MONTHS = 956
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_SIX_MONTHS = 957
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_NINE_MONTHS = 958
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_TOTAL_REVENUE_AS_REPORTED_TWELVE_MONTHS = 959
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_THREE_MONTHS = 960
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_SIX_MONTHS = 961
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_NINE_MONTHS = 962
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_OPERATING_EXPENSE_AS_REPORTED_TWELVE_MONTHS = 963
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_THREE_MONTHS = 964
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_SIX_MONTHS = 965
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_NINE_MONTHS = 966
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_INCOME_AS_REPORTED_TWELVE_MONTHS = 967
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_THREE_MONTHS = 968
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_SIX_MONTHS = 969
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_NINE_MONTHS = 970
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBITDA_AS_REPORTED_TWELVE_MONTHS = 971
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_THREE_MONTHS = 972
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_SIX_MONTHS = 973
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_NINE_MONTHS = 974
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_EBIT_AS_REPORTED_TWELVE_MONTHS = 975
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_THREE_MONTHS = 976
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_SIX_MONTHS = 977
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_NINE_MONTHS = 978
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_NORMALIZED_OPERATING_PROFIT_AS_REPORTED_TWELVE_MONTHS = 979
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_THREE_MONTHS = 980
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_SIX_MONTHS = 981
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_NINE_MONTHS = 982
-
-    FINANCIAL_STATEMENTS_INCOME_STATEMENT_EFFECTIVE_TAX_RATE_AS_REPORTED_TWELVE_MONTHS = 983
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BS_FILE_DATE_ONE_MONTH = 984
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BS_FILE_DATE_THREE_MONTHS = 985
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BS_FILE_DATE_TWELVE_MONTHS = 986
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_ONE_MONTH = 987
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_TWO_MONTHS = 988
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_THREE_MONTHS = 989
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_SIX_MONTHS = 990
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_NINE_MONTHS = 991
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_PAYABLE_TWELVE_MONTHS = 992
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_ONE_MONTH = 993
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_TWO_MONTHS = 994
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 995
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_SIX_MONTHS = 996
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_NINE_MONTHS = 997
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 998
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_ONE_MONTH = 999
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_TWO_MONTHS = 1000
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_THREE_MONTHS = 1001
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_SIX_MONTHS = 1002
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_NINE_MONTHS = 1003
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ACCRUED_EXPENSES_TWELVE_MONTHS = 1004
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_THREE_MONTHS = 1005
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_SIX_MONTHS = 1006
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_NINE_MONTHS = 1007
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCRUED_EXPENSES_TWELVE_MONTHS = 1008
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INVESTMENT_INCOME_THREE_MONTHS = 1009
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INVESTMENT_INCOME_SIX_MONTHS = 1010
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INVESTMENT_INCOME_TWELVE_MONTHS = 1011
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_ONE_MONTH = 1012
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_TWO_MONTHS = 1013
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_THREE_MONTHS = 1014
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_SIX_MONTHS = 1015
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_NINE_MONTHS = 1016
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCUMULATED_DEPRECIATION_TWELVE_MONTHS = 1017
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_ONE_MONTH = 1018
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_TWO_MONTHS = 1019
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_THREE_MONTHS = 1020
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_SIX_MONTHS = 1021
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_NINE_MONTHS = 1022
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GAINS_LOSSES_NOT_AFFECTING_RETAINED_EARNINGS_TWELVE_MONTHS = 1023
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_ONE_MONTH = 1024
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_TWO_MONTHS = 1025
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_THREE_MONTHS = 1026
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_SIX_MONTHS = 1027
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_NINE_MONTHS = 1028
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADDITIONAL_PAID_IN_CAPITAL_TWELVE_MONTHS = 1029
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_THREE_MONTHS = 1030
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_SIX_MONTHS = 1031
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_NINE_MONTHS = 1032
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_LOANS_AND_LEASE_LOSSES_TWELVE_MONTHS = 1033
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_THREE_MONTHS = 1034
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_SIX_MONTHS = 1035
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_NINE_MONTHS = 1036
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_AVAILABLE_FOR_SALE_SECURITIES_TWELVE_MONTHS = 1037
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_ONE_MONTH = 1038
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_TWO_MONTHS = 1039
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_THREE_MONTHS = 1040
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_SIX_MONTHS = 1041
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_NINE_MONTHS = 1042
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_STOCK_TWELVE_MONTHS = 1043
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_ONE_MONTH = 1044
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_TWO_MONTHS = 1045
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_THREE_MONTHS = 1046
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_SIX_MONTHS = 1047
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_NINE_MONTHS = 1048
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_TWELVE_MONTHS = 1049
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_THREE_MONTHS = 1050
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_SIX_MONTHS = 1051
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_NINE_MONTHS = 1052
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_EQUIVALENTS_TWELVE_MONTHS = 1053
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_ONE_MONTH = 1054
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_TWO_MONTHS = 1055
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_THREE_MONTHS = 1056
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_SIX_MONTHS = 1057
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_NINE_MONTHS = 1058
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_CASH_EQUIVALENTS_TWELVE_MONTHS = 1059
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_THREE_MONTHS = 1060
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_SIX_MONTHS = 1061
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_NINE_MONTHS = 1062
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_AND_DUE_FROM_BANKS_TWELVE_MONTHS = 1063
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_TWO_MONTHS = 1064
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_THREE_MONTHS = 1065
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_SIX_MONTHS = 1066
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_NINE_MONTHS = 1067
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_FEDERAL_FUNDS_SOLD_TWELVE_MONTHS = 1068
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_ONE_MONTH = 1069
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_TWO_MONTHS = 1070
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_THREE_MONTHS = 1071
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_SIX_MONTHS = 1072
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_NINE_MONTHS = 1073
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_CASH_EQUIVALENTS_AND_MARKETABLE_SECURITIES_TWELVE_MONTHS = 1074
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_ONE_MONTH = 1075
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_TWO_MONTHS = 1076
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_THREE_MONTHS = 1077
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_SIX_MONTHS = 1078
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_NINE_MONTHS = 1079
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_TWELVE_MONTHS = 1080
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_ONE_MONTH = 1081
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_TWO_MONTHS = 1082
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_THREE_MONTHS = 1083
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_SIX_MONTHS = 1084
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_NINE_MONTHS = 1085
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_ASSETS_TWELVE_MONTHS = 1086
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_ONE_MONTH = 1087
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_TWO_MONTHS = 1088
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_THREE_MONTHS = 1089
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_SIX_MONTHS = 1090
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_NINE_MONTHS = 1091
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_TWELVE_MONTHS = 1092
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1093
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1094
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1095
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1096
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1097
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1098
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_ONE_MONTH = 1099
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_TWO_MONTHS = 1100
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_THREE_MONTHS = 1101
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_SIX_MONTHS = 1102
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_NINE_MONTHS = 1103
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_LIABILITIES_TWELVE_MONTHS = 1104
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1105
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1106
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1107
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1108
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1109
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1110
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_THREE_MONTHS = 1111
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_SIX_MONTHS = 1112
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_NINE_MONTHS = 1113
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_ASSETS_TWELVE_MONTHS = 1114
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_ONE_MONTH = 1115
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_TWO_MONTHS = 1116
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_THREE_MONTHS = 1117
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_SIX_MONTHS = 1118
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_NINE_MONTHS = 1119
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_COSTS_TWELVE_MONTHS = 1120
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_ONE_MONTH = 1121
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_TWO_MONTHS = 1122
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_THREE_MONTHS = 1123
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_SIX_MONTHS = 1124
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_NINE_MONTHS = 1125
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_LIABILITIES_TWELVE_MONTHS = 1126
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_ONE_MONTH = 1127
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_TWO_MONTHS = 1128
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_THREE_MONTHS = 1129
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_SIX_MONTHS = 1130
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_NINE_MONTHS = 1131
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_LIABILITIES_TWELVE_MONTHS = 1132
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_THREE_MONTHS = 1133
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_SIX_MONTHS = 1134
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_NINE_MONTHS = 1135
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_POLICY_ACQUISITION_COSTS_TWELVE_MONTHS = 1136
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_ONE_MONTH = 1137
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_TWO_MONTHS = 1138
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_THREE_MONTHS = 1139
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_SIX_MONTHS = 1140
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_NINE_MONTHS = 1141
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_REVENUE_TWELVE_MONTHS = 1142
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_ONE_MONTH = 1143
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_TWO_MONTHS = 1144
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_THREE_MONTHS = 1145
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_SIX_MONTHS = 1146
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_NINE_MONTHS = 1147
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_REVENUE_TWELVE_MONTHS = 1148
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_THREE_MONTHS = 1149
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_SIX_MONTHS = 1150
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_NINE_MONTHS = 1151
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_ASSETS_TWELVE_MONTHS = 1152
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_ONE_MONTH = 1153
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_TWO_MONTHS = 1154
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_THREE_MONTHS = 1155
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_SIX_MONTHS = 1156
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_NINE_MONTHS = 1157
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_ASSETS_TWELVE_MONTHS = 1158
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_THREE_MONTHS = 1159
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_SIX_MONTHS = 1160
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_NINE_MONTHS = 1161
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_TAXES_LIABILITIES_TWELVE_MONTHS = 1162
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_ONE_MONTH = 1163
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_TWO_MONTHS = 1164
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_THREE_MONTHS = 1165
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_SIX_MONTHS = 1166
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_NINE_MONTHS = 1167
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_ASSETS_TWELVE_MONTHS = 1168
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_ONE_MONTH = 1169
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_TWO_MONTHS = 1170
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_THREE_MONTHS = 1171
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_SIX_MONTHS = 1172
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_NINE_MONTHS = 1173
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_TAXES_LIABILITIES_TWELVE_MONTHS = 1174
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_INVESTMENTS_THREE_MONTHS = 1175
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_INVESTMENTS_NINE_MONTHS = 1176
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_INVESTMENTS_TWELVE_MONTHS = 1177
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_AND_SECURITIES_SOLD_UNDER_AGREEMENT_TO_REPURCHASE_THREE_MONTHS = 1178
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_AND_SECURITIES_SOLD_UNDER_AGREEMENT_TO_REPURCHASE_SIX_MONTHS = 1179
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_AND_SECURITIES_SOLD_UNDER_AGREEMENT_TO_REPURCHASE_TWELVE_MONTHS = 1180
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_THREE_MONTHS = 1181
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_SIX_MONTHS = 1182
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_NINE_MONTHS = 1183
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASE_UNDER_AGREEMENTS_TO_RESELL_TWELVE_MONTHS = 1184
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_THREE_MONTHS = 1185
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_SIX_MONTHS = 1186
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_NINE_MONTHS = 1187
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_MATURITY_INVESTMENTS_TWELVE_MONTHS = 1188
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FUTURE_POLICY_BENEFITS_THREE_MONTHS = 1189
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FUTURE_POLICY_BENEFITS_TWELVE_MONTHS = 1190
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GENERAL_PARTNERSHIP_CAPITAL_THREE_MONTHS = 1191
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GENERAL_PARTNERSHIP_CAPITAL_SIX_MONTHS = 1192
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GENERAL_PARTNERSHIP_CAPITAL_TWELVE_MONTHS = 1193
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_ONE_MONTH = 1194
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_TWO_MONTHS = 1195
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_THREE_MONTHS = 1196
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_SIX_MONTHS = 1197
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_NINE_MONTHS = 1198
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_TWELVE_MONTHS = 1199
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_ONE_MONTH = 1200
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_TWO_MONTHS = 1201
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_THREE_MONTHS = 1202
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_SIX_MONTHS = 1203
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_NINE_MONTHS = 1204
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GOODWILL_AND_OTHER_INTANGIBLE_ASSETS_TWELVE_MONTHS = 1205
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_THREE_MONTHS = 1206
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_SIX_MONTHS = 1207
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_NINE_MONTHS = 1208
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_LOAN_TWELVE_MONTHS = 1209
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_ONE_MONTH = 1210
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_TWO_MONTHS = 1211
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_THREE_MONTHS = 1212
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_SIX_MONTHS = 1213
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_NINE_MONTHS = 1214
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_PPE_TWELVE_MONTHS = 1215
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_THREE_MONTHS = 1216
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_SIX_MONTHS = 1217
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_NINE_MONTHS = 1218
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HELD_TO_MATURITY_SECURITIES_TWELVE_MONTHS = 1219
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_ONE_MONTH = 1220
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_THREE_MONTHS = 1221
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_SIX_MONTHS = 1222
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_NINE_MONTHS = 1223
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INCOME_TAX_PAYABLE_TWELVE_MONTHS = 1224
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_THREE_MONTHS = 1225
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_SIX_MONTHS = 1226
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_NINE_MONTHS = 1227
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_LIABILITIES_TWELVE_MONTHS = 1228
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_ONE_MONTH = 1229
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_TWO_MONTHS = 1230
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_THREE_MONTHS = 1231
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_SIX_MONTHS = 1232
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_NINE_MONTHS = 1233
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_PAYABLE_TWELVE_MONTHS = 1234
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_THREE_MONTHS = 1235
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_SIX_MONTHS = 1236
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_NINE_MONTHS = 1237
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_DEPOSITS_ASSETS_TWELVE_MONTHS = 1238
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_ONE_MONTH = 1239
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_TWO_MONTHS = 1240
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_THREE_MONTHS = 1241
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_SIX_MONTHS = 1242
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_NINE_MONTHS = 1243
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORY_TWELVE_MONTHS = 1244
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_ONE_MONTH = 1245
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_TWO_MONTHS = 1246
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_THREE_MONTHS = 1247
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_SIX_MONTHS = 1248
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_NINE_MONTHS = 1249
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_AND_ADVANCES_TWELVE_MONTHS = 1250
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIMITED_PARTNERSHIP_CAPITAL_THREE_MONTHS = 1251
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIMITED_PARTNERSHIP_CAPITAL_SIX_MONTHS = 1252
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIMITED_PARTNERSHIP_CAPITAL_TWELVE_MONTHS = 1253
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_ONE_MONTH = 1254
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_TWO_MONTHS = 1255
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_THREE_MONTHS = 1256
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_SIX_MONTHS = 1257
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_NINE_MONTHS = 1258
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_TWELVE_MONTHS = 1259
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1260
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1261
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1262
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1263
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1264
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_DEBT_AND_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1265
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_INVESTMENTS_THREE_MONTHS = 1266
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_INVESTMENTS_SIX_MONTHS = 1267
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_INVESTMENTS_TWELVE_MONTHS = 1268
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_ONE_MONTH = 1269
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_TWO_MONTHS = 1270
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_THREE_MONTHS = 1271
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_SIX_MONTHS = 1272
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_NINE_MONTHS = 1273
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_CAPITAL_LEASE_OBLIGATION_TWELVE_MONTHS = 1274
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_ONE_MONTH = 1275
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_TWO_MONTHS = 1276
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_THREE_MONTHS = 1277
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_SIX_MONTHS = 1278
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_NINE_MONTHS = 1279
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINORITY_INTEREST_TWELVE_MONTHS = 1280
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_THREE_MONTHS = 1281
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_SIX_MONTHS = 1282
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_NINE_MONTHS = 1283
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MONEY_MARKET_INVESTMENTS_TWELVE_MONTHS = 1284
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_THREE_MONTHS = 1285
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_SIX_MONTHS = 1286
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_NINE_MONTHS = 1287
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_LOAN_TWELVE_MONTHS = 1288
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_ONE_MONTH = 1289
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_TWO_MONTHS = 1290
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_THREE_MONTHS = 1291
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_SIX_MONTHS = 1292
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_NINE_MONTHS = 1293
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_PPE_TWELVE_MONTHS = 1294
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_THREE_MONTHS = 1295
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_SIX_MONTHS = 1296
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_NINE_MONTHS = 1297
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_DEPOSITS_TWELVE_MONTHS = 1298
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_ONE_MONTH = 1299
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_TWO_MONTHS = 1300
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_THREE_MONTHS = 1301
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_SIX_MONTHS = 1302
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_NINE_MONTHS = 1303
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_NOTES_PAYABLE_TWELVE_MONTHS = 1304
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NOTES_RECEIVABLE_THREE_MONTHS = 1305
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NOTES_RECEIVABLE_SIX_MONTHS = 1306
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NOTES_RECEIVABLE_TWELVE_MONTHS = 1307
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_THREE_MONTHS = 1308
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_SIX_MONTHS = 1309
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_NINE_MONTHS = 1310
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_NOTE_RECEIVABLES_TWELVE_MONTHS = 1311
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_ONE_MONTH = 1312
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_TWO_MONTHS = 1313
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_THREE_MONTHS = 1314
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_SIX_MONTHS = 1315
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_NINE_MONTHS = 1316
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_LIABILITIES_TWELVE_MONTHS = 1317
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_ONE_MONTH = 1318
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_TWO_MONTHS = 1319
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_THREE_MONTHS = 1320
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_SIX_MONTHS = 1321
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_NINE_MONTHS = 1322
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INTANGIBLE_ASSETS_TWELVE_MONTHS = 1323
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_ONE_MONTH = 1324
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_THREE_MONTHS = 1325
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_SIX_MONTHS = 1326
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_NINE_MONTHS = 1327
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_SHORT_TERM_INVESTMENTS_TWELVE_MONTHS = 1328
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_ONE_MONTH = 1329
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_TWO_MONTHS = 1330
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_THREE_MONTHS = 1331
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_SIX_MONTHS = 1332
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_NINE_MONTHS = 1333
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_TWELVE_MONTHS = 1334
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_ONE_MONTH = 1335
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_TWO_MONTHS = 1336
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_THREE_MONTHS = 1337
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_SIX_MONTHS = 1338
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_NINE_MONTHS = 1339
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PAYABLES_AND_ACCRUED_EXPENSES_TWELVE_MONTHS = 1340
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_THREE_MONTHS = 1341
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_SIX_MONTHS = 1342
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_NINE_MONTHS = 1343
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_RESERVES_BENEFITS_TWELVE_MONTHS = 1344
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICYHOLDER_FUNDS_THREE_MONTHS = 1345
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICYHOLDER_FUNDS_TWELVE_MONTHS = 1346
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_ONE_MONTH = 1347
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_THREE_MONTHS = 1348
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_SIX_MONTHS = 1349
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_NINE_MONTHS = 1350
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SECURITIES_OUTSIDE_STOCK_EQUITY_TWELVE_MONTHS = 1351
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_ONE_MONTH = 1352
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_TWO_MONTHS = 1353
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_THREE_MONTHS = 1354
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_SIX_MONTHS = 1355
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_NINE_MONTHS = 1356
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_TWELVE_MONTHS = 1357
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_ONE_MONTH = 1358
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_TWO_MONTHS = 1359
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_THREE_MONTHS = 1360
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_SIX_MONTHS = 1361
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_NINE_MONTHS = 1362
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREPAID_ASSETS_TWELVE_MONTHS = 1363
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_ONE_MONTH = 1364
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_THREE_MONTHS = 1365
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_SIX_MONTHS = 1366
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PREPAID_ASSETS_TWELVE_MONTHS = 1367
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ONE_MONTH = 1368
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_TWO_MONTHS = 1369
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_THREE_MONTHS = 1370
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_SIX_MONTHS = 1371
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_NINE_MONTHS = 1372
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_TWELVE_MONTHS = 1373
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_RECOVERABLE_THREE_MONTHS = 1374
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_RECOVERABLE_TWELVE_MONTHS = 1375
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_ONE_MONTH = 1376
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_TWO_MONTHS = 1377
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_THREE_MONTHS = 1378
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_SIX_MONTHS = 1379
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_NINE_MONTHS = 1380
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RETAINED_EARNINGS_TWELVE_MONTHS = 1381
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LENDING_COLLATERAL_THREE_MONTHS = 1382
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LENDING_COLLATERAL_TWELVE_MONTHS = 1383
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_AGREE_TO_BE_RESELL_THREE_MONTHS = 1384
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_AGREE_TO_BE_RESELL_TWELVE_MONTHS = 1385
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_SOLD_NOT_YET_REPURCHASED_THREE_MONTHS = 1386
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_SOLD_NOT_YET_REPURCHASED_TWELVE_MONTHS = 1387
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_ASSETS_THREE_MONTHS = 1388
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_ASSETS_TWELVE_MONTHS = 1389
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_BUSINESS_THREE_MONTHS = 1390
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SEPARATE_ACCOUNT_BUSINESS_TWELVE_MONTHS = 1391
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_AVAILABLE_FOR_SALE_THREE_MONTHS = 1392
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_AVAILABLE_FOR_SALE_TWELVE_MONTHS = 1393
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_HELD_TO_MATURITY_THREE_MONTHS = 1394
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_HELD_TO_MATURITY_TWELVE_MONTHS = 1395
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_TRADING_THREE_MONTHS = 1396
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHORT_TERM_INVESTMENTS_TRADING_TWELVE_MONTHS = 1397
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_ONE_MONTH = 1398
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_TWO_MONTHS = 1399
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_THREE_MONTHS = 1400
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_SIX_MONTHS = 1401
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_NINE_MONTHS = 1402
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_STOCKHOLDERS_EQUITY_TWELVE_MONTHS = 1403
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_ONE_MONTH = 1404
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_TWO_MONTHS = 1405
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_THREE_MONTHS = 1406
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_SIX_MONTHS = 1407
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_NINE_MONTHS = 1408
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_TAX_PAYABLE_TWELVE_MONTHS = 1409
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_ONE_MONTH = 1410
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_TWO_MONTHS = 1411
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_THREE_MONTHS = 1412
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_SIX_MONTHS = 1413
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_NINE_MONTHS = 1414
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_ASSETS_TWELVE_MONTHS = 1415
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_THREE_MONTHS = 1416
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_SIX_MONTHS = 1417
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_NINE_MONTHS = 1418
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEPOSITS_TWELVE_MONTHS = 1419
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_INVESTMENTS_THREE_MONTHS = 1420
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_INVESTMENTS_SIX_MONTHS = 1421
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_INVESTMENTS_TWELVE_MONTHS = 1422
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_ONE_MONTH = 1423
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_TWO_MONTHS = 1424
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_THREE_MONTHS = 1425
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_SIX_MONTHS = 1426
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_NINE_MONTHS = 1427
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_ASSETS_TWELVE_MONTHS = 1428
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PARTNERSHIP_CAPITAL_THREE_MONTHS = 1429
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PARTNERSHIP_CAPITAL_SIX_MONTHS = 1430
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_PARTNERSHIP_CAPITAL_TWELVE_MONTHS = 1431
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_ASSETS_THREE_MONTHS = 1432
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_ASSETS_TWELVE_MONTHS = 1433
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_LIABILITIES_THREE_MONTHS = 1434
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_LIABILITIES_TWELVE_MONTHS = 1435
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_SECURITIES_THREE_MONTHS = 1436
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_SECURITIES_SIX_MONTHS = 1437
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_SECURITIES_TWELVE_MONTHS = 1438
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_ONE_MONTH = 1439
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_TWO_MONTHS = 1440
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_THREE_MONTHS = 1441
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_SIX_MONTHS = 1442
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_NINE_MONTHS = 1443
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_STOCK_TWELVE_MONTHS = 1444
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_THREE_MONTHS = 1445
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_SIX_MONTHS = 1446
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_NINE_MONTHS = 1447
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_INCOME_TWELVE_MONTHS = 1448
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_THREE_MONTHS = 1449
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_SIX_MONTHS = 1450
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_NINE_MONTHS = 1451
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNEARNED_PREMIUMS_TWELVE_MONTHS = 1452
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_THREE_MONTHS = 1453
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_SIX_MONTHS = 1454
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_NINE_MONTHS = 1455
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNPAID_LOSS_AND_LOSS_RESERVE_TWELVE_MONTHS = 1456
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_ONE_MONTH = 1457
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_TWO_MONTHS = 1458
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_THREE_MONTHS = 1459
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_SIX_MONTHS = 1460
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_NINE_MONTHS = 1461
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTED_CAPITAL_TWELVE_MONTHS = 1462
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_ONE_MONTH = 1463
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_TWO_MONTHS = 1464
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_THREE_MONTHS = 1465
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_SIX_MONTHS = 1466
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_NINE_MONTHS = 1467
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_DEFERRED_ASSETS_TWELVE_MONTHS = 1468
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_ONE_MONTH = 1469
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_TWO_MONTHS = 1470
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_THREE_MONTHS = 1471
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_SIX_MONTHS = 1472
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_NINE_MONTHS = 1473
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_DEFERRED_ASSETS_TWELVE_MONTHS = 1474
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_TWO_MONTHS = 1475
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_THREE_MONTHS = 1476
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_SIX_MONTHS = 1477
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_NINE_MONTHS = 1478
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_AND_INVESTMENTS_TWELVE_MONTHS = 1479
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_ONE_MONTH = 1480
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_TWO_MONTHS = 1481
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_THREE_MONTHS = 1482
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_SIX_MONTHS = 1483
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_NINE_MONTHS = 1484
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_NET_MINORITY_INTEREST_TWELVE_MONTHS = 1485
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_ONE_MONTH = 1486
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_TWO_MONTHS = 1487
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_THREE_MONTHS = 1488
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_SIX_MONTHS = 1489
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_NINE_MONTHS = 1490
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_NON_CURRENT_LIABILITIES_NET_MINORITY_INTEREST_TWELVE_MONTHS = 1491
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_ONE_MONTH = 1492
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_TWO_MONTHS = 1493
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_THREE_MONTHS = 1494
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_SIX_MONTHS = 1495
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_NINE_MONTHS = 1496
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_GROSS_MINORITY_INTEREST_TWELVE_MONTHS = 1497
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1498
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1499
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1500
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_SIX_MONTHS = 1501
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_NINE_MONTHS = 1502
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1503
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_TWO_MONTHS = 1504
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_THREE_MONTHS = 1505
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_SIX_MONTHS = 1506
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_NINE_MONTHS = 1507
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_INTEREST_RECEIVABLE_TWELVE_MONTHS = 1508
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_THREE_MONTHS = 1509
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_SIX_MONTHS = 1510
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_NINE_MONTHS = 1511
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCE_FROM_FEDERAL_HOME_LOAN_BANKS_TWELVE_MONTHS = 1512
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_RECEIVABLE_THREE_MONTHS = 1513
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_DOUBTFUL_ACCOUNTS_RECEIVABLE_TWELVE_MONTHS = 1514
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_NOTES_RECEIVABLE_THREE_MONTHS = 1515
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ALLOWANCE_FOR_NOTES_RECEIVABLE_TWELVE_MONTHS = 1516
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_THREE_MONTHS = 1517
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_TWELVE_MONTHS = 1518
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_OF_DISCONTINUED_OPERATIONS_THREE_MONTHS = 1519
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_OF_DISCONTINUED_OPERATIONS_TWELVE_MONTHS = 1520
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_INDEBTEDNESS_THREE_MONTHS = 1521
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_INDEBTEDNESS_TWELVE_MONTHS = 1522
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_THREE_MONTHS = 1523
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_SIX_MONTHS = 1524
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_NINE_MONTHS = 1525
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_OWNED_LIFE_INSURANCE_TWELVE_MONTHS = 1526
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_BORROWED_THREE_MONTHS = 1527
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITY_BORROWED_TWELVE_MONTHS = 1528
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_ONE_MONTH = 1529
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_TWO_MONTHS = 1530
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_THREE_MONTHS = 1531
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_SIX_MONTHS = 1532
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_NINE_MONTHS = 1533
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BUILDINGS_AND_IMPROVEMENTS_TWELVE_MONTHS = 1534
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_THREE_MONTHS = 1535
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_SIX_MONTHS = 1536
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_NINE_MONTHS = 1537
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_LOAN_TWELVE_MONTHS = 1538
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_PAPER_THREE_MONTHS = 1539
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMERCIAL_PAPER_TWELVE_MONTHS = 1540
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_ONE_MONTH = 1541
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_TWO_MONTHS = 1542
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_THREE_MONTHS = 1543
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_SIX_MONTHS = 1544
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_NINE_MONTHS = 1545
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_STOCK_EQUITY_TWELVE_MONTHS = 1546
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_ONE_MONTH = 1547
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_TWO_MONTHS = 1548
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_THREE_MONTHS = 1549
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_SIX_MONTHS = 1550
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_NINE_MONTHS = 1551
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSTRUCTION_IN_PROGRESS_TWELVE_MONTHS = 1552
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_THREE_MONTHS = 1553
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_SIX_MONTHS = 1554
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_NINE_MONTHS = 1555
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONSUMER_LOAN_TWELVE_MONTHS = 1556
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINIMUM_PENSION_LIABILITIES_THREE_MONTHS = 1557
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINIMUM_PENSION_LIABILITIES_TWELVE_MONTHS = 1558
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCEPTANCES_THREE_MONTHS = 1559
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCEPTANCES_TWELVE_MONTHS = 1560
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFINED_PENSION_BENEFIT_THREE_MONTHS = 1561
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFINED_PENSION_BENEFIT_SIX_MONTHS = 1562
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFINED_PENSION_BENEFIT_TWELVE_MONTHS = 1563
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_ONE_MONTH = 1564
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_TWO_MONTHS = 1565
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_THREE_MONTHS = 1566
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_SIX_MONTHS = 1567
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_NINE_MONTHS = 1568
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_PRODUCT_LIABILITIES_TWELVE_MONTHS = 1569
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_ASSETS_THREE_MONTHS = 1570
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_ASSETS_SIX_MONTHS = 1571
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DERIVATIVE_ASSETS_TWELVE_MONTHS = 1572
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_ONE_MONTH = 1573
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_TWO_MONTHS = 1574
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_THREE_MONTHS = 1575
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_NINE_MONTHS = 1576
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DIVIDENDS_PAYABLE_TWELVE_MONTHS = 1577
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_TWO_MONTHS = 1578
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_THREE_MONTHS = 1579
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_SIX_MONTHS = 1580
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_NINE_MONTHS = 1581
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EMPLOYEE_BENEFITS_TWELVE_MONTHS = 1582
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_THREE_MONTHS = 1583
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_PURCHASED_TWELVE_MONTHS = 1584
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_THREE_MONTHS = 1585
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_SIX_MONTHS = 1586
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_FUNDS_SOLD_TWELVE_MONTHS = 1587
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_THREE_MONTHS = 1588
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_SIX_MONTHS = 1589
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_NINE_MONTHS = 1590
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FEDERAL_HOME_LOAN_BANK_STOCK_TWELVE_MONTHS = 1591
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_THREE_MONTHS = 1592
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_NINE_MONTHS = 1593
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_TWELVE_MONTHS = 1594
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_INSTRUMENTS_SOLD_UNDER_AGREEMENTS_TO_REPURCHASE_THREE_MONTHS = 1595
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_INSTRUMENTS_SOLD_UNDER_AGREEMENTS_TO_REPURCHASE_SIX_MONTHS = 1596
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_INSTRUMENTS_SOLD_UNDER_AGREEMENTS_TO_REPURCHASE_TWELVE_MONTHS = 1597
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_ONE_MONTH = 1598
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_TWO_MONTHS = 1599
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_THREE_MONTHS = 1600
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_SIX_MONTHS = 1601
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_NINE_MONTHS = 1602
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINISHED_GOODS_TWELVE_MONTHS = 1603
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FLIGHT_FLEET_VEHICLE_AND_RELATED_EQUIPMENTS_THREE_MONTHS = 1604
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FLIGHT_FLEET_VEHICLE_AND_RELATED_EQUIPMENTS_SIX_MONTHS = 1605
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FLIGHT_FLEET_VEHICLE_AND_RELATED_EQUIPMENTS_TWELVE_MONTHS = 1606
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FORECLOSED_ASSETS_THREE_MONTHS = 1607
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FORECLOSED_ASSETS_NINE_MONTHS = 1608
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FORECLOSED_ASSETS_TWELVE_MONTHS = 1609
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_TWO_MONTHS = 1610
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_THREE_MONTHS = 1611
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_SIX_MONTHS = 1612
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_NINE_MONTHS = 1613
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FOREIGN_CURRENCY_TRANSLATION_ADJUSTMENTS_TWELVE_MONTHS = 1614
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_THREE_MONTHS = 1615
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_SIX_MONTHS = 1616
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_NINE_MONTHS = 1617
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVENTORIES_ADJUSTMENTS_ALLOWANCES_TWELVE_MONTHS = 1618
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_IN_OTHER_VENTURES_UNDER_EQUITY_METHOD_THREE_MONTHS = 1619
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTS_IN_OTHER_VENTURES_UNDER_EQUITY_METHOD_TWELVE_MONTHS = 1620
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_ONE_MONTH = 1621
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_TWO_MONTHS = 1622
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_THREE_MONTHS = 1623
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_SIX_MONTHS = 1624
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_NINE_MONTHS = 1625
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LAND_AND_IMPROVEMENTS_TWELVE_MONTHS = 1626
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_ONE_MONTH = 1627
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_TWO_MONTHS = 1628
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_THREE_MONTHS = 1629
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_SIX_MONTHS = 1630
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_NINE_MONTHS = 1631
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LEASES_TWELVE_MONTHS = 1632
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_OF_DISCONTINUED_OPERATIONS_THREE_MONTHS = 1633
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_OF_DISCONTINUED_OPERATIONS_TWELVE_MONTHS = 1634
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_ONE_MONTH = 1635
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_THREE_MONTHS = 1636
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_NINE_MONTHS = 1637
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LINE_OF_CREDIT_TWELVE_MONTHS = 1638
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_THREE_MONTHS = 1639
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_SIX_MONTHS = 1640
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_NINE_MONTHS = 1641
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_HELD_FOR_SALE_TWELVE_MONTHS = 1642
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_TWO_MONTHS = 1643
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_THREE_MONTHS = 1644
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_SIX_MONTHS = 1645
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_NINE_MONTHS = 1646
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANS_RECEIVABLE_TWELVE_MONTHS = 1647
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_ONE_MONTH = 1648
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_TWO_MONTHS = 1649
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_THREE_MONTHS = 1650
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_SIX_MONTHS = 1651
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_NINE_MONTHS = 1652
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MACHINERY_FURNITURE_EQUIPMENT_TWELVE_MONTHS = 1653
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MATERIALS_AND_SUPPLIES_THREE_MONTHS = 1654
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MATERIALS_AND_SUPPLIES_TWELVE_MONTHS = 1655
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_THREE_MONTHS = 1656
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_SIX_MONTHS = 1657
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_NINE_MONTHS = 1658
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MINERAL_PROPERTIES_TWELVE_MONTHS = 1659
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_THREE_MONTHS = 1660
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_SIX_MONTHS = 1661
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_NINE_MONTHS = 1662
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_LOAN_TWELVE_MONTHS = 1663
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_AND_CONSUMERLOANS_THREE_MONTHS = 1664
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_MORTGAGE_AND_CONSUMERLOANS_TWELVE_MONTHS = 1665
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_NOTES_RECEIVABLE_THREE_MONTHS = 1666
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_GROSS_NOTES_RECEIVABLE_TWELVE_MONTHS = 1667
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_TWO_MONTHS = 1668
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_THREE_MONTHS = 1669
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_SIX_MONTHS = 1670
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_NINE_MONTHS = 1671
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_ASSETS_TWELVE_MONTHS = 1672
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_ONE_MONTH = 1673
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_THREE_MONTHS = 1674
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_NINE_MONTHS = 1675
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CAPITAL_STOCK_TWELVE_MONTHS = 1676
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_ONE_MONTH = 1677
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_TWO_MONTHS = 1678
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_THREE_MONTHS = 1679
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_SIX_MONTHS = 1680
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_NINE_MONTHS = 1681
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_ASSETS_TWELVE_MONTHS = 1682
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_THREE_MONTHS = 1683
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_SIX_MONTHS = 1684
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_NINE_MONTHS = 1685
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_CURRENT_BORROWINGS_TWELVE_MONTHS = 1686
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_TWO_MONTHS = 1687
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_THREE_MONTHS = 1688
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_SIX_MONTHS = 1689
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_ADJUSTMENTS_TWELVE_MONTHS = 1690
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_ONE_MONTH = 1691
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_THREE_MONTHS = 1692
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_SIX_MONTHS = 1693
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_NINE_MONTHS = 1694
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVENTORIES_TWELVE_MONTHS = 1695
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTED_ASSETS_THREE_MONTHS = 1696
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTED_ASSETS_TWELVE_MONTHS = 1697
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_ONE_MONTH = 1698
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_TWO_MONTHS = 1699
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_THREE_MONTHS = 1700
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_SIX_MONTHS = 1701
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_NINE_MONTHS = 1702
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_ASSETS_TWELVE_MONTHS = 1703
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_ONE_MONTH = 1704
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_THREE_MONTHS = 1705
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_SIX_MONTHS = 1706
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_NINE_MONTHS = 1707
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PROPERTIES_TWELVE_MONTHS = 1708
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_THREE_MONTHS = 1709
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_SIX_MONTHS = 1710
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_NINE_MONTHS = 1711
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_REAL_ESTATE_OWNED_TWELVE_MONTHS = 1712
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_TWO_MONTHS = 1713
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_THREE_MONTHS = 1714
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_SIX_MONTHS = 1715
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_NINE_MONTHS = 1716
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RECEIVABLES_TWELVE_MONTHS = 1717
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TWO_MONTHS = 1718
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_THREE_MONTHS = 1719
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_SIX_MONTHS = 1720
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_NINE_MONTHS = 1721
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TWELVE_MONTHS = 1722
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_LOANS_THREE_MONTHS = 1723
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_POLICY_LOANS_TWELVE_MONTHS = 1724
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_ONE_MONTH = 1725
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_TWO_MONTHS = 1726
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_THREE_MONTHS = 1727
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_SIX_MONTHS = 1728
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_NINE_MONTHS = 1729
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_STOCK_EQUITY_TWELVE_MONTHS = 1730
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROPERTIES_THREE_MONTHS = 1731
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROPERTIES_TWELVE_MONTHS = 1732
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_TWO_MONTHS = 1733
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_THREE_MONTHS = 1734
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_SIX_MONTHS = 1735
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_PROVISIONS_TWELVE_MONTHS = 1736
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_THREE_MONTHS = 1737
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_SIX_MONTHS = 1738
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_NINE_MONTHS = 1739
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LONG_TERM_PROVISIONS_TWELVE_MONTHS = 1740
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_TWO_MONTHS = 1741
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_THREE_MONTHS = 1742
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_SIX_MONTHS = 1743
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_NINE_MONTHS = 1744
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RAW_MATERIALS_TWELVE_MONTHS = 1745
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ADJUSTMENTS_ALLOWANCES_THREE_MONTHS = 1746
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ADJUSTMENTS_ALLOWANCES_NINE_MONTHS = 1747
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RECEIVABLES_ADJUSTMENTS_ALLOWANCES_TWELVE_MONTHS = 1748
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_ASSETS_THREE_MONTHS = 1749
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_ASSETS_TWELVE_MONTHS = 1750
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_LIABILITIES_THREE_MONTHS = 1751
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REGULATORY_LIABILITIES_TWELVE_MONTHS = 1752
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_BALANCES_PAYABLE_THREE_MONTHS = 1753
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_BALANCES_PAYABLE_TWELVE_MONTHS = 1754
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_ONE_MONTH = 1755
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_TWO_MONTHS = 1756
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_THREE_MONTHS = 1757
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_SIX_MONTHS = 1758
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_NINE_MONTHS = 1759
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_TWELVE_MONTHS = 1760
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_THREE_MONTHS = 1761
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_SIX_MONTHS = 1762
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_NINE_MONTHS = 1763
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_CASH_EQUIVALENTS_TWELVE_MONTHS = 1764
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_THREE_MONTHS = 1765
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_SIX_MONTHS = 1766
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_NINE_MONTHS = 1767
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_CASH_AND_INVESTMENTS_TWELVE_MONTHS = 1768
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_COMMON_STOCK_THREE_MONTHS = 1769
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_COMMON_STOCK_NINE_MONTHS = 1770
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_COMMON_STOCK_TWELVE_MONTHS = 1771
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_INVESTMENTS_THREE_MONTHS = 1772
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_RESTRICTED_INVESTMENTS_TWELVE_MONTHS = 1773
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_TWO_MONTHS = 1774
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_THREE_MONTHS = 1775
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_SIX_MONTHS = 1776
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_NINE_MONTHS = 1777
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_RECEIVABLE_TWELVE_MONTHS = 1778
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_ONE_MONTH = 1779
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_TWO_MONTHS = 1780
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_THREE_MONTHS = 1781
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_SIX_MONTHS = 1782
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_NINE_MONTHS = 1783
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_CAPITALIZATION_TWELVE_MONTHS = 1784
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_THREE_MONTHS = 1785
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_SIX_MONTHS = 1786
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_NINE_MONTHS = 1787
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEFERRED_CREDITS_AND_OTHER_NON_CURRENT_LIABILITIES_TWELVE_MONTHS = 1788
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNBILLED_RECEIVABLES_THREE_MONTHS = 1789
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNBILLED_RECEIVABLES_TWELVE_MONTHS = 1790
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNREALIZED_GAIN_LOSS_THREE_MONTHS = 1791
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNREALIZED_GAIN_LOSS_SIX_MONTHS = 1792
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNREALIZED_GAIN_LOSS_TWELVE_MONTHS = 1793
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_ONE_MONTH = 1794
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_TWO_MONTHS = 1795
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_THREE_MONTHS = 1796
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_SIX_MONTHS = 1797
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_NINE_MONTHS = 1798
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORK_IN_PROCESS_TWELVE_MONTHS = 1799
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_ONE_MONTH = 1800
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_TWO_MONTHS = 1801
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_THREE_MONTHS = 1802
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_SIX_MONTHS = 1803
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_NINE_MONTHS = 1804
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_NON_CURRENT_LIABILITIES_TWELVE_MONTHS = 1805
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_ONE_MONTH = 1806
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_TWO_MONTHS = 1807
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_THREE_MONTHS = 1808
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_SIX_MONTHS = 1809
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_NINE_MONTHS = 1810
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CAPITAL_LEASE_OBLIGATIONS_TWELVE_MONTHS = 1811
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_TWO_MONTHS = 1812
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_THREE_MONTHS = 1813
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_SIX_MONTHS = 1814
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_NINE_MONTHS = 1815
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LIABILITIES_TWELVE_MONTHS = 1816
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_ONE_MONTH = 1817
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_TWO_MONTHS = 1818
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_THREE_MONTHS = 1819
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_SIX_MONTHS = 1820
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_NINE_MONTHS = 1821
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_PAYABLE_TWELVE_MONTHS = 1822
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_ONE_MONTH = 1823
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_TWO_MONTHS = 1824
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_THREE_MONTHS = 1825
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_SIX_MONTHS = 1826
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_NINE_MONTHS = 1827
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TANGIBLE_BOOK_VALUE_TWELVE_MONTHS = 1828
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_ONE_MONTH = 1829
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_TWO_MONTHS = 1830
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_THREE_MONTHS = 1831
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_SIX_MONTHS = 1832
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_NINE_MONTHS = 1833
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_TWELVE_MONTHS = 1834
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_ONE_MONTH = 1835
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_TWO_MONTHS = 1836
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_THREE_MONTHS = 1837
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_SIX_MONTHS = 1838
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_NINE_MONTHS = 1839
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WORKING_CAPITAL_TWELVE_MONTHS = 1840
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_ONE_MONTH = 1841
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_TWO_MONTHS = 1842
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_THREE_MONTHS = 1843
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_SIX_MONTHS = 1844
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_NINE_MONTHS = 1845
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_TWELVE_MONTHS = 1846
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_UTILITY_PLANT_THREE_MONTHS = 1847
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_UTILITY_PLANT_NINE_MONTHS = 1848
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COMMON_UTILITY_PLANT_TWELVE_MONTHS = 1849
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ELECTRIC_UTILITY_PLANT_THREE_MONTHS = 1850
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ELECTRIC_UTILITY_PLANT_TWELVE_MONTHS = 1851
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NATURAL_GAS_FUEL_AND_OTHER_THREE_MONTHS = 1852
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NATURAL_GAS_FUEL_AND_OTHER_TWELVE_MONTHS = 1853
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_UTILITY_PLANT_THREE_MONTHS = 1854
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_UTILITY_PLANT_NINE_MONTHS = 1855
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_UTILITY_PLANT_TWELVE_MONTHS = 1856
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WATER_PRODUCTION_THREE_MONTHS = 1857
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_WATER_PRODUCTION_TWELVE_MONTHS = 1858
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ORDINARY_SHARES_NUMBER_THREE_MONTHS = 1859
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ORDINARY_SHARES_NUMBER_TWELVE_MONTHS = 1860
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SHARES_NUMBER_THREE_MONTHS = 1861
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PREFERRED_SHARES_NUMBER_TWELVE_MONTHS = 1862
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_SHARES_NUMBER_THREE_MONTHS = 1863
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_SHARES_NUMBER_TWELVE_MONTHS = 1864
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_AND_OTHER_RECEIVABLE_THREE_MONTHS = 1865
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADING_AND_OTHER_RECEIVABLE_TWELVE_MONTHS = 1866
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_ATTRIBUTABLE_TO_OWNERS_OF_PARENT_TWO_MONTHS = 1867
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_ATTRIBUTABLE_TO_OWNERS_OF_PARENT_THREE_MONTHS = 1868
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_ATTRIBUTABLE_TO_OWNERS_OF_PARENT_TWELVE_MONTHS = 1869
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LOANED_THREE_MONTHS = 1870
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SECURITIES_LOANED_TWELVE_MONTHS = 1871
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_ONE_MONTH = 1872
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_TWO_MONTHS = 1873
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_THREE_MONTHS = 1874
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_SIX_MONTHS = 1875
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_NINE_MONTHS = 1876
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_TANGIBLE_ASSETS_TWELVE_MONTHS = 1877
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_CURRENT_THREE_MONTHS = 1878
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_CURRENT_TWELVE_MONTHS = 1879
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_NON_CURRENT_THREE_MONTHS = 1880
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUEFROM_RELATED_PARTIES_NON_CURRENT_TWELVE_MONTHS = 1881
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_THREE_MONTHS = 1882
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_TWELVE_MONTHS = 1883
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_CURRENT_THREE_MONTHS = 1884
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_CURRENT_TWELVE_MONTHS = 1885
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_NON_CURRENT_THREE_MONTHS = 1886
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUETO_RELATED_PARTIES_NON_CURRENT_TWELVE_MONTHS = 1887
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_PROPERTIES_THREE_MONTHS = 1888
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 1889
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_SUBSIDIARIESAT_COST_THREE_MONTHS = 1890
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_SUBSIDIARIESAT_COST_TWELVE_MONTHS = 1891
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_ASSOCIATESAT_COST_THREE_MONTHS = 1892
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_ASSOCIATESAT_COST_TWELVE_MONTHS = 1893
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_JOINT_VENTURESAT_COST_THREE_MONTHS = 1894
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTSIN_JOINT_VENTURESAT_COST_TWELVE_MONTHS = 1895
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTIN_FINANCIAL_ASSETS_TWO_MONTHS = 1896
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTIN_FINANCIAL_ASSETS_THREE_MONTHS = 1897
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENTIN_FINANCIAL_ASSETS_TWELVE_MONTHS = 1898
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_THREE_MONTHS = 1899
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_TWELVE_MONTHS = 1900
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_CURRENT_TWELVE_MONTHS = 1901
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_CURRENT_THREE_MONTHS = 1902
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_CURRENT_TWELVE_MONTHS = 1903
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_CURRENT_THREE_MONTHS = 1904
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_CURRENT_TWELVE_MONTHS = 1905
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_THREE_MONTHS = 1906
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_TWELVE_MONTHS = 1907
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_NON_CURRENT_THREE_MONTHS = 1908
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_NON_CURRENT_TWELVE_MONTHS = 1909
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_NON_CURRENT_THREE_MONTHS = 1910
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_NON_CURRENT_TWELVE_MONTHS = 1911
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RESERVES_THREE_MONTHS = 1912
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_RESERVES_TWELVE_MONTHS = 1913
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_BANK_THREE_MONTHS = 1914
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_BANK_TWELVE_MONTHS = 1915
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_CUSTOMER_THREE_MONTHS = 1916
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LOANSAND_ADVANCESTO_CUSTOMER_TWELVE_MONTHS = 1917
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_BILLSAND_OTHER_ELIGIBLE_BILLS_THREE_MONTHS = 1918
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TREASURY_BILLSAND_OTHER_ELIGIBLE_BILLS_TWELVE_MONTHS = 1919
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_SHARES_INVESTMENTS_THREE_MONTHS = 1920
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_EQUITY_SHARES_INVESTMENTS_TWELVE_MONTHS = 1921
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITSBY_BANK_THREE_MONTHS = 1922
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITSBY_BANK_TWELVE_MONTHS = 1923
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCOUNTS_THREE_MONTHS = 1924
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CUSTOMER_ACCOUNTS_TWELVE_MONTHS = 1925
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ITEMSIN_THE_COURSEOF_TRANSMISSIONTO_OTHER_BANKS_THREE_MONTHS = 1926
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ITEMSIN_THE_COURSEOF_TRANSMISSIONTO_OTHER_BANKS_TWELVE_MONTHS = 1927
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADINGAND_FINANCIAL_LIABILITIES_THREE_MONTHS = 1928
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADINGAND_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 1929
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIESIN_ISSUE_THREE_MONTHS = 1930
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIESIN_ISSUE_TWELVE_MONTHS = 1931
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SUBORDINATED_LIABILITIES_THREE_MONTHS = 1932
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SUBORDINATED_LIABILITIES_TWELVE_MONTHS = 1933
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROVISIONS_TOTAL_THREE_MONTHS = 1934
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PROVISIONS_TOTAL_TWELVE_MONTHS = 1935
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OPERATING_LEASE_ASSETS_THREE_MONTHS = 1936
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OPERATING_LEASE_ASSETS_TWELVE_MONTHS = 1937
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CLAIMS_OUTSTANDING_THREE_MONTHS = 1938
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CLAIMS_OUTSTANDING_TWELVE_MONTHS = 1939
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_CURRENT_THREE_MONTHS = 1940
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_CURRENT_TWELVE_MONTHS = 1941
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_NON_CURRENT_THREE_MONTHS = 1942
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_NON_CURRENT_TWELVE_MONTHS = 1943
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIES_THREE_MONTHS = 1944
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_SECURITIES_TWELVE_MONTHS = 1945
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_FINANCIAL_LEASE_OBLIGATIONS_THREE_MONTHS = 1946
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_FINANCIAL_LEASE_OBLIGATIONS_TWELVE_MONTHS = 1947
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_CURRENT_THREE_MONTHS = 1948
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_CURRENT_TWELVE_MONTHS = 1949
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_NON_CURRENT_THREE_MONTHS = 1950
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUEDAND_DEFERRED_INCOME_NON_CURRENT_TWELVE_MONTHS = 1951
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_CURRENT_THREE_MONTHS = 1952
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_CURRENT_TWELVE_MONTHS = 1953
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_NON_CURRENT_THREE_MONTHS = 1954
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCE_LEASE_RECEIVABLES_NON_CURRENT_TWELVE_MONTHS = 1955
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_CURRENT_THREE_MONTHS = 1956
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_CURRENT_TWELVE_MONTHS = 1957
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_NON_CURRENT_THREE_MONTHS = 1958
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_NON_CURRENT_TWELVE_MONTHS = 1959
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_THREE_MONTHS = 1960
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_ASSETS_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_TWELVE_MONTHS = 1961
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_ASSETS_CURRENT_THREE_MONTHS = 1962
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAXES_ASSETS_CURRENT_TWELVE_MONTHS = 1963
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_INTEREST_THREE_MONTHS = 1964
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_EQUITY_INTEREST_TWELVE_MONTHS = 1965
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_BORROWINGS_NON_CURRENT_THREE_MONTHS = 1966
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INTEREST_BEARING_BORROWINGS_NON_CURRENT_TWELVE_MONTHS = 1967
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_NON_CURRENT_THREE_MONTHS = 1968
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_NON_CURRENT_TWELVE_MONTHS = 1969
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADEAND_OTHER_PAYABLES_NON_CURRENT_THREE_MONTHS = 1970
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADEAND_OTHER_PAYABLES_NON_CURRENT_TWELVE_MONTHS = 1971
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_CURRENT_THREE_MONTHS = 1972
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_CURRENT_TWELVE_MONTHS = 1973
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSIONAND_OTHER_POST_RETIREMENT_BENEFIT_PLANS_CURRENT_THREE_MONTHS = 1974
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSIONAND_OTHER_POST_RETIREMENT_BENEFIT_PLANS_CURRENT_TWELVE_MONTHS = 1975
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOAN_ASSETS_THREE_MONTHS = 1976
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOAN_ASSETS_TWELVE_MONTHS = 1977
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_PLEDGEDAS_COLLATERAL_SUBJECTTO_SALEOR_REPLEDGING_TOTAL_THREE_MONTHS = 1978
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_PLEDGEDAS_COLLATERAL_SUBJECTTO_SALEOR_REPLEDGING_TOTAL_TWELVE_MONTHS = 1979
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAX_ASSETS_TOTAL_THREE_MONTHS = 1980
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TAX_ASSETS_TOTAL_TWELVE_MONTHS = 1981
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCESFROM_CENTRAL_BANKS_THREE_MONTHS = 1982
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ADVANCESFROM_CENTRAL_BANKS_TWELVE_MONTHS = 1983
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSIT_CERTIFICATES_THREE_MONTHS = 1984
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSIT_CERTIFICATES_TWELVE_MONTHS = 1985
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_TOTAL_THREE_MONTHS = 1986
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_INTEREST_BEARING_BORROWINGS_TOTAL_TWELVE_MONTHS = 1987
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_BORROWED_FUNDS_THREE_MONTHS = 1988
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_BORROWED_FUNDS_TWELVE_MONTHS = 1989
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_THREE_MONTHS = 1990
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_DESIGNATEDAS_FAIR_VALUE_THROUGH_PROFITOR_LOSS_TOTAL_TWELVE_MONTHS = 1991
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_MEASUREDAT_AMORTIZED_COST_TOTAL_THREE_MONTHS = 1992
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_LIABILITIES_MEASUREDAT_AMORTIZED_COST_TOTAL_TWELVE_MONTHS = 1993
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_LIABILITIES_TOTAL_TWO_MONTHS = 1994
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_LIABILITIES_TOTAL_THREE_MONTHS = 1995
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ACCRUED_LIABILITIES_TOTAL_TWELVE_MONTHS = 1996
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_INCOME_TOTAL_THREE_MONTHS = 1997
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_INCOME_TOTAL_TWELVE_MONTHS = 1998
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_LIABILITIES_TOTAL_THREE_MONTHS = 1999
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEFERRED_TAX_LIABILITIES_TOTAL_TWELVE_MONTHS = 2000
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_ASSETS_THREE_MONTHS = 2001
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_REINSURANCE_ASSETS_TWELVE_MONTHS = 2002
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_MADEUNDER_ASSUMED_REINSURANCE_CONTRACT_THREE_MONTHS = 2003
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_MADEUNDER_ASSUMED_REINSURANCE_CONTRACT_TWELVE_MONTHS = 2004
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_ASSETS_THREE_MONTHS = 2005
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_ASSETS_TWELVE_MONTHS = 2006
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_LIABILITIES_THREE_MONTHS = 2007
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2008
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_RECEIVEDUNDER_CEDED_INSURANCE_CONTRACT_THREE_MONTHS = 2009
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEPOSITS_RECEIVEDUNDER_CEDED_INSURANCE_CONTRACT_TWELVE_MONTHS = 2010
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_CONTRACT_LIABILITIES_THREE_MONTHS = 2011
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INVESTMENT_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2012
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TOTAL_THREE_MONTHS = 2013
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PENSION_AND_OTHER_POSTRETIREMENT_BENEFIT_PLANS_TOTAL_TWELVE_MONTHS = 2014
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_TOTAL_THREE_MONTHS = 2015
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_LIABILITIES_HELDFOR_SALE_TOTAL_TWELVE_MONTHS = 2016
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HEDGING_ASSETS_CURRENT_THREE_MONTHS = 2017
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_HEDGING_ASSETS_CURRENT_TWELVE_MONTHS = 2018
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_TOTAL_THREE_MONTHS = 2019
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_TOTAL_TWELVE_MONTHS = 2020
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_TOTAL_THREE_MONTHS = 2021
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BANK_LOANS_TOTAL_TWELVE_MONTHS = 2022
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_TOTAL_THREE_MONTHS = 2023
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_LOANS_TOTAL_TWELVE_MONTHS = 2024
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_FUNDS_NON_CURRENT_THREE_MONTHS = 2025
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_INSURANCE_FUNDS_NON_CURRENT_TWELVE_MONTHS = 2026
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_TOTAL_THREE_MONTHS = 2027
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_TOTAL_TWELVE_MONTHS = 2028
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COM_TRE_SHA_NUM_THREE_MONTHS = 2029
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_COM_TRE_SHA_NUM_TWELVE_MONTHS = 2030
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PRE_TRE_SHA_NUM_THREE_MONTHS = 2031
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_PRE_TRE_SHA_NUM_TWELVE_MONTHS = 2032
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_ONE_MONTH = 2033
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_TWO_MONTHS = 2034
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_THREE_MONTHS = 2035
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_SIX_MONTHS = 2036
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_NINE_MONTHS = 2037
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NET_DEBT_TWELVE_MONTHS = 2038
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHARE_ISSUED_THREE_MONTHS = 2039
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_SHARE_ISSUED_TWELVE_MONTHS = 2040
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_CURRENT_THREE_MONTHS = 2041
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_CURRENT_TWELVE_MONTHS = 2042
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_NON_CURRENT_THREE_MONTHS = 2043
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_ASSETS_HELD_FOR_SALE_NON_CURRENT_TWELVE_MONTHS = 2044
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BIOLOGICAL_ASSETS_THREE_MONTHS = 2045
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_BIOLOGICAL_ASSETS_TWELVE_MONTHS = 2046
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_RESTRICTED_OR_PLEDGED_THREE_MONTHS = 2047
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CASH_RESTRICTED_OR_PLEDGED_TWELVE_MONTHS = 2048
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_NON_CURRENT_THREE_MONTHS = 2049
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CONVERTIBLE_LOANS_NON_CURRENT_TWELVE_MONTHS = 2050
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_OR_DERIVATIVE_INVESTMENT_CURRENT_LIABILITIES_THREE_MONTHS = 2051
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FINANCIAL_OR_DERIVATIVE_INVESTMENT_CURRENT_LIABILITIES_TWELVE_MONTHS = 2052
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTMENTS_THREE_MONTHS = 2053
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_INVESTMENTS_TWELVE_MONTHS = 2054
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADE_AND_OTHER_RECEIVABLES_NON_CURRENT_THREE_MONTHS = 2055
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TRADE_AND_OTHER_RECEIVABLES_NON_CURRENT_TWELVE_MONTHS = 2056
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUE_FROM_RELATED_PARTIES_THREE_MONTHS = 2057
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DUE_FROM_RELATED_PARTIES_TWELVE_MONTHS = 2058
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNALLOCATED_SURPLUS_THREE_MONTHS = 2059
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_UNALLOCATED_SURPLUS_TWELVE_MONTHS = 2060
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_1_THREE_MONTHS = 2061
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_1_TWELVE_MONTHS = 2062
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_2_THREE_MONTHS = 2063
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_2_TWELVE_MONTHS = 2064
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_5_THREE_MONTHS = 2065
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_IN_YEAR_5_TWELVE_MONTHS = 2066
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_BEYOND_THREE_MONTHS = 2067
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_DEBT_DUE_BEYOND_TWELVE_MONTHS = 2068
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_IN_MATURITY_SCHEDULE_THREE_MONTHS = 2069
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_DEBT_IN_MATURITY_SCHEDULE_TWELVE_MONTHS = 2070
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_ASSETS_REVALUATION_RESERVE_THREE_MONTHS = 2071
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_FIXED_ASSETS_REVALUATION_RESERVE_TWELVE_MONTHS = 2072
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_OTHER_FINANCIAL_LIABILITIES_THREE_MONTHS = 2073
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_CURRENT_OTHER_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2074
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_OTHER_FINANCIAL_LIABILITIES_THREE_MONTHS = 2075
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_NON_CURRENT_OTHER_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2076
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_FINANCIAL_LIABILITIES_THREE_MONTHS = 2077
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_OTHER_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2078
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_AS_REPORTED_THREE_MONTHS = 2079
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_LIABILITIES_AS_REPORTED_TWELVE_MONTHS = 2080
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_AS_REPORTED_THREE_MONTHS = 2081
-
-    FINANCIAL_STATEMENTS_BALANCE_SHEET_TOTAL_EQUITY_AS_REPORTED_TWELVE_MONTHS = 2082
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_ONE_MONTH = 2083
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_TWO_MONTHS = 2084
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_THREE_MONTHS = 2085
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_SIX_MONTHS = 2086
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_NINE_MONTHS = 2087
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CF_FILE_DATE_TWELVE_MONTHS = 2088
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_ONE_MONTH = 2089
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_TWO_MONTHS = 2090
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_THREE_MONTHS = 2091
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_SIX_MONTHS = 2092
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_NINE_MONTHS = 2093
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_TWELVE_MONTHS = 2094
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_ONE_MONTH = 2095
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_TWO_MONTHS = 2096
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_THREE_MONTHS = 2097
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_SIX_MONTHS = 2098
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_NINE_MONTHS = 2099
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAPITAL_EXPENDITURE_TWELVE_MONTHS = 2100
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_ONE_MONTH = 2101
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_TWO_MONTHS = 2102
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_THREE_MONTHS = 2103
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_SIX_MONTHS = 2104
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_NINE_MONTHS = 2105
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_PAID_TWELVE_MONTHS = 2106
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_TWO_MONTHS = 2107
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_THREE_MONTHS = 2108
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_SIX_MONTHS = 2109
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_NINE_MONTHS = 2110
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_FINANCING_ACTIVITIES_TWELVE_MONTHS = 2111
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_TWO_MONTHS = 2112
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_THREE_MONTHS = 2113
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_SIX_MONTHS = 2114
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_NINE_MONTHS = 2115
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_INVESTING_ACTIVITIES_TWELVE_MONTHS = 2116
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_TWO_MONTHS = 2117
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_THREE_MONTHS = 2118
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_SIX_MONTHS = 2119
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_NINE_MONTHS = 2120
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_CONTINUING_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2121
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_THREE_MONTHS = 2122
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_SIX_MONTHS = 2123
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_NINE_MONTHS = 2124
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOW_FROM_DISCONTINUED_OPERATION_TWELVE_MONTHS = 2125
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_ONE_MONTH = 2126
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_TWO_MONTHS = 2127
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_THREE_MONTHS = 2128
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_SIX_MONTHS = 2129
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_NINE_MONTHS = 2130
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FINANCING_CASH_FLOW_TWELVE_MONTHS = 2131
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_ONE_MONTH = 2132
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_TWO_MONTHS = 2133
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_THREE_MONTHS = 2134
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_SIX_MONTHS = 2135
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_NINE_MONTHS = 2136
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INVESTING_CASH_FLOW_TWELVE_MONTHS = 2137
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_ONE_MONTH = 2138
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_TWO_MONTHS = 2139
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_THREE_MONTHS = 2140
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_SIX_MONTHS = 2141
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_NINE_MONTHS = 2142
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_CASH_FLOW_TWELVE_MONTHS = 2143
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_ONE_MONTH = 2144
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_TWO_MONTHS = 2145
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_THREE_MONTHS = 2146
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_SIX_MONTHS = 2147
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_NINE_MONTHS = 2148
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_BEGINNING_CASH_POSITION_TWELVE_MONTHS = 2149
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_ONE_MONTH = 2150
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_TWO_MONTHS = 2151
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_THREE_MONTHS = 2152
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_SIX_MONTHS = 2153
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_NINE_MONTHS = 2154
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_END_CASH_POSITION_TWELVE_MONTHS = 2155
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_THREE_MONTHS = 2156
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_SIX_MONTHS = 2157
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_NINE_MONTHS = 2158
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_FINANCING_ACTIVITIES_TWELVE_MONTHS = 2159
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_THREE_MONTHS = 2160
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_SIX_MONTHS = 2161
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_NINE_MONTHS = 2162
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_INVESTING_ACTIVITIES_TWELVE_MONTHS = 2163
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_ONE_MONTH = 2164
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_TWO_MONTHS = 2165
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_THREE_MONTHS = 2166
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_SIX_MONTHS = 2167
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_NINE_MONTHS = 2168
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCOUNT_PAYABLE_TWELVE_MONTHS = 2169
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_ONE_MONTH = 2170
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_TWO_MONTHS = 2171
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_THREE_MONTHS = 2172
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_SIX_MONTHS = 2173
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_NINE_MONTHS = 2174
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TAX_PAYABLE_TWELVE_MONTHS = 2175
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_ONE_MONTH = 2176
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_TWO_MONTHS = 2177
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_THREE_MONTHS = 2178
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_SIX_MONTHS = 2179
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_NINE_MONTHS = 2180
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_EXPENSE_TWELVE_MONTHS = 2181
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_THREE_MONTHS = 2182
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_SIX_MONTHS = 2183
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_NINE_MONTHS = 2184
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_ACCRUED_INVESTMENT_INCOME_TWELVE_MONTHS = 2185
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_ONE_MONTH = 2186
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_TWO_MONTHS = 2187
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_THREE_MONTHS = 2188
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_SIX_MONTHS = 2189
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_NINE_MONTHS = 2190
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_CASH_TWELVE_MONTHS = 2191
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_THREE_MONTHS = 2192
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_SIX_MONTHS = 2193
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_NINE_MONTHS = 2194
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_ACQUISITION_COSTS_TWELVE_MONTHS = 2195
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_THREE_MONTHS = 2196
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_SIX_MONTHS = 2197
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_NINE_MONTHS = 2198
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FEDERAL_FUNDS_AND_SECURITIES_SOLD_FOR_REPURCHASE_TWELVE_MONTHS = 2199
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_THREE_MONTHS = 2200
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_SIX_MONTHS = 2201
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_NINE_MONTHS = 2202
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_FUNDS_WITHHELD_TWELVE_MONTHS = 2203
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_ONE_MONTH = 2204
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_TWO_MONTHS = 2205
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_THREE_MONTHS = 2206
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_SIX_MONTHS = 2207
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_NINE_MONTHS = 2208
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INCOME_TAX_PAYABLE_TWELVE_MONTHS = 2209
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_ONE_MONTH = 2210
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_TWO_MONTHS = 2211
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_THREE_MONTHS = 2212
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_SIX_MONTHS = 2213
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_NINE_MONTHS = 2214
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INTEREST_PAYABLE_TWELVE_MONTHS = 2215
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_ONE_MONTH = 2216
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_TWO_MONTHS = 2217
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_THREE_MONTHS = 2218
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_SIX_MONTHS = 2219
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_NINE_MONTHS = 2220
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_INVENTORY_TWELVE_MONTHS = 2221
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_THREE_MONTHS = 2222
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_SIX_MONTHS = 2223
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_NINE_MONTHS = 2224
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOANS_TWELVE_MONTHS = 2225
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_THREE_MONTHS = 2226
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_SIX_MONTHS = 2227
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_NINE_MONTHS = 2228
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_LOSS_AND_LOSS_ADJUSTMENT_EXPENSE_RESERVES_TWELVE_MONTHS = 2229
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_ONE_MONTH = 2230
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_TWO_MONTHS = 2231
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_THREE_MONTHS = 2232
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_SIX_MONTHS = 2233
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_NINE_MONTHS = 2234
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLE_TWELVE_MONTHS = 2235
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_ONE_MONTH = 2236
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_TWO_MONTHS = 2237
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_THREE_MONTHS = 2238
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_SIX_MONTHS = 2239
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_NINE_MONTHS = 2240
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PAYABLES_AND_ACCRUED_EXPENSE_TWELVE_MONTHS = 2241
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_ONE_MONTH = 2242
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_TWO_MONTHS = 2243
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_THREE_MONTHS = 2244
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_SIX_MONTHS = 2245
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_NINE_MONTHS = 2246
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_PREPAID_ASSETS_TWELVE_MONTHS = 2247
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_ONE_MONTH = 2248
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_TWO_MONTHS = 2249
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_THREE_MONTHS = 2250
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_SIX_MONTHS = 2251
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_NINE_MONTHS = 2252
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RECEIVABLES_TWELVE_MONTHS = 2253
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_THREE_MONTHS = 2254
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_SIX_MONTHS = 2255
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_NINE_MONTHS = 2256
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_REINSURANCE_RECOVERABLE_ON_PAID_AND_UNPAID_LOSSES_TWELVE_MONTHS = 2257
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RESTRICTED_CASH_SIX_MONTHS = 2258
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_RESTRICTED_CASH_TWELVE_MONTHS = 2259
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_THREE_MONTHS = 2260
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_SIX_MONTHS = 2261
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_NINE_MONTHS = 2262
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_TRADING_ACCOUNT_SECURITIES_TWELVE_MONTHS = 2263
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_ONE_MONTH = 2264
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_TWO_MONTHS = 2265
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_THREE_MONTHS = 2266
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_SIX_MONTHS = 2267
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_NINE_MONTHS = 2268
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_WORKING_CAPITAL_TWELVE_MONTHS = 2269
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_ONE_MONTH = 2270
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_TWO_MONTHS = 2271
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_THREE_MONTHS = 2272
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_SIX_MONTHS = 2273
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_NINE_MONTHS = 2274
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_INCOME_TAX_TWELVE_MONTHS = 2275
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_ONE_MONTH = 2276
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_TWO_MONTHS = 2277
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_THREE_MONTHS = 2278
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_SIX_MONTHS = 2279
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_NINE_MONTHS = 2280
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEFERRED_TAX_TWELVE_MONTHS = 2281
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_THREE_MONTHS = 2282
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_SIX_MONTHS = 2283
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_NINE_MONTHS = 2284
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPLETION_TWELVE_MONTHS = 2285
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_ONE_MONTH = 2286
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_TWO_MONTHS = 2287
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_THREE_MONTHS = 2288
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_SIX_MONTHS = 2289
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_NINE_MONTHS = 2290
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_TWELVE_MONTHS = 2291
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_ONE_MONTH = 2292
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWO_MONTHS = 2293
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_THREE_MONTHS = 2294
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_SIX_MONTHS = 2295
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_NINE_MONTHS = 2296
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AND_AMORTIZATION_TWELVE_MONTHS = 2297
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_ONE_MONTH = 2298
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWO_MONTHS = 2299
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_THREE_MONTHS = 2300
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_SIX_MONTHS = 2301
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_NINE_MONTHS = 2302
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DEPRECIATION_AMORTIZATION_DEPLETION_TWELVE_MONTHS = 2303
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_ONE_MONTH = 2304
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_TWO_MONTHS = 2305
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_THREE_MONTHS = 2306
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_SIX_MONTHS = 2307
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_NINE_MONTHS = 2308
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EFFECT_OF_EXCHANGE_RATE_CHANGES_TWELVE_MONTHS = 2309
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_THREE_MONTHS = 2310
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_SIX_MONTHS = 2311
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_NINE_MONTHS = 2312
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_DEPOSIT_TWELVE_MONTHS = 2313
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_ONE_MONTH = 2314
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_TWO_MONTHS = 2315
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_THREE_MONTHS = 2316
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_SIX_MONTHS = 2317
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_NINE_MONTHS = 2318
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_COMMON_STOCK_ISSUANCE_TWELVE_MONTHS = 2319
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_ONE_MONTH = 2320
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_TWO_MONTHS = 2321
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_THREE_MONTHS = 2322
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_SIX_MONTHS = 2323
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_NINE_MONTHS = 2324
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_ISSUANCE_PAYMENTS_OF_DEBT_TWELVE_MONTHS = 2325
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_ONE_MONTH = 2326
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2327
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2328
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2329
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2330
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_LONG_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2331
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_ONE_MONTH = 2332
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_TWO_MONTHS = 2333
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_THREE_MONTHS = 2334
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_SIX_MONTHS = 2335
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_NINE_MONTHS = 2336
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PREFERRED_STOCK_ISSUANCE_TWELVE_MONTHS = 2337
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_ONE_MONTH = 2338
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2339
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2340
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2341
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2342
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_SHORT_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2343
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_THREE_MONTHS = 2344
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_SIX_MONTHS = 2345
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_NINE_MONTHS = 2346
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_CASH_FROM_DISCONTINUED_OPERATIONS_TWELVE_MONTHS = 2347
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_ONE_MONTH = 2348
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_THREE_MONTHS = 2349
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_SIX_MONTHS = 2350
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_NINE_MONTHS = 2351
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_FOREIGN_CURRENCY_EXCHANGE_GAIN_LOSS_TWELVE_MONTHS = 2352
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_ONE_MONTH = 2353
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_TWO_MONTHS = 2354
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_THREE_MONTHS = 2355
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_SIX_MONTHS = 2356
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_NINE_MONTHS = 2357
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INCOME_FROM_CONTINUING_OPERATIONS_TWELVE_MONTHS = 2358
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_THREE_MONTHS = 2359
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_SIX_MONTHS = 2360
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_NINE_MONTHS = 2361
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENT_FOR_LOANS_TWELVE_MONTHS = 2362
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_ONE_MONTH = 2363
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_TWO_MONTHS = 2364
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_THREE_MONTHS = 2365
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_SIX_MONTHS = 2366
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_NINE_MONTHS = 2367
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_PAYMENTS_TWELVE_MONTHS = 2368
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_ONE_MONTH = 2369
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_THREE_MONTHS = 2370
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_SIX_MONTHS = 2371
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_NINE_MONTHS = 2372
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_PAYMENTS_TWELVE_MONTHS = 2373
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_ONE_MONTH = 2374
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_TWO_MONTHS = 2375
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_THREE_MONTHS = 2376
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_SIX_MONTHS = 2377
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_NINE_MONTHS = 2378
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_PAYMENTS_TWELVE_MONTHS = 2379
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_ONE_MONTH = 2380
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_TWO_MONTHS = 2381
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_THREE_MONTHS = 2382
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_SIX_MONTHS = 2383
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_NINE_MONTHS = 2384
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_PAYMENTS_TWELVE_MONTHS = 2385
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_THREE_MONTHS = 2386
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_SIX_MONTHS = 2387
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_NINE_MONTHS = 2388
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_LOANS_TWELVE_MONTHS = 2389
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_ONE_MONTH = 2390
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_TWO_MONTHS = 2391
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_THREE_MONTHS = 2392
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_SIX_MONTHS = 2393
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_NINE_MONTHS = 2394
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_FROM_STOCK_OPTION_EXERCISED_TWELVE_MONTHS = 2395
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_ONE_MONTH = 2396
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_TWO_MONTHS = 2397
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_THREE_MONTHS = 2398
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_SIX_MONTHS = 2399
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_NINE_MONTHS = 2400
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_ISSUANCE_TWELVE_MONTHS = 2401
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_ONE_MONTH = 2402
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2403
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2404
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2405
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2406
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_LONG_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2407
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_ONE_MONTH = 2408
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_TWO_MONTHS = 2409
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_THREE_MONTHS = 2410
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_SIX_MONTHS = 2411
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_NINE_MONTHS = 2412
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_ISSUANCE_TWELVE_MONTHS = 2413
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_ONE_MONTH = 2414
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_TWO_MONTHS = 2415
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_THREE_MONTHS = 2416
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_SIX_MONTHS = 2417
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_NINE_MONTHS = 2418
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHORT_TERM_DEBT_ISSUANCE_TWELVE_MONTHS = 2419
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_THREE_MONTHS = 2420
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_SIX_MONTHS = 2421
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_NINE_MONTHS = 2422
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PROCEEDS_PAYMENT_FOR_LOAN_TWELVE_MONTHS = 2423
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_THREE_MONTHS = 2424
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_SIX_MONTHS = 2425
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_NINE_MONTHS = 2426
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_TWELVE_MONTHS = 2427
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_ONE_MONTH = 2428
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_TWO_MONTHS = 2429
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_THREE_MONTHS = 2430
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_SIX_MONTHS = 2431
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_NINE_MONTHS = 2432
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INTANGIBLES_TWELVE_MONTHS = 2433
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_ONE_MONTH = 2434
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_TWO_MONTHS = 2435
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_THREE_MONTHS = 2436
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_SIX_MONTHS = 2437
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_NINE_MONTHS = 2438
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_TWELVE_MONTHS = 2439
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_ONE_MONTH = 2440
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_TWO_MONTHS = 2441
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_THREE_MONTHS = 2442
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_SIX_MONTHS = 2443
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_NINE_MONTHS = 2444
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_PPE_TWELVE_MONTHS = 2445
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_ONE_MONTH = 2446
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_TWO_MONTHS = 2447
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_THREE_MONTHS = 2448
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_SIX_MONTHS = 2449
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_NINE_MONTHS = 2450
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_BUSINESS_TWELVE_MONTHS = 2451
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_ONE_MONTH = 2452
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_TWO_MONTHS = 2453
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_THREE_MONTHS = 2454
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_SIX_MONTHS = 2455
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_NINE_MONTHS = 2456
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_BUSINESS_PURCHASE_AND_SALE_TWELVE_MONTHS = 2457
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_ONE_MONTH = 2458
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_TWO_MONTHS = 2459
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_THREE_MONTHS = 2460
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_SIX_MONTHS = 2461
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_NINE_MONTHS = 2462
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INTANGIBLES_PURCHASE_AND_SALE_TWELVE_MONTHS = 2463
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_ONE_MONTH = 2464
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_TWO_MONTHS = 2465
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_THREE_MONTHS = 2466
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_SIX_MONTHS = 2467
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_NINE_MONTHS = 2468
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PURCHASE_AND_SALE_TWELVE_MONTHS = 2469
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_ONE_MONTH = 2470
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_TWO_MONTHS = 2471
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_THREE_MONTHS = 2472
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_SIX_MONTHS = 2473
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_NINE_MONTHS = 2474
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_PPE_PURCHASE_AND_SALE_TWELVE_MONTHS = 2475
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_ONE_MONTH = 2476
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_TWO_MONTHS = 2477
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_THREE_MONTHS = 2478
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_SIX_MONTHS = 2479
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_NINE_MONTHS = 2480
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_BUSINESS_TWELVE_MONTHS = 2481
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_ONE_MONTH = 2482
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_THREE_MONTHS = 2483
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_SIX_MONTHS = 2484
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_NINE_MONTHS = 2485
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INTANGIBLES_TWELVE_MONTHS = 2486
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_ONE_MONTH = 2487
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_TWO_MONTHS = 2488
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_THREE_MONTHS = 2489
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_SIX_MONTHS = 2490
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_NINE_MONTHS = 2491
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_TWELVE_MONTHS = 2492
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_ONE_MONTH = 2493
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_TWO_MONTHS = 2494
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_THREE_MONTHS = 2495
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_SIX_MONTHS = 2496
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_NINE_MONTHS = 2497
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_PPE_TWELVE_MONTHS = 2498
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_ONE_MONTH = 2499
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_TWO_MONTHS = 2500
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_THREE_MONTHS = 2501
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_SIX_MONTHS = 2502
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_NINE_MONTHS = 2503
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGES_IN_ACCOUNT_RECEIVABLES_TWELVE_MONTHS = 2504
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_ONE_MONTH = 2505
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_TWO_MONTHS = 2506
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_THREE_MONTHS = 2507
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_SIX_MONTHS = 2508
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_NINE_MONTHS = 2509
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_FINANCING_COSTS_AND_DISCOUNTS_TWELVE_MONTHS = 2510
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_ONE_MONTH = 2511
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_TWO_MONTHS = 2512
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_THREE_MONTHS = 2513
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_SIX_MONTHS = 2514
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_NINE_MONTHS = 2515
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_SECURITIES_TWELVE_MONTHS = 2516
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_ONE_MONTH = 2517
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_TWO_MONTHS = 2518
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_THREE_MONTHS = 2519
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_SIX_MONTHS = 2520
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_NINE_MONTHS = 2521
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ASSET_IMPAIRMENT_CHARGE_TWELVE_MONTHS = 2522
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_THREE_MONTHS = 2523
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_SIX_MONTHS = 2524
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_NINE_MONTHS = 2525
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DIVIDEND_PAYABLE_TWELVE_MONTHS = 2526
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_THREE_MONTHS = 2527
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_SIX_MONTHS = 2528
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_NINE_MONTHS = 2529
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_DEFERRED_CHARGES_TWELVE_MONTHS = 2530
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_ONE_MONTH = 2531
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_TWO_MONTHS = 2532
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_THREE_MONTHS = 2533
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_SIX_MONTHS = 2534
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_NINE_MONTHS = 2535
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_ASSETS_TWELVE_MONTHS = 2536
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_ONE_MONTH = 2537
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_TWO_MONTHS = 2538
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_THREE_MONTHS = 2539
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_SIX_MONTHS = 2540
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_NINE_MONTHS = 2541
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_CURRENT_LIABILITIES_TWELVE_MONTHS = 2542
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_ONE_MONTH = 2543
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_TWO_MONTHS = 2544
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_THREE_MONTHS = 2545
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_SIX_MONTHS = 2546
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_NINE_MONTHS = 2547
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_OTHER_WORKING_CAPITAL_TWELVE_MONTHS = 2548
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_THREE_MONTHS = 2549
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_SIX_MONTHS = 2550
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_NINE_MONTHS = 2551
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGE_IN_UNEARNED_PREMIUMS_TWELVE_MONTHS = 2552
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_ONE_MONTH = 2553
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_TWO_MONTHS = 2554
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_THREE_MONTHS = 2555
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_SIX_MONTHS = 2556
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_NINE_MONTHS = 2557
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMON_STOCK_DIVIDEND_PAID_TWELVE_MONTHS = 2558
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_ONE_MONTH = 2559
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_TWO_MONTHS = 2560
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_THREE_MONTHS = 2561
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_SIX_MONTHS = 2562
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_NINE_MONTHS = 2563
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EARNINGS_LOSSES_FROM_EQUITY_INVESTMENTS_TWELVE_MONTHS = 2564
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_TWO_MONTHS = 2565
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_THREE_MONTHS = 2566
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_SIX_MONTHS = 2567
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_NINE_MONTHS = 2568
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_EXCESS_TAX_BENEFIT_FROM_STOCK_BASED_COMPENSATION_TWELVE_MONTHS = 2569
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_ONE_MONTH = 2570
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWO_MONTHS = 2571
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_THREE_MONTHS = 2572
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_SIX_MONTHS = 2573
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_NINE_MONTHS = 2574
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWELVE_MONTHS = 2575
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_ONE_MONTH = 2576
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_TWO_MONTHS = 2577
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_THREE_MONTHS = 2578
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_SIX_MONTHS = 2579
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_NINE_MONTHS = 2580
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_BUSINESS_TWELVE_MONTHS = 2581
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_ONE_MONTH = 2582
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_TWO_MONTHS = 2583
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_THREE_MONTHS = 2584
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_SIX_MONTHS = 2585
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_NINE_MONTHS = 2586
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_GAIN_LOSS_ON_SALE_OF_PPE_TWELVE_MONTHS = 2587
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_THREE_MONTHS = 2588
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_SIX_MONTHS = 2589
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_NINE_MONTHS = 2590
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_CREDITED_ON_POLICYHOLDER_DEPOSITS_TWELVE_MONTHS = 2591
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_THREE_MONTHS = 2592
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_SIX_MONTHS = 2593
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_NINE_MONTHS = 2594
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FROM_DISCONTINUED_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2595
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_ONE_MONTH = 2596
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_TWO_MONTHS = 2597
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_THREE_MONTHS = 2598
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_SIX_MONTHS = 2599
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_NINE_MONTHS = 2600
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OPERATING_GAINS_LOSSES_TWELVE_MONTHS = 2601
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_ONE_MONTH = 2602
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_TWO_MONTHS = 2603
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_THREE_MONTHS = 2604
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_SIX_MONTHS = 2605
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_NINE_MONTHS = 2606
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_FINANCING_CHARGES_TWELVE_MONTHS = 2607
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_ONE_MONTH = 2608
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_TWO_MONTHS = 2609
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_THREE_MONTHS = 2610
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_SIX_MONTHS = 2611
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_NINE_MONTHS = 2612
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OTHER_INVESTING_CHANGES_TWELVE_MONTHS = 2613
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_ONE_MONTH = 2614
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_TWO_MONTHS = 2615
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_THREE_MONTHS = 2616
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_SIX_MONTHS = 2617
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_NINE_MONTHS = 2618
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_NON_CASH_ITEMS_TWELVE_MONTHS = 2619
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_ONE_MONTH = 2620
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_TWO_MONTHS = 2621
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_THREE_MONTHS = 2622
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_SIX_MONTHS = 2623
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_NINE_MONTHS = 2624
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PENSION_AND_EMPLOYEE_BENEFIT_EXPENSE_TWELVE_MONTHS = 2625
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_ONE_MONTH = 2626
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_TWO_MONTHS = 2627
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_THREE_MONTHS = 2628
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_SIX_MONTHS = 2629
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_NINE_MONTHS = 2630
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREFERRED_STOCK_DIVIDEND_PAID_TWELVE_MONTHS = 2631
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_THREE_MONTHS = 2632
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_SIX_MONTHS = 2633
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_NINE_MONTHS = 2634
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROCEEDS_PAYMENT_FEDERAL_FUNDS_SOLD_AND_SECURITIES_PURCHASED_UNDER_AGREEMENT_TO_RESELL_TWELVE_MONTHS = 2635
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_THREE_MONTHS = 2636
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_SIX_MONTHS = 2637
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_NINE_MONTHS = 2638
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISION_FOR_LOAN_LEASE_AND_OTHER_LOSSES_TWELVE_MONTHS = 2639
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_ONE_MONTH = 2640
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_THREE_MONTHS = 2641
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_SIX_MONTHS = 2642
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_NINE_MONTHS = 2643
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REALIZED_GAIN_LOSS_ON_SALE_OF_LOANS_AND_LEASE_TWELVE_MONTHS = 2644
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_ONE_MONTH = 2645
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_TWO_MONTHS = 2646
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_THREE_MONTHS = 2647
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_SIX_MONTHS = 2648
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_NINE_MONTHS = 2649
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_STOCK_BASED_COMPENSATION_TWELVE_MONTHS = 2650
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_ONE_MONTH = 2651
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWO_MONTHS = 2652
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_THREE_MONTHS = 2653
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_SIX_MONTHS = 2654
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_NINE_MONTHS = 2655
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAIN_LOSS_ON_INVESTMENT_SECURITIES_TWELVE_MONTHS = 2656
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAINS_LOSSES_ON_DERIVATIVES_THREE_MONTHS = 2657
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_UNREALIZED_GAINS_LOSSES_ON_DERIVATIVES_TWELVE_MONTHS = 2658
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_ONE_MONTH = 2659
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWO_MONTHS = 2660
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_THREE_MONTHS = 2661
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_SIX_MONTHS = 2662
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_NINE_MONTHS = 2663
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_AMORTIZATION_OF_INTANGIBLES_TWELVE_MONTHS = 2664
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_ONE_MONTH = 2665
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_TWO_MONTHS = 2666
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_THREE_MONTHS = 2667
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_SIX_MONTHS = 2668
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_NINE_MONTHS = 2669
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCOME_TAX_PAID_SUPPLEMENTAL_DATA_TWELVE_MONTHS = 2670
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_ONE_MONTH = 2671
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_TWO_MONTHS = 2672
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_THREE_MONTHS = 2673
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_SIX_MONTHS = 2674
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_NINE_MONTHS = 2675
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_SUPPLEMENTAL_DATA_TWELVE_MONTHS = 2676
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_ONE_MONTH = 2677
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_TWO_MONTHS = 2678
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_THREE_MONTHS = 2679
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_SIX_MONTHS = 2680
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_NINE_MONTHS = 2681
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_CAPITAL_STOCK_TWELVE_MONTHS = 2682
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_ONE_MONTH = 2683
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_TWO_MONTHS = 2684
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_THREE_MONTHS = 2685
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_SIX_MONTHS = 2686
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_NINE_MONTHS = 2687
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUANCE_OF_DEBT_TWELVE_MONTHS = 2688
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_ONE_MONTH = 2689
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_TWO_MONTHS = 2690
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_THREE_MONTHS = 2691
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_SIX_MONTHS = 2692
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_NINE_MONTHS = 2693
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_OF_DEBT_TWELVE_MONTHS = 2694
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_ONE_MONTH = 2695
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_TWO_MONTHS = 2696
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_THREE_MONTHS = 2697
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_SIX_MONTHS = 2698
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_NINE_MONTHS = 2699
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPURCHASE_OF_CAPITAL_STOCK_TWELVE_MONTHS = 2700
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_ONE_MONTH = 2701
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TWO_MONTHS = 2702
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_THREE_MONTHS = 2703
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_SIX_MONTHS = 2704
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_NINE_MONTHS = 2705
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FREE_CASH_FLOW_TWELVE_MONTHS = 2706
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_THREE_MONTHS = 2707
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_SIX_MONTHS = 2708
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_NINE_MONTHS = 2709
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DECREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_TWELVE_MONTHS = 2710
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_THREE_MONTHS = 2711
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_SIX_MONTHS = 2712
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_NINE_MONTHS = 2713
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_INTEREST_BEARING_DEPOSITS_IN_BANK_TWELVE_MONTHS = 2714
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_THREE_MONTHS = 2715
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_SIX_MONTHS = 2716
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_NINE_MONTHS = 2717
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFO_TWELVE_MONTHS = 2718
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_THREE_MONTHS = 2719
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_SIX_MONTHS = 2720
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_NINE_MONTHS = 2721
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFO_TWELVE_MONTHS = 2722
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_THREE_MONTHS = 2723
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_SIX_MONTHS = 2724
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_NINE_MONTHS = 2725
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_SUBSIDIARIES_TWELVE_MONTHS = 2726
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_THREE_MONTHS = 2727
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_SIX_MONTHS = 2728
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_NINE_MONTHS = 2729
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_JOINT_VENTURE_ASSOCIATE_TWELVE_MONTHS = 2730
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_SUBSIDIARIES_SIX_MONTHS = 2731
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_SUBSIDIARIES_TWELVE_MONTHS = 2732
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_THREE_MONTHS = 2733
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_SIX_MONTHS = 2734
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_NINE_MONTHS = 2735
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_JOINT_VENTURE_ASSOCIATE_TWELVE_MONTHS = 2736
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_THREE_MONTHS = 2737
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_SIX_MONTHS = 2738
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_NINE_MONTHS = 2739
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_DECREASE_IN_LEASE_FINANCING_TWELVE_MONTHS = 2740
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_LEASE_FINANCING_SIX_MONTHS = 2741
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INCREASE_IN_LEASE_FINANCING_TWELVE_MONTHS = 2742
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_THREE_MONTHS = 2743
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_SIX_MONTHS = 2744
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_NINE_MONTHS = 2745
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REPAYMENT_IN_LEASE_FINANCING_TWELVE_MONTHS = 2746
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_THREE_MONTHS = 2747
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_SIX_MONTHS = 2748
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_NINE_MONTHS = 2749
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SHARE_OF_ASSOCIATES_TWELVE_MONTHS = 2750
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_THREE_MONTHS = 2751
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_SIX_MONTHS = 2752
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_NINE_MONTHS = 2753
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROFIT_ON_DISPOSALS_TWELVE_MONTHS = 2754
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_THREE_MONTHS = 2755
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_SIX_MONTHS = 2756
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_NINE_MONTHS = 2757
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REORGANIZATION_OTHER_COSTS_TWELVE_MONTHS = 2758
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_OUTWARD_LOANS_TWELVE_MONTHS = 2759
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_TWO_MONTHS = 2760
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_THREE_MONTHS = 2761
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_SIX_MONTHS = 2762
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_NINE_MONTHS = 2763
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ISSUE_EXPENSES_TWELVE_MONTHS = 2764
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEPOSITSBY_BANKSAND_CUSTOMERS_TWELVE_MONTHS = 2765
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_ONE_MONTH = 2766
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_THREE_MONTHS = 2767
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_SIX_MONTHS = 2768
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_NINE_MONTHS = 2769
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_FLOWSFROMUSEDIN_OPERATING_ACTIVITIES_DIRECT_TWELVE_MONTHS = 2770
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_ONE_MONTH = 2771
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2772
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2773
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2774
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2775
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_ONE_MONTH = 2776
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2777
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2778
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2779
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_RECEIPTSFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2780
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_ONE_MONTH = 2781
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_THREE_MONTHS = 2782
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_SIX_MONTHS = 2783
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_NINE_MONTHS = 2784
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLASSESOF_CASH_PAYMENTS_TWELVE_MONTHS = 2785
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_THREE_MONTHS = 2786
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_SIX_MONTHS = 2787
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_NINE_MONTHS = 2788
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSTO_SUPPLIERSFOR_GOODSAND_SERVICES_TWELVE_MONTHS = 2789
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_THREE_MONTHS = 2790
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_SIX_MONTHS = 2791
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_NINE_MONTHS = 2792
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PAYMENTSON_BEHALFOF_EMPLOYEES_TWELVE_MONTHS = 2793
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_ONE_MONTH = 2794
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2795
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2796
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2797
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_PAYMENTSFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2798
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_PAID_DIRECT_TWELVE_MONTHS = 2799
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_THREE_MONTHS = 2800
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_SIX_MONTHS = 2801
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_NINE_MONTHS = 2802
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_DIRECT_TWELVE_MONTHS = 2803
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_THREE_MONTHS = 2804
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_SIX_MONTHS = 2805
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_NINE_MONTHS = 2806
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_DIRECT_TWELVE_MONTHS = 2807
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_THREE_MONTHS = 2808
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_SIX_MONTHS = 2809
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_NINE_MONTHS = 2810
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_DIRECT_TWELVE_MONTHS = 2811
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_THREE_MONTHS = 2812
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_SIX_MONTHS = 2813
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_NINE_MONTHS = 2814
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_DIRECT_TWELVE_MONTHS = 2815
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_TWO_MONTHS = 2816
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_THREE_MONTHS = 2817
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_SIX_MONTHS = 2818
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_NINE_MONTHS = 2819
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TOTAL_ADJUSTMENTSFOR_NON_CASH_ITEMS_TWELVE_MONTHS = 2820
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_THREE_MONTHS = 2821
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_SIX_MONTHS = 2822
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_NINE_MONTHS = 2823
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_IMPAIRMENT_LOSS_REVERSAL_RECOGNIZEDIN_PROFITOR_LOSS_TWELVE_MONTHS = 2824
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDEND_PAID_CFO_TWELVE_MONTHS = 2825
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDEND_RECEIVED_CFO_SIX_MONTHS = 2826
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDEND_RECEIVED_CFO_TWELVE_MONTHS = 2827
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_THREE_MONTHS = 2828
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_SIX_MONTHS = 2829
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_NINE_MONTHS = 2830
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_TAXES_REFUND_PAID_TWELVE_MONTHS = 2831
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_THREE_MONTHS = 2832
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_SIX_MONTHS = 2833
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_NINE_MONTHS = 2834
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_OPERATING_INFLOWS_OUTFLOWSOF_CASH_TWELVE_MONTHS = 2835
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_ADVANCESAND_LOANS_MADETO_OTHER_PARTIES_TWELVE_MONTHS = 2836
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_REPAYMENTOF_ADVANCESAND_LOANS_MADETO_OTHER_PARTIES_SIX_MONTHS = 2837
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_REPAYMENTOF_ADVANCESAND_LOANS_MADETO_OTHER_PARTIES_TWELVE_MONTHS = 2838
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_THREE_MONTHS = 2839
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_SIX_MONTHS = 2840
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_NINE_MONTHS = 2841
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_DIVIDENDS_RECEIVED_CFI_TWELVE_MONTHS = 2842
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_THREE_MONTHS = 2843
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_SIX_MONTHS = 2844
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_NINE_MONTHS = 2845
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_RECEIVED_CFI_TWELVE_MONTHS = 2846
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_THREE_MONTHS = 2847
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_SIX_MONTHS = 2848
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_NINE_MONTHS = 2849
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTEREST_PAID_CFF_TWELVE_MONTHS = 2850
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_THREE_MONTHS = 2851
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_SIX_MONTHS = 2852
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_NINE_MONTHS = 2853
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ACCRUED_INCOME_TWELVE_MONTHS = 2854
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_ASSETS_TWELVE_MONTHS = 2855
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_THREE_MONTHS = 2856
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_SIX_MONTHS = 2857
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_NINE_MONTHS = 2858
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_ADVANCESFROM_CENTRAL_BANKS_TWELVE_MONTHS = 2859
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_THREE_MONTHS = 2860
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_SIX_MONTHS = 2861
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_NINE_MONTHS = 2862
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_FINANCIAL_LIABILITIES_TWELVE_MONTHS = 2863
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_THREE_MONTHS = 2864
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_SIX_MONTHS = 2865
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_NINE_MONTHS = 2866
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_ASSETS_TWELVE_MONTHS = 2867
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_THREE_MONTHS = 2868
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_SIX_MONTHS = 2869
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_NINE_MONTHS = 2870
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_REINSURANCE_RECEIVABLES_TWELVE_MONTHS = 2871
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_THREE_MONTHS = 2872
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_SIX_MONTHS = 2873
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_NINE_MONTHS = 2874
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_DEFERRED_ACQUISITION_COSTS_NET_TWELVE_MONTHS = 2875
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_THREE_MONTHS = 2876
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_SIX_MONTHS = 2877
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_NINE_MONTHS = 2878
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_FUNDS_TWELVE_MONTHS = 2879
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_THREE_MONTHS = 2880
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_SIX_MONTHS = 2881
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_NINE_MONTHS = 2882
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INVESTMENT_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2883
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_THREE_MONTHS = 2884
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_SIX_MONTHS = 2885
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_NINE_MONTHS = 2886
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_INSURANCE_CONTRACT_LIABILITIES_TWELVE_MONTHS = 2887
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_THREE_MONTHS = 2888
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_SIX_MONTHS = 2889
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_NINE_MONTHS = 2890
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PROVISIONAND_WRITE_OFFOF_ASSETS_TWELVE_MONTHS = 2891
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_THREE_MONTHS = 2892
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_SIX_MONTHS = 2893
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_NINE_MONTHS = 2894
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_CUSTOMERS_TWELVE_MONTHS = 2895
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_THREE_MONTHS = 2896
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_SIX_MONTHS = 2897
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_NINE_MONTHS = 2898
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_RECEIPTSFROM_GOVERNMENT_GRANTS_TWELVE_MONTHS = 2899
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_MINORITY_INTEREST_TWELVE_MONTHS = 2900
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_ONE_MONTH = 2901
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_TWO_MONTHS = 2902
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_THREE_MONTHS = 2903
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_SIX_MONTHS = 2904
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_NINE_MONTHS = 2905
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CAP_EX_REPORTED_TWELVE_MONTHS = 2906
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_THREE_MONTHS = 2907
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_SIX_MONTHS = 2908
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_NINE_MONTHS = 2909
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_TAX_REFUNDS_TWELVE_MONTHS = 2910
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_ONE_MONTH = 2911
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_THREE_MONTHS = 2912
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_SIX_MONTHS = 2913
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_NINE_MONTHS = 2914
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_DEPOSITSBY_BANKSAND_CUSTOMERS_TWELVE_MONTHS = 2915
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_ONE_MONTH = 2916
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_THREE_MONTHS = 2917
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_SIX_MONTHS = 2918
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_NINE_MONTHS = 2919
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_LOANS_TWELVE_MONTHS = 2920
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_ONE_MONTH = 2921
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_THREE_MONTHS = 2922
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_SIX_MONTHS = 2923
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_NINE_MONTHS = 2924
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_SECURITIES_RELATED_ACTIVITIES_TWELVE_MONTHS = 2925
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_THREE_MONTHS = 2926
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_SIX_MONTHS = 2927
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_NINE_MONTHS = 2928
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIPTSFROM_FEESAND_COMMISSIONS_TWELVE_MONTHS = 2929
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_ONE_MONTH = 2930
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_THREE_MONTHS = 2931
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_SIX_MONTHS = 2932
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_NINE_MONTHS = 2933
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_DEPOSITSBY_BANKSAND_CUSTOMERS_TWELVE_MONTHS = 2934
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_THREE_MONTHS = 2935
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_SIX_MONTHS = 2936
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_NINE_MONTHS = 2937
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAYMENTSFOR_LOANS_TWELVE_MONTHS = 2938
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_THREE_MONTHS = 2939
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_SIX_MONTHS = 2940
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_NINE_MONTHS = 2941
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_INTERESTAND_COMMISSION_PAID_TWELVE_MONTHS = 2942
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_ONE_MONTH = 2943
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_THREE_MONTHS = 2944
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_SIX_MONTHS = 2945
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_NINE_MONTHS = 2946
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_ALL_TAXES_PAID_TWELVE_MONTHS = 2947
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_THREE_MONTHS = 2948
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_SIX_MONTHS = 2949
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_NINE_MONTHS = 2950
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_RECEIVEDFROM_INSURANCE_ACTIVITIES_TWELVE_MONTHS = 2951
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_THREE_MONTHS = 2952
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_SIX_MONTHS = 2953
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_NINE_MONTHS = 2954
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PREMIUM_RECEIVED_TWELVE_MONTHS = 2955
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_THREE_MONTHS = 2956
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_SIX_MONTHS = 2957
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_NINE_MONTHS = 2958
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_REINSURANCEAND_OTHER_RECOVERIES_RECEIVED_TWELVE_MONTHS = 2959
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_THREE_MONTHS = 2960
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_SIX_MONTHS = 2961
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_NINE_MONTHS = 2962
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_POLICYHOLDER_DEPOSIT_INVESTMENT_RECEIVED_TWELVE_MONTHS = 2963
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_THREE_MONTHS = 2964
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_SIX_MONTHS = 2965
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_NINE_MONTHS = 2966
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDFOR_INSURANCE_ACTIVITIES_TWELVE_MONTHS = 2967
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_THREE_MONTHS = 2968
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_SIX_MONTHS = 2969
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_NINE_MONTHS = 2970
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CLAIMS_PAID_TWELVE_MONTHS = 2971
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_THREE_MONTHS = 2972
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_SIX_MONTHS = 2973
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_NINE_MONTHS = 2974
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_COMMISSION_PAID_TWELVE_MONTHS = 2975
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_THREE_MONTHS = 2976
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_SIX_MONTHS = 2977
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_NINE_MONTHS = 2978
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_PAIDTO_REINSURERS_TWELVE_MONTHS = 2979
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_THREE_MONTHS = 2980
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_SIX_MONTHS = 2981
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_NINE_MONTHS = 2982
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_UNDERWRITING_EXPENSES_PAID_TWELVE_MONTHS = 2983
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_THREE_MONTHS = 2984
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_SIX_MONTHS = 2985
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_NINE_MONTHS = 2986
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_DIVIDENDS_FOR_MINORITIES_TWELVE_MONTHS = 2987
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_THREE_MONTHS = 2988
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_SIX_MONTHS = 2989
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_NINE_MONTHS = 2990
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CASH_GENERATEDFROM_OPERATING_ACTIVITIES_TWELVE_MONTHS = 2991
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_THREE_MONTHS = 2992
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_SIX_MONTHS = 2993
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_NINE_MONTHS = 2994
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_FUND_FROM_OPERATION_TWELVE_MONTHS = 2995
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_THREE_MONTHS = 2996
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_SIX_MONTHS = 2997
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_NINE_MONTHS = 2998
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_NET_INVESTMENT_PROPERTIES_PURCHASE_AND_SALE_TWELVE_MONTHS = 2999
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_THREE_MONTHS = 3000
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_SIX_MONTHS = 3001
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_NINE_MONTHS = 3002
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_PURCHASE_OF_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 3003
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_THREE_MONTHS = 3004
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_SIX_MONTHS = 3005
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_NINE_MONTHS = 3006
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_SALE_OF_INVESTMENT_PROPERTIES_TWELVE_MONTHS = 3007
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_THREE_MONTHS = 3008
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_SIX_MONTHS = 3009
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_NINE_MONTHS = 3010
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_INCLUDED_INTO_CHANGEIN_CASH_TWELVE_MONTHS = 3011
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_THREE_MONTHS = 3012
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_SIX_MONTHS = 3013
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_NINE_MONTHS = 3014
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_OTHER_CASH_ADJUST_EXCLUDE_FROM_CHANGEIN_CASH_TWELVE_MONTHS = 3015
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_THREE_MONTHS = 3016
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_SIX_MONTHS = 3017
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_NINE_MONTHS = 3018
-
-    FINANCIAL_STATEMENTS_CASH_FLOW_STATEMENT_CHANGEIN_CASH_SUPPLEMENTAL_AS_REPORTED_TWELVE_MONTHS = 3019
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_ONE_MONTH = 3020
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_TWO_MONTHS = 3021
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_THREE_MONTHS = 3022
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_SIX_MONTHS = 3023
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_NINE_MONTHS = 3024
-
-    EARNING_REPORTS_PERIOD_ENDING_DATE_TWELVE_MONTHS = 3025
-
-    EARNING_REPORTS_FILE_DATE_ONE_MONTH = 3026
-
-    EARNING_REPORTS_FILE_DATE_TWO_MONTHS = 3027
-
-    EARNING_REPORTS_FILE_DATE_THREE_MONTHS = 3028
-
-    EARNING_REPORTS_FILE_DATE_SIX_MONTHS = 3029
-
-    EARNING_REPORTS_FILE_DATE_NINE_MONTHS = 3030
-
-    EARNING_REPORTS_FILE_DATE_TWELVE_MONTHS = 3031
-
-    EARNING_REPORTS_ACCESSION_NUMBER_ONE_MONTH = 3032
-
-    EARNING_REPORTS_ACCESSION_NUMBER_TWO_MONTHS = 3033
-
-    EARNING_REPORTS_ACCESSION_NUMBER_THREE_MONTHS = 3034
-
-    EARNING_REPORTS_ACCESSION_NUMBER_SIX_MONTHS = 3035
-
-    EARNING_REPORTS_ACCESSION_NUMBER_NINE_MONTHS = 3036
-
-    EARNING_REPORTS_FORM_TYPE_ONE_MONTH = 3037
-
-    EARNING_REPORTS_FORM_TYPE_TWO_MONTHS = 3038
-
-    EARNING_REPORTS_FORM_TYPE_THREE_MONTHS = 3039
-
-    EARNING_REPORTS_FORM_TYPE_SIX_MONTHS = 3040
-
-    EARNING_REPORTS_FORM_TYPE_NINE_MONTHS = 3041
-
-    EARNING_REPORTS_FORM_TYPE_TWELVE_MONTHS = 3042
-
-    EARNING_REPORTS_PERIOD_TYPE_ONE_MONTH = 3043
-
-    EARNING_REPORTS_PERIOD_TYPE_TWO_MONTHS = 3044
-
-    EARNING_REPORTS_PERIOD_TYPE_THREE_MONTHS = 3045
-
-    EARNING_REPORTS_PERIOD_TYPE_SIX_MONTHS = 3046
-
-    EARNING_REPORTS_PERIOD_TYPE_NINE_MONTHS = 3047
-
-    EARNING_REPORTS_PERIOD_TYPE_TWELVE_MONTHS = 3048
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_ONE_MONTH = 3049
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_TWO_MONTHS = 3050
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_THREE_MONTHS = 3051
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_SIX_MONTHS = 3052
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_NINE_MONTHS = 3053
-
-    EARNING_REPORTS_BASIC_CONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3054
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_ONE_MONTH = 3055
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_TWO_MONTHS = 3056
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_THREE_MONTHS = 3057
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_SIX_MONTHS = 3058
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_NINE_MONTHS = 3059
-
-    EARNING_REPORTS_BASIC_DISCONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3060
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_ONE_MONTH = 3061
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_TWO_MONTHS = 3062
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_THREE_MONTHS = 3063
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_SIX_MONTHS = 3064
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_NINE_MONTHS = 3065
-
-    EARNING_REPORTS_BASIC_EXTRAORDINARY_TWELVE_MONTHS = 3066
-
-    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_THREE_MONTHS = 3067
-
-    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_SIX_MONTHS = 3068
-
-    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_NINE_MONTHS = 3069
-
-    EARNING_REPORTS_BASIC_ACCOUNTING_CHANGE_TWELVE_MONTHS = 3070
-
-    EARNING_REPORTS_BASIC_EPS_ONE_MONTH = 3071
-
-    EARNING_REPORTS_BASIC_EPS_TWO_MONTHS = 3072
-
-    EARNING_REPORTS_BASIC_EPS_THREE_MONTHS = 3073
-
-    EARNING_REPORTS_BASIC_EPS_SIX_MONTHS = 3074
-
-    EARNING_REPORTS_BASIC_EPS_NINE_MONTHS = 3075
-
-    EARNING_REPORTS_BASIC_EPS_TWELVE_MONTHS = 3076
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_ONE_MONTH = 3077
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_TWO_MONTHS = 3078
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_THREE_MONTHS = 3079
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_SIX_MONTHS = 3080
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_NINE_MONTHS = 3081
-
-    EARNING_REPORTS_DILUTED_CONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3082
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_ONE_MONTH = 3083
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_TWO_MONTHS = 3084
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_THREE_MONTHS = 3085
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_SIX_MONTHS = 3086
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_NINE_MONTHS = 3087
-
-    EARNING_REPORTS_DILUTED_DISCONTINUOUS_OPERATIONS_TWELVE_MONTHS = 3088
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_ONE_MONTH = 3089
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_TWO_MONTHS = 3090
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_THREE_MONTHS = 3091
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_SIX_MONTHS = 3092
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_NINE_MONTHS = 3093
-
-    EARNING_REPORTS_DILUTED_EXTRAORDINARY_TWELVE_MONTHS = 3094
-
-    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_THREE_MONTHS = 3095
-
-    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_SIX_MONTHS = 3096
-
-    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_NINE_MONTHS = 3097
-
-    EARNING_REPORTS_DILUTED_ACCOUNTING_CHANGE_TWELVE_MONTHS = 3098
-
-    EARNING_REPORTS_DILUTED_EPS_ONE_MONTH = 3099
-
-    EARNING_REPORTS_DILUTED_EPS_TWO_MONTHS = 3100
-
-    EARNING_REPORTS_DILUTED_EPS_THREE_MONTHS = 3101
-
-    EARNING_REPORTS_DILUTED_EPS_SIX_MONTHS = 3102
-
-    EARNING_REPORTS_DILUTED_EPS_NINE_MONTHS = 3103
-
-    EARNING_REPORTS_DILUTED_EPS_TWELVE_MONTHS = 3104
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_ONE_MONTH = 3105
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_TWO_MONTHS = 3106
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_THREE_MONTHS = 3107
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_SIX_MONTHS = 3108
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_NINE_MONTHS = 3109
-
-    EARNING_REPORTS_BASIC_AVERAGE_SHARES_TWELVE_MONTHS = 3110
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_ONE_MONTH = 3111
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_TWO_MONTHS = 3112
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_THREE_MONTHS = 3113
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_SIX_MONTHS = 3114
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_NINE_MONTHS = 3115
-
-    EARNING_REPORTS_DILUTED_AVERAGE_SHARES_TWELVE_MONTHS = 3116
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_ONE_MONTH = 3117
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_TWO_MONTHS = 3118
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_THREE_MONTHS = 3119
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_SIX_MONTHS = 3120
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_NINE_MONTHS = 3121
-
-    EARNING_REPORTS_DIVIDEND_PER_SHARE_TWELVE_MONTHS = 3122
-
-    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_THREE_MONTHS = 3123
-
-    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_SIX_MONTHS = 3124
-
-    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_NINE_MONTHS = 3125
-
-    EARNING_REPORTS_BASIC_EPS_OTHER_GAINS_LOSSES_TWELVE_MONTHS = 3126
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_ONE_MONTH = 3127
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_TWO_MONTHS = 3128
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_THREE_MONTHS = 3129
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_SIX_MONTHS = 3130
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_NINE_MONTHS = 3131
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_BASIC_EPS_TWELVE_MONTHS = 3132
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_THREE_MONTHS = 3133
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_SIX_MONTHS = 3134
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_NINE_MONTHS = 3135
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_BASIC_EPS_TWELVE_MONTHS = 3136
-
-    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_THREE_MONTHS = 3137
-
-    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_SIX_MONTHS = 3138
-
-    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_NINE_MONTHS = 3139
-
-    EARNING_REPORTS_DILUTED_EPS_OTHER_GAINS_LOSSES_TWELVE_MONTHS = 3140
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_ONE_MONTH = 3141
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_TWO_MONTHS = 3142
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_THREE_MONTHS = 3143
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_SIX_MONTHS = 3144
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_NINE_MONTHS = 3145
-
-    EARNING_REPORTS_CONTINUING_AND_DISCONTINUED_DILUTED_EPS_TWELVE_MONTHS = 3146
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_THREE_MONTHS = 3147
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_SIX_MONTHS = 3148
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_NINE_MONTHS = 3149
-
-    EARNING_REPORTS_TAX_LOSS_CARRYFORWARD_DILUTED_EPS_TWELVE_MONTHS = 3150
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_ONE_MONTH = 3151
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_TWO_MONTHS = 3152
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_THREE_MONTHS = 3153
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_SIX_MONTHS = 3154
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_NINE_MONTHS = 3155
-
-    EARNING_REPORTS_NORMALIZED_BASIC_EPS_TWELVE_MONTHS = 3156
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_ONE_MONTH = 3157
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_TWO_MONTHS = 3158
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_THREE_MONTHS = 3159
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_SIX_MONTHS = 3160
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_NINE_MONTHS = 3161
-
-    EARNING_REPORTS_NORMALIZED_DILUTED_EPS_TWELVE_MONTHS = 3162
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_ONE_MONTH = 3163
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_TWO_MONTHS = 3164
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_THREE_MONTHS = 3165
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_SIX_MONTHS = 3166
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_NINE_MONTHS = 3167
-
-    EARNING_REPORTS_TOTAL_DIVIDEND_PER_SHARE_TWELVE_MONTHS = 3168
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_THREE_MONTHS = 3169
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_SIX_MONTHS = 3170
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_NINE_MONTHS = 3171
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_BASIC_EPS_TWELVE_MONTHS = 3172
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_THREE_MONTHS = 3173
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_SIX_MONTHS = 3174
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_NINE_MONTHS = 3175
-
-    EARNING_REPORTS_REPORTED_NORMALIZED_DILUTED_EPS_TWELVE_MONTHS = 3176
-
-    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_THREE_MONTHS = 3177
-
-    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_SIX_MONTHS = 3178
-
-    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_NINE_MONTHS = 3179
-
-    EARNING_REPORTS_DIVIDEND_COVERAGE_RATIO_TWELVE_MONTHS = 3180
-
-    OPERATION_RATIOS_REVENUE_GROWTH_ONE_YEAR = 3181
-
-    OPERATION_RATIOS_REVENUE_GROWTH_THREE_YEARS = 3182
-
-    OPERATION_RATIOS_REVENUE_GROWTH_THREE_MONTHS = 3183
-
-    OPERATION_RATIOS_REVENUE_GROWTH_FIVE_YEARS = 3184
-
-    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_ONE_YEAR = 3185
-
-    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_THREE_YEARS = 3186
-
-    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_THREE_MONTHS = 3187
-
-    OPERATION_RATIOS_OPERATION_INCOME_GROWTH_FIVE_YEARS = 3188
-
-    OPERATION_RATIOS_NET_INCOME_GROWTH_ONE_YEAR = 3189
-
-    OPERATION_RATIOS_NET_INCOME_GROWTH_THREE_YEARS = 3190
-
-    OPERATION_RATIOS_NET_INCOME_GROWTH_THREE_MONTHS = 3191
-
-    OPERATION_RATIOS_NET_INCOME_GROWTH_FIVE_YEARS = 3192
-
-    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_ONE_YEAR = 3193
-
-    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_THREE_YEARS = 3194
-
-    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_THREE_MONTHS = 3195
-
-    OPERATION_RATIOS_NET_INCOME_CONT_OPS_GROWTH_FIVE_YEARS = 3196
-
-    OPERATION_RATIOS_CFO_GROWTH_ONE_YEAR = 3197
-
-    OPERATION_RATIOS_CFO_GROWTH_THREE_YEARS = 3198
-
-    OPERATION_RATIOS_CFO_GROWTH_FIVE_YEARS = 3199
-
-    OPERATION_RATIOS_FCF_GROWTH_ONE_YEAR = 3200
-
-    OPERATION_RATIOS_FCF_GROWTH_THREE_YEARS = 3201
-
-    OPERATION_RATIOS_FCF_GROWTH_FIVE_YEARS = 3202
-
-    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_ONE_YEAR = 3203
-
-    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_THREE_YEARS = 3204
-
-    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_THREE_MONTHS = 3205
-
-    OPERATION_RATIOS_OPERATION_REVENUE_GROWTH_3_MONTH_AVG_FIVE_YEARS = 3206
-
-    OPERATION_RATIOS_GROSS_MARGIN_ONE_YEAR = 3207
-
-    OPERATION_RATIOS_GROSS_MARGIN_ONE_MONTH = 3208
-
-    OPERATION_RATIOS_GROSS_MARGIN_TWO_MONTHS = 3209
-
-    OPERATION_RATIOS_GROSS_MARGIN_THREE_MONTHS = 3210
-
-    OPERATION_RATIOS_GROSS_MARGIN_SIX_MONTHS = 3211
-
-    OPERATION_RATIOS_GROSS_MARGIN_NINE_MONTHS = 3212
-
-    OPERATION_RATIOS_OPERATION_MARGIN_ONE_YEAR = 3213
-
-    OPERATION_RATIOS_OPERATION_MARGIN_ONE_MONTH = 3214
-
-    OPERATION_RATIOS_OPERATION_MARGIN_TWO_MONTHS = 3215
-
-    OPERATION_RATIOS_OPERATION_MARGIN_THREE_MONTHS = 3216
-
-    OPERATION_RATIOS_OPERATION_MARGIN_SIX_MONTHS = 3217
-
-    OPERATION_RATIOS_OPERATION_MARGIN_NINE_MONTHS = 3218
-
-    OPERATION_RATIOS_PRETAX_MARGIN_ONE_YEAR = 3219
-
-    OPERATION_RATIOS_PRETAX_MARGIN_ONE_MONTH = 3220
-
-    OPERATION_RATIOS_PRETAX_MARGIN_TWO_MONTHS = 3221
-
-    OPERATION_RATIOS_PRETAX_MARGIN_THREE_MONTHS = 3222
-
-    OPERATION_RATIOS_PRETAX_MARGIN_SIX_MONTHS = 3223
-
-    OPERATION_RATIOS_PRETAX_MARGIN_NINE_MONTHS = 3224
-
-    OPERATION_RATIOS_NET_MARGIN_ONE_YEAR = 3225
-
-    OPERATION_RATIOS_NET_MARGIN_ONE_MONTH = 3226
-
-    OPERATION_RATIOS_NET_MARGIN_TWO_MONTHS = 3227
-
-    OPERATION_RATIOS_NET_MARGIN_THREE_MONTHS = 3228
-
-    OPERATION_RATIOS_NET_MARGIN_SIX_MONTHS = 3229
-
-    OPERATION_RATIOS_NET_MARGIN_NINE_MONTHS = 3230
-
-    OPERATION_RATIOS_TAX_RATE_ONE_YEAR = 3231
-
-    OPERATION_RATIOS_TAX_RATE_ONE_MONTH = 3232
-
-    OPERATION_RATIOS_TAX_RATE_TWO_MONTHS = 3233
-
-    OPERATION_RATIOS_TAX_RATE_THREE_MONTHS = 3234
-
-    OPERATION_RATIOS_TAX_RATE_SIX_MONTHS = 3235
-
-    OPERATION_RATIOS_TAX_RATE_NINE_MONTHS = 3236
-
-    OPERATION_RATIOS_EBIT_MARGIN_ONE_YEAR = 3237
-
-    OPERATION_RATIOS_EBIT_MARGIN_ONE_MONTH = 3238
-
-    OPERATION_RATIOS_EBIT_MARGIN_TWO_MONTHS = 3239
-
-    OPERATION_RATIOS_EBIT_MARGIN_THREE_MONTHS = 3240
-
-    OPERATION_RATIOS_EBIT_MARGIN_SIX_MONTHS = 3241
-
-    OPERATION_RATIOS_EBIT_MARGIN_NINE_MONTHS = 3242
-
-    OPERATION_RATIOS_EBITDA_MARGIN_ONE_YEAR = 3243
-
-    OPERATION_RATIOS_EBITDA_MARGIN_ONE_MONTH = 3244
-
-    OPERATION_RATIOS_EBITDA_MARGIN_TWO_MONTHS = 3245
-
-    OPERATION_RATIOS_EBITDA_MARGIN_THREE_MONTHS = 3246
-
-    OPERATION_RATIOS_EBITDA_MARGIN_SIX_MONTHS = 3247
-
-    OPERATION_RATIOS_EBITDA_MARGIN_NINE_MONTHS = 3248
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_ONE_YEAR = 3249
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_ONE_MONTH = 3250
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_TWO_MONTHS = 3251
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_THREE_MONTHS = 3252
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_SIX_MONTHS = 3253
-
-    OPERATION_RATIOS_SALES_PER_EMPLOYEE_NINE_MONTHS = 3254
-
-    OPERATION_RATIOS_CURRENT_RATIO_ONE_YEAR = 3255
-
-    OPERATION_RATIOS_CURRENT_RATIO_ONE_MONTH = 3256
-
-    OPERATION_RATIOS_CURRENT_RATIO_TWO_MONTHS = 3257
-
-    OPERATION_RATIOS_CURRENT_RATIO_THREE_MONTHS = 3258
-
-    OPERATION_RATIOS_CURRENT_RATIO_SIX_MONTHS = 3259
-
-    OPERATION_RATIOS_CURRENT_RATIO_NINE_MONTHS = 3260
-
-    OPERATION_RATIOS_QUICK_RATIO_ONE_YEAR = 3261
-
-    OPERATION_RATIOS_QUICK_RATIO_ONE_MONTH = 3262
-
-    OPERATION_RATIOS_QUICK_RATIO_TWO_MONTHS = 3263
-
-    OPERATION_RATIOS_QUICK_RATIO_THREE_MONTHS = 3264
-
-    OPERATION_RATIOS_QUICK_RATIO_SIX_MONTHS = 3265
-
-    OPERATION_RATIOS_QUICK_RATIO_NINE_MONTHS = 3266
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_ONE_YEAR = 3267
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_ONE_MONTH = 3268
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_TWO_MONTHS = 3269
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_THREE_MONTHS = 3270
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_SIX_MONTHS = 3271
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_TOTAL_CAPITAL_RATIO_NINE_MONTHS = 3272
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_ONE_YEAR = 3273
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_ONE_MONTH = 3274
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_TWO_MONTHS = 3275
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_THREE_MONTHS = 3276
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_SIX_MONTHS = 3277
-
-    OPERATION_RATIOS_INTEREST_COVERAGE_NINE_MONTHS = 3278
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_ONE_YEAR = 3279
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_ONE_MONTH = 3280
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_TWO_MONTHS = 3281
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_THREE_MONTHS = 3282
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_SIX_MONTHS = 3283
-
-    OPERATION_RATIOS_LONG_TERM_DEBT_EQUITY_RATIO_NINE_MONTHS = 3284
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_ONE_YEAR = 3285
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_ONE_MONTH = 3286
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_TWO_MONTHS = 3287
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_THREE_MONTHS = 3288
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_SIX_MONTHS = 3289
-
-    OPERATION_RATIOS_FINANCIAL_LEVERAGE_NINE_MONTHS = 3290
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_ONE_YEAR = 3291
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_ONE_MONTH = 3292
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_TWO_MONTHS = 3293
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_THREE_MONTHS = 3294
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_SIX_MONTHS = 3295
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_NINE_MONTHS = 3296
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_ONE_YEAR = 3297
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_ONE_MONTH = 3298
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_TWO_MONTHS = 3299
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_THREE_MONTHS = 3300
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_SIX_MONTHS = 3301
-
-    OPERATION_RATIOS_NORMALIZED_NET_PROFIT_MARGIN_NINE_MONTHS = 3302
-
-    OPERATION_RATIOS_DAYS_IN_SALES_ONE_YEAR = 3303
-
-    OPERATION_RATIOS_DAYS_IN_SALES_THREE_MONTHS = 3304
-
-    OPERATION_RATIOS_DAYS_IN_SALES_SIX_MONTHS = 3305
-
-    OPERATION_RATIOS_DAYS_IN_INVENTORY_ONE_YEAR = 3306
-
-    OPERATION_RATIOS_DAYS_IN_INVENTORY_THREE_MONTHS = 3307
-
-    OPERATION_RATIOS_DAYS_IN_INVENTORY_SIX_MONTHS = 3308
-
-    OPERATION_RATIOS_DAYS_IN_PAYMENT_ONE_YEAR = 3309
-
-    OPERATION_RATIOS_DAYS_IN_PAYMENT_THREE_MONTHS = 3310
-
-    OPERATION_RATIOS_DAYS_IN_PAYMENT_SIX_MONTHS = 3311
-
-    OPERATION_RATIOS_CASH_CONVERSION_CYCLE_ONE_YEAR = 3312
-
-    OPERATION_RATIOS_CASH_CONVERSION_CYCLE_THREE_MONTHS = 3313
-
-    OPERATION_RATIOS_CASH_CONVERSION_CYCLE_SIX_MONTHS = 3314
-
-    OPERATION_RATIOS_RECEIVABLE_TURNOVER_ONE_YEAR = 3315
-
-    OPERATION_RATIOS_RECEIVABLE_TURNOVER_THREE_MONTHS = 3316
-
-    OPERATION_RATIOS_RECEIVABLE_TURNOVER_SIX_MONTHS = 3317
-
-    OPERATION_RATIOS_INVENTORY_TURNOVER_ONE_YEAR = 3318
-
-    OPERATION_RATIOS_INVENTORY_TURNOVER_THREE_MONTHS = 3319
-
-    OPERATION_RATIOS_INVENTORY_TURNOVER_SIX_MONTHS = 3320
-
-    OPERATION_RATIOS_PAYMENT_TURNOVER_ONE_YEAR = 3321
-
-    OPERATION_RATIOS_PAYMENT_TURNOVER_THREE_MONTHS = 3322
-
-    OPERATION_RATIOS_PAYMENT_TURNOVER_SIX_MONTHS = 3323
-
-    OPERATION_RATIOS_FIX_ASSETS_TURONVER_ONE_YEAR = 3324
-
-    OPERATION_RATIOS_FIX_ASSETS_TURONVER_THREE_MONTHS = 3325
-
-    OPERATION_RATIOS_FIX_ASSETS_TURONVER_SIX_MONTHS = 3326
-
-    OPERATION_RATIOS_ASSETS_TURNOVER_ONE_YEAR = 3327
-
-    OPERATION_RATIOS_ASSETS_TURNOVER_THREE_MONTHS = 3328
-
-    OPERATION_RATIOS_ASSETS_TURNOVER_SIX_MONTHS = 3329
-
-    OPERATION_RATIOS_ROE_ONE_YEAR = 3330
-
-    OPERATION_RATIOS_ROE_THREE_MONTHS = 3331
-
-    OPERATION_RATIOS_ROE_SIX_MONTHS = 3332
-
-    OPERATION_RATIOS_ROA_ONE_YEAR = 3333
-
-    OPERATION_RATIOS_ROA_THREE_MONTHS = 3334
-
-    OPERATION_RATIOS_ROA_SIX_MONTHS = 3335
-
-    OPERATION_RATIOS_ROIC_ONE_YEAR = 3336
-
-    OPERATION_RATIOS_ROIC_THREE_MONTHS = 3337
-
-    OPERATION_RATIOS_ROIC_SIX_MONTHS = 3338
-
-    OPERATION_RATIOS_FCF_SALES_RATIO_ONE_YEAR = 3339
-
-    OPERATION_RATIOS_FCF_NET_INCOME_RATIO_ONE_YEAR = 3340
-
-    OPERATION_RATIOS_CAP_EX_SALES_RATIO_ONE_YEAR = 3341
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_ONE_YEAR = 3342
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_ONE_MONTH = 3343
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_TWO_MONTHS = 3344
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_THREE_MONTHS = 3345
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_SIX_MONTHS = 3346
-
-    OPERATION_RATIOS_DEBT_TO_ASSETS_NINE_MONTHS = 3347
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_ONE_YEAR = 3348
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_ONE_MONTH = 3349
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_TWO_MONTHS = 3350
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_THREE_MONTHS = 3351
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_SIX_MONTHS = 3352
-
-    OPERATION_RATIOS_COMMON_EQUITY_TO_ASSETS_NINE_MONTHS = 3353
-
-    OPERATION_RATIOS_CAPITAL_EXPENDITURE_ANNUAL_5_YR_GROWTH_ONE_YEAR = 3354
-
-    OPERATION_RATIOS_CAPITAL_EXPENDITURE_ANNUAL_5_YR_GROWTH_THREE_YEARS = 3355
-
-    OPERATION_RATIOS_CAPITAL_EXPENDITURE_ANNUAL_5_YR_GROWTH_FIVE_YEARS = 3356
-
-    OPERATION_RATIOS_GROSS_PROFIT_ANNUAL_5_YR_GROWTH_ONE_YEAR = 3357
-
-    OPERATION_RATIOS_GROSS_PROFIT_ANNUAL_5_YR_GROWTH_THREE_YEARS = 3358
-
-    OPERATION_RATIOS_GROSS_PROFIT_ANNUAL_5_YR_GROWTH_FIVE_YEARS = 3359
-
-    OPERATION_RATIOS_GROSS_MARGIN_5_YR_AVG_FIVE_YEARS = 3360
-
-    OPERATION_RATIOS_POST_TAX_MARGIN_5_YR_AVG_FIVE_YEARS = 3361
-
-    OPERATION_RATIOS_PRE_TAX_MARGIN_5_YR_AVG_FIVE_YEARS = 3362
-
-    OPERATION_RATIOS_PROFIT_MARGIN_5_YR_AVG_FIVE_YEARS = 3363
-
-    OPERATION_RATIOS_ROE_5_YR_AVG_FIVE_YEARS = 3364
-
-    OPERATION_RATIOS_ROA_5_YR_AVG_FIVE_YEARS = 3365
-
-    OPERATION_RATIOS_AVG_5_YRS_ROIC_FIVE_YEARS = 3366
-
-    OPERATION_RATIOS_NORMALIZED_ROIC_ONE_YEAR = 3367
-
-    OPERATION_RATIOS_NORMALIZED_ROIC_THREE_MONTHS = 3368
-
-    OPERATION_RATIOS_NORMALIZED_ROIC_SIX_MONTHS = 3369
-
-    OPERATION_RATIOS_REGRESSION_GROWTH_OPERATING_REVENUE_5_YEARS_FIVE_YEARS = 3370
-
-    OPERATION_RATIOS_CASH_RATIO_ONE_YEAR = 3371
-
-    OPERATION_RATIOS_CASH_RATIO_THREE_MONTHS = 3372
-
-    OPERATION_RATIOS_CASHTO_TOTAL_ASSETS_ONE_YEAR = 3373
-
-    OPERATION_RATIOS_CASHTO_TOTAL_ASSETS_THREE_MONTHS = 3374
-
-    OPERATION_RATIOS_CAPITAL_EXPENDITURETO_EBITDA_ONE_YEAR = 3375
-
-    OPERATION_RATIOS_FC_FTO_CFO_ONE_YEAR = 3376
-
-    OPERATION_RATIOS_STOCKHOLDERS_EQUITY_GROWTH_ONE_YEAR = 3377
-
-    OPERATION_RATIOS_STOCKHOLDERS_EQUITY_GROWTH_THREE_YEARS = 3378
-
-    OPERATION_RATIOS_STOCKHOLDERS_EQUITY_GROWTH_FIVE_YEARS = 3379
-
-    OPERATION_RATIOS_TOTAL_ASSETS_GROWTH_ONE_YEAR = 3380
-
-    OPERATION_RATIOS_TOTAL_ASSETS_GROWTH_THREE_YEARS = 3381
-
-    OPERATION_RATIOS_TOTAL_ASSETS_GROWTH_FIVE_YEARS = 3382
-
-    OPERATION_RATIOS_TOTAL_LIABILITIES_GROWTH_ONE_YEAR = 3383
-
-    OPERATION_RATIOS_TOTAL_LIABILITIES_GROWTH_THREE_YEARS = 3384
-
-    OPERATION_RATIOS_TOTAL_LIABILITIES_GROWTH_FIVE_YEARS = 3385
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_GROWTH_ONE_YEAR = 3386
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_GROWTH_THREE_YEARS = 3387
-
-    OPERATION_RATIOS_TOTAL_DEBT_EQUITY_RATIO_GROWTH_FIVE_YEARS = 3388
-
-    OPERATION_RATIOS_CASH_RATIO_GROWTH_ONE_YEAR = 3389
-
-    OPERATION_RATIOS_CASH_RATIO_GROWTH_THREE_YEARS = 3390
-
-    OPERATION_RATIOS_CASH_RATIO_GROWTH_FIVE_YEARS = 3391
-
-    OPERATION_RATIOS_EBITDA_GROWTH_ONE_YEAR = 3392
-
-    OPERATION_RATIOS_EBITDA_GROWTH_THREE_YEARS = 3393
-
-    OPERATION_RATIOS_EBITDA_GROWTH_FIVE_YEARS = 3394
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_FINANCING_GROWTH_ONE_YEAR = 3395
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_FINANCING_GROWTH_THREE_YEARS = 3396
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_FINANCING_GROWTH_FIVE_YEARS = 3397
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_INVESTING_GROWTH_ONE_YEAR = 3398
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_INVESTING_GROWTH_THREE_YEARS = 3399
-
-    OPERATION_RATIOS_CASH_FLOW_FROM_INVESTING_GROWTH_FIVE_YEARS = 3400
-
-    OPERATION_RATIOS_CAP_EX_GROWTH_ONE_YEAR = 3401
-
-    OPERATION_RATIOS_CAP_EX_GROWTH_THREE_YEARS = 3402
-
-    OPERATION_RATIOS_CAP_EX_GROWTH_FIVE_YEARS = 3403
-
-    OPERATION_RATIOS_CURRENT_RATIO_GROWTH_ONE_YEAR = 3404
-
-    OPERATION_RATIOS_CURRENT_RATIO_GROWTH_THREE_YEARS = 3405
-
-    OPERATION_RATIOS_CURRENT_RATIO_GROWTH_FIVE_YEARS = 3406
-
-    OPERATION_RATIOS_WORKING_CAPITAL_TURNOVER_RATIO_ONE_YEAR = 3407
-
-    OPERATION_RATIOS_WORKING_CAPITAL_TURNOVER_RATIO_THREE_MONTHS = 3408
-
-    OPERATION_RATIOS_NET_INCOME_PER_EMPLOYEE_ONE_YEAR = 3409
-
-    OPERATION_RATIOS_NET_INCOME_PER_EMPLOYEE_THREE_MONTHS = 3410
-
-    OPERATION_RATIOS_SOLVENCY_RATIO_ONE_YEAR = 3411
-
-    OPERATION_RATIOS_SOLVENCY_RATIO_THREE_MONTHS = 3412
-
-    OPERATION_RATIOS_EXPENSE_RATIO_ONE_YEAR = 3413
-
-    OPERATION_RATIOS_EXPENSE_RATIO_THREE_MONTHS = 3414
-
-    OPERATION_RATIOS_LOSS_RATIO_ONE_YEAR = 3415
-
-    OPERATION_RATIOS_LOSS_RATIO_THREE_MONTHS = 3416
-
-    EARNING_RATIOS_DILUTED_EPS_GROWTH_ONE_YEAR = 3417
-
-    EARNING_RATIOS_DILUTED_EPS_GROWTH_THREE_YEARS = 3418
-
-    EARNING_RATIOS_DILUTED_EPS_GROWTH_THREE_MONTHS = 3419
-
-    EARNING_RATIOS_DILUTED_EPS_GROWTH_FIVE_YEARS = 3420
-
-    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_ONE_YEAR = 3421
-
-    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_THREE_YEARS = 3422
-
-    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_THREE_MONTHS = 3423
-
-    EARNING_RATIOS_DILUTED_CONT_EPS_GROWTH_FIVE_YEARS = 3424
-
-    EARNING_RATIOS_DPS_GROWTH_ONE_YEAR = 3425
-
-    EARNING_RATIOS_DPS_GROWTH_THREE_MONTHS = 3426
-
-    EARNING_RATIOS_DPS_GROWTH_THREE_YEARS = 3427
-
-    EARNING_RATIOS_DPS_GROWTH_FIVE_YEARS = 3428
-
-    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_ONE_YEAR = 3429
-
-    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_THREE_MONTHS = 3430
-
-    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_THREE_YEARS = 3431
-
-    EARNING_RATIOS_EQUITY_PER_SHARE_GROWTH_FIVE_YEARS = 3432
-
-    EARNING_RATIOS_REGRESSION_GROWTHOF_DIVIDENDS_5_YEARS_FIVE_YEARS = 3433
-
-    EARNING_RATIOS_FCF_PER_SHARE_GROWTH_ONE_YEAR = 3434
-
-    EARNING_RATIOS_FCF_PER_SHARE_GROWTH_THREE_YEARS = 3435
-
-    EARNING_RATIOS_FCF_PER_SHARE_GROWTH_FIVE_YEARS = 3436
-
-    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_ONE_YEAR = 3437
-
-    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_THREE_MONTHS = 3438
-
-    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_THREE_YEARS = 3439
-
-    EARNING_RATIOS_BOOK_VALUE_PER_SHARE_GROWTH_FIVE_YEARS = 3440
-
-    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_ONE_YEAR = 3441
-
-    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_THREE_MONTHS = 3442
-
-    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_THREE_YEARS = 3443
-
-    EARNING_RATIOS_NORMALIZED_DILUTED_EPS_GROWTH_FIVE_YEARS = 3444
-
-    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_ONE_YEAR = 3445
-
-    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_THREE_MONTHS = 3446
-
-    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_THREE_YEARS = 3447
-
-    EARNING_RATIOS_NORMALIZED_BASIC_EPS_GROWTH_FIVE_YEARS = 3448
-
-    VALUATION_RATIOS_PAYOUT_RATIO = 3449
-
-    VALUATION_RATIOS_SUSTAINABLE_GROWTH_RATE = 3450
-
-    VALUATION_RATIOS_CASH_RETURN = 3451
-
-    VALUATION_RATIOS_SALES_PER_SHARE = 3452
-
-    VALUATION_RATIOS_BOOK_VALUE_PER_SHARE = 3453
-
-    VALUATION_RATIOS_CFO_PER_SHARE = 3454
-
-    VALUATION_RATIOS_FCF_PER_SHARE = 3455
-
-    VALUATION_RATIOS_EARNING_YIELD = 3456
-
-    VALUATION_RATIOS_PE_RATIO = 3457
-
-    VALUATION_RATIOS_SALES_YIELD = 3458
-
-    VALUATION_RATIOS_PS_RATIO = 3459
-
-    VALUATION_RATIOS_BOOK_VALUE_YIELD = 3460
-
-    VALUATION_RATIOS_PB_RATIO = 3461
-
-    VALUATION_RATIOS_CF_YIELD = 3462
-
-    VALUATION_RATIOS_PCF_RATIO = 3463
-
-    VALUATION_RATIOS_FCF_YIELD = 3464
-
-    VALUATION_RATIOS_FCF_RATIO = 3465
-
-    VALUATION_RATIOS_TRAILING_DIVIDEND_YIELD = 3466
-
-    VALUATION_RATIOS_FORWARD_DIVIDEND_YIELD = 3467
-
-    VALUATION_RATIOS_FORWARD_EARNING_YIELD = 3468
-
-    VALUATION_RATIOS_FORWARD_PE_RATIO = 3469
-
-    VALUATION_RATIOS_PEG_RATIO = 3470
-
-    VALUATION_RATIOS_PEG_PAYBACK = 3471
-
-    VALUATION_RATIOS_TANGIBLE_BOOK_VALUE_PER_SHARE = 3472
-
-    VALUATION_RATIOS_TANGIBLE_BV_PER_SHARE_3_YR_AVG = 3473
-
-    VALUATION_RATIOS_TANGIBLE_BV_PER_SHARE_5_YR_AVG = 3474
-
-    VALUATION_RATIOS_FORWARD_DIVIDEND = 3475
-
-    VALUATION_RATIOS_WORKING_CAPITAL_PER_SHARE = 3476
-
-    VALUATION_RATIOS_WORKING_CAPITAL_PER_SHARE_3_YR_AVG = 3477
-
-    VALUATION_RATIOS_WORKING_CAPITAL_PER_SHARE_5_YR_AVG = 3478
-
-    VALUATION_RATIOS_EV_TO_EBITDA = 3479
-
-    VALUATION_RATIOS_BUY_BACK_YIELD = 3480
-
-    VALUATION_RATIOS_TOTAL_YIELD = 3481
-
-    VALUATION_RATIOS_RATIO_PE_5_YEAR_AVERAGE = 3482
-
-    VALUATION_RATIOS_PRICE_CHANGE_1M = 3483
-
-    VALUATION_RATIOS_NORMALIZED_PE_RATIO = 3484
-
-    VALUATION_RATIOS_PRICE_TO_EBITDA = 3485
-
-    VALUATION_RATIOS_DIV_YIELD_5_YEAR = 3486
-
-    VALUATION_RATIOS_FORWARD_ROE = 3487
-
-    VALUATION_RATIOS_FORWARD_ROA = 3488
-
-    VALUATION_RATIOS_TWO_YEARS_FORWARD_EARNING_YIELD = 3489
-
-    VALUATION_RATIOS_TWO_YEARS_FORWARD_PE_RATIO = 3490
-
-    VALUATION_RATIOS_FORWARD_CALCULATION_STYLE = 3491
-
-    VALUATION_RATIOS_ACTUAL_FORWARD_DIVIDEND = 3492
-
-    VALUATION_RATIOS_TRAILING_CALCULATION_STYLE = 3493
-
-    VALUATION_RATIOS_ACTUAL_TRAILING_DIVIDEND = 3494
-
-    VALUATION_RATIOS_TOTAL_ASSET_PER_SHARE = 3495
-
-    VALUATION_RATIOS_EXPECTED_DIVIDEND_GROWTH_RATE = 3496
-
-    VALUATION_RATIOS_EV_TO_REVENUE = 3497
-
-    VALUATION_RATIOS_EV_TO_PRE_TAX_INCOME = 3498
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS = 3499
-
-    VALUATION_RATIOS_EV_TO_FCF = 3500
-
-    VALUATION_RATIOS_EV_TO_EBIT = 3501
-
-    VALUATION_RATIOS_FFO_PER_SHARE = 3502
-
-    VALUATION_RATIOS_PRICE_TO_CASH_RATIO = 3503
-
-    VALUATION_RATIOS_EV_TO_FORWARD_EBITDA = 3504
-
-    VALUATION_RATIOS_EV_TO_FORWARD_REVENUE = 3505
-
-    VALUATION_RATIOS_EV_TO_FORWARD_EBIT = 3506
-
-    VALUATION_RATIOS_EV_TO_EBITDA_1_YEAR_GROWTH = 3507
-
-    VALUATION_RATIOS_EV_TO_FCF_1_YEAR_GROWTH = 3508
-
-    VALUATION_RATIOS_EV_TO_REVENUE_1_YEAR_GROWTH = 3509
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_1_YEAR_GROWTH = 3510
-
-    VALUATION_RATIOS_PFCF_RATIO_1_YEAR_GROWTH = 3511
-
-    VALUATION_RATIOS_PB_RATIO_1_YEAR_GROWTH = 3512
-
-    VALUATION_RATIOS_PE_RATIO_1_YEAR_GROWTH = 3513
-
-    VALUATION_RATIOS_PS_RATIO_1_YEAR_GROWTH = 3514
-
-    VALUATION_RATIOS_EV_TO_EBIT_3_YR_AVG = 3515
-
-    VALUATION_RATIOS_EV_TO_EBITDA_3_YR_AVG = 3516
-
-    VALUATION_RATIOS_EV_TO_FCF_3_YR_AVG = 3517
-
-    VALUATION_RATIOS_EV_TO_REVENUE_3_YR_AVG = 3518
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_3_YR_AVG = 3519
-
-    VALUATION_RATIOS_EV_TO_EBIT_3_YR_AVG_CHANGE = 3520
-
-    VALUATION_RATIOS_EV_TO_EBITDA_3_YR_AVG_CHANGE = 3521
-
-    VALUATION_RATIOS_EV_TO_FCF_3_YR_AVG_CHANGE = 3522
-
-    VALUATION_RATIOS_EV_TO_REVENUE_3_YR_AVG_CHANGE = 3523
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_3_YR_AVG_CHANGE = 3524
-
-    VALUATION_RATIOS_PFCF_RATIO_3_YR_AVG = 3525
-
-    VALUATION_RATIOS_PB_RATIO_3_YR_AVG = 3526
-
-    VALUATION_RATIOS_PS_RATIO_3_YR_AVG = 3527
-
-    VALUATION_RATIOS_P_CASH_RATIO_3_YR_AVG = 3528
-
-    VALUATION_RATIOS_PE_RATIO_3_YR_AVG = 3529
-
-    VALUATION_RATIOS_PFCF_RATIO_3_YR_AVG_CHANGE = 3530
-
-    VALUATION_RATIOS_PB_RATIO_3_YR_AVG_CHANGE = 3531
-
-    VALUATION_RATIOS_PS_RATIO_3_YR_AVG_CHANGE = 3532
-
-    VALUATION_RATIOS_PE_RATIO_3_YR_AVG_CHANGE = 3533
-
-    VALUATION_RATIOS_PE_RATIO_1_YEAR_HIGH = 3534
-
-    VALUATION_RATIOS_PE_RATIO_1_YEAR_LOW = 3535
-
-    VALUATION_RATIOS_PE_RATIO_1_YEAR_AVERAGE = 3536
-
-    VALUATION_RATIOS_PE_RATIO_5_YEAR_HIGH = 3537
-
-    VALUATION_RATIOS_PE_RATIO_5_YEAR_LOW = 3538
-
-    VALUATION_RATIOS_PE_RATIO_5_YEAR_AVERAGE = 3539
-
-    VALUATION_RATIOS_PE_RATIO_10_YEAR_HIGH = 3540
-
-    VALUATION_RATIOS_PE_RATIO_10_YEAR_LOW = 3541
-
-    VALUATION_RATIOS_PE_RATIO_10_YEAR_AVERAGE = 3542
-
-    VALUATION_RATIOS_CAPE_RATIO = 3543
-
-    VALUATION_RATIOS_EV_TO_EBITDA_3_YEAR_GROWTH = 3544
-
-    VALUATION_RATIOS_EV_TO_FCF_3_YEAR_GROWTH = 3545
-
-    VALUATION_RATIOS_EV_TO_REVENUE_3_YEAR_GROWTH = 3546
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_3_YEAR_GROWTH = 3547
-
-    VALUATION_RATIOS_PFCF_RATIO_3_YEAR_GROWTH = 3548
-
-    VALUATION_RATIOS_PB_RATIO_3_YEAR_GROWTH = 3549
-
-    VALUATION_RATIOS_PE_RATIO_3_YEAR_GROWTH = 3550
-
-    VALUATION_RATIOS_PS_RATIO_3_YEAR_GROWTH = 3551
-
-    VALUATION_RATIOS_EV_TO_EBITDA_5_YEAR_GROWTH = 3552
-
-    VALUATION_RATIOS_EV_TO_FCF_5_YEAR_GROWTH = 3553
-
-    VALUATION_RATIOS_EV_TO_REVENUE_5_YEAR_GROWTH = 3554
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_5_YEAR_GROWTH = 3555
-
-    VALUATION_RATIOS_PFCF_RATIO_5_YEAR_GROWTH = 3556
-
-    VALUATION_RATIOS_PB_RATIO_5_YEAR_GROWTH = 3557
-
-    VALUATION_RATIOS_PE_RATIO_5_YEAR_GROWTH = 3558
-
-    VALUATION_RATIOS_PS_RATIO_5_YEAR_GROWTH = 3559
-
-    VALUATION_RATIOS_EV_TO_EBITDA_10_YEAR_GROWTH = 3560
-
-    VALUATION_RATIOS_EV_TO_FCF_10_YEAR_GROWTH = 3561
-
-    VALUATION_RATIOS_EV_TO_REVENUE_10_YEAR_GROWTH = 3562
-
-    VALUATION_RATIOS_EV_TO_TOTAL_ASSETS_10_YEAR_GROWTH = 3563
-
-    VALUATION_RATIOS_PFCF_RATIO_10_YEAR_GROWTH = 3564
-
-    VALUATION_RATIOS_PB_RATIO_10_YEAR_GROWTH = 3565
-
-    VALUATION_RATIOS_PE_RATIO_10_YEAR_GROWTH = 3566
-
-    VALUATION_RATIOS_PS_RATIO_10_YEAR_GROWTH = 3567
-
-    VALUATION_RATIOS_TWO_YRS_EV_TO_FORWARD_EBIT = 3568
-
-    VALUATION_RATIOS_TWO_YRS_EV_TO_FORWARD_EBITDA = 3569
-
-    VALUATION_RATIOS_FIRST_YEAR_ESTIMATED_EPS_GROWTH = 3570
-
-    VALUATION_RATIOS_SECOND_YEAR_ESTIMATED_EPS_GROWTH = 3571
-
-    VALUATION_RATIOS_NORMALIZED_PEG_RATIO = 3572
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_1 = 3573
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_2 = 3574
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_3 = 3575
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_4 = 3576
-
-    COMPANY_PROFILE_HEADQUARTER_ADDRESS_LINE_5 = 3577
-
-    COMPANY_PROFILE_HEADQUARTER_CITY = 3578
-
-    COMPANY_PROFILE_HEADQUARTER_PROVINCE = 3579
-
-    COMPANY_PROFILE_HEADQUARTER_COUNTRY = 3580
-
-    COMPANY_PROFILE_HEADQUARTER_POSTAL_CODE = 3581
-
-    COMPANY_PROFILE_HEADQUARTER_PHONE = 3582
-
-    COMPANY_PROFILE_HEADQUARTER_FAX = 3583
-
-    COMPANY_PROFILE_HEADQUARTER_HOMEPAGE = 3584
-
-    COMPANY_PROFILE_TOTAL_EMPLOYEE_NUMBER = 3585
-
-    COMPANY_PROFILE_CONTACT_EMAIL = 3586
-
-    COMPANY_PROFILE_AVERAGE_EMPLOYEE_NUMBER = 3587
-
-    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_1 = 3588
-
-    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_2 = 3589
-
-    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_3 = 3590
-
-    COMPANY_PROFILE_REGISTERED_ADDRESS_LINE_4 = 3591
-
-    COMPANY_PROFILE_REGISTERED_CITY = 3592
-
-    COMPANY_PROFILE_REGISTERED_PROVINCE = 3593
-
-    COMPANY_PROFILE_REGISTERED_COUNTRY = 3594
-
-    COMPANY_PROFILE_REGISTERED_POSTAL_CODE = 3595
-
-    COMPANY_PROFILE_REGISTERED_PHONE = 3596
-
-    COMPANY_PROFILE_REGISTERED_FAX = 3597
-
-    COMPANY_PROFILE_IS_HEAD_OFFICE_SAME_WITH_REGISTERED_OFFICE_FLAG = 3598
-
-    COMPANY_PROFILE_SHARES_OUTSTANDING = 3599
-
-    COMPANY_PROFILE_MARKET_CAP = 3600
-
-    COMPANY_PROFILE_ENTERPRISE_VALUE = 3601
-
-    COMPANY_PROFILE_SHARE_CLASS_LEVEL_SHARES_OUTSTANDING = 3602
-
-    COMPANY_PROFILE_SHARES_OUTSTANDING_WITH_BALANCE_SHEET_ENDING_DATE = 3603
-
-    COMPANY_PROFILE_REASONOF_SHARES_CHANGE = 3604
-
-    ASSET_CLASSIFICATION_STOCK_TYPE = 3605
-
-    ASSET_CLASSIFICATION_STYLE_BOX = 3606
-
-    ASSET_CLASSIFICATION_GROWTH_GRADE = 3607
-
-    ASSET_CLASSIFICATION_FINANCIAL_HEALTH_GRADE = 3608
-
-    ASSET_CLASSIFICATION_PROFITABILITY_GRADE = 3609
-
-    ASSET_CLASSIFICATION_MORNINGSTAR_INDUSTRY_CODE = 3610
-
-    ASSET_CLASSIFICATION_MORNINGSTAR_INDUSTRY_GROUP_CODE = 3611
-
-    ASSET_CLASSIFICATION_MORNINGSTAR_SECTOR_CODE = 3612
-
-    ASSET_CLASSIFICATION_MORNINGSTAR_ECONOMY_SPHERE_CODE = 3613
-
-    ASSET_CLASSIFICATION_SIC = 3614
-
-    ASSET_CLASSIFICATION_NAICS = 3615
-
-    ASSET_CLASSIFICATION_STYLE_SCORE = 3616
-
-    ASSET_CLASSIFICATION_SIZE_SCORE = 3617
-
-    ASSET_CLASSIFICATION_GROWTH_SCORE = 3618
-
-    ASSET_CLASSIFICATION_VALUE_SCORE = 3619
-
-    ASSET_CLASSIFICATION_NACE = 3620
-
-    ASSET_CLASSIFICATION_CANNAICS = 3621
+    TRAVEL_SERVICES: int = 10290050
+    """Companies that offer travel-related products or services, including online travel services."""
+
+    ASSET_MANAGEMENT: int = 10310010
+    """
+    Investment management firms offering diversified services such as asset administration,
+    investment advice, portfolio or mutual fund management, money management, and venture capital.
+    """
+
+    BANKS_DIVERSIFIED: int = 10320010
+    """
+    Global, diverse financial institutions serving the corporate and consumer needs of
+    retail banking, investment banking, trust management, credit cards and mortgage banking.
+    """
+
+    BANKS_REGIONAL: int = 10320020
+    """
+    Regional, diverse financial institutions serving the corporate, government, and consumer
+    needs of retail banking, investment banking, trust management, credit cards, mortgage
+    banking, savings and loan associations, building societies, cooperative banks, and homestead.
+    """
+
+    MORTGAGE_FINANCE: int = 10320030
+    """Companies that originate, purchase, sell, and service home mortgage and equity loans."""
+
+    CAPITAL_MARKETS: int = 10330010
+    """
+    Large, major investment houses offering investment banking, merchant banking,
+    underwriting, brokerage, research, advisory, and trading services to broad-based
+    national and international markets.
+    """
+
+    FINANCIAL_DATA_AND_STOCK_EXCHANGES: int = 10330020
+    """
+    Companies that operate security exchanges, including companies that offer financial data
+    such as ratings, investment research, and other research solutions.
+    """
+
+    INSURANCE_LIFE: int = 10340010
+    """
+    Companies that underwrite, market, and distribute life insurance and related products to
+    individuals and families.
+    """
+
+    INSURANCE_PROPERTY_AND_CASUALTY: int = 10340020
+    """
+    Companies that underwrite, market, and distribute fire, marine, and casualty insurance
+    for property and other tangible assets.
+    """
+
+    INSURANCE_REINSURANCE: int = 10340030
+    """Companies that underwrite and sell reinsurance."""
+
+    INSURANCE_SPECIALTY: int = 10340040
+    """
+    Companies that underwrite, market, and distribute accident and health, sickness,
+    mortgage, and other specialty or supplemental insurance to individuals and families.
+    """
+
+    INSURANCE_BROKERS: int = 10340050
+    """
+    Companies acting primarily as agents or intermediaries in creating insurance contracts
+    between clients and insurance companies.
+    """
+
+    INSURANCE_DIVERSIFIED: int = 10340060
+    """
+    Insurance companies with diversified interests in life, health, and property and
+    casualty insurance.
+    """
+
+    SHELL_COMPANIES: int = 10350010
+    """
+    A development-stage company with no or minimal revenue. Includes capital pool, blank
+    check, shell, and holding companies.
+    """
+
+    FINANCIAL_CONGLOMERATES: int = 10350020
+    """
+    Companies that provide financial services, including banking, insurance, and capital
+    markets, but with no dominant business line or source of revenue.
+    """
+
+    CREDIT_SERVICES: int = 10360010
+    """
+    Companies that extend credit and make loans to individuals and businesses through credit
+    cards, installment loans, student loans, and business loans that are associated with
+    other consumer and business credit instruments.
+    """
+
+    REAL_ESTATE_DEVELOPMENT: int = 10410010
+    """
+    Companies that develop real estate and same properties held as inventory, or sold to
+    others after development, with no specific portfolio composition.
+    """
+
+    REAL_ESTATE_SERVICES: int = 10410020
+    """
+    Companies that operate, manage, and lease real property with no specific portfolio
+    composition. Includes real estate services like brokers and agents but excludes
+    companies classified in the real estate â€“ development industry.
+    """
+
+    REAL_ESTATE_DIVERSIFIED: int = 10410030
+    """
+    Companies engaged in multiple real estate activities, including development, sales,
+    management, and related services. Excludes companies classified in real estate
+    development and real estate services.
+    """
+
+    REIT_HEALTHCARE_FACILITIES: int = 10420010
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of healthcare properties, including long-term-care
+    facilities, acute-care and rehab hospitals, psychiatric facilities, and substance-abuse centers.
+    """
+
+    REIT_HOTEL_AND_MOTEL: int = 10420020
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of lodging properties, including full- and limited-service
+    hotels and motels.
+    """
+
+    REIT_INDUSTRIAL: int = 10420030
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of industrial properties, including bulk warehouses,
+    self-storage facilities, distribution facilities, and other light industrial facilities.
+    """
+
+    REIT_OFFICE: int = 10420040
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of office properties, including office buildings, complexes,
+    and centers.
+    """
+
+    REIT_RESIDENTIAL: int = 10420050
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of residential properties, including apartments, multifamily
+    and single-family mortgage loans, manufactured housing, mobile-home parks, and other
+    residential properties.
+    """
+
+    REIT_RETAIL: int = 10420060
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of retail properties, including community shopping centers,
+    factory outlet shopping centers, enclosed shopping malls, strip centers, restaurants,
+    and other retail properties.
+    """
+
+    REIT_MORTGAGE: int = 10420070
+    """
+    Self-administered real estate investment trusts engaged in the acquisition, management,
+    and disposition of mortgage-backed securities. Also includes companies that provide
+    financing for income-producing real estate by purchasing or originating mortgages and
+    mortgage-backed securities; and earns income from the interest on these investments.
+    """
+
+    REIT_SPECIALTY: int = 10420080
+    """
+    Self-administered real estate investment trusts engaged in the acquisition, management,
+    and disposition of properties not classified elsewhere. Includes trusts that operate,
+    lease, and invest in telecom towers, advertising spaces, timberland properties, and
+    other properties not classified elsewhere.
+    """
+
+    REIT_DIVERSIFIED: int = 10420090
+    """
+    Self-administered real estate investment trusts engaged in the acquisition, management,
+    and disposition of diversified property holdings, with no specific portfolio composition.
+    """
+
+    BEVERAGES_BREWERS: int = 20510010
+    """Companies that manufacture, sell, and distribute malt-based beverages, beers, and ales."""
+
+    BEVERAGES_WINERIES_AND_DISTILLERIES: int = 20510020
+    """Companies that manufacture, sell, and distribute distilled liquors and wine."""
+
+    BEVERAGES_NON_ALCOHOLIC: int = 20520010
+    """
+    Companies that manufacture, sell, and distribute soft drinks, carbonated and spring
+    water, fruit juices, and other nonalcoholic beverages.
+    """
+
+    CONFECTIONERS: int = 20525010
+    """
+    Companies that manufacture and refine raw sugar, syrup or finished cane and beet sugar,
+    candy and chewing gum, chocolate, and cocoa products.
+    """
+
+    FARM_PRODUCTS: int = 20525020
+    """
+    Companies that produce, raise, and grow agricultural and farm-based food products,
+    including fruits, vegetables, other crop products, cattle, and eggs. Also includes
+    seafood products.
+    """
+
+    HOUSEHOLD_AND_PERSONAL_PRODUCTS: int = 20525030
+    """
+    Companies that manufacture and market soaps and other detergents, polishing and
+    sanitation goods and produce glycerin from vegetable and animal fats and oils. Also
+    includes companies that manufacture and market personal-care products, including
+    perfume, cosmetics, and other toilet preparations, infant and adult sanitary paper
+    products, shaving razors and blades.
+    """
+
+    PACKAGED_FOODS: int = 20525040
+    """
+    Companies that process and package food products, including frozen foods, grain
+    products, canned foods, snack foods, health supplements, vitamins, and pet products.
+    """
+
+    EDUCATION_AND_TRAINING_SERVICES: int = 20540010
+    """
+    Companies that provide educational and training services, including college and
+    junior-college courses, higher-education programs, technical and vocational training,
+    and other education services.
+    """
+
+    DISCOUNT_STORES: int = 20550010
+    """Companies engaged in the retail sale of a variety of merchandise at low and discounted prices."""
+
+    FOOD_DISTRIBUTION: int = 20550020
+    """
+    Companies primarily engaged in the distribution and supply of food products, including
+    packaged goods, meat, dairy products, frozen foods, and related groceries to grocery
+    stores, restaurants, and other food-service centers.
+    """
+
+    GROCERY_STORES: int = 20550030
+    """
+    Companies engaged in the retail sale of groceries, including dry goods, meat, produce,
+    frozen foods, dairy products, seafood, deli/bakery, and nonfood items.
+    """
+
+    TOBACCO: int = 20560010
+    """
+    Companies that manufacture and market cigarettes, e-cigarettes, snuff, cigars, chewing
+    tobacco, and all other tobacco products.
+    """
+
+    BIOTECHNOLOGY: int = 20610010
+    """
+    Biotech and biopharmaceutical companies engaged in research, discovery, development, and
+    production of innovative drug and drug-related technologies.
+    """
+
+    DRUG_MANUFACTURERS_GENERAL: int = 20620010
+    """
+    Major, global pharmaceutical manufacturers offering a broad and diverse line of drug and
+    healthcare products; industry leaders that have made a significant commitment to the
+    research and development of a long pipeline of drugs.
+    """
+
+    DRUG_MANUFACTURERS_SPECIALTY_AND_GENERIC: int = 20620020
+    """
+    Companies engaged in development and discovery of branded forms of drug, drug-related
+    products, generic drug products, and animal-related drugs. Also includes companies that
+    cultivate, process, and farm cannabis or marijuana.
+    """
+
+    HEALTHCARE_PLANS: int = 20630010
+    """
+    Companies that offer a wide variety of managed health products and services, including
+    HMOs, PPOs, and other health insurance plans, and are largely U.S.-domiciled.
+    """
+
+    MEDICAL_CARE_FACILITIES: int = 20645010
+    """
+    Companies that provide medical services through the ownership and operation of
+    hospitals, and other auxiliary healthcare-related services, including healthcare
+    staffing and ambulatory services. Also, companies that operate long-term-care
+    facilities, such as assisted-living centers, nursing and retirement homes,
+    substance-abuse centers, and centers for rehabilitation services.
+    """
+
+    PHARMACEUTICAL_RETAILERS: int = 20645020
+    """
+    Companies engaged in the retail sale of prescription drugs and patent medicines as well
+    as a number of related lines, such as cosmetics, toiletries, and novelty merchandise.
+    """
+
+    HEALTH_INFORMATION_SERVICES: int = 20645030
+    """
+    Companies that develop and provide comprehensive physician practice management systems
+    and software for hospitals, medical practices, and managed-care organizations.
+    """
+
+    MEDICAL_DEVICES: int = 20650010
+    """
+    Companies that develop, manufacture, and market medical and surgical equipment and
+    machinery, including orthopedic products, respiratory care equipment, x-ray equipment,
+    laser systems, implants, pacemakers, and other major medical machines and apparatus.
+    """
+
+    MEDICAL_INSTRUMENTS_AND_SUPPLIES: int = 20650020
+    """
+    Companies that develop, design, manufacture, and market medical and dental instruments
+    and supplies, including wheelchairs, catheters, needles, syringes, eyewear and eyecare
+    products, and other health-related supplies.
+    """
+
+    DIAGNOSTICS_AND_RESEARCH: int = 20660010
+    """
+    Companies that provide laboratory testing services through imaging and other diagnostic
+    services to the medical industry.
+    """
+
+    MEDICAL_DISTRIBUTION: int = 20670010
+    """
+    Companies primarily engaged in the distribution and supply of medical instruments and
+    supplies, ophthalmic goods, and other health-related items to the medical and healthcare industry.
+    """
+
+    UTILITIES_INDEPENDENT_POWER_PRODUCERS: int = 20710010
+    """
+    Companies that own and operate merchant power generation facilities and sell electricity
+    into retail and wholesale markets.
+    """
+
+    UTILITIES_RENEWABLE: int = 20710020
+    """
+    Companies that generate, produce, or transmit electric energy from renewable sources,
+    including hydropower, wind, geothermal, biomass, solar, tidal, and wave.
+    """
+
+    UTILITIES_REGULATED_WATER: int = 20720010
+    """Companies that distribute water for sale, including water-treatment companies."""
+
+    UTILITIES_REGULATED_ELECTRIC: int = 20720020
+    """Companies that generate, transmit, or distribute electric energy for sale."""
+
+    UTILITIES_REGULATED_GAS: int = 20720030
+    """Companies that transmit, store, or distribute natural gas."""
+
+    UTILITIES_DIVERSIFIED: int = 20720040
+    """
+    Companies engaged in the regulated generation, transmission, or distribution of
+    electricity and natural gas, merchant power generation facilities, and energy marketing operations.
+    """
+
+    TELECOM_SERVICES: int = 30810010
+    """
+    Companies that provide local, national, international, and long-distance phone services,
+    as well as companies offering wireless services. Also includes companies that provide
+    services for faxing, prepaid phone cards, pay phones, and directory assistance, or that
+    provide Internet access services.
+    """
+
+    ADVERTISING_AGENCIES: int = 30820010
+    """
+    Companies engaged in full-service advertising operations, including the planning,
+    creating, producing, and placing of advertising in media such as TV, radio, and print.
+    Also includes companies providing marketing services, including outdoor advertising,
+    promotional materials, direct-mail services, digital marketing, event management
+    services, and marketing research services.
+    """
+
+    PUBLISHING: int = 30820020
+    """
+    Companies that publish periodicals, such as magazines, comic books, trade journals,
+    books, pamphlets, e-publications, and newspapers.
+    """
+
+    BROADCASTING: int = 30820030
+    """
+    Companies that own or operate radio broadcast stations and provide and produce radio
+    programming services, television programming services, and television broadcast
+    stations. Also includes companies providing Internet-based video on demand and
+    pay-per-view programming services.
+    """
+
+    ENTERTAINMENT: int = 30820040
+    """
+    Companies primarily operating with diversified holdings in movies, television, and other
+    media-based entertainment. Also includes companies that produce and distribute motion
+    pictures, television programmers, video, and the operation of movie theaters; and
+    provide cable television services.
+    """
+
+    INTERNET_CONTENT_AND_INFORMATION: int = 30830010
+    """
+    Companies that provide content, Internet navigation services, and reference guide
+    information for the World Wide Web through its platforms, including social media, search
+    engines, and networking platform companies.
+    """
+
+    ELECTRONIC_GAMING_AND_MULTIMEDIA: int = 30830020
+    """
+    Companies that primarily develop or publish video games and other multimedia software
+    applications for devices that include personal computers, video game systems,
+    cellphones, tablets, and other portable media players.
+    """
+
+    OIL_AND_GAS_DRILLING: int = 30910010
+    """Companies primarily engaged in the drilling for petroleum and natural gas."""
+
+    OIL_AND_GAS_E_AND_P: int = 30910020
+    """Energy companies which are primarily engaged in oil and gas exploration and production."""
+
+    OIL_AND_GAS_INTEGRATED: int = 30910030
+    """
+    Major energy companies engaged in the diverse aspects of oil and gas operations,
+    including crude oil and gas exploration, production, manufacturing, refining, marketing,
+    and transportation.
+    """
+
+    OIL_AND_GAS_MIDSTREAM: int = 30910040
+    """
+    Companies that own and operate oilfield pipelines and are involved in the gathering,
+    processing, and transportation of natural crude petroleum.
+    """
+
+    OIL_AND_GAS_REFINING_AND_MARKETING: int = 30910050
+    """Companies that refine, gather, market, and sell petroleum and petroleum products."""
+
+    OIL_AND_GAS_EQUIPMENT_AND_SERVICES: int = 30910060
+    """
+    Companies that provide oilfield services and equipment for activities such as contract
+    drilling and seismic surveys. Also includes equipment and tool rental, pumping and
+    processing services, and inspection and contracting services.
+    """
+
+    THERMAL_COAL: int = 30920010
+    """
+    Companies that mine thermal coal, which is used for generating energy. Excludes
+    companies that mine coking coal to make steel.
+    """
+
+    URANIUM: int = 30920020
+    """Companies that mine, refine, produce, and mill uranium and uranium-related materials."""
+
+    AEROSPACE_AND_DEFENSE: int = 31010010
+    """
+    Companies that manufacture aerospace and defense products, including aircraft and
+    aircraft parts, tanks, guided missiles, space vehicles, ships and marine equipment, and
+    other aerospace and defense components and systems, as well as companies supporting
+    these products through repair and maintenance services.
+    """
+
+    SPECIALTY_BUSINESS_SERVICES: int = 31020010
+    """
+    Companies that provide services to the commercial or business market, including
+    information distribution, warehousing, graphic design, accounting, printing, and
+    miscellaneous services.
+    """
+
+    CONSULTING_SERVICES: int = 31020020
+    """
+    Companies that provide management, research, and consulting services to businesses and
+    other agencies. Includes companies engaged in strategic and management consulting
+    services, interior design, and information and analytics.
+    """
+
+    RENTAL_AND_LEASING_SERVICES: int = 31020030
+    """
+    Companies that rent or lease durable goods to the commercial and consumer market,
+    including cars and trucks, medical and industrial equipment, appliances and tools, and
+    miscellaneous goods.
+    """
+
+    SECURITY_AND_PROTECTION_SERVICES: int = 31020040
+    """
+    Companies that provide security and protective services, including protective or
+    preventive devices, security guards and inspection services, security alarm and
+    monitoring systems, detention and correction facilities, and other security-based services.
+    """
+
+    STAFFING_AND_EMPLOYMENT_SERVICES: int = 31020050
+    """
+    Companies that provide staffing and employment services, including temporary staffing
+    and permanent placement, outsources workforce and other employment-related services to
+    businesses and government. Also includes companies providing online staffing services.
+    """
+
+    CONGLOMERATES: int = 31030010
+    """
+    Companies that are in several separate lines of business with no single line providing
+    the dominant source of revenue or income.
+    """
+
+    ENGINEERING_AND_CONSTRUCTION: int = 31040010
+    """
+    Companies engaged in the design, construction, or contracting of industrial and
+    nonresidential structures, streets and highways, bridges and tunnels, docks and piers,
+    dams and water projects, utility lines, and other large building projects. Also includes
+    companies that provide engineering consulting and architectural services to consumer and
+    commercial clients.
+    """
+
+    INFRASTRUCTURE_OPERATIONS: int = 31040020
+    """
+    Companies that develop, finance, maintain, or manage infrastructure operations such as
+    ports, airports, and roadways.
+    """
+
+    BUILDING_PRODUCTS_AND_EQUIPMENT: int = 31040030
+    """
+    Companies that manufacture building and construction products and materials, including
+    ceramic floor and wall tiles, plumbing, HVAC, framing structures, and doors. Excludes
+    companies that are classified in the building materials industry.
+    """
+
+    FARM_AND_HEAVY_CONSTRUCTION_MACHINERY: int = 31050010
+    """
+    Companies that manufacture agricultural and construction machinery, including tractors,
+    planting and harvesting machines, cranes, earthmovers, excavators, and related equipment
+    and machinery. Includes truck manufacturers that provide local and long-haul trucking
+    and transfer services for freight and cargo.
+    """
+
+    INDUSTRIAL_DISTRIBUTION: int = 31060010
+    """
+    Companies primarily engaged in the distribution and supply of industrial equipment,
+    including construction and farming machinery, garden equipment and supplies, and other
+    industrial items to a diversified market of redistributors and end users.
+    """
+
+    BUSINESS_EQUIPMENT_AND_SUPPLIES: int = 31070010
+    """
+    Companies that manufacture and market office and business machines, such as copiers, fax
+    machines, postage meters, point-of-sale terminals, and ATMs.
+    """
+
+    SPECIALTY_INDUSTRIAL_MACHINERY: int = 31070020
+    """
+    Companies engaged in diversified machinery manufacturing operations, including paper and
+    food production machines, printing machinery, engines and turbines, air and gas
+    processors, blowers and fans, furnaces and ovens, and other general and special industry machines.
+    """
+
+    METAL_FABRICATION: int = 31070030
+    """
+    Companies that fabricate, stamp, or form iron, steel, or other metals into products such
+    as structured components by cutting, bending, and assembling processes of basic metals
+    to create a final product.
+    """
+
+    POLLUTION_AND_TREATMENT_CONTROLS: int = 31070040
+    """
+    Companies that manufacture equipment designed to control pollution, including control
+    systems, hazardous waste disposal systems, recovery systems, treatment processes,
+    filtration systems, cleaning and separation applications, and recycling machinery.
+    """
+
+    TOOLS_AND_ACCESSORIES: int = 31070050
+    """
+    Companies that manufacture small, hand-held tools, including power-driven drills,
+    welding apparatus, lawn and garden equipment, and other power or manually operated tools
+    and accessories, such as hardware, nuts, bolts, rivets, and other fasteners.
+    """
+
+    ELECTRICAL_EQUIPMENT_AND_PARTS: int = 31070060
+    """
+    Companies that manufacture electrical equipment (such as smart-grid electrical
+    equipment, utility metering, high- and low-voltage electrical equipment, transmission
+    control devices, switches, and lighting distribution boxes), batteries, electrical wires
+    and cables, and automation control.
+    """
+
+    AIRPORTS_AND_AIR_SERVICES: int = 31080010
+    """
+    Air transportation companies that provide related air services, including helicopter
+    transportation, air-charter services, in-flight catering services, and air emergency and
+    business-related services.
+    """
+
+    AIRLINES: int = 31080020
+    """
+    Major international passenger airline companies that fly a wide range of domestic and
+    international routes.
+    """
+
+    RAILROADS: int = 31080030
+    """
+    Companies that provide transportation of freight by line-haul railroad as well as
+    related railroad equipment and repair services. Includes companies offering passenger
+    services via railway and roadways.
+    """
+
+    MARINE_SHIPPING: int = 31080040
+    """
+    Companies that transport freight and cargo via water and operate marine ports. Includes
+    companies that provide passenger services via water.
+    """
+
+    TRUCKING: int = 31080050
+    """
+    Companies that provide local and long-haul trucking and transfer services for freight
+    and cargo.
+    """
+
+    INTEGRATED_FREIGHT_AND_LOGISTICS: int = 31080060
+    """
+    Companies that transport freight and cargo via diversified methods such as railroads,
+    airlines, and waterways.
+    """
+
+    WASTE_MANAGEMENT: int = 31090010
+    """
+    Companies that collect, treat, store, transfer, recycle, and dispose of waste materials,
+    as well as companies that provide supporting environmental, engineering, and consulting services.
+    """
+
+    INFORMATION_TECHNOLOGY_SERVICES: int = 31110010
+    """
+    Companies that provide computer-system design, network and systems operations, repair
+    services, technical support, computer technology consulting, development, and
+    implementation services.
+    """
+
+    SOFTWARE_APPLICATION: int = 31110020
+    """
+    Companies that primarily design, develop, market, and support application software
+    programs, including those that are cloud-based, for specific consumer and business functions.
+    """
+
+    SOFTWARE_INFRASTRUCTURE: int = 31110030
+    """
+    Companies that develop, design, support, and provide system software and services,
+    including operating systems, networking software and devices, web portal services, cloud
+    storage, and related services.
+    """
+
+    COMMUNICATION_EQUIPMENT: int = 31120010
+    """
+    Companies that design, develop, manufacture, and market equipment for the communication
+    industry, including fiber-optic cable; telecom peripherals; voice and data transmission
+    and processing equipment; satellite products and equipment; video-conferencing systems
+    and equipment; and interactive communication systems. Also includes companies that offer
+    networking products that provide connectivity solutions for multi-use computing environments.
+    """
+
+    COMPUTER_HARDWARE: int = 31120020
+    """
+    Companies that design, manufacture, and market computer systems, high mainframe servers,
+    supercomputer, and 3D printers and scanners. Also includes companies that manufacture
+    and market data storage products and other storage and backup devices for computers.
+    """
+
+    CONSUMER_ELECTRONICS: int = 31120030
+    """
+    Companies that manufacture and market mobile communication products and household audio
+    and video equipment, including radios, stereos, televisions, DVD player and personal use
+    Drones. Excludes electric household appliances.
+    """
+
+    ELECTRONIC_COMPONENTS: int = 31120040
+    """
+    Companies that design, develop, manufacture, and market electronic devices, including
+    electron tubes; electronic capacitors; electronic resistors; electronic coil and
+    transformers; sensors; LED, TFT, and LCD displays; electronic connectors; printed
+    circuit boards; circuit assemblies; and other general-purpose electronics components and products.
+    """
+
+    ELECTRONICS_AND_COMPUTER_DISTRIBUTION: int = 31120050
+    """
+    Companies primarily engaged in the distribution, supply, and support of computers and
+    computer systems, peripheral equipment, and software and other technological goods,
+    including electronic equipment and appliances, electrical cable, wires, and other
+    components to various consumer, commercial, and manufacturing customers.
+    """
+
+    SCIENTIFIC_AND_TECHNICAL_INSTRUMENTS: int = 31120060
+    """
+    Companies that design, develop, manufacture, and market sophisticated electronics of a
+    technical nature, including lab apparatus, process and flow control devices, precise
+    measurement and signal processing tools, search and navigation equipment, and other
+    scientific or technical analytical or measuring devices.
+    """
+
+    SEMICONDUCTOR_EQUIPMENT_AND_MATERIALS: int = 31130010
+    """
+    Companies that design, develop, manufacture, and market equipment, spare parts, tools,
+    cleaning devices, and related materials for the semiconductor industry.
+    """
+
+    SEMICONDUCTORS: int = 31130020
+    """
+    Semiconductor companies that design, manufacture, and market integrated circuits,
+    microprocessors, logic devices, chipsets, and memory chips for a wide variety of users.
+    Includes companies that design, manufacture, and market general-application integrated
+    circuits and memory and memory-intensive products.
+    """
+
+    SOLAR: int = 31130030
+    """Companies that design, manufacture, market, or install solar power systems and components."""
 
 
 class FundamentalUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
@@ -71440,7 +71571,7 @@ class FundamentalUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection
 
     @staticmethod
     @overload
-    def usa(selector: typing.Callable[[typing.Iterable[QuantConnect.Data.Fundamental.Fundamental]], typing.Iterable[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
+    def usa(selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
         """
         Creates a new fundamental universe for the USA market
         
@@ -71452,7 +71583,7 @@ class FundamentalUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection
 
     @staticmethod
     @overload
-    def usa(selector: typing.Callable[[typing.Iterable[QuantConnect.Data.Fundamental.Fundamental]], System.Object], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
+    def usa(selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], System.Object], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
         """
         Creates a new fundamental universe for the USA market
         
@@ -71469,136 +71600,5 @@ class Fundamentals(QuantConnect.Data.Fundamental.FundamentalUniverse):
     
     'Fundamentals' was renamed to 'FundamentalUniverse'
     """
-
-
-class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodField_T], ReusuableCLRObject, metaclass=abc.ABCMeta):
-    """Abstract base class for multi-period fields"""
-
-    NO_VALUE: QuantConnect_Data_Fundamental_MultiPeriodField_T
-    """No Value"""
-
-    @property
-    def time_provider(self) -> QuantConnect.ITimeProvider:
-        """
-        The time provider instance to use
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    @abc.abstractmethod
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def security_identifier(self) -> QuantConnect.SecurityIdentifier:
-        """
-        The target security identifier
-        
-        This property is protected.
-        """
-        ...
-
-    @security_identifier.setter
-    def security_identifier(self, value: QuantConnect.SecurityIdentifier) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Creates an empty instance
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """
-        Creates a new instance
-        
-        This method is protected.
-        """
-        ...
-
-    def convert_period(self, period: str) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        This method is protected.
-        """
-        ...
-
-    def get_period_names(self) -> typing.Iterable[str]:
-        """Gets the list of available period names for the field"""
-        ...
-
-    def get_period_value(self, period: str) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> System.Collections.Generic.IReadOnlyDictionary[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
-        """Gets a dictionary of period names and values for the field"""
-        ...
-
-    def has_period_value(self, period: str) -> bool:
-        """
-        Returns true if the field contains a value for the requested period
-        
-        :returns: True if the field contains a value for the requested period.
-        """
-        ...
-
-    def has_values(self) -> bool:
-        """Returns true if the field has at least one value for one period"""
-        ...
-
-    def to_string(self) -> str:
-        """Returns a string that represents the current object."""
-        ...
-
-
-class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
-    """Abstract class for multi-period fields long"""
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Creates an empty instance
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """
-        Creates a new instance
-        
-        This method is protected.
-        """
-        ...
 
 

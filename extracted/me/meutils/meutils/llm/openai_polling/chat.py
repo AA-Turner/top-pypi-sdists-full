@@ -85,12 +85,9 @@ class Completions(object):
             if not request.reasoning_effort:  # 默认关闭思考
                 data['reasoning_effort'] = "none"
 
-                if "gemini-2.5-pro" in request.model:  ####### 关闭失效
-                    data['reasoning_effort'] = "low"
-
             if "thinking" in request.model:
                 data['model'] = data['model'].removesuffix("-thinking")  # 开启思考
-                data['reasoning_effort'] = None
+                data['reasoning_effort'] = 'low'
 
         logger.debug(data)
         return await self.client.chat.completions.create(**data)

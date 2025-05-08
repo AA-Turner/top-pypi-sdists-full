@@ -11,7 +11,6 @@
 import execjs
 
 from meutils.pipe import *
-from meutils.schemas.hailuo_types import VideoRequest
 
 from urllib.parse import quote, urlencode
 

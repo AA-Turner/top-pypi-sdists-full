@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: great_expectations
-Version: 1.4.2
+Version: 1.4.3
 Summary: Always know what to expect from your data.
 Home-page: https://greatexpectations.io
 Author: The Great Expectations Team
@@ -23,28 +23,28 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9,<3.13
-Provides-Extra: mssql
-Provides-Extra: redshift
-Provides-Extra: gx-redshift
-Provides-Extra: hive
-Provides-Extra: dremio
-Provides-Extra: vertica
-Provides-Extra: clickhouse
-Provides-Extra: excel
-Provides-Extra: mysql
-Provides-Extra: snowflake
-Provides-Extra: teradata
-Provides-Extra: arrow
-Provides-Extra: bigquery
-Provides-Extra: databricks
-Provides-Extra: spark
-Provides-Extra: pagerduty
-Provides-Extra: athena
-Provides-Extra: spark-connect
-Provides-Extra: postgresql
-Provides-Extra: cloud
 Provides-Extra: azure
+Provides-Extra: pagerduty
+Provides-Extra: excel
+Provides-Extra: cloud
+Provides-Extra: athena
+Provides-Extra: mssql
+Provides-Extra: vertica
+Provides-Extra: bigquery
+Provides-Extra: snowflake
+Provides-Extra: clickhouse
+Provides-Extra: databricks
+Provides-Extra: teradata
+Provides-Extra: mysql
 Provides-Extra: trino
+Provides-Extra: postgresql
+Provides-Extra: gx-redshift
+Provides-Extra: redshift
+Provides-Extra: spark-connect
+Provides-Extra: dremio
+Provides-Extra: spark
+Provides-Extra: arrow
+Provides-Extra: hive
 Provides-Extra: test
 Provides-Extra: aws_secrets
 Provides-Extra: azure_secrets

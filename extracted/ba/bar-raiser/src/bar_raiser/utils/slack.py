@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from json import loads
+from logging import getLogger
 from os import environ
 from typing import TYPE_CHECKING
 
@@ -12,6 +13,9 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from github.CheckRun import CheckRun
+    from slack.web.slack_response import SlackResponse
+
+logger = getLogger(__name__)
 
 
 def post_a_slack_message(
@@ -23,10 +27,8 @@ def post_a_slack_message(
     )
 
 
-def get_slack_user_id_from_github_login(
-    github_login: str, mapping_path: Path
-) -> str | None:
-    return loads(mapping_path.read_text()).get(github_login, None)
+def get_slack_channel_from_mapping_path(key: str, mapping_path: Path) -> str | None:
+    return loads(mapping_path.read_text()).get(key, None)
 
 
 def dm_on_check_failure(
@@ -35,7 +37,7 @@ def dm_on_check_failure(
     pull = get_pull_request()
 
     if pull and not pull.draft:
-        user_id = get_slack_user_id_from_github_login(pull.user.login, mapping_path)
+        user_id = get_slack_channel_from_mapping_path(pull.user.login, mapping_path)
         if user_id:
             failed_checks = [
                 check
@@ -52,3 +54,20 @@ def dm_on_check_failure(
                     channel=user_id,
                     text=slack_message,
                 )
+    else:
+        logger.info("No pull request found.")
+
+
+def get_slack_user_icon_url_and_username(
+    user_id: str,
+) -> tuple[str, str] | tuple[None, None]:
+    client = WebClient(token=environ["SLACK_BOT_TOKEN"])
+    response: SlackResponse = client.users_info(user=user_id)  # pyright: ignore[reportUnknownMemberType,reportAssignmentType]
+    try:
+        if response["ok"]:
+            user_info = response["user"]  # pyright: ignore[reportUnknownVariableType]
+            if user_info:
+                return user_info["profile"]["image_72"], user_info["real_name"]  # pyright: ignore[reportUnknownVariableType]
+    except Exception:
+        logger.exception(f"Error getting slack user info for {user_id}.")
+    return None, None

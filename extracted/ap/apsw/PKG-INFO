@@ -1,11 +1,11 @@
 Metadata-Version: 2.1
 Name: apsw
-Version: 3.49.1.0
+Version: 3.49.2.0
 Summary: Another Python SQLite Wrapper
 Home-page: https://github.com/rogerbinns/apsw
 Author: Roger Binns
 Author-email: rogerb@rogerbinns.com
-License: OSI Approved
+License: any-OSI
 Project-URL: Changelog, https://rogerbinns.github.io/apsw/changes.html
 Project-URL: Documentation, https://rogerbinns.github.io/apsw/
 Project-URL: Issue Tracker, https://github.com/rogerbinns/apsw/issues
@@ -15,7 +15,6 @@ Keywords: database,sqlite
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Database :: Front-Ends

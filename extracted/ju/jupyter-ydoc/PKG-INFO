@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter-ydoc
-Version: 3.0.4
+Version: 3.0.5
 Summary: Document structures for collaborative editing using Ypy
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Source, https://github.com/jupyter-server/jupyter_ydoc

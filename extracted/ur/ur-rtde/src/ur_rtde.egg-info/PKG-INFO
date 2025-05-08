@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ur_rtde
-Version: 1.6.0
+Version: 1.6.1
 Summary: A Python interface for controlling and receiving data from a UR robot using the Real-Time Data Exchange (RTDE) interface of the robot.
 Home-page: https://gitlab.com/sdurobotics/ur_rtde
 Author: Anders Prier Lindvig
@@ -8,7 +8,7 @@ Author-email: Anders Prier Lindvig <anpl@mmmi.sdu.dk>
 Maintainer-email: Anders Prier Lindvig <anpl@mmmi.sdu.dk>
 License: MIT License
         
-        Copyright (c) 2023 Anders Prier Lindvig - SDU Robotics
+        Copyright (c) 2025 Anders Prier Lindvig - SDU Robotics
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -47,15 +47,18 @@ License-File: LICENSE
 [![build status](https://gitlab.com/sdurobotics/ur_rtde/badges/master/pipeline.svg)](https://gitlab.com/sdurobotics/ur_rtde/-/pipelines/latest)
 [![pypi](https://badgen.net/pypi/v/ur_rtde)](https://pypi.org/project/ur-rtde/)
 <br>
-[![ps-3.7.2](https://gitlab.com/sdurobotics/ur_rtde/-/jobs/artifacts/master/raw/ps_3_7_2.svg?job=polyscope-3.7.2)](https://gitlab.com/sdurobotics/ur_rtde/-/pipelines/latest)
+[![ps-3.12.1](https://gitlab.com/sdurobotics/ur_rtde/-/jobs/artifacts/master/raw/ps_3_12_1.svg?job=polyscope-3.12.1)](https://gitlab.com/sdurobotics/ur_rtde/-/pipelines/latest)
 [![ps-3.15.8](https://gitlab.com/sdurobotics/ur_rtde/-/jobs/artifacts/master/raw/ps_3_15_8.svg?job=polyscope-3.15.8)](https://gitlab.com/sdurobotics/ur_rtde/-/pipelines/latest)
 [![ps-5.5.1](https://gitlab.com/sdurobotics/ur_rtde/-/jobs/artifacts/master/raw/ps_5_5_1.svg?job=polyscope-5.5.1)](https://gitlab.com/sdurobotics/ur_rtde/-/pipelines/latest)
-[![ps-5.12.4](https://gitlab.com/sdurobotics/ur_rtde/-/jobs/artifacts/master/raw/ps_5_12_4.svg?job=polyscope-5.12.4)](https://gitlab.com/sdurobotics/ur_rtde/-/pipelines/latest)
+[![ps-5.17.3](https://gitlab.com/sdurobotics/ur_rtde/-/jobs/artifacts/master/raw/ps_5_17_3.svg?job=polyscope-5.17.3)](https://gitlab.com/sdurobotics/ur_rtde/-/pipelines/latest)
 </div>
 
 A C++ interface for controlling and receiving data from a UR robot using the 
 [Real-Time Data Exchange (RTDE)](https://www.universal-robots.com/how-tos-and-faqs/how-to/ur-how-tos/real-time-data-exchange-rtde-guide-22229/)
  interface of the robot. The interface can also be used with python, through the provided python bindings.
+
+> [!tip] Announcements
+> [PolyScopeX](https://www.universal-robots.com/products/polyscope-x/) is now supported, when using the [External Control UR Cap](https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCapX) for PolyScopeX :rocket:
 
 ### Key Features ###
  * Fast and lightweight interface for programming UR robots.
@@ -73,6 +76,23 @@ A C++ interface for controlling and receiving data from a UR robot using the
  
 ### Documentation ###
 Documentation with installation and build instructions, examples and API resides at <https://sdurobotics.gitlab.io/ur_rtde/>
+
+### Citing ###
+If you use ur_rtde in your research, please cite:
+
+```
+@inproceedings{10871000,
+  author={Lindvig, Anders Prier and Iturrate, Iñigo and Kindler, Uwe and Sloth, Christoffer},
+  booktitle={2025 IEEE/SICE International Symposium on System Integration (SII)}, 
+  title={ur_rtde: An Interface for Controlling Universal Robots (UR) using the Real-Time Data Exchange (RTDE)}, 
+  year={2025},
+  volume={},
+  number={},
+  pages={1118-1123},
+  keywords={Protocols;Linux;C++ languages;System integration;Writing;Manipulators;Real-time systems;Libraries;Timing;MATLAB},
+  doi={10.1109/SII59315.2025.10871000}}
+
+```
 
 ### Quick Install ##
 
@@ -118,11 +138,10 @@ If you only want to the use the Python interface, you can install ur_rtde throug
 ### Compatible Operating Systems ###
 Currently tested on:
 
-*  Ubuntu 16.04 (Xenial Xerus)
-*  Ubuntu 18.04 (Bionic Beaver)
 *  Ubuntu 20.04 (Focal Fossa)
 *  Ubuntu 22.04 (Jammy Jellyfish)
-*  macOS 10.14 (Mojave)
+*  Ubuntu 24.04 (Noble Numbat)
+*  macOS 15 (Sequoia)
 *  Windows 10 Pro x64
 
 ### Contact ###

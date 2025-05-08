@@ -15340,7 +15340,10 @@ async def ch_games(USER_GAMES, game, condition, balls=-1):
                     print("День не прошел, данные не меняем")
         else:
             print("Условие не выполнено, обнуляем баллы")
-            USER_GAMES[game]['balls'] = 0
+            if isinstance(USER_GAMES.get(game), dict):
+                USER_GAMES[game]['balls'] = 0
+            else:
+                USER_GAMES[game] = {'date': dt_, 'balls': 0}
     except Exception as e:
         logger.info(log_ % str(e))
         print(f"Ошибка: {e}")
@@ -15610,6 +15613,10 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
             try:
                 if button['knd'] == 'web':
                     web_val = f"pst-{tid_tmp}-{button['lnk']}"
+                    web_hash = hashlib.blake2b(web_val.encode('utf-8'), digest_size=8).hexdigest()
+                    button['web'] = web_hash
+                elif button['knd'] == 'nft':
+                    web_val = f"nft-{tid_tmp}-{POST_TID}"
                     web_hash = hashlib.blake2b(web_val.encode('utf-8'), digest_size=8).hexdigest()
                     button['web'] = web_hash
                 elif button['knd'] == 'pay' and ENT_TOKEN:

@@ -125,6 +125,8 @@ async def make_request_for_baidu(payload, token: Optional[str] = None, response_
         "proxy": await get_one_proxy(),
     }
 
+    logger.debug(request_kwargs)
+
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers, timeout=60, **request_kwargs) as client:
         response = await client.post("/aigc/pccreate", data=payload)  # pcEditTaskid
         response.raise_for_status()
@@ -217,8 +219,8 @@ if __name__ == '__main__':
     request = ImageProcess(
         # model="hunyuan-remove-watermark",
 
-        model="remove-watermark",
-        # model="clarity",
+        # model="remove-watermark",
+        model="clarity",
         # model="expand",
         # model="rmbg-2.0",
 

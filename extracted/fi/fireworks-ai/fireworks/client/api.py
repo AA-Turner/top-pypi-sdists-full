@@ -250,6 +250,7 @@ class ChatCompletionFunction(BaseModel, extra=extra_policy):
     name: StrictStr
     description: Optional[StrictStr] = None
     parameters: Dict[str, Any] = Field(default_factory=dict)
+    strict: Optional[bool] = None
 
 
 class ChatCompletionTool(BaseModel, extra=extra_policy):

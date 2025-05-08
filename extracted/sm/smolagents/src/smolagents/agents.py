@@ -23,16 +23,18 @@ import tempfile
 import textwrap
 import time
 from abc import ABC, abstractmethod
-from collections import deque
+from collections.abc import Callable, Generator
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Generator, List, Optional, Set, Tuple, TypedDict, Union
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import jinja2
 import yaml
 from huggingface_hub import create_repo, metadata_update, snapshot_download, upload_folder
 from jinja2 import StrictUndefined, Template
 from rich.console import Group
+from rich.live import Live
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.text import Text
@@ -41,14 +43,20 @@ from rich.text import Text
 if TYPE_CHECKING:
     import PIL.Image
 
-from .agent_types import AgentAudio, AgentImage, AgentType, handle_agent_output_types
+from .agent_types import AgentAudio, AgentImage, handle_agent_output_types
 from .default_tools import TOOL_MAPPING, FinalAnswerTool
 from .local_python_executor import BASE_BUILTIN_MODULES, LocalPythonExecutor, PythonExecutor, fix_final_answer_code
-from .memory import ActionStep, AgentMemory, FinalAnswerStep, PlanningStep, SystemPromptStep, TaskStep, ToolCall
-from .models import (
-    ChatMessage,
-    MessageRole,
+from .memory import (
+    ActionStep,
+    AgentMemory,
+    FinalAnswerStep,
+    Message,
+    PlanningStep,
+    SystemPromptStep,
+    TaskStep,
+    ToolCall,
 )
+from .models import ChatMessage, ChatMessageStreamDelta, MessageRole, Model, parse_json_if_needed
 from .monitoring import (
     YELLOW_HEX,
     AgentLogger,
@@ -75,12 +83,12 @@ from .utils import (
 logger = getLogger(__name__)
 
 
-def get_variable_names(self, template: str) -> Set[str]:
+def get_variable_names(self, template: str) -> set[str]:
     pattern = re.compile(r"\{\{([^{}]+)\}\}")
     return {match.group(1).strip() for match in pattern.finditer(template)}
 
 
-def populate_template(template: str, variables: Dict[str, Any]) -> str:
+def populate_template(template: str, variables: dict[str, Any]) -> str:
     compiled_template = Template(template, undefined=StrictUndefined)
     try:
         return compiled_template.render(**variables)
@@ -98,7 +106,7 @@ class PlanningPromptTemplate(TypedDict):
         update_plan_post_messages (`str`): Update plan post-messages prompt.
     """
 
-    plan: str
+    initial_plan: str
     update_plan_pre_messages: str
     update_plan_post_messages: str
 
@@ -168,7 +176,6 @@ class MultiStepAgent(ABC):
         model (`Callable[[list[dict[str, str]]], ChatMessage]`): Model that will generate the agent's actions.
         prompt_templates ([`~agents.PromptTemplates`], *optional*): Prompt templates.
         max_steps (`int`, default `20`): Maximum number of steps the agent can take to solve the task.
-        tool_parser (`Callable`, *optional*): Function used to parse the tool calls from the LLM output.
         add_base_tools (`bool`, default `False`): Whether to add the base tools to the agent's tools.
         verbosity_level (`LogLevel`, default `LogLevel.INFO`): Level of verbosity of the agent's logs.
         grammar (`dict[str, str]`, *optional*): Grammar used to parse the LLM output.
@@ -183,21 +190,21 @@ class MultiStepAgent(ABC):
 
     def __init__(
         self,
-        tools: List[Tool],
-        model: Callable[[List[Dict[str, str]]], ChatMessage],
-        prompt_templates: Optional[PromptTemplates] = None,
+        tools: list[Tool],
+        model: Model,
+        prompt_templates: PromptTemplates | None = None,
         max_steps: int = 20,
         add_base_tools: bool = False,
         verbosity_level: LogLevel = LogLevel.INFO,
-        grammar: Optional[Dict[str, str]] = None,
-        managed_agents: Optional[List] = None,
-        step_callbacks: Optional[List[Callable]] = None,
-        planning_interval: Optional[int] = None,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
+        grammar: dict[str, str] | None = None,
+        managed_agents: list | None = None,
+        step_callbacks: list[Callable] | None = None,
+        planning_interval: int | None = None,
+        name: str | None = None,
+        description: str | None = None,
         provide_run_summary: bool = False,
-        final_answer_checks: Optional[List[Callable]] = None,
-        logger: Optional[AgentLogger] = None,
+        final_answer_checks: list[Callable] | None = None,
+        logger: AgentLogger | None = None,
     ):
         self.agent_name = self.__class__.__name__
         self.model = model
@@ -207,16 +214,18 @@ class MultiStepAgent(ABC):
             assert not missing_keys, (
                 f"Some prompt templates are missing from your custom `prompt_templates`: {missing_keys}"
             )
-            for key in EMPTY_PROMPT_TEMPLATES.keys():
-                for subkey in EMPTY_PROMPT_TEMPLATES[key]:
-                    assert subkey in prompt_templates[key], (
-                        f"Some prompt templates are missing from your custom `prompt_templates`: {subkey} under {key}"
-                    )
+            for key, value in EMPTY_PROMPT_TEMPLATES.items():
+                if isinstance(value, dict):
+                    for subkey in value.keys():
+                        assert key in prompt_templates.keys() and (subkey in prompt_templates[key].keys()), (
+                            f"Some prompt templates are missing from your custom `prompt_templates`: {subkey} under {key}"
+                        )
+
         self.max_steps = max_steps
         self.step_number = 0
         self.grammar = grammar
         self.planning_interval = planning_interval
-        self.state = {}
+        self.state: dict[str, Any] = {}
         self.name = self._validate_name(name)
         self.description = description
         self.provide_run_summary = provide_run_summary
@@ -227,8 +236,7 @@ class MultiStepAgent(ABC):
         self._validate_tools_and_managed_agents(tools, managed_agents)
 
         self.system_prompt = self.initialize_system_prompt()
-        self.input_messages = None
-        self.task = None
+        self.task: str | None = None
         self.memory = AgentMemory(self.system_prompt)
 
         if logger is None:
@@ -239,13 +247,15 @@ class MultiStepAgent(ABC):
         self.monitor = Monitor(self.model, self.logger)
         self.step_callbacks = step_callbacks if step_callbacks is not None else []
         self.step_callbacks.append(self.monitor.update_metrics)
+        self.stream_outputs = False
 
     def _validate_name(self, name: str | None) -> str | None:
         if name is not None and not is_valid_name(name):
             raise ValueError(f"Agent name '{name}' must be a valid Python identifier and not a reserved keyword.")
         return name
 
-    def _setup_managed_agents(self, managed_agents):
+    def _setup_managed_agents(self, managed_agents: list | None = None) -> None:
+        """Setup managed agents with proper logging."""
         self.managed_agents = {}
         if managed_agents:
             assert all(agent.name and agent.description for agent in managed_agents), (
@@ -283,9 +293,9 @@ class MultiStepAgent(ABC):
         task: str,
         stream: bool = False,
         reset: bool = True,
-        images: Optional[List["PIL.Image.Image"]] = None,
-        additional_args: Optional[Dict] = None,
-        max_steps: Optional[int] = None,
+        images: list["PIL.Image.Image"] | None = None,
+        additional_args: dict | None = None,
+        max_steps: int | None = None,
     ):
         """
         Run the agent for the given task.
@@ -336,13 +346,13 @@ You have been provided with these additional arguments, that you can access usin
 
         if stream:
             # The steps are returned as they are executed through a generator to iterate on.
-            return self._run(task=self.task, max_steps=max_steps, images=images)
+            return self._run_stream(task=self.task, max_steps=max_steps, images=images)
         # Outputs are returned only at the end. We only look at the last step.
-        return deque(self._run(task=self.task, max_steps=max_steps, images=images), maxlen=1)[0].final_answer
+        return list(self._run_stream(task=self.task, max_steps=max_steps, images=images))[-1].final_answer
 
-    def _run(
-        self, task: str, max_steps: int, images: List["PIL.Image.Image"] | None = None
-    ) -> Generator[ActionStep | AgentType, None, None]:
+    def _run_stream(
+        self, task: str, max_steps: int, images: list["PIL.Image.Image"] | None = None
+    ) -> Generator[ActionStep | PlanningStep | FinalAnswerStep]:
         final_answer = None
         self.step_number = 1
         while final_answer is None and self.step_number <= max_steps:
@@ -352,14 +362,18 @@ You have been provided with these additional arguments, that you can access usin
             if self.planning_interval is not None and (
                 self.step_number == 1 or (self.step_number - 1) % self.planning_interval == 0
             ):
-                planning_step = self._create_planning_step(
+                for element in self._generate_planning_step(
                     task, is_first_step=(self.step_number == 1), step=self.step_number
-                )
-                self.memory.steps.append(planning_step)
-                yield planning_step
-            action_step = self._create_action_step(step_start_time, images)
+                ):
+                    yield element
+                self.memory.steps.append(element)
+            action_step = ActionStep(
+                step_number=self.step_number, start_time=step_start_time, observations_images=images
+            )
             try:
-                final_answer = self._execute_step(task, action_step)
+                for el in self._execute_step(action_step):
+                    yield el
+                final_answer = el
             except AgentGenerationError as e:
                 # Agent generation errors are not caused by a Model error but an implementation error: so we should raise them and exit.
                 raise e
@@ -377,15 +391,15 @@ You have been provided with these additional arguments, that you can access usin
             yield action_step
         yield FinalAnswerStep(handle_agent_output_types(final_answer))
 
-    def _create_action_step(self, step_start_time: float, images: List["PIL.Image.Image"] | None) -> ActionStep:
-        return ActionStep(step_number=self.step_number, start_time=step_start_time, observations_images=images)
-
-    def _execute_step(self, task: str, memory_step: ActionStep) -> Union[None, Any]:
+    def _execute_step(self, memory_step: ActionStep) -> Generator[Any]:
         self.logger.log_rule(f"Step {self.step_number}", level=LogLevel.INFO)
-        final_answer = self.step(memory_step)
+        final_answer = None
+        for el in self._step_stream(memory_step):
+            final_answer = el
+            yield el
         if final_answer is not None and self.final_answer_checks:
             self._validate_final_answer(final_answer)
-        return final_answer
+        yield final_answer
 
     def _validate_final_answer(self, final_answer: Any):
         for check_function in self.final_answer_checks:
@@ -403,7 +417,7 @@ You have been provided with these additional arguments, that you can access usin
                 memory_step, agent=self
             )
 
-    def _handle_max_steps_reached(self, task: str, images: List["PIL.Image.Image"], step_start_time: float) -> Any:
+    def _handle_max_steps_reached(self, task: str, images: list["PIL.Image.Image"], step_start_time: float) -> Any:
         final_answer = self.provide_final_answer(task, images)
         final_memory_step = ActionStep(
             step_number=self.step_number, error=AgentMaxStepsError("Reached max steps.", self.logger)
@@ -418,7 +432,9 @@ You have been provided with these additional arguments, that you can access usin
             )
         return final_answer
 
-    def _create_planning_step(self, task, is_first_step: bool, step: int) -> PlanningStep:
+    def _generate_planning_step(
+        self, task, is_first_step: bool, step: int
+    ) -> Generator[ChatMessageStreamDelta, PlanningStep]:
         if is_first_step:
             input_messages = [
                 {
@@ -434,9 +450,15 @@ You have been provided with these additional arguments, that you can access usin
                     ],
                 }
             ]
-            plan_message = self.model(input_messages, stop_sequences=["<end_plan>"])
+            if self.stream_outputs and hasattr(self.model, "generate_stream"):
+                plan_message_content = ""
+                for completion_delta in self.model.generate_stream(input_messages, stop_sequences=["<end_plan>"]):  # type: ignore
+                    plan_message_content += completion_delta.content
+                    yield completion_delta
+            else:
+                plan_message_content = self.model.generate(input_messages, stop_sequences=["<end_plan>"]).content
             plan = textwrap.dedent(
-                f"""Here are the facts I know and the plan of action that I will follow to solve the task:\n```\n{plan_message.content}\n```"""
+                f"""Here are the facts I know and the plan of action that I will follow to solve the task:\n```\n{plan_message_content}\n```"""
             )
         else:
             # Summary mode removes the system prompt and previous planning messages output by the model.
@@ -471,16 +493,22 @@ You have been provided with these additional arguments, that you can access usin
                 ],
             }
             input_messages = [plan_update_pre] + memory_messages + [plan_update_post]
-            plan_message = self.model(input_messages, stop_sequences=["<end_plan>"])
+            if self.stream_outputs and hasattr(self.model, "generate_stream"):
+                plan_message_content = ""
+                for completion_delta in self.model.generate_stream(input_messages, stop_sequences=["<end_plan>"]):  # type: ignore
+                    plan_message_content += completion_delta.content
+                    yield completion_delta
+            else:
+                plan_message_content = self.model.generate(input_messages, stop_sequences=["<end_plan>"]).content
             plan = textwrap.dedent(
-                f"""I still need to solve the task I was given:\n```\n{self.task}\n```\n\nHere are the facts I know and my new/updated plan of action to solve the task:\n```\n{plan_message.content}\n```"""
+                f"""I still need to solve the task I was given:\n```\n{self.task}\n```\n\nHere are the facts I know and my new/updated plan of action to solve the task:\n```\n{plan_message_content}\n```"""
             )
         log_headline = "Initial plan" if is_first_step else "Updated plan"
         self.logger.log(Rule(f"[bold]{log_headline}", style="orange"), Text(plan), level=LogLevel.INFO)
-        return PlanningStep(
+        yield PlanningStep(
             model_input_messages=input_messages,
             plan=plan,
-            model_output_message=plan_message,
+            model_output_message=ChatMessage(role=MessageRole.ASSISTANT, content=plan_message_content),
         )
 
     @property
@@ -491,9 +519,9 @@ You have been provided with these additional arguments, that you can access usin
         return [self.memory.system_prompt] + self.memory.steps
 
     @abstractmethod
-    def initialize_system_prompt(self):
+    def initialize_system_prompt(self) -> str:
         """To be implemented in child classes"""
-        pass
+        ...
 
     def interrupt(self):
         """Interrupts the agent execution."""
@@ -501,8 +529,8 @@ You have been provided with these additional arguments, that you can access usin
 
     def write_memory_to_messages(
         self,
-        summary_mode: Optional[bool] = False,
-    ) -> List[Dict[str, str]]:
+        summary_mode: bool | None = False,
+    ) -> list[Message]:
         """
         Reads past llm_outputs, actions, and observations or errors from the memory into a series of messages
         that can be used as input to the LLM. Adds a number of keywords (such as PLAN, error, etc) to help
@@ -513,11 +541,21 @@ You have been provided with these additional arguments, that you can access usin
             messages.extend(memory_step.to_messages(summary_mode=summary_mode))
         return messages
 
-    def visualize(self):
-        """Creates a rich tree visualization of the agent's structure."""
-        self.logger.visualize_agent_tree(self)
+    def _step_stream(self, memory_step: ActionStep) -> Generator[Any]:
+        """
+        Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
+        Yields either None if the step is not final, or the final answer.
+        """
+        raise NotImplementedError("This method should be implemented in child classes")
 
-    def extract_action(self, model_output: str, split_token: str) -> Tuple[str, str]:
+    def step(self, memory_step: ActionStep) -> Any:
+        """
+        Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
+        Returns either None if the step is not final, or the final answer.
+        """
+        return list(self._step_stream(memory_step))[-1]
+
+    def extract_action(self, model_output: str, split_token: str) -> tuple[str, str]:
         """
         Parse action from the LLM output
 
@@ -538,7 +576,7 @@ You have been provided with these additional arguments, that you can access usin
             )
         return rationale.strip(), action.strip()
 
-    def provide_final_answer(self, task: str, images: Optional[list["PIL.Image.Image"]] = None) -> str:
+    def provide_final_answer(self, task: str, images: list["PIL.Image.Image"] | None = None) -> str:
         """
         Provide the final answer to the task, based on the logs of the agent's interactions.
 
@@ -582,10 +620,9 @@ You have been provided with these additional arguments, that you can access usin
         except Exception as e:
             return f"Error in generating final LLM output:\n{e}"
 
-    @abstractmethod
-    def step(self, memory_step: ActionStep) -> Union[None, Any]:
-        """To be implemented in children classes. Should return either None if the step is not final."""
-        pass
+    def visualize(self):
+        """Creates a rich tree visualization of the agent's structure."""
+        self.logger.visualize_agent_tree(self)
 
     def replay(self, detailed: bool = False):
         """Prints a pretty replay of the agent's steps.
@@ -616,7 +653,7 @@ You have been provided with these additional arguments, that you can access usin
             answer += "\n</summary_of_work>"
         return answer
 
-    def save(self, output_dir: str | Path, relative_path: Optional[str] = None):
+    def save(self, output_dir: str | Path, relative_path: str | None = None):
         """
         Saves the relevant code files for your agent. This will copy the code of your agent in `output_dir` as well as autogenerate:
 
@@ -823,7 +860,7 @@ You have been provided with these additional arguments, that you can access usin
     def from_hub(
         cls,
         repo_id: str,
-        token: Optional[str] = None,
+        token: str | None = None,
         trust_remote_code: bool = False,
         **kwargs,
     ):
@@ -874,7 +911,7 @@ You have been provided with these additional arguments, that you can access usin
         return cls.from_folder(download_folder, **kwargs)
 
     @classmethod
-    def from_folder(cls, folder: Union[str, Path], **kwargs):
+    def from_folder(cls, folder: str | Path, **kwargs):
         """Loads an agent from a local folder.
 
         Args:
@@ -909,8 +946,8 @@ You have been provided with these additional arguments, that you can access usin
         self,
         repo_id: str,
         commit_message: str = "Upload agent",
-        private: Optional[bool] = None,
-        token: Optional[Union[bool, str]] = None,
+        private: bool | None = None,
+        token: bool | str | None = None,
         create_pr: bool = False,
     ) -> str:
         """
@@ -974,10 +1011,10 @@ class ToolCallingAgent(MultiStepAgent):
 
     def __init__(
         self,
-        tools: List[Tool],
-        model: Callable[[List[Dict[str, str]]], ChatMessage],
-        prompt_templates: Optional[PromptTemplates] = None,
-        planning_interval: Optional[int] = None,
+        tools: list[Tool],
+        model: Callable[[list[dict[str, str]]], ChatMessage],
+        prompt_templates: PromptTemplates | None = None,
+        planning_interval: int | None = None,
         **kwargs,
     ):
         prompt_templates = prompt_templates or yaml.safe_load(
@@ -998,40 +1035,46 @@ class ToolCallingAgent(MultiStepAgent):
         )
         return system_prompt
 
-    def step(self, memory_step: ActionStep) -> Union[None, Any]:
+    def _step_stream(self, memory_step: ActionStep) -> Generator[Any]:
         """
         Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
-        Returns None if the step is not final.
+        Yields either None if the step is not final, or the final answer.
         """
         memory_messages = self.write_memory_to_messages()
 
-        self.input_messages = memory_messages
+        input_messages = memory_messages.copy()
 
         # Add new step in logs
-        memory_step.model_input_messages = memory_messages.copy()
+        memory_step.model_input_messages = input_messages
 
         try:
-            model_message: ChatMessage = self.model(
-                memory_messages,
-                tools_to_call_from=list(self.tools.values()),
+            chat_message: ChatMessage = self.model(
+                input_messages,
                 stop_sequences=["Observation:", "Calling tools:"],
+                tools_to_call_from=list(self.tools.values()),
             )
-            memory_step.model_output_message = model_message
+            memory_step.model_output_message = chat_message
+            model_output = chat_message.content
+            self.logger.log_markdown(
+                content=model_output if model_output else str(chat_message.raw),
+                title="Output message of the LLM:",
+                level=LogLevel.DEBUG,
+            )
+
+            memory_step.model_output_message.content = model_output
+            memory_step.model_output = model_output
         except Exception as e:
-            raise AgentParsingError(f"Error while generating or parsing output:\n{e}", self.logger) from e
+            raise AgentGenerationError(f"Error while generating output:\n{e}", self.logger) from e
 
-        self.logger.log_markdown(
-            content=model_message.content if model_message.content else str(model_message.raw),
-            title="Output message of the LLM:",
-            level=LogLevel.DEBUG,
-        )
-
-        if model_message.tool_calls is None or len(model_message.tool_calls) == 0:
-            raise AgentParsingError(
-                "Model did not call any tools. Call `final_answer` tool to return a final answer.", self.logger
-            )
-
-        tool_call = model_message.tool_calls[0]
+        if chat_message.tool_calls is None or len(chat_message.tool_calls) == 0:
+            try:
+                chat_message = self.model.parse_tool_calls(chat_message)
+            except Exception as e:
+                raise AgentParsingError(f"Error while parsing tool call from model output: {e}", self.logger)
+        else:
+            for tool_call in chat_message.tool_calls:
+                tool_call.function.arguments = parse_json_if_needed(tool_call.function.arguments)
+        tool_call = chat_message.tool_calls[0]  # type: ignore
         tool_name, tool_call_id = tool_call.function.name, tool_call.id
         tool_arguments = tool_call.function.arguments
         memory_step.model_output = str(f"Called Tool: '{tool_name}' with arguments: {tool_arguments}")
@@ -1050,23 +1093,23 @@ class ToolCallingAgent(MultiStepAgent):
                     answer = tool_arguments
             else:
                 answer = tool_arguments
-            if (
-                isinstance(answer, str) and answer in self.state.keys()
-            ):  # if the answer is a state variable, return the value
+            if isinstance(answer, str) and answer in self.state.keys():
+                # if the answer is a state variable, return the value
+                # State variables are not JSON-serializable (AgentImage, AgentAudio) so can't be passed as arguments to execute_tool_call
                 final_answer = self.state[answer]
                 self.logger.log(
                     f"[bold {YELLOW_HEX}]Final answer:[/bold {YELLOW_HEX}] Extracting key '{answer}' from state to return value '{final_answer}'.",
                     level=LogLevel.INFO,
                 )
             else:
-                final_answer = answer
+                final_answer = self.execute_tool_call("final_answer", {"answer": answer})
                 self.logger.log(
                     Text(f"Final answer: {final_answer}", style=f"bold {YELLOW_HEX}"),
                     level=LogLevel.INFO,
                 )
 
             memory_step.action_output = final_answer
-            return final_answer
+            yield final_answer
         else:
             if tool_arguments is None:
                 tool_arguments = {}
@@ -1088,9 +1131,9 @@ class ToolCallingAgent(MultiStepAgent):
                 level=LogLevel.INFO,
             )
             memory_step.observations = updated_information
-            return None
+            yield None
 
-    def _substitute_state_variables(self, arguments: Union[Dict[str, str], str]) -> Union[Dict[str, Any], str]:
+    def _substitute_state_variables(self, arguments: dict[str, str] | str) -> dict[str, Any] | str:
         """Replace string values in arguments with their corresponding state values if they exist."""
         if isinstance(arguments, dict):
             return {
@@ -1099,7 +1142,7 @@ class ToolCallingAgent(MultiStepAgent):
             }
         return arguments
 
-    def execute_tool_call(self, tool_name: str, arguments: Union[Dict[str, str], str]) -> Any:
+    def execute_tool_call(self, tool_name: str, arguments: dict[str, str] | str) -> Any:
         """
         Execute a tool or managed agent with the provided arguments.
 
@@ -1170,7 +1213,7 @@ class CodeAgent(MultiStepAgent):
 
     Args:
         tools (`list[Tool]`): [`Tool`]s that the agent can use.
-        model (`Callable[[list[dict[str, str]]], ChatMessage]`): Model that will generate the agent's actions.
+        model (`Model`): Model that will generate the agent's actions.
         prompt_templates ([`~agents.PromptTemplates`], *optional*): Prompt templates.
         grammar (`dict[str, str]`, *optional*): Grammar used to parse the LLM output.
         additional_authorized_imports (`list[str]`, *optional*): Additional authorized imports for the agent.
@@ -1178,21 +1221,22 @@ class CodeAgent(MultiStepAgent):
         executor_type (`str`, default `"local"`): Which executor type to use between `"local"`, `"e2b"`, or `"docker"`.
         executor_kwargs (`dict`, *optional*): Additional arguments to pass to initialize the executor.
         max_print_outputs_length (`int`, *optional*): Maximum length of the print outputs.
+        stream_outputs (`bool`, *optional*, default `False`): Whether to stream outputs during execution.
         **kwargs: Additional keyword arguments.
-
     """
 
     def __init__(
         self,
-        tools: List[Tool],
-        model: Callable[[List[Dict[str, str]]], ChatMessage],
-        prompt_templates: Optional[PromptTemplates] = None,
-        grammar: Optional[Dict[str, str]] = None,
-        additional_authorized_imports: Optional[List[str]] = None,
-        planning_interval: Optional[int] = None,
+        tools: list[Tool],
+        model: Model,
+        prompt_templates: PromptTemplates | None = None,
+        grammar: dict[str, str] | None = None,
+        additional_authorized_imports: list[str] | None = None,
+        planning_interval: int | None = None,
         executor_type: str | None = "local",
-        executor_kwargs: Optional[Dict[str, Any]] = None,
-        max_print_outputs_length: Optional[int] = None,
+        executor_kwargs: dict[str, Any] | None = None,
+        max_print_outputs_length: int | None = None,
+        stream_outputs: bool = False,
         **kwargs,
     ):
         self.additional_authorized_imports = additional_authorized_imports if additional_authorized_imports else []
@@ -1209,10 +1253,15 @@ class CodeAgent(MultiStepAgent):
             planning_interval=planning_interval,
             **kwargs,
         )
+        self.stream_outputs = stream_outputs
+        if self.stream_outputs and not hasattr(self.model, "generate_stream"):
+            raise ValueError(
+                "`stream_outputs` is set to True, but the model class implements no `generate_stream` method."
+            )
         if "*" in self.additional_authorized_imports:
             self.logger.log(
                 "Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
-                0,
+                level=LogLevel.INFO,
             )
         self.executor_type = executor_type or "local"
         self.executor_kwargs = executor_kwargs or {}
@@ -1250,26 +1299,49 @@ class CodeAgent(MultiStepAgent):
         )
         return system_prompt
 
-    def step(self, memory_step: ActionStep) -> Union[None, Any]:
+    def _step_stream(self, memory_step: ActionStep) -> Generator[Any]:
         """
         Perform one step in the ReAct framework: the agent thinks, acts, and observes the result.
-        Returns None if the step is not final.
+        Yields either None if the step is not final, or the final answer.
         """
         memory_messages = self.write_memory_to_messages()
 
-        self.input_messages = memory_messages.copy()
-
-        # Add new step in logs
-        memory_step.model_input_messages = memory_messages.copy()
+        input_messages = memory_messages.copy()
+        ### Generate model output ###
+        memory_step.model_input_messages = input_messages
         try:
             additional_args = {"grammar": self.grammar} if self.grammar is not None else {}
-            chat_message: ChatMessage = self.model(
-                self.input_messages,
-                stop_sequences=["<end_code>", "Observation:", "Calling tools:"],
-                **additional_args,
-            )
-            memory_step.model_output_message = chat_message
-            model_output = chat_message.content
+            if self.stream_outputs:
+                output_stream = self.model.generate_stream(
+                    input_messages,
+                    stop_sequences=["<end_code>", "Observation:", "Calling tools:"],
+                    **additional_args,
+                )
+                output_text = ""
+                with Live("", console=self.logger.console, vertical_overflow="visible") as live:
+                    for event in output_stream:
+                        if event.content is not None:
+                            output_text += event.content
+                            live.update(Markdown(output_text))
+                        yield event
+
+                model_output = output_text
+                chat_message = ChatMessage(role="assistant", content=model_output)
+                memory_step.model_output_message = chat_message
+                model_output = chat_message.content
+            else:
+                chat_message: ChatMessage = self.model.generate(
+                    input_messages,
+                    stop_sequences=["<end_code>", "Observation:", "Calling tools:"],
+                    **additional_args,
+                )
+                memory_step.model_output_message = chat_message
+                model_output = chat_message.content
+                self.logger.log_markdown(
+                    content=model_output,
+                    title="Output message of the LLM:",
+                    level=LogLevel.DEBUG,
+                )
 
             # This adds <end_code> sequence to the history.
             # This will nudge ulterior LLM calls to finish with <end_code>, thus efficiently stopping generation.
@@ -1281,13 +1353,7 @@ class CodeAgent(MultiStepAgent):
         except Exception as e:
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
-        self.logger.log_markdown(
-            content=model_output,
-            title="Output message of the LLM:",
-            level=LogLevel.DEBUG,
-        )
-
-        # Parse
+        ### Parse output ###
         try:
             code_action = fix_final_answer_code(parse_code_blobs(model_output))
         except Exception as e:
@@ -1302,7 +1368,7 @@ class CodeAgent(MultiStepAgent):
             )
         ]
 
-        # Execute
+        ### Execute action ###
         self.logger.log_code(title="Executing parsed code:", content=code_action, level=LogLevel.INFO)
         is_final_answer = False
         try:
@@ -1344,7 +1410,7 @@ class CodeAgent(MultiStepAgent):
         ]
         self.logger.log(Group(*execution_outputs_console), level=LogLevel.INFO)
         memory_step.action_output = output
-        return output if is_final_answer else None
+        yield output if is_final_answer else None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the agent to a dictionary representation.

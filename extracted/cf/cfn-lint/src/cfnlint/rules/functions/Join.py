@@ -22,56 +22,16 @@ class Join(BaseFn):
     tags = ["functions", "join"]
 
     def __init__(self) -> None:
-        super().__init__("Fn::Join", ("string",), resolved_rule="W1032")
+        super().__init__(
+            "Fn::Join",
+            ("string",),
+            resolved_rule="W1032",
+        )
         self.child_rules.update(
             {
                 "I1022": None,
             }
         )
-
-    def schema(self, validator, instance) -> dict[str, Any]:
-        return {
-            "type": "array",
-            "maxItems": 2,
-            "minItems": 2,
-            "fn_items": [
-                {
-                    "schema": {
-                        "type": ["string"],
-                    },
-                },
-                {
-                    "functions": [
-                        "Fn::Cidr",
-                        "Fn::FindInMap",
-                        "Fn::GetAtt",
-                        "Fn::If",
-                        "Fn::Split",
-                        "Ref",
-                    ],
-                    "schema": {
-                        "type": ["array"],
-                        "fn_items": {
-                            "functions": [
-                                "Fn::Base64",
-                                "Fn::FindInMap",
-                                "Fn::GetAtt",
-                                "Fn::If",
-                                "Fn::ImportValue",
-                                "Fn::Join",
-                                "Fn::Select",
-                                "Fn::Sub",
-                                "Fn::Transform",
-                                "Ref",
-                            ],
-                            "schema": {
-                                "type": ["string"],
-                            },
-                        },
-                    },
-                },
-            ],
-        }
 
     def fn_join(
         self, validator: Validator, s: Any, instance: Any, schema: Any

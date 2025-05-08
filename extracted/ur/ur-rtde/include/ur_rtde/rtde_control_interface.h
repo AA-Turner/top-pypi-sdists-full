@@ -5,6 +5,7 @@
 #include <ur_rtde/rtde.h>
 #include <ur_rtde/rtde_export.h>
 #include <ur_rtde/rtde_utility.h>
+#include <ur_rtde/thread_utility.h>
 #if !defined(_WIN32) && !defined(__APPLE__)
 #include <urcl/script_sender.h>
 #endif
@@ -193,6 +194,7 @@ class RTDEControlInterface
     FLAG_NO_WAIT = 0x10,
     FLAG_CUSTOM_SCRIPT = 0x20,
     FLAG_NO_EXT_FT = 0x40,
+    FLAG_DIABLE_REMOTE_CONTROL_CHECK = 0x80,
     FLAGS_DEFAULT = FLAG_UPLOAD_SCRIPT
   };
 
@@ -1126,7 +1128,7 @@ class RTDEControlInterface
 
   std::string buildPathScriptCode(const std::vector<std::vector<double>> &path, const std::string &cmd);
 
-  void receiveCallback();
+  void receiveCallback(std::atomic<bool> *stop_thread);
 
   /**
    * This function waits until the script program is running.
@@ -1165,8 +1167,7 @@ class RTDEControlInterface
   double delta_time_;
   int register_offset_;
   std::shared_ptr<RTDE> rtde_;
-  std::atomic<bool> stop_thread_{false};
-  std::shared_ptr<boost::thread> th_;
+  ur_rtde::ThreadUtility th_;
   std::shared_ptr<DashboardClient> db_client_;
   std::shared_ptr<ScriptClient> script_client_;
   std::shared_ptr<RobotState> robot_state_;

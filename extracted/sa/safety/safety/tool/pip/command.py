@@ -4,6 +4,7 @@ import re
 from tempfile import mkstemp
 from typing import TYPE_CHECKING, Any, List, Optional
 
+import logging
 from rich.padding import Padding
 import typer
 
@@ -17,11 +18,14 @@ from ..environment_diff import EnvironmentDiffTracker, PipEnvironmentDiffTracker
 from ..utils import Pip
 
 from safety.console import main_console as console
+from ...init.render import render_header, progressive_print
 
-PIP_LOCK = "pip_lock"
+PIP_LOCK = "safety-pip.lock"
 
 if TYPE_CHECKING:
     from ..environment_diff import EnvironmentDiffTracker
+
+logger = logging.getLogger(__name__)
 
 
 class PipCommand(BaseCommand):
@@ -33,7 +37,17 @@ class PipCommand(BaseCommand):
         return ToolType.PIP
 
     def get_command_name(self) -> List[str]:
-        return ["pip"]
+        """
+        This uses command alias if available, with this we support
+        pip3.13, pip3.12, etc.
+        """
+
+        cmd_name = ["pip"]
+
+        if self._command_alias_used:
+            cmd_name = [self._command_alias_used]
+
+        return cmd_name
 
     def get_lock_path(self) -> str:
         return PIP_LOCK
@@ -52,14 +66,14 @@ class PipCommand(BaseCommand):
         return any(cmd in command_str for cmd in package_modifying_commands)
 
     @classmethod
-    def from_args(cls, args: List[str]):
+    def from_args(cls, args: List[str], **kwargs):
         parser = PipParser()
 
         if intention := parser.parse(args):
             if intention.intention_type is ToolIntentionType.ADD_PACKAGE:
-                return PipInstallCommand(args, intention=intention)
+                return PipInstallCommand(args, intention=intention, **kwargs)
 
-        return PipGenericCommand(args)
+        return PipGenericCommand(args, **kwargs)
 
 
 class PipGenericCommand(PipCommand):
@@ -137,7 +151,7 @@ class PipInstallCommand(PipCommand):
     def __render_installation_warnings(self, ctx: typer.Context):
         packages_audit = self.__audit_packages(ctx)
 
-        printed_report_header = False
+        warning_messages = []
         for audited_package in packages_audit.get("audit", {}).get("packages", []):
             vulnerabilities = audited_package.get("vulnerabilities", {})
             critical_vulnerabilities = vulnerabilities.get("critical", 0)
@@ -148,17 +162,17 @@ class PipInstallCommand(PipCommand):
             if total_vulnerabilities == 0:
                 continue
 
-            if not printed_report_header:
-                printed_report_header = True
-                console.print()
-                console.print("=== Safety Report ===")
-
-            warning_message = f"[Warning] {audited_package.get('package_specifier')} contains {total_vulnerabilities} vulnerabilities"
+            warning_message = f"[[yellow]Warning[/yellow]] {audited_package.get('package_specifier')} contains {total_vulnerabilities} vulnerabilities"
             if critical_vulnerabilities > 0:
                 warning_message += f", including {critical_vulnerabilities} critical severity vulnerabilities"
 
             warning_message += "."
-            console.print(Padding(warning_message, (0, 0, 0, 1)))
+            warning_messages.append(warning_message)
+
+        if len(warning_messages) > 0:
+            console.print()
+            render_header(" Safety Report")
+            progressive_print(warning_messages)
 
     def __render_package_details(self):
         for package_name, version_specifier in self.__packages:
@@ -172,12 +186,16 @@ class PipInstallCommand(PipCommand):
 
     def __audit_packages(self, ctx: typer.Context) -> Any:
         try:
+            added, _, updated = self._diff_tracker.get_diff()
+            packages = {**added, **updated}
+
             return ctx.obj.auth.client.audit_packages(
                 [
-                    f"{package_name}{version if version else ''}"
-                    for (package_name, version) in self.__packages
+                    f"{package_name}=={version[-1] if isinstance(version, tuple) else version}"
+                    for (package_name, version) in packages.items()
                 ]
             )
         except Exception:
+            logger.debug("Audit API failed with error", exc_info=True)
             # do not propagate the error in case the audit failed
             return dict()

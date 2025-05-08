@@ -1664,6 +1664,20 @@ api = apigateway.RestApi(self, "api",
 )
 ```
 
+You can also configure [endpoint IP address type](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-ip-address-type.html).
+The default value is `IpAddressType.DUAL_STACK` for private API, and `IpAddressType.IPV4` for regional and edge-optimized API.
+
+```python
+api = apigateway.RestApi(self, "api",
+    endpoint_configuration=apigateway.EndpointConfiguration(
+        types=[apigateway.EndpointType.REGIONAL],
+        ip_address_type=apigateway.IpAddressType.DUAL_STACK
+    )
+)
+```
+
+**Note**: If creating a private API, the `IPV4` IP address type is not supported.
+
 You can also create an association between your Rest API and a VPC endpoint. By doing so,
 API Gateway will generate a new
 Route53 Alias DNS record which you can use to invoke your private APIs. More info can be found
@@ -15755,13 +15769,18 @@ class DomainNameProps(DomainNameOptions):
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_apigateway.EndpointConfiguration",
     jsii_struct_bases=[],
-    name_mapping={"types": "types", "vpc_endpoints": "vpcEndpoints"},
+    name_mapping={
+        "types": "types",
+        "ip_address_type": "ipAddressType",
+        "vpc_endpoints": "vpcEndpoints",
+    },
 )
 class EndpointConfiguration:
     def __init__(
         self,
         *,
         types: typing.Sequence["EndpointType"],
+        ip_address_type: typing.Optional["IpAddressType"] = None,
         vpc_endpoints: typing.Optional[typing.Sequence[_IVpcEndpoint_d8ea9bc3]] = None,
     ) -> None:
         '''The endpoint configuration of a REST API, including VPCs and endpoint types.
@@ -15769,6 +15788,7 @@ class EndpointConfiguration:
         EndpointConfiguration is a property of the AWS::ApiGateway::RestApi resource.
 
         :param types: A list of endpoint types of an API or its custom domain name. Default: EndpointType.EDGE
+        :param ip_address_type: The IP address types that can invoke the API. Default: undefined - AWS default is DUAL_STACK for private API, IPV4 for all other APIs.
         :param vpc_endpoints: A list of VPC Endpoints against which to create Route53 ALIASes. Default: - no ALIASes are created for the endpoint.
 
         :exampleMetadata: infused
@@ -15788,10 +15808,13 @@ class EndpointConfiguration:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f3c0216cf00594a10062c97bb84b39e25b55231c15de867663dd59bbbede54a)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
+            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument vpc_endpoints", value=vpc_endpoints, expected_type=type_hints["vpc_endpoints"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "types": types,
         }
+        if ip_address_type is not None:
+            self._values["ip_address_type"] = ip_address_type
         if vpc_endpoints is not None:
             self._values["vpc_endpoints"] = vpc_endpoints
 
@@ -15804,6 +15827,17 @@ class EndpointConfiguration:
         result = self._values.get("types")
         assert result is not None, "Required property 'types' is missing"
         return typing.cast(typing.List["EndpointType"], result)
+
+    @builtins.property
+    def ip_address_type(self) -> typing.Optional["IpAddressType"]:
+        '''The IP address types that can invoke the API.
+
+        :default: undefined - AWS default is DUAL_STACK for private API, IPV4 for all other APIs.
+
+        :see: https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-ip-address-type.html
+        '''
+        result = self._values.get("ip_address_type")
+        return typing.cast(typing.Optional["IpAddressType"], result)
 
     @builtins.property
     def vpc_endpoints(self) -> typing.Optional[typing.List[_IVpcEndpoint_d8ea9bc3]]:
@@ -18287,6 +18321,28 @@ class IntegrationType(enum.Enum):
     '''
     MOCK = "MOCK"
     '''For integrating the API method request with API Gateway as a "loop-back" endpoint without invoking any backend.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_apigateway.IpAddressType")
+class IpAddressType(enum.Enum):
+    '''Supported IP Address Types.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        api = apigateway.RestApi(self, "api",
+            endpoint_configuration=apigateway.EndpointConfiguration(
+                types=[apigateway.EndpointType.REGIONAL],
+                ip_address_type=apigateway.IpAddressType.DUAL_STACK
+            )
+        )
+    '''
+
+    IPV4 = "IPV4"
+    '''IPv4 address type.'''
+    DUAL_STACK = "DUAL_STACK"
+    '''IPv4 and IPv6 address type.'''
 
 
 @jsii.data_type(
@@ -24585,6 +24641,7 @@ class RestApiBaseProps:
                     types=[apigateway.EndpointType.EDGE],
             
                     # the properties below are optional
+                    ip_address_type=apigateway.IpAddressType.IPV4,
                     vpc_endpoints=[vpc_endpoint]
                 ),
                 endpoint_export_name="endpointExportName",
@@ -33281,6 +33338,7 @@ __all__ = [
     "IntegrationProps",
     "IntegrationResponse",
     "IntegrationType",
+    "IpAddressType",
     "JsonSchema",
     "JsonSchemaType",
     "JsonSchemaVersion",
@@ -35496,6 +35554,7 @@ def _typecheckingstub__fd56e3d47a950d5babcb79f21442620ade11693af8810f3b0b64fa029
 def _typecheckingstub__2f3c0216cf00594a10062c97bb84b39e25b55231c15de867663dd59bbbede54a(
     *,
     types: typing.Sequence[EndpointType],
+    ip_address_type: typing.Optional[IpAddressType] = None,
     vpc_endpoints: typing.Optional[typing.Sequence[_IVpcEndpoint_d8ea9bc3]] = None,
 ) -> None:
     """Type checking stubs"""

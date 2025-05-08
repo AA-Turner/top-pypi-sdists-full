@@ -175,10 +175,17 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             if "finalizado" in field:
                 found = True
                 break
-            if "[Pesquisa] - Não é possível realizar a operação em mídias" in field:
+            if "Não é possível realizar a operação em mídias" in field:
                 return RpaRetornoProcessoDTO(
                     sucesso=False,
                     retorno=f"Erro: '[Pesquisa] - Não é possível realizar a operação em mídias', por favor, reenfileirar processo",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                )
+            if "current transaction" in field:
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"A integração não foi realizada, erro no EMSYS: [Pesquisa] - current transaction is aborted.",
                     status=RpaHistoricoStatusEnum.Falha,
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
@@ -214,7 +221,7 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 total_debito = main_window.Edit3.window_text()
                 total_credito = main_window.Edit2.window_text()
                 diferenca = main_window.Edit.window_text()
-                if total_debito != total_credito:
+                if total_debito != total_credito or diferenca != "0,00":
                     if not dados_consistentes_is_checked:
                         pyautogui.click(x=702, y=758)  # lotes consistentes
                         await worker_sleep(3)

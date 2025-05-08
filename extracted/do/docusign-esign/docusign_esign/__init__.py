@@ -3,9 +3,9 @@
 # flake8: noqa
 
 """
-    DocuSign REST API
+    Docusign eSignature REST API
 
-    The DocuSign REST API provides you with a powerful, convenient, and simple Web services API for interacting with DocuSign.  # noqa: E501
+    The Docusign eSignature REST API provides you with a powerful, convenient, and simple Web services API for interacting with Docusign.  # noqa: E501
 
     OpenAPI spec version: v2.1
     Contact: devcenter@docusign.com
@@ -152,6 +152,7 @@ from docusign_esign.models.bulk_send_response import BulkSendResponse
 from docusign_esign.models.bulk_send_test_response import BulkSendTestResponse
 from docusign_esign.models.bulk_sending_copy import BulkSendingCopy
 from docusign_esign.models.bulk_sending_copy_custom_field import BulkSendingCopyCustomField
+from docusign_esign.models.bulk_sending_copy_doc_gen_form_field_row_value import BulkSendingCopyDocGenFormFieldRowValue
 from docusign_esign.models.bulk_sending_copy_recipient import BulkSendingCopyRecipient
 from docusign_esign.models.bulk_sending_copy_tab import BulkSendingCopyTab
 from docusign_esign.models.bulk_sending_list import BulkSendingList
@@ -198,6 +199,9 @@ from docusign_esign.models.connect_salesforce_field import ConnectSalesforceFiel
 from docusign_esign.models.connect_salesforce_object import ConnectSalesforceObject
 from docusign_esign.models.connect_user_info import ConnectUserInfo
 from docusign_esign.models.connect_user_object import ConnectUserObject
+from docusign_esign.models.connected_data import ConnectedData
+from docusign_esign.models.connected_object_details import ConnectedObjectDetails
+from docusign_esign.models.connection_instance import ConnectionInstance
 from docusign_esign.models.consent_details import ConsentDetails
 from docusign_esign.models.console_view_request import ConsoleViewRequest
 from docusign_esign.models.consumer_disclosure import ConsumerDisclosure
@@ -296,6 +300,7 @@ from docusign_esign.models.error_details import ErrorDetails
 from docusign_esign.models.event_notification import EventNotification
 from docusign_esign.models.event_result import EventResult
 from docusign_esign.models.expirations import Expirations
+from docusign_esign.models.extension_data import ExtensionData
 from docusign_esign.models.external_doc_service_error_details import ExternalDocServiceErrorDetails
 from docusign_esign.models.external_document_sources import ExternalDocumentSources
 from docusign_esign.models.external_file import ExternalFile
@@ -492,6 +497,8 @@ from docusign_esign.models.tab_group import TabGroup
 from docusign_esign.models.tab_metadata import TabMetadata
 from docusign_esign.models.tab_metadata_list import TabMetadataList
 from docusign_esign.models.tabs import Tabs
+from docusign_esign.models.template_auto_match import TemplateAutoMatch
+from docusign_esign.models.template_auto_match_list import TemplateAutoMatchList
 from docusign_esign.models.template_custom_fields import TemplateCustomFields
 from docusign_esign.models.template_document_visibility_list import TemplateDocumentVisibilityList
 from docusign_esign.models.template_documents_result import TemplateDocumentsResult

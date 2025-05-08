@@ -118,7 +118,10 @@ class _VertexAIBase(BaseModel):
             api_endpoint = values.get("api_endpoint", values.get("base_url"))
         else:
             location = values.get("location", cls.model_fields["location"].default)
-            api_endpoint = f"{location}-{constants.PREDICTION_API_BASE_PATH}"
+            api_endpoint = (
+                f"{'' if location == 'global' else location + '-'}"
+                f"{constants.PREDICTION_API_BASE_PATH}"
+            )
         client_options = ClientOptions(api_endpoint=api_endpoint)
         if values.get("client_cert_source"):
             client_options.client_cert_source = values["client_cert_source"]
@@ -199,6 +202,12 @@ class _VertexAICommon(_VertexAIBase):
     "Underlying model name."
     temperature: Optional[float] = None
     "Sampling temperature, it controls the degree of randomness in token selection."
+    frequency_penalty: Optional[float] = None
+    "Positive values penalize tokens that repeatedly appear in the generated text, "
+    "decreasing the probability of repeating content."
+    presence_penalty: Optional[float] = None
+    "Positive values penalize tokens that already appear in the generated text, "
+    "increasing the probability of generating more diverse content."
     max_output_tokens: Optional[int] = Field(default=None, alias="max_tokens")
     "Token limit determines the maximum amount of text output from one prompt."
     top_p: Optional[float] = None

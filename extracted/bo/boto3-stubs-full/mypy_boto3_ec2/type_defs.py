@@ -19421,6 +19421,7 @@ class StartNetworkInsightsAnalysisRequestTypeDef(TypedDict):
     ClientToken: str
     AdditionalAccounts: NotRequired[Sequence[str]]
     FilterInArns: NotRequired[Sequence[str]]
+    FilterOutArns: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
 
@@ -20113,6 +20114,7 @@ class NetworkInsightsAnalysisTypeDef(TypedDict):
     NetworkInsightsPathId: NotRequired[str]
     AdditionalAccounts: NotRequired[List[str]]
     FilterInArns: NotRequired[List[str]]
+    FilterOutArns: NotRequired[List[str]]
     StartDate: NotRequired[datetime]
     Status: NotRequired[AnalysisStatusType]
     StatusMessage: NotRequired[str]

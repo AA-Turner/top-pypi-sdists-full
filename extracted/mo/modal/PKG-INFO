@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: modal
-Version: 0.74.57
+Version: 0.74.62
 Summary: Python client library for Modal
 Author-email: Modal Labs <support@modal.com>
 License: Apache-2.0
@@ -22,7 +22,7 @@ Requires-Dist: click>=8.1.0
 Requires-Dist: grpclib==0.4.7
 Requires-Dist: protobuf!=4.24.0,<7.0,>=3.19
 Requires-Dist: rich>=12.0.0
-Requires-Dist: synchronicity~=0.9.10
+Requires-Dist: synchronicity~=0.9.12
 Requires-Dist: toml
 Requires-Dist: typer>=0.9
 Requires-Dist: types-certifi

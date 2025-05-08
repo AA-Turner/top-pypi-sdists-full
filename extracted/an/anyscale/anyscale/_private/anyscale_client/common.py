@@ -50,7 +50,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.44.1"  # RAY_RELEASE_UPDATE: update to latest version.
+DEFAULT_RAY_VERSION = "2.46.0"  # RAY_RELEASE_UPDATE: update to latest version.
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 

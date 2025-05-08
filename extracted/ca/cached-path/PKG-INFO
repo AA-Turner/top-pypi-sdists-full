@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cached_path
-Version: 1.7.2
+Version: 1.7.3
 Summary: A file utility for accessing both local and remote files through a unified interface
 Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>
 License:                                  Apache License
@@ -221,7 +221,7 @@ Requires-Dist: rich<14.0,>=12.1
 Requires-Dist: filelock<4.0,>=3.4
 Requires-Dist: boto3<2.0,>=1.0
 Requires-Dist: google-cloud-storage<3.0,>=1.32.0
-Requires-Dist: huggingface-hub<0.28.0,>=0.8.1
+Requires-Dist: huggingface-hub<1.0,>=0.8.1
 Provides-Extra: dev
 Requires-Dist: beaker-py<2.0,>=1.13.2; extra == "dev"
 Requires-Dist: ruff; extra == "dev"

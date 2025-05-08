@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: daytona_api_client
-Version: 0.17.1
-Summary: Daytona Workspaces
+Version: 0.18.1
+Summary: Daytona
 Home-page: 
-Author: OpenAPI Generator community
-Author-email: team@openapitools.org
-Keywords: OpenAPI,OpenAPI-Generator,Daytona Workspaces
+Author: Daytona Platforms Inc.
+Author-email: support@daytona.com
+Keywords: OpenAPI,OpenAPI-Generator,Daytona
 Description-Content-Type: text/markdown
 Requires-Dist: urllib3<3.0.0,>=1.25.3
 Requires-Dist: python-dateutil>=2.8.2
@@ -19,5 +19,5 @@ Dynamic: keywords
 Dynamic: requires-dist
 Dynamic: summary
 
-    Daytona Workspaces API Docs
+    Daytona AI platform API Docs
     

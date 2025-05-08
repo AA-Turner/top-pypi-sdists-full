@@ -53,34 +53,15 @@ class WereadLoader(BaseLoader):
                 self.session.headers.update({"vid": str(vid), "accessToken": accessToken})
         else:
             print("Failed to refresh token")
-       
-    
-    def try_get_cloud_cookie(self,url, id, password):
-        if url.endswith("/"):
-            url = url[:-1]
-        req_url = f"{url}/get/{id}"
-        data = {"password": password}
-        result = None
-        response = requests.post(req_url, data=data)
-        if response.status_code == 200:
-            data = response.json()
-            cookie_data = data.get("cookie_data")
-            if cookie_data and "weread.qq.com" in cookie_data:
-                cookies = cookie_data["weread.qq.com"]
-                cookie_str = "; ".join(
-                    [f"{cookie['name']}={cookie['value']}" for cookie in cookies]
-                )
-                result = cookie_str
-        return result
     
     def get_api_data(self):
-        self.session.get(WEREAD_BASE_URL)
         r = self.session.get(WEREAD_HISTORY_URL)
         if not r.ok:
             print(r.text)
             # need to refresh cookie
             if r.json()["errcode"] == -2012:
-                raise Exception("Cookie过期了请重新设置cookie")
+                self.refresh_token()
+                r = self.session.get(WEREAD_HISTORY_URL)
             else:
                 raise Exception("Can not get weread history data")
         return r.json()

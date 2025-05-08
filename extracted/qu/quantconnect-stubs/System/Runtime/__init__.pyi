@@ -10,16 +10,6 @@ import System.Runtime.ConstrainedExecution
 import System.Threading
 
 
-class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
-    """This class has no documentation."""
-
-    def __init__(self, size_in_megabytes: int) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-
 class AmbiguousImplementationException(System.Exception):
     """This class has no documentation."""
 
@@ -68,25 +58,13 @@ class GCSettings(System.Object):
     IS_SERVER_GC: bool
 
 
-class AssemblyTargetedPatchBandAttribute(System.Attribute):
+class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
     """This class has no documentation."""
 
-    @property
-    def targeted_patch_band(self) -> str:
+    def __init__(self, size_in_megabytes: int) -> None:
         ...
 
-    def __init__(self, targeted_patch_band: str) -> None:
-        ...
-
-
-class TargetedPatchingOptOutAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def reason(self) -> str:
-        ...
-
-    def __init__(self, reason: str) -> None:
+    def dispose(self) -> None:
         ...
 
 
@@ -124,6 +102,28 @@ class JitInfo(System.Object):
         :param current_thread: Whether the returned value should be specific to the current thread. Default: false
         :returns: The number of methods the JIT has compiled.
         """
+        ...
+
+
+class AssemblyTargetedPatchBandAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def targeted_patch_band(self) -> str:
+        ...
+
+    def __init__(self, targeted_patch_band: str) -> None:
+        ...
+
+
+class TargetedPatchingOptOutAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def reason(self) -> str:
+        ...
+
+    def __init__(self, reason: str) -> None:
         ...
 
 

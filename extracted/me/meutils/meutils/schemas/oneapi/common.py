@@ -106,6 +106,11 @@ MODEL_PRICE = {
     "official-api-hailuo-video": 0.5,
     "api-hailuo-video": 0.3,
 
+    "api-videos-seedream-3.0": 0.5,
+
+    "api-kling-video/v2/master/text-to-video": 5,
+    "api-kling-video/v2/master/image-to-video": 5,
+
     # delle3
     "api-images-kling": 0.04,
     "api-images-hunyuan": 0.04,
@@ -647,6 +652,8 @@ MODEL_RATIO = {
     "doubao-1.5-pro-256k": 5 / 2,
 
     "doubao-1.5-vision-pro-32k": 1.5,
+    "doubao-1.5-vision-pro-250328": 1.5,
+
     "doubao-vision-lite-32k": 0.75,
     "doubao-vision-pro-32k": 1.5,
 
@@ -759,13 +766,14 @@ MODEL_RATIO = {
     "gemini-2.0-flash-thinking-exp-1219": 1,
     "gemini-2.0-flash-thinking-exp-01-21": 1,
 
-    "gemini-2.5-flash-preview-04-17": 0.15,
+    "gemini-2.5-flash-preview-04-17": 0.075,
 
     "gemini-2.0-pro": 0.625,
     "gemini-2.0-pro-exp": 0.625,
     "gemini-2.0-pro-exp-02-05": 0.625,
     "gemini-2.5-pro-exp-03-25": 0.625,
     "gemini-2.5-pro-preview-03-25": 0.625,
+    "gemini-2.5-pro-preview-05-06": 0.625,
 
     "gemini-1.5-pro-001": 1.25,
     "gemini-1.5-pro-002": 1.25,
@@ -778,7 +786,7 @@ MODEL_RATIO = {
     "gemini-pro-vision": 1,
     "gemini-ultra": 1,
 
-    "gemini-2.5-flash-thinking": 0.15 * 2,
+    "gemini-2.5-flash-thinking": 0.15,
     "gemini-2.5-flash-preview-04-17-thinking": 0.15 * 2,
     "gemini-2.5-pro-thinking": 0.625 * 2,
     "gemini-2.5-pro-exp-03-25-thinking": 0.625 * 2,
@@ -888,8 +896,9 @@ MODEL_RATIO = {
     "Qwen/Qwen2-VL-72B-Instruct": 2,
 
     # 临时
-    "ep-20240515073409-dlpqp": 5,
-    "microsoft/phi-4": 0.035 * 5,
+    "microsoft/phi-4": 0.035,
+    "microsoft/phi-4-reasoning": 0.035,
+    "microsoft/phi-4-reasoning-plus": 0.035 * 2,
     "mistral-small-3.1-24b-instruct": 0.1,
     "mistral-small-24b-instruct-2501": 0.1,
 
@@ -1033,6 +1042,7 @@ COMPLETION_RATIO = {
     "gemini-2.0-pro-exp-02-05": 5,
     "gemini-2.5-pro-exp-03-25": 8,
     "gemini-2.5-pro-preview-03-25": 8,
+    "gemini-2.5-pro-preview-05-06": 8,
 
     "gemma2-9b-it": 4,
     "gemma2-27b-it": 4,
@@ -1114,6 +1124,8 @@ COMPLETION_RATIO = {
     "doubao-1.5-pro-256k": 3,
 
     "doubao-1.5-vision-pro-32k": 3,
+    "doubao-1.5-vision-pro-250328": 3,
+
     "doubao-1-5-vision-pro-32k": 3,
     "doubao-1-5-vision-pro-32k-250115": 3,
 
@@ -1362,7 +1374,9 @@ REDIRECT_MODEL = {
     "tune-mythomax-l2-13b": "rohan/tune-mythomax-l2-13b",
     "tune-wizardlm-2-8x22b": "rohan/tune-wizardlm-2-8x22b",
 
-    "microsoft/phi-4": 2,
+    "microsoft/phi-4": 5,
+    "microsoft/phi-4-reasoning": 5,
+    "microsoft/phi-4-reasoning-plus": 5,
 
 }
 
@@ -1401,5 +1415,4 @@ if __name__ == '__main__':
     print([k for k in MODEL_RATIO if k.startswith('gpt-4.1')] | xjoin(","))
     print([k for k in MODEL_RATIO if k.startswith('qwen3')] | xjoin(","))
 
-    print([k for k in MODEL_RATIO if k.startswith(('deepseek', 'doubao'))] | xjoin(","))
-
+    print([k for k in MODEL_RATIO if k.startswith(('deepseek', 'doubao', 'moon'))] | xjoin(","))

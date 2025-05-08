@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pulp-glue-deb"
-version = "0.3.2"
+version = "0.3.3"
 description = "Version agnostic glue library to talk to pulpcore's REST API. (deb plugin)"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -23,7 +23,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "pulp-glue>=0.23.2,<0.32",
+  "pulp-glue>=0.23.2,<0.33",
 ]
 
 [project.urls]

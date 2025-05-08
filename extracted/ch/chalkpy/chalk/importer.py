@@ -6,27 +6,14 @@ import importlib.util
 import linecache
 import os
 import sys
+import time
 import traceback
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import TracebackType
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    Union,
-    cast,
-    get_args,
-    get_origin,
-)
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type, Union, cast, get_args, get_origin
 
 import pyarrow as pa
 
@@ -47,8 +34,7 @@ from chalk.features.underscore import (
     UnderscoreItem,
     UnderscoreRoot,
 )
-from chalk.gitignore.gitignore_parser import parse_gitignore
-from chalk.gitignore.helper import IgnoreConfig, get_default_combined_ignore_config, is_ignored
+from chalk.gitignore.helper import IgnoreConfig, get_default_combined_ignore_config
 from chalk.parsed.duplicate_input_gql import (
     DiagnosticGQL,
     DiagnosticSeverityGQL,
@@ -62,10 +48,9 @@ from chalk.sql._internal.sql_file_resolver import get_sql_file_resolvers, get_sq
 from chalk.sql._internal.sql_source import BaseSQLSource
 from chalk.utils.collections import ensure_tuple
 from chalk.utils.duration import parse_chalk_duration_s, timedelta_to_duration
-from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.import_utils import py_path_to_module
 from chalk.utils.log_with_context import get_logger
-from chalk.utils.paths import get_directory_root, search_recursively_for_file
+from chalk.utils.paths import get_directory_root
 
 try:
     from types import UnionType
@@ -73,6 +58,7 @@ except ImportError:
     UnionType = Union
 
 _logger = get_logger(__name__)
+_import_logger = get_logger("chalk.import_logger")
 
 
 has_imported_all_files = False
@@ -1136,7 +1122,6 @@ def import_all_python_files_from_dir(
     check_ignores: bool = True,
     file_allowlist: Optional[List[Path]] = None,
 ) -> List[FailedImport]:
-    use_old_ignores_check = env_var_bool("USE_OLD_IGNORES_CHECK")
     project_root = project_root.absolute()
 
     cwd = os.getcwd()
@@ -1163,22 +1148,6 @@ def import_all_python_files_from_dir(
         venv = os.environ.get("VIRTUAL_ENV")
         if file_allowlist is not None:
             repo_files = file_allowlist
-        elif use_old_ignores_check:
-            ignore_functions: List[Callable[[Union[Path, str]], bool]] = []
-            ignore_functions.extend(
-                parse_gitignore(str(x))[0] for x in search_recursively_for_file(project_root, ".gitignore")
-            )
-            ignore_functions.extend(
-                parse_gitignore(str(x))[0] for x in search_recursively_for_file(project_root, ".chalkignore")
-            )
-
-            repo_files = {p.resolve() for p in repo_root.glob(os.path.join("**", "*.py")) if p.is_file()}
-            repo_files = sorted(repo_files)
-            repo_files = list(
-                repo_file for repo_file in repo_files if venv is None or Path(venv) not in repo_file.parents
-            )
-            if check_ignores:
-                repo_files = list(p for p in repo_files if not is_ignored(p, ignore_functions))
         else:
             venv_path = None if venv is None else Path(venv)
             ignore_config = get_default_combined_ignore_config(resolved_root) if check_ignores else None
@@ -1198,7 +1167,10 @@ def import_all_python_files_from_dir(
             if module_path.startswith(".eggs") or module_path.startswith("venv") or filename.name == "setup.py":
                 continue
             try:
+                start = time.perf_counter()
                 importlib.import_module(module_path)
+                end = time.perf_counter()
+                _import_logger.info(f"Imported '{module_path}' in {end-start} seconds")
             except Exception as e:
                 if not LSPErrorBuilder.promote_exception(e):
                     ex_type, ex_value, ex_traceback = sys.exc_info()

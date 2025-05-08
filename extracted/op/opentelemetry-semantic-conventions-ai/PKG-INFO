@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: opentelemetry-semantic-conventions-ai
-Version: 0.4.6
+Version: 0.4.7
 Summary: OpenTelemetry Semantic Conventions Extension for Large Language Models
 License: Apache-2.0
 Author: Gal Kleinman

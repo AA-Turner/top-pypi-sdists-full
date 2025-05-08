@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/integ-tests-alpha",
-    "2.194.0-alpha.0",
+    "2.195.0-alpha.0",
     __name__[0:-6],
-    "integ-tests-alpha@2.194.0-alpha.0.jsii.tgz",
+    "integ-tests-alpha@2.195.0-alpha.0.jsii.tgz",
 )
 
 __all__ = [

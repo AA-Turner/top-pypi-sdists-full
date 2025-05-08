@@ -58,7 +58,9 @@ from .types import HttpOptionsOrDict
 
 logger = logging.getLogger('google_genai._api_client')
 CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB chunk size
-
+MAX_RETRY_COUNT = 3
+INITIAL_RETRY_DELAY = 1  # second
+DELAY_MULTIPLIER = 2
 
 def _append_library_version_headers(headers: dict[str, str]) -> None:
   """Appends the telemetry header to the headers dict."""
@@ -283,6 +285,18 @@ class SyncHttpxClient(httpx.Client):
     kwargs.setdefault('follow_redirects', True)
     super().__init__(**kwargs)
 
+  def __del__(self) -> None:
+    """Closes the httpx client."""
+    try:
+      if self.is_closed:
+        return
+    except Exception:
+      pass
+    try:
+      self.close()
+    except Exception:
+      pass
+
 
 class AsyncHttpxClient(httpx.AsyncClient):
   """Async httpx client."""
@@ -291,6 +305,17 @@ class AsyncHttpxClient(httpx.AsyncClient):
     """Initializes the httpx client."""
     kwargs.setdefault('follow_redirects', True)
     super().__init__(**kwargs)
+
+  def __del__(self) -> None:
+    try:
+      if self.is_closed:
+        return
+    except Exception:
+      pass
+    try:
+      asyncio.get_running_loop().create_task(self.aclose())
+    except Exception:
+      pass
 
 
 class BaseApiClient:
@@ -865,15 +890,23 @@ class BaseApiClient:
           'Content-Length': str(chunk_size),
       }
       _populate_server_timeout_header(upload_headers, timeout_in_seconds)
-      response = self._httpx_client.request(
-          method='POST',
-          url=upload_url,
-          headers=upload_headers,
-          content=file_chunk,
-          timeout=timeout_in_seconds,
-      )
+      retry_count = 0
+      while retry_count < MAX_RETRY_COUNT:
+        response = self._httpx_client.request(
+            method='POST',
+            url=upload_url,
+            headers=upload_headers,
+            content=file_chunk,
+            timeout=timeout_in_seconds,
+        )
+        if response.headers.get('x-goog-upload-status'):
+          break
+        delay_seconds = INITIAL_RETRY_DELAY * (DELAY_MULTIPLIER**retry_count)
+        retry_count += 1
+        time.sleep(delay_seconds)
+
       offset += chunk_size
-      if response.headers['x-goog-upload-status'] != 'active':
+      if response.headers.get('x-goog-upload-status') != 'active':
         break  # upload is complete or it has been interrupted.
       if upload_size <= offset:  # Status is not finalized.
         raise ValueError(
@@ -881,7 +914,7 @@ class BaseApiClient:
             f' finalized.'
         )
 
-    if response.headers['x-goog-upload-status'] != 'final':
+    if response.headers.get('x-goog-upload-status') != 'final':
       raise ValueError(
           'Failed to upload file: Upload status is not finalized.'
       )
@@ -1013,13 +1046,22 @@ class BaseApiClient:
           'Content-Length': str(chunk_size),
       }
       _populate_server_timeout_header(upload_headers, timeout_in_seconds)
-      response = await self._async_httpx_client.request(
-          method='POST',
-          url=upload_url,
-          content=file_chunk,
-          headers=upload_headers,
-          timeout=timeout_in_seconds,
-      )
+
+      retry_count = 0
+      while retry_count < MAX_RETRY_COUNT:
+        response = await self._async_httpx_client.request(
+            method='POST',
+            url=upload_url,
+            content=file_chunk,
+            headers=upload_headers,
+            timeout=timeout_in_seconds,
+        )
+        if response.headers.get('x-goog-upload-status'):
+          break
+        delay_seconds = INITIAL_RETRY_DELAY * (DELAY_MULTIPLIER**retry_count)
+        retry_count += 1
+        time.sleep(delay_seconds)
+
       offset += chunk_size
       if response.headers.get('x-goog-upload-status') != 'active':
         break  # upload is complete or it has been interrupted.

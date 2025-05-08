@@ -39,6 +39,7 @@ class Object:
     class ___init_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(
             self,
+            /,
             rep: str,
             load: typing.Optional[
                 collections.abc.Callable[[SUPERSELF, modal._resolver.Resolver, typing.Optional[str]], None]
@@ -53,6 +54,7 @@ class Object:
         ): ...
         def aio(
             self,
+            /,
             rep: str,
             load: typing.Optional[
                 collections.abc.Callable[
@@ -123,13 +125,13 @@ class Object:
     def deps(self) -> collections.abc.Callable[..., collections.abc.Sequence[Object]]: ...
 
     class __resolve_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, client: typing.Optional[modal.client.Client] = None): ...
-        async def aio(self, client: typing.Optional[modal.client.Client] = None): ...
+        def __call__(self, /, client: typing.Optional[modal.client.Client] = None): ...
+        async def aio(self, /, client: typing.Optional[modal.client.Client] = None): ...
 
     resolve: __resolve_spec[typing_extensions.Self]
 
     class __hydrate_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, client: typing.Optional[modal.client.Client] = None) -> SUPERSELF: ...
-        async def aio(self, client: typing.Optional[modal.client.Client] = None) -> SUPERSELF: ...
+        def __call__(self, /, client: typing.Optional[modal.client.Client] = None) -> SUPERSELF: ...
+        async def aio(self, /, client: typing.Optional[modal.client.Client] = None) -> SUPERSELF: ...
 
     hydrate: __hydrate_spec[typing_extensions.Self]

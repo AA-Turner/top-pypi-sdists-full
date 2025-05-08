@@ -197,6 +197,15 @@ class CfnCluster(
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrVpcEndpointServiceName")
+    def attr_vpc_endpoint_service_name(self) -> builtins.str:
+        '''The VPC endpoint service name.
+
+        :cloudformationAttribute: VpcEndpointServiceName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcEndpointServiceName"))
+
+    @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
     def cdk_tag_manager(self) -> _TagManager_0a598cb3:
         '''Tag Manager which manages the tags for this resource.'''

@@ -21,7 +21,7 @@ class InsightManager(QuantConnect.Algorithm.Framework.Alphas.InsightCollection):
         ...
 
     @overload
-    def cancel(self, symbols: typing.Iterable[QuantConnect.Symbol]) -> None:
+    def cancel(self, symbols: typing.List[QuantConnect.Symbol]) -> None:
         """
         Cancel the insights of the given symbols
         
@@ -30,7 +30,7 @@ class InsightManager(QuantConnect.Algorithm.Framework.Alphas.InsightCollection):
         ...
 
     @overload
-    def cancel(self, insights: typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> None:
+    def cancel(self, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> None:
         """
         Cancel the given insights
         
@@ -39,7 +39,7 @@ class InsightManager(QuantConnect.Algorithm.Framework.Alphas.InsightCollection):
         ...
 
     @overload
-    def expire(self, symbols: typing.Iterable[QuantConnect.Symbol]) -> None:
+    def expire(self, symbols: typing.List[QuantConnect.Symbol]) -> None:
         """
         Expire the insights of the given symbols
         
@@ -48,7 +48,7 @@ class InsightManager(QuantConnect.Algorithm.Framework.Alphas.InsightCollection):
         ...
 
     @overload
-    def expire(self, insights: typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> None:
+    def expire(self, insights: typing.List[QuantConnect.Algorithm.Framework.Alphas.Insight]) -> None:
         """
         Expire the given insights
         

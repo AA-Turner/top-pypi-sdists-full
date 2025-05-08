@@ -43,7 +43,7 @@ RTDE::RTDE(const std::string hostname, int port, bool verbose)
       port_(port),
       verbose_(verbose),
       conn_state_(ConnectionState::DISCONNECTED),
-      deadline_(io_service_)
+      deadline_(io_context_)
 {
   // No deadline is required until the first socket operation is started. We
   // set the deadline to positive infinity so that the actor takes no action
@@ -61,7 +61,7 @@ void RTDE::connect()
   try
   {
     buffer_.clear();  // ensure empty state in case of reconnect
-    socket_.reset(new boost::asio::ip::tcp::socket(io_service_));
+    socket_.reset(new boost::asio::ip::tcp::socket(io_context_));
     socket_->open(boost::asio::ip::tcp::v4());
     boost::asio::ip::tcp::no_delay no_delay_option(true);
     boost::asio::socket_base::reuse_address sol_reuse_option(true);
@@ -71,9 +71,8 @@ void RTDE::connect()
     boost::asio::detail::socket_option::boolean<IPPROTO_TCP, TCP_QUICKACK> quickack(true);
     socket_->set_option(quickack);
 #endif
-    resolver_ = std::make_shared<boost::asio::ip::tcp::resolver>(io_service_);
-    boost::asio::ip::tcp::resolver::query query(hostname_, std::to_string(port_));
-    boost::asio::connect(*socket_, resolver_->resolve(query));
+    resolver_ = std::make_shared<boost::asio::ip::tcp::resolver>(io_context_);
+    boost::asio::connect(*socket_, resolver_->resolve(hostname_, std::to_string(port_)));
     conn_state_ = ConnectionState::CONNECTED;
     if (verbose_)
       std::cout << "Connected successfully to: " << hostname_ << " at " << port_ << std::endl;
@@ -503,7 +502,7 @@ std::size_t RTDE::async_read_some(AsyncReadStream &s, const MutableBufferSequenc
 
   // Block until the asynchronous operation has completed.
   do
-    io_service_.run_one();
+    io_context_.run_one();
   while (ec == boost::asio::error::would_block);
   if (ec)
   {

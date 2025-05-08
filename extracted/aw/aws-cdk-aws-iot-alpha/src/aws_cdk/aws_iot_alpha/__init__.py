@@ -126,6 +126,7 @@ iot.AccountAuditConfiguration(self, "AuditConfiguration",
         # disabled
         ca_certificate_key_quality_check=False,
         conflicting_client_ids_check=False,
+        device_certificate_age_check=False,
         device_certificate_expiring_check=False,
         device_certificate_key_quality_check=False,
         device_certificate_shared_check=False,
@@ -138,6 +139,22 @@ iot.AccountAuditConfiguration(self, "AuditConfiguration",
         revoked_ca_certificate_still_active_check=False,
         revoked_device_certificate_still_active_check=False,
         unauthenticated_cognito_role_overly_permissive_check=False
+    )
+)
+```
+
+To configure [the device certificate age check](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/device-certificate-age-check.html), you can specify the duration for the check:
+
+```python
+from aws_cdk import Duration
+
+
+iot.AccountAuditConfiguration(self, "AuditConfiguration",
+    check_configuration=iot.CheckConfiguration(
+        device_certificate_age_check=True,
+        # The default value is 365 days
+        # Valid values range from 30 days (minimum) to 3652 days (10 years, maximum)
+        device_certificate_age_check_duration=Duration.days(365)
     )
 )
 ```
@@ -240,12 +257,16 @@ class AccountAuditConfigurationProps:
 
         Example::
 
-            # Audit notification are sent to the SNS topic
-            # target_topic: sns.ITopic
+            from aws_cdk import Duration
             
             
             iot.AccountAuditConfiguration(self, "AuditConfiguration",
-                target_topic=target_topic
+                check_configuration=iot.CheckConfiguration(
+                    device_certificate_age_check=True,
+                    # The default value is 365 days
+                    # Valid values range from 30 days (minimum) to 3652 days (10 years, maximum)
+                    device_certificate_age_check_duration=Duration.days(365)
+                )
             )
         '''
         if isinstance(check_configuration, dict):
@@ -714,6 +735,8 @@ class AuditCheck(enum.Enum):
         "ca_certificate_expiring_check": "caCertificateExpiringCheck",
         "ca_certificate_key_quality_check": "caCertificateKeyQualityCheck",
         "conflicting_client_ids_check": "conflictingClientIdsCheck",
+        "device_certificate_age_check": "deviceCertificateAgeCheck",
+        "device_certificate_age_check_duration": "deviceCertificateAgeCheckDuration",
         "device_certificate_expiring_check": "deviceCertificateExpiringCheck",
         "device_certificate_key_quality_check": "deviceCertificateKeyQualityCheck",
         "device_certificate_shared_check": "deviceCertificateSharedCheck",
@@ -736,6 +759,8 @@ class CheckConfiguration:
         ca_certificate_expiring_check: typing.Optional[builtins.bool] = None,
         ca_certificate_key_quality_check: typing.Optional[builtins.bool] = None,
         conflicting_client_ids_check: typing.Optional[builtins.bool] = None,
+        device_certificate_age_check: typing.Optional[builtins.bool] = None,
+        device_certificate_age_check_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         device_certificate_expiring_check: typing.Optional[builtins.bool] = None,
         device_certificate_key_quality_check: typing.Optional[builtins.bool] = None,
         device_certificate_shared_check: typing.Optional[builtins.bool] = None,
@@ -755,6 +780,8 @@ class CheckConfiguration:
         :param ca_certificate_expiring_check: (experimental) Checks if a CA certificate is expiring. This check applies to CA certificates expiring within 30 days or that have expired. Default: true
         :param ca_certificate_key_quality_check: (experimental) Checks the quality of the CA certificate key. The quality checks if the key is in a valid format, not expired, and if the key meets a minimum required size. This check applies to CA certificates that are ACTIVE or PENDING_TRANSFER. Default: true
         :param conflicting_client_ids_check: (experimental) Checks if multiple devices connect using the same client ID. Default: true
+        :param device_certificate_age_check: (experimental) Checks when a device certificate has been active for a number of days greater than or equal to the number you specify. Default: true
+        :param device_certificate_age_check_duration: (experimental) The duration used to check if a device certificate has been active for a number of days greater than or equal to the number you specify. Valid values range from 30 days (minimum) to 3652 days (10 years, maximum). You cannot specify a value for this check if ``deviceCertificateAgeCheck`` is set to ``false``. Default: - 365 days
         :param device_certificate_expiring_check: (experimental) Checks if a device certificate is expiring. This check applies to device certificates expiring within 30 days or that have expired. Default: true
         :param device_certificate_key_quality_check: (experimental) Checks the quality of the device certificate key. The quality checks if the key is in a valid format, not expired, signed by a registered certificate authority, and if the key meets a minimum required size. Default: true
         :param device_certificate_shared_check: (experimental) Checks if multiple concurrent connections use the same X.509 certificate to authenticate with AWS IoT. Default: true
@@ -783,6 +810,7 @@ class CheckConfiguration:
                     # disabled
                     ca_certificate_key_quality_check=False,
                     conflicting_client_ids_check=False,
+                    device_certificate_age_check=False,
                     device_certificate_expiring_check=False,
                     device_certificate_key_quality_check=False,
                     device_certificate_shared_check=False,
@@ -804,6 +832,8 @@ class CheckConfiguration:
             check_type(argname="argument ca_certificate_expiring_check", value=ca_certificate_expiring_check, expected_type=type_hints["ca_certificate_expiring_check"])
             check_type(argname="argument ca_certificate_key_quality_check", value=ca_certificate_key_quality_check, expected_type=type_hints["ca_certificate_key_quality_check"])
             check_type(argname="argument conflicting_client_ids_check", value=conflicting_client_ids_check, expected_type=type_hints["conflicting_client_ids_check"])
+            check_type(argname="argument device_certificate_age_check", value=device_certificate_age_check, expected_type=type_hints["device_certificate_age_check"])
+            check_type(argname="argument device_certificate_age_check_duration", value=device_certificate_age_check_duration, expected_type=type_hints["device_certificate_age_check_duration"])
             check_type(argname="argument device_certificate_expiring_check", value=device_certificate_expiring_check, expected_type=type_hints["device_certificate_expiring_check"])
             check_type(argname="argument device_certificate_key_quality_check", value=device_certificate_key_quality_check, expected_type=type_hints["device_certificate_key_quality_check"])
             check_type(argname="argument device_certificate_shared_check", value=device_certificate_shared_check, expected_type=type_hints["device_certificate_shared_check"])
@@ -825,6 +855,10 @@ class CheckConfiguration:
             self._values["ca_certificate_key_quality_check"] = ca_certificate_key_quality_check
         if conflicting_client_ids_check is not None:
             self._values["conflicting_client_ids_check"] = conflicting_client_ids_check
+        if device_certificate_age_check is not None:
+            self._values["device_certificate_age_check"] = device_certificate_age_check
+        if device_certificate_age_check_duration is not None:
+            self._values["device_certificate_age_check_duration"] = device_certificate_age_check_duration
         if device_certificate_expiring_check is not None:
             self._values["device_certificate_expiring_check"] = device_certificate_expiring_check
         if device_certificate_key_quality_check is not None:
@@ -904,6 +938,34 @@ class CheckConfiguration:
         '''
         result = self._values.get("conflicting_client_ids_check")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def device_certificate_age_check(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Checks when a device certificate has been active for a number of days greater than or equal to the number you specify.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("device_certificate_age_check")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def device_certificate_age_check_duration(
+        self,
+    ) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+        '''(experimental) The duration used to check if a device certificate has been active for a number of days greater than or equal to the number you specify.
+
+        Valid values range from 30 days (minimum) to 3652 days (10 years, maximum).
+
+        You cannot specify a value for this check if ``deviceCertificateAgeCheck`` is set to ``false``.
+
+        :default: - 365 days
+
+        :stability: experimental
+        '''
+        result = self._values.get("device_certificate_age_check_duration")
+        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
 
     @builtins.property
     def device_certificate_expiring_check(self) -> typing.Optional[builtins.bool]:
@@ -2559,12 +2621,16 @@ class AccountAuditConfiguration(
 
     Example::
 
-        # Audit notification are sent to the SNS topic
-        # target_topic: sns.ITopic
+        from aws_cdk import Duration
         
         
         iot.AccountAuditConfiguration(self, "AuditConfiguration",
-            target_topic=target_topic
+            check_configuration=iot.CheckConfiguration(
+                device_certificate_age_check=True,
+                # The default value is 365 days
+                # Valid values range from 30 days (minimum) to 3652 days (10 years, maximum)
+                device_certificate_age_check_duration=Duration.days(365)
+            )
         )
     '''
 
@@ -2677,6 +2743,8 @@ def _typecheckingstub__7e9c5c9d3626b3241033eaae1616063003470252ba449cc0716435adb
     ca_certificate_expiring_check: typing.Optional[builtins.bool] = None,
     ca_certificate_key_quality_check: typing.Optional[builtins.bool] = None,
     conflicting_client_ids_check: typing.Optional[builtins.bool] = None,
+    device_certificate_age_check: typing.Optional[builtins.bool] = None,
+    device_certificate_age_check_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     device_certificate_expiring_check: typing.Optional[builtins.bool] = None,
     device_certificate_key_quality_check: typing.Optional[builtins.bool] = None,
     device_certificate_shared_check: typing.Optional[builtins.bool] = None,

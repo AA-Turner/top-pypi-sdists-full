@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyundai_kia_connect_api
-Version: 3.41.1
+Version: 3.41.2
 Summary: Python Boilerplate contains all the boilerplate you need to create a Python package.
 Home-page: https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api
 Author: Fuat Akgun
@@ -21,6 +21,7 @@ Requires-Dist: python-dateutil
 Requires-Dist: pytz>=2021.3
 Requires-Dist: certifi>=2024.6.2
 Requires-Dist: geopy>=2.2.0
+Requires-Dist: cloudscraper>=1.2.60
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -16,290 +16,31 @@ import System.Runtime.InteropServices.ComTypes
 import System.Runtime.Serialization
 import System.Security
 
-System_Runtime_InteropServices_PinnedGCHandle = typing.Any
-System_Runtime_InteropServices_CULong = typing.Any
-System_Runtime_InteropServices_CLong = typing.Any
-System_Runtime_InteropServices_ArrayWithOffset = typing.Any
-System_Runtime_InteropServices_WeakGCHandle = typing.Any
 System_Runtime_InteropServices_GCHandle = typing.Any
 System_Runtime_InteropServices_OSPlatform = typing.Any
+System_Runtime_InteropServices_CLong = typing.Any
+System_Runtime_InteropServices_PinnedGCHandle = typing.Any
+System_Runtime_InteropServices_ArrayWithOffset = typing.Any
+System_Runtime_InteropServices_CULong = typing.Any
 System_Runtime_InteropServices_NFloat = typing.Any
+System_Runtime_InteropServices_WeakGCHandle = typing.Any
 
+System_Runtime_InteropServices_GCHandle_T = typing.TypeVar("System_Runtime_InteropServices_GCHandle_T")
 System_Runtime_InteropServices_PinnedGCHandle_T = typing.TypeVar("System_Runtime_InteropServices_PinnedGCHandle_T")
 System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup")
-System_Runtime_InteropServices_WeakGCHandle_T = typing.TypeVar("System_Runtime_InteropServices_WeakGCHandle_T")
-System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup")
 System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup")
-System_Runtime_InteropServices_GCHandle_T = typing.TypeVar("System_Runtime_InteropServices_GCHandle_T")
+System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup = typing.TypeVar("System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup")
+System_Runtime_InteropServices_WeakGCHandle_T = typing.TypeVar("System_Runtime_InteropServices_WeakGCHandle_T")
 
 
-class PreserveSigAttribute(System.Attribute):
+class LayoutKind(Enum):
     """This class has no documentation."""
 
-    def __init__(self) -> None:
-        ...
+    SEQUENTIAL = 0
 
+    EXPLICIT = 2
 
-class OptionalAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class UnmanagedType(Enum):
-    """This class has no documentation."""
-
-    BOOL = ...
-
-    I_1 = ...
-
-    U_1 = ...
-
-    I_2 = ...
-
-    U_2 = ...
-
-    I_4 = ...
-
-    U_4 = ...
-
-    I_8 = ...
-
-    U_8 = ...
-
-    R_4 = ...
-
-    R_8 = ...
-
-    CURRENCY = ...
-    """Marshalling as Currency may be unavailable in future releases."""
-
-    B_STR = ...
-
-    LP_STR = ...
-
-    LPW_STR = ...
-
-    LPT_STR = ...
-
-    BY_VAL_T_STR = ...
-
-    I_UNKNOWN = ...
-
-    I_DISPATCH = ...
-
-    STRUCT = ...
-
-    INTERFACE = ...
-
-    SAFE_ARRAY = ...
-
-    BY_VAL_ARRAY = ...
-
-    SYS_INT = ...
-
-    SYS_U_INT = ...
-
-    VB_BY_REF_STR = ...
-    """Marshalling as VBByRefString may be unavailable in future releases."""
-
-    ANSI_B_STR = ...
-    """Marshalling as AnsiBStr may be unavailable in future releases."""
-
-    TB_STR = ...
-    """Marshalling as TBstr may be unavailable in future releases."""
-
-    VARIANT_BOOL = ...
-
-    FUNCTION_PTR = ...
-
-    AS_ANY = ...
-    """Marshalling arbitrary types may be unavailable in future releases. Specify the type you wish to marshal as."""
-
-    LP_ARRAY = ...
-
-    LP_STRUCT = ...
-
-    CUSTOM_MARSHALER = ...
-
-    ERROR = ...
-
-    I_INSPECTABLE = ...
-
-    H_STRING = ...
-
-    LPUTF_8_STR = ...
-
-
-class VarEnum(Enum):
-    """This class has no documentation."""
-
-    VT_EMPTY = 0
-
-    VT_NULL = 1
-
-    VT_I_2 = 2
-
-    VT_I_4 = 3
-
-    VT_R_4 = 4
-
-    VT_R_8 = 5
-
-    VT_CY = 6
-
-    VT_DATE = 7
-
-    VT_BSTR = 8
-
-    VT_DISPATCH = 9
-
-    VT_ERROR = 10
-
-    VT_BOOL = 11
-
-    VT_VARIANT = 12
-
-    VT_UNKNOWN = 13
-
-    VT_DECIMAL = 14
-
-    VT_I_1 = 16
-
-    VT_UI_1 = 17
-
-    VT_UI_2 = 18
-
-    VT_UI_4 = 19
-
-    VT_I_8 = 20
-
-    VT_UI_8 = 21
-
-    VT_INT = 22
-
-    VT_UINT = 23
-
-    VT_VOID = 24
-
-    VT_HRESULT = 25
-
-    VT_PTR = 26
-
-    VT_SAFEARRAY = 27
-
-    VT_CARRAY = 28
-
-    VT_USERDEFINED = 29
-
-    VT_LPSTR = 30
-
-    VT_LPWSTR = 31
-
-    VT_RECORD = 36
-
-    VT_FILETIME = 64
-
-    VT_BLOB = 65
-
-    VT_STREAM = 66
-
-    VT_STORAGE = 67
-
-    VT_STREAMED_OBJECT = 68
-
-    VT_STORED_OBJECT = 69
-
-    VT_BLOB_OBJECT = 70
-
-    VT_CF = 71
-
-    VT_CLSID = 72
-
-    VT_VECTOR = ...
-
-    VT_ARRAY = ...
-
-    VT_BYREF = ...
-
-
-class PinnedGCHandle(typing.Generic[System_Runtime_InteropServices_PinnedGCHandle_T], System.IEquatable[System_Runtime_InteropServices_PinnedGCHandle], System.IDisposable):
-    """
-    Represents a strongly-typed GC handle to a managed object.
-    The object is pinned at fixed location in GC heap and allows its
-    address to be taken.
-    """
-
-    @property
-    def is_allocated(self) -> bool:
-        """Determine whether this handle has been allocated or not."""
-        ...
-
-    @property
-    def target(self) -> System_Runtime_InteropServices_PinnedGCHandle_T:
-        """Gets or sets the object this handle represents."""
-        ...
-
-    @target.setter
-    def target(self, value: System_Runtime_InteropServices_PinnedGCHandle_T) -> None:
-        ...
-
-    def __init__(self, target: System_Runtime_InteropServices_PinnedGCHandle_T) -> None:
-        """
-        Allocates a handle for the specified object.
-        
-        :param target: The object that uses the PinnedGCHandle{T}.
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Releases this PinnedGCHandle{T}."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]) -> bool:
-        ...
-
-    @staticmethod
-    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]:
-        """
-        Returns a new PinnedGCHandle{T} object created from a handle to a managed object.
-        
-        :param value: An IntPtr handle to a managed object to create a PinnedGCHandle{T} object from.
-        :returns: A new PinnedGCHandle{T} object that corresponds to the value parameter.
-        """
-        ...
-
-    def get_address_of_object_data(self) -> typing.Any:
-        """
-        Retrieves the address of object data in a PinnedGCHandle{T}.
-        
-        :returns: The address of first instance field of the pinned object, or null if the handle doesn't point to any object.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for the current instance.
-        
-        :returns: A hash code for the current instance.
-        """
-        ...
-
-    @staticmethod
-    def to_int_ptr(value: System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]) -> System.IntPtr:
-        """
-        Returns the internal integer representation of a PinnedGCHandle{T} object.
-        
-        :param value: A PinnedGCHandle{T} object to retrieve an internal integer representation from.
-        :returns: An IntPtr object that represents a PinnedGCHandle{T} object.
-        """
-        ...
+    AUTO = 3
 
 
 class SafeArrayTypeMismatchException(System.SystemException):
@@ -327,36 +68,6 @@ class SafeArrayTypeMismatchException(System.SystemException):
         
         Obsoletions.LegacyFormatterImplMessage
         """
-        ...
-
-
-class GuidAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> str:
-        ...
-
-    def __init__(self, guid: str) -> None:
-        ...
-
-
-class ICustomMarshaler(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def clean_up_managed_data(self, managed_obj: typing.Any) -> None:
-        ...
-
-    def clean_up_native_data(self, p_native_data: System.IntPtr) -> None:
-        ...
-
-    def get_native_data_size(self) -> int:
-        ...
-
-    def marshal_managed_to_native(self, managed_obj: typing.Any) -> System.IntPtr:
-        ...
-
-    def marshal_native_to_managed(self, p_native_data: System.IntPtr) -> System.Object:
         ...
 
 
@@ -435,22 +146,10 @@ class PosixSignalRegistration(System.Object, System.IDisposable):
         ...
 
 
-class CharSet(Enum):
+class ICustomFactory(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    NONE = 1
-
-    ANSI = 2
-
-    UNICODE = 3
-
-    AUTO = 4
-
-
-class ICustomAdapter(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_underlying_object(self) -> System.Object:
+    def create_instance(self, server_type: typing.Type) -> System.MarshalByRefObject:
         ...
 
 
@@ -1216,33 +915,620 @@ class Marshal(System.Object):
         ...
 
 
-class CULong(System.IEquatable[System_Runtime_InteropServices_CULong]):
+class InAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class NativeMemory(System.Object):
+    """This class contains methods that are mainly used to manage native memory."""
+
+    @staticmethod
+    def aligned_alloc(byte_count: System.UIntPtr, alignment: System.UIntPtr) -> typing.Any:
+        """
+        Allocates an aligned block of memory of the specified size and alignment, in bytes.
+        
+        :param byte_count: The size, in bytes, of the block to allocate.
+        :param alignment: The alignment, in bytes, of the block to allocate. This must be a power of 2.
+        :returns: A pointer to the allocated aligned block of memory.
+        """
+        ...
+
+    @staticmethod
+    def aligned_free(ptr: typing.Any) -> None:
+        """
+        Frees an aligned block of memory.
+        
+        :param ptr: A pointer to the aligned block of memory that should be freed.
+        """
+        ...
+
+    @staticmethod
+    def aligned_realloc(ptr: typing.Any, byte_count: System.UIntPtr, alignment: System.UIntPtr) -> typing.Any:
+        """
+        Reallocates an aligned block of memory of the specified size and alignment, in bytes.
+        
+        :param ptr: The previously allocated block of memory.
+        :param byte_count: The size, in bytes, of the block to allocate.
+        :param alignment: The alignment, in bytes, of the block to allocate. This must be a power of 2.
+        :returns: A pointer to the reallocated aligned block of memory.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def alloc(byte_count: System.UIntPtr) -> typing.Any:
+        """
+        Allocates a block of memory of the specified size, in bytes.
+        
+        :param byte_count: The size, in bytes, of the block to allocate.
+        :returns: A pointer to the allocated block of memory.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def alloc(element_count: System.UIntPtr, element_size: System.UIntPtr) -> typing.Any:
+        """
+        Allocates a block of memory of the specified size, in elements.
+        
+        :param element_count: The count, in elements, of the block to allocate.
+        :param element_size: The size, in bytes, of each element in the allocation.
+        :returns: A pointer to the allocated block of memory.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def alloc_zeroed(element_count: System.UIntPtr, element_size: System.UIntPtr) -> typing.Any:
+        """
+        Allocates and zeroes a block of memory of the specified size, in elements.
+        
+        :param element_count: The count, in elements, of the block to allocate.
+        :param element_size: The size, in bytes, of each element in the allocation.
+        :returns: A pointer to the allocated and zeroed block of memory.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def alloc_zeroed(byte_count: System.UIntPtr) -> typing.Any:
+        """
+        Allocates and zeroes a block of memory of the specified size, in bytes.
+        
+        :param byte_count: The size, in bytes, of the block to allocate.
+        :returns: A pointer to the allocated and zeroed block of memory.
+        """
+        ...
+
+    @staticmethod
+    def clear(ptr: typing.Any, byte_count: System.UIntPtr) -> None:
+        """
+        Clears a block of memory.
+        
+        :param ptr: A pointer to the block of memory that should be cleared.
+        :param byte_count: The size, in bytes, of the block to clear.
+        """
+        ...
+
+    @staticmethod
+    def copy(source: typing.Any, destination: typing.Any, byte_count: System.UIntPtr) -> None:
+        """
+        Copies a block of memory from memory location 
+        to memory location .
+        
+        :param source: A pointer to the source of data to be copied.
+        :param destination: A pointer to the destination memory block where the data is to be copied.
+        :param byte_count: The size, in bytes, to be copied from the source location to the destination.
+        """
+        ...
+
+    @staticmethod
+    def fill(ptr: typing.Any, byte_count: System.UIntPtr, value: int) -> None:
+        """
+        Copies the byte  to the first  bytes
+        of the memory located at .
+        
+        :param ptr: A pointer to the block of memory to fill.
+        :param byte_count: The number of bytes to be set to .
+        :param value: The value to be set.
+        """
+        ...
+
+    @staticmethod
+    def free(ptr: typing.Any) -> None:
+        """
+        Frees a block of memory.
+        
+        :param ptr: A pointer to the block of memory that should be freed.
+        """
+        ...
+
+    @staticmethod
+    def realloc(ptr: typing.Any, byte_count: System.UIntPtr) -> typing.Any:
+        """
+        Reallocates a block of memory to be the specified size, in bytes.
+        
+        :param ptr: The previously allocated block of memory.
+        :param byte_count: The size, in bytes, of the reallocated block.
+        :returns: A pointer to the reallocated block of memory.
+        """
+        ...
+
+
+class ComInterfaceType(Enum):
+    """This class has no documentation."""
+
+    INTERFACE_IS_DUAL = 0
+
+    INTERFACE_IS_I_UNKNOWN = 1
+
+    INTERFACE_IS_I_DISPATCH = 2
+
+    INTERFACE_IS_I_INSPECTABLE = 3
+
+
+class GCHandleType(Enum):
+    """This class has no documentation."""
+
+    WEAK = 0
+
+    WEAK_TRACK_RESURRECTION = 1
+
+    NORMAL = 2
+
+    PINNED = 3
+
+
+class GCHandle(typing.Generic[System_Runtime_InteropServices_GCHandle_T], System.IEquatable[System_Runtime_InteropServices_GCHandle], System.IDisposable):
     """
-    CULong is an immutable value type that represents the unsigned long type in C and C++.
+    Represents a strongly-typed GC handle to a managed object.
+    A GC handle is used to work with object references in unmanaged code.
+    """
+
+    @property
+    def is_allocated(self) -> bool:
+        """Determine whether this handle has been allocated or not."""
+        ...
+
+    @property
+    def target(self) -> System_Runtime_InteropServices_GCHandle_T:
+        """Gets or sets the object this handle represents."""
+        ...
+
+    @target.setter
+    def target(self, value: System_Runtime_InteropServices_GCHandle_T) -> None:
+        ...
+
+    def __init__(self, target: System_Runtime_InteropServices_GCHandle_T) -> None:
+        """
+        Allocates a handle for the specified object.
+        
+        :param target: The object that uses the GCHandle{T}.
+        """
+        ...
+
+    def addr_of_pinned_object(self) -> System.IntPtr:
+        """
+        Retrieve the address of an object in a Pinned handle.  This throws
+        an exception if the handle is any type other than Pinned.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def alloc(value: typing.Any) -> System.Runtime.InteropServices.GCHandle:
+        """
+        Creates a new GC handle for an object.
+        
+        :param value: The object that the GC handle is created for.
+        :returns: A new GC handle that protects the object.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def alloc(value: typing.Any, type: System.Runtime.InteropServices.GCHandleType) -> System.Runtime.InteropServices.GCHandle:
+        """
+        Creates a new GC handle for an object.
+        
+        :param value: The object that the GC handle is created for.
+        :param type: The type of GC handle to create.
+        :returns: A new GC handle that protects the object.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Releases this GCHandle{T}."""
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, o: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.GCHandle) -> bool:
+        """
+        Indicates whether the current instance is equal to another instance of the same type.
+        
+        :param other: An instance to compare with this instance.
+        :returns: true if the current instance is equal to the other instance; otherwise, false.
+        """
+        ...
+
+    def free(self) -> None:
+        """Frees a GC handle."""
+        ...
+
+    @staticmethod
+    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]:
+        """
+        Returns a new GCHandle{T} object created from a handle to a managed object.
+        
+        :param value: An IntPtr handle to a managed object to create a GCHandle{T} object from.
+        :returns: A new GCHandle{T} object that corresponds to the value parameter.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for the current instance.
+        
+        :returns: A hash code for the current instance.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_ptr(value: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> System.IntPtr:
+        """
+        Returns the internal integer representation of a GCHandle{T} object.
+        
+        :param value: A GCHandle{T} object to retrieve an internal integer representation from.
+        :returns: An IntPtr object that represents a GCHandle{T} object.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_ptr(value: System.Runtime.InteropServices.GCHandle) -> System.IntPtr:
+        ...
+
+
+class WasmImportLinkageAttribute(System.Attribute):
+    """Specifies that the P/Invoke marked with this attribute should be linked in as a WASM import."""
+
+    def __init__(self) -> None:
+        """Instance constructor."""
+        ...
+
+
+class ComMemberType(Enum):
+    """This class has no documentation."""
+
+    METHOD = 0
+
+    PROP_GET = 1
+
+    PROP_SET = 2
+
+
+class DefaultParameterValueAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.Object:
+        ...
+
+    def __init__(self, value: typing.Any) -> None:
+        ...
+
+
+class IDynamicInterfaceCastable(metaclass=abc.ABCMeta):
+    """Interface used to participate in a type cast failure."""
+
+    def get_interface_implementation(self, interface_type: System.RuntimeTypeHandle) -> System.RuntimeTypeHandle:
+        """
+        Called during interface dispatch when the given interface type cannot be found
+        in the class's metadata.
+        
+        :param interface_type: The interface type.
+        :returns: The type that should be used to dispatch for  on the current object.
+        """
+        ...
+
+    def is_interface_implemented(self, interface_type: System.RuntimeTypeHandle, throw_if_not_implemented: bool) -> bool:
+        """
+        Called when an implementing class instance is cast to an interface type that
+        is not contained in the class's metadata.
+        
+        :param interface_type: The interface type.
+        :param throw_if_not_implemented: Indicates if the function should throw an exception instead of returning false.
+        :returns: Whether or not this object can be cast to the given interface.
+        """
+        ...
+
+
+class DynamicInterfaceCastableImplementationAttribute(System.Attribute):
+    """Attribute required by any type that is returned by IDynamicInterfaceCastable.GetInterfaceImplementation(RuntimeTypeHandle)."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class Architecture(Enum):
+    """Indicates the processor architecture."""
+
+    X_86 = 0
+    """An Intel-based 32-bit processor architecture."""
+
+    X_64 = 1
+    """An Intel-based 64-bit processor architecture."""
+
+    ARM = 2
+    """A 32-bit ARM processor architecture."""
+
+    ARM_64 = 3
+    """A 64-bit ARM processor architecture."""
+
+    WASM = 4
+    """The WebAssembly platform."""
+
+    S_390X = 5
+    """A S390x platform architecture."""
+
+    LOONG_ARCH_64 = 6
+    """A LoongArch64 processor architecture."""
+
+    ARMV_6 = 7
+    """A 32-bit ARMv6 processor architecture."""
+
+    PPC_64_LE = 8
+    """A PowerPC 64-bit (little-endian) processor architecture."""
+
+    RISC_V_64 = 9
+    """A RiscV 64-bit processor architecture."""
+
+
+class OSPlatform(System.IEquatable[System_Runtime_InteropServices_OSPlatform]):
+    """This class has no documentation."""
+
+    FREE_BSD: System.Runtime.InteropServices.OSPlatform
+
+    LINUX: System.Runtime.InteropServices.OSPlatform
+
+    OSX: System.Runtime.InteropServices.OSPlatform
+
+    WINDOWS: System.Runtime.InteropServices.OSPlatform
+
+    @staticmethod
+    def create(os_platform: str) -> System.Runtime.InteropServices.OSPlatform:
+        """Creates a new OSPlatform instance."""
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.OSPlatform) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class RuntimeInformation(System.Object):
+    """This class has no documentation."""
+
+    OS_DESCRIPTION: str
+
+    OS_ARCHITECTURE: System.Runtime.InteropServices.Architecture
+
+    RUNTIME_IDENTIFIER: str
+    """Returns an opaque string that identifies the platform on which an app is running."""
+
+    process_architecture: System.Runtime.InteropServices.Architecture
+
+    @staticmethod
+    def is_os_platform(os_platform: System.Runtime.InteropServices.OSPlatform) -> bool:
+        """Indicates whether the current application is running on the specified platform."""
+        ...
+
+
+class InvalidOleVariantTypeException(System.SystemException):
+    """
+    Exception thrown when the type of an OLE variant that was passed into the
+    runtime is invalid.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class ICustomMarshaler(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def clean_up_managed_data(self, managed_obj: typing.Any) -> None:
+        ...
+
+    def clean_up_native_data(self, p_native_data: System.IntPtr) -> None:
+        ...
+
+    def get_native_data_size(self) -> int:
+        ...
+
+    def marshal_managed_to_native(self, managed_obj: typing.Any) -> System.IntPtr:
+        ...
+
+    def marshal_native_to_managed(self, p_native_data: System.IntPtr) -> System.Object:
+        ...
+
+
+class UnknownWrapper(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def wrapped_object(self) -> System.Object:
+        ...
+
+    def __init__(self, obj: typing.Any) -> None:
+        ...
+
+
+class CurrencyWrapper(System.Object):
+    """CurrencyWrapper and support for marshalling to the VARIANT type may be unavailable in future releases."""
+
+    @property
+    def wrapped_object(self) -> float:
+        ...
+
+    @overload
+    def __init__(self, obj: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, obj: float) -> None:
+        ...
+
+
+class CollectionsMarshal(System.Object):
+    """An unsafe class that provides a set of methods to access the underlying data representations of collections."""
+
+
+class ComSourceInterfacesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, source_interfaces: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, source_interface: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type, source_interface_3: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type, source_interface_3: typing.Type, source_interface_4: typing.Type) -> None:
+        ...
+
+
+class HandleRef:
+    """This class has no documentation."""
+
+    @property
+    def wrapper(self) -> System.Object:
+        ...
+
+    @property
+    def handle(self) -> System.IntPtr:
+        ...
+
+    def __init__(self, wrapper: typing.Any, handle: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    def to_int_ptr(value: System.Runtime.InteropServices.HandleRef) -> System.IntPtr:
+        ...
+
+
+class CustomQueryInterfaceResult(Enum):
+    """This class has no documentation."""
+
+    HANDLED = 0
+
+    NOT_HANDLED = 1
+
+    FAILED = 2
+
+
+class DllImportSearchPath(Enum):
+    """This class has no documentation."""
+
+    USE_DLL_DIRECTORY_FOR_DEPENDENCIES = ...
+
+    APPLICATION_DIRECTORY = ...
+
+    USER_DIRECTORIES = ...
+
+    SYSTEM_32 = ...
+
+    SAFE_DIRECTORIES = ...
+
+    ASSEMBLY_DIRECTORY = ...
+
+    LEGACY_BEHAVIOR = ...
+
+
+class CLong(System.IEquatable[System_Runtime_InteropServices_CLong]):
+    """
+    CLong is an immutable value type that represents the long type in C and C++.
     It is meant to be used as an exchange type at the managed/unmanaged boundary to accurately represent
-    in managed code unmanaged APIs that use the unsigned long type.
+    in managed code unmanaged APIs that use the long type.
     This type has 32-bits of storage on all Windows platforms and 32-bit Unix-based platforms.
     It has 64-bits of storage on 64-bit Unix platforms.
     """
 
     @property
-    def value(self) -> System.UIntPtr:
+    def value(self) -> System.IntPtr:
         """The underlying integer value of this instance."""
         ...
 
     @overload
     def __init__(self, value: int) -> None:
         """
-        Constructs an instance from a 32-bit unsigned integer.
+        Constructs an instance from a 32-bit integer.
         
         :param value: The integer value.
         """
         ...
 
     @overload
-    def __init__(self, value: System.UIntPtr) -> None:
+    def __init__(self, value: System.IntPtr) -> None:
         """
-        Constructs an instance from a native sized unsigned integer.
+        Constructs an instance from a native sized integer.
         
         :param value: The integer value.
         """
@@ -1254,16 +1540,16 @@ class CULong(System.IEquatable[System_Runtime_InteropServices_CULong]):
         Returns a value indicating whether this instance is equal to a specified object.
         
         :param o: An object to compare with this instance.
-        :returns: true if  is an instance of CULong and equals the value of this instance; otherwise, false.
+        :returns: true if  is an instance of CLong and equals the value of this instance; otherwise, false.
         """
         ...
 
     @overload
-    def equals(self, other: System.Runtime.InteropServices.CULong) -> bool:
+    def equals(self, other: System.Runtime.InteropServices.CLong) -> bool:
         """
         Returns a value indicating whether this instance is equal to a specified CLong value.
         
-        :param other: A CULong value to compare to this instance.
+        :param other: A CLong value to compare to this instance.
         :returns: true if  has the same value as this instance; otherwise, false.
         """
         ...
@@ -1280,20 +1566,121 @@ class CULong(System.IEquatable[System_Runtime_InteropServices_CULong]):
         """
         Converts the numeric value of this instance to its equivalent string representation.
         
-        :returns: The string representation of the value of this instance, consisting of a sequence of digits ranging from 0 to 9 with no leading zeroes.
+        :returns: The string representation of the value of this instance, consisting of a negative sign if the value is negative, and a sequence of digits ranging from 0 to 9 with no leading zeroes.
         """
         ...
 
 
-class ProgIdAttribute(System.Attribute):
+class DispatchWrapper(System.Object):
     """This class has no documentation."""
 
     @property
-    def value(self) -> str:
+    def wrapped_object(self) -> System.Object:
         ...
 
-    def __init__(self, prog_id: str) -> None:
+    def __init__(self, obj: typing.Any) -> None:
         ...
+
+
+class ComDefaultInterfaceAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> typing.Type:
+        ...
+
+    def __init__(self, default_interface: typing.Type) -> None:
+        ...
+
+
+class PinnedGCHandle(typing.Generic[System_Runtime_InteropServices_PinnedGCHandle_T], System.IEquatable[System_Runtime_InteropServices_PinnedGCHandle], System.IDisposable):
+    """
+    Represents a strongly-typed GC handle to a managed object.
+    The object is pinned at fixed location in GC heap and allows its
+    address to be taken.
+    """
+
+    @property
+    def is_allocated(self) -> bool:
+        """Determine whether this handle has been allocated or not."""
+        ...
+
+    @property
+    def target(self) -> System_Runtime_InteropServices_PinnedGCHandle_T:
+        """Gets or sets the object this handle represents."""
+        ...
+
+    @target.setter
+    def target(self, value: System_Runtime_InteropServices_PinnedGCHandle_T) -> None:
+        ...
+
+    def __init__(self, target: System_Runtime_InteropServices_PinnedGCHandle_T) -> None:
+        """
+        Allocates a handle for the specified object.
+        
+        :param target: The object that uses the PinnedGCHandle{T}.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Releases this PinnedGCHandle{T}."""
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]) -> bool:
+        ...
+
+    @staticmethod
+    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]:
+        """
+        Returns a new PinnedGCHandle{T} object created from a handle to a managed object.
+        
+        :param value: An IntPtr handle to a managed object to create a PinnedGCHandle{T} object from.
+        :returns: A new PinnedGCHandle{T} object that corresponds to the value parameter.
+        """
+        ...
+
+    def get_address_of_object_data(self) -> typing.Any:
+        """
+        Retrieves the address of object data in a PinnedGCHandle{T}.
+        
+        :returns: The address of first instance field of the pinned object, or null if the handle doesn't point to any object.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for the current instance.
+        
+        :returns: A hash code for the current instance.
+        """
+        ...
+
+    @staticmethod
+    def to_int_ptr(value: System.Runtime.InteropServices.PinnedGCHandle[System_Runtime_InteropServices_PinnedGCHandle_T]) -> System.IntPtr:
+        """
+        Returns the internal integer representation of a PinnedGCHandle{T} object.
+        
+        :param value: A PinnedGCHandle{T} object to retrieve an internal integer representation from.
+        :returns: An IntPtr object that represents a PinnedGCHandle{T} object.
+        """
+        ...
+
+
+class CharSet(Enum):
+    """This class has no documentation."""
+
+    NONE = 1
+
+    ANSI = 2
+
+    UNICODE = 3
+
+    AUTO = 4
 
 
 class CallingConvention(Enum):
@@ -1385,175 +1772,6 @@ class DllImportAttribute(System.Attribute):
         ...
 
 
-class ClassInterfaceType(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    AUTO_DISPATCH = 1
-
-    AUTO_DUAL = 2
-
-
-class ClassInterfaceAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System.Runtime.InteropServices.ClassInterfaceType:
-        ...
-
-    @overload
-    def __init__(self, class_interface_type: System.Runtime.InteropServices.ClassInterfaceType) -> None:
-        ...
-
-    @overload
-    def __init__(self, class_interface_type: int) -> None:
-        ...
-
-
-class MarshalDirectiveException(System.SystemException):
-    """The exception that is thrown by the marshaler when it encounters a MarshalAsAttribute it does not support."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class ComDefaultInterfaceAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> typing.Type:
-        ...
-
-    def __init__(self, default_interface: typing.Type) -> None:
-        ...
-
-
-class LayoutKind(Enum):
-    """This class has no documentation."""
-
-    SEQUENTIAL = 0
-
-    EXPLICIT = 2
-
-    AUTO = 3
-
-
-class StructLayoutAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System.Runtime.InteropServices.LayoutKind:
-        ...
-
-    @property
-    def pack(self) -> int:
-        ...
-
-    @pack.setter
-    def pack(self, value: int) -> None:
-        ...
-
-    @property
-    def size(self) -> int:
-        ...
-
-    @size.setter
-    def size(self, value: int) -> None:
-        ...
-
-    @property
-    def char_set(self) -> System.Runtime.InteropServices.CharSet:
-        ...
-
-    @char_set.setter
-    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
-        ...
-
-    @overload
-    def __init__(self, layout_kind: System.Runtime.InteropServices.LayoutKind) -> None:
-        ...
-
-    @overload
-    def __init__(self, layout_kind: int) -> None:
-        ...
-
-
-class SafeBuffer(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def byte_length(self) -> int:
-        """Returns the number of bytes in the memory region."""
-        ...
-
-    def __init__(self, owns_handle: bool) -> None:
-        """This method is protected."""
-        ...
-
-    def acquire_pointer(self, pointer: typing.Any) -> None:
-        ...
-
-    @overload
-    def initialize(self, num_bytes: int) -> None:
-        """
-        Specifies the size of the region of memory, in bytes.  Must be
-        called before using the SafeBuffer.
-        
-        :param num_bytes: Number of valid bytes in memory.
-        """
-        ...
-
-    @overload
-    def initialize(self, num_elements: int, size_of_each_element: int) -> None:
-        """
-        Specifies the size of the region in memory, as the number of
-        elements in an array.  Must be called before using the SafeBuffer.
-        """
-        ...
-
-    def release_pointer(self) -> None:
-        ...
-
-
-class GCHandleType(Enum):
-    """This class has no documentation."""
-
-    WEAK = 0
-
-    WEAK_TRACK_RESURRECTION = 1
-
-    NORMAL = 2
-
-    PINNED = 3
-
-
-class StandardOleMarshalObject(System.MarshalByRefObject, System.Runtime.InteropServices.IMarshal):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-
 class ExternalException(System.SystemException):
     """The base exception type for all COM interop exceptions and structured exception handling (SEH) exceptions."""
 
@@ -1590,31 +1808,79 @@ class ExternalException(System.SystemException):
         ...
 
 
-class ComEventsHelper(System.Object):
+class SEHException(System.Runtime.InteropServices.ExternalException):
+    """Exception for Structured Exception Handler exceptions."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def can_resume(self) -> bool:
+        ...
+
+
+class StandardOleMarshalObject(System.MarshalByRefObject, System.Runtime.InteropServices.IMarshal):
     """This class has no documentation."""
 
-    @staticmethod
-    def combine(rcw: typing.Any, iid: System.Guid, dispid: int, d: System.Delegate) -> None:
-        ...
-
-    @staticmethod
-    def remove(rcw: typing.Any, iid: System.Guid, dispid: int, d: System.Delegate) -> System.Delegate:
+    def __init__(self) -> None:
+        """This method is protected."""
         ...
 
 
-class CoClassAttribute(System.Attribute):
+class ICustomQueryInterface(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    def co_class(self) -> typing.Type:
-        ...
-
-    def __init__(self, co_class: typing.Type) -> None:
+    def get_interface(self, iid: System.Guid, ppv: typing.Optional[System.IntPtr]) -> typing.Tuple[System.Runtime.InteropServices.CustomQueryInterfaceResult, System.IntPtr]:
         ...
 
 
-class TypeMapping(System.Object):
-    """Entry type for interop type mapping logic."""
+class COMException(System.Runtime.InteropServices.ExternalException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, error_code: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def to_string(self) -> str:
+        ...
 
 
 class CreateComInterfaceFlags(Enum):
@@ -1759,233 +2025,162 @@ class ComWrappers(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class CustomQueryInterfaceResult(Enum):
-    """This class has no documentation."""
-
-    HANDLED = 0
-
-    NOT_HANDLED = 1
-
-    FAILED = 2
-
-
-class LCIDConversionAttribute(System.Attribute):
+class ErrorWrapper(System.Object):
     """This class has no documentation."""
 
     @property
-    def value(self) -> int:
+    def error_code(self) -> int:
         ...
 
-    def __init__(self, lcid: int) -> None:
+    @overload
+    def __init__(self, error_code: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, error_code: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, e: System.Exception) -> None:
         ...
 
 
-class ComInterfaceType(Enum):
+class ArrayWithOffset(System.IEquatable[System_Runtime_InteropServices_ArrayWithOffset]):
     """This class has no documentation."""
 
-    INTERFACE_IS_DUAL = 0
+    def __init__(self, array: typing.Any, offset: int) -> None:
+        ...
 
-    INTERFACE_IS_I_UNKNOWN = 1
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
 
-    INTERFACE_IS_I_DISPATCH = 2
+    @overload
+    def equals(self, obj: System.Runtime.InteropServices.ArrayWithOffset) -> bool:
+        ...
 
-    INTERFACE_IS_I_INSPECTABLE = 3
+    def get_array(self) -> System.Object:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_offset(self) -> int:
+        ...
 
 
-class InterfaceTypeAttribute(System.Attribute):
+class DefaultCharSetAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def value(self) -> System.Runtime.InteropServices.ComInterfaceType:
+    def char_set(self) -> System.Runtime.InteropServices.CharSet:
         ...
 
-    @overload
-    def __init__(self, interface_type: System.Runtime.InteropServices.ComInterfaceType) -> None:
-        ...
-
-    @overload
-    def __init__(self, interface_type: int) -> None:
+    def __init__(self, char_set: System.Runtime.InteropServices.CharSet) -> None:
         ...
 
 
-class ICustomQueryInterface(metaclass=abc.ABCMeta):
+class OutAttribute(System.Attribute):
     """This class has no documentation."""
-
-    def get_interface(self, iid: System.Guid, ppv: typing.Optional[System.IntPtr]) -> typing.Tuple[System.Runtime.InteropServices.CustomQueryInterfaceResult, System.IntPtr]:
-        ...
-
-
-class ComImportAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class IDynamicInterfaceCastable(metaclass=abc.ABCMeta):
-    """Interface used to participate in a type cast failure."""
-
-    def get_interface_implementation(self, interface_type: System.RuntimeTypeHandle) -> System.RuntimeTypeHandle:
-        """
-        Called during interface dispatch when the given interface type cannot be found
-        in the class's metadata.
-        
-        :param interface_type: The interface type.
-        :returns: The type that should be used to dispatch for  on the current object.
-        """
-        ...
-
-    def is_interface_implemented(self, interface_type: System.RuntimeTypeHandle, throw_if_not_implemented: bool) -> bool:
-        """
-        Called when an implementing class instance is cast to an interface type that
-        is not contained in the class's metadata.
-        
-        :param interface_type: The interface type.
-        :param throw_if_not_implemented: Indicates if the function should throw an exception instead of returning false.
-        :returns: Whether or not this object can be cast to the given interface.
-        """
-        ...
-
-
-class DynamicInterfaceCastableImplementationAttribute(System.Attribute):
-    """Attribute required by any type that is returned by IDynamicInterfaceCastable.GetInterfaceImplementation(RuntimeTypeHandle)."""
 
     def __init__(self) -> None:
         ...
 
 
-class MarshalAsAttribute(System.Attribute):
+class TypeMapAssociationAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup], System.Attribute):
+    """Create a type association between a type and its proxy."""
+
+    def __init__(self, source: typing.Type, proxy: typing.Type) -> None:
+        """
+        Create an association between two types in the type map.
+        
+        :param source: Target type.
+        :param proxy: Type to associated with .
+        """
+        ...
+
+
+class UnmanagedFunctionPointerAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def value(self) -> System.Runtime.InteropServices.UnmanagedType:
+    def calling_convention(self) -> System.Runtime.InteropServices.CallingConvention:
         ...
 
     @property
-    def safe_array_sub_type(self) -> System.Runtime.InteropServices.VarEnum:
+    def best_fit_mapping(self) -> bool:
         ...
 
-    @safe_array_sub_type.setter
-    def safe_array_sub_type(self, value: System.Runtime.InteropServices.VarEnum) -> None:
-        ...
-
-    @property
-    def safe_array_user_defined_sub_type(self) -> typing.Type:
-        ...
-
-    @safe_array_user_defined_sub_type.setter
-    def safe_array_user_defined_sub_type(self, value: typing.Type) -> None:
+    @best_fit_mapping.setter
+    def best_fit_mapping(self, value: bool) -> None:
         ...
 
     @property
-    def iid_parameter_index(self) -> int:
+    def set_last_error(self) -> bool:
         ...
 
-    @iid_parameter_index.setter
-    def iid_parameter_index(self, value: int) -> None:
-        ...
-
-    @property
-    def array_sub_type(self) -> System.Runtime.InteropServices.UnmanagedType:
-        ...
-
-    @array_sub_type.setter
-    def array_sub_type(self, value: System.Runtime.InteropServices.UnmanagedType) -> None:
+    @set_last_error.setter
+    def set_last_error(self, value: bool) -> None:
         ...
 
     @property
-    def size_param_index(self) -> int:
+    def throw_on_unmappable_char(self) -> bool:
         ...
 
-    @size_param_index.setter
-    def size_param_index(self, value: int) -> None:
-        ...
-
-    @property
-    def size_const(self) -> int:
-        ...
-
-    @size_const.setter
-    def size_const(self, value: int) -> None:
+    @throw_on_unmappable_char.setter
+    def throw_on_unmappable_char(self, value: bool) -> None:
         ...
 
     @property
-    def marshal_type(self) -> str:
+    def char_set(self) -> System.Runtime.InteropServices.CharSet:
         ...
 
-    @marshal_type.setter
-    def marshal_type(self, value: str) -> None:
+    @char_set.setter
+    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
         ...
 
-    @property
-    def marshal_type_ref(self) -> typing.Type:
-        ...
-
-    @marshal_type_ref.setter
-    def marshal_type_ref(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def marshal_cookie(self) -> str:
-        ...
-
-    @marshal_cookie.setter
-    def marshal_cookie(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, unmanaged_type: System.Runtime.InteropServices.UnmanagedType) -> None:
-        ...
-
-    @overload
-    def __init__(self, unmanaged_type: int) -> None:
+    def __init__(self, calling_convention: System.Runtime.InteropServices.CallingConvention) -> None:
         ...
 
 
-class BStrWrapper(System.Object):
+class DefaultDllImportSearchPathsAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def wrapped_object(self) -> str:
+    def paths(self) -> System.Runtime.InteropServices.DllImportSearchPath:
         ...
 
-    @overload
-    def __init__(self, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: str) -> None:
+    def __init__(self, paths: System.Runtime.InteropServices.DllImportSearchPath) -> None:
         ...
 
 
-class DispatchWrapper(System.Object):
+class GCHandleExtensions(System.Object):
+    """Provides extension methods to operate with GC handles."""
+
+    @staticmethod
+    def get_address_of_string_data(handle: System.Runtime.InteropServices.PinnedGCHandle[str]) -> typing.Any:
+        """
+        Retrieves the address string data in .
+        
+        :param handle: The handle to retrieve pointer from.
+        :returns: The address of 0th character of the pinned string, or null if the handle doesn't point to any object.
+        """
+        ...
+
+
+class ComEventInterfaceAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def wrapped_object(self) -> System.Object:
+    def source_interface(self) -> typing.Type:
         ...
 
-    def __init__(self, obj: typing.Any) -> None:
+    @property
+    def event_provider(self) -> typing.Type:
         ...
 
-
-class CollectionsMarshal(System.Object):
-    """An unsafe class that provides a set of methods to access the underlying data representations of collections."""
-
-
-class DllImportSearchPath(Enum):
-    """This class has no documentation."""
-
-    USE_DLL_DIRECTORY_FOR_DEPENDENCIES = ...
-
-    APPLICATION_DIRECTORY = ...
-
-    USER_DIRECTORIES = ...
-
-    SYSTEM_32 = ...
-
-    SAFE_DIRECTORIES = ...
-
-    ASSEMBLY_DIRECTORY = ...
-
-    LEGACY_BEHAVIOR = ...
+    def __init__(self, source_interface: typing.Type, event_provider: typing.Type) -> None:
+        ...
 
 
 class NativeLibrary(System.Object):
@@ -2124,831 +2319,268 @@ class NativeLibrary(System.Object):
         ...
 
 
-class TypeMapAssociationAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAssociationAttribute_TTypeMapGroup], System.Attribute):
-    """Create a type association between a type and its proxy."""
-
-    def __init__(self, source: typing.Type, proxy: typing.Type) -> None:
-        """
-        Create an association between two types in the type map.
-        
-        :param source: Target type.
-        :param proxy: Type to associated with .
-        """
-        ...
-
-
-class CLong(System.IEquatable[System_Runtime_InteropServices_CLong]):
-    """
-    CLong is an immutable value type that represents the long type in C and C++.
-    It is meant to be used as an exchange type at the managed/unmanaged boundary to accurately represent
-    in managed code unmanaged APIs that use the long type.
-    This type has 32-bits of storage on all Windows platforms and 32-bit Unix-based platforms.
-    It has 64-bits of storage on 64-bit Unix platforms.
-    """
-
-    @property
-    def value(self) -> System.IntPtr:
-        """The underlying integer value of this instance."""
-        ...
-
-    @overload
-    def __init__(self, value: int) -> None:
-        """
-        Constructs an instance from a 32-bit integer.
-        
-        :param value: The integer value.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: System.IntPtr) -> None:
-        """
-        Constructs an instance from a native sized integer.
-        
-        :param value: The integer value.
-        """
-        ...
-
-    @overload
-    def equals(self, o: typing.Any) -> bool:
-        """
-        Returns a value indicating whether this instance is equal to a specified object.
-        
-        :param o: An object to compare with this instance.
-        :returns: true if  is an instance of CLong and equals the value of this instance; otherwise, false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.CLong) -> bool:
-        """
-        Returns a value indicating whether this instance is equal to a specified CLong value.
-        
-        :param other: A CLong value to compare to this instance.
-        :returns: true if  has the same value as this instance; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for this instance.
-        
-        :returns: A 32-bit signed integer hash code.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Converts the numeric value of this instance to its equivalent string representation.
-        
-        :returns: The string representation of the value of this instance, consisting of a negative sign if the value is negative, and a sequence of digits ranging from 0 to 9 with no leading zeroes.
-        """
-        ...
-
-
-class Architecture(Enum):
-    """Indicates the processor architecture."""
-
-    X_86 = 0
-    """An Intel-based 32-bit processor architecture."""
-
-    X_64 = 1
-    """An Intel-based 64-bit processor architecture."""
-
-    ARM = 2
-    """A 32-bit ARM processor architecture."""
-
-    ARM_64 = 3
-    """A 64-bit ARM processor architecture."""
-
-    WASM = 4
-    """The WebAssembly platform."""
-
-    S_390X = 5
-    """A S390x platform architecture."""
-
-    LOONG_ARCH_64 = 6
-    """A LoongArch64 processor architecture."""
-
-    ARMV_6 = 7
-    """A 32-bit ARMv6 processor architecture."""
-
-    PPC_64_LE = 8
-    """A PowerPC 64-bit (little-endian) processor architecture."""
-
-    RISC_V_64 = 9
-    """A RiscV 64-bit processor architecture."""
-
-
-class OSPlatform(System.IEquatable[System_Runtime_InteropServices_OSPlatform]):
+class UnmanagedType(Enum):
     """This class has no documentation."""
 
-    FREE_BSD: System.Runtime.InteropServices.OSPlatform
+    BOOL = ...
 
-    LINUX: System.Runtime.InteropServices.OSPlatform
+    I_1 = ...
 
-    OSX: System.Runtime.InteropServices.OSPlatform
+    U_1 = ...
 
-    WINDOWS: System.Runtime.InteropServices.OSPlatform
+    I_2 = ...
 
-    @staticmethod
-    def create(os_platform: str) -> System.Runtime.InteropServices.OSPlatform:
-        """Creates a new OSPlatform instance."""
-        ...
+    U_2 = ...
 
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
+    I_4 = ...
 
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.OSPlatform) -> bool:
-        ...
+    U_4 = ...
 
-    def get_hash_code(self) -> int:
-        ...
+    I_8 = ...
 
-    def to_string(self) -> str:
-        ...
+    U_8 = ...
+
+    R_4 = ...
+
+    R_8 = ...
+
+    CURRENCY = ...
+    """Marshalling as Currency may be unavailable in future releases."""
+
+    B_STR = ...
+
+    LP_STR = ...
+
+    LPW_STR = ...
+
+    LPT_STR = ...
+
+    BY_VAL_T_STR = ...
+
+    I_UNKNOWN = ...
+
+    I_DISPATCH = ...
+
+    STRUCT = ...
+
+    INTERFACE = ...
+
+    SAFE_ARRAY = ...
+
+    BY_VAL_ARRAY = ...
+
+    SYS_INT = ...
+
+    SYS_U_INT = ...
+
+    VB_BY_REF_STR = ...
+    """Marshalling as VBByRefString may be unavailable in future releases."""
+
+    ANSI_B_STR = ...
+    """Marshalling as AnsiBStr may be unavailable in future releases."""
+
+    TB_STR = ...
+    """Marshalling as TBstr may be unavailable in future releases."""
+
+    VARIANT_BOOL = ...
+
+    FUNCTION_PTR = ...
+
+    AS_ANY = ...
+    """Marshalling arbitrary types may be unavailable in future releases. Specify the type you wish to marshal as."""
+
+    LP_ARRAY = ...
+
+    LP_STRUCT = ...
+
+    CUSTOM_MARSHALER = ...
+
+    ERROR = ...
+
+    I_INSPECTABLE = ...
+
+    H_STRING = ...
+
+    LPUTF_8_STR = ...
 
 
-class RuntimeInformation(System.Object):
+class VarEnum(Enum):
     """This class has no documentation."""
 
-    OS_ARCHITECTURE: System.Runtime.InteropServices.Architecture
+    VT_EMPTY = 0
 
-    OS_DESCRIPTION: str
+    VT_NULL = 1
 
-    RUNTIME_IDENTIFIER: str
-    """Returns an opaque string that identifies the platform on which an app is running."""
+    VT_I_2 = 2
 
-    process_architecture: System.Runtime.InteropServices.Architecture
+    VT_I_4 = 3
 
-    @staticmethod
-    def is_os_platform(os_platform: System.Runtime.InteropServices.OSPlatform) -> bool:
-        """Indicates whether the current application is running on the specified platform."""
-        ...
+    VT_R_4 = 4
+
+    VT_R_8 = 5
+
+    VT_CY = 6
+
+    VT_DATE = 7
+
+    VT_BSTR = 8
+
+    VT_DISPATCH = 9
+
+    VT_ERROR = 10
+
+    VT_BOOL = 11
+
+    VT_VARIANT = 12
+
+    VT_UNKNOWN = 13
+
+    VT_DECIMAL = 14
+
+    VT_I_1 = 16
+
+    VT_UI_1 = 17
+
+    VT_UI_2 = 18
+
+    VT_UI_4 = 19
+
+    VT_I_8 = 20
+
+    VT_UI_8 = 21
+
+    VT_INT = 22
+
+    VT_UINT = 23
+
+    VT_VOID = 24
+
+    VT_HRESULT = 25
+
+    VT_PTR = 26
+
+    VT_SAFEARRAY = 27
+
+    VT_CARRAY = 28
+
+    VT_USERDEFINED = 29
+
+    VT_LPSTR = 30
+
+    VT_LPWSTR = 31
+
+    VT_RECORD = 36
+
+    VT_FILETIME = 64
+
+    VT_BLOB = 65
+
+    VT_STREAM = 66
+
+    VT_STORAGE = 67
+
+    VT_STREAMED_OBJECT = 68
+
+    VT_STORED_OBJECT = 69
+
+    VT_BLOB_OBJECT = 70
+
+    VT_CF = 71
+
+    VT_CLSID = 72
+
+    VT_VECTOR = ...
+
+    VT_ARRAY = ...
+
+    VT_BYREF = ...
 
 
-class UnmanagedCallersOnlyAttribute(System.Attribute):
-    """
-    Any method marked with UnmanagedCallersOnlyAttribute can be directly called from
-    native code. The function token can be loaded to a local variable using the https://learn.microsoft.com/dotnet/csharp/language-reference/operators/pointer-related-operators#address-of-operator- operator
-    in C# and passed as a callback to a native method.
-    """
-
-    @property
-    def call_convs(self) -> typing.List[typing.Type]:
-        """Optional. If omitted, the runtime will use the default platform calling convention."""
-        ...
-
-    @call_convs.setter
-    def call_convs(self, value: typing.List[typing.Type]) -> None:
-        ...
-
-    @property
-    def entry_point(self) -> str:
-        """Optional. If omitted, no named export is emitted during compilation."""
-        ...
-
-    @entry_point.setter
-    def entry_point(self, value: str) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-
-class ComMemberType(Enum):
-    """This class has no documentation."""
-
-    METHOD = 0
-
-    PROP_GET = 1
-
-    PROP_SET = 2
-
-
-class ComVisibleAttribute(System.Attribute):
+class MarshalAsAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def value(self) -> bool:
-        ...
-
-    def __init__(self, visibility: bool) -> None:
-        ...
-
-
-class ICustomFactory(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def create_instance(self, server_type: typing.Type) -> System.MarshalByRefObject:
-        ...
-
-
-class ArrayWithOffset(System.IEquatable[System_Runtime_InteropServices_ArrayWithOffset]):
-    """This class has no documentation."""
-
-    def __init__(self, array: typing.Any, offset: int) -> None:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: System.Runtime.InteropServices.ArrayWithOffset) -> bool:
-        ...
-
-    def get_array(self) -> System.Object:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_offset(self) -> int:
-        ...
-
-
-class WeakGCHandle(typing.Generic[System_Runtime_InteropServices_WeakGCHandle_T], System.IEquatable[System_Runtime_InteropServices_WeakGCHandle], System.IDisposable):
-    """
-    Represents a strongly-typed GC handle to a managed object.
-    The object is allowed to be collected. When the object is collected, handle target is set to null.
-    """
-
-    @property
-    def is_allocated(self) -> bool:
-        """Determine whether this handle has been allocated or not."""
-        ...
-
-    def __init__(self, target: System_Runtime_InteropServices_WeakGCHandle_T, track_resurrection: bool = False) -> None:
-        """
-        Allocates a handle for the specified object.
-        
-        :param target: The object that uses the WeakGCHandle{T}.
-        :param track_resurrection: Whether to track the object when it's resurrected in the finalizer.
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Releases this WeakGCHandle{T}."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]) -> bool:
-        ...
-
-    @staticmethod
-    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]:
-        """
-        Returns a new WeakGCHandle{T} object created from a handle to a managed object.
-        
-        :param value: An IntPtr handle to a managed object to create a WeakGCHandle{T} object from.
-        :returns: A new WeakGCHandle{T} object that corresponds to the value parameter.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for the current instance.
-        
-        :returns: A hash code for the current instance.
-        """
-        ...
-
-    def set_target(self, target: System_Runtime_InteropServices_WeakGCHandle_T) -> None:
-        """Sets the object this handle represents."""
-        ...
-
-    @staticmethod
-    def to_int_ptr(value: System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]) -> System.IntPtr:
-        """
-        Returns the internal integer representation of a WeakGCHandle{T} object.
-        
-        :param value: A WeakGCHandle{T} object to retrieve an internal integer representation from.
-        :returns: An IntPtr object that represents a WeakGCHandle{T} object.
-        """
-        ...
-
-    def try_get_target(self, target: typing.Optional[System_Runtime_InteropServices_WeakGCHandle_T]) -> typing.Tuple[bool, System_Runtime_InteropServices_WeakGCHandle_T]:
-        """
-        Tries to retrieve the target object that is referenced by the current WeakGCHandle{T} object.
-        
-        :param target: When this method returns, contains the target object, if it is available.
-        :returns: true if the target was retrieved; otherwise, false.
-        """
-        ...
-
-
-class DefaultCharSetAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def char_set(self) -> System.Runtime.InteropServices.CharSet:
-        ...
-
-    def __init__(self, char_set: System.Runtime.InteropServices.CharSet) -> None:
-        ...
-
-
-class TypeMapAssemblyTargetAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup], System.Attribute):
-    """Declare an assembly that should be inspected during type map building."""
-
-    def __init__(self, assembly_name: str) -> None:
-        """
-        Provide the assembly to look for type mapping attributes.
-        
-        :param assembly_name: Assembly to reference
-        """
-        ...
-
-
-class TypeMapAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup], System.Attribute):
-    """Type mapping between a string and a type."""
-
-    @overload
-    def __init__(self, value: str, target: typing.Type) -> None:
-        """
-        Create a mapping between a value and a System.Type.
-        
-        :param value: String representation of key
-        :param target: Type value
-        """
-        ...
-
-    @overload
-    def __init__(self, value: str, target: typing.Type, trim_target: typing.Type) -> None:
-        """
-        Create a mapping between a value and a System.Type.
-        
-        :param value: String representation of key
-        :param target: Type value
-        :param trim_target: Type used by Trimmer to determine type map inclusion.
-        """
-        ...
-
-
-class DefaultParameterValueAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System.Object:
-        ...
-
-    def __init__(self, value: typing.Any) -> None:
-        ...
-
-
-class InvalidComObjectException(System.SystemException):
-    """
-    The exception thrown when an invalid COM object is used. This happens
-    when a the __ComObject type is used directly without having a backing
-    class factory.
-    """
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class DefaultDllImportSearchPathsAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def paths(self) -> System.Runtime.InteropServices.DllImportSearchPath:
-        ...
-
-    def __init__(self, paths: System.Runtime.InteropServices.DllImportSearchPath) -> None:
-        ...
-
-
-class VariantWrapper(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def wrapped_object(self) -> System.Object:
-        ...
-
-    def __init__(self, obj: typing.Any) -> None:
-        ...
-
-
-class UnmanagedFunctionPointerAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def calling_convention(self) -> System.Runtime.InteropServices.CallingConvention:
+    def value(self) -> System.Runtime.InteropServices.UnmanagedType:
         ...
 
     @property
-    def best_fit_mapping(self) -> bool:
+    def safe_array_sub_type(self) -> System.Runtime.InteropServices.VarEnum:
         ...
 
-    @best_fit_mapping.setter
-    def best_fit_mapping(self, value: bool) -> None:
-        ...
-
-    @property
-    def set_last_error(self) -> bool:
-        ...
-
-    @set_last_error.setter
-    def set_last_error(self, value: bool) -> None:
+    @safe_array_sub_type.setter
+    def safe_array_sub_type(self, value: System.Runtime.InteropServices.VarEnum) -> None:
         ...
 
     @property
-    def throw_on_unmappable_char(self) -> bool:
+    def safe_array_user_defined_sub_type(self) -> typing.Type:
         ...
 
-    @throw_on_unmappable_char.setter
-    def throw_on_unmappable_char(self, value: bool) -> None:
-        ...
-
-    @property
-    def char_set(self) -> System.Runtime.InteropServices.CharSet:
-        ...
-
-    @char_set.setter
-    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
-        ...
-
-    def __init__(self, calling_convention: System.Runtime.InteropServices.CallingConvention) -> None:
-        ...
-
-
-class OutAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class NativeMemory(System.Object):
-    """This class contains methods that are mainly used to manage native memory."""
-
-    @staticmethod
-    def aligned_alloc(byte_count: System.UIntPtr, alignment: System.UIntPtr) -> typing.Any:
-        """
-        Allocates an aligned block of memory of the specified size and alignment, in bytes.
-        
-        :param byte_count: The size, in bytes, of the block to allocate.
-        :param alignment: The alignment, in bytes, of the block to allocate. This must be a power of 2.
-        :returns: A pointer to the allocated aligned block of memory.
-        """
-        ...
-
-    @staticmethod
-    def aligned_free(ptr: typing.Any) -> None:
-        """
-        Frees an aligned block of memory.
-        
-        :param ptr: A pointer to the aligned block of memory that should be freed.
-        """
-        ...
-
-    @staticmethod
-    def aligned_realloc(ptr: typing.Any, byte_count: System.UIntPtr, alignment: System.UIntPtr) -> typing.Any:
-        """
-        Reallocates an aligned block of memory of the specified size and alignment, in bytes.
-        
-        :param ptr: The previously allocated block of memory.
-        :param byte_count: The size, in bytes, of the block to allocate.
-        :param alignment: The alignment, in bytes, of the block to allocate. This must be a power of 2.
-        :returns: A pointer to the reallocated aligned block of memory.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def alloc(byte_count: System.UIntPtr) -> typing.Any:
-        """
-        Allocates a block of memory of the specified size, in bytes.
-        
-        :param byte_count: The size, in bytes, of the block to allocate.
-        :returns: A pointer to the allocated block of memory.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def alloc(element_count: System.UIntPtr, element_size: System.UIntPtr) -> typing.Any:
-        """
-        Allocates a block of memory of the specified size, in elements.
-        
-        :param element_count: The count, in elements, of the block to allocate.
-        :param element_size: The size, in bytes, of each element in the allocation.
-        :returns: A pointer to the allocated block of memory.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def alloc_zeroed(element_count: System.UIntPtr, element_size: System.UIntPtr) -> typing.Any:
-        """
-        Allocates and zeroes a block of memory of the specified size, in elements.
-        
-        :param element_count: The count, in elements, of the block to allocate.
-        :param element_size: The size, in bytes, of each element in the allocation.
-        :returns: A pointer to the allocated and zeroed block of memory.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def alloc_zeroed(byte_count: System.UIntPtr) -> typing.Any:
-        """
-        Allocates and zeroes a block of memory of the specified size, in bytes.
-        
-        :param byte_count: The size, in bytes, of the block to allocate.
-        :returns: A pointer to the allocated and zeroed block of memory.
-        """
-        ...
-
-    @staticmethod
-    def clear(ptr: typing.Any, byte_count: System.UIntPtr) -> None:
-        """
-        Clears a block of memory.
-        
-        :param ptr: A pointer to the block of memory that should be cleared.
-        :param byte_count: The size, in bytes, of the block to clear.
-        """
-        ...
-
-    @staticmethod
-    def copy(source: typing.Any, destination: typing.Any, byte_count: System.UIntPtr) -> None:
-        """
-        Copies a block of memory from memory location 
-        to memory location .
-        
-        :param source: A pointer to the source of data to be copied.
-        :param destination: A pointer to the destination memory block where the data is to be copied.
-        :param byte_count: The size, in bytes, to be copied from the source location to the destination.
-        """
-        ...
-
-    @staticmethod
-    def fill(ptr: typing.Any, byte_count: System.UIntPtr, value: int) -> None:
-        """
-        Copies the byte  to the first  bytes
-        of the memory located at .
-        
-        :param ptr: A pointer to the block of memory to fill.
-        :param byte_count: The number of bytes to be set to .
-        :param value: The value to be set.
-        """
-        ...
-
-    @staticmethod
-    def free(ptr: typing.Any) -> None:
-        """
-        Frees a block of memory.
-        
-        :param ptr: A pointer to the block of memory that should be freed.
-        """
-        ...
-
-    @staticmethod
-    def realloc(ptr: typing.Any, byte_count: System.UIntPtr) -> typing.Any:
-        """
-        Reallocates a block of memory to be the specified size, in bytes.
-        
-        :param ptr: The previously allocated block of memory.
-        :param byte_count: The size, in bytes, of the reallocated block.
-        :returns: A pointer to the reallocated block of memory.
-        """
-        ...
-
-
-class GCHandle(typing.Generic[System_Runtime_InteropServices_GCHandle_T], System.IEquatable[System_Runtime_InteropServices_GCHandle], System.IDisposable):
-    """
-    Represents a strongly-typed GC handle to a managed object.
-    A GC handle is used to work with object references in unmanaged code.
-    """
-
-    @property
-    def is_allocated(self) -> bool:
-        """Determine whether this handle has been allocated or not."""
+    @safe_array_user_defined_sub_type.setter
+    def safe_array_user_defined_sub_type(self, value: typing.Type) -> None:
         ...
 
     @property
-    def target(self) -> System_Runtime_InteropServices_GCHandle_T:
-        """Gets or sets the object this handle represents."""
+    def iid_parameter_index(self) -> int:
         ...
 
-    @target.setter
-    def target(self, value: System_Runtime_InteropServices_GCHandle_T) -> None:
-        ...
-
-    def __init__(self, target: System_Runtime_InteropServices_GCHandle_T) -> None:
-        """
-        Allocates a handle for the specified object.
-        
-        :param target: The object that uses the GCHandle{T}.
-        """
-        ...
-
-    def addr_of_pinned_object(self) -> System.IntPtr:
-        """
-        Retrieve the address of an object in a Pinned handle.  This throws
-        an exception if the handle is any type other than Pinned.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def alloc(value: typing.Any) -> System.Runtime.InteropServices.GCHandle:
-        """
-        Creates a new GC handle for an object.
-        
-        :param value: The object that the GC handle is created for.
-        :returns: A new GC handle that protects the object.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def alloc(value: typing.Any, type: System.Runtime.InteropServices.GCHandleType) -> System.Runtime.InteropServices.GCHandle:
-        """
-        Creates a new GC handle for an object.
-        
-        :param value: The object that the GC handle is created for.
-        :param type: The type of GC handle to create.
-        :returns: A new GC handle that protects the object.
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Releases this GCHandle{T}."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, o: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Runtime.InteropServices.GCHandle) -> bool:
-        """
-        Indicates whether the current instance is equal to another instance of the same type.
-        
-        :param other: An instance to compare with this instance.
-        :returns: true if the current instance is equal to the other instance; otherwise, false.
-        """
-        ...
-
-    def free(self) -> None:
-        """Frees a GC handle."""
-        ...
-
-    @staticmethod
-    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]:
-        """
-        Returns a new GCHandle{T} object created from a handle to a managed object.
-        
-        :param value: An IntPtr handle to a managed object to create a GCHandle{T} object from.
-        :returns: A new GCHandle{T} object that corresponds to the value parameter.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Returns the hash code for the current instance.
-        
-        :returns: A hash code for the current instance.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_ptr(value: System.Runtime.InteropServices.GCHandle[System_Runtime_InteropServices_GCHandle_T]) -> System.IntPtr:
-        """
-        Returns the internal integer representation of a GCHandle{T} object.
-        
-        :param value: A GCHandle{T} object to retrieve an internal integer representation from.
-        :returns: An IntPtr object that represents a GCHandle{T} object.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_ptr(value: System.Runtime.InteropServices.GCHandle) -> System.IntPtr:
-        ...
-
-
-class TypeIdentifierAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def scope(self) -> str:
+    @iid_parameter_index.setter
+    def iid_parameter_index(self, value: int) -> None:
         ...
 
     @property
-    def identifier(self) -> str:
+    def array_sub_type(self) -> System.Runtime.InteropServices.UnmanagedType:
+        ...
+
+    @array_sub_type.setter
+    def array_sub_type(self, value: System.Runtime.InteropServices.UnmanagedType) -> None:
+        ...
+
+    @property
+    def size_param_index(self) -> int:
+        ...
+
+    @size_param_index.setter
+    def size_param_index(self, value: int) -> None:
+        ...
+
+    @property
+    def size_const(self) -> int:
+        ...
+
+    @size_const.setter
+    def size_const(self, value: int) -> None:
+        ...
+
+    @property
+    def marshal_type(self) -> str:
+        ...
+
+    @marshal_type.setter
+    def marshal_type(self, value: str) -> None:
+        ...
+
+    @property
+    def marshal_type_ref(self) -> typing.Type:
+        ...
+
+    @marshal_type_ref.setter
+    def marshal_type_ref(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def marshal_cookie(self) -> str:
+        ...
+
+    @marshal_cookie.setter
+    def marshal_cookie(self, value: str) -> None:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def __init__(self, unmanaged_type: System.Runtime.InteropServices.UnmanagedType) -> None:
         ...
 
     @overload
-    def __init__(self, scope: str, identifier: str) -> None:
-        ...
-
-
-class MemoryMarshal(System.Object):
-    """
-    Provides a collection of methods for interoperating with Memory{T}, ReadOnlyMemory{T},
-    Span{T}, and ReadOnlySpan{T}.
-    """
-
-    @staticmethod
-    def create_read_only_span_from_null_terminated(value: typing.Any) -> System.ReadOnlySpan[str]:
-        """
-        Creates a new read-only span for a null-terminated string.
-        
-        :param value: The pointer to the null-terminated string of characters.
-        :returns: A read-only span representing the specified null-terminated string, or an empty span if the pointer is null.
-        """
-        ...
-
-    @staticmethod
-    def get_array_data_reference(array: System.Array) -> typing.Any:
-        """
-        Returns a reference to the 0th element of . If the array is empty, returns a reference to where the 0th element
-        would have been stored. Such a reference may be used for pinning but must never be dereferenced.
-        """
-        ...
-
-    @staticmethod
-    def try_get_string(memory: System.ReadOnlyMemory[str], text: typing.Optional[str], start: typing.Optional[int], length: typing.Optional[int]) -> typing.Tuple[bool, str, int, int]:
-        """
-        Attempts to get the underlying string from a ReadOnlyMemory{T}.
-        
-        :param memory: The memory that may be wrapping a string object.
-        :param text: The string.
-        :param start: The starting location in .
-        :param length: The number of items in .
-        """
-        ...
-
-
-class COMException(System.Runtime.InteropServices.ExternalException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, error_code: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def to_string(self) -> str:
+    def __init__(self, unmanaged_type: int) -> None:
         ...
 
 
@@ -3001,96 +2633,168 @@ class CriticalHandle(System.Runtime.ConstrainedExecution.CriticalFinalizerObject
         ...
 
 
-class ComEventInterfaceAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def source_interface(self) -> typing.Type:
-        ...
-
-    @property
-    def event_provider(self) -> typing.Type:
-        ...
-
-    def __init__(self, source_interface: typing.Type, event_provider: typing.Type) -> None:
-        ...
-
-
-class InAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class WasmImportLinkageAttribute(System.Attribute):
-    """Specifies that the P/Invoke marked with this attribute should be linked in as a WASM import."""
-
-    def __init__(self) -> None:
-        """Instance constructor."""
-        ...
-
-
-class UnmanagedCallConvAttribute(System.Attribute):
+class CULong(System.IEquatable[System_Runtime_InteropServices_CULong]):
     """
-    Provides an equivalent to UnmanagedCallersOnlyAttribute for native
-    functions declared in .NET.
+    CULong is an immutable value type that represents the unsigned long type in C and C++.
+    It is meant to be used as an exchange type at the managed/unmanaged boundary to accurately represent
+    in managed code unmanaged APIs that use the unsigned long type.
+    This type has 32-bits of storage on all Windows platforms and 32-bit Unix-based platforms.
+    It has 64-bits of storage on 64-bit Unix platforms.
     """
 
     @property
-    def call_convs(self) -> typing.List[typing.Type]:
-        """Types indicating calling conventions for the unmanaged target."""
-        ...
-
-    @call_convs.setter
-    def call_convs(self, value: typing.List[typing.Type]) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-
-class CurrencyWrapper(System.Object):
-    """CurrencyWrapper and support for marshalling to the VARIANT type may be unavailable in future releases."""
-
-    @property
-    def wrapped_object(self) -> float:
+    def value(self) -> System.UIntPtr:
+        """The underlying integer value of this instance."""
         ...
 
     @overload
-    def __init__(self, obj: typing.Any) -> None:
+    def __init__(self, value: int) -> None:
+        """
+        Constructs an instance from a 32-bit unsigned integer.
+        
+        :param value: The integer value.
+        """
         ...
 
     @overload
-    def __init__(self, obj: float) -> None:
+    def __init__(self, value: System.UIntPtr) -> None:
+        """
+        Constructs an instance from a native sized unsigned integer.
+        
+        :param value: The integer value.
+        """
+        ...
+
+    @overload
+    def equals(self, o: typing.Any) -> bool:
+        """
+        Returns a value indicating whether this instance is equal to a specified object.
+        
+        :param o: An object to compare with this instance.
+        :returns: true if  is an instance of CULong and equals the value of this instance; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.CULong) -> bool:
+        """
+        Returns a value indicating whether this instance is equal to a specified CLong value.
+        
+        :param other: A CULong value to compare to this instance.
+        :returns: true if  has the same value as this instance; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for this instance.
+        
+        :returns: A 32-bit signed integer hash code.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Converts the numeric value of this instance to its equivalent string representation.
+        
+        :returns: The string representation of the value of this instance, consisting of a sequence of digits ranging from 0 to 9 with no leading zeroes.
+        """
         ...
 
 
-class ComSourceInterfacesAttribute(System.Attribute):
+class ProgIdAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
     def value(self) -> str:
         ...
 
-    @overload
-    def __init__(self, source_interfaces: str) -> None:
+    def __init__(self, prog_id: str) -> None:
+        ...
+
+
+class GuidAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> str:
+        ...
+
+    def __init__(self, guid: str) -> None:
+        ...
+
+
+class StructLayoutAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.Runtime.InteropServices.LayoutKind:
+        ...
+
+    @property
+    def pack(self) -> int:
+        ...
+
+    @pack.setter
+    def pack(self, value: int) -> None:
+        ...
+
+    @property
+    def size(self) -> int:
+        ...
+
+    @size.setter
+    def size(self, value: int) -> None:
+        ...
+
+    @property
+    def char_set(self) -> System.Runtime.InteropServices.CharSet:
+        ...
+
+    @char_set.setter
+    def char_set(self, value: System.Runtime.InteropServices.CharSet) -> None:
         ...
 
     @overload
-    def __init__(self, source_interface: typing.Type) -> None:
+    def __init__(self, layout_kind: System.Runtime.InteropServices.LayoutKind) -> None:
         ...
 
     @overload
-    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type) -> None:
+    def __init__(self, layout_kind: int) -> None:
         ...
 
-    @overload
-    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type, source_interface_3: typing.Type) -> None:
+
+class PreserveSigAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
-    @overload
-    def __init__(self, source_interface_1: typing.Type, source_interface_2: typing.Type, source_interface_3: typing.Type, source_interface_4: typing.Type) -> None:
+
+class ComEventsHelper(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def combine(rcw: typing.Any, iid: System.Guid, dispid: int, d: System.Delegate) -> None:
+        ...
+
+    @staticmethod
+    def remove(rcw: typing.Any, iid: System.Guid, dispid: int, d: System.Delegate) -> System.Delegate:
+        ...
+
+
+class ComImportAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class ComVisibleAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> bool:
+        ...
+
+    def __init__(self, visibility: bool) -> None:
         ...
 
 
@@ -3105,19 +2809,132 @@ class DispIdAttribute(System.Attribute):
         ...
 
 
-class FieldOffsetAttribute(System.Attribute):
+class LCIDConversionAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
     def value(self) -> int:
         ...
 
-    def __init__(self, offset: int) -> None:
+    def __init__(self, lcid: int) -> None:
         ...
 
 
-class SEHException(System.Runtime.InteropServices.ExternalException):
-    """Exception for Structured Exception Handler exceptions."""
+class AllowReversePInvokeCallsAttribute(System.Attribute):
+    """Obsoletions.CodeAccessSecurityMessage"""
+
+    def __init__(self) -> None:
+        ...
+
+
+class TypeMapping(System.Object):
+    """Entry type for interop type mapping logic."""
+
+
+class CoClassAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def co_class(self) -> typing.Type:
+        ...
+
+    def __init__(self, co_class: typing.Type) -> None:
+        ...
+
+
+class TypeMapAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAttribute_TTypeMapGroup], System.Attribute):
+    """Type mapping between a string and a type."""
+
+    @overload
+    def __init__(self, value: str, target: typing.Type) -> None:
+        """
+        Create a mapping between a value and a System.Type.
+        
+        :param value: String representation of key
+        :param target: Type value
+        """
+        ...
+
+    @overload
+    def __init__(self, value: str, target: typing.Type, trim_target: typing.Type) -> None:
+        """
+        Create a mapping between a value and a System.Type.
+        
+        :param value: String representation of key
+        :param target: Type value
+        :param trim_target: Type used by Trimmer to determine type map inclusion.
+        """
+        ...
+
+
+class SafeBuffer(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def byte_length(self) -> int:
+        """Returns the number of bytes in the memory region."""
+        ...
+
+    def __init__(self, owns_handle: bool) -> None:
+        """This method is protected."""
+        ...
+
+    def acquire_pointer(self, pointer: typing.Any) -> None:
+        ...
+
+    @overload
+    def initialize(self, num_bytes: int) -> None:
+        """
+        Specifies the size of the region of memory, in bytes.  Must be
+        called before using the SafeBuffer.
+        
+        :param num_bytes: Number of valid bytes in memory.
+        """
+        ...
+
+    @overload
+    def initialize(self, num_elements: int, size_of_each_element: int) -> None:
+        """
+        Specifies the size of the region in memory, as the number of
+        elements in an array.  Must be called before using the SafeBuffer.
+        """
+        ...
+
+    def release_pointer(self) -> None:
+        ...
+
+
+class UnmanagedCallersOnlyAttribute(System.Attribute):
+    """
+    Any method marked with UnmanagedCallersOnlyAttribute can be directly called from
+    native code. The function token can be loaded to a local variable using the https://learn.microsoft.com/dotnet/csharp/language-reference/operators/pointer-related-operators#address-of-operator- operator
+    in C# and passed as a callback to a native method.
+    """
+
+    @property
+    def call_convs(self) -> typing.List[typing.Type]:
+        """Optional. If omitted, the runtime will use the default platform calling convention."""
+        ...
+
+    @call_convs.setter
+    def call_convs(self, value: typing.List[typing.Type]) -> None:
+        ...
+
+    @property
+    def entry_point(self) -> str:
+        """Optional. If omitted, no named export is emitted during compilation."""
+        ...
+
+    @entry_point.setter
+    def entry_point(self, value: str) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+
+class MarshalDirectiveException(System.SystemException):
+    """The exception that is thrown by the marshaler when it encounters a MarshalAsAttribute it does not support."""
 
     @overload
     def __init__(self) -> None:
@@ -3140,7 +2957,23 @@ class SEHException(System.Runtime.InteropServices.ExternalException):
         """
         ...
 
-    def can_resume(self) -> bool:
+
+class OptionalAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class TypeMapAssemblyTargetAttribute(typing.Generic[System_Runtime_InteropServices_TypeMapAssemblyTargetAttribute_TTypeMapGroup], System.Attribute):
+    """Declare an assembly that should be inspected during type map building."""
+
+    def __init__(self, assembly_name: str) -> None:
+        """
+        Provide the assembly to look for type mapping attributes.
+        
+        :param assembly_name: Assembly to reference
+        """
         ...
 
 
@@ -3861,6 +3694,25 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
         ...
 
 
+class UnmanagedCallConvAttribute(System.Attribute):
+    """
+    Provides an equivalent to UnmanagedCallersOnlyAttribute for native
+    functions declared in .NET.
+    """
+
+    @property
+    def call_convs(self) -> typing.List[typing.Type]:
+        """Types indicating calling conventions for the unmanaged target."""
+        ...
+
+    @call_convs.setter
+    def call_convs(self, value: typing.List[typing.Type]) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+
 class SafeArrayRankMismatchException(System.SystemException):
     """
     The exception is thrown when the runtime rank of a safe array is different
@@ -3889,6 +3741,89 @@ class SafeArrayRankMismatchException(System.SystemException):
         ...
 
 
+class TypeIdentifierAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def scope(self) -> str:
+        ...
+
+    @property
+    def identifier(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, scope: str, identifier: str) -> None:
+        ...
+
+
+class MemoryMarshal(System.Object):
+    """
+    Provides a collection of methods for interoperating with Memory{T}, ReadOnlyMemory{T},
+    Span{T}, and ReadOnlySpan{T}.
+    """
+
+    @staticmethod
+    def create_read_only_span_from_null_terminated(value: typing.Any) -> System.ReadOnlySpan[str]:
+        """
+        Creates a new read-only span for a null-terminated string.
+        
+        :param value: The pointer to the null-terminated string of characters.
+        :returns: A read-only span representing the specified null-terminated string, or an empty span if the pointer is null.
+        """
+        ...
+
+    @staticmethod
+    def get_array_data_reference(array: System.Array) -> typing.Any:
+        """
+        Returns a reference to the 0th element of . If the array is empty, returns a reference to where the 0th element
+        would have been stored. Such a reference may be used for pinning but must never be dereferenced.
+        """
+        ...
+
+    @staticmethod
+    def try_get_string(memory: System.ReadOnlyMemory[str], text: typing.Optional[str], start: typing.Optional[int], length: typing.Optional[int]) -> typing.Tuple[bool, str, int, int]:
+        """
+        Attempts to get the underlying string from a ReadOnlyMemory{T}.
+        
+        :param memory: The memory that may be wrapping a string object.
+        :param text: The string.
+        :param start: The starting location in .
+        :param length: The number of items in .
+        """
+        ...
+
+
+class ClassInterfaceType(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    AUTO_DISPATCH = 1
+
+    AUTO_DUAL = 2
+
+
+class ClassInterfaceAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.Runtime.InteropServices.ClassInterfaceType:
+        ...
+
+    @overload
+    def __init__(self, class_interface_type: System.Runtime.InteropServices.ClassInterfaceType) -> None:
+        ...
+
+    @overload
+    def __init__(self, class_interface_type: int) -> None:
+        ...
+
+
 class BestFitMappingAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -3908,41 +3843,14 @@ class BestFitMappingAttribute(System.Attribute):
         ...
 
 
-class GCHandleExtensions(System.Object):
-    """Provides extension methods to operate with GC handles."""
-
-    @staticmethod
-    def get_address_of_string_data(handle: System.Runtime.InteropServices.PinnedGCHandle[str]) -> typing.Any:
-        """
-        Retrieves the address string data in .
-        
-        :param handle: The handle to retrieve pointer from.
-        :returns: The address of 0th character of the pinned string, or null if the handle doesn't point to any object.
-        """
-        ...
-
-
-class ErrorWrapper(System.Object):
+class ICustomAdapter(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    def error_code(self) -> int:
-        ...
-
-    @overload
-    def __init__(self, error_code: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, error_code: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, e: System.Exception) -> None:
+    def get_underlying_object(self) -> System.Object:
         ...
 
 
-class UnknownWrapper(System.Object):
+class VariantWrapper(System.Object):
     """This class has no documentation."""
 
     @property
@@ -3953,17 +3861,11 @@ class UnknownWrapper(System.Object):
         ...
 
 
-class AllowReversePInvokeCallsAttribute(System.Attribute):
-    """Obsoletions.CodeAccessSecurityMessage"""
-
-    def __init__(self) -> None:
-        ...
-
-
-class InvalidOleVariantTypeException(System.SystemException):
+class InvalidComObjectException(System.SystemException):
     """
-    Exception thrown when the type of an OLE variant that was passed into the
-    runtime is invalid.
+    The exception thrown when an invalid COM object is used. This happens
+    when a the __ComObject type is used directly without having a backing
+    class factory.
     """
 
     @overload
@@ -3988,22 +3890,120 @@ class InvalidOleVariantTypeException(System.SystemException):
         ...
 
 
-class HandleRef:
+class InterfaceTypeAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def wrapper(self) -> System.Object:
+    def value(self) -> System.Runtime.InteropServices.ComInterfaceType:
         ...
+
+    @overload
+    def __init__(self, interface_type: System.Runtime.InteropServices.ComInterfaceType) -> None:
+        ...
+
+    @overload
+    def __init__(self, interface_type: int) -> None:
+        ...
+
+
+class BStrWrapper(System.Object):
+    """This class has no documentation."""
 
     @property
-    def handle(self) -> System.IntPtr:
+    def wrapped_object(self) -> str:
         ...
 
-    def __init__(self, wrapper: typing.Any, handle: System.IntPtr) -> None:
+    @overload
+    def __init__(self, value: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: str) -> None:
+        ...
+
+
+class FieldOffsetAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> int:
+        ...
+
+    def __init__(self, offset: int) -> None:
+        ...
+
+
+class WeakGCHandle(typing.Generic[System_Runtime_InteropServices_WeakGCHandle_T], System.IEquatable[System_Runtime_InteropServices_WeakGCHandle], System.IDisposable):
+    """
+    Represents a strongly-typed GC handle to a managed object.
+    The object is allowed to be collected. When the object is collected, handle target is set to null.
+    """
+
+    @property
+    def is_allocated(self) -> bool:
+        """Determine whether this handle has been allocated or not."""
+        ...
+
+    def __init__(self, target: System_Runtime_InteropServices_WeakGCHandle_T, track_resurrection: bool = False) -> None:
+        """
+        Allocates a handle for the specified object.
+        
+        :param target: The object that uses the WeakGCHandle{T}.
+        :param track_resurrection: Whether to track the object when it's resurrected in the finalizer.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Releases this WeakGCHandle{T}."""
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]) -> bool:
         ...
 
     @staticmethod
-    def to_int_ptr(value: System.Runtime.InteropServices.HandleRef) -> System.IntPtr:
+    def from_int_ptr(value: System.IntPtr) -> System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]:
+        """
+        Returns a new WeakGCHandle{T} object created from a handle to a managed object.
+        
+        :param value: An IntPtr handle to a managed object to create a WeakGCHandle{T} object from.
+        :returns: A new WeakGCHandle{T} object that corresponds to the value parameter.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Returns the hash code for the current instance.
+        
+        :returns: A hash code for the current instance.
+        """
+        ...
+
+    def set_target(self, target: System_Runtime_InteropServices_WeakGCHandle_T) -> None:
+        """Sets the object this handle represents."""
+        ...
+
+    @staticmethod
+    def to_int_ptr(value: System.Runtime.InteropServices.WeakGCHandle[System_Runtime_InteropServices_WeakGCHandle_T]) -> System.IntPtr:
+        """
+        Returns the internal integer representation of a WeakGCHandle{T} object.
+        
+        :param value: A WeakGCHandle{T} object to retrieve an internal integer representation from.
+        :returns: An IntPtr object that represents a WeakGCHandle{T} object.
+        """
+        ...
+
+    def try_get_target(self, target: typing.Optional[System_Runtime_InteropServices_WeakGCHandle_T]) -> typing.Tuple[bool, System_Runtime_InteropServices_WeakGCHandle_T]:
+        """
+        Tries to retrieve the target object that is referenced by the current WeakGCHandle{T} object.
+        
+        :param target: When this method returns, contains the target object, if it is available.
+        :returns: true if the target was retrieved; otherwise, false.
+        """
         ...
 
 

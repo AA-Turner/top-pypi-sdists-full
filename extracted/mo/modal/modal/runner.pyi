@@ -89,6 +89,7 @@ def _deploy_stub(*args: typing.Any, **kwargs: typing.Any): ...
 class __run_app_spec(typing_extensions.Protocol):
     def __call__(
         self,
+        /,
         app: _App,
         *,
         client: typing.Optional[modal.client.Client] = None,
@@ -98,6 +99,7 @@ class __run_app_spec(typing_extensions.Protocol):
     ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[_App]: ...
     def aio(
         self,
+        /,
         app: _App,
         *,
         client: typing.Optional[modal.client.Client] = None,
@@ -110,10 +112,10 @@ run_app: __run_app_spec
 
 class __serve_update_spec(typing_extensions.Protocol):
     def __call__(
-        self, app: _App, existing_app_id: str, is_ready: multiprocessing.synchronize.Event, environment_name: str
+        self, /, app: _App, existing_app_id: str, is_ready: multiprocessing.synchronize.Event, environment_name: str
     ) -> None: ...
     async def aio(
-        self, app: _App, existing_app_id: str, is_ready: multiprocessing.synchronize.Event, environment_name: str
+        self, /, app: _App, existing_app_id: str, is_ready: multiprocessing.synchronize.Event, environment_name: str
     ) -> None: ...
 
 serve_update: __serve_update_spec
@@ -121,6 +123,7 @@ serve_update: __serve_update_spec
 class __deploy_app_spec(typing_extensions.Protocol):
     def __call__(
         self,
+        /,
         app: _App,
         name: typing.Optional[str] = None,
         namespace: typing.Any = 1,
@@ -130,6 +133,7 @@ class __deploy_app_spec(typing_extensions.Protocol):
     ) -> DeployResult: ...
     async def aio(
         self,
+        /,
         app: _App,
         name: typing.Optional[str] = None,
         namespace: typing.Any = 1,
@@ -142,10 +146,10 @@ deploy_app: __deploy_app_spec
 
 class __interactive_shell_spec(typing_extensions.Protocol):
     def __call__(
-        self, _app: _App, cmds: list[str], environment_name: str = "", pty: bool = True, **kwargs: typing.Any
+        self, /, _app: _App, cmds: list[str], environment_name: str = "", pty: bool = True, **kwargs: typing.Any
     ) -> None: ...
     async def aio(
-        self, _app: _App, cmds: list[str], environment_name: str = "", pty: bool = True, **kwargs: typing.Any
+        self, /, _app: _App, cmds: list[str], environment_name: str = "", pty: bool = True, **kwargs: typing.Any
     ) -> None: ...
 
 interactive_shell: __interactive_shell_spec

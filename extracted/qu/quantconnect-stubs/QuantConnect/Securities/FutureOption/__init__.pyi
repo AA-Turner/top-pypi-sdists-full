@@ -11,28 +11,21 @@ import QuantConnect.Securities.Option
 import System
 
 
-class FuturesOptionsExpiryFunctions(System.Object):
-    """Futures options expiry lookup utility class"""
+class FutureOption(QuantConnect.Securities.Option.Option):
+    """Futures Options security"""
 
-    @staticmethod
-    def futures_option_expiry(canonical_future_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], future_contract_month: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.Option.OptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security) -> None:
         """
-        Gets the Futures Options' expiry for the given contract month.
+        Constructor for the future option security
         
-        :param canonical_future_option_symbol: Canonical Futures Options Symbol. Will be made canonical if not provided a canonical
-        :param future_contract_month: Contract month of the underlying Future
-        :returns: Expiry date/time.
-        """
-        ...
-
-    @staticmethod
-    def get_future_option_expiry_from_future_expiry(future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], canonical_future_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None) -> datetime.datetime:
-        """
-        Gets the Future Option's expiry from the Future Symbol provided
-        
-        :param future_symbol: Future (non-canonical) Symbol
-        :param canonical_future_option: The canonical Future Option Symbol
-        :returns: Future Option Expiry for the Future with the same contract month.
+        :param symbol: Symbol of the future option
+        :param exchange_hours: Exchange hours of the future option
+        :param quote_currency: Quoted currency of the future option
+        :param symbol_properties: Symbol properties of the future option
+        :param currency_converter: Currency converter
+        :param registered_types: Provides all data types registered to the algorithm
+        :param security_cache: Cache of security objects
+        :param underlying: Future underlying security
         """
         ...
 
@@ -51,25 +44,6 @@ class FuturesOptionsUnderlyingMapper(System.Object):
         :param future_option_expiration: Expiration date of the future option
         :param date: Date to search the future chain provider with. Optional, but required for CBOT based contracts
         :returns: Symbol if there is an underlying for the FOP, null if there's no underlying found for the Future Option.
-        """
-        ...
-
-
-class FutureOption(QuantConnect.Securities.Option.Option):
-    """Futures Options security"""
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.Option.OptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security) -> None:
-        """
-        Constructor for the future option security
-        
-        :param symbol: Symbol of the future option
-        :param exchange_hours: Exchange hours of the future option
-        :param quote_currency: Quoted currency of the future option
-        :param symbol_properties: Symbol properties of the future option
-        :param currency_converter: Currency converter
-        :param registered_types: Provides all data types registered to the algorithm
-        :param security_cache: Cache of security objects
-        :param underlying: Future underlying security
         """
         ...
 
@@ -94,6 +68,32 @@ class FutureOptionSymbol(System.Object):
         
         :param _: Symbol
         :returns: true.
+        """
+        ...
+
+
+class FuturesOptionsExpiryFunctions(System.Object):
+    """Futures options expiry lookup utility class"""
+
+    @staticmethod
+    def futures_option_expiry(canonical_future_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], future_contract_month: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """
+        Gets the Futures Options' expiry for the given contract month.
+        
+        :param canonical_future_option_symbol: Canonical Futures Options Symbol. Will be made canonical if not provided a canonical
+        :param future_contract_month: Contract month of the underlying Future
+        :returns: Expiry date/time.
+        """
+        ...
+
+    @staticmethod
+    def get_future_option_expiry_from_future_expiry(future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], canonical_future_option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None) -> datetime.datetime:
+        """
+        Gets the Future Option's expiry from the Future Symbol provided
+        
+        :param future_symbol: Future (non-canonical) Symbol
+        :param canonical_future_option: The canonical Future Option Symbol
+        :returns: Future Option Expiry for the Future with the same contract month.
         """
         ...
 

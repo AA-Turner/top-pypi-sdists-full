@@ -1,9 +1,9 @@
 # coding: utf-8
 
 """
-    DocuSign REST API
+    Docusign eSignature REST API
 
-    The DocuSign REST API provides you with a powerful, convenient, and simple Web services API for interacting with DocuSign.  # noqa: E501
+    The Docusign eSignature REST API provides you with a powerful, convenient, and simple Web services API for interacting with Docusign.  # noqa: E501
 
     OpenAPI spec version: v2.1
     Contact: devcenter@docusign.com
@@ -136,7 +136,7 @@ class ScheduledSending(object):
     def status(self):
         """Gets the status of this ScheduledSending.  # noqa: E501
 
-        Indicates the envelope status. Valid values are:  * sent - The envelope is sent to the recipients.  * created - The envelope is saved as a draft and can be modified and sent later.  # noqa: E501
+        \\\"pending\\\" if the envelope has not yet been sent and the scheduled sending delay has not iniaited. \\\"started\\\" if the scheduled sending delay is in progress. \\\"completed\\\" if the scheduled sending delay has elapsed and the envelope has been sent.  # noqa: E501
 
         :return: The status of this ScheduledSending.  # noqa: E501
         :rtype: str
@@ -147,7 +147,7 @@ class ScheduledSending(object):
     def status(self, status):
         """Sets the status of this ScheduledSending.
 
-        Indicates the envelope status. Valid values are:  * sent - The envelope is sent to the recipients.  * created - The envelope is saved as a draft and can be modified and sent later.  # noqa: E501
+        \\\"pending\\\" if the envelope has not yet been sent and the scheduled sending delay has not iniaited. \\\"started\\\" if the scheduled sending delay is in progress. \\\"completed\\\" if the scheduled sending delay has elapsed and the envelope has been sent.  # noqa: E501
 
         :param status: The status of this ScheduledSending.  # noqa: E501
         :type: str

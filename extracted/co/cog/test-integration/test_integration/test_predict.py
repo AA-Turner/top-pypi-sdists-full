@@ -542,3 +542,37 @@ def test_predict_granite_project(docker_image):
     )
     assert result.returncode == 0
     assert result.stdout == "2.11.3\n"
+
+
+def test_predict_fast_build(docker_image):
+    project_dir = Path(__file__).parent / "fixtures/fast-build"
+
+    result = subprocess.run(
+        ["cog", "predict", "--x-fast", "-i", "s=world"],
+        cwd=project_dir,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert result.stdout == "hello world\n"
+
+
+def test_predict_env_vars(docker_image, cog_binary):
+    project_dir = Path(__file__).parent / "fixtures/env-project"
+    build_process = subprocess.run(
+        [cog_binary, "build", "-t", docker_image],
+        cwd=project_dir,
+        capture_output=True,
+    )
+    assert build_process.returncode == 0
+    result = subprocess.run(
+        [cog_binary, "predict", "--debug", docker_image, "-i", "name=TEST_VAR"],
+        cwd=project_dir,
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=DEFAULT_TIMEOUT,
+    )
+    assert result.returncode == 0
+    assert result.stdout == "ENV[TEST_VAR]=test_value\n"
+

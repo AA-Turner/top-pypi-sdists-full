@@ -21,14 +21,12 @@ class Step(base.StepBase):
         self,
         client: client_lib.Inngest,
         exe: execution_lib.BaseExecution,
-        memos: base.StepMemos,
         middleware: middleware_lib.MiddlewareManager,
         step_id_counter: base.StepIDCounter,
         target_hashed_id: typing.Optional[str],
     ) -> None:
         super().__init__(
             client,
-            memos,
             middleware,
             step_id_counter,
             target_hashed_id,
@@ -244,6 +242,18 @@ class Step(base.StepBase):
                 raise base.ResponseInterrupt(
                     base.StepResponse(
                         original_error=err,
+                        step=step_info,
+                    )
+                )
+            except base.NestedStepInterrupt:
+                step_info.op = server_lib.Opcode.STEP_ERROR
+                raise base.ResponseInterrupt(
+                    base.StepResponse(
+                        original_error=errors.CodedError(
+                            server_lib.ErrorCode.STEP_NESTED,
+                            "Nested steps are not supported.",
+                            is_retriable=False,
+                        ),
                         step=step_info,
                     )
                 )

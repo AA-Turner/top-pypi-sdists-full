@@ -4110,7 +4110,12 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_5")
     def VER_16_5(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.5".'''
+        '''(deprecated) Version "16.5".
+
+        :deprecated: Version 16.5 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_5"))
 
     @jsii.python.classproperty
@@ -4134,14 +4139,30 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_1")
     def VER_17_1(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "17.1".'''
+        '''(deprecated) Version "17.1".
+
+        :deprecated: Version 17.1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_2")
     def VER_17_2(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "17.2".'''
+        '''(deprecated) Version "17.2".
+
+        :deprecated: Version 17.2 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_17_4")
+    def VER_17_4(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "17.4".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_11")
@@ -5242,7 +5263,7 @@ class CfnDBCluster(
         :param id: Construct identifier for this resource (unique in its scope).
         :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate to each DB instance in the Multi-AZ DB cluster. Valid for Cluster Type: Multi-AZ DB clusters only This setting is required to create a Multi-AZ DB cluster.
         :param associated_roles: Provides a list of the AWS Identity and Access Management (IAM) roles that are associated with the DB cluster. IAM roles that are associated with a DB cluster grant permission for the DB cluster to access other Amazon Web Services on your behalf. Valid for: Aurora DB clusters and Multi-AZ DB clusters
-        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the DB cluster during the maintenance window. By default, minor engine upgrades are applied automatically. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB cluster
+        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the DB cluster during the maintenance window. By default, minor engine upgrades are applied automatically. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB cluster. For more information about automatic minor version upgrades, see `Automatically upgrading the minor engine version <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Upgrading.html#USER_UpgradeDBInstance.Upgrading.AutoMinorVersionUpgrades>`_ .
         :param availability_zones: A list of Availability Zones (AZs) where instances in the DB cluster can be created. For information on AWS Regions and Availability Zones, see `Choosing the Regions and Availability Zones <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.RegionsAndAvailabilityZones.html>`_ in the *Amazon Aurora User Guide* . Valid for: Aurora DB clusters only
         :param backtrack_window: The target backtrack window, in seconds. To disable backtracking, set this value to ``0`` . Valid for Cluster Type: Aurora MySQL DB clusters only Default: ``0`` Constraints: - If specified, this value must be set to a number from 0 to 259,200 (72 hours).
         :param backup_retention_period: The number of days for which automated backups are retained. Default: 1 Constraints: - Must be a value from 1 to 35 Valid for: Aurora DB clusters and Multi-AZ DB clusters Default: - 1
@@ -7436,7 +7457,7 @@ class CfnDBClusterProps:
 
         :param allocated_storage: The amount of storage in gibibytes (GiB) to allocate to each DB instance in the Multi-AZ DB cluster. Valid for Cluster Type: Multi-AZ DB clusters only This setting is required to create a Multi-AZ DB cluster.
         :param associated_roles: Provides a list of the AWS Identity and Access Management (IAM) roles that are associated with the DB cluster. IAM roles that are associated with a DB cluster grant permission for the DB cluster to access other Amazon Web Services on your behalf. Valid for: Aurora DB clusters and Multi-AZ DB clusters
-        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the DB cluster during the maintenance window. By default, minor engine upgrades are applied automatically. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB cluster
+        :param auto_minor_version_upgrade: Specifies whether minor engine upgrades are applied automatically to the DB cluster during the maintenance window. By default, minor engine upgrades are applied automatically. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB cluster. For more information about automatic minor version upgrades, see `Automatically upgrading the minor engine version <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Upgrading.html#USER_UpgradeDBInstance.Upgrading.AutoMinorVersionUpgrades>`_ .
         :param availability_zones: A list of Availability Zones (AZs) where instances in the DB cluster can be created. For information on AWS Regions and Availability Zones, see `Choosing the Regions and Availability Zones <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.RegionsAndAvailabilityZones.html>`_ in the *Amazon Aurora User Guide* . Valid for: Aurora DB clusters only
         :param backtrack_window: The target backtrack window, in seconds. To disable backtracking, set this value to ``0`` . Valid for Cluster Type: Aurora MySQL DB clusters only Default: ``0`` Constraints: - If specified, this value must be set to a number from 0 to 259,200 (72 hours).
         :param backup_retention_period: The number of days for which automated backups are retained. Default: 1 Constraints: - Must be a value from 1 to 35 Valid for: Aurora DB clusters and Multi-AZ DB clusters Default: - 1
@@ -7799,7 +7820,9 @@ class CfnDBClusterProps:
 
         By default, minor engine upgrades are applied automatically.
 
-        Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB cluster
+        Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB cluster.
+
+        For more information about automatic minor version upgrades, see `Automatically upgrading the minor engine version <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Upgrading.html#USER_UpgradeDBInstance.Upgrading.AutoMinorVersionUpgrades>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html#cfn-rds-dbcluster-autominorversionupgrade
         '''
@@ -32963,6 +32986,12 @@ class MysqlEngineVersion(
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_41"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_8_0_42")
+    def VER_8_0_42(cls) -> "MysqlEngineVersion":
+        '''Version "8.0.42".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_42"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_3")
     def VER_8_4_3(cls) -> "MysqlEngineVersion":
         '''Version "8.4.3".'''
@@ -32973,6 +33002,12 @@ class MysqlEngineVersion(
     def VER_8_4_4(cls) -> "MysqlEngineVersion":
         '''Version "8.4.4".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_4"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_8_4_5")
+    def VER_8_4_5(cls) -> "MysqlEngineVersion":
+        '''Version "8.4.5".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_5"))
 
     @builtins.property
     @jsii.member(jsii_name="mysqlFullVersion")

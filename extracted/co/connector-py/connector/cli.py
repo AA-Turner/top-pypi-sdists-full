@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import gzip
 import json
 import logging
@@ -7,7 +8,9 @@ import subprocess
 import sys
 from argparse import ArgumentParser, Namespace, RawDescriptionHelpFormatter
 from datetime import datetime, timezone
+from typing import Any
 
+from connector.config import config
 from connector.httpx_rewrite import proxy_settings
 from connector.logging import set_logger_config
 from connector.oai.integration import Integration
@@ -185,7 +188,7 @@ def collect_capabilities(integration: Integration, no_print: bool = False) -> Ar
         Print the Info schema for how to call this connector, and what it supports. This is the only
         capability that takes no arguments.
 
-    {executed} validate_credentials --json '{'{}'}'
+    {executed} validate_credentials --json '{"{}"}'
         Check if you're passing enough auth credentials and settings to connect to the underlying
         app tenant.
 
@@ -193,11 +196,11 @@ def collect_capabilities(integration: Integration, no_print: bool = False) -> Ar
 
     A typical JSON argument looks like
 
-    {'{'}
-        "auth": {'{...}'},
-        "settings": {'{...}'},
-        "request": {'{...}'}
-    {'}'}
+    {"{"}
+        "auth": {"{...}"},
+        "settings": {"{...}"},
+        "request": {"{...}"}
+    {"}"}
 
     All capabilities:
 
@@ -263,7 +266,10 @@ def run_integration(
         """Run a command from the CLI, integration version."""
         parser = collect_capabilities(integration, no_print)
         args = parser.parse_args()
-        logger.info("Command arguments: %s", args)
+        try:
+            logger.info("Command arguments: %s", build_loggable_args(args, integration))
+        except Exception:
+            logger.exception("Error building loggable arguments")
         if not args.command:
             print("No command passed in", file=sys.stderr)
             parser.print_help(file=sys.stderr)
@@ -276,3 +282,68 @@ def run_integration(
         logger.error("Stack trace:", exc_info=True)
         raise e
     logger.info("Command completed at %s", datetime.now(timezone.utc))
+
+
+def build_loggable_args(args: Namespace, integration: Integration) -> dict[str, Any]:
+    loggable_args = copy.deepcopy(args.__dict__)
+    if loggable_args.get("json"):
+        json_obj = json.loads(args.json)
+        redact_json_obj(json_obj, get_integration_secret_fields(integration))
+        loggable_args["json"] = json_obj
+    return loggable_args
+
+
+BASE_REDACTED_LOG_KEYS = [
+    "password",
+    "secret",
+    "token",
+    "api_key",
+    "api_token",
+    "api_secret",
+    "access_token",
+    "refresh_token",
+    "secret",
+    "client_secret",
+    "consumer_secret",
+    "token_secret",
+]
+
+
+def get_integration_secret_fields(integration: Integration) -> list[str]:
+    all_secret_fields = []
+    secret_settings_fields = [
+        name
+        for name, field_info in integration.settings_model.model_fields.items()
+        # Mypy doesn't recognize the None check here
+        if field_info.json_schema_extra is not None and field_info.json_schema_extra.get("x-secret")  # type: ignore
+    ]
+    all_secret_fields.extend(secret_settings_fields)
+
+    integration_auth_model = integration.auth
+    if integration_auth_model is not None:
+        secret_auth_fields = [
+            name
+            for name, field_info in integration_auth_model.model_fields.items()
+            if field_info.json_schema_extra is not None
+            and field_info.json_schema_extra.get("x-secret")  # type: ignore
+        ]
+        all_secret_fields.extend(secret_auth_fields)
+    return all_secret_fields
+
+
+def redact_json_obj(json_obj: dict[str, Any], secret_fields: list[str]) -> None:
+    # redacts keys in the json object that are in the REDACTED_KEYS set
+    # acts on the object in place
+    redacted_keys = {
+        k.lower()
+        for k in BASE_REDACTED_LOG_KEYS + config.additional_redacted_log_keys + secret_fields
+    }
+    for key, value in json_obj.items():
+        if isinstance(value, dict):
+            redact_json_obj(value, secret_fields)
+        elif isinstance(value, list):
+            for item in value:
+                redact_json_obj(item, secret_fields)
+        elif isinstance(value, str):
+            if key.lower() in redacted_keys:
+                json_obj[key] = "REDACTED"

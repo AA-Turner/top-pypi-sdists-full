@@ -173,7 +173,7 @@ class SnsDestination(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
+        scope: _constructs_77d1e7e8.Construct,
         bucket: _IBucket_42e086fd,
     ) -> _BucketNotificationDestinationConfig_a4c4f83d:
         '''Registers this resource to receive notifications for the specified bucket.
@@ -182,14 +182,14 @@ class SnsDestination(
         pair and the result will be cached, so there is no need to implement
         idempotency in each destination.
 
-        :param _scope: -
+        :param scope: -
         :param bucket: -
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3553ece4b599ce7e526b55722477cb04771e1907840471521f08a9dbdea726a1)
-            check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-        return typing.cast(_BucketNotificationDestinationConfig_a4c4f83d, jsii.invoke(self, "bind", [_scope, bucket]))
+        return typing.cast(_BucketNotificationDestinationConfig_a4c4f83d, jsii.invoke(self, "bind", [scope, bucket]))
 
 
 @jsii.implements(_IBucketNotificationDestination_ae5ca51a)
@@ -268,7 +268,7 @@ def _typecheckingstub__88bc302a2eb7b4d1c7dc00b1564ab4c536d2626942f2cec60d543582b
     pass
 
 def _typecheckingstub__3553ece4b599ce7e526b55722477cb04771e1907840471521f08a9dbdea726a1(
-    _scope: _constructs_77d1e7e8.Construct,
+    scope: _constructs_77d1e7e8.Construct,
     bucket: _IBucket_42e086fd,
 ) -> None:
     """Type checking stubs"""

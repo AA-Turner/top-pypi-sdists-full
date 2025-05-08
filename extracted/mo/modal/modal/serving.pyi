@@ -38,6 +38,7 @@ def _serve_stub(*args, **kwargs): ...
 class __serve_app_spec(typing_extensions.Protocol):
     def __call__(
         self,
+        /,
         app: _App,
         import_ref: modal.cli.import_refs.ImportRef,
         *,
@@ -46,6 +47,7 @@ class __serve_app_spec(typing_extensions.Protocol):
     ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[_App]: ...
     def aio(
         self,
+        /,
         app: _App,
         import_ref: modal.cli.import_refs.ImportRef,
         *,

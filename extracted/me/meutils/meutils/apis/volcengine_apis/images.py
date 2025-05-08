@@ -15,12 +15,15 @@ https://www.volcengine.com/docs/6791/1384311
 import os
 
 from meutils.pipe import *
+from meutils.decorators.retry import retrying
+
 from meutils.io.files_utils import to_url
 from meutils.schemas.image_types import ImageRequest, ImagesResponse
 
 from volcengine.visual.VisualService import VisualService
 
 
+@retrying(min=3, max=5)
 async def generate(request: ImageRequest, token: Optional[str] = None):
     """
 

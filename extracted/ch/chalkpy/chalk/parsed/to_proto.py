@@ -5,7 +5,7 @@ import collections.abc
 import inspect
 import json
 from datetime import timedelta
-from typing import Any, Callable, ClassVar, Collection, Mapping, Optional, Sequence, Union, cast
+from typing import Any, Callable, ClassVar, Collection, Dict, Mapping, Optional, Sequence, Union, cast
 
 import pyarrow as pa
 from google.protobuf import duration_pb2
@@ -62,6 +62,7 @@ from chalk.parsed._proto.utils import (
     seconds_int_to_proto_duration,
     seconds_to_proto_duration,
     timedelta_to_proto_duration,
+    value_to_proto,
 )
 from chalk.parsed.expressions import is_valid_operation
 from chalk.queries.named_query import NamedQuery
@@ -78,6 +79,7 @@ from chalk.streams.types import (
 from chalk.utils import paths
 from chalk.utils.collections import get_unique_item
 from chalk.utils.duration import CronTab, Duration, parse_chalk_duration
+from chalk.utils.json import TJSON
 from chalk.utils.source_parsing import should_skip_source_code_parsing
 
 _CHALK_ANON_SQL_SOURCE_PREFIX = "__chalk_anon_sql_source_"
@@ -110,7 +112,10 @@ class ToProtoConverter:
 
     @staticmethod
     def _convert_stream_source(source: StreamSource) -> sources_pb.StreamSource:
-        return sources_pb.StreamSource(source_type=source.streaming_type, name=source.name)
+        options: Dict[str, TJSON] = source.config_to_dict()
+        options.pop("name", None)  # Name is stored separately
+        options_proto = {k: value_to_proto(v) for k, v in options.items()}
+        return sources_pb.StreamSource(source_type=source.streaming_type, name=source.name, options=options_proto)
 
     @staticmethod
     def _convert_named_query(source: NamedQuery) -> pb.NamedQuery:

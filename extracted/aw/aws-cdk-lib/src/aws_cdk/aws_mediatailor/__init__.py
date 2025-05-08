@@ -1685,6 +1685,9 @@ class CfnPlaybackConfiguration(
             video_content_source_url="videoContentSourceUrl",
         
             # the properties below are optional
+            ad_conditioning_configuration=mediatailor.CfnPlaybackConfiguration.AdConditioningConfigurationProperty(
+                streaming_media_file_conditioning="streamingMediaFileConditioning"
+            ),
             avail_suppression=mediatailor.CfnPlaybackConfiguration.AvailSuppressionProperty(
                 fill_policy="fillPolicy",
                 mode="mode",
@@ -1736,6 +1739,7 @@ class CfnPlaybackConfiguration(
         ad_decision_server_url: builtins.str,
         name: builtins.str,
         video_content_source_url: builtins.str,
+        ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.AdConditioningConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1755,6 +1759,7 @@ class CfnPlaybackConfiguration(
         :param ad_decision_server_url: The URL for the ad decision server (ADS). This includes the specification of static parameters and placeholders for dynamic parameters. AWS Elemental MediaTailor substitutes player-specific and session-specific parameters as needed when calling the ADS. Alternately, for testing you can provide a static VAST URL. The maximum length is 25,000 characters.
         :param name: The identifier for the playback configuration.
         :param video_content_source_url: The URL prefix for the parent manifest for the stream, minus the asset ID. The maximum length is 512 characters.
+        :param ad_conditioning_configuration: The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
         :param avail_suppression: The configuration for avail suppression, also known as ad suppression. For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
         :param bumper: The configuration for bumpers. Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
         :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
@@ -1776,6 +1781,7 @@ class CfnPlaybackConfiguration(
             ad_decision_server_url=ad_decision_server_url,
             name=name,
             video_content_source_url=video_content_source_url,
+            ad_conditioning_configuration=ad_conditioning_configuration,
             avail_suppression=avail_suppression,
             bumper=bumper,
             cdn_configuration=cdn_configuration,
@@ -1922,6 +1928,24 @@ class CfnPlaybackConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__75b50d6fe13101dc70996fb19d5c8a163f6176ddcd37a0ebe0b08f5f768c4caf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "videoContentSourceUrl", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="adConditioningConfiguration")
+    def ad_conditioning_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]]:
+        '''The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]], jsii.get(self, "adConditioningConfiguration"))
+
+    @ad_conditioning_configuration.setter
+    def ad_conditioning_configuration(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPlaybackConfiguration.AdConditioningConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bb81abb7826e9e9444261d39e06ed23acbaea73a559203da5ca788273a1bbc94)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "adConditioningConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="availSuppression")
@@ -2121,6 +2145,62 @@ class CfnPlaybackConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__ab6a880d781d782bb5f703943747735b9af031af290dd1ad2e9ebe2732d26c2d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "transcodeProfileName", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.AdConditioningConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "streaming_media_file_conditioning": "streamingMediaFileConditioning",
+        },
+    )
+    class AdConditioningConfigurationProperty:
+        def __init__(self, *, streaming_media_file_conditioning: builtins.str) -> None:
+            '''The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns.
+
+            :param streaming_media_file_conditioning: For ads that have media files with streaming delivery and supported file extensions, indicates what transcoding action MediaTailor takes when it first receives these ads from the ADS. ``TRANSCODE`` indicates that MediaTailor must transcode the ads. ``NONE`` indicates that you have already transcoded the ads outside of MediaTailor and don't need them transcoded as part of the ad insertion workflow. For more information about ad conditioning see `Using preconditioned ads <https://docs.aws.amazon.com/mediatailor/latest/ug/precondition-ads.html>`_ in the AWS Elemental MediaTailor user guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adconditioningconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                ad_conditioning_configuration_property = mediatailor.CfnPlaybackConfiguration.AdConditioningConfigurationProperty(
+                    streaming_media_file_conditioning="streamingMediaFileConditioning"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__86f7802737ba8294b0aa8d203c7f9bc7ff38b98bf17f1f9066c772b203c711ea)
+                check_type(argname="argument streaming_media_file_conditioning", value=streaming_media_file_conditioning, expected_type=type_hints["streaming_media_file_conditioning"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "streaming_media_file_conditioning": streaming_media_file_conditioning,
+            }
+
+        @builtins.property
+        def streaming_media_file_conditioning(self) -> builtins.str:
+            '''For ads that have media files with streaming delivery and supported file extensions, indicates what transcoding action MediaTailor takes when it first receives these ads from the ADS.
+
+            ``TRANSCODE`` indicates that MediaTailor must transcode the ads. ``NONE`` indicates that you have already transcoded the ads outside of MediaTailor and don't need them transcoded as part of the ad insertion workflow. For more information about ad conditioning see `Using preconditioned ads <https://docs.aws.amazon.com/mediatailor/latest/ug/precondition-ads.html>`_ in the AWS Elemental MediaTailor user guide.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adconditioningconfiguration.html#cfn-mediatailor-playbackconfiguration-adconditioningconfiguration-streamingmediafileconditioning
+            '''
+            result = self._values.get("streaming_media_file_conditioning")
+            assert result is not None, "Required property 'streaming_media_file_conditioning' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdConditioningConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.AdMarkerPassthroughProperty",
@@ -2723,6 +2803,7 @@ class CfnPlaybackConfiguration(
         "ad_decision_server_url": "adDecisionServerUrl",
         "name": "name",
         "video_content_source_url": "videoContentSourceUrl",
+        "ad_conditioning_configuration": "adConditioningConfiguration",
         "avail_suppression": "availSuppression",
         "bumper": "bumper",
         "cdn_configuration": "cdnConfiguration",
@@ -2744,6 +2825,7 @@ class CfnPlaybackConfigurationProps:
         ad_decision_server_url: builtins.str,
         name: builtins.str,
         video_content_source_url: builtins.str,
+        ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2762,6 +2844,7 @@ class CfnPlaybackConfigurationProps:
         :param ad_decision_server_url: The URL for the ad decision server (ADS). This includes the specification of static parameters and placeholders for dynamic parameters. AWS Elemental MediaTailor substitutes player-specific and session-specific parameters as needed when calling the ADS. Alternately, for testing you can provide a static VAST URL. The maximum length is 25,000 characters.
         :param name: The identifier for the playback configuration.
         :param video_content_source_url: The URL prefix for the parent manifest for the stream, minus the asset ID. The maximum length is 512 characters.
+        :param ad_conditioning_configuration: The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
         :param avail_suppression: The configuration for avail suppression, also known as ad suppression. For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
         :param bumper: The configuration for bumpers. Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
         :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
@@ -2792,6 +2875,9 @@ class CfnPlaybackConfigurationProps:
                 video_content_source_url="videoContentSourceUrl",
             
                 # the properties below are optional
+                ad_conditioning_configuration=mediatailor.CfnPlaybackConfiguration.AdConditioningConfigurationProperty(
+                    streaming_media_file_conditioning="streamingMediaFileConditioning"
+                ),
                 avail_suppression=mediatailor.CfnPlaybackConfiguration.AvailSuppressionProperty(
                     fill_policy="fillPolicy",
                     mode="mode",
@@ -2839,6 +2925,7 @@ class CfnPlaybackConfigurationProps:
             check_type(argname="argument ad_decision_server_url", value=ad_decision_server_url, expected_type=type_hints["ad_decision_server_url"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument video_content_source_url", value=video_content_source_url, expected_type=type_hints["video_content_source_url"])
+            check_type(argname="argument ad_conditioning_configuration", value=ad_conditioning_configuration, expected_type=type_hints["ad_conditioning_configuration"])
             check_type(argname="argument avail_suppression", value=avail_suppression, expected_type=type_hints["avail_suppression"])
             check_type(argname="argument bumper", value=bumper, expected_type=type_hints["bumper"])
             check_type(argname="argument cdn_configuration", value=cdn_configuration, expected_type=type_hints["cdn_configuration"])
@@ -2856,6 +2943,8 @@ class CfnPlaybackConfigurationProps:
             "name": name,
             "video_content_source_url": video_content_source_url,
         }
+        if ad_conditioning_configuration is not None:
+            self._values["ad_conditioning_configuration"] = ad_conditioning_configuration
         if avail_suppression is not None:
             self._values["avail_suppression"] = avail_suppression
         if bumper is not None:
@@ -2914,6 +3003,17 @@ class CfnPlaybackConfigurationProps:
         result = self._values.get("video_content_source_url")
         assert result is not None, "Required property 'video_content_source_url' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def ad_conditioning_configuration(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AdConditioningConfigurationProperty]]:
+        '''The setting that indicates what conditioning MediaTailor will perform on ads that the ad decision server (ADS) returns, and what priority MediaTailor uses when inserting ads.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-adconditioningconfiguration
+        '''
+        result = self._values.get("ad_conditioning_configuration")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AdConditioningConfigurationProperty]], result)
 
     @builtins.property
     def avail_suppression(
@@ -4496,6 +4596,7 @@ def _typecheckingstub__3dcfb97a898a80ee6a7b069e26028183e8a797f0c48fdbd4fe6ecb8ad
     ad_decision_server_url: builtins.str,
     name: builtins.str,
     video_content_source_url: builtins.str,
+    ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4538,6 +4639,12 @@ def _typecheckingstub__77c686fa09a4612a1bcc44cf669fb2ff9905ec398da89167e8b0280d8
 
 def _typecheckingstub__75b50d6fe13101dc70996fb19d5c8a163f6176ddcd37a0ebe0b08f5f768c4caf(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb81abb7826e9e9444261d39e06ed23acbaea73a559203da5ca788273a1bbc94(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.AdConditioningConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4614,6 +4721,13 @@ def _typecheckingstub__ab6a880d781d782bb5f703943747735b9af031af290dd1ad2e9ebe273
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__86f7802737ba8294b0aa8d203c7f9bc7ff38b98bf17f1f9066c772b203c711ea(
+    *,
+    streaming_media_file_conditioning: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c84cc8c470c35ea1870d24a6e58a722cc2d0952d699c858000349755866ccea6(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -4682,6 +4796,7 @@ def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c0115
     ad_decision_server_url: builtins.str,
     name: builtins.str,
     video_content_source_url: builtins.str,
+    ad_conditioning_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AdConditioningConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     avail_suppression: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bumper: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

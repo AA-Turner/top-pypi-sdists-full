@@ -1,4 +1,7 @@
 # Codebase options
+import sys
+
+
 CODEBASE_INIT_CMD_NAME = "init"
 CODEBASE_INIT_HELP = (
     "[BETA] Used to install Safety Firewall globally, or to initialize a codebase in the current directory."
@@ -17,8 +20,7 @@ MSG_WELCOME_DESCRIPTION = (
     "[bold]Safety is designed to:[/bold]",
     "1. Work with your existing package manager to block malicious or high-risk packages before they're installed.",
     "2. Keep track of the dependencies in your codebase, and help you to quickly fix any vulnerabilities in them.",
-    "3. Integrate with your AI assistants to ensure they use secure packages (coming soon!)."
-    "\n",
+    "3. Integrate with your AI assistants to ensure they use secure packages.\n",
 )
 
 MSG_NEED_AUTHENTICATION = "To configure firewall and your codebase security settings, you'll need an account.\n"
@@ -28,7 +30,7 @@ MSG_AUTH_PROMPT = (
 
 MSG_SETUP_PACKAGE_FIREWALL_TITLE = "  Set Up Package Firewall"
 
-MSG_SETUP_PACKAGE_FIREWALL_DESCRIPTION = "Let's configure Safety Firewall. This won't change the way you use pip and you'll only notice it when it blocks a malicious or vulnerable package. You can uninstall Firewall at any time with:\n"
+MSG_SETUP_PACKAGE_FIREWALL_DESCRIPTION = "Let's configure Safety Firewall to protect your package installations. This won't change the way you use pip and you'll only notice it when it blocks a malicious or vulnerable package. You can uninstall Firewall at any time with:\n"
 MSG_FIREWALL_UNINSTALL = "`safety firewall uninstall`\n"
 
 ASK_HINT = "[Press Enter to continue, n to cancel]"
@@ -45,6 +47,8 @@ MSG_SETUP_INCOMPLETE = f"[red bold]x[/red bold] The setup was not completed succ
 
 MSG_SETUP_PACKAGE_FIREWALL_RESULT = "configured and secured. Safety will analyze package installations for security risks before installation, and warn you if you install vulnerable packages.\n"
 MSG_SETUP_PACKAGE_FIREWALL_NOTE_STATUS = "To see your firewall status, usage and to configure your firewall security settings visit [link]https://platform.safetycli.com/firewall/[/link]"
+
+MSG_SETUP_CONTINUE_PROMPT = "[bold][Press Enter to continue][/bold]"
 
 MSG_SETUP_CODEBASE_TITLE = " Secure Your First Codebase"
 
@@ -66,9 +70,16 @@ MSG_NO_VULNS_CODEBASE_URL_DESCRIPTION = (
 
 MSG_OPEN_DASHBOARD_PROMPT = f"💡 Open this in a new browser window now? {ASK_HINT}"
 
+MSG_COMMAND_TO_RUN = "`source ~/.safety/.safety_profile`"
+MSG_LAST_MANUAL_STEP = (
+    "🟡 IMPORTANT: At the end, restart the terminal to activate your Safety configuration."
+    if sys.platform == "win32"
+    else f"🟡 IMPORTANT: Run {MSG_COMMAND_TO_RUN} to activate your Safety configuration."
+)
+
 MSG_SETUP_COMPLETE_TITLE = " Wrap Up"
 
-MSG_SETUP_COMPLETE_SUBTITLE = "Setup complete!"
+MSG_SETUP_COMPLETE_SUBTITLE = "Almost done! Final step:"
 
 MSG_TOOLS_NOT_CONFIGURED = "[bold red]x[/bold red] No package managers configured"
 MSG_CODEBASE_NOT_CONFIGURED = "[bold red]x[/bold red] No codebase configured"
@@ -106,3 +117,9 @@ MSG_SETUP_NEXT_STEPS_NO_PROJECT = (
 )
 
 MSG_SETUP_NEXT_STEPS_NO_VULNS = (MSG_TEAM, MSG_DOCS, MSG_HELP)
+
+MSG_SETUP_NEXT_STEPS_MANUAL_STEP = (
+    "(Don't forget to restart the terminal now!)"
+    if sys.platform == "win32"
+    else f"(Don't forget to run {MSG_COMMAND_TO_RUN} now!)"
+)

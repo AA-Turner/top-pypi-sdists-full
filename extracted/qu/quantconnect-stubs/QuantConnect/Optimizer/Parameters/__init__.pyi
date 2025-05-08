@@ -12,58 +12,6 @@ JsonConverter = typing.Any
 QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T = typing.TypeVar("QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T")
 
 
-class OptimizationParameterEnumerator(typing.Generic[QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[str], metaclass=abc.ABCMeta):
-    """Enumerates all possible values for specific optimization parameter"""
-
-    @property
-    def optimization_parameter(self) -> QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T:
-        """
-        The target optimization parameter to enumerate
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def index(self) -> int:
-        """
-        The current enumeration state
-        
-        This property is protected.
-        """
-        ...
-
-    @index.setter
-    def index(self, value: int) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def current(self) -> str:
-        """Gets the element in the collection at the current position of the enumerator."""
-        ...
-
-    def __init__(self, optimization_parameter: QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T) -> None:
-        """This method is protected."""
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Sets the enumerator to its initial position, which is before the first element in the collection."""
-        ...
-
-
 class OptimizationParameter(System.Object, metaclass=abc.ABCMeta):
     """Defines the optimization parameter meta information"""
 
@@ -200,6 +148,58 @@ class OptimizationStepParameterEnumerator(QuantConnect.Optimizer.Parameters.Opti
         
         :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
         """
+        ...
+
+
+class OptimizationParameterEnumerator(typing.Generic[QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[str], metaclass=abc.ABCMeta):
+    """Enumerates all possible values for specific optimization parameter"""
+
+    @property
+    def optimization_parameter(self) -> QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T:
+        """
+        The target optimization parameter to enumerate
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def index(self) -> int:
+        """
+        The current enumeration state
+        
+        This property is protected.
+        """
+        ...
+
+    @index.setter
+    def index(self, value: int) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def current(self) -> str:
+        """Gets the element in the collection at the current position of the enumerator."""
+        ...
+
+    def __init__(self, optimization_parameter: QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T) -> None:
+        """This method is protected."""
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Sets the enumerator to its initial position, which is before the first element in the collection."""
         ...
 
 

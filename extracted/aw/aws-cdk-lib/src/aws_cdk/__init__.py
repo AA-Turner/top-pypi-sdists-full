@@ -37504,6 +37504,7 @@ __all__ = [
     "aws_sqs",
     "aws_ssm",
     "aws_ssmcontacts",
+    "aws_ssmguiconnect",
     "aws_ssmincidents",
     "aws_ssmquicksetup",
     "aws_sso",
@@ -37801,6 +37802,7 @@ from . import aws_sns_subscriptions
 from . import aws_sqs
 from . import aws_ssm
 from . import aws_ssmcontacts
+from . import aws_ssmguiconnect
 from . import aws_ssmincidents
 from . import aws_ssmquicksetup
 from . import aws_sso

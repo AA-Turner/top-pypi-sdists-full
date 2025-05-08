@@ -22,30 +22,10 @@ class ImportValue(BaseFn):
         super().__init__(
             "Fn::ImportValue",
             singular_types,
-            (
-                "Fn::Base64",
-                "Fn::FindInMap",
-                "Fn::If",
-                "Fn::Join",
-                "Fn::Select",
-                "Fn::Sub",
-                "Ref",
-            ),
         )
         self.child_rules = {
             "W6001": None,
         }
-
-    def validator(self, validator: Validator) -> Validator:
-        return validator.evolve(
-            context=validator.context.evolve(
-                functions=self.functions,
-                resources={},
-            ),
-            function_filter=validator.function_filter.evolve(
-                add_cfn_lint_keyword=False,
-            ),
-        )
 
     def fn_importvalue(
         self, validator: Validator, s: Any, instance: Any, schema: Any

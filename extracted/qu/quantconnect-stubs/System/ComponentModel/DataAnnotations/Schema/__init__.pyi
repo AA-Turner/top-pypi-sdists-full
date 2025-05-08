@@ -6,21 +6,13 @@ import System
 import System.ComponentModel.DataAnnotations.Schema
 
 
-class InversePropertyAttribute(System.Attribute):
-    """Specifies the inverse of a navigation property that represents the other end of the same relationship."""
-
-    @property
-    def property(self) -> str:
-        """The navigation property representing the other end of the same relationship."""
-        ...
-
-    def __init__(self, property: str) -> None:
-        """
-        Initializes a new instance of the InversePropertyAttribute class.
-        
-        :param property: The navigation property representing the other end of the same relationship.
-        """
-        ...
+class ComplexTypeAttribute(System.Attribute):
+    """
+    Denotes that the class is a complex type.
+        Complex types are non-scalar properties of entity types that enable scalar properties to be organized within
+        entities.
+        Complex types do not have keys and cannot be managed by the Entity Framework apart from the parent object.
+    """
 
 
 class ForeignKeyAttribute(System.Attribute):
@@ -47,10 +39,6 @@ class ForeignKeyAttribute(System.Attribute):
         ...
 
 
-class NotMappedAttribute(System.Attribute):
-    """Denotes that a property or class should be excluded from database mapping."""
-
-
 class DatabaseGeneratedOption(Enum):
     """The pattern used to generate values for a property in the database."""
 
@@ -62,6 +50,10 @@ class DatabaseGeneratedOption(Enum):
 
     COMPUTED = 2
     """The database generates a value when a row is inserted or updated."""
+
+
+class NotMappedAttribute(System.Attribute):
+    """Denotes that a property or class should be excluded from database mapping."""
 
 
 class ColumnAttribute(System.Attribute):
@@ -122,6 +114,23 @@ class DatabaseGeneratedAttribute(System.Attribute):
         ...
 
 
+class InversePropertyAttribute(System.Attribute):
+    """Specifies the inverse of a navigation property that represents the other end of the same relationship."""
+
+    @property
+    def property(self) -> str:
+        """The navigation property representing the other end of the same relationship."""
+        ...
+
+    def __init__(self, property: str) -> None:
+        """
+        Initializes a new instance of the InversePropertyAttribute class.
+        
+        :param property: The navigation property representing the other end of the same relationship.
+        """
+        ...
+
+
 class TableAttribute(System.Attribute):
     """Specifies the database table that a class is mapped to."""
 
@@ -146,14 +155,5 @@ class TableAttribute(System.Attribute):
         :param name: The name of the table the class is mapped to.
         """
         ...
-
-
-class ComplexTypeAttribute(System.Attribute):
-    """
-    Denotes that the class is a complex type.
-        Complex types are non-scalar properties of entity types that enable scalar properties to be organized within
-        entities.
-        Complex types do not have keys and cannot be managed by the Entity Framework apart from the parent object.
-    """
 
 

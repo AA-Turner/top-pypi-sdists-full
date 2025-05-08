@@ -1254,9 +1254,7 @@ class CfnRegistryScanningConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecr.CfnRegistryScanningConfiguration",
 ):
-    '''The AWS::ECR::RegistryScanningConfiguration controls the scanning configuration for an Amazon Elastic Container Registry (Amazon Private ECR).
-
-    For more information, see https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning.html
+    '''The scanning configuration for a private registry.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-registryscanningconfiguration.html
     :cloudformationResource: AWS::ECR::RegistryScanningConfiguration
@@ -1291,7 +1289,7 @@ class CfnRegistryScanningConfiguration(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param rules: The scanning rules associated with the registry. A registry scanning configuration may contain a maximum of 2 rules.
+        :param rules: The scanning rules associated with the registry.
         :param scan_type: The type of scanning configured for the registry.
         '''
         if __debug__:
@@ -1335,7 +1333,7 @@ class CfnRegistryScanningConfiguration(
     @builtins.property
     @jsii.member(jsii_name="attrRegistryId")
     def attr_registry_id(self) -> builtins.str:
-        '''The registry id.
+        '''The account ID of the destination registry.
 
         :cloudformationAttribute: RegistryId
         '''
@@ -1384,7 +1382,9 @@ class CfnRegistryScanningConfiguration(
     )
     class RepositoryFilterProperty:
         def __init__(self, *, filter: builtins.str, filter_type: builtins.str) -> None:
-            '''The details of a scanning repository filter.
+            '''The filter settings used with image replication.
+
+            Specifying a repository filter to a replication rule provides a method for controlling which repositories in a private registry are replicated. If no filters are added, the contents of all repositories are replicated.
 
             :param filter: The filter to use when scanning.
             :param filter_type: The type associated with the filter.
@@ -1458,10 +1458,10 @@ class CfnRegistryScanningConfiguration(
             repository_filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRegistryScanningConfiguration.RepositoryFilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
             scan_frequency: builtins.str,
         ) -> None:
-            '''A rule representing the details of a scanning configuration.
+            '''The scanning rules associated with the registry.
 
-            :param repository_filters: The repository filters associated with the scanning configuration for a private registry.
-            :param scan_frequency: The frequency that scans are performed.
+            :param repository_filters: The details of a scanning repository filter. For more information on how to use filters, see `Using filters <https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning.html#image-scanning-filters>`_ in the *Amazon Elastic Container Registry User Guide* .
+            :param scan_frequency: The frequency that scans are performed at for a private registry. When the ``ENHANCED`` scan type is specified, the supported scan frequencies are ``CONTINUOUS_SCAN`` and ``SCAN_ON_PUSH`` . When the ``BASIC`` scan type is specified, the ``SCAN_ON_PUSH`` scan frequency is supported. If scan on push is not specified, then the ``MANUAL`` scan frequency is set by default.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-registryscanningconfiguration-scanningrule.html
             :exampleMetadata: fixture=_generated
@@ -1493,7 +1493,9 @@ class CfnRegistryScanningConfiguration(
         def repository_filters(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRegistryScanningConfiguration.RepositoryFilterProperty"]]]:
-            '''The repository filters associated with the scanning configuration for a private registry.
+            '''The details of a scanning repository filter.
+
+            For more information on how to use filters, see `Using filters <https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning.html#image-scanning-filters>`_ in the *Amazon Elastic Container Registry User Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-registryscanningconfiguration-scanningrule.html#cfn-ecr-registryscanningconfiguration-scanningrule-repositoryfilters
             '''
@@ -1503,7 +1505,9 @@ class CfnRegistryScanningConfiguration(
 
         @builtins.property
         def scan_frequency(self) -> builtins.str:
-            '''The frequency that scans are performed.
+            '''The frequency that scans are performed at for a private registry.
+
+            When the ``ENHANCED`` scan type is specified, the supported scan frequencies are ``CONTINUOUS_SCAN`` and ``SCAN_ON_PUSH`` . When the ``BASIC`` scan type is specified, the ``SCAN_ON_PUSH`` scan frequency is supported. If scan on push is not specified, then the ``MANUAL`` scan frequency is set by default.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecr-registryscanningconfiguration-scanningrule.html#cfn-ecr-registryscanningconfiguration-scanningrule-scanfrequency
             '''
@@ -1537,7 +1541,7 @@ class CfnRegistryScanningConfigurationProps:
     ) -> None:
         '''Properties for defining a ``CfnRegistryScanningConfiguration``.
 
-        :param rules: The scanning rules associated with the registry. A registry scanning configuration may contain a maximum of 2 rules.
+        :param rules: The scanning rules associated with the registry.
         :param scan_type: The type of scanning configured for the registry.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-registryscanningconfiguration.html
@@ -1574,8 +1578,6 @@ class CfnRegistryScanningConfigurationProps:
         self,
     ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRegistryScanningConfiguration.ScanningRuleProperty]]]:
         '''The scanning rules associated with the registry.
-
-        A registry scanning configuration may contain a maximum of 2 rules.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecr-registryscanningconfiguration.html#cfn-ecr-registryscanningconfiguration-rules
         '''

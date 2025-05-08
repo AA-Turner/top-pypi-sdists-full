@@ -35,6 +35,7 @@ int main(int argc, char* argv[])
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
 
+
     if (vm.count("help")) {
       std::cout << desc << "\n";
       return 0;

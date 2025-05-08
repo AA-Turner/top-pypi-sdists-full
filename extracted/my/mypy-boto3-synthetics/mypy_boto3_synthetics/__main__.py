@@ -12,9 +12,9 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for boto3 Synthetics 1.38.0\n"
-        "Version:         1.38.0\n"
-        "Builder version: 8.10.1\n"
+        "Type annotations for boto3 Synthetics 1.38.11\n"
+        "Version:         1.38.11\n"
+        "Builder version: 8.11.0\n"
         "Docs:            https://youtype.github.io/boto3_stubs_docs/mypy_boto3_synthetics//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/synthetics.html#synthetics\n"
         "Other services:  https://pypi.org/project/boto3-stubs/\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("1.38.0\n")
+    sys.stdout.write("1.38.11\n")
 
 
 def main() -> None:

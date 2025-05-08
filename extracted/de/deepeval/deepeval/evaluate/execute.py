@@ -776,7 +776,7 @@ async def a_execute_conversational_test_cases(
 
 def execute_agentic_test_cases(
     goldens: List[Golden],
-    traceable_callback: Union[
+    observed_callback: Union[
         Callable[[str], Any], Callable[[str], Awaitable[Any]]
     ],
     verbose_mode: Optional[bool],
@@ -813,13 +813,11 @@ def execute_agentic_test_cases(
                     )
 
                 with Observer("custom", func_name="Test Wrapper"):
-                    if asyncio.iscoroutinefunction(traceable_callback):
+                    if asyncio.iscoroutinefunction(observed_callback):
                         loop = get_or_create_event_loop()
-                        loop.run_until_complete(
-                            traceable_callback(input=golden.input)
-                        )
+                        loop.run_until_complete(observed_callback(golden.input))
                     else:
-                        traceable_callback(input=golden.input)
+                        observed_callback(golden.input)
                     current_trace: Trace = get_current_trace()
 
                 if pbar_callback is not None:
@@ -942,7 +940,7 @@ def execute_agentic_test_cases(
                                 raise
                         metric_data = create_metric_data(metric)
                         api_span.metrics_data.append(metric_data)
-                        llm_api_test_case.update_status(metric_data.success)
+                        api_test_case.update_status(metric_data.success)
                         if pbar_eval is not None:
                             pbar_eval.update(1)
 
@@ -998,7 +996,7 @@ def execute_agentic_test_cases(
 
 async def a_execute_agentic_test_cases(
     goldens: List[Golden],
-    traceable_callback: Union[
+    observed_callback: Union[
         Callable[[str], Any], Callable[[str], Awaitable[Any]]
     ],
     verbose_mode: Optional[bool],
@@ -1050,7 +1048,7 @@ async def a_execute_agentic_test_cases(
                 task = execute_with_semaphore(
                     func=a_execute_agentic_test_case,
                     golden=golden,
-                    traceable_callback=traceable_callback,
+                    observed_callback=observed_callback,
                     test_run_manager=test_run_manager,
                     test_results=test_results,
                     count=count,
@@ -1075,7 +1073,7 @@ async def a_execute_agentic_test_cases(
                 task = execute_with_semaphore(
                     func=a_execute_agentic_test_case,
                     golden=golden,
-                    traceable_callback=traceable_callback,
+                    observed_callback=observed_callback,
                     test_run_manager=test_run_manager,
                     test_results=test_results,
                     count=count,
@@ -1096,7 +1094,7 @@ async def a_execute_agentic_test_cases(
 
 async def a_execute_agentic_test_case(
     golden: Golden,
-    traceable_callback: Union[
+    observed_callback: Union[
         Callable[[str], Any], Callable[[str], Awaitable[Any]]
     ],
     test_run_manager: TestRunManager,
@@ -1113,10 +1111,10 @@ async def a_execute_agentic_test_case(
 ):
     # Call callback and extract trace
     with Observer("custom", func_name="Test Wrapper"):
-        if asyncio.iscoroutinefunction(traceable_callback):
-            await traceable_callback(input=golden.input)
+        if asyncio.iscoroutinefunction(observed_callback):
+            await observed_callback(golden.input)
         else:
-            traceable_callback(input=golden.input)
+            observed_callback(golden.input)
         current_trace: Trace = get_current_trace()
 
     if pbar_callback is not None:
@@ -1179,7 +1177,7 @@ async def a_execute_agentic_test_case(
         await a_execute_span_test_case(
             span=span,
             trace_api=trace_api,
-            llm_api_test_case=api_test_case,
+            api_test_case=api_test_case,
             ignore_errors=ignore_errors,
             skip_on_missing_params=skip_on_missing_params,
             show_indicator=show_indicator,
@@ -1209,7 +1207,7 @@ async def a_execute_agentic_test_case(
 async def a_execute_span_test_case(
     span: BaseSpan,
     trace_api: TraceApi,
-    llm_api_test_case: LLMApiTestCase,
+    api_test_case: LLMApiTestCase,
     ignore_errors: bool,
     skip_on_missing_params: bool,
     show_indicator: bool,
@@ -1262,4 +1260,4 @@ async def a_execute_span_test_case(
             continue
         metric_data = create_metric_data(metric)
         api_span.metrics_data.append(metric_data)
-        llm_api_test_case.update_status(metric_data.success)
+        api_test_case.update_status(metric_data.success)

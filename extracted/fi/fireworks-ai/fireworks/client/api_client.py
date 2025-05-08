@@ -91,7 +91,7 @@ class FireworksClient:
         def get_error_message():
             try:
                 # Try to return the JSON body
-                return response.json()
+                return json.dumps(response.json())
             except json.decoder.JSONDecodeError:
                 # If JSON parsing fails, return the HTTP status code name
                 if 400 <= response.status_code < 500:
@@ -100,13 +100,15 @@ class FireworksClient:
                     error_type = "internal_server_error"
                 else:
                     error_type = "unknown_error"
-                return {
-                    "error": {
-                        "object": "error",
-                        "type": error_type,
-                        "message": response.reason_phrase,
+                return json.dumps(
+                    {
+                        "error": {
+                            "object": "error",
+                            "type": error_type,
+                            "message": response.reason_phrase,
+                        }
                     }
-                }
+                )
 
         self._raise_for(response.status_code, get_error_message)
         response.raise_for_status()
@@ -126,9 +128,9 @@ class FireworksClient:
         self._error_handling(resp)
         return resp.json()
 
-    def _get_headers(self, extra_headers: Optional[Dict[str, str]]) -> Dict[str, str]:
+    def _get_headers(self, extra_headers: Optional[Dict[str, str]]) -> httpx.Headers:
         if extra_headers:
-            return {**self._client.headers, **extra_headers}
+            return httpx.Headers({**self._client.headers, **extra_headers})
         return self._client.headers
 
     def post_request_streaming(

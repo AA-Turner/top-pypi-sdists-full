@@ -16,6 +16,145 @@ import System.Threading
 import System.Threading.Tasks
 
 
+class RandomAccess(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def flush_to_disk(handle: Microsoft.Win32.SafeHandles.SafeFileHandle) -> None:
+        """
+        Flushes the operating system buffers for the given file to disk.
+        
+        :param handle: The file handle.
+        """
+        ...
+
+    @staticmethod
+    def get_length(handle: Microsoft.Win32.SafeHandles.SafeFileHandle) -> int:
+        """
+        Gets the length of the file in bytes.
+        
+        :param handle: The file handle.
+        :returns: A long value representing the length of the file in bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def read(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffer: System.Span[int], file_offset: int) -> int:
+        """
+        Reads a sequence of bytes from given file at given offset.
+        
+        :param handle: The file handle.
+        :param buffer: A region of memory. When this method returns, the contents of this region are replaced by the bytes read from the file.
+        :param file_offset: The file position to read from.
+        :returns: The total number of bytes read into the buffer. This can be less than the number of bytes allocated in the buffer if that many bytes are not currently available, or zero (0) if the end of the file has been reached.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def read(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffers: System.Collections.Generic.IReadOnlyList[System.Memory[int]], file_offset: int) -> int:
+        """
+        Reads a sequence of bytes from given file at given offset.
+        
+        :param handle: The file handle.
+        :param buffers: A list of memory buffers. When this method returns, the contents of the buffers are replaced by the bytes read from the file.
+        :param file_offset: The file position to read from.
+        :returns: The total number of bytes read into the buffers. This can be less than the number of bytes allocated in the buffers if that many bytes are not currently available, or zero (0) if the end of the file has been reached.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def read_async(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffer: System.Memory[int], file_offset: int, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
+        """
+        Reads a sequence of bytes from given file at given offset.
+        
+        :param handle: The file handle.
+        :param buffer: A region of memory. When this method returns, the contents of this region are replaced by the bytes read from the file.
+        :param file_offset: The file position to read from.
+        :param cancellation_token: The token to monitor for cancellation requests. The default value is System.Threading.CancellationToken.None.
+        :returns: The total number of bytes read into the buffer. This can be less than the number of bytes allocated in the buffer if that many bytes are not currently available, or zero (0) if the end of the file has been reached.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def read_async(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffers: System.Collections.Generic.IReadOnlyList[System.Memory[int]], file_offset: int, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
+        """
+        Reads a sequence of bytes from given file at given offset.
+        
+        :param handle: The file handle.
+        :param buffers: A list of memory buffers. When this method returns, the contents of these buffers are replaced by the bytes read from the file.
+        :param file_offset: The file position to read from.
+        :param cancellation_token: The token to monitor for cancellation requests. The default value is System.Threading.CancellationToken.None.
+        :returns: The total number of bytes read into the buffers. This can be less than the number of bytes allocated in the buffers if that many bytes are not currently available, or zero (0) if the end of the file has been reached.
+        """
+        ...
+
+    @staticmethod
+    def set_length(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, length: int) -> None:
+        """
+        Sets the length of the file to the given value.
+        
+        :param handle: The file handle.
+        :param length: A long value representing the length of the file in bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def write(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffer: System.ReadOnlySpan[int], file_offset: int) -> None:
+        """
+        Writes a sequence of bytes from given buffer to given file at given offset.
+        
+        :param handle: The file handle.
+        :param buffer: A region of memory. This method copies the contents of this region to the file.
+        :param file_offset: The file position to write to.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def write(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffers: System.Collections.Generic.IReadOnlyList[System.ReadOnlyMemory[int]], file_offset: int) -> None:
+        """
+        Writes a sequence of bytes from given buffers to given file at given offset.
+        
+        :param handle: The file handle.
+        :param buffers: A list of memory buffers. This method copies the contents of these buffers to the file.
+        :param file_offset: The file position to write to.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def write_async(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffer: System.ReadOnlyMemory[int], file_offset: int, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask:
+        """
+        Writes a sequence of bytes from given buffer to given file at given offset.
+        
+        :param handle: The file handle.
+        :param buffer: A region of memory. This method copies the contents of this region to the file.
+        :param file_offset: The file position to write to.
+        :param cancellation_token: The token to monitor for cancellation requests. The default value is System.Threading.CancellationToken.None.
+        :returns: A task representing the asynchronous completion of the write operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def write_async(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffers: System.Collections.Generic.IReadOnlyList[System.ReadOnlyMemory[int]], file_offset: int, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask:
+        """
+        Writes a sequence of bytes from given buffers to given file at given offset.
+        
+        :param handle: The file handle.
+        :param buffers: A list of memory buffers. This method copies the contents of these buffers to the file.
+        :param file_offset: The file position to write to.
+        :param cancellation_token: The token to monitor for cancellation requests. The default value is System.Threading.CancellationToken.None.
+        :returns: A task representing the asynchronous completion of the write operation.
+        """
+        ...
+
+
 class FileAttributes(Enum):
     """This class has no documentation."""
 
@@ -52,6 +191,215 @@ class FileAttributes(Enum):
     INTEGRITY_STREAM = ...
 
     NO_SCRUB_DATA = ...
+
+
+class UnixFileMode(Enum):
+    """Represents the Unix filesystem permissions.This enumeration supports a bitwise combination of its member values."""
+
+    NONE = 0
+    """No permissions."""
+
+    OTHER_EXECUTE = 1
+    """Execute permission for others."""
+
+    OTHER_WRITE = 2
+    """Write permission for others."""
+
+    OTHER_READ = 4
+    """Read permission for others."""
+
+    GROUP_EXECUTE = 8
+    """Execute permission for group."""
+
+    GROUP_WRITE = 16
+    """Write permission for group."""
+
+    GROUP_READ = 32
+    """Read permission for group."""
+
+    USER_EXECUTE = 64
+    """Execute permission for owner."""
+
+    USER_WRITE = 128
+    """Write permission for owner."""
+
+    USER_READ = 256
+    """Read permission for owner."""
+
+    STICKY_BIT = 512
+    """Sticky bit permission."""
+
+    SET_GROUP = 1024
+    """Set Group permission."""
+
+    SET_USER = 2048
+    """Set User permission."""
+
+
+class FileSystemInfo(System.MarshalByRefObject, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @property
+    def attributes(self) -> System.IO.FileAttributes:
+        ...
+
+    @attributes.setter
+    def attributes(self, value: System.IO.FileAttributes) -> None:
+        ...
+
+    @property
+    def full_path(self) -> str:
+        """This field is protected."""
+        ...
+
+    @full_path.setter
+    def full_path(self, value: str) -> None:
+        ...
+
+    @property
+    def original_path(self) -> str:
+        """This field is protected."""
+        ...
+
+    @original_path.setter
+    def original_path(self, value: str) -> None:
+        ...
+
+    @property
+    def full_name(self) -> str:
+        ...
+
+    @property
+    def extension(self) -> str:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def exists(self) -> bool:
+        ...
+
+    @property
+    def creation_time(self) -> datetime.datetime:
+        ...
+
+    @creation_time.setter
+    def creation_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def creation_time_utc(self) -> datetime.datetime:
+        ...
+
+    @creation_time_utc.setter
+    def creation_time_utc(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def last_access_time(self) -> datetime.datetime:
+        ...
+
+    @last_access_time.setter
+    def last_access_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def last_access_time_utc(self) -> datetime.datetime:
+        ...
+
+    @last_access_time_utc.setter
+    def last_access_time_utc(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def last_write_time(self) -> datetime.datetime:
+        ...
+
+    @last_write_time.setter
+    def last_write_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def last_write_time_utc(self) -> datetime.datetime:
+        ...
+
+    @last_write_time_utc.setter
+    def last_write_time_utc(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def link_target(self) -> str:
+        """
+        If this FileSystemInfo instance represents a link, returns the link target's path.
+        If a link does not exist in FullName, or this instance does not represent a link, returns null.
+        """
+        ...
+
+    @property
+    def unix_file_mode(self) -> System.IO.UnixFileMode:
+        """Gets or sets the Unix file mode for the current file or directory."""
+        ...
+
+    @unix_file_mode.setter
+    def unix_file_mode(self, value: System.IO.UnixFileMode) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def create_as_symbolic_link(self, path_to_target: str) -> None:
+        """
+        Creates a symbolic link located in FullName that points to the specified .
+        
+        :param path_to_target: The path of the symbolic link target.
+        """
+        ...
+
+    def delete(self) -> None:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def refresh(self) -> None:
+        ...
+
+    def resolve_link_target(self, return_final_target: bool) -> System.IO.FileSystemInfo:
+        """
+        Gets the target of the specified link.
+        
+        :param return_final_target: true to follow links to the final target; false to return the immediate next link.
+        :returns: A FileSystemInfo instance if the link exists, independently if the target exists or not; null if this file or directory is not a link.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Returns the original path. Use FullName or Name properties for the full path or file/directory name."""
+        ...
+
+
+class SearchOption(Enum):
+    """This class has no documentation."""
+
+    TOP_DIRECTORY_ONLY = 0
+
+    ALL_DIRECTORIES = 1
 
 
 class MatchType(Enum):
@@ -157,587 +505,140 @@ class EnumerationOptions(System.Object):
         ...
 
 
-class UnixFileMode(Enum):
-    """Represents the Unix filesystem permissions.This enumeration supports a bitwise combination of its member values."""
-
-    NONE = 0
-    """No permissions."""
-
-    OTHER_EXECUTE = 1
-    """Execute permission for others."""
-
-    OTHER_WRITE = 2
-    """Write permission for others."""
-
-    OTHER_READ = 4
-    """Read permission for others."""
-
-    GROUP_EXECUTE = 8
-    """Execute permission for group."""
-
-    GROUP_WRITE = 16
-    """Write permission for group."""
-
-    GROUP_READ = 32
-    """Read permission for group."""
-
-    USER_EXECUTE = 64
-    """Execute permission for owner."""
-
-    USER_WRITE = 128
-    """Write permission for owner."""
-
-    USER_READ = 256
-    """Read permission for owner."""
-
-    STICKY_BIT = 512
-    """Sticky bit permission."""
-
-    SET_GROUP = 1024
-    """Set Group permission."""
-
-    SET_USER = 2048
-    """Set User permission."""
-
-
-class FileSystemInfo(System.MarshalByRefObject, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
+class DirectoryInfo(System.IO.FileSystemInfo):
     """This class has no documentation."""
 
     @property
-    def full_path(self) -> str:
-        """This field is protected."""
-        ...
-
-    @full_path.setter
-    def full_path(self, value: str) -> None:
-        ...
-
-    @property
-    def original_path(self) -> str:
-        """This field is protected."""
-        ...
-
-    @original_path.setter
-    def original_path(self, value: str) -> None:
-        ...
-
-    @property
-    def full_name(self) -> str:
-        ...
-
-    @property
-    def extension(self) -> str:
-        ...
-
-    @property
-    @abc.abstractmethod
     def name(self) -> str:
         ...
 
     @property
-    @abc.abstractmethod
+    def parent(self) -> System.IO.DirectoryInfo:
+        ...
+
+    @property
+    def root(self) -> System.IO.DirectoryInfo:
+        ...
+
+    @property
     def exists(self) -> bool:
         ...
 
-    @property
-    def creation_time(self) -> datetime.datetime:
+    def __init__(self, path: str) -> None:
         ...
 
-    @creation_time.setter
-    def creation_time(self, value: datetime.datetime) -> None:
+    def create(self) -> None:
         ...
 
-    @property
-    def creation_time_utc(self) -> datetime.datetime:
-        ...
-
-    @creation_time_utc.setter
-    def creation_time_utc(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def last_access_time(self) -> datetime.datetime:
-        ...
-
-    @last_access_time.setter
-    def last_access_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def last_access_time_utc(self) -> datetime.datetime:
-        ...
-
-    @last_access_time_utc.setter
-    def last_access_time_utc(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def last_write_time(self) -> datetime.datetime:
-        ...
-
-    @last_write_time.setter
-    def last_write_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def last_write_time_utc(self) -> datetime.datetime:
-        ...
-
-    @last_write_time_utc.setter
-    def last_write_time_utc(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def link_target(self) -> str:
-        """
-        If this FileSystemInfo instance represents a link, returns the link target's path.
-        If a link does not exist in FullName, or this instance does not represent a link, returns null.
-        """
-        ...
-
-    @property
-    def unix_file_mode(self) -> System.IO.UnixFileMode:
-        """Gets or sets the Unix file mode for the current file or directory."""
-        ...
-
-    @unix_file_mode.setter
-    def unix_file_mode(self, value: System.IO.UnixFileMode) -> None:
-        ...
-
-    @property
-    def attributes(self) -> System.IO.FileAttributes:
-        ...
-
-    @attributes.setter
-    def attributes(self, value: System.IO.FileAttributes) -> None:
+    def create_subdirectory(self, path: str) -> System.IO.DirectoryInfo:
         ...
 
     @overload
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def create_as_symbolic_link(self, path_to_target: str) -> None:
-        """
-        Creates a symbolic link located in FullName that points to the specified .
-        
-        :param path_to_target: The path of the symbolic link target.
-        """
-        ...
-
     def delete(self) -> None:
         ...
 
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def refresh(self) -> None:
-        ...
-
-    def resolve_link_target(self, return_final_target: bool) -> System.IO.FileSystemInfo:
-        """
-        Gets the target of the specified link.
-        
-        :param return_final_target: true to follow links to the final target; false to return the immediate next link.
-        :returns: A FileSystemInfo instance if the link exists, independently if the target exists or not; null if this file or directory is not a link.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Returns the original path. Use FullName or Name properties for the full path or file/directory name."""
-        ...
-
-
-class FileAccess(Enum):
-    """This class has no documentation."""
-
-    READ = 1
-
-    WRITE = 2
-
-    READ_WRITE = 3
-
-
-class UnmanagedMemoryAccessor(System.Object, System.IDisposable):
-    """Provides random access to unmanaged blocks of memory from managed code."""
-
-    @property
-    def capacity(self) -> int:
-        ...
-
-    @property
-    def can_read(self) -> bool:
-        ...
-
-    @property
-    def can_write(self) -> bool:
-        ...
-
-    @property
-    def is_open(self) -> bool:
-        """This property is protected."""
+    @overload
+    def delete(self, recursive: bool) -> None:
         ...
 
     @overload
-    def __init__(self) -> None:
-        """This method is protected."""
+    def enumerate_directories(self) -> System.Collections.Generic.IEnumerable[System.IO.DirectoryInfo]:
         ...
 
     @overload
-    def __init__(self, buffer: System.Runtime.InteropServices.SafeBuffer, offset: int, capacity: int) -> None:
+    def enumerate_directories(self, search_pattern: str) -> System.Collections.Generic.IEnumerable[System.IO.DirectoryInfo]:
         ...
 
     @overload
-    def __init__(self, buffer: System.Runtime.InteropServices.SafeBuffer, offset: int, capacity: int, access: System.IO.FileAccess) -> None:
+    def enumerate_directories(self, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[System.IO.DirectoryInfo]:
         ...
 
     @overload
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
+    def enumerate_directories(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[System.IO.DirectoryInfo]:
         ...
 
     @overload
-    def dispose(self) -> None:
-        ...
-
-    def initialize(self, buffer: System.Runtime.InteropServices.SafeBuffer, offset: int, capacity: int, access: System.IO.FileAccess) -> None:
-        """This method is protected."""
-        ...
-
-    def read_boolean(self, position: int) -> bool:
-        ...
-
-    def read_byte(self, position: int) -> int:
-        ...
-
-    def read_char(self, position: int) -> str:
-        ...
-
-    def read_decimal(self, position: int) -> float:
-        ...
-
-    def read_double(self, position: int) -> float:
-        ...
-
-    def read_int_16(self, position: int) -> int:
-        ...
-
-    def read_int_32(self, position: int) -> int:
-        ...
-
-    def read_int_64(self, position: int) -> int:
-        ...
-
-    def read_s_byte(self, position: int) -> int:
-        ...
-
-    def read_single(self, position: int) -> float:
-        ...
-
-    def read_u_int_16(self, position: int) -> int:
-        ...
-
-    def read_u_int_32(self, position: int) -> int:
-        ...
-
-    def read_u_int_64(self, position: int) -> int:
+    def enumerate_files(self) -> System.Collections.Generic.IEnumerable[System.IO.FileInfo]:
         ...
 
     @overload
-    def write(self, position: int, value: bool) -> None:
+    def enumerate_files(self, search_pattern: str) -> System.Collections.Generic.IEnumerable[System.IO.FileInfo]:
         ...
 
     @overload
-    def write(self, position: int, value: int) -> None:
+    def enumerate_files(self, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[System.IO.FileInfo]:
         ...
 
     @overload
-    def write(self, position: int, value: str) -> None:
+    def enumerate_files(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[System.IO.FileInfo]:
         ...
 
     @overload
-    def write(self, position: int, value: float) -> None:
-        ...
-
-
-class TextReader(System.MarshalByRefObject, System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    NULL: System.IO.TextReader = ...
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def close(self) -> None:
+    def enumerate_file_system_infos(self) -> System.Collections.Generic.IEnumerable[System.IO.FileSystemInfo]:
         ...
 
     @overload
-    def dispose(self) -> None:
+    def enumerate_file_system_infos(self, search_pattern: str) -> System.Collections.Generic.IEnumerable[System.IO.FileSystemInfo]:
         ...
 
     @overload
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
-        ...
-
-    def peek(self) -> int:
+    def enumerate_file_system_infos(self, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[System.IO.FileSystemInfo]:
         ...
 
     @overload
-    def read(self) -> int:
+    def enumerate_file_system_infos(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[System.IO.FileSystemInfo]:
         ...
 
     @overload
-    def read(self, buffer: typing.List[str], index: int, count: int) -> int:
+    def get_directories(self) -> typing.List[System.IO.DirectoryInfo]:
         ...
 
     @overload
-    def read(self, buffer: System.Span[str]) -> int:
+    def get_directories(self, search_pattern: str) -> typing.List[System.IO.DirectoryInfo]:
         ...
 
     @overload
-    def read_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
+    def get_directories(self, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[System.IO.DirectoryInfo]:
         ...
 
     @overload
-    def read_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
+    def get_directories(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[System.IO.DirectoryInfo]:
         ...
 
     @overload
-    def read_block(self, buffer: typing.List[str], index: int, count: int) -> int:
+    def get_files(self) -> typing.List[System.IO.FileInfo]:
         ...
 
     @overload
-    def read_block(self, buffer: System.Span[str]) -> int:
+    def get_files(self, search_pattern: str) -> typing.List[System.IO.FileInfo]:
         ...
 
     @overload
-    def read_block_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
+    def get_files(self, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[System.IO.FileInfo]:
         ...
 
     @overload
-    def read_block_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
-        ...
-
-    def read_line(self) -> str:
+    def get_files(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[System.IO.FileInfo]:
         ...
 
     @overload
-    def read_line_async(self) -> System.Threading.Tasks.Task[str]:
+    def get_file_system_infos(self) -> typing.List[System.IO.FileSystemInfo]:
         ...
 
     @overload
-    def read_line_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask[str]:
-        """
-        Reads a line of characters asynchronously and returns the data as a string.
-        
-        :param cancellation_token: The token to monitor for cancellation requests.
-        :returns: A value task that represents the asynchronous read operation. The value of the TResult parameter contains the next line from the text reader, or is null if all of the characters have been read.
-        """
-        ...
-
-    def read_to_end(self) -> str:
+    def get_file_system_infos(self, search_pattern: str) -> typing.List[System.IO.FileSystemInfo]:
         ...
 
     @overload
-    def read_to_end_async(self) -> System.Threading.Tasks.Task[str]:
+    def get_file_system_infos(self, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[System.IO.FileSystemInfo]:
         ...
 
     @overload
-    def read_to_end_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[str]:
-        """
-        Reads all characters from the current position to the end of the text reader asynchronously and returns them as one string.
-        
-        :param cancellation_token: The token to monitor for cancellation requests.
-        :returns: A task that represents the asynchronous read operation. The value of the TResult parameter contains a string with the characters from the current position to the end of the text reader.
-        """
+    def get_file_system_infos(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[System.IO.FileSystemInfo]:
         ...
 
-    @staticmethod
-    def synchronized(reader: System.IO.TextReader) -> System.IO.TextReader:
+    def move_to(self, dest_dir_name: str) -> None:
         ...
-
-
-class StringReader(System.IO.TextReader):
-    """This class has no documentation."""
-
-    def __init__(self, s: str) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
-        ...
-
-    def peek(self) -> int:
-        ...
-
-    @overload
-    def read(self) -> int:
-        ...
-
-    @overload
-    def read(self, buffer: typing.List[str], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def read(self, buffer: System.Span[str]) -> int:
-        ...
-
-    @overload
-    def read_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
-        ...
-
-    @overload
-    def read_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
-        ...
-
-    def read_block(self, buffer: System.Span[str]) -> int:
-        ...
-
-    @overload
-    def read_block_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
-        ...
-
-    @overload
-    def read_block_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
-        ...
-
-    def read_line(self) -> str:
-        ...
-
-    @overload
-    def read_line_async(self) -> System.Threading.Tasks.Task[str]:
-        ...
-
-    @overload
-    def read_line_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask[str]:
-        """
-        Reads a line of characters asynchronously from the current string and returns the data as a string.
-        
-        :param cancellation_token: The token to monitor for cancellation requests.
-        :returns: A value task that represents the asynchronous read operation. The value of the TResult parameter contains the next line from the string reader, or is null if all of the characters have been read.
-        """
-        ...
-
-    def read_to_end(self) -> str:
-        ...
-
-    @overload
-    def read_to_end_async(self) -> System.Threading.Tasks.Task[str]:
-        ...
-
-    @overload
-    def read_to_end_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[str]:
-        """
-        Reads all characters from the current position to the end of the string asynchronously and returns them as a single string.
-        
-        :param cancellation_token: The token to monitor for cancellation requests.
-        :returns: A task that represents the asynchronous read operation. The value of the TResult parameter contains a string with the characters from the current position to the end of the string.
-        """
-        ...
-
-
-class IOException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, hresult: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class PathTooLongException(System.IO.IOException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class DirectoryNotFoundException(System.IO.IOException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class HandleInheritability(Enum):
-    """Specifies whether the underlying handle is inheritable by child processes."""
-
-    NONE = 0
-    """Specifies that the handle is not inheritable by child processes."""
-
-    INHERITABLE = 1
-    """Specifies that the handle is inheritable by child processes."""
 
 
 class SeekOrigin(Enum):
@@ -1034,354 +935,254 @@ class Stream(System.MarshalByRefObject, System.IDisposable, System.IAsyncDisposa
         ...
 
 
-class MemoryStream(System.IO.Stream):
+class FileAccess(Enum):
+    """This class has no documentation."""
+
+    READ = 1
+
+    WRITE = 2
+
+    READ_WRITE = 3
+
+
+class FileMode(Enum):
+    """This class has no documentation."""
+
+    CREATE_NEW = 1
+
+    CREATE = 2
+
+    OPEN = 3
+
+    OPEN_OR_CREATE = 4
+
+    TRUNCATE = 5
+
+    APPEND = 6
+
+
+class FileShare(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    READ = 1
+
+    WRITE = 2
+
+    READ_WRITE = 3
+
+    DELETE = 4
+
+    INHERITABLE = ...
+
+
+class FileOptions(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    WRITE_THROUGH = ...
+
+    ASYNCHRONOUS = ...
+
+    RANDOM_ACCESS = ...
+
+    DELETE_ON_CLOSE = ...
+
+    SEQUENTIAL_SCAN = ...
+
+    ENCRYPTED = ...
+
+
+class FileStreamOptions(System.Object):
     """This class has no documentation."""
 
     @property
-    def can_read(self) -> bool:
+    def mode(self) -> System.IO.FileMode:
+        """One of the enumeration values that determines how to open or create the file."""
+        ...
+
+    @mode.setter
+    def mode(self, value: System.IO.FileMode) -> None:
         ...
 
     @property
-    def can_seek(self) -> bool:
+    def access(self) -> System.IO.FileAccess:
+        """A bitwise combination of the enumeration values that determines how the file can be accessed by the FileStream object. This also determines the values returned by the FileStream.CanRead and FileStream.CanWrite properties of the FileStream object."""
+        ...
+
+    @access.setter
+    def access(self, value: System.IO.FileAccess) -> None:
         ...
 
     @property
-    def can_write(self) -> bool:
+    def share(self) -> System.IO.FileShare:
+        """A bitwise combination of the enumeration values that determines how the file will be shared by processes. The default value is FileShare.Read."""
+        ...
+
+    @share.setter
+    def share(self, value: System.IO.FileShare) -> None:
         ...
 
     @property
-    def capacity(self) -> int:
+    def options(self) -> System.IO.FileOptions:
+        """A bitwise combination of the enumeration values that specifies additional file options. The default value is FileOptions.None, which indicates synchronous IO."""
         ...
 
-    @capacity.setter
-    def capacity(self, value: int) -> None:
-        ...
-
-    @property
-    def length(self) -> int:
+    @options.setter
+    def options(self, value: System.IO.FileOptions) -> None:
         ...
 
     @property
-    def position(self) -> int:
-        ...
-
-    @position.setter
-    def position(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, buffer: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self, buffer: typing.List[int], writable: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, buffer: typing.List[int], index: int, count: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, buffer: typing.List[int], index: int, count: int, writable: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, buffer: typing.List[int], index: int, count: int, writable: bool, publicly_visible: bool) -> None:
-        ...
-
-    def copy_to(self, destination: System.IO.Stream, buffer_size: int) -> None:
-        ...
-
-    def copy_to_async(self, destination: System.IO.Stream, buffer_size: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
-        ...
-
-    def flush(self) -> None:
-        ...
-
-    def flush_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        ...
-
-    def get_buffer(self) -> typing.List[int]:
-        ...
-
-    @overload
-    def read(self, buffer: typing.List[int], offset: int, count: int) -> int:
-        ...
-
-    @overload
-    def read(self, buffer: System.Span[int]) -> int:
-        ...
-
-    @overload
-    def read_async(self, buffer: typing.List[int], offset: int, count: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[int]:
-        ...
-
-    @overload
-    def read_async(self, buffer: System.Memory[int], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
-        ...
-
-    def read_byte(self) -> int:
-        ...
-
-    def seek(self, offset: int, loc: System.IO.SeekOrigin) -> int:
-        ...
-
-    def set_length(self, value: int) -> None:
-        ...
-
-    def to_array(self) -> typing.List[int]:
-        ...
-
-    def try_get_buffer(self, buffer: typing.Optional[System.ArraySegment[int]]) -> typing.Tuple[bool, System.ArraySegment[int]]:
-        ...
-
-    @overload
-    def write(self, buffer: typing.List[int], offset: int, count: int) -> None:
-        ...
-
-    @overload
-    def write(self, buffer: System.ReadOnlySpan[int]) -> None:
-        ...
-
-    @overload
-    def write_async(self, buffer: typing.List[int], offset: int, count: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_async(self, buffer: System.ReadOnlyMemory[int], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask:
-        ...
-
-    def write_byte(self, value: int) -> None:
-        ...
-
-    def write_to(self, stream: System.IO.Stream) -> None:
-        ...
-
-
-class RandomAccess(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def flush_to_disk(handle: Microsoft.Win32.SafeHandles.SafeFileHandle) -> None:
+    def preallocation_size(self) -> int:
         """
-        Flushes the operating system buffers for the given file to disk.
-        
-        :param handle: The file handle.
+        The initial allocation size in bytes for the file. A positive value is effective only when a regular file is being created, overwritten, or replaced.
+        Negative values are not allowed.
+        In other cases (including the default 0 value), it's ignored.
         """
         ...
 
-    @staticmethod
-    def get_length(handle: Microsoft.Win32.SafeHandles.SafeFileHandle) -> int:
-        """
-        Gets the length of the file in bytes.
-        
-        :param handle: The file handle.
-        :returns: A long value representing the length of the file in bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def read(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffer: System.Span[int], file_offset: int) -> int:
-        """
-        Reads a sequence of bytes from given file at given offset.
-        
-        :param handle: The file handle.
-        :param buffer: A region of memory. When this method returns, the contents of this region are replaced by the bytes read from the file.
-        :param file_offset: The file position to read from.
-        :returns: The total number of bytes read into the buffer. This can be less than the number of bytes allocated in the buffer if that many bytes are not currently available, or zero (0) if the end of the file has been reached.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def read(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffers: System.Collections.Generic.IReadOnlyList[System.Memory[int]], file_offset: int) -> int:
-        """
-        Reads a sequence of bytes from given file at given offset.
-        
-        :param handle: The file handle.
-        :param buffers: A list of memory buffers. When this method returns, the contents of the buffers are replaced by the bytes read from the file.
-        :param file_offset: The file position to read from.
-        :returns: The total number of bytes read into the buffers. This can be less than the number of bytes allocated in the buffers if that many bytes are not currently available, or zero (0) if the end of the file has been reached.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def read_async(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffer: System.Memory[int], file_offset: int, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
-        """
-        Reads a sequence of bytes from given file at given offset.
-        
-        :param handle: The file handle.
-        :param buffer: A region of memory. When this method returns, the contents of this region are replaced by the bytes read from the file.
-        :param file_offset: The file position to read from.
-        :param cancellation_token: The token to monitor for cancellation requests. The default value is System.Threading.CancellationToken.None.
-        :returns: The total number of bytes read into the buffer. This can be less than the number of bytes allocated in the buffer if that many bytes are not currently available, or zero (0) if the end of the file has been reached.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def read_async(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffers: System.Collections.Generic.IReadOnlyList[System.Memory[int]], file_offset: int, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
-        """
-        Reads a sequence of bytes from given file at given offset.
-        
-        :param handle: The file handle.
-        :param buffers: A list of memory buffers. When this method returns, the contents of these buffers are replaced by the bytes read from the file.
-        :param file_offset: The file position to read from.
-        :param cancellation_token: The token to monitor for cancellation requests. The default value is System.Threading.CancellationToken.None.
-        :returns: The total number of bytes read into the buffers. This can be less than the number of bytes allocated in the buffers if that many bytes are not currently available, or zero (0) if the end of the file has been reached.
-        """
-        ...
-
-    @staticmethod
-    def set_length(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, length: int) -> None:
-        """
-        Sets the length of the file to the given value.
-        
-        :param handle: The file handle.
-        :param length: A long value representing the length of the file in bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def write(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffer: System.ReadOnlySpan[int], file_offset: int) -> None:
-        """
-        Writes a sequence of bytes from given buffer to given file at given offset.
-        
-        :param handle: The file handle.
-        :param buffer: A region of memory. This method copies the contents of this region to the file.
-        :param file_offset: The file position to write to.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def write(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffers: System.Collections.Generic.IReadOnlyList[System.ReadOnlyMemory[int]], file_offset: int) -> None:
-        """
-        Writes a sequence of bytes from given buffers to given file at given offset.
-        
-        :param handle: The file handle.
-        :param buffers: A list of memory buffers. This method copies the contents of these buffers to the file.
-        :param file_offset: The file position to write to.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def write_async(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffer: System.ReadOnlyMemory[int], file_offset: int, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask:
-        """
-        Writes a sequence of bytes from given buffer to given file at given offset.
-        
-        :param handle: The file handle.
-        :param buffer: A region of memory. This method copies the contents of this region to the file.
-        :param file_offset: The file position to write to.
-        :param cancellation_token: The token to monitor for cancellation requests. The default value is System.Threading.CancellationToken.None.
-        :returns: A task representing the asynchronous completion of the write operation.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def write_async(handle: Microsoft.Win32.SafeHandles.SafeFileHandle, buffers: System.Collections.Generic.IReadOnlyList[System.ReadOnlyMemory[int]], file_offset: int, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask:
-        """
-        Writes a sequence of bytes from given buffers to given file at given offset.
-        
-        :param handle: The file handle.
-        :param buffers: A list of memory buffers. This method copies the contents of these buffers to the file.
-        :param file_offset: The file position to write to.
-        :param cancellation_token: The token to monitor for cancellation requests. The default value is System.Threading.CancellationToken.None.
-        :returns: A task representing the asynchronous completion of the write operation.
-        """
-        ...
-
-
-class BufferedStream(System.IO.Stream):
-    """
-    One of the design goals here is to prevent the buffer from getting in the way and slowing
-    down underlying stream accesses when it is not needed. If you always read & write for sizes
-    greater than the internal buffer size, then this class may not even allocate the internal buffer.
-    See a large comment in Write for the details of the write buffer heuristic.
-    
-    This class buffers reads & writes in a shared buffer.
-    (If you maintained two buffers separately, one operation would always trash the other buffer
-    anyways, so we might as well use one buffer.)
-    The assumption here is you will almost always be doing a series of reads or writes, but rarely
-    alternate between the two of them on the same stream.
-    
-    Class Invariants:
-    The class has one buffer, shared for reading & writing.
-    It can only be used for one or the other at any point in time - not both.
-    The following should be true:
-    
-      * 0 <= _readPos <= _readLen < _bufferSize
-      * 0 <= _writePos < _bufferSize
-      * _readPos == _readLen && _readPos > 0 implies the read buffer is valid, but we're at the end of the buffer.
-      * _readPos == _readLen == 0 means the read buffer contains garbage.
-      * Either _writePos can be greater than 0, or _readLen & _readPos can be greater than zero,
-        but neither can be greater than zero at the same time.
-     
-    This class will never cache more bytes than the max specified buffer size.
-    However, it may use a temporary buffer of up to twice the size in order to combine several IO operations on
-    the underlying stream into a single operation. This is because we assume that memory copies are significantly
-    faster than IO operations on the underlying stream (if this was not true, using buffering is never appropriate).
-    The max size of this "shadow" buffer is limited as to not allocate it on the LOH.
-    Shadowing is always transient. Even when using this technique, this class still guarantees that the number of
-    bytes cached (not yet written to the target stream or not yet consumed by the user) is never larger than the
-    actual specified buffer size.
-    """
-
-    @property
-    def underlying_stream(self) -> System.IO.Stream:
+    @preallocation_size.setter
+    def preallocation_size(self, value: int) -> None:
         ...
 
     @property
     def buffer_size(self) -> int:
+        """
+        The size of the buffer used by FileStream for buffering. The default buffer size is 4096.
+        0 or 1 means that buffering should be disabled. Negative values are not allowed.
+        """
+        ...
+
+    @buffer_size.setter
+    def buffer_size(self, value: int) -> None:
         ...
 
     @property
+    def unix_create_mode(self) -> typing.Optional[System.IO.UnixFileMode]:
+        """Unix file mode used when a new file is created."""
+        ...
+
+    @unix_create_mode.setter
+    def unix_create_mode(self, value: typing.Optional[System.IO.UnixFileMode]) -> None:
+        ...
+
+
+class FileStream(System.IO.Stream):
+    """This class has no documentation."""
+
+    @property
+    def handle(self) -> System.IntPtr:
+        """FileStream.Handle has been deprecated. Use FileStream's SafeFileHandle property instead."""
+        warnings.warn("FileStream.Handle has been deprecated. Use FileStream's SafeFileHandle property instead.", DeprecationWarning)
+
+    @property
     def can_read(self) -> bool:
+        """Gets a value indicating whether the current stream supports reading."""
         ...
 
     @property
     def can_write(self) -> bool:
+        """Gets a value indicating whether the current stream supports writing."""
         ...
 
     @property
-    def can_seek(self) -> bool:
+    def safe_file_handle(self) -> Microsoft.Win32.SafeHandles.SafeFileHandle:
+        ...
+
+    @property
+    def name(self) -> str:
+        """Gets the path that was passed to the constructor."""
+        ...
+
+    @property
+    def is_async(self) -> bool:
+        """Gets a value indicating whether the stream was opened for I/O to be performed synchronously or asynchronously."""
         ...
 
     @property
     def length(self) -> int:
+        """Gets the length of the stream in bytes."""
         ...
 
     @property
     def position(self) -> int:
+        """Gets or sets the position within the current stream"""
         ...
 
     @position.setter
     def position(self, value: int) -> None:
         ...
 
-    @overload
-    def __init__(self, stream: System.IO.Stream) -> None:
+    @property
+    def can_seek(self) -> bool:
         ...
 
     @overload
-    def __init__(self, stream: System.IO.Stream, buffer_size: int) -> None:
+    def __init__(self, handle: Microsoft.Win32.SafeHandles.SafeFileHandle, access: System.IO.FileAccess) -> None:
+        ...
+
+    @overload
+    def __init__(self, handle: Microsoft.Win32.SafeHandles.SafeFileHandle, access: System.IO.FileAccess, buffer_size: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, handle: Microsoft.Win32.SafeHandles.SafeFileHandle, access: System.IO.FileAccess, buffer_size: int, is_async: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, mode: System.IO.FileMode) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare, buffer_size: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare, buffer_size: int, use_async: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare, buffer_size: int, options: System.IO.FileOptions) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, options: System.IO.FileStreamOptions) -> None:
+        """
+        Initializes a new instance of the FileStream class with the specified path, creation mode, read/write and sharing permission, the access other FileStreams can have to the same file, the buffer size,  additional file options and the allocation size.
+        
+        :param path: A relative or absolute path for the file that the current FileStream instance will encapsulate.
+        :param options: An object that describes optional FileStream parameters to use.
+        """
+        ...
+
+    @overload
+    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess) -> None:
+        """This constructor has been deprecated. Use FileStream(SafeFileHandle handle, FileAccess access) instead."""
+        ...
+
+    @overload
+    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess, owns_handle: bool) -> None:
+        """This constructor has been deprecated. Use FileStream(SafeFileHandle handle, FileAccess access) and optionally make a new SafeFileHandle with owns_handle=false if needed instead."""
+        ...
+
+    @overload
+    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess, owns_handle: bool, buffer_size: int) -> None:
+        """This constructor has been deprecated. Use FileStream(SafeFileHandle handle, FileAccess access, int buffer_size) and optionally make a new SafeFileHandle with owns_handle=false if needed instead."""
+        ...
+
+    @overload
+    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess, owns_handle: bool, buffer_size: int, is_async: bool) -> None:
+        """This constructor has been deprecated. Use FileStream(SafeFileHandle handle, FileAccess access, int buffer_size, bool is_async) and optionally make a new SafeFileHandle with owns_handle=false if needed instead."""
         ...
 
     def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
@@ -1409,10 +1210,23 @@ class BufferedStream(System.IO.Stream):
     def end_write(self, async_result: System.IAsyncResult) -> None:
         ...
 
+    @overload
     def flush(self) -> None:
+        """Clears buffers for this stream and causes any buffered data to be written to the file."""
+        ...
+
+    @overload
+    def flush(self, flush_to_disk: bool) -> None:
+        """
+        Clears buffers for this stream, and if  is true,
+        causes any buffered data to be written to the file.
+        """
         ...
 
     def flush_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        ...
+
+    def lock(self, position: int, length: int) -> None:
         ...
 
     @overload
@@ -1420,7 +1234,7 @@ class BufferedStream(System.IO.Stream):
         ...
 
     @overload
-    def read(self, destination: System.Span[int]) -> int:
+    def read(self, buffer: System.Span[int]) -> int:
         ...
 
     @overload
@@ -1432,12 +1246,24 @@ class BufferedStream(System.IO.Stream):
         ...
 
     def read_byte(self) -> int:
+        """
+        Reads a byte from the file stream.  Returns the byte cast to an int
+        or -1 if reading from the end of the stream.
+        """
         ...
 
     def seek(self, offset: int, origin: System.IO.SeekOrigin) -> int:
         ...
 
     def set_length(self, value: int) -> None:
+        """
+        Sets the length of this stream to the given value.
+        
+        :param value: The new length of the stream.
+        """
+        ...
+
+    def unlock(self, position: int, length: int) -> None:
         ...
 
     @overload
@@ -1457,286 +1283,264 @@ class BufferedStream(System.IO.Stream):
         ...
 
     def write_byte(self, value: int) -> None:
+        """
+        Writes a byte to the current position in the stream and advances the position
+        within the stream by one byte.
+        
+        :param value: The byte to write to the stream.
+        """
         ...
 
 
-class Path(System.Object):
+class TextReader(System.MarshalByRefObject, System.IDisposable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    DIRECTORY_SEPARATOR_CHAR: str = ...
+    NULL: System.IO.TextReader = ...
 
-    ALT_DIRECTORY_SEPARATOR_CHAR: str = ...
-
-    VOLUME_SEPARATOR_CHAR: str = ...
-
-    PATH_SEPARATOR: str = ...
-
-    INVALID_PATH_CHARS: typing.List[str] = ...
-    """Path.InvalidPathChars has been deprecated. Use GetInvalidPathChars or GetInvalidFileNameChars instead."""
-
-    @staticmethod
-    def change_extension(path: str, extension: str) -> str:
+    def __init__(self) -> None:
+        """This method is protected."""
         ...
 
-    @staticmethod
+    def close(self) -> None:
+        ...
+
     @overload
-    def combine(path_1: str, path_2: str) -> str:
+    def dispose(self) -> None:
         ...
 
-    @staticmethod
     @overload
-    def combine(path_1: str, path_2: str, path_3: str) -> str:
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
         ...
 
-    @staticmethod
+    def peek(self) -> int:
+        ...
+
     @overload
-    def combine(path_1: str, path_2: str, path_3: str, path_4: str) -> str:
+    def read(self) -> int:
         ...
 
-    @staticmethod
     @overload
-    def combine(*paths: typing.Union[str, typing.Iterable[str]]) -> str:
+    def read(self, buffer: typing.List[str], index: int, count: int) -> int:
         ...
 
-    @staticmethod
     @overload
-    def ends_in_directory_separator(path: System.ReadOnlySpan[str]) -> bool:
-        """Returns true if the path ends in a directory separator."""
+    def read(self, buffer: System.Span[str]) -> int:
         ...
 
-    @staticmethod
     @overload
-    def ends_in_directory_separator(path: str) -> bool:
-        """Returns true if the path ends in a directory separator."""
+    def read_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
         ...
 
-    @staticmethod
-    def exists(path: str) -> bool:
+    @overload
+    def read_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
+        ...
+
+    @overload
+    def read_block(self, buffer: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def read_block(self, buffer: System.Span[str]) -> int:
+        ...
+
+    @overload
+    def read_block_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
+        ...
+
+    @overload
+    def read_block_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
+        ...
+
+    def read_line(self) -> str:
+        ...
+
+    @overload
+    def read_line_async(self) -> System.Threading.Tasks.Task[str]:
+        ...
+
+    @overload
+    def read_line_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask[str]:
         """
-        Determines whether the specified file or directory exists.
+        Reads a line of characters asynchronously and returns the data as a string.
         
-        :param path: The path to check
-        :returns: true if the caller has the required permissions and  contains the name of an existing file or directory; otherwise, false. This method also returns false if  is null, an invalid path, or a zero-length string. If the caller does not have sufficient permissions to read the specified path, no exception is thrown and the method returns false regardless of the existence of .
+        :param cancellation_token: The token to monitor for cancellation requests.
+        :returns: A value task that represents the asynchronous read operation. The value of the TResult parameter contains the next line from the text reader, or is null if all of the characters have been read.
         """
         ...
 
-    @staticmethod
+    def read_to_end(self) -> str:
+        ...
+
     @overload
-    def get_directory_name(path: str) -> str:
+    def read_to_end_async(self) -> System.Threading.Tasks.Task[str]:
+        ...
+
+    @overload
+    def read_to_end_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[str]:
         """
-        Returns the directory portion of a file path. This method effectively
-        removes the last segment of the given file path, i.e. it returns a
-        string consisting of all characters up to but not including the last
-        backslash ("\\") in the file path. The returned value is null if the
-        specified path is null, empty, or a root (such as "\\", "C:", or
-        "\\\\server\\share").
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_directory_name(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """
-        Returns the directory portion of a file path. The returned value is empty
-        if the specified path is null, empty, or a root (such as "\\", "C:", or
-        "\\\\server\\share").
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_extension(path: str) -> str:
-        """
-        Returns the extension of the given path. The returned value includes the period (".") character of the
-        extension except when you have a terminal period when you get string.Empty, such as ".exe" or ".cpp".
-        The returned value is null if the given path is null or empty if the given path does not include an
-        extension.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_extension(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """Returns the extension of the given path."""
-        ...
-
-    @staticmethod
-    @overload
-    def get_file_name(path: str) -> str:
-        """
-        Returns the name and extension parts of the given path. The resulting string contains
-        the characters of path that follow the last separator in path. The resulting string is
-        null if path is null.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_file_name(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """The returned ReadOnlySpan contains the characters of the path that follows the last separator in path."""
-        ...
-
-    @staticmethod
-    @overload
-    def get_file_name_without_extension(path: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def get_file_name_without_extension(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """Returns the characters between the last separator and last (.) in the path."""
-        ...
-
-    @staticmethod
-    @overload
-    def get_full_path(path: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def get_full_path(path: str, base_path: str) -> str:
-        ...
-
-    @staticmethod
-    def get_invalid_file_name_chars() -> typing.List[str]:
-        ...
-
-    @staticmethod
-    def get_invalid_path_chars() -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_path_root(path: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def get_path_root(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        ...
-
-    @staticmethod
-    def get_random_file_name() -> str:
-        """
-        Returns a cryptographically strong random 8.3 string that can be
-        used as either a folder name or a file name.
-        """
-        ...
-
-    @staticmethod
-    def get_relative_path(relative_to: str, path: str) -> str:
-        """
-        Create a relative path from one path to another. Paths will be resolved before calculating the difference.
-        Default path comparison for the active platform will be used (OrdinalIgnoreCase for Windows or Mac, Ordinal for Unix).
+        Reads all characters from the current position to the end of the text reader asynchronously and returns them as one string.
         
-        :param relative_to: The source path the output should be relative to. This path is always considered to be a directory.
-        :param path: The destination path.
-        :returns: The relative path or  if the paths don't share the same root.
+        :param cancellation_token: The token to monitor for cancellation requests.
+        :returns: A task that represents the asynchronous read operation. The value of the TResult parameter contains a string with the characters from the current position to the end of the text reader.
         """
         ...
 
     @staticmethod
-    def get_temp_file_name() -> str:
+    def synchronized(reader: System.IO.TextReader) -> System.IO.TextReader:
         ...
 
-    @staticmethod
-    def get_temp_path() -> str:
+
+class StreamReader(System.IO.TextReader):
+    """This class has no documentation."""
+
+    NULL: System.IO.StreamReader = ...
+
+    @property
+    def current_encoding(self) -> System.Text.Encoding:
         ...
 
-    @staticmethod
+    @property
+    def base_stream(self) -> System.IO.Stream:
+        ...
+
+    @property
+    def end_of_stream(self) -> bool:
+        ...
+
     @overload
-    def has_extension(path: str) -> bool:
+    def __init__(self, stream: System.IO.Stream) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream, detect_encoding_from_byte_order_marks: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream, encoding: System.Text.Encoding) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool, buffer_size: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream, encoding: System.Text.Encoding = None, detect_encoding_from_byte_order_marks: bool = True, buffer_size: int = -1, leave_open: bool = False) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, detect_encoding_from_byte_order_marks: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, encoding: System.Text.Encoding) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool, buffer_size: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, options: System.IO.FileStreamOptions) -> None:
+        ...
+
+    @overload
+    def __init__(self, path: str, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool, options: System.IO.FileStreamOptions) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    def discard_buffered_data(self) -> None:
+        ...
+
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
+        ...
+
+    def peek(self) -> int:
+        ...
+
+    @overload
+    def read(self) -> int:
+        ...
+
+    @overload
+    def read(self, buffer: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def read(self, buffer: System.Span[str]) -> int:
+        ...
+
+    @overload
+    def read_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
+        ...
+
+    @overload
+    def read_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
+        ...
+
+    @overload
+    def read_block(self, buffer: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def read_block(self, buffer: System.Span[str]) -> int:
+        ...
+
+    @overload
+    def read_block_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
+        ...
+
+    @overload
+    def read_block_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
+        ...
+
+    def read_line(self) -> str:
+        ...
+
+    @overload
+    def read_line_async(self) -> System.Threading.Tasks.Task[str]:
+        ...
+
+    @overload
+    def read_line_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask[str]:
         """
-        Tests if a path's file name includes a file extension. A trailing period
-        is not considered an extension.
+        Reads a line of characters asynchronously from the current stream and returns the data as a string.
+        
+        :param cancellation_token: The token to monitor for cancellation requests.
+        :returns: A value task that represents the asynchronous read operation. The value of the TResult parameter contains the next line from the stream, or is null if all of the characters have been read.
         """
         ...
 
-    @staticmethod
-    @overload
-    def has_extension(path: System.ReadOnlySpan[str]) -> bool:
+    def read_to_end(self) -> str:
         ...
 
-    @staticmethod
     @overload
-    def is_path_fully_qualified(path: str) -> bool:
+    def read_to_end_async(self) -> System.Threading.Tasks.Task[str]:
+        ...
+
+    @overload
+    def read_to_end_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[str]:
         """
-        Returns true if the path is fixed to a specific drive or UNC path. This method does no
-        validation of the path (URIs will be returned as relative as a result).
-        Returns false if the path specified is relative to the current drive or working directory.
+        Reads all characters from the current position to the end of the stream asynchronously and returns them as one string.
+        
+        :param cancellation_token: The token to monitor for cancellation requests.
+        :returns: A task that represents the asynchronous read operation. The value of the TResult parameter contains a string with the characters from the current position to the end of the stream.
         """
-        ...
-
-    @staticmethod
-    @overload
-    def is_path_fully_qualified(path: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_path_rooted(path: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_path_rooted(path: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str], path_3: System.ReadOnlySpan[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str], path_3: System.ReadOnlySpan[str], path_4: System.ReadOnlySpan[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(path_1: str, path_2: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(path_1: str, path_2: str, path_3: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(path_1: str, path_2: str, path_3: str, path_4: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(*paths: typing.Union[str, typing.Iterable[str]]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_ending_directory_separator(path: str) -> str:
-        """Trims one trailing directory separator beyond the root of the path."""
-        ...
-
-    @staticmethod
-    @overload
-    def trim_ending_directory_separator(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """Trims one trailing directory separator beyond the root of the path."""
-        ...
-
-    @staticmethod
-    @overload
-    def try_join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str], path_3: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
         ...
 
 
@@ -2019,130 +1823,6 @@ class TextWriter(System.MarshalByRefObject, System.IDisposable, System.IAsyncDis
         ...
 
 
-class FileMode(Enum):
-    """This class has no documentation."""
-
-    CREATE_NEW = 1
-
-    CREATE = 2
-
-    OPEN = 3
-
-    OPEN_OR_CREATE = 4
-
-    TRUNCATE = 5
-
-    APPEND = 6
-
-
-class FileShare(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    READ = 1
-
-    WRITE = 2
-
-    READ_WRITE = 3
-
-    DELETE = 4
-
-    INHERITABLE = ...
-
-
-class FileOptions(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    WRITE_THROUGH = ...
-
-    ASYNCHRONOUS = ...
-
-    RANDOM_ACCESS = ...
-
-    DELETE_ON_CLOSE = ...
-
-    SEQUENTIAL_SCAN = ...
-
-    ENCRYPTED = ...
-
-
-class FileStreamOptions(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def mode(self) -> System.IO.FileMode:
-        """One of the enumeration values that determines how to open or create the file."""
-        ...
-
-    @mode.setter
-    def mode(self, value: System.IO.FileMode) -> None:
-        ...
-
-    @property
-    def access(self) -> System.IO.FileAccess:
-        """A bitwise combination of the enumeration values that determines how the file can be accessed by the FileStream object. This also determines the values returned by the FileStream.CanRead and FileStream.CanWrite properties of the FileStream object."""
-        ...
-
-    @access.setter
-    def access(self, value: System.IO.FileAccess) -> None:
-        ...
-
-    @property
-    def share(self) -> System.IO.FileShare:
-        """A bitwise combination of the enumeration values that determines how the file will be shared by processes. The default value is FileShare.Read."""
-        ...
-
-    @share.setter
-    def share(self, value: System.IO.FileShare) -> None:
-        ...
-
-    @property
-    def options(self) -> System.IO.FileOptions:
-        """A bitwise combination of the enumeration values that specifies additional file options. The default value is FileOptions.None, which indicates synchronous IO."""
-        ...
-
-    @options.setter
-    def options(self, value: System.IO.FileOptions) -> None:
-        ...
-
-    @property
-    def preallocation_size(self) -> int:
-        """
-        The initial allocation size in bytes for the file. A positive value is effective only when a regular file is being created, overwritten, or replaced.
-        Negative values are not allowed.
-        In other cases (including the default 0 value), it's ignored.
-        """
-        ...
-
-    @preallocation_size.setter
-    def preallocation_size(self, value: int) -> None:
-        ...
-
-    @property
-    def buffer_size(self) -> int:
-        """
-        The size of the buffer used by FileStream for buffering. The default buffer size is 4096.
-        0 or 1 means that buffering should be disabled. Negative values are not allowed.
-        """
-        ...
-
-    @buffer_size.setter
-    def buffer_size(self, value: int) -> None:
-        ...
-
-    @property
-    def unix_create_mode(self) -> typing.Optional[System.IO.UnixFileMode]:
-        """Unix file mode used when a new file is created."""
-        ...
-
-    @unix_create_mode.setter
-    def unix_create_mode(self, value: typing.Optional[System.IO.UnixFileMode]) -> None:
-        ...
-
-
 class StreamWriter(System.IO.TextWriter):
     """This class has no documentation."""
 
@@ -2316,15 +1996,7 @@ class StreamWriter(System.IO.TextWriter):
         ...
 
 
-class SearchOption(Enum):
-    """This class has no documentation."""
-
-    TOP_DIRECTORY_ONLY = 0
-
-    ALL_DIRECTORIES = 1
-
-
-class DirectoryInfo(System.IO.FileSystemInfo):
+class FileInfo(System.IO.FileSystemInfo):
     """This class has no documentation."""
 
     @property
@@ -2332,1025 +2004,98 @@ class DirectoryInfo(System.IO.FileSystemInfo):
         ...
 
     @property
-    def parent(self) -> System.IO.DirectoryInfo:
+    def length(self) -> int:
         ...
 
     @property
-    def root(self) -> System.IO.DirectoryInfo:
+    def directory_name(self) -> str:
+        ...
+
+    @property
+    def directory(self) -> System.IO.DirectoryInfo:
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        ...
+
+    @is_read_only.setter
+    def is_read_only(self, value: bool) -> None:
         ...
 
     @property
     def exists(self) -> bool:
         ...
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, file_name: str) -> None:
         ...
 
-    def create(self) -> None:
-        ...
-
-    def create_subdirectory(self, path: str) -> System.IO.DirectoryInfo:
+    def append_text(self) -> System.IO.StreamWriter:
         ...
 
     @overload
+    def copy_to(self, dest_file_name: str) -> System.IO.FileInfo:
+        ...
+
+    @overload
+    def copy_to(self, dest_file_name: str, overwrite: bool) -> System.IO.FileInfo:
+        ...
+
+    def create(self) -> System.IO.FileStream:
+        ...
+
+    def create_text(self) -> System.IO.StreamWriter:
+        ...
+
+    def decrypt(self) -> None:
+        ...
+
     def delete(self) -> None:
         ...
 
-    @overload
-    def delete(self, recursive: bool) -> None:
-        ...
-
-    @overload
-    def enumerate_directories(self) -> System.Collections.Generic.IEnumerable[System.IO.DirectoryInfo]:
-        ...
-
-    @overload
-    def enumerate_directories(self, search_pattern: str) -> System.Collections.Generic.IEnumerable[System.IO.DirectoryInfo]:
-        ...
-
-    @overload
-    def enumerate_directories(self, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[System.IO.DirectoryInfo]:
-        ...
-
-    @overload
-    def enumerate_directories(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[System.IO.DirectoryInfo]:
-        ...
-
-    @overload
-    def enumerate_files(self) -> System.Collections.Generic.IEnumerable[System.IO.FileInfo]:
-        ...
-
-    @overload
-    def enumerate_files(self, search_pattern: str) -> System.Collections.Generic.IEnumerable[System.IO.FileInfo]:
-        ...
-
-    @overload
-    def enumerate_files(self, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[System.IO.FileInfo]:
-        ...
-
-    @overload
-    def enumerate_files(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[System.IO.FileInfo]:
-        ...
-
-    @overload
-    def enumerate_file_system_infos(self) -> System.Collections.Generic.IEnumerable[System.IO.FileSystemInfo]:
-        ...
-
-    @overload
-    def enumerate_file_system_infos(self, search_pattern: str) -> System.Collections.Generic.IEnumerable[System.IO.FileSystemInfo]:
-        ...
-
-    @overload
-    def enumerate_file_system_infos(self, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[System.IO.FileSystemInfo]:
-        ...
-
-    @overload
-    def enumerate_file_system_infos(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[System.IO.FileSystemInfo]:
-        ...
-
-    @overload
-    def get_directories(self) -> typing.List[System.IO.DirectoryInfo]:
-        ...
-
-    @overload
-    def get_directories(self, search_pattern: str) -> typing.List[System.IO.DirectoryInfo]:
-        ...
-
-    @overload
-    def get_directories(self, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[System.IO.DirectoryInfo]:
-        ...
-
-    @overload
-    def get_directories(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[System.IO.DirectoryInfo]:
-        ...
-
-    @overload
-    def get_files(self) -> typing.List[System.IO.FileInfo]:
-        ...
-
-    @overload
-    def get_files(self, search_pattern: str) -> typing.List[System.IO.FileInfo]:
-        ...
-
-    @overload
-    def get_files(self, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[System.IO.FileInfo]:
-        ...
-
-    @overload
-    def get_files(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[System.IO.FileInfo]:
-        ...
-
-    @overload
-    def get_file_system_infos(self) -> typing.List[System.IO.FileSystemInfo]:
-        ...
-
-    @overload
-    def get_file_system_infos(self, search_pattern: str) -> typing.List[System.IO.FileSystemInfo]:
-        ...
-
-    @overload
-    def get_file_system_infos(self, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[System.IO.FileSystemInfo]:
-        ...
-
-    @overload
-    def get_file_system_infos(self, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[System.IO.FileSystemInfo]:
-        ...
-
-    def move_to(self, dest_dir_name: str) -> None:
-        ...
-
-
-class Directory(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    @overload
-    def create_directory(path: str) -> System.IO.DirectoryInfo:
-        ...
-
-    @staticmethod
-    @overload
-    def create_directory(path: str, unix_create_mode: System.IO.UnixFileMode) -> System.IO.DirectoryInfo:
-        """
-        Creates all directories and subdirectories in the specified path with the specified permissions unless they already exist.
-        
-        :param path: The directory to create.
-        :param unix_create_mode: Unix file mode used to create directories.
-        :returns: An object that represents the directory at the specified path. This object is returned regardless of whether a directory at the specified path already exists.
-        """
-        ...
-
-    @staticmethod
-    def create_symbolic_link(path: str, path_to_target: str) -> System.IO.FileSystemInfo:
-        """
-        Creates a directory symbolic link identified by  that points to .
-        
-        :param path: The absolute path where the symbolic link should be created.
-        :param path_to_target: The target directory of the symbolic link.
-        :returns: A DirectoryInfo instance that wraps the newly created directory symbolic link.
-        """
-        ...
-
-    @staticmethod
-    def create_temp_subdirectory(prefix: str = None) -> System.IO.DirectoryInfo:
-        """
-        Creates a uniquely-named, empty directory in the current user's temporary directory.
-        
-        :param prefix: An optional string to add to the beginning of the subdirectory name.
-        :returns: An object that represents the directory that was created.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def delete(path: str) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def delete(path: str, recursive: bool) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_directories(path: str) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_directories(path: str, search_pattern: str) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_directories(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_directories(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_files(path: str) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_files(path: str, search_pattern: str) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_files(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_files(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_file_system_entries(path: str) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_file_system_entries(path: str, search_pattern: str) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_file_system_entries(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_file_system_entries(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[str]:
-        ...
-
-    @staticmethod
-    def exists(path: str) -> bool:
-        ...
-
-    @staticmethod
-    def get_creation_time(path: str) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def get_creation_time_utc(path: str) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def get_current_directory() -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def get_directories(path: str) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_directories(path: str, search_pattern: str) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_directories(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_directories(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    def get_directory_root(path: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def get_files(path: str) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_files(path: str, search_pattern: str) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_files(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_files(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_file_system_entries(path: str) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_file_system_entries(path: str, search_pattern: str) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_file_system_entries(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_file_system_entries(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[str]:
-        ...
-
-    @staticmethod
-    def get_last_access_time(path: str) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def get_last_access_time_utc(path: str) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def get_last_write_time(path: str) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def get_last_write_time_utc(path: str) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def get_logical_drives() -> typing.List[str]:
-        ...
-
-    @staticmethod
-    def get_parent(path: str) -> System.IO.DirectoryInfo:
-        ...
-
-    @staticmethod
-    def move(source_dir_name: str, dest_dir_name: str) -> None:
-        ...
-
-    @staticmethod
-    def resolve_link_target(link_path: str, return_final_target: bool) -> System.IO.FileSystemInfo:
-        """
-        Gets the target of the specified directory link.
-        
-        :param link_path: The path of the directory link.
-        :param return_final_target: true to follow links to the final target; false to return the immediate next link.
-        :returns: A DirectoryInfo instance if  exists, independently if the target exists or not. null if  is not a link.
-        """
-        ...
-
-    @staticmethod
-    def set_creation_time(path: str, creation_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        ...
-
-    @staticmethod
-    def set_creation_time_utc(path: str, creation_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
-        ...
-
-    @staticmethod
-    def set_current_directory(path: str) -> None:
-        ...
-
-    @staticmethod
-    def set_last_access_time(path: str, last_access_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        ...
-
-    @staticmethod
-    def set_last_access_time_utc(path: str, last_access_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
-        ...
-
-    @staticmethod
-    def set_last_write_time(path: str, last_write_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        ...
-
-    @staticmethod
-    def set_last_write_time_utc(path: str, last_write_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
-        ...
-
-
-class BinaryWriter(System.Object, System.IDisposable, System.IAsyncDisposable):
-    """This class has no documentation."""
-
-    NULL: System.IO.BinaryWriter = ...
-
-    @property
-    def out_stream(self) -> System.IO.Stream:
-        """This field is protected."""
-        ...
-
-    @out_stream.setter
-    def out_stream(self, value: System.IO.Stream) -> None:
-        ...
-
-    @property
-    def base_stream(self) -> System.IO.Stream:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    @overload
-    def __init__(self, output: System.IO.Stream) -> None:
-        ...
-
-    @overload
-    def __init__(self, output: System.IO.Stream, encoding: System.Text.Encoding) -> None:
-        ...
-
-    @overload
-    def __init__(self, output: System.IO.Stream, encoding: System.Text.Encoding, leave_open: bool) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    @overload
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
-        ...
-
-    @overload
-    def dispose(self) -> None:
-        ...
-
-    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
-        ...
-
-    def flush(self) -> None:
-        ...
-
-    def seek(self, offset: int, origin: System.IO.SeekOrigin) -> int:
-        ...
-
-    @overload
-    def write(self, value: bool) -> None:
-        ...
-
-    @overload
-    def write(self, value: int) -> None:
-        ...
-
-    @overload
-    def write(self, buffer: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def write(self, buffer: typing.List[int], index: int, count: int) -> None:
-        ...
-
-    @overload
-    def write(self, ch: str) -> None:
-        ...
-
-    @overload
-    def write(self, chars: typing.List[str]) -> None:
-        ...
-
-    @overload
-    def write(self, chars: typing.List[str], index: int, count: int) -> None:
-        ...
-
-    @overload
-    def write(self, value: float) -> None:
-        ...
-
-    @overload
-    def write(self, value: System.Half) -> None:
-        ...
-
-    @overload
-    def write(self, value: str) -> None:
-        ...
-
-    @overload
-    def write(self, buffer: System.ReadOnlySpan[int]) -> None:
-        ...
-
-    @overload
-    def write(self, chars: System.ReadOnlySpan[str]) -> None:
-        ...
-
-    def write_7_bit_encoded_int(self, value: int) -> None:
-        ...
-
-    def write_7_bit_encoded_int_64(self, value: int) -> None:
-        ...
-
-
-class FileNotFoundException(System.IO.IOException):
-    """This class has no documentation."""
-
-    @property
-    def message(self) -> str:
-        ...
-
-    @property
-    def file_name(self) -> str:
-        ...
-
-    @property
-    def fusion_log(self) -> str:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, file_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, file_name: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def to_string(self) -> str:
-        ...
-
-
-class StringWriter(System.IO.TextWriter):
-    """This class has no documentation."""
-
-    @property
-    def encoding(self) -> System.Text.Encoding:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, format_provider: System.IFormatProvider) -> None:
-        ...
-
-    @overload
-    def __init__(self, sb: System.Text.StringBuilder) -> None:
-        ...
-
-    @overload
-    def __init__(self, sb: System.Text.StringBuilder, format_provider: System.IFormatProvider) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
-        ...
-
-    def flush_async(self) -> System.Threading.Tasks.Task:
-        ...
-
-    def get_string_builder(self) -> System.Text.StringBuilder:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def write(self, value: str) -> None:
-        ...
-
-    @overload
-    def write(self, buffer: typing.List[str], index: int, count: int) -> None:
-        ...
-
-    @overload
-    def write(self, buffer: System.ReadOnlySpan[str]) -> None:
-        ...
-
-    @overload
-    def write(self, value: System.Text.StringBuilder) -> None:
-        ...
-
-    @overload
-    def write_async(self, value: str) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_async(self, buffer: System.ReadOnlyMemory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_async(self, value: System.Text.StringBuilder, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_line(self, buffer: System.ReadOnlySpan[str]) -> None:
-        ...
-
-    @overload
-    def write_line(self, value: System.Text.StringBuilder) -> None:
-        ...
-
-    @overload
-    def write_line_async(self, value: str) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_line_async(self, value: System.Text.StringBuilder, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_line_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task:
-        ...
-
-    @overload
-    def write_line_async(self, buffer: System.ReadOnlyMemory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
-        ...
-
-
-class StreamReader(System.IO.TextReader):
-    """This class has no documentation."""
-
-    NULL: System.IO.StreamReader = ...
-
-    @property
-    def current_encoding(self) -> System.Text.Encoding:
-        ...
-
-    @property
-    def base_stream(self) -> System.IO.Stream:
-        ...
-
-    @property
-    def end_of_stream(self) -> bool:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream) -> None:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream, detect_encoding_from_byte_order_marks: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream, encoding: System.Text.Encoding) -> None:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool, buffer_size: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream, encoding: System.Text.Encoding = None, detect_encoding_from_byte_order_marks: bool = True, buffer_size: int = -1, leave_open: bool = False) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, detect_encoding_from_byte_order_marks: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, encoding: System.Text.Encoding) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool, buffer_size: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, options: System.IO.FileStreamOptions) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, encoding: System.Text.Encoding, detect_encoding_from_byte_order_marks: bool, options: System.IO.FileStreamOptions) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    def discard_buffered_data(self) -> None:
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
-        ...
-
-    def peek(self) -> int:
-        ...
-
-    @overload
-    def read(self) -> int:
-        ...
-
-    @overload
-    def read(self, buffer: typing.List[str], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def read(self, buffer: System.Span[str]) -> int:
-        ...
-
-    @overload
-    def read_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
-        ...
-
-    @overload
-    def read_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
-        ...
-
-    @overload
-    def read_block(self, buffer: typing.List[str], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def read_block(self, buffer: System.Span[str]) -> int:
-        ...
-
-    @overload
-    def read_block_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
-        ...
-
-    @overload
-    def read_block_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
-        ...
-
-    def read_line(self) -> str:
-        ...
-
-    @overload
-    def read_line_async(self) -> System.Threading.Tasks.Task[str]:
-        ...
-
-    @overload
-    def read_line_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask[str]:
-        """
-        Reads a line of characters asynchronously from the current stream and returns the data as a string.
-        
-        :param cancellation_token: The token to monitor for cancellation requests.
-        :returns: A value task that represents the asynchronous read operation. The value of the TResult parameter contains the next line from the stream, or is null if all of the characters have been read.
-        """
-        ...
-
-    def read_to_end(self) -> str:
-        ...
-
-    @overload
-    def read_to_end_async(self) -> System.Threading.Tasks.Task[str]:
-        ...
-
-    @overload
-    def read_to_end_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[str]:
-        """
-        Reads all characters from the current position to the end of the stream asynchronously and returns them as one string.
-        
-        :param cancellation_token: The token to monitor for cancellation requests.
-        :returns: A task that represents the asynchronous read operation. The value of the TResult parameter contains a string with the characters from the current position to the end of the stream.
-        """
-        ...
-
-
-class FileStream(System.IO.Stream):
-    """This class has no documentation."""
-
-    @property
-    def handle(self) -> System.IntPtr:
-        """FileStream.Handle has been deprecated. Use FileStream's SafeFileHandle property instead."""
-        warnings.warn("FileStream.Handle has been deprecated. Use FileStream's SafeFileHandle property instead.", DeprecationWarning)
-
-    @property
-    def can_read(self) -> bool:
-        """Gets a value indicating whether the current stream supports reading."""
-        ...
-
-    @property
-    def can_write(self) -> bool:
-        """Gets a value indicating whether the current stream supports writing."""
-        ...
-
-    @property
-    def safe_file_handle(self) -> Microsoft.Win32.SafeHandles.SafeFileHandle:
-        ...
-
-    @property
-    def name(self) -> str:
-        """Gets the path that was passed to the constructor."""
-        ...
-
-    @property
-    def is_async(self) -> bool:
-        """Gets a value indicating whether the stream was opened for I/O to be performed synchronously or asynchronously."""
-        ...
-
-    @property
-    def length(self) -> int:
-        """Gets the length of the stream in bytes."""
-        ...
-
-    @property
-    def position(self) -> int:
-        """Gets or sets the position within the current stream"""
-        ...
-
-    @position.setter
-    def position(self, value: int) -> None:
-        ...
-
-    @property
-    def can_seek(self) -> bool:
-        ...
-
-    @overload
-    def __init__(self, handle: Microsoft.Win32.SafeHandles.SafeFileHandle, access: System.IO.FileAccess) -> None:
-        ...
-
-    @overload
-    def __init__(self, handle: Microsoft.Win32.SafeHandles.SafeFileHandle, access: System.IO.FileAccess, buffer_size: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, handle: Microsoft.Win32.SafeHandles.SafeFileHandle, access: System.IO.FileAccess, buffer_size: int, is_async: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, mode: System.IO.FileMode) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare, buffer_size: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare, buffer_size: int, use_async: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare, buffer_size: int, options: System.IO.FileOptions) -> None:
-        ...
-
-    @overload
-    def __init__(self, path: str, options: System.IO.FileStreamOptions) -> None:
-        """
-        Initializes a new instance of the FileStream class with the specified path, creation mode, read/write and sharing permission, the access other FileStreams can have to the same file, the buffer size,  additional file options and the allocation size.
-        
-        :param path: A relative or absolute path for the file that the current FileStream instance will encapsulate.
-        :param options: An object that describes optional FileStream parameters to use.
-        """
-        ...
-
-    @overload
-    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess) -> None:
-        """This constructor has been deprecated. Use FileStream(SafeFileHandle handle, FileAccess access) instead."""
-        ...
-
-    @overload
-    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess, owns_handle: bool) -> None:
-        """This constructor has been deprecated. Use FileStream(SafeFileHandle handle, FileAccess access) and optionally make a new SafeFileHandle with owns_handle=false if needed instead."""
-        ...
-
-    @overload
-    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess, owns_handle: bool, buffer_size: int) -> None:
-        """This constructor has been deprecated. Use FileStream(SafeFileHandle handle, FileAccess access, int buffer_size) and optionally make a new SafeFileHandle with owns_handle=false if needed instead."""
+    def encrypt(self) -> None:
         ...
 
     @overload
-    def __init__(self, handle: System.IntPtr, access: System.IO.FileAccess, owns_handle: bool, buffer_size: int, is_async: bool) -> None:
-        """This constructor has been deprecated. Use FileStream(SafeFileHandle handle, FileAccess access, int buffer_size, bool is_async) and optionally make a new SafeFileHandle with owns_handle=false if needed instead."""
+    def move_to(self, dest_file_name: str) -> None:
         ...
 
-    def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
-        ...
-
-    def begin_write(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
-        ...
-
-    def copy_to(self, destination: System.IO.Stream, buffer_size: int) -> None:
-        ...
-
-    def copy_to_async(self, destination: System.IO.Stream, buffer_size: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
-        ...
-
-    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
-        ...
-
-    def end_read(self, async_result: System.IAsyncResult) -> int:
-        ...
-
-    def end_write(self, async_result: System.IAsyncResult) -> None:
-        ...
-
     @overload
-    def flush(self) -> None:
-        """Clears buffers for this stream and causes any buffered data to be written to the file."""
+    def move_to(self, dest_file_name: str, overwrite: bool) -> None:
         ...
 
     @overload
-    def flush(self, flush_to_disk: bool) -> None:
-        """
-        Clears buffers for this stream, and if  is true,
-        causes any buffered data to be written to the file.
-        """
+    def open(self, options: System.IO.FileStreamOptions) -> System.IO.FileStream:
+        """Initializes a new instance of the FileStream class with the specified creation mode, read/write and sharing permission, the access other FileStreams can have to the same file, the buffer size, additional file options and the allocation size."""
         ...
 
-    def flush_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        ...
-
-    def lock(self, position: int, length: int) -> None:
-        ...
-
     @overload
-    def read(self, buffer: typing.List[int], offset: int, count: int) -> int:
+    def open(self, mode: System.IO.FileMode) -> System.IO.FileStream:
         ...
 
     @overload
-    def read(self, buffer: System.Span[int]) -> int:
+    def open(self, mode: System.IO.FileMode, access: System.IO.FileAccess) -> System.IO.FileStream:
         ...
 
     @overload
-    def read_async(self, buffer: typing.List[int], offset: int, count: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[int]:
-        ...
-
-    @overload
-    def read_async(self, buffer: System.Memory[int], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
-        ...
-
-    def read_byte(self) -> int:
-        """
-        Reads a byte from the file stream.  Returns the byte cast to an int
-        or -1 if reading from the end of the stream.
-        """
-        ...
-
-    def seek(self, offset: int, origin: System.IO.SeekOrigin) -> int:
-        ...
-
-    def set_length(self, value: int) -> None:
-        """
-        Sets the length of this stream to the given value.
-        
-        :param value: The new length of the stream.
-        """
+    def open(self, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare) -> System.IO.FileStream:
         ...
 
-    def unlock(self, position: int, length: int) -> None:
+    def open_read(self) -> System.IO.FileStream:
         ...
 
-    @overload
-    def write(self, buffer: typing.List[int], offset: int, count: int) -> None:
+    def open_text(self) -> System.IO.StreamReader:
         ...
 
-    @overload
-    def write(self, buffer: System.ReadOnlySpan[int]) -> None:
+    def open_write(self) -> System.IO.FileStream:
         ...
 
     @overload
-    def write_async(self, buffer: typing.List[int], offset: int, count: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+    def replace(self, destination_file_name: str, destination_backup_file_name: str) -> System.IO.FileInfo:
         ...
 
     @overload
-    def write_async(self, buffer: System.ReadOnlyMemory[int], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask:
-        ...
-
-    def write_byte(self, value: int) -> None:
-        """
-        Writes a byte to the current position in the stream and advances the position
-        within the stream by one byte.
-        
-        :param value: The byte to write to the stream.
-        """
+    def replace(self, destination_file_name: str, destination_backup_file_name: str, ignore_metadata_errors: bool) -> System.IO.FileInfo:
         ...
 
 
@@ -4136,42 +2881,20 @@ class File(System.Object):
         ...
 
 
-class BinaryReader(System.Object, System.IDisposable):
-    """Reads primitive data types as binary values in a specific encoding."""
+class StringReader(System.IO.TextReader):
+    """This class has no documentation."""
 
-    @property
-    def base_stream(self) -> System.IO.Stream:
-        ...
-
-    @overload
-    def __init__(self, input: System.IO.Stream) -> None:
-        ...
-
-    @overload
-    def __init__(self, input: System.IO.Stream, encoding: System.Text.Encoding) -> None:
-        ...
-
-    @overload
-    def __init__(self, input: System.IO.Stream, encoding: System.Text.Encoding, leave_open: bool) -> None:
+    def __init__(self, s: str) -> None:
         ...
 
     def close(self) -> None:
         ...
 
-    @overload
     def dispose(self, disposing: bool) -> None:
         """This method is protected."""
         ...
 
-    @overload
-    def dispose(self) -> None:
-        ...
-
-    def fill_buffer(self, num_bytes: int) -> None:
-        """This method is protected."""
-        ...
-
-    def peek_char(self) -> int:
+    def peek(self) -> int:
         ...
 
     @overload
@@ -4187,183 +2910,89 @@ class BinaryReader(System.Object, System.IDisposable):
         ...
 
     @overload
-    def read(self, buffer: typing.List[int], index: int, count: int) -> int:
+    def read_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
         ...
 
     @overload
-    def read(self, buffer: System.Span[int]) -> int:
+    def read_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
         ...
 
-    def read_7_bit_encoded_int(self) -> int:
+    def read_block(self, buffer: System.Span[str]) -> int:
         ...
 
-    def read_7_bit_encoded_int_64(self) -> int:
+    @overload
+    def read_block_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task[int]:
         ...
 
-    def read_boolean(self) -> bool:
+    @overload
+    def read_block_async(self, buffer: System.Memory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
         ...
 
-    def read_byte(self) -> int:
+    def read_line(self) -> str:
         ...
 
-    def read_bytes(self, count: int) -> typing.List[int]:
+    @overload
+    def read_line_async(self) -> System.Threading.Tasks.Task[str]:
         ...
 
-    def read_char(self) -> str:
-        ...
-
-    def read_chars(self, count: int) -> typing.List[str]:
-        ...
-
-    def read_decimal(self) -> float:
-        ...
-
-    def read_double(self) -> float:
-        ...
-
-    def read_exactly(self, buffer: System.Span[int]) -> None:
+    @overload
+    def read_line_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.ValueTask[str]:
         """
-        Reads bytes from the current stream and advances the position within the stream until the  is filled.
+        Reads a line of characters asynchronously from the current string and returns the data as a string.
         
-        :param buffer: A region of memory. When this method returns, the contents of this region are replaced by the bytes read from the current stream.
+        :param cancellation_token: The token to monitor for cancellation requests.
+        :returns: A value task that represents the asynchronous read operation. The value of the TResult parameter contains the next line from the string reader, or is null if all of the characters have been read.
         """
         ...
 
-    def read_half(self) -> System.Half:
+    def read_to_end(self) -> str:
         ...
 
-    def read_int_16(self) -> int:
+    @overload
+    def read_to_end_async(self) -> System.Threading.Tasks.Task[str]:
         ...
 
-    def read_int_32(self) -> int:
-        ...
-
-    def read_int_64(self) -> int:
-        ...
-
-    def read_s_byte(self) -> int:
-        ...
-
-    def read_single(self) -> float:
-        ...
-
-    def read_string(self) -> str:
-        ...
-
-    def read_u_int_16(self) -> int:
-        ...
-
-    def read_u_int_32(self) -> int:
-        ...
-
-    def read_u_int_64(self) -> int:
+    @overload
+    def read_to_end_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[str]:
+        """
+        Reads all characters from the current position to the end of the string asynchronously and returns them as a single string.
+        
+        :param cancellation_token: The token to monitor for cancellation requests.
+        :returns: A task that represents the asynchronous read operation. The value of the TResult parameter contains a string with the characters from the current position to the end of the string.
+        """
         ...
 
 
-class FileInfo(System.IO.FileSystemInfo):
+class IOException(System.SystemException):
     """This class has no documentation."""
 
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def length(self) -> int:
-        ...
-
-    @property
-    def directory_name(self) -> str:
-        ...
-
-    @property
-    def directory(self) -> System.IO.DirectoryInfo:
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    @is_read_only.setter
-    def is_read_only(self, value: bool) -> None:
-        ...
-
-    @property
-    def exists(self) -> bool:
-        ...
-
-    def __init__(self, file_name: str) -> None:
-        ...
-
-    def append_text(self) -> System.IO.StreamWriter:
+    @overload
+    def __init__(self) -> None:
         ...
 
     @overload
-    def copy_to(self, dest_file_name: str) -> System.IO.FileInfo:
+    def __init__(self, message: str) -> None:
         ...
 
     @overload
-    def copy_to(self, dest_file_name: str, overwrite: bool) -> System.IO.FileInfo:
-        ...
-
-    def create(self) -> System.IO.FileStream:
-        ...
-
-    def create_text(self) -> System.IO.StreamWriter:
-        ...
-
-    def decrypt(self) -> None:
-        ...
-
-    def delete(self) -> None:
-        ...
-
-    def encrypt(self) -> None:
+    def __init__(self, message: str, hresult: int) -> None:
         ...
 
     @overload
-    def move_to(self, dest_file_name: str) -> None:
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
     @overload
-    def move_to(self, dest_file_name: str, overwrite: bool) -> None:
-        ...
-
-    @overload
-    def open(self, options: System.IO.FileStreamOptions) -> System.IO.FileStream:
-        """Initializes a new instance of the FileStream class with the specified creation mode, read/write and sharing permission, the access other FileStreams can have to the same file, the buffer size, additional file options and the allocation size."""
-        ...
-
-    @overload
-    def open(self, mode: System.IO.FileMode) -> System.IO.FileStream:
-        ...
-
-    @overload
-    def open(self, mode: System.IO.FileMode, access: System.IO.FileAccess) -> System.IO.FileStream:
-        ...
-
-    @overload
-    def open(self, mode: System.IO.FileMode, access: System.IO.FileAccess, share: System.IO.FileShare) -> System.IO.FileStream:
-        ...
-
-    def open_read(self) -> System.IO.FileStream:
-        ...
-
-    def open_text(self) -> System.IO.StreamReader:
-        ...
-
-    def open_write(self) -> System.IO.FileStream:
-        ...
-
-    @overload
-    def replace(self, destination_file_name: str, destination_backup_file_name: str) -> System.IO.FileInfo:
-        ...
-
-    @overload
-    def replace(self, destination_file_name: str, destination_backup_file_name: str, ignore_metadata_errors: bool) -> System.IO.FileInfo:
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
         ...
 
 
-class EndOfStreamException(System.IO.IOException):
+class PathTooLongException(System.IO.IOException):
     """This class has no documentation."""
 
     @overload
@@ -4388,55 +3017,105 @@ class EndOfStreamException(System.IO.IOException):
         ...
 
 
-class FileLoadException(System.IO.IOException):
-    """This class has no documentation."""
+class UnmanagedMemoryAccessor(System.Object, System.IDisposable):
+    """Provides random access to unmanaged blocks of memory from managed code."""
 
     @property
-    def message(self) -> str:
+    def capacity(self) -> int:
         ...
 
     @property
-    def file_name(self) -> str:
+    def can_read(self) -> bool:
         ...
 
     @property
-    def fusion_log(self) -> str:
+    def can_write(self) -> bool:
+        ...
+
+    @property
+    def is_open(self) -> bool:
+        """This property is protected."""
         ...
 
     @overload
     def __init__(self) -> None:
+        """This method is protected."""
         ...
 
     @overload
-    def __init__(self, message: str) -> None:
+    def __init__(self, buffer: System.Runtime.InteropServices.SafeBuffer, offset: int, capacity: int) -> None:
         ...
 
     @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
+    def __init__(self, buffer: System.Runtime.InteropServices.SafeBuffer, offset: int, capacity: int, access: System.IO.FileAccess) -> None:
         ...
 
     @overload
-    def __init__(self, message: str, file_name: str) -> None:
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
         ...
 
     @overload
-    def __init__(self, message: str, file_name: str, inner: System.Exception) -> None:
+    def dispose(self) -> None:
+        ...
+
+    def initialize(self, buffer: System.Runtime.InteropServices.SafeBuffer, offset: int, capacity: int, access: System.IO.FileAccess) -> None:
+        """This method is protected."""
+        ...
+
+    def read_boolean(self, position: int) -> bool:
+        ...
+
+    def read_byte(self, position: int) -> int:
+        ...
+
+    def read_char(self, position: int) -> str:
+        ...
+
+    def read_decimal(self, position: int) -> float:
+        ...
+
+    def read_double(self, position: int) -> float:
+        ...
+
+    def read_int_16(self, position: int) -> int:
+        ...
+
+    def read_int_32(self, position: int) -> int:
+        ...
+
+    def read_int_64(self, position: int) -> int:
+        ...
+
+    def read_s_byte(self, position: int) -> int:
+        ...
+
+    def read_single(self, position: int) -> float:
+        ...
+
+    def read_u_int_16(self, position: int) -> int:
+        ...
+
+    def read_u_int_32(self, position: int) -> int:
+        ...
+
+    def read_u_int_64(self, position: int) -> int:
         ...
 
     @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
+    def write(self, position: int, value: bool) -> None:
         ...
 
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+    @overload
+    def write(self, position: int, value: int) -> None:
+        ...
 
-    def to_string(self) -> str:
+    @overload
+    def write(self, position: int, value: str) -> None:
+        ...
+
+    @overload
+    def write(self, position: int, value: float) -> None:
         ...
 
 
@@ -4648,6 +3327,204 @@ class UnmanagedMemoryStream(System.IO.Stream):
         ...
 
 
+class FileLoadException(System.IO.IOException):
+    """This class has no documentation."""
+
+    @property
+    def message(self) -> str:
+        ...
+
+    @property
+    def file_name(self) -> str:
+        ...
+
+    @property
+    def fusion_log(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, file_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, file_name: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def to_string(self) -> str:
+        ...
+
+
+class StringWriter(System.IO.TextWriter):
+    """This class has no documentation."""
+
+    @property
+    def encoding(self) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, format_provider: System.IFormatProvider) -> None:
+        ...
+
+    @overload
+    def __init__(self, sb: System.Text.StringBuilder) -> None:
+        ...
+
+    @overload
+    def __init__(self, sb: System.Text.StringBuilder, format_provider: System.IFormatProvider) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
+        ...
+
+    def flush_async(self) -> System.Threading.Tasks.Task:
+        ...
+
+    def get_string_builder(self) -> System.Text.StringBuilder:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def write(self, value: str) -> None:
+        ...
+
+    @overload
+    def write(self, buffer: typing.List[str], index: int, count: int) -> None:
+        ...
+
+    @overload
+    def write(self, buffer: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    @overload
+    def write(self, value: System.Text.StringBuilder) -> None:
+        ...
+
+    @overload
+    def write_async(self, value: str) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write_async(self, buffer: System.ReadOnlyMemory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write_async(self, value: System.Text.StringBuilder, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write_line(self, buffer: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    @overload
+    def write_line(self, value: System.Text.StringBuilder) -> None:
+        ...
+
+    @overload
+    def write_line_async(self, value: str) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write_line_async(self, value: System.Text.StringBuilder, cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write_line_async(self, buffer: typing.List[str], index: int, count: int) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write_line_async(self, buffer: System.ReadOnlyMemory[str], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.Task:
+        ...
+
+
+class EndOfStreamException(System.IO.IOException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class DirectoryNotFoundException(System.IO.IOException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
 class InvalidDataException(System.SystemException):
     """The exception that is thrown when a data stream is in an invalid format."""
 
@@ -4673,6 +3550,1129 @@ class InvalidDataException(System.SystemException):
         :param message: The error message that explains the reason for the exception.
         :param inner_exception: The exception that is the cause of the current exception. If the  parameter is not null, the current exception is raised in a catch block that handles the inner exception.
         """
+        ...
+
+
+class BinaryReader(System.Object, System.IDisposable):
+    """Reads primitive data types as binary values in a specific encoding."""
+
+    @property
+    def base_stream(self) -> System.IO.Stream:
+        ...
+
+    @overload
+    def __init__(self, input: System.IO.Stream) -> None:
+        ...
+
+    @overload
+    def __init__(self, input: System.IO.Stream, encoding: System.Text.Encoding) -> None:
+        ...
+
+    @overload
+    def __init__(self, input: System.IO.Stream, encoding: System.Text.Encoding, leave_open: bool) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    @overload
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def dispose(self) -> None:
+        ...
+
+    def fill_buffer(self, num_bytes: int) -> None:
+        """This method is protected."""
+        ...
+
+    def peek_char(self) -> int:
+        ...
+
+    @overload
+    def read(self) -> int:
+        ...
+
+    @overload
+    def read(self, buffer: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def read(self, buffer: System.Span[str]) -> int:
+        ...
+
+    @overload
+    def read(self, buffer: typing.List[int], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def read(self, buffer: System.Span[int]) -> int:
+        ...
+
+    def read_7_bit_encoded_int(self) -> int:
+        ...
+
+    def read_7_bit_encoded_int_64(self) -> int:
+        ...
+
+    def read_boolean(self) -> bool:
+        ...
+
+    def read_byte(self) -> int:
+        ...
+
+    def read_bytes(self, count: int) -> typing.List[int]:
+        ...
+
+    def read_char(self) -> str:
+        ...
+
+    def read_chars(self, count: int) -> typing.List[str]:
+        ...
+
+    def read_decimal(self) -> float:
+        ...
+
+    def read_double(self) -> float:
+        ...
+
+    def read_exactly(self, buffer: System.Span[int]) -> None:
+        """
+        Reads bytes from the current stream and advances the position within the stream until the  is filled.
+        
+        :param buffer: A region of memory. When this method returns, the contents of this region are replaced by the bytes read from the current stream.
+        """
+        ...
+
+    def read_half(self) -> System.Half:
+        ...
+
+    def read_int_16(self) -> int:
+        ...
+
+    def read_int_32(self) -> int:
+        ...
+
+    def read_int_64(self) -> int:
+        ...
+
+    def read_s_byte(self) -> int:
+        ...
+
+    def read_single(self) -> float:
+        ...
+
+    def read_string(self) -> str:
+        ...
+
+    def read_u_int_16(self) -> int:
+        ...
+
+    def read_u_int_32(self) -> int:
+        ...
+
+    def read_u_int_64(self) -> int:
+        ...
+
+
+class FileNotFoundException(System.IO.IOException):
+    """This class has no documentation."""
+
+    @property
+    def message(self) -> str:
+        ...
+
+    @property
+    def file_name(self) -> str:
+        ...
+
+    @property
+    def fusion_log(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, file_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, file_name: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def to_string(self) -> str:
+        ...
+
+
+class BinaryWriter(System.Object, System.IDisposable, System.IAsyncDisposable):
+    """This class has no documentation."""
+
+    NULL: System.IO.BinaryWriter = ...
+
+    @property
+    def out_stream(self) -> System.IO.Stream:
+        """This field is protected."""
+        ...
+
+    @out_stream.setter
+    def out_stream(self, value: System.IO.Stream) -> None:
+        ...
+
+    @property
+    def base_stream(self) -> System.IO.Stream:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def __init__(self, output: System.IO.Stream) -> None:
+        ...
+
+    @overload
+    def __init__(self, output: System.IO.Stream, encoding: System.Text.Encoding) -> None:
+        ...
+
+    @overload
+    def __init__(self, output: System.IO.Stream, encoding: System.Text.Encoding, leave_open: bool) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    @overload
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def dispose(self) -> None:
+        ...
+
+    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    def flush(self) -> None:
+        ...
+
+    def seek(self, offset: int, origin: System.IO.SeekOrigin) -> int:
+        ...
+
+    @overload
+    def write(self, value: bool) -> None:
+        ...
+
+    @overload
+    def write(self, value: int) -> None:
+        ...
+
+    @overload
+    def write(self, buffer: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def write(self, buffer: typing.List[int], index: int, count: int) -> None:
+        ...
+
+    @overload
+    def write(self, ch: str) -> None:
+        ...
+
+    @overload
+    def write(self, chars: typing.List[str]) -> None:
+        ...
+
+    @overload
+    def write(self, chars: typing.List[str], index: int, count: int) -> None:
+        ...
+
+    @overload
+    def write(self, value: float) -> None:
+        ...
+
+    @overload
+    def write(self, value: System.Half) -> None:
+        ...
+
+    @overload
+    def write(self, value: str) -> None:
+        ...
+
+    @overload
+    def write(self, buffer: System.ReadOnlySpan[int]) -> None:
+        ...
+
+    @overload
+    def write(self, chars: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    def write_7_bit_encoded_int(self, value: int) -> None:
+        ...
+
+    def write_7_bit_encoded_int_64(self, value: int) -> None:
+        ...
+
+
+class MemoryStream(System.IO.Stream):
+    """This class has no documentation."""
+
+    @property
+    def can_read(self) -> bool:
+        ...
+
+    @property
+    def can_seek(self) -> bool:
+        ...
+
+    @property
+    def can_write(self) -> bool:
+        ...
+
+    @property
+    def capacity(self) -> int:
+        ...
+
+    @capacity.setter
+    def capacity(self, value: int) -> None:
+        ...
+
+    @property
+    def length(self) -> int:
+        ...
+
+    @property
+    def position(self) -> int:
+        ...
+
+    @position.setter
+    def position(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, buffer: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self, buffer: typing.List[int], writable: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, buffer: typing.List[int], index: int, count: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, buffer: typing.List[int], index: int, count: int, writable: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, buffer: typing.List[int], index: int, count: int, writable: bool, publicly_visible: bool) -> None:
+        ...
+
+    def copy_to(self, destination: System.IO.Stream, buffer_size: int) -> None:
+        ...
+
+    def copy_to_async(self, destination: System.IO.Stream, buffer_size: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        ...
+
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
+        ...
+
+    def flush(self) -> None:
+        ...
+
+    def flush_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        ...
+
+    def get_buffer(self) -> typing.List[int]:
+        ...
+
+    @overload
+    def read(self, buffer: typing.List[int], offset: int, count: int) -> int:
+        ...
+
+    @overload
+    def read(self, buffer: System.Span[int]) -> int:
+        ...
+
+    @overload
+    def read_async(self, buffer: typing.List[int], offset: int, count: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[int]:
+        ...
+
+    @overload
+    def read_async(self, buffer: System.Memory[int], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
+        ...
+
+    def read_byte(self) -> int:
+        ...
+
+    def seek(self, offset: int, loc: System.IO.SeekOrigin) -> int:
+        ...
+
+    def set_length(self, value: int) -> None:
+        ...
+
+    def to_array(self) -> typing.List[int]:
+        ...
+
+    def try_get_buffer(self, buffer: typing.Optional[System.ArraySegment[int]]) -> typing.Tuple[bool, System.ArraySegment[int]]:
+        ...
+
+    @overload
+    def write(self, buffer: typing.List[int], offset: int, count: int) -> None:
+        ...
+
+    @overload
+    def write(self, buffer: System.ReadOnlySpan[int]) -> None:
+        ...
+
+    @overload
+    def write_async(self, buffer: typing.List[int], offset: int, count: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write_async(self, buffer: System.ReadOnlyMemory[int], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    def write_byte(self, value: int) -> None:
+        ...
+
+    def write_to(self, stream: System.IO.Stream) -> None:
+        ...
+
+
+class HandleInheritability(Enum):
+    """Specifies whether the underlying handle is inheritable by child processes."""
+
+    NONE = 0
+    """Specifies that the handle is not inheritable by child processes."""
+
+    INHERITABLE = 1
+    """Specifies that the handle is inheritable by child processes."""
+
+
+class Path(System.Object):
+    """This class has no documentation."""
+
+    DIRECTORY_SEPARATOR_CHAR: str = ...
+
+    ALT_DIRECTORY_SEPARATOR_CHAR: str = ...
+
+    VOLUME_SEPARATOR_CHAR: str = ...
+
+    PATH_SEPARATOR: str = ...
+
+    INVALID_PATH_CHARS: typing.List[str] = ...
+    """Path.InvalidPathChars has been deprecated. Use GetInvalidPathChars or GetInvalidFileNameChars instead."""
+
+    @staticmethod
+    def change_extension(path: str, extension: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def combine(path_1: str, path_2: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def combine(path_1: str, path_2: str, path_3: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def combine(path_1: str, path_2: str, path_3: str, path_4: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def combine(*paths: typing.Union[str, typing.Iterable[str]]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def ends_in_directory_separator(path: System.ReadOnlySpan[str]) -> bool:
+        """Returns true if the path ends in a directory separator."""
+        ...
+
+    @staticmethod
+    @overload
+    def ends_in_directory_separator(path: str) -> bool:
+        """Returns true if the path ends in a directory separator."""
+        ...
+
+    @staticmethod
+    def exists(path: str) -> bool:
+        """
+        Determines whether the specified file or directory exists.
+        
+        :param path: The path to check
+        :returns: true if the caller has the required permissions and  contains the name of an existing file or directory; otherwise, false. This method also returns false if  is null, an invalid path, or a zero-length string. If the caller does not have sufficient permissions to read the specified path, no exception is thrown and the method returns false regardless of the existence of .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_directory_name(path: str) -> str:
+        """
+        Returns the directory portion of a file path. This method effectively
+        removes the last segment of the given file path, i.e. it returns a
+        string consisting of all characters up to but not including the last
+        backslash ("\\") in the file path. The returned value is null if the
+        specified path is null, empty, or a root (such as "\\", "C:", or
+        "\\\\server\\share").
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_directory_name(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """
+        Returns the directory portion of a file path. The returned value is empty
+        if the specified path is null, empty, or a root (such as "\\", "C:", or
+        "\\\\server\\share").
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_extension(path: str) -> str:
+        """
+        Returns the extension of the given path. The returned value includes the period (".") character of the
+        extension except when you have a terminal period when you get string.Empty, such as ".exe" or ".cpp".
+        The returned value is null if the given path is null or empty if the given path does not include an
+        extension.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_extension(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """Returns the extension of the given path."""
+        ...
+
+    @staticmethod
+    @overload
+    def get_file_name(path: str) -> str:
+        """
+        Returns the name and extension parts of the given path. The resulting string contains
+        the characters of path that follow the last separator in path. The resulting string is
+        null if path is null.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_file_name(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """The returned ReadOnlySpan contains the characters of the path that follows the last separator in path."""
+        ...
+
+    @staticmethod
+    @overload
+    def get_file_name_without_extension(path: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_file_name_without_extension(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """Returns the characters between the last separator and last (.) in the path."""
+        ...
+
+    @staticmethod
+    @overload
+    def get_full_path(path: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_full_path(path: str, base_path: str) -> str:
+        ...
+
+    @staticmethod
+    def get_invalid_file_name_chars() -> typing.List[str]:
+        ...
+
+    @staticmethod
+    def get_invalid_path_chars() -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_path_root(path: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_path_root(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        ...
+
+    @staticmethod
+    def get_random_file_name() -> str:
+        """
+        Returns a cryptographically strong random 8.3 string that can be
+        used as either a folder name or a file name.
+        """
+        ...
+
+    @staticmethod
+    def get_relative_path(relative_to: str, path: str) -> str:
+        """
+        Create a relative path from one path to another. Paths will be resolved before calculating the difference.
+        Default path comparison for the active platform will be used (OrdinalIgnoreCase for Windows or Mac, Ordinal for Unix).
+        
+        :param relative_to: The source path the output should be relative to. This path is always considered to be a directory.
+        :param path: The destination path.
+        :returns: The relative path or  if the paths don't share the same root.
+        """
+        ...
+
+    @staticmethod
+    def get_temp_file_name() -> str:
+        ...
+
+    @staticmethod
+    def get_temp_path() -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def has_extension(path: str) -> bool:
+        """
+        Tests if a path's file name includes a file extension. A trailing period
+        is not considered an extension.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def has_extension(path: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_path_fully_qualified(path: str) -> bool:
+        """
+        Returns true if the path is fixed to a specific drive or UNC path. This method does no
+        validation of the path (URIs will be returned as relative as a result).
+        Returns false if the path specified is relative to the current drive or working directory.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def is_path_fully_qualified(path: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_path_rooted(path: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_path_rooted(path: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str], path_3: System.ReadOnlySpan[str]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str], path_3: System.ReadOnlySpan[str], path_4: System.ReadOnlySpan[str]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def join(path_1: str, path_2: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def join(path_1: str, path_2: str, path_3: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def join(path_1: str, path_2: str, path_3: str, path_4: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def join(*paths: typing.Union[str, typing.Iterable[str]]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def trim_ending_directory_separator(path: str) -> str:
+        """Trims one trailing directory separator beyond the root of the path."""
+        ...
+
+    @staticmethod
+    @overload
+    def trim_ending_directory_separator(path: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """Trims one trailing directory separator beyond the root of the path."""
+        ...
+
+    @staticmethod
+    @overload
+    def try_join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_join(path_1: System.ReadOnlySpan[str], path_2: System.ReadOnlySpan[str], path_3: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class Directory(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    @overload
+    def create_directory(path: str) -> System.IO.DirectoryInfo:
+        ...
+
+    @staticmethod
+    @overload
+    def create_directory(path: str, unix_create_mode: System.IO.UnixFileMode) -> System.IO.DirectoryInfo:
+        """
+        Creates all directories and subdirectories in the specified path with the specified permissions unless they already exist.
+        
+        :param path: The directory to create.
+        :param unix_create_mode: Unix file mode used to create directories.
+        :returns: An object that represents the directory at the specified path. This object is returned regardless of whether a directory at the specified path already exists.
+        """
+        ...
+
+    @staticmethod
+    def create_symbolic_link(path: str, path_to_target: str) -> System.IO.FileSystemInfo:
+        """
+        Creates a directory symbolic link identified by  that points to .
+        
+        :param path: The absolute path where the symbolic link should be created.
+        :param path_to_target: The target directory of the symbolic link.
+        :returns: A DirectoryInfo instance that wraps the newly created directory symbolic link.
+        """
+        ...
+
+    @staticmethod
+    def create_temp_subdirectory(prefix: str = None) -> System.IO.DirectoryInfo:
+        """
+        Creates a uniquely-named, empty directory in the current user's temporary directory.
+        
+        :param prefix: An optional string to add to the beginning of the subdirectory name.
+        :returns: An object that represents the directory that was created.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def delete(path: str) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def delete(path: str, recursive: bool) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_directories(path: str) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_directories(path: str, search_pattern: str) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_directories(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_directories(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_files(path: str) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_files(path: str, search_pattern: str) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_files(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_files(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_file_system_entries(path: str) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_file_system_entries(path: str, search_pattern: str) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_file_system_entries(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_file_system_entries(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> System.Collections.Generic.IEnumerable[str]:
+        ...
+
+    @staticmethod
+    def exists(path: str) -> bool:
+        ...
+
+    @staticmethod
+    def get_creation_time(path: str) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def get_creation_time_utc(path: str) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def get_current_directory() -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_directories(path: str) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_directories(path: str, search_pattern: str) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_directories(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_directories(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    def get_directory_root(path: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_files(path: str) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_files(path: str, search_pattern: str) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_files(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_files(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_file_system_entries(path: str) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_file_system_entries(path: str, search_pattern: str) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_file_system_entries(path: str, search_pattern: str, search_option: System.IO.SearchOption) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_file_system_entries(path: str, search_pattern: str, enumeration_options: System.IO.EnumerationOptions) -> typing.List[str]:
+        ...
+
+    @staticmethod
+    def get_last_access_time(path: str) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def get_last_access_time_utc(path: str) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def get_last_write_time(path: str) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def get_last_write_time_utc(path: str) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def get_logical_drives() -> typing.List[str]:
+        ...
+
+    @staticmethod
+    def get_parent(path: str) -> System.IO.DirectoryInfo:
+        ...
+
+    @staticmethod
+    def move(source_dir_name: str, dest_dir_name: str) -> None:
+        ...
+
+    @staticmethod
+    def resolve_link_target(link_path: str, return_final_target: bool) -> System.IO.FileSystemInfo:
+        """
+        Gets the target of the specified directory link.
+        
+        :param link_path: The path of the directory link.
+        :param return_final_target: true to follow links to the final target; false to return the immediate next link.
+        :returns: A DirectoryInfo instance if  exists, independently if the target exists or not. null if  is not a link.
+        """
+        ...
+
+    @staticmethod
+    def set_creation_time(path: str, creation_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        ...
+
+    @staticmethod
+    def set_creation_time_utc(path: str, creation_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
+        ...
+
+    @staticmethod
+    def set_current_directory(path: str) -> None:
+        ...
+
+    @staticmethod
+    def set_last_access_time(path: str, last_access_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        ...
+
+    @staticmethod
+    def set_last_access_time_utc(path: str, last_access_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
+        ...
+
+    @staticmethod
+    def set_last_write_time(path: str, last_write_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        ...
+
+    @staticmethod
+    def set_last_write_time_utc(path: str, last_write_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
+        ...
+
+
+class BufferedStream(System.IO.Stream):
+    """
+    One of the design goals here is to prevent the buffer from getting in the way and slowing
+    down underlying stream accesses when it is not needed. If you always read & write for sizes
+    greater than the internal buffer size, then this class may not even allocate the internal buffer.
+    See a large comment in Write for the details of the write buffer heuristic.
+    
+    This class buffers reads & writes in a shared buffer.
+    (If you maintained two buffers separately, one operation would always trash the other buffer
+    anyways, so we might as well use one buffer.)
+    The assumption here is you will almost always be doing a series of reads or writes, but rarely
+    alternate between the two of them on the same stream.
+    
+    Class Invariants:
+    The class has one buffer, shared for reading & writing.
+    It can only be used for one or the other at any point in time - not both.
+    The following should be true:
+    
+      * 0 <= _readPos <= _readLen < _bufferSize
+      * 0 <= _writePos < _bufferSize
+      * _readPos == _readLen && _readPos > 0 implies the read buffer is valid, but we're at the end of the buffer.
+      * _readPos == _readLen == 0 means the read buffer contains garbage.
+      * Either _writePos can be greater than 0, or _readLen & _readPos can be greater than zero,
+        but neither can be greater than zero at the same time.
+     
+    This class will never cache more bytes than the max specified buffer size.
+    However, it may use a temporary buffer of up to twice the size in order to combine several IO operations on
+    the underlying stream into a single operation. This is because we assume that memory copies are significantly
+    faster than IO operations on the underlying stream (if this was not true, using buffering is never appropriate).
+    The max size of this "shadow" buffer is limited as to not allocate it on the LOH.
+    Shadowing is always transient. Even when using this technique, this class still guarantees that the number of
+    bytes cached (not yet written to the target stream or not yet consumed by the user) is never larger than the
+    actual specified buffer size.
+    """
+
+    @property
+    def underlying_stream(self) -> System.IO.Stream:
+        ...
+
+    @property
+    def buffer_size(self) -> int:
+        ...
+
+    @property
+    def can_read(self) -> bool:
+        ...
+
+    @property
+    def can_write(self) -> bool:
+        ...
+
+    @property
+    def can_seek(self) -> bool:
+        ...
+
+    @property
+    def length(self) -> int:
+        ...
+
+    @property
+    def position(self) -> int:
+        ...
+
+    @position.setter
+    def position(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream, buffer_size: int) -> None:
+        ...
+
+    def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
+        ...
+
+    def begin_write(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
+        ...
+
+    def copy_to(self, destination: System.IO.Stream, buffer_size: int) -> None:
+        ...
+
+    def copy_to_async(self, destination: System.IO.Stream, buffer_size: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        ...
+
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
+        ...
+
+    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    def end_read(self, async_result: System.IAsyncResult) -> int:
+        ...
+
+    def end_write(self, async_result: System.IAsyncResult) -> None:
+        ...
+
+    def flush(self) -> None:
+        ...
+
+    def flush_async(self, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def read(self, buffer: typing.List[int], offset: int, count: int) -> int:
+        ...
+
+    @overload
+    def read(self, destination: System.Span[int]) -> int:
+        ...
+
+    @overload
+    def read_async(self, buffer: typing.List[int], offset: int, count: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[int]:
+        ...
+
+    @overload
+    def read_async(self, buffer: System.Memory[int], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask[int]:
+        ...
+
+    def read_byte(self) -> int:
+        ...
+
+    def seek(self, offset: int, origin: System.IO.SeekOrigin) -> int:
+        ...
+
+    def set_length(self, value: int) -> None:
+        ...
+
+    @overload
+    def write(self, buffer: typing.List[int], offset: int, count: int) -> None:
+        ...
+
+    @overload
+    def write(self, buffer: System.ReadOnlySpan[int]) -> None:
+        ...
+
+    @overload
+    def write_async(self, buffer: typing.List[int], offset: int, count: int, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        ...
+
+    @overload
+    def write_async(self, buffer: System.ReadOnlyMemory[int], cancellation_token: System.Threading.CancellationToken = ...) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    def write_byte(self, value: int) -> None:
         ...
 
 

@@ -277,7 +277,7 @@ class CfnApplication(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param runtime_environment: The runtime environment for the application.
+        :param runtime_environment: The runtime environment for the application. *Allowed values for ``RuntimeEnvironment`` :* ``SQL-1_0 | FLINK-1_6 | FLINK-1_8 | ZEPPELIN-FLINK-1_0 | FLINK-1_11 | FLINK-1_13 | ZEPPELIN-FLINK-2_0 | FLINK-1_15 | ZEPPELIN-FLINK-3_0 | FLINK-1_18 | FLINK-1_19 | FLINK-1_20``
         :param service_execution_role: Specifies the IAM role that the application uses to access external resources.
         :param application_configuration: Use this parameter to configure the application.
         :param application_description: The description of the application. Default: - ""
@@ -4773,7 +4773,7 @@ class CfnApplicationProps:
     ) -> None:
         '''Properties for defining a ``CfnApplication``.
 
-        :param runtime_environment: The runtime environment for the application.
+        :param runtime_environment: The runtime environment for the application. *Allowed values for ``RuntimeEnvironment`` :* ``SQL-1_0 | FLINK-1_6 | FLINK-1_8 | ZEPPELIN-FLINK-1_0 | FLINK-1_11 | FLINK-1_13 | ZEPPELIN-FLINK-2_0 | FLINK-1_15 | ZEPPELIN-FLINK-3_0 | FLINK-1_18 | FLINK-1_19 | FLINK-1_20``
         :param service_execution_role: Specifies the IAM role that the application uses to access external resources.
         :param application_configuration: Use this parameter to configure the application.
         :param application_description: The description of the application. Default: - ""
@@ -4994,6 +4994,8 @@ class CfnApplicationProps:
     @builtins.property
     def runtime_environment(self) -> builtins.str:
         '''The runtime environment for the application.
+
+        *Allowed values for ``RuntimeEnvironment`` :* ``SQL-1_0 | FLINK-1_6 | FLINK-1_8 | ZEPPELIN-FLINK-1_0 | FLINK-1_11 | FLINK-1_13 | ZEPPELIN-FLINK-2_0 | FLINK-1_15 | ZEPPELIN-FLINK-3_0 | FLINK-1_18 | FLINK-1_19 | FLINK-1_20``
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-runtimeenvironment
         '''

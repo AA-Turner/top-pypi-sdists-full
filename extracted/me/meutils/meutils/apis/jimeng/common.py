@@ -20,6 +20,7 @@ from fake_useragent import UserAgent
 
 ua = UserAgent()
 
+
 @lru_cache()
 def get_headers(url, token: str = "693701c43e477b7c405cc7e2fef0ddbd"):
     device_time = f"{int(time.time())}"
@@ -45,13 +46,24 @@ def get_headers(url, token: str = "693701c43e477b7c405cc7e2fef0ddbd"):
 
 
 @cache(ttl=3600 // 2)
-async def get_upload_token(token):  # 3600 跨账号？
+async def get_upload_token(token, biz: Optional[str] = None):  # 3600 跨账号？
+
+    if biz == "video":
+        url = "/mweb/v1/get_upload_token"  # ?aid=513695&da_version=3.2.0&aigc_features=app_lip_sync
+
+        payload = {"scene": 2}
+        client = AsyncClient(base_url=BASE_URL)
+        response = await client.post(url, body=payload, cast_to=object)
+        logger.debug(bjson(response))
+        return response
+
     url = "/artist/v2/tools/get_upload_token"
     headers = get_headers(url, token)
 
     payload = {"scene": 2}
     client = AsyncClient(base_url=BASE_URL, default_headers=headers)
     response = await client.post(url, body=payload, cast_to=object)
+    logger.debug(bjson(response))
     return response
 
 
@@ -182,11 +194,13 @@ if __name__ == '__main__':
     # token = "b8bb4cb67dba6c0d1048bdc0596bc461"
     # token = "34438eb03d165737122180caf62a8058"
     # token = "a521dd578adcfb191fad38dd4baab498"
-    token="7d9969ffd8ad2edda7da8fff11cb9434"
-    token="1513337bdba08a1a77fedad95c03bc6c"
-    token="b1cd6317e4d161bbb3889b9defd769ff"
-    token="a521dd578adcfb191fad38dd4baab498"
-    arun(check_token(token))
+    token = "7d9969ffd8ad2edda7da8fff11cb9434"
+    token = "1513337bdba08a1a77fedad95c03bc6c"
+    token = "b1cd6317e4d161bbb3889b9defd769ff"
+    token = "ed16bb360a4744696f88a7b52b7c10a3"
+    # arun(check_token(token))
+
+    arun(get_upload_token(token, 'video'))
 
     # print(arun(aget_spreadsheet_values(feishu_url=FEISHU_URL, to_dataframe=True))[0].tolist())
     # tokens = arun(get_series(FEISHU_URL))
@@ -202,5 +216,3 @@ if __name__ == '__main__':
     #
     # request = ImageRequest(prompt='https://oss.ffire.cc/files/kling_watermark.png笑起来')
     # arun(create_draft_content(request, token))
-
-

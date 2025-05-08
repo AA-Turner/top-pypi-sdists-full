@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weave
-Version: 0.51.44
+Version: 0.51.45
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.com/
@@ -342,6 +342,7 @@ Requires-Dist: google-cloud-storage>=2.7.0; extra == 'test'
 Requires-Dist: httpx; extra == 'test'
 Requires-Dist: litellm>=1.36.1; extra == 'test'
 Requires-Dist: moto[s3]>=5.0.0; extra == 'test'
+Requires-Dist: moviepy<=1.0.3; extra == 'test'
 Requires-Dist: nox; extra == 'test'
 Requires-Dist: openinference-semantic-conventions>=0.1.17; extra == 'test'
 Requires-Dist: opentelemetry-proto>=1.12.0; extra == 'test'
@@ -371,6 +372,9 @@ Requires-Dist: moto[s3]>=5.0.0; extra == 'trace-server-tests'
 Provides-Extra: vertexai
 Requires-Dist: shapely<=2.0.6; extra == 'vertexai'
 Requires-Dist: vertexai>=1.70.0; extra == 'vertexai'
+Provides-Extra: video-support
+Requires-Dist: moviepy<=1.0.3; extra == 'video-support'
+Requires-Dist: pillow; extra == 'video-support'
 Description-Content-Type: text/markdown
 
 # **Weave by Weights & Biases**

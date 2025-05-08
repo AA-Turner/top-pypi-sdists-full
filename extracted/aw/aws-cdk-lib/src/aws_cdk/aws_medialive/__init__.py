@@ -124,7 +124,7 @@ class CfnChannel(
         :param input_specification: The input specification for this channel. It specifies the key characteristics of the inputs for this channel: the maximum bitrate, the resolution, and the codec.
         :param log_level: The verbosity for logging activity for this channel. Charges for logging (which are generated through Amazon CloudWatch Logging) are higher for higher verbosities.
         :param maintenance: Maintenance settings for this channel.
-        :param name: A name for this audio selector. The AudioDescription (in an output) references this name in order to identify a specific input audio to include in that output.
+        :param name: Name of channel.
         :param role_arn: The IAM role for MediaLive to assume when running this channel. The role is identified by its ARN.
         :param tags: A collection of tags for this channel. Each tag is a key-value pair.
         :param vpc: Settings to enable VPC mode in the channel, so that the endpoints for all outputs are in your VPC.
@@ -415,7 +415,7 @@ class CfnChannel(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> typing.Optional[builtins.str]:
-        '''A name for this audio selector.'''
+        '''Name of channel.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
 
     @name.setter
@@ -24566,7 +24566,7 @@ class CfnChannelProps:
         :param input_specification: The input specification for this channel. It specifies the key characteristics of the inputs for this channel: the maximum bitrate, the resolution, and the codec.
         :param log_level: The verbosity for logging activity for this channel. Charges for logging (which are generated through Amazon CloudWatch Logging) are higher for higher verbosities.
         :param maintenance: Maintenance settings for this channel.
-        :param name: A name for this audio selector. The AudioDescription (in an output) references this name in order to identify a specific input audio to include in that output.
+        :param name: Name of channel.
         :param role_arn: The IAM role for MediaLive to assume when running this channel. The role is identified by its ARN.
         :param tags: A collection of tags for this channel. Each tag is a key-value pair.
         :param vpc: Settings to enable VPC mode in the channel, so that the endpoints for all outputs are in your VPC.
@@ -24749,9 +24749,7 @@ class CfnChannelProps:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''A name for this audio selector.
-
-        The AudioDescription (in an output) references this name in order to identify a specific input audio to include in that output.
+        '''Name of channel.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-medialive-channel.html#cfn-medialive-channel-name
         '''

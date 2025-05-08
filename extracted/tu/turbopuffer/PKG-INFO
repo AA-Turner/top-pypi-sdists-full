@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: turbopuffer
-Version: 0.2.2
+Version: 0.2.3
 Summary: Python Client for accessing the turbopuffer API
 License: MIT
 Keywords: turbopuffer,vector,database,cloud
@@ -30,11 +30,10 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Provides-Extra: fast
 Requires-Dist: iso8601 (>=2.1.0,<3.0.0)
-Requires-Dist: numpy (>=1.24.0)
 Requires-Dist: orjson (>=3.9) ; extra == "fast"
-Requires-Dist: pandas (>=2.0.0)
 Requires-Dist: pybase64 (>=1.4.1) ; extra == "fast"
 Requires-Dist: requests (>=2.31,<3.0)
+Requires-Dist: typing-extensions (>=4.12.2,<5.0.0)
 Project-URL: Documentation, https://turbopuffer.com/docs
 Project-URL: Homepage, https://turbopuffer.com
 Project-URL: Repository, https://github.com/turbopuffer/turbopuffer-python
@@ -50,11 +49,11 @@ Usage
 
 1. Install the turbopuffer package and set your API key.
 ```sh
-$ pip install turbopuffer
+pip install turbopuffer
 ```
 Or if you're able to run C binaries for JSON encoding, use:
 ```sh
-$ pip install turbopuffer[fast]
+pip install 'turbopuffer[fast]'
 ```
 
 2. Start using the API

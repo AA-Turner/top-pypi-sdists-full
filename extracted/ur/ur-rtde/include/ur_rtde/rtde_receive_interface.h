@@ -5,6 +5,7 @@
 #include <ur_rtde/rtde_export.h>
 #include <ur_rtde/robot_state.h>
 #include <ur_rtde/rtde_utility.h>
+#include <ur_rtde/thread_utility.h>
 
 #include <atomic>
 #include <chrono>
@@ -459,9 +460,9 @@ class RTDEReceiveInterface
    */
   RTDE_EXPORT std::vector<double> getPayloadInertia();
 
-  RTDE_EXPORT void receiveCallback();
+  RTDE_EXPORT void receiveCallback(std::atomic<bool> *stop_thread);
 
-  RTDE_EXPORT void recordCallback();
+  RTDE_EXPORT void recordCallback(std::atomic<bool> *stop_thread);
 
   const std::shared_ptr<RobotState>& robot_state() const {
     return robot_state_;
@@ -497,10 +498,8 @@ class RTDEReceiveInterface
   int register_offset_;
   double delta_time_;
   std::shared_ptr<RTDE> rtde_;
-  std::atomic<bool> stop_receive_thread{false};
-  std::atomic<bool> stop_record_thread{false};
-  std::shared_ptr<boost::thread> th_;
-  std::shared_ptr<boost::thread> record_thrd_;
+  ur_rtde::ThreadUtility th_;
+  ur_rtde::ThreadUtility record_thrd_;
   std::shared_ptr<RobotState> robot_state_;
   PausingState pausing_state_;
   std::shared_ptr<std::ofstream> file_recording_;

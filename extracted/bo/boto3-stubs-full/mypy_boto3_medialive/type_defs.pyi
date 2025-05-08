@@ -5407,6 +5407,7 @@ class UpdateChannelRequestTypeDef(TypedDict):
     RoleArn: NotRequired[str]
     ChannelEngineVersion: NotRequired[ChannelEngineVersionRequestTypeDef]
     DryRun: NotRequired[bool]
+    AnywhereSettings: NotRequired[AnywhereSettingsTypeDef]
 
 class BatchUpdateScheduleRequestTypeDef(TypedDict):
     ChannelId: str

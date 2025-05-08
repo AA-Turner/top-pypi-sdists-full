@@ -1,19 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llama-index-llms-anthropic
-Version: 0.6.10
+Version: 0.6.11
 Summary: llama-index llms anthropic integration
-License: MIT
-Author: Your Name
-Author-email: you@example.com
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: anthropic[bedrock,vertex] (>=0.49.0)
-Requires-Dist: llama-index-core (>=0.12.5,<0.13.0)
+Author-email: Your Name <you@example.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <4.0,>=3.9
+Requires-Dist: anthropic[bedrock,vertex]>=0.51.0
+Requires-Dist: llama-index-core<0.13,>=0.12.5
 Description-Content-Type: text/markdown
 
 # LlamaIndex LLM Integration: Anthropic
@@ -146,6 +140,35 @@ resp = await llm.acomplete("Paul Graham is ")
 print(resp)
 ```
 
+### Using Anthropic Tools (Web Search)
+
+```py
+from llama_index.llms.anthropic import Anthropic
+
+# Initialize with web search tool
+llm = Anthropic(
+    model="claude-3-7-sonnet-latest",  # Must be a tool-supported model
+    max_tokens=1024,
+    tools=[
+        {
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 3,  # Limit to 3 searches
+        }
+    ],
+)
+
+# Get response with citations
+response = llm.complete("What are the latest AI research trends?")
+
+# Access the main response content
+print(response.text)
+
+# Access citations if available
+for citation in response.citations:
+    print(f"Source: {citation.get('url')} - {citation.get('cited_text')}")
+```
+
 ### Structured Prediction Example
 
 ```py
@@ -204,4 +227,3 @@ for partial_output in stream_output:
 ### LLM Implementation example
 
 https://docs.llamaindex.ai/en/stable/examples/llm/anthropic/
-

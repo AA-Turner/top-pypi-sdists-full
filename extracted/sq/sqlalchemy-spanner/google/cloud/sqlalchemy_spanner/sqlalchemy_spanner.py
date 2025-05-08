@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 
 import pkg_resources
 import re
@@ -24,10 +25,10 @@ from alembic.ddl.base import (
 )
 from google.api_core.client_options import ClientOptions
 from google.auth.credentials import AnonymousCredentials
-from google.cloud.spanner_v1 import Client
+from google.cloud.spanner_v1 import Client, TransactionOptions
 from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.sql import elements
-from sqlalchemy import ForeignKeyConstraint, types
+from sqlalchemy import ForeignKeyConstraint, types, TypeDecorator, PickleType
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
 from sqlalchemy.event import listens_for
@@ -76,6 +77,35 @@ def reset_connection(dbapi_conn, connection_record, reset_state=None):
 
 # register a method to get a single value of a JSON object
 OPERATORS[json_getitem_op] = operator_lookup["json_getitem_op"]
+
+
+# PickleType that can be used with Spanner.
+# Binary values are automatically encoded/decoded to/from base64.
+# Usage:
+# class User(Base):
+#     __tablename__ = 'users'
+#
+#     user_id = Column(Integer, primary_key=True)
+#     username = Column(String(50), nullable=False)
+#     preferences = Column(PickleType(impl=SpannerPickleType))
+class SpannerPickleType(TypeDecorator):
+    impl = PickleType
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return None
+            return base64.standard_b64encode(value)
+
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is None:
+                return None
+            return base64.standard_b64decode(value)
+
+        return process
 
 
 # Spanner-to-SQLAlchemy types map
@@ -188,6 +218,16 @@ class SpannerExecutionContext(DefaultExecutionContext):
         if request_tag:
             self.cursor.request_tag = request_tag
 
+        ignore_transaction_warnings = self.execution_options.get(
+            "ignore_transaction_warnings"
+        )
+        if ignore_transaction_warnings is not None:
+            conn = self._dbapi_connection.connection
+            if conn is not None and hasattr(conn, "_connection_variables"):
+                conn._connection_variables[
+                    "ignore_transaction_warnings"
+                ] = ignore_transaction_warnings
+
     def fire_sequence(self, seq, type_):
         """Builds a statement for fetching next value of the sequence."""
         return self._execute_scalar(
@@ -232,6 +272,10 @@ class SpannerSQLCompiler(SQLCompiler):
     """Spanner SQL statements compiler."""
 
     compound_keywords = _compound_keywords
+
+    def __init__(self, *args, **kwargs):
+        self.tablealiases = {}
+        super().__init__(*args, **kwargs)
 
     def get_from_hint_text(self, _, text):
         """Return a hint text.
@@ -378,8 +422,11 @@ class SpannerSQLCompiler(SQLCompiler):
         return text
 
     def returning_clause(self, stmt, returning_cols, **kw):
+        # Set the spanner_is_returning flag which is passed to visit_column.
         columns = [
-            self._label_select_column(None, c, True, False, {})
+            self._label_select_column(
+                None, c, True, False, {"spanner_is_returning": True}
+            )
             for c in expression._select_iterables(returning_cols)
         ]
 
@@ -390,6 +437,98 @@ class SpannerSQLCompiler(SQLCompiler):
         return " GET_NEXT_SEQUENCE_VALUE(SEQUENCE %s)" % self.preparer.format_sequence(
             seq
         )
+
+    def visit_table(self, table, spanner_aliased=False, iscrud=False, **kwargs):
+        """Produces the table name.
+
+        Schema names are not allowed in Spanner SELECT statements. We
+        need to avoid generating SQL like
+
+        SELECT schema.tbl.id
+        FROM schema.tbl
+
+        To do so, we alias the table in order to produce SQL like:
+
+        SELECT tbl_1.id, tbl_1.col
+        FROM schema.tbl AS tbl_1
+
+        And do similar for UPDATE and DELETE statements.
+
+        This closely mirrors the mssql dialect which also avoids
+        schema-qualified columns in SELECTs, although the behaviour is
+        currently behind a deprecated 'legacy_schema_aliasing' flag.
+        """
+        if spanner_aliased is table or self.isinsert:
+            return super().visit_table(table, **kwargs)
+
+        # Add an alias for schema-qualified tables.
+        # Tables in the default schema are not aliased and follow the
+        # standard SQLAlchemy code path.
+        alias = self._schema_aliased_table(table)
+        if alias is not None:
+            return self.process(alias, spanner_aliased=table, **kwargs)
+        else:
+            return super().visit_table(table, **kwargs)
+
+    def visit_alias(self, alias, **kw):
+        """Produces alias statements."""
+        # translate for schema-qualified table aliases
+        kw["spanner_aliased"] = alias.element
+        return super().visit_alias(alias, **kw)
+
+    def visit_column(
+        self, column, add_to_result_map=None, spanner_is_returning=False, **kw
+    ):
+        """Produces column expressions.
+
+        In tandem with visit_table, replaces schema-qualified column
+        names with column names qualified against an alias.
+        """
+        if column.table is not None and not self.isinsert or self.is_subquery():
+            # translate for schema-qualified table aliases
+            t = self._schema_aliased_table(column.table)
+            if t is not None:
+                converted = elements._corresponding_column_or_error(t, column)
+                if add_to_result_map is not None:
+                    add_to_result_map(
+                        column.name,
+                        column.name,
+                        (column, column.name, column.key),
+                        column.type,
+                    )
+
+                return super().visit_column(converted, **kw)
+        if spanner_is_returning:
+            # Set include_table=False because although table names are
+            # allowed in RETURNING clauses, schema names are not.  We
+            # can't use the same aliasing trick above that we use with
+            # other statements, because INSERT statements don't result
+            # in visit_table calls and INSERT table names can't be
+            # aliased.  Statements like:
+            #
+            # INSERT INTO table (id, name)
+            # SELECT id, name FROM another_table
+            # THEN RETURN another_table.id
+            #
+            # aren't legal, so the columns remain unambiguous when not
+            # qualified by table name.
+            kw["include_table"] = False
+
+        return super().visit_column(column, add_to_result_map=add_to_result_map, **kw)
+
+    def _schema_aliased_table(self, table):
+        """Creates an alias for the table if it is schema-qualified.
+
+        If the table is schema-qualified, returns an alias for the
+        table and caches the alias for future references to the
+        table. If the table is not schema-qualified, returns None.
+        """
+        if getattr(table, "schema", None) is not None:
+            if table not in self.tablealiases:
+                self.tablealiases[table] = table.alias()
+            return self.tablealiases[table]
+        else:
+            return None
 
 
 class SpannerDDLCompiler(DDLCompiler):
@@ -529,7 +668,7 @@ class SpannerDDLCompiler(DDLCompiler):
         return post_cmds
 
     def visit_create_index(
-        self, create, include_schema=False, include_table_schema=True, **kw
+        self, create, include_schema=True, include_table_schema=True, **kw
     ):
         text = super().visit_create_index(
             create, include_schema, include_table_schema, **kw
@@ -648,6 +787,7 @@ class SpannerDialect(DefaultDialect):
     encoding = "utf-8"
     max_identifier_length = 256
     _legacy_binary_type_literal_encoding = "utf-8"
+    _default_isolation_level = "SERIALIZABLE"
 
     execute_sequence_format = list
 
@@ -699,12 +839,11 @@ class SpannerDialect(DefaultDialect):
         Returns:
             str: default isolation level.
         """
-        return "SERIALIZABLE"
+        return self._default_isolation_level
 
     @default_isolation_level.setter
     def default_isolation_level(self, value):
-        """Default isolation level should not be changed."""
-        pass
+        self._default_isolation_level = value
 
     def _check_unicode_returns(self, connection, additional_tests=None):
         """Ensure requests are returning Unicode responses."""
@@ -1205,9 +1344,9 @@ class SpannerDialect(DefaultDialect):
         table_type_query = self._get_table_type_query(kind, True)
 
         sql = """
-            SELECT tc.table_schema, tc.table_name, ccu.COLUMN_NAME
+            SELECT tc.table_schema, tc.table_name, kcu.column_name
             FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc
-            JOIN INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE AS ccu
+            JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS kcu
                 USING (TABLE_CATALOG, TABLE_SCHEMA, CONSTRAINT_NAME)
             JOIN information_schema.tables AS t
                 ON  tc.TABLE_CATALOG = t.TABLE_CATALOG
@@ -1215,6 +1354,8 @@ class SpannerDialect(DefaultDialect):
                 AND tc.TABLE_NAME = t.TABLE_NAME
             WHERE {table_filter_query} {table_type_query}
             {schema_filter_query} tc.CONSTRAINT_TYPE = "PRIMARY KEY"
+            ORDER BY tc.table_catalog ASC, tc.table_schema ASC,
+                     tc.table_name ASC, kcu.ordinal_position ASC
         """.format(
             table_filter_query=table_filter_query,
             table_type_query=table_type_query,
@@ -1551,7 +1692,7 @@ LIMIT 1
                     spanner_dbapi.connection.Connection,
                 ]
             ):
-                Database connection proxy object or the connection iself.
+                Database connection proxy object or the connection itself.
             level (string): Isolation level.
         """
         if isinstance(conn_proxy, spanner_dbapi.Connection):
@@ -1559,7 +1700,13 @@ LIMIT 1
         else:
             conn = conn_proxy.connection
 
-        conn.autocommit = level == "AUTOCOMMIT"
+        if level == "AUTOCOMMIT":
+            conn.autocommit = True
+        else:
+            if isinstance(level, str):
+                level = self._string_to_isolation_level(level)
+            conn.isolation_level = level
+            conn.autocommit = False
 
     def get_isolation_level(self, conn_proxy):
         """Get the connection isolation level.
@@ -1571,7 +1718,7 @@ LIMIT 1
                     spanner_dbapi.connection.Connection,
                 ]
             ):
-                Database connection proxy object or the connection iself.
+                Database connection proxy object or the connection itself.
 
         Returns:
             str: the connection isolation level.
@@ -1581,7 +1728,31 @@ LIMIT 1
         else:
             conn = conn_proxy.connection
 
-        return "AUTOCOMMIT" if conn.autocommit else "SERIALIZABLE"
+        if conn.autocommit:
+            return "AUTOCOMMIT"
+
+        level = conn.isolation_level
+        if level == TransactionOptions.IsolationLevel.ISOLATION_LEVEL_UNSPECIFIED:
+            level = TransactionOptions.IsolationLevel.SERIALIZABLE
+        if isinstance(level, TransactionOptions.IsolationLevel):
+            level = self._isolation_level_to_string(level)
+
+        return level
+
+    def _string_to_isolation_level(self, name):
+        try:
+            # SQLAlchemy guarantees that the isolation level string will:
+            # 1. Be all upper case.
+            # 2. Contain spaces instead of underscores.
+            # We change the spaces into underscores to get the enum value.
+            return TransactionOptions.IsolationLevel[name.replace(" ", "_")]
+        except KeyError:
+            raise ValueError("Invalid isolation level name '%s'" % name)
+
+    def _isolation_level_to_string(self, level):
+        # SQLAlchemy expects isolation level names to contain spaces,
+        # and not underscores, so we remove those before returning.
+        return level.name.replace("_", " ")
 
     def do_rollback(self, dbapi_connection):
         """

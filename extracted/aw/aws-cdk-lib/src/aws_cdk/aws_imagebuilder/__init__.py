@@ -694,7 +694,7 @@ class CfnContainerRecipe(
         :param components: Build and test components that are included in the container recipe. Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
         :param container_type: Specifies the type of container, such as Docker.
         :param name: The name of the container recipe.
-        :param parent_image: The base image for the container recipe.
+        :param parent_image: The base image for customizations specified in the container recipe. This can contain an Image Builder image resource ARN or a container image URI, for example ``amazonlinux:latest`` .
         :param target_repository: The destination repository for the container image.
         :param version: The semantic version of the container recipe. .. epigraph:: The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them. *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node. *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01. *Filtering:* With semantic versioning, you have the flexibility to use wildcards (x) to specify the most recent versions or nodes when selecting the base image or components for your recipe. When you use a wildcard in any node, all nodes to the right of the first wildcard must also be wildcards.
         :param description: The description of the container recipe.
@@ -839,7 +839,7 @@ class CfnContainerRecipe(
     @builtins.property
     @jsii.member(jsii_name="parentImage")
     def parent_image(self) -> builtins.str:
-        '''The base image for the container recipe.'''
+        '''The base image for customizations specified in the container recipe.'''
         return typing.cast(builtins.str, jsii.get(self, "parentImage"))
 
     @parent_image.setter
@@ -1458,7 +1458,7 @@ class CfnContainerRecipe(
             '''Defines a custom base AMI and block device mapping configurations of an instance used for building and testing container images.
 
             :param block_device_mappings: Defines the block devices to attach for building an instance from this Image Builder AMI.
-            :param image: The AMI ID to use as the base image for a container build and test instance. If not specified, Image Builder will use the appropriate ECS-optimized AMI as a base image.
+            :param image: The base image for a container build and test instance. This can contain an AMI ID or it can specify an AWS Systems Manager (SSM) Parameter Store Parameter, prefixed by ``ssm:`` , followed by the parameter name or ARN. If not specified, Image Builder uses the appropriate ECS-optimized AMI as a base image.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-containerrecipe-instanceconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1511,9 +1511,11 @@ class CfnContainerRecipe(
 
         @builtins.property
         def image(self) -> typing.Optional[builtins.str]:
-            '''The AMI ID to use as the base image for a container build and test instance.
+            '''The base image for a container build and test instance.
 
-            If not specified, Image Builder will use the appropriate ECS-optimized AMI as a base image.
+            This can contain an AMI ID or it can specify an AWS Systems Manager (SSM) Parameter Store Parameter, prefixed by ``ssm:`` , followed by the parameter name or ARN.
+
+            If not specified, Image Builder uses the appropriate ECS-optimized AMI as a base image.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-containerrecipe-instanceconfiguration.html#cfn-imagebuilder-containerrecipe-instanceconfiguration-image
             '''
@@ -1650,7 +1652,7 @@ class CfnContainerRecipeProps:
         :param components: Build and test components that are included in the container recipe. Recipes require a minimum of one build component, and can have a maximum of 20 build and test components in any combination.
         :param container_type: Specifies the type of container, such as Docker.
         :param name: The name of the container recipe.
-        :param parent_image: The base image for the container recipe.
+        :param parent_image: The base image for customizations specified in the container recipe. This can contain an Image Builder image resource ARN or a container image URI, for example ``amazonlinux:latest`` .
         :param target_repository: The destination repository for the container image.
         :param version: The semantic version of the container recipe. .. epigraph:: The semantic version has four nodes: ../. You can assign values for the first three, and can filter on all of them. *Assignment:* For the first three nodes you can assign any positive integer value, including zero, with an upper limit of 2^30-1, or 1073741823 for each node. Image Builder automatically assigns the build number to the fourth node. *Patterns:* You can use any numeric pattern that adheres to the assignment requirements for the nodes that you can assign. For example, you might choose a software version pattern, such as 1.0.0, or a date, such as 2021.01.01. *Filtering:* With semantic versioning, you have the flexibility to use wildcards (x) to specify the most recent versions or nodes when selecting the base image or components for your recipe. When you use a wildcard in any node, all nodes to the right of the first wildcard must also be wildcards.
         :param description: The description of the container recipe.
@@ -1800,7 +1802,9 @@ class CfnContainerRecipeProps:
 
     @builtins.property
     def parent_image(self) -> builtins.str:
-        '''The base image for the container recipe.
+        '''The base image for customizations specified in the container recipe.
+
+        This can contain an Image Builder image resource ARN or a container image URI, for example ``amazonlinux:latest`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-imagebuilder-containerrecipe.html#cfn-imagebuilder-containerrecipe-parentimage
         '''
@@ -1985,7 +1989,14 @@ class CfnDistributionConfiguration(
                     launch_template_id="launchTemplateId",
                     set_default_version=False
                 )],
-                license_configuration_arns=["licenseConfigurationArns"]
+                license_configuration_arns=["licenseConfigurationArns"],
+                ssm_parameter_configurations=[imagebuilder.CfnDistributionConfiguration.SsmParameterConfigurationProperty(
+                    parameter_name="parameterName",
+        
+                    # the properties below are optional
+                    ami_account_id="amiAccountId",
+                    data_type="dataType"
+                )]
             )],
             name="name",
         
@@ -2400,6 +2411,7 @@ class CfnDistributionConfiguration(
             "fast_launch_configurations": "fastLaunchConfigurations",
             "launch_template_configurations": "launchTemplateConfigurations",
             "license_configuration_arns": "licenseConfigurationArns",
+            "ssm_parameter_configurations": "ssmParameterConfigurations",
         },
     )
     class DistributionProperty:
@@ -2412,6 +2424,7 @@ class CfnDistributionConfiguration(
             fast_launch_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionConfiguration.FastLaunchConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             launch_template_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionConfiguration.LaunchTemplateConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             license_configuration_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+            ssm_parameter_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionConfiguration.SsmParameterConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The distribution configuration distribution defines the settings for a specific Region in the Distribution Configuration.
 
@@ -2426,6 +2439,7 @@ class CfnDistributionConfiguration(
             :param fast_launch_configurations: The Windows faster-launching configurations to use for AMI distribution.
             :param launch_template_configurations: A group of launchTemplateConfiguration settings that apply to image distribution for specified accounts.
             :param license_configuration_arns: The License Manager Configuration to associate with the AMI in the specified Region. For more information, see the `LicenseConfiguration API <https://docs.aws.amazon.com/license-manager/latest/APIReference/API_LicenseConfiguration.html>`_ .
+            :param ssm_parameter_configurations: Contains settings to update AWS Systems Manager (SSM) Parameter Store Parameters with output AMI IDs from the build by target Region.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-distributionconfiguration-distribution.html
             :exampleMetadata: fixture=_generated
@@ -2463,7 +2477,14 @@ class CfnDistributionConfiguration(
                         launch_template_id="launchTemplateId",
                         set_default_version=False
                     )],
-                    license_configuration_arns=["licenseConfigurationArns"]
+                    license_configuration_arns=["licenseConfigurationArns"],
+                    ssm_parameter_configurations=[imagebuilder.CfnDistributionConfiguration.SsmParameterConfigurationProperty(
+                        parameter_name="parameterName",
+                
+                        # the properties below are optional
+                        ami_account_id="amiAccountId",
+                        data_type="dataType"
+                    )]
                 )
             '''
             if __debug__:
@@ -2474,6 +2495,7 @@ class CfnDistributionConfiguration(
                 check_type(argname="argument fast_launch_configurations", value=fast_launch_configurations, expected_type=type_hints["fast_launch_configurations"])
                 check_type(argname="argument launch_template_configurations", value=launch_template_configurations, expected_type=type_hints["launch_template_configurations"])
                 check_type(argname="argument license_configuration_arns", value=license_configuration_arns, expected_type=type_hints["license_configuration_arns"])
+                check_type(argname="argument ssm_parameter_configurations", value=ssm_parameter_configurations, expected_type=type_hints["ssm_parameter_configurations"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "region": region,
             }
@@ -2487,6 +2509,8 @@ class CfnDistributionConfiguration(
                 self._values["launch_template_configurations"] = launch_template_configurations
             if license_configuration_arns is not None:
                 self._values["license_configuration_arns"] = license_configuration_arns
+            if ssm_parameter_configurations is not None:
+                self._values["ssm_parameter_configurations"] = ssm_parameter_configurations
 
         @builtins.property
         def region(self) -> builtins.str:
@@ -2556,6 +2580,17 @@ class CfnDistributionConfiguration(
             '''
             result = self._values.get("license_configuration_arns")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def ssm_parameter_configurations(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistributionConfiguration.SsmParameterConfigurationProperty"]]]]:
+            '''Contains settings to update AWS Systems Manager (SSM) Parameter Store Parameters with output AMI IDs from the build by target Region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-distributionconfiguration-distribution.html#cfn-imagebuilder-distributionconfiguration-distribution-ssmparameterconfigurations
+            '''
+            result = self._values.get("ssm_parameter_configurations")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistributionConfiguration.SsmParameterConfigurationProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3056,6 +3091,104 @@ class CfnDistributionConfiguration(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_imagebuilder.CfnDistributionConfiguration.SsmParameterConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "parameter_name": "parameterName",
+            "ami_account_id": "amiAccountId",
+            "data_type": "dataType",
+        },
+    )
+    class SsmParameterConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            parameter_name: builtins.str,
+            ami_account_id: typing.Optional[builtins.str] = None,
+            data_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for a single Parameter in the AWS Systems Manager (SSM) Parameter Store in a given Region.
+
+            :param parameter_name: This is the name of the Parameter in the target Region or account. The image distribution creates the Parameter if it doesn't already exist. Otherwise, it updates the parameter.
+            :param ami_account_id: Specify the account that will own the Parameter in a given Region. During distribution, this account must be specified in distribution settings as a target account for the Region.
+            :param data_type: The data type specifies what type of value the Parameter contains. We recommend that you use data type ``aws:ec2:image`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-distributionconfiguration-ssmparameterconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_imagebuilder as imagebuilder
+                
+                ssm_parameter_configuration_property = imagebuilder.CfnDistributionConfiguration.SsmParameterConfigurationProperty(
+                    parameter_name="parameterName",
+                
+                    # the properties below are optional
+                    ami_account_id="amiAccountId",
+                    data_type="dataType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7078c821101535ab38d1fc3a5eaf267586f8ba156c0c7208c49773a19d7406c9)
+                check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+                check_type(argname="argument ami_account_id", value=ami_account_id, expected_type=type_hints["ami_account_id"])
+                check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "parameter_name": parameter_name,
+            }
+            if ami_account_id is not None:
+                self._values["ami_account_id"] = ami_account_id
+            if data_type is not None:
+                self._values["data_type"] = data_type
+
+        @builtins.property
+        def parameter_name(self) -> builtins.str:
+            '''This is the name of the Parameter in the target Region or account.
+
+            The image distribution creates the Parameter if it doesn't already exist. Otherwise, it updates the parameter.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-distributionconfiguration-ssmparameterconfiguration.html#cfn-imagebuilder-distributionconfiguration-ssmparameterconfiguration-parametername
+            '''
+            result = self._values.get("parameter_name")
+            assert result is not None, "Required property 'parameter_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def ami_account_id(self) -> typing.Optional[builtins.str]:
+            '''Specify the account that will own the Parameter in a given Region.
+
+            During distribution, this account must be specified in distribution settings as a target account for the Region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-distributionconfiguration-ssmparameterconfiguration.html#cfn-imagebuilder-distributionconfiguration-ssmparameterconfiguration-amiaccountid
+            '''
+            result = self._values.get("ami_account_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def data_type(self) -> typing.Optional[builtins.str]:
+            '''The data type specifies what type of value the Parameter contains.
+
+            We recommend that you use data type ``aws:ec2:image`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-imagebuilder-distributionconfiguration-ssmparameterconfiguration.html#cfn-imagebuilder-distributionconfiguration-ssmparameterconfiguration-datatype
+            '''
+            result = self._values.get("data_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SsmParameterConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_imagebuilder.CfnDistributionConfiguration.TargetContainerRepositoryProperty",
         jsii_struct_bases=[],
         name_mapping={"repository_name": "repositoryName", "service": "service"},
@@ -3191,7 +3324,14 @@ class CfnDistributionConfigurationProps:
                         launch_template_id="launchTemplateId",
                         set_default_version=False
                     )],
-                    license_configuration_arns=["licenseConfigurationArns"]
+                    license_configuration_arns=["licenseConfigurationArns"],
+                    ssm_parameter_configurations=[imagebuilder.CfnDistributionConfiguration.SsmParameterConfigurationProperty(
+                        parameter_name="parameterName",
+            
+                        # the properties below are optional
+                        ami_account_id="amiAccountId",
+                        data_type="dataType"
+                    )]
                 )],
                 name="name",
             
@@ -9871,6 +10011,7 @@ def _typecheckingstub__29d1f34d5faec16ba828ad2333ee9218a18df31808a5a350be9b29d04
     fast_launch_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionConfiguration.FastLaunchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     launch_template_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionConfiguration.LaunchTemplateConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     license_configuration_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ssm_parameter_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDistributionConfiguration.SsmParameterConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9917,6 +10058,15 @@ def _typecheckingstub__0b4c1c669ce6e1367a73060d15f089faa5ce58e96063ee38204bf9af1
     account_id: typing.Optional[builtins.str] = None,
     launch_template_id: typing.Optional[builtins.str] = None,
     set_default_version: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7078c821101535ab38d1fc3a5eaf267586f8ba156c0c7208c49773a19d7406c9(
+    *,
+    parameter_name: builtins.str,
+    ami_account_id: typing.Optional[builtins.str] = None,
+    data_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

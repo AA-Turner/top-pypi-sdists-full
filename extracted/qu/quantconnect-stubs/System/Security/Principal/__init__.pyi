@@ -6,16 +6,6 @@ import System
 import System.Security.Principal
 
 
-class PrincipalPolicy(Enum):
-    """This class has no documentation."""
-
-    UNAUTHENTICATED_PRINCIPAL = 0
-
-    NO_PRINCIPAL = 1
-
-    WINDOWS_PRINCIPAL = 2
-
-
 class IIdentity(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -35,6 +25,28 @@ class IIdentity(metaclass=abc.ABCMeta):
         ...
 
 
+class IPrincipal(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def identity(self) -> System.Security.Principal.IIdentity:
+        ...
+
+    def is_in_role(self, role: str) -> bool:
+        ...
+
+
+class PrincipalPolicy(Enum):
+    """This class has no documentation."""
+
+    UNAUTHENTICATED_PRINCIPAL = 0
+
+    NO_PRINCIPAL = 1
+
+    WINDOWS_PRINCIPAL = 2
+
+
 class TokenImpersonationLevel(Enum):
     """This class has no documentation."""
 
@@ -47,17 +59,5 @@ class TokenImpersonationLevel(Enum):
     IMPERSONATION = 3
 
     DELEGATION = 4
-
-
-class IPrincipal(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def identity(self) -> System.Security.Principal.IIdentity:
-        ...
-
-    def is_in_role(self, role: str) -> bool:
-        ...
 
 

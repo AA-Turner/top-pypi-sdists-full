@@ -68,7 +68,7 @@ class ChatCompletionV2(ChatCompletion):
         )
 
     @classmethod
-    def _validate_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def _validate_kwargs(cls, kwargs: Dict[str, Any]) -> Dict[str, Any]:
         if "messages" in kwargs:
             messages_as_dict = []
             for message in kwargs["messages"]:
@@ -77,8 +77,6 @@ class ChatCompletionV2(ChatCompletion):
                 elif isinstance(message, ChatMessage):
                     messages_as_dict.append(message.dict())
                 else:
-                    raise InvalidRequestError(
-                        "Chat messages must be a dict or ChatMessage type"
-                    )
+                    raise InvalidRequestError("Chat messages must be a dict or ChatMessage type")
             kwargs["messages"] = messages_as_dict
         return kwargs

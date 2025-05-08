@@ -4353,7 +4353,9 @@ class CfnConnectionGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudfront.CfnConnectionGroup",
 ):
-    '''Resource Type definition for AWS::CloudFront::ConnectionGroup.
+    '''The connection group for your distribution tenants.
+
+    When you first create a distribution tenant and you don't specify a connection group, CloudFront will automatically create a default connection group for you. When you create a new distribution tenant and don't specify a connection group, the default one will be associated with your distribution tenant.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html
     :cloudformationResource: AWS::CloudFront::ConnectionGroup
@@ -4393,10 +4395,10 @@ class CfnConnectionGroup(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param name: 
+        :param name: The name of the connection group.
         :param anycast_ip_list_id: The ID of the Anycast static IP list.
-        :param enabled: 
-        :param ipv6_enabled: 
+        :param enabled: Whether the connection group is enabled.
+        :param ipv6_enabled: IPv6 is enabled for the connection group.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
         '''
         if __debug__:
@@ -4446,7 +4448,8 @@ class CfnConnectionGroup(
     @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
-        '''
+        '''The Amazon Resource Name (ARN) of the connection group.
+
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
@@ -4454,7 +4457,8 @@ class CfnConnectionGroup(
     @builtins.property
     @jsii.member(jsii_name="attrCreatedTime")
     def attr_created_time(self) -> builtins.str:
-        '''
+        '''The date and time when the connection group was created.
+
         :cloudformationAttribute: CreatedTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedTime"))
@@ -4462,7 +4466,7 @@ class CfnConnectionGroup(
     @builtins.property
     @jsii.member(jsii_name="attrETag")
     def attr_e_tag(self) -> builtins.str:
-        '''A complex type that contains ``Tag`` key and ``Tag`` value.
+        '''The current version of the connection group.
 
         :cloudformationAttribute: ETag
         '''
@@ -4471,7 +4475,8 @@ class CfnConnectionGroup(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''
+        '''The ID of the connection group.
+
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -4479,7 +4484,8 @@ class CfnConnectionGroup(
     @builtins.property
     @jsii.member(jsii_name="attrIsDefault")
     def attr_is_default(self) -> _IResolvable_da3f097b:
-        '''
+        '''Whether the connection group is the default connection group for the distribution tenants.
+
         :cloudformationAttribute: IsDefault
         '''
         return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrIsDefault"))
@@ -4487,7 +4493,8 @@ class CfnConnectionGroup(
     @builtins.property
     @jsii.member(jsii_name="attrLastModifiedTime")
     def attr_last_modified_time(self) -> builtins.str:
-        '''
+        '''The date and time when the connection group was updated.
+
         :cloudformationAttribute: LastModifiedTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
@@ -4495,7 +4502,7 @@ class CfnConnectionGroup(
     @builtins.property
     @jsii.member(jsii_name="attrRoutingEndpoint")
     def attr_routing_endpoint(self) -> builtins.str:
-        '''Contains information about the Amazon Kinesis data stream where you are sending real-time log data in a real-time log configuration.
+        '''The routing endpoint (also known as the DNS name) that is assigned to the connection group, such as d111111abcdef8.cloudfront.net.
 
         :cloudformationAttribute: RoutingEndpoint
         '''
@@ -4504,7 +4511,8 @@ class CfnConnectionGroup(
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''
+        '''The status of the connection group.
+
         :cloudformationAttribute: Status
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
@@ -4523,6 +4531,7 @@ class CfnConnectionGroup(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
+        '''The name of the connection group.'''
         return typing.cast(builtins.str, jsii.get(self, "name"))
 
     @name.setter
@@ -4550,6 +4559,7 @@ class CfnConnectionGroup(
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether the connection group is enabled.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
 
     @enabled.setter
@@ -4567,6 +4577,7 @@ class CfnConnectionGroup(
     def ipv6_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''IPv6 is enabled for the connection group.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "ipv6Enabled"))
 
     @ipv6_enabled.setter
@@ -4616,10 +4627,10 @@ class CfnConnectionGroupProps:
     ) -> None:
         '''Properties for defining a ``CfnConnectionGroup``.
 
-        :param name: 
+        :param name: The name of the connection group.
         :param anycast_ip_list_id: The ID of the Anycast static IP list.
-        :param enabled: 
-        :param ipv6_enabled: 
+        :param enabled: Whether the connection group is enabled.
+        :param ipv6_enabled: IPv6 is enabled for the connection group.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html
@@ -4665,7 +4676,8 @@ class CfnConnectionGroupProps:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''
+        '''The name of the connection group.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html#cfn-cloudfront-connectiongroup-name
         '''
         result = self._values.get("name")
@@ -4685,7 +4697,8 @@ class CfnConnectionGroupProps:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
+        '''Whether the connection group is enabled.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html#cfn-cloudfront-connectiongroup-enabled
         '''
         result = self._values.get("enabled")
@@ -4695,7 +4708,8 @@ class CfnConnectionGroupProps:
     def ipv6_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
+        '''IPv6 is enabled for the connection group.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-connectiongroup.html#cfn-cloudfront-connectiongroup-ipv6enabled
         '''
         result = self._values.get("ipv6_enabled")
@@ -7329,7 +7343,7 @@ class CfnDistribution(
             :param cache_behaviors: A complex type that contains zero or more ``CacheBehavior`` elements.
             :param cnam_es: An alias for the CloudFront distribution's domain name. .. epigraph:: This property is legacy. We recommend that you use `Aliases <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-aliases>`_ instead.
             :param comment: A comment to describe the distribution. The comment cannot be longer than 128 characters. Default: - ""
-            :param connection_mode: 
+            :param connection_mode: The connection mode to filter distributions by.
             :param continuous_deployment_policy_id: The identifier of a continuous deployment policy. For more information, see ``CreateContinuousDeploymentPolicy`` .
             :param custom_error_responses: A complex type that controls the following:. - Whether CloudFront replaces HTTP status codes in the 4xx and 5xx range with custom error messages before returning the response to the viewer. - How long CloudFront caches HTTP status codes in the 4xx and 5xx range. For more information about custom error pages, see `Customizing Error Responses <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/custom-error-pages.html>`_ in the *Amazon CloudFront Developer Guide* .
             :param custom_origin: The user-defined HTTP server that serves as the origin for content that CloudFront distributes. .. epigraph:: This property is legacy. We recommend that you use `Origin <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-origin.html>`_ instead.
@@ -7343,7 +7357,7 @@ class CfnDistribution(
             :param restrictions: A complex type that identifies ways in which you want to restrict distribution of your content.
             :param s3_origin: The origin as an Amazon S3 bucket. .. epigraph:: This property is legacy. We recommend that you use `Origin <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-origin.html>`_ instead.
             :param staging: A Boolean that indicates whether this is a staging distribution. When this value is ``true`` , this is a staging distribution. When this value is ``false`` , this is not a staging distribution.
-            :param tenant_config: 
+            :param tenant_config: A distribution tenant configuration.
             :param viewer_certificate: A complex type that determines the distribution's SSL/TLS configuration for communicating with viewers.
             :param web_acl_id: A unique identifier that specifies the AWS WAF web ACL, if any, to associate with this distribution. To specify a web ACL created using the latest version of AWS WAF , use the ACL ARN, for example ``arn:aws:wafv2:us-east-1:123456789012:global/webacl/ExampleWebACL/a1b2c3d4-5678-90ab-cdef-EXAMPLE11111`` . To specify a web ACL created using AWS WAF Classic, use the ACL ID, for example ``a1b2c3d4-5678-90ab-cdef-EXAMPLE11111`` . AWS WAF is a web application firewall that lets you monitor the HTTP and HTTPS requests that are forwarded to CloudFront, and lets you control access to your content. Based on conditions that you specify, such as the IP addresses that requests originate from or the values of query strings, CloudFront responds to requests either with the requested content or with an HTTP 403 status code (Forbidden). You can also configure CloudFront to return a custom error page when a request is blocked. For more information about AWS WAF , see the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/what-is-aws-waf.html>`_ . Default: - ""
 
@@ -7739,7 +7753,8 @@ class CfnDistribution(
 
         @builtins.property
         def connection_mode(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The connection mode to filter distributions by.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-connectionmode
             '''
             result = self._values.get("connection_mode")
@@ -7950,7 +7965,8 @@ class CfnDistribution(
         def tenant_config(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistribution.TenantConfigProperty"]]:
-            '''
+            '''A distribution tenant configuration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-distributionconfig.html#cfn-cloudfront-distribution-distributionconfig-tenantconfig
             '''
             result = self._values.get("tenant_config")
@@ -9676,9 +9692,12 @@ class CfnDistribution(
             definition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.DefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
         ) -> None:
-            '''
-            :param definition: 
-            :param name: 
+            '''A list of parameter values to add to the resource.
+
+            A parameter is specified as a key-value pair. A valid parameter value must exist for any parameter that is marked as required in the multi-tenant distribution.
+
+            :param definition: The value that you assigned to the parameter.
+            :param name: The name of the parameter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-parameterdefinition.html
             :exampleMetadata: fixture=_generated
@@ -9715,7 +9734,8 @@ class CfnDistribution(
         def definition(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnDistribution.DefinitionProperty"]:
-            '''
+            '''The value that you assigned to the parameter.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-parameterdefinition.html#cfn-cloudfront-distribution-parameterdefinition-definition
             '''
             result = self._values.get("definition")
@@ -9724,7 +9744,8 @@ class CfnDistribution(
 
         @builtins.property
         def name(self) -> builtins.str:
-            '''
+            '''The name of the parameter.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-parameterdefinition.html#cfn-cloudfront-distribution-parameterdefinition-name
             '''
             result = self._values.get("name")
@@ -10056,8 +10077,9 @@ class CfnDistribution(
             *,
             parameter_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistribution.ParameterDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''
-            :param parameter_definitions: 
+            '''The configuration for a distribution tenant.
+
+            :param parameter_definitions: The parameters that you specify for a distribution tenant.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-tenantconfig.html
             :exampleMetadata: fixture=_generated
@@ -10094,7 +10116,8 @@ class CfnDistribution(
         def parameter_definitions(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistribution.ParameterDefinitionProperty"]]]]:
-            '''
+            '''The parameters that you specify for a distribution tenant.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distribution-tenantconfig.html#cfn-cloudfront-distribution-tenantconfig-parameterdefinitions
             '''
             result = self._values.get("parameter_definitions")
@@ -10707,7 +10730,7 @@ class CfnDistributionTenant(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant",
 ):
-    '''Resource Type definition for AWS::CloudFront::DistributionTenant.
+    '''The distribution tenant.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html
     :cloudformationResource: AWS::CloudFront::DistributionTenant
@@ -10774,14 +10797,14 @@ class CfnDistributionTenant(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param distribution_id: The distribution's identifier. For example: ``E1U5RQF7T870K0`` .
-        :param domains: 
-        :param name: 
-        :param connection_group_id: 
-        :param customizations: 
-        :param enabled: 
-        :param managed_certificate_request: 
-        :param parameters: 
+        :param distribution_id: The ID of the multi-tenant distribution.
+        :param domains: The domains associated with the distribution tenant.
+        :param name: The name of the distribution tenant.
+        :param connection_group_id: The ID of the connection group for the distribution tenant. If you don't specify a connection group, CloudFront uses the default connection group.
+        :param customizations: Customizations for the distribution tenant. For each distribution tenant, you can specify the geographic restrictions, and the Amazon Resource Names (ARNs) for the ACM certificate and AWS WAF web ACL. These are specific values that you can override or disable from the multi-tenant distribution that was used to create the distribution tenant.
+        :param enabled: Indicates whether the distribution tenant is in an enabled state. If disabled, the distribution tenant won't serve traffic.
+        :param managed_certificate_request: An object that represents the request for the Amazon CloudFront managed ACM certificate.
+        :param parameters: A list of parameter values to add to the resource. A parameter is specified as a key-value pair. A valid parameter value must exist for any parameter that is marked as required in the multi-tenant distribution.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
         '''
         if __debug__:
@@ -10835,7 +10858,8 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
-        '''
+        '''The Amazon Resource Name (ARN) of the distribution tenant.
+
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
@@ -10843,7 +10867,8 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="attrCreatedTime")
     def attr_created_time(self) -> builtins.str:
-        '''
+        '''The date and time when the distribution tenant was created.
+
         :cloudformationAttribute: CreatedTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedTime"))
@@ -10859,7 +10884,7 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="attrETag")
     def attr_e_tag(self) -> builtins.str:
-        '''A complex type that contains ``Tag`` key and ``Tag`` value.
+        '''The current version of the distribution tenant.
 
         :cloudformationAttribute: ETag
         '''
@@ -10868,7 +10893,8 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''
+        '''The ID of the distribution tenant.
+
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -10876,7 +10902,8 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="attrLastModifiedTime")
     def attr_last_modified_time(self) -> builtins.str:
-        '''
+        '''The date and time when the distribution tenant was updated.
+
         :cloudformationAttribute: LastModifiedTime
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
@@ -10884,7 +10911,8 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''
+        '''The status of the distribution tenant.
+
         :cloudformationAttribute: Status
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
@@ -10903,7 +10931,7 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="distributionId")
     def distribution_id(self) -> builtins.str:
-        '''The distribution's identifier.'''
+        '''The ID of the multi-tenant distribution.'''
         return typing.cast(builtins.str, jsii.get(self, "distributionId"))
 
     @distribution_id.setter
@@ -10916,6 +10944,7 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="domains")
     def domains(self) -> typing.List[builtins.str]:
+        '''The domains associated with the distribution tenant.'''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "domains"))
 
     @domains.setter
@@ -10928,6 +10957,7 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
+        '''The name of the distribution tenant.'''
         return typing.cast(builtins.str, jsii.get(self, "name"))
 
     @name.setter
@@ -10940,6 +10970,7 @@ class CfnDistributionTenant(
     @builtins.property
     @jsii.member(jsii_name="connectionGroupId")
     def connection_group_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the connection group for the distribution tenant.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "connectionGroupId"))
 
     @connection_group_id.setter
@@ -10954,6 +10985,7 @@ class CfnDistributionTenant(
     def customizations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.CustomizationsProperty"]]:
+        '''Customizations for the distribution tenant.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.CustomizationsProperty"]], jsii.get(self, "customizations"))
 
     @customizations.setter
@@ -10971,6 +11003,7 @@ class CfnDistributionTenant(
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Indicates whether the distribution tenant is in an enabled state.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
 
     @enabled.setter
@@ -10988,6 +11021,7 @@ class CfnDistributionTenant(
     def managed_certificate_request(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ManagedCertificateRequestProperty"]]:
+        '''An object that represents the request for the Amazon CloudFront managed ACM certificate.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ManagedCertificateRequestProperty"]], jsii.get(self, "managedCertificateRequest"))
 
     @managed_certificate_request.setter
@@ -11005,6 +11039,7 @@ class CfnDistributionTenant(
     def parameters(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ParameterProperty"]]]]:
+        '''A list of parameter values to add to the resource.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.ParameterProperty"]]]], jsii.get(self, "parameters"))
 
     @parameters.setter
@@ -11037,8 +11072,9 @@ class CfnDistributionTenant(
     )
     class CertificateProperty:
         def __init__(self, *, arn: typing.Optional[builtins.str] = None) -> None:
-            '''
-            :param arn: 
+            '''The AWS Certificate Manager (ACM) certificate associated with your distribution.
+
+            :param arn: The Amazon Resource Name (ARN) of the ACM certificate.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-certificate.html
             :exampleMetadata: fixture=_generated
@@ -11062,7 +11098,8 @@ class CfnDistributionTenant(
 
         @builtins.property
         def arn(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) of the ACM certificate.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-certificate.html#cfn-cloudfront-distributiontenant-certificate-arn
             '''
             result = self._values.get("arn")
@@ -11096,10 +11133,13 @@ class CfnDistributionTenant(
             geo_restrictions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionTenant.GeoRestrictionCustomizationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             web_acl: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDistributionTenant.WebAclCustomizationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param certificate: 
-            :param geo_restrictions: 
-            :param web_acl: 
+            '''Customizations for the distribution tenant.
+
+            For each distribution tenant, you can specify the geographic restrictions, and the Amazon Resource Names (ARNs) for the ACM certificate and AWS WAF web ACL. These are specific values that you can override or disable from the multi-tenant distribution that was used to create the distribution tenant.
+
+            :param certificate: The AWS Certificate Manager (ACM) certificate.
+            :param geo_restrictions: The geographic restrictions.
+            :param web_acl: The AWS WAF web ACL.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-customizations.html
             :exampleMetadata: fixture=_generated
@@ -11141,7 +11181,8 @@ class CfnDistributionTenant(
         def certificate(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.CertificateProperty"]]:
-            '''
+            '''The AWS Certificate Manager (ACM) certificate.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-customizations.html#cfn-cloudfront-distributiontenant-customizations-certificate
             '''
             result = self._values.get("certificate")
@@ -11151,7 +11192,8 @@ class CfnDistributionTenant(
         def geo_restrictions(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.GeoRestrictionCustomizationProperty"]]:
-            '''
+            '''The geographic restrictions.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-customizations.html#cfn-cloudfront-distributiontenant-customizations-georestrictions
             '''
             result = self._values.get("geo_restrictions")
@@ -11161,7 +11203,8 @@ class CfnDistributionTenant(
         def web_acl(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDistributionTenant.WebAclCustomizationProperty"]]:
-            '''
+            '''The AWS WAF web ACL.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-customizations.html#cfn-cloudfront-distributiontenant-customizations-webacl
             '''
             result = self._values.get("web_acl")
@@ -11181,20 +11224,19 @@ class CfnDistributionTenant(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudfront.CfnDistributionTenant.DomainResultProperty",
         jsii_struct_bases=[],
-        name_mapping={"domain": "domain", "reason": "reason", "status": "status"},
+        name_mapping={"domain": "domain", "status": "status"},
     )
     class DomainResultProperty:
         def __init__(
             self,
             *,
             domain: typing.Optional[builtins.str] = None,
-            reason: typing.Optional[builtins.str] = None,
             status: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param domain: 
-            :param reason: 
-            :param status: 
+            '''The details about the domain result.
+
+            :param domain: The specified domain.
+            :param status: Whether the domain is active or inactive.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-domainresult.html
             :exampleMetadata: fixture=_generated
@@ -11207,42 +11249,32 @@ class CfnDistributionTenant(
                 
                 domain_result_property = cloudfront.CfnDistributionTenant.DomainResultProperty(
                     domain="domain",
-                    reason="reason",
                     status="status"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__d24d49d6e44d4deb653a24465ec61e7862ea07d5a5cdc7f3cfa829da2181be64)
                 check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
-                check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if domain is not None:
                 self._values["domain"] = domain
-            if reason is not None:
-                self._values["reason"] = reason
             if status is not None:
                 self._values["status"] = status
 
         @builtins.property
         def domain(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The specified domain.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-domainresult.html#cfn-cloudfront-distributiontenant-domainresult-domain
             '''
             result = self._values.get("domain")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def reason(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-domainresult.html#cfn-cloudfront-distributiontenant-domainresult-reason
-            '''
-            result = self._values.get("reason")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
         def status(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Whether the domain is active or inactive.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-domainresult.html#cfn-cloudfront-distributiontenant-domainresult-status
             '''
             result = self._values.get("status")
@@ -11271,9 +11303,10 @@ class CfnDistributionTenant(
             locations: typing.Optional[typing.Sequence[builtins.str]] = None,
             restriction_type: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param locations: 
-            :param restriction_type: 
+            '''The customizations that you specified for the distribution tenant for geographic restrictions.
+
+            :param locations: The locations for geographic restrictions.
+            :param restriction_type: The method that you want to use to restrict distribution of your content by country:. - ``none`` : No geographic restriction is enabled, meaning access to content is not restricted by client geo location. - ``blacklist`` : The ``Location`` elements specify the countries in which you don't want CloudFront to distribute your content. - ``whitelist`` : The ``Location`` elements specify the countries in which you want CloudFront to distribute your content.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-georestrictioncustomization.html
             :exampleMetadata: fixture=_generated
@@ -11301,7 +11334,8 @@ class CfnDistributionTenant(
 
         @builtins.property
         def locations(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The locations for geographic restrictions.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-georestrictioncustomization.html#cfn-cloudfront-distributiontenant-georestrictioncustomization-locations
             '''
             result = self._values.get("locations")
@@ -11309,7 +11343,12 @@ class CfnDistributionTenant(
 
         @builtins.property
         def restriction_type(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The method that you want to use to restrict distribution of your content by country:.
+
+            - ``none`` : No geographic restriction is enabled, meaning access to content is not restricted by client geo location.
+            - ``blacklist`` : The ``Location`` elements specify the countries in which you don't want CloudFront to distribute your content.
+            - ``whitelist`` : The ``Location`` elements specify the countries in which you want CloudFront to distribute your content.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-georestrictioncustomization.html#cfn-cloudfront-distributiontenant-georestrictioncustomization-restrictiontype
             '''
             result = self._values.get("restriction_type")
@@ -11343,10 +11382,11 @@ class CfnDistributionTenant(
             primary_domain_name: typing.Optional[builtins.str] = None,
             validation_token_host: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param certificate_transparency_logging_preference: 
-            :param primary_domain_name: 
-            :param validation_token_host: 
+            '''An object that represents the request for the Amazon CloudFront managed ACM certificate.
+
+            :param certificate_transparency_logging_preference: You can opt out of certificate transparency logging by specifying the ``disabled`` option. Opt in by specifying ``enabled`` . For more information, see `Certificate Transparency Logging <https://docs.aws.amazon.com/acm/latest/userguide/acm-concepts.html#concept-transparency>`_ in the *AWS Certificate Manager User Guide* .
+            :param primary_domain_name: The primary domain name associated with the CloudFront managed ACM certificate.
+            :param validation_token_host: Specify how the HTTP validation token will be served when requesting the CloudFront managed ACM certificate. - For ``cloudfront`` , CloudFront will automatically serve the validation token. Choose this mode if you can point the domain's DNS to CloudFront immediately. - For ``self-hosted`` , you serve the validation token from your existing infrastructure. Choose this mode when you need to maintain current traffic flow while your certificate is being issued. You can place the validation token at the well-known path on your existing web server, wait for ACM to validate and issue the certificate, and then update your DNS to point to CloudFront.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-managedcertificaterequest.html
             :exampleMetadata: fixture=_generated
@@ -11380,7 +11420,10 @@ class CfnDistributionTenant(
         def certificate_transparency_logging_preference(
             self,
         ) -> typing.Optional[builtins.str]:
-            '''
+            '''You can opt out of certificate transparency logging by specifying the ``disabled`` option.
+
+            Opt in by specifying ``enabled`` . For more information, see `Certificate Transparency Logging <https://docs.aws.amazon.com/acm/latest/userguide/acm-concepts.html#concept-transparency>`_ in the *AWS Certificate Manager User Guide* .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-managedcertificaterequest.html#cfn-cloudfront-distributiontenant-managedcertificaterequest-certificatetransparencyloggingpreference
             '''
             result = self._values.get("certificate_transparency_logging_preference")
@@ -11388,7 +11431,8 @@ class CfnDistributionTenant(
 
         @builtins.property
         def primary_domain_name(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The primary domain name associated with the CloudFront managed ACM certificate.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-managedcertificaterequest.html#cfn-cloudfront-distributiontenant-managedcertificaterequest-primarydomainname
             '''
             result = self._values.get("primary_domain_name")
@@ -11396,7 +11440,11 @@ class CfnDistributionTenant(
 
         @builtins.property
         def validation_token_host(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Specify how the HTTP validation token will be served when requesting the CloudFront managed ACM certificate.
+
+            - For ``cloudfront`` , CloudFront will automatically serve the validation token. Choose this mode if you can point the domain's DNS to CloudFront immediately.
+            - For ``self-hosted`` , you serve the validation token from your existing infrastructure. Choose this mode when you need to maintain current traffic flow while your certificate is being issued. You can place the validation token at the well-known path on your existing web server, wait for ACM to validate and issue the certificate, and then update your DNS to point to CloudFront.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-managedcertificaterequest.html#cfn-cloudfront-distributiontenant-managedcertificaterequest-validationtokenhost
             '''
             result = self._values.get("validation_token_host")
@@ -11425,9 +11473,12 @@ class CfnDistributionTenant(
             name: typing.Optional[builtins.str] = None,
             value: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param name: 
-            :param value: 
+            '''A list of parameter values to add to the resource.
+
+            A parameter is specified as a key-value pair. A valid parameter value must exist for any parameter that is marked as required in the multi-tenant distribution.
+
+            :param name: The parameter name.
+            :param value: The parameter value.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-parameter.html
             :exampleMetadata: fixture=_generated
@@ -11455,7 +11506,8 @@ class CfnDistributionTenant(
 
         @builtins.property
         def name(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The parameter name.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-parameter.html#cfn-cloudfront-distributiontenant-parameter-name
             '''
             result = self._values.get("name")
@@ -11463,7 +11515,8 @@ class CfnDistributionTenant(
 
         @builtins.property
         def value(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The parameter value.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-parameter.html#cfn-cloudfront-distributiontenant-parameter-value
             '''
             result = self._values.get("value")
@@ -11492,9 +11545,10 @@ class CfnDistributionTenant(
             action: typing.Optional[builtins.str] = None,
             arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param action: 
-            :param arn: 
+            '''The AWS WAF web ACL customization specified for the distribution tenant.
+
+            :param action: The action for the AWS WAF web ACL customization. You can specify ``override`` to specify a separate AWS WAF web ACL for the distribution tenant. If you specify ``disable`` , the distribution tenant won't have AWS WAF web ACL protections and won't inherit from the multi-tenant distribution.
+            :param arn: The Amazon Resource Name (ARN) of the AWS WAF web ACL.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-webaclcustomization.html
             :exampleMetadata: fixture=_generated
@@ -11522,7 +11576,10 @@ class CfnDistributionTenant(
 
         @builtins.property
         def action(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The action for the AWS WAF web ACL customization.
+
+            You can specify ``override`` to specify a separate AWS WAF web ACL for the distribution tenant. If you specify ``disable`` , the distribution tenant won't have AWS WAF web ACL protections and won't inherit from the multi-tenant distribution.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-webaclcustomization.html#cfn-cloudfront-distributiontenant-webaclcustomization-action
             '''
             result = self._values.get("action")
@@ -11530,7 +11587,8 @@ class CfnDistributionTenant(
 
         @builtins.property
         def arn(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The Amazon Resource Name (ARN) of the AWS WAF web ACL.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-distributiontenant-webaclcustomization.html#cfn-cloudfront-distributiontenant-webaclcustomization-arn
             '''
             result = self._values.get("arn")
@@ -11579,14 +11637,14 @@ class CfnDistributionTenantProps:
     ) -> None:
         '''Properties for defining a ``CfnDistributionTenant``.
 
-        :param distribution_id: The distribution's identifier. For example: ``E1U5RQF7T870K0`` .
-        :param domains: 
-        :param name: 
-        :param connection_group_id: 
-        :param customizations: 
-        :param enabled: 
-        :param managed_certificate_request: 
-        :param parameters: 
+        :param distribution_id: The ID of the multi-tenant distribution.
+        :param domains: The domains associated with the distribution tenant.
+        :param name: The name of the distribution tenant.
+        :param connection_group_id: The ID of the connection group for the distribution tenant. If you don't specify a connection group, CloudFront uses the default connection group.
+        :param customizations: Customizations for the distribution tenant. For each distribution tenant, you can specify the geographic restrictions, and the Amazon Resource Names (ARNs) for the ACM certificate and AWS WAF web ACL. These are specific values that you can override or disable from the multi-tenant distribution that was used to create the distribution tenant.
+        :param enabled: Indicates whether the distribution tenant is in an enabled state. If disabled, the distribution tenant won't serve traffic.
+        :param managed_certificate_request: An object that represents the request for the Amazon CloudFront managed ACM certificate.
+        :param parameters: A list of parameter values to add to the resource. A parameter is specified as a key-value pair. A valid parameter value must exist for any parameter that is marked as required in the multi-tenant distribution.
         :param tags: A complex type that contains zero or more ``Tag`` elements.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html
@@ -11665,9 +11723,7 @@ class CfnDistributionTenantProps:
 
     @builtins.property
     def distribution_id(self) -> builtins.str:
-        '''The distribution's identifier.
-
-        For example: ``E1U5RQF7T870K0`` .
+        '''The ID of the multi-tenant distribution.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-distributionid
         '''
@@ -11677,7 +11733,8 @@ class CfnDistributionTenantProps:
 
     @builtins.property
     def domains(self) -> typing.List[builtins.str]:
-        '''
+        '''The domains associated with the distribution tenant.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-domains
         '''
         result = self._values.get("domains")
@@ -11686,7 +11743,8 @@ class CfnDistributionTenantProps:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''
+        '''The name of the distribution tenant.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-name
         '''
         result = self._values.get("name")
@@ -11695,7 +11753,10 @@ class CfnDistributionTenantProps:
 
     @builtins.property
     def connection_group_id(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The ID of the connection group for the distribution tenant.
+
+        If you don't specify a connection group, CloudFront uses the default connection group.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-connectiongroupid
         '''
         result = self._values.get("connection_group_id")
@@ -11705,7 +11766,10 @@ class CfnDistributionTenantProps:
     def customizations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.CustomizationsProperty]]:
-        '''
+        '''Customizations for the distribution tenant.
+
+        For each distribution tenant, you can specify the geographic restrictions, and the Amazon Resource Names (ARNs) for the ACM certificate and AWS WAF web ACL. These are specific values that you can override or disable from the multi-tenant distribution that was used to create the distribution tenant.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-customizations
         '''
         result = self._values.get("customizations")
@@ -11715,7 +11779,10 @@ class CfnDistributionTenantProps:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
+        '''Indicates whether the distribution tenant is in an enabled state.
+
+        If disabled, the distribution tenant won't serve traffic.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-enabled
         '''
         result = self._values.get("enabled")
@@ -11725,7 +11792,8 @@ class CfnDistributionTenantProps:
     def managed_certificate_request(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.ManagedCertificateRequestProperty]]:
-        '''
+        '''An object that represents the request for the Amazon CloudFront managed ACM certificate.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-managedcertificaterequest
         '''
         result = self._values.get("managed_certificate_request")
@@ -11735,7 +11803,10 @@ class CfnDistributionTenantProps:
     def parameters(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDistributionTenant.ParameterProperty]]]]:
-        '''
+        '''A list of parameter values to add to the resource.
+
+        A parameter is specified as a key-value pair. A valid parameter value must exist for any parameter that is marked as required in the multi-tenant distribution.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distributiontenant.html#cfn-cloudfront-distributiontenant-parameters
         '''
         result = self._values.get("parameters")
@@ -14722,9 +14793,9 @@ class CfnRealtimeLogConfig(
             kinesis_stream_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRealtimeLogConfig.KinesisStreamConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             stream_type: builtins.str,
         ) -> None:
-            '''Contains information about the Amazon Kinesis data stream where you are sending real-time log data in a real-time log configuration.
+            '''Contains information about the Amazon Kinesis data stream where you are sending real-time log data for this real-time log configuration.
 
-            :param kinesis_stream_config: Contains information about the Amazon Kinesis data stream where you are sending real-time log data.
+            :param kinesis_stream_config: Contains information about the Amazon Kinesis data stream where you are sending real-time log data in a real-time log configuration.
             :param stream_type: The type of data stream where you are sending real-time log data. The only valid value is ``Kinesis`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-realtimelogconfig-endpoint.html
@@ -14757,7 +14828,7 @@ class CfnRealtimeLogConfig(
         def kinesis_stream_config(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnRealtimeLogConfig.KinesisStreamConfigProperty"]:
-            '''Contains information about the Amazon Kinesis data stream where you are sending real-time log data.
+            '''Contains information about the Amazon Kinesis data stream where you are sending real-time log data in a real-time log configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-realtimelogconfig-endpoint.html#cfn-cloudfront-realtimelogconfig-endpoint-kinesisstreamconfig
             '''
@@ -29838,7 +29909,6 @@ def _typecheckingstub__0491da142c813dc4673791039712e33ce224f81450f91a62e3bae808f
 def _typecheckingstub__d24d49d6e44d4deb653a24465ec61e7862ea07d5a5cdc7f3cfa829da2181be64(
     *,
     domain: typing.Optional[builtins.str] = None,
-    reason: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

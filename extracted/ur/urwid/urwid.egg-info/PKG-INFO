@@ -1,8 +1,7 @@
 Metadata-Version: 2.4
 Name: urwid
-Version: 3.0.0
+Version: 3.0.2
 Summary: A full-featured console (xterm et al.) user interface library
-Home-page: https://urwid.org/
 Author-email: Ian Ward <ian@excess.org>
 License: LGPL-2.1-only
 Project-URL: Homepage, https://urwid.org/
@@ -31,7 +30,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >3.7
+Requires-Python: >=3.9.0
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Requires-Dist: wcwidth
@@ -42,8 +41,8 @@ Requires-Dist: PyGObject; extra == "glib"
 Provides-Extra: tornado
 Requires-Dist: tornado>=5.0; extra == "tornado"
 Provides-Extra: trio
-Requires-Dist: trio>=0.22.0; extra == "trio"
-Requires-Dist: exceptiongroup; extra == "trio"
+Requires-Dist: trio>=0.24.0; extra == "trio"
+Requires-Dist: exceptiongroup; python_version < "3.11" and extra == "trio"
 Provides-Extra: twisted
 Requires-Dist: twisted; extra == "twisted"
 Provides-Extra: zmq
@@ -52,9 +51,7 @@ Provides-Extra: serial
 Requires-Dist: pyserial; extra == "serial"
 Provides-Extra: lcd
 Requires-Dist: pyserial; extra == "lcd"
-Dynamic: home-page
 Dynamic: license-file
-Dynamic: requires-python
 
 Urwid
 =====

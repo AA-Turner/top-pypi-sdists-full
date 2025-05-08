@@ -642,12 +642,12 @@ class _LDAPUser:
                     "user does not satisfy AUTH_LDAP_NO_NEW_USERS"
                 )
 
-            logger.debug("Creating Django user %s", username)
+            logger.info("Creating Django user %s", username)
             self._user.set_unusable_password()
             save_user = True
 
         if should_populate:
-            logger.debug("Populating Django user %s", username)
+            logger.info("Populating Django user %s", username)
             self._populate_user()
             save_user = True
 
@@ -779,7 +779,9 @@ class _LDAPUser:
         from django.contrib.auth.models import Group
 
         try:
-            target_group_names = frozenset(self._get_groups().get_group_names())
+            target_group_names = frozenset(
+                filter(None, self._get_groups().get_group_names())
+            )
         except ldap.LDAPError as e:
             _report_error(
                 type(self.backend),

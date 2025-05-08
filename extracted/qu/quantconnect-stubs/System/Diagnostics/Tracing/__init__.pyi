@@ -14,6 +14,55 @@ System_Diagnostics_Tracing__EventContainer_Callable = typing.TypeVar("System_Dia
 System_Diagnostics_Tracing__EventContainer_ReturnType = typing.TypeVar("System_Diagnostics_Tracing__EventContainer_ReturnType")
 
 
+class EventActivityOptions(Enum):
+    """EventActivityOptions flags allow to specify different activity related characteristics."""
+
+    NONE = 0
+    """No special options are added to the event."""
+
+    DISABLE = ...
+    """Disable Implicit Activity Tracking"""
+
+    RECURSIVE = ...
+    """Allow activity event to call itself (directly or indirectly)"""
+
+    DETACHABLE = ...
+    """Allows event activity to live beyond its parent."""
+
+
+class EventSourceException(System.Exception):
+    """Exception that is thrown when an error occurs during EventSource operation."""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the EventSourceException class."""
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        """Initializes a new instance of the EventSourceException class with a specified error message."""
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the EventSourceException class with a specified error message
+        and a reference to the inner exception that is the cause of this exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        Initializes a new instance of the EventSourceException class with serialized data.
+        
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
 class EventSourceSettings(Enum):
     """Enables specifying event source configuration options to be used in the EventSource constructor."""
 
@@ -245,22 +294,6 @@ class EventTags(Enum):
 
     NONE = 0
     """No special traits are added to the event."""
-
-
-class EventActivityOptions(Enum):
-    """EventActivityOptions flags allow to specify different activity related characteristics."""
-
-    NONE = 0
-    """No special options are added to the event."""
-
-    DISABLE = ...
-    """Disable Implicit Activity Tracking"""
-
-    RECURSIVE = ...
-    """Allow activity event to call itself (directly or indirectly)"""
-
-    DETACHABLE = ...
-    """Allows event activity to live beyond its parent."""
 
 
 class EventSourceOptions:
@@ -864,137 +897,6 @@ class EventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
         ...
 
 
-class EventSourceException(System.Exception):
-    """Exception that is thrown when an error occurs during EventSource operation."""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the EventSourceException class."""
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """Initializes a new instance of the EventSourceException class with a specified error message."""
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the EventSourceException class with a specified error message
-        and a reference to the inner exception that is the cause of this exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        Initializes a new instance of the EventSourceException class with serialized data.
-        
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class PollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
-    """
-    PollingCounter is a variant of EventCounter - it collects and calculates similar statistics
-    as EventCounter. PollingCounter differs from EventCounter in that it takes in a callback
-    function to collect metrics on its own rather than the user having to call WriteMetric()
-    every time.
-    """
-
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, metric_provider: typing.Callable[[], float]) -> None:
-        """
-        Initializes a new instance of the PollingCounter class.
-        PollingCounter live as long as the EventSource that they are attached to unless they are
-        explicitly Disposed.
-        
-        :param name: The name.
-        :param event_source: The event source.
-        :param metric_provider: The delegate to invoke to get the current metric value.
-        """
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class IncrementingEventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
-    """
-    IncrementingEventCounter is a variant of EventCounter for variables that are ever-increasing.
-    Ex) # of exceptions in the runtime.
-    It does not calculate statistics like mean, standard deviation, etc. because it only accumulates
-    the counter value.
-    """
-
-    @property
-    def display_rate_time_scale(self) -> datetime.timedelta:
-        ...
-
-    @display_rate_time_scale.setter
-    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
-        ...
-
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource) -> None:
-        """
-        Initializes a new instance of the IncrementingEventCounter class.
-        IncrementingEventCounter live as long as the EventSource that they are attached to unless they are
-        explicitly Disposed.
-        
-        :param name: The name.
-        :param event_source: The event source.
-        """
-        ...
-
-    def increment(self, increment: float = 1) -> None:
-        """
-        Writes 'value' to the stream of values tracked by the counter.  This updates the sum and other statistics that will
-        be logged on the next timer interval.
-        
-        :param increment: The value to increment by.
-        """
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class IncrementingPollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
-    """
-    IncrementingPollingCounter is a variant of EventCounter for variables that are ever-increasing.
-    Ex) # of exceptions in the runtime.
-    It does not calculate statistics like mean, standard deviation, etc. because it only accumulates
-    the counter value.
-    Unlike IncrementingEventCounter, this takes in a polling callback that it can call to update
-    its own metric periodically.
-    """
-
-    @property
-    def display_rate_time_scale(self) -> datetime.timedelta:
-        ...
-
-    @display_rate_time_scale.setter
-    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
-        ...
-
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, total_value_provider: typing.Callable[[], float]) -> None:
-        """
-        Initializes a new instance of the IncrementingPollingCounter class.
-        IncrementingPollingCounter live as long as the EventSource that they are attached to unless they are
-        explicitly Disposed.
-        
-        :param name: The name.
-        :param event_source: The event source.
-        :param total_value_provider: The delegate to invoke to get the total value for this counter.
-        """
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
 class EventSourceCreatedEventArgs(System.EventArgs):
     """EventSourceCreatedEventArgs is passed to EventListener.EventSourceCreated"""
 
@@ -1418,6 +1320,114 @@ class NonEventAttribute(System.Attribute):
         ...
 
 
+class IncrementingEventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+    """
+    IncrementingEventCounter is a variant of EventCounter for variables that are ever-increasing.
+    Ex) # of exceptions in the runtime.
+    It does not calculate statistics like mean, standard deviation, etc. because it only accumulates
+    the counter value.
+    """
+
+    @property
+    def display_rate_time_scale(self) -> datetime.timedelta:
+        ...
+
+    @display_rate_time_scale.setter
+    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
+        ...
+
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource) -> None:
+        """
+        Initializes a new instance of the IncrementingEventCounter class.
+        IncrementingEventCounter live as long as the EventSource that they are attached to unless they are
+        explicitly Disposed.
+        
+        :param name: The name.
+        :param event_source: The event source.
+        """
+        ...
+
+    def increment(self, increment: float = 1) -> None:
+        """
+        Writes 'value' to the stream of values tracked by the counter.  This updates the sum and other statistics that will
+        be logged on the next timer interval.
+        
+        :param increment: The value to increment by.
+        """
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class PollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+    """
+    PollingCounter is a variant of EventCounter - it collects and calculates similar statistics
+    as EventCounter. PollingCounter differs from EventCounter in that it takes in a callback
+    function to collect metrics on its own rather than the user having to call WriteMetric()
+    every time.
+    """
+
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, metric_provider: typing.Callable[[], float]) -> None:
+        """
+        Initializes a new instance of the PollingCounter class.
+        PollingCounter live as long as the EventSource that they are attached to unless they are
+        explicitly Disposed.
+        
+        :param name: The name.
+        :param event_source: The event source.
+        :param metric_provider: The delegate to invoke to get the current metric value.
+        """
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class IncrementingPollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+    """
+    IncrementingPollingCounter is a variant of EventCounter for variables that are ever-increasing.
+    Ex) # of exceptions in the runtime.
+    It does not calculate statistics like mean, standard deviation, etc. because it only accumulates
+    the counter value.
+    Unlike IncrementingEventCounter, this takes in a polling callback that it can call to update
+    its own metric periodically.
+    """
+
+    @property
+    def display_rate_time_scale(self) -> datetime.timedelta:
+        ...
+
+    @display_rate_time_scale.setter
+    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
+        ...
+
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, total_value_provider: typing.Callable[[], float]) -> None:
+        """
+        Initializes a new instance of the IncrementingPollingCounter class.
+        IncrementingPollingCounter live as long as the EventSource that they are attached to unless they are
+        explicitly Disposed.
+        
+        :param name: The name.
+        :param event_source: The event source.
+        :param total_value_provider: The delegate to invoke to get the total value for this counter.
+        """
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class EventIgnoreAttribute(System.Attribute):
+    """
+    Used when authoring types that will be passed to EventSource.Write.
+    By default, EventSource.Write will write all of an object's public
+    properties to the event payload. Apply [EventIgnore] to a public
+    property to prevent EventSource.Write from including the property in
+    the event.
+    """
+
+
 class EventFieldTags(Enum):
     """
     Tags are flags that are not interpreted by EventSource but are passed along
@@ -1506,16 +1516,6 @@ class EventFieldAttribute(System.Attribute):
     @format.setter
     def format(self, value: System.Diagnostics.Tracing.EventFieldFormat) -> None:
         ...
-
-
-class EventIgnoreAttribute(System.Attribute):
-    """
-    Used when authoring types that will be passed to EventSource.Write.
-    By default, EventSource.Write will write all of an object's public
-    properties to the event payload. Apply [EventIgnore] to a public
-    property to prevent EventSource.Write from including the property in
-    the event.
-    """
 
 
 class EventDataAttribute(System.Attribute):

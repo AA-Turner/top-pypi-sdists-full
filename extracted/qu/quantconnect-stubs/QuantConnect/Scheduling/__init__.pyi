@@ -15,62 +15,277 @@ QuantConnect_Scheduling__EventContainer_Callable = typing.TypeVar("QuantConnect_
 QuantConnect_Scheduling__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Scheduling__EventContainer_ReturnType")
 
 
-class ITimeRule(metaclass=abc.ABCMeta):
-    """Specifies times times on dates for events, used in conjunction with IDateRule"""
+class TimeConsumer(System.Object):
+    """Represents a timer consumer instance"""
 
     @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """Gets a name for this rule"""
+    def finished(self) -> bool:
+        """True if the consumer already finished it's work and no longer consumes time"""
         ...
 
-    def create_utc_event_times(self, dates: typing.Iterable[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+    @finished.setter
+    def finished(self, value: bool) -> None:
+        ...
+
+    @property
+    def time_provider(self) -> QuantConnect.ITimeProvider:
+        """The time provider associated with this consumer"""
+        ...
+
+    @time_provider.setter
+    def time_provider(self, value: QuantConnect.ITimeProvider) -> None:
+        ...
+
+    @property
+    def isolator_limit_provider(self) -> QuantConnect.IIsolatorLimitResultProvider:
+        """The isolator limit provider to be used with this consumer"""
+        ...
+
+    @isolator_limit_provider.setter
+    def isolator_limit_provider(self, value: QuantConnect.IIsolatorLimitResultProvider) -> None:
+        ...
+
+    @property
+    def next_time_request(self) -> typing.Optional[datetime.datetime]:
         """
-        Creates the event times for the specified dates in UTC
-        
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
+        The next time, base on the TimeProvider, that time should be requested
+        to be IsolatorLimitProvider
         """
         ...
 
+    @next_time_request.setter
+    def next_time_request(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
 
-class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
-    """Combines multiple time rules into a single rule that emits for each rule"""
+
+class ScheduledEvent(System.Object, System.IDisposable):
+    """Real time self scheduling event"""
+
+    SECURITY_END_OF_DAY_DELTA: datetime.timedelta = ...
+    """Gets the default time before market close end of trading day events will fire"""
+
+    ALGORITHM_END_OF_DAY_DELTA: datetime.timedelta = ...
+    """Gets the default time before midnight end of day events will fire"""
 
     @property
-    def rules(self) -> typing.Sequence[QuantConnect.Scheduling.ITimeRule]:
-        """Gets the individual rules for this composite rule"""
+    def event_fired(self) -> _EventContainer[typing.Callable[[str, datetime.datetime], None], None]:
+        """Event that fires each time this scheduled event happens"""
+        ...
+
+    @event_fired.setter
+    def event_fired(self, value: _EventContainer[typing.Callable[[str, datetime.datetime], None], None]) -> None:
+        ...
+
+    @property
+    def enabled(self) -> bool:
+        """Gets or sets whether this event is enabled"""
+        ...
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        ...
+
+    @property
+    def next_event_utc_time(self) -> datetime.datetime:
+        """Gets the next time this scheduled event will fire in UTC"""
         ...
 
     @property
     def name(self) -> str:
-        """Gets a name for this rule"""
+        """Gets an identifier for this event"""
         ...
 
     @overload
-    def __init__(self, *time_rules: typing.Union[QuantConnect.Scheduling.ITimeRule, typing.Iterable[QuantConnect.Scheduling.ITimeRule]]) -> None:
+    def __init__(self, name: str, event_utc_time: typing.Union[datetime.datetime, datetime.date], callback: typing.Callable[[str, datetime.datetime], None] = None) -> None:
         """
-        Initializes a new instance of the CompositeTimeRule class
+        Initializes a new instance of the ScheduledEvent class
         
-        :param time_rules: The time rules to compose
+        :param name: An identifier for this event
+        :param event_utc_time: The date time the event should fire
+        :param callback: Delegate to be called when the event time passes
         """
         ...
 
     @overload
-    def __init__(self, time_rules: typing.Iterable[QuantConnect.Scheduling.ITimeRule]) -> None:
+    def __init__(self, name: str, ordered_event_utc_times: typing.List[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], None] = None) -> None:
         """
-        Initializes a new instance of the CompositeTimeRule class
+        Initializes a new instance of the ScheduledEvent class
         
-        :param time_rules: The time rules to compose
+        :param name: An identifier for this event
+        :param ordered_event_utc_times: An enumerable that emits event times
+        :param callback: Delegate to be called each time an event passes
         """
         ...
 
-    def create_utc_event_times(self, dates: typing.Iterable[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+    @overload
+    def __init__(self, name: str, ordered_event_utc_times: System.Collections.Generic.IEnumerator[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], None] = None) -> None:
         """
-        Creates the event times for the specified dates in UTC
+        Initializes a new instance of the ScheduledEvent class
         
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
+        :param name: An identifier for this event
+        :param ordered_event_utc_times: An enumerator that emits event times
+        :param callback: Delegate to be called each time an event passes
+        """
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Serves as the default hash function.
+        
+        :returns: A hash code for the current object.
+        """
+        ...
+
+    def on_event_fired(self, trigger_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Event invocator for the EventFired event
+        
+        This method is protected.
+        
+        :param trigger_time: The event's time in UTC
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Will return the ScheduledEvents name"""
+        ...
+
+
+class IFluentSchedulingRunnable(QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier, metaclass=abc.ABCMeta):
+    """Specifies the callback component of a scheduled event, as well as final filters"""
+
+    def during_market_hours(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], extended_market: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Filters the event times to only include times where the symbol's market is considered open"""
+        ...
+
+    @overload
+    def run(self, callback: typing.Callable[[], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+        """Register the defined event with the callback"""
+        ...
+
+    @overload
+    def run(self, callback: typing.Callable[[datetime.datetime], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+        """Register the defined event with the callback"""
+        ...
+
+    @overload
+    def run(self, callback: typing.Callable[[str, datetime.datetime], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+        """Register the defined event with the callback"""
+        ...
+
+
+class IFluentSchedulingTimeSpecifier(metaclass=abc.ABCMeta):
+    """Specifies the time rule component of a scheduled event"""
+
+    def after_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire a specified number of minutes after market open"""
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specified time of day in the specified time zone"""
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, second: int, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specified time of day in the specified time zone"""
+        ...
+
+    @overload
+    def at(self, time_of_day: datetime.timedelta, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specified time of day in the specified time zone"""
+        ...
+
+    @overload
+    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specified time of day in the specified time zone"""
+        ...
+
+    @overload
+    def at(self, time_of_day: datetime.timedelta) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire at the specific time of day in the algorithm's time zone"""
+        ...
+
+    def before_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minute_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire a specified numer of minutes before market close"""
+        ...
+
+    def every(self, interval: datetime.timedelta) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
+        """Creates events that fire on a period define by the specified interval"""
+        ...
+
+    def where(self, predicate: typing.Callable[[datetime.datetime], bool]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Filters the event times using the predicate"""
+        ...
+
+
+class IFluentSchedulingDateSpecifier(metaclass=abc.ABCMeta):
+    """Specifies the date rule component of a scheduled event"""
+
+    def every(self, *days: typing.Union[System.DayOfWeek, typing.Iterable[System.DayOfWeek]]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on each of the specified day of week"""
+        ...
+
+    @overload
+    def every_day(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on every day of the year"""
+        ...
+
+    @overload
+    def every_day(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on every trading day of the year for the symbol"""
+        ...
+
+    @overload
+    def month_start(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on the first day of the month"""
+        ...
+
+    @overload
+    def month_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events on the first trading day of the month"""
+        ...
+
+    @overload
+    def on(self, year: int, month: int, day: int) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events only on the specified date"""
+        ...
+
+    @overload
+    def on(self, *dates: typing.Union[datetime.datetime, typing.Iterable[datetime.datetime]]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Creates events only on the specified dates"""
+        ...
+
+    def where(self, predicate: typing.Callable[[datetime.datetime], bool]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
+        """Filters the event times using the predicate"""
+        ...
+
+
+class IEventSchedule(metaclass=abc.ABCMeta):
+    """Provides the ability to add/remove scheduled events from the real time handler"""
+
+    def add(self, scheduled_event: QuantConnect.Scheduling.ScheduledEvent) -> None:
+        """
+        Adds the specified event to the schedule
+        
+        :param scheduled_event: The event to be scheduled, including the date/times the event fires and the callback
+        """
+        ...
+
+    def remove(self, scheduled_event: QuantConnect.Scheduling.ScheduledEvent) -> None:
+        """
+        Removes the specified event from the schedule
+        
+        :param scheduled_event: The event to be removed
         """
         ...
 
@@ -136,151 +351,6 @@ class BaseScheduleRules(System.Object):
         ...
 
 
-class ScheduledEvent(System.Object, System.IDisposable):
-    """Real time self scheduling event"""
-
-    SECURITY_END_OF_DAY_DELTA: datetime.timedelta = ...
-    """Gets the default time before market close end of trading day events will fire"""
-
-    ALGORITHM_END_OF_DAY_DELTA: datetime.timedelta = ...
-    """Gets the default time before midnight end of day events will fire"""
-
-    @property
-    def event_fired(self) -> _EventContainer[typing.Callable[[str, datetime.datetime], None], None]:
-        """Event that fires each time this scheduled event happens"""
-        ...
-
-    @event_fired.setter
-    def event_fired(self, value: _EventContainer[typing.Callable[[str, datetime.datetime], None], None]) -> None:
-        ...
-
-    @property
-    def enabled(self) -> bool:
-        """Gets or sets whether this event is enabled"""
-        ...
-
-    @enabled.setter
-    def enabled(self, value: bool) -> None:
-        ...
-
-    @property
-    def next_event_utc_time(self) -> datetime.datetime:
-        """Gets the next time this scheduled event will fire in UTC"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Gets an identifier for this event"""
-        ...
-
-    @overload
-    def __init__(self, name: str, event_utc_time: typing.Union[datetime.datetime, datetime.date], callback: typing.Callable[[str, datetime.datetime], None] = None) -> None:
-        """
-        Initializes a new instance of the ScheduledEvent class
-        
-        :param name: An identifier for this event
-        :param event_utc_time: The date time the event should fire
-        :param callback: Delegate to be called when the event time passes
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, ordered_event_utc_times: typing.Iterable[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], None] = None) -> None:
-        """
-        Initializes a new instance of the ScheduledEvent class
-        
-        :param name: An identifier for this event
-        :param ordered_event_utc_times: An enumerable that emits event times
-        :param callback: Delegate to be called each time an event passes
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, ordered_event_utc_times: System.Collections.Generic.IEnumerator[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], None] = None) -> None:
-        """
-        Initializes a new instance of the ScheduledEvent class
-        
-        :param name: An identifier for this event
-        :param ordered_event_utc_times: An enumerator that emits event times
-        :param callback: Delegate to be called each time an event passes
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Serves as the default hash function.
-        
-        :returns: A hash code for the current object.
-        """
-        ...
-
-    def on_event_fired(self, trigger_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Event invocator for the EventFired event
-        
-        This method is protected.
-        
-        :param trigger_time: The event's time in UTC
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Will return the ScheduledEvents name"""
-        ...
-
-
-class TimeConsumer(System.Object):
-    """Represents a timer consumer instance"""
-
-    @property
-    def finished(self) -> bool:
-        """True if the consumer already finished it's work and no longer consumes time"""
-        ...
-
-    @finished.setter
-    def finished(self, value: bool) -> None:
-        ...
-
-    @property
-    def time_provider(self) -> QuantConnect.ITimeProvider:
-        """The time provider associated with this consumer"""
-        ...
-
-    @time_provider.setter
-    def time_provider(self, value: QuantConnect.ITimeProvider) -> None:
-        ...
-
-    @property
-    def isolator_limit_provider(self) -> QuantConnect.IIsolatorLimitResultProvider:
-        """The isolator limit provider to be used with this consumer"""
-        ...
-
-    @isolator_limit_provider.setter
-    def isolator_limit_provider(self, value: QuantConnect.IIsolatorLimitResultProvider) -> None:
-        ...
-
-    @property
-    def next_time_request(self) -> typing.Optional[datetime.datetime]:
-        """
-        The next time, base on the TimeProvider, that time should be requested
-        to be IsolatorLimitProvider
-        """
-        ...
-
-    @next_time_request.setter
-    def next_time_request(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-
 class IDateRule(metaclass=abc.ABCMeta):
     """Specifies dates that events should be fired, used in conjunction with the ITimeRule"""
 
@@ -297,26 +367,6 @@ class IDateRule(metaclass=abc.ABCMeta):
         :param start: The start of the interval to produce dates for
         :param end: The end of the interval to produce dates for
         :returns: All dates in the interval matching this date rule.
-        """
-        ...
-
-
-class IEventSchedule(metaclass=abc.ABCMeta):
-    """Provides the ability to add/remove scheduled events from the real time handler"""
-
-    def add(self, scheduled_event: QuantConnect.Scheduling.ScheduledEvent) -> None:
-        """
-        Adds the specified event to the schedule
-        
-        :param scheduled_event: The event to be scheduled, including the date/times the event fires and the callback
-        """
-        ...
-
-    def remove(self, scheduled_event: QuantConnect.Scheduling.ScheduledEvent) -> None:
-        """
-        Removes the specified event from the schedule
-        
-        :param scheduled_event: The event to be removed
         """
         ...
 
@@ -553,6 +603,25 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
 
+class ITimeRule(metaclass=abc.ABCMeta):
+    """Specifies times times on dates for events, used in conjunction with IDateRule"""
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
+        """
+        ...
+
+
 class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
     """Helper class used to provide better syntax when defining time rules"""
 
@@ -698,116 +767,6 @@ class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
         
         :param time_zone: The time zone to use for helper methods that can't resolve a time zone
         """
-        ...
-
-
-class IFluentSchedulingRunnable(QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier, metaclass=abc.ABCMeta):
-    """Specifies the callback component of a scheduled event, as well as final filters"""
-
-    def during_market_hours(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], extended_market: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Filters the event times to only include times where the symbol's market is considered open"""
-        ...
-
-    @overload
-    def run(self, callback: typing.Callable[[], None]) -> QuantConnect.Scheduling.ScheduledEvent:
-        """Register the defined event with the callback"""
-        ...
-
-    @overload
-    def run(self, callback: typing.Callable[[datetime.datetime], None]) -> QuantConnect.Scheduling.ScheduledEvent:
-        """Register the defined event with the callback"""
-        ...
-
-    @overload
-    def run(self, callback: typing.Callable[[str, datetime.datetime], None]) -> QuantConnect.Scheduling.ScheduledEvent:
-        """Register the defined event with the callback"""
-        ...
-
-
-class IFluentSchedulingTimeSpecifier(metaclass=abc.ABCMeta):
-    """Specifies the time rule component of a scheduled event"""
-
-    def after_market_open(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minutes_after_open: float = 0, extended_market_open: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire a specified number of minutes after market open"""
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specified time of day in the specified time zone"""
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, second: int, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specified time of day in the specified time zone"""
-        ...
-
-    @overload
-    def at(self, time_of_day: datetime.timedelta, time_zone: typing.Any) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specified time of day in the specified time zone"""
-        ...
-
-    @overload
-    def at(self, hour: int, minute: int, second: int = 0) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specified time of day in the specified time zone"""
-        ...
-
-    @overload
-    def at(self, time_of_day: datetime.timedelta) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire at the specific time of day in the algorithm's time zone"""
-        ...
-
-    def before_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], minute_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire a specified numer of minutes before market close"""
-        ...
-
-    def every(self, interval: datetime.timedelta) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire on a period define by the specified interval"""
-        ...
-
-    def where(self, predicate: typing.Callable[[datetime.datetime], bool]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Filters the event times using the predicate"""
-        ...
-
-
-class IFluentSchedulingDateSpecifier(metaclass=abc.ABCMeta):
-    """Specifies the date rule component of a scheduled event"""
-
-    def every(self, *days: typing.Union[System.DayOfWeek, typing.Iterable[System.DayOfWeek]]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on each of the specified day of week"""
-        ...
-
-    @overload
-    def every_day(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on every day of the year"""
-        ...
-
-    @overload
-    def every_day(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on every trading day of the year for the symbol"""
-        ...
-
-    @overload
-    def month_start(self) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on the first day of the month"""
-        ...
-
-    @overload
-    def month_start(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events on the first trading day of the month"""
-        ...
-
-    @overload
-    def on(self, year: int, month: int, day: int) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events only on the specified date"""
-        ...
-
-    @overload
-    def on(self, *dates: typing.Union[datetime.datetime, typing.Iterable[datetime.datetime]]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Creates events only on the specified dates"""
-        ...
-
-    def where(self, predicate: typing.Callable[[datetime.datetime], bool]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
-        """Filters the event times using the predicate"""
         ...
 
 
@@ -973,6 +932,157 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
 
+class FluentScheduledEventBuilder(System.Object, QuantConnect.Scheduling.IFluentSchedulingDateSpecifier, QuantConnect.Scheduling.IFluentSchedulingRunnable):
+    """Provides a builder class to allow for fluent syntax when constructing new events"""
+
+    def __init__(self, schedule: QuantConnect.Scheduling.ScheduleManager, securities: QuantConnect.Securities.SecurityManager, name: str = None) -> None:
+        """
+        Initializes a new instance of the FluentScheduledEventBuilder class
+        
+        :param schedule: The schedule to send created events to
+        :param securities: The algorithm's security manager
+        :param name: A specific name for this event
+        """
+        ...
+
+
+class ScheduledEventException(System.Exception):
+    """Throw this if there is an exception in the callback function of the scheduled event"""
+
+    @property
+    def scheduled_event_name(self) -> str:
+        """Gets the name of the scheduled event"""
+        ...
+
+    def __init__(self, name: str, message: str, inner_exception: System.Exception) -> None:
+        """
+        ScheduledEventException constructor
+        
+        :param name: The name of the scheduled event
+        :param message: The exception as a string
+        :param inner_exception: The exception that is the cause of the current exception
+        """
+        ...
+
+
+class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
+    """Combines multiple time rules into a single rule that emits for each rule"""
+
+    @property
+    def rules(self) -> typing.Sequence[QuantConnect.Scheduling.ITimeRule]:
+        """Gets the individual rules for this composite rule"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, *time_rules: typing.Union[QuantConnect.Scheduling.ITimeRule, typing.Iterable[QuantConnect.Scheduling.ITimeRule]]) -> None:
+        """
+        Initializes a new instance of the CompositeTimeRule class
+        
+        :param time_rules: The time rules to compose
+        """
+        ...
+
+    @overload
+    def __init__(self, time_rules: typing.List[QuantConnect.Scheduling.ITimeRule]) -> None:
+        """
+        Initializes a new instance of the CompositeTimeRule class
+        
+        :param time_rules: The time rules to compose
+        """
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
+        """
+        ...
+
+
+class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
+    """Uses a function to define a time rule as a projection of date times to date times"""
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, name: str, create_utc_event_times_function: typing.Any) -> None:
+        """
+        Initializes a new instance of the FuncTimeRule class using a Python function
+        
+        :param name: The name of the time rule
+        :param create_utc_event_times_function: Function used to transform dates into event date times in Python
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, create_utc_event_times_function: typing.Callable[[typing.List[datetime.datetime]], typing.List[datetime.datetime]]) -> None:
+        """
+        Initializes a new instance of the FuncTimeRule class
+        
+        :param name: The name of the time rule
+        :param create_utc_event_times_function: Function used to transform dates into event date times
+        """
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
+        """
+        ...
+
+
+class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
+    """Uses a function to define an enumerable of dates over a requested start/end period"""
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, name: str, get_dates_function: typing.Any) -> None:
+        """
+        Initializes a new instance of the FuncDateRule class using a Python function
+        
+        :param name: The name of this rule
+        :param get_dates_function: The time applicator function in Python
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, get_dates_function: typing.Callable[[datetime.datetime, datetime.datetime], typing.List[datetime.datetime]]) -> None:
+        """
+        Initializes a new instance of the FuncDateRule class
+        
+        :param name: The name of this rule
+        :param get_dates_function: The time applicator function
+        """
+        ...
+
+    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+        """
+        Gets the dates produced by this date rule between the specified times
+        
+        :param start: The start of the interval to produce dates for
+        :param end: The end of the interval to produce dates for
+        :returns: All dates in the interval matching this date rule.
+        """
+        ...
+
+
 class TimeMonitor(System.Object, System.IDisposable):
     """
     Helper class that will monitor timer consumers and request more time if required.
@@ -1024,116 +1134,6 @@ class TimeMonitor(System.Object, System.IDisposable):
         Remove all TimeConsumer objects where the `Finished` field is marked as true
         
         This method is protected.
-        """
-        ...
-
-
-class FluentScheduledEventBuilder(System.Object, QuantConnect.Scheduling.IFluentSchedulingDateSpecifier, QuantConnect.Scheduling.IFluentSchedulingRunnable):
-    """Provides a builder class to allow for fluent syntax when constructing new events"""
-
-    def __init__(self, schedule: QuantConnect.Scheduling.ScheduleManager, securities: QuantConnect.Securities.SecurityManager, name: str = None) -> None:
-        """
-        Initializes a new instance of the FluentScheduledEventBuilder class
-        
-        :param schedule: The schedule to send created events to
-        :param securities: The algorithm's security manager
-        :param name: A specific name for this event
-        """
-        ...
-
-
-class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
-    """Uses a function to define a time rule as a projection of date times to date times"""
-
-    @property
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    @overload
-    def __init__(self, name: str, create_utc_event_times_function: typing.Any) -> None:
-        """
-        Initializes a new instance of the FuncTimeRule class using a Python function
-        
-        :param name: The name of the time rule
-        :param create_utc_event_times_function: Function used to transform dates into event date times in Python
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, create_utc_event_times_function: typing.Callable[[typing.Iterable[datetime.datetime]], typing.Iterable[datetime.datetime]]) -> None:
-        """
-        Initializes a new instance of the FuncTimeRule class
-        
-        :param name: The name of the time rule
-        :param create_utc_event_times_function: Function used to transform dates into event date times
-        """
-        ...
-
-    def create_utc_event_times(self, dates: typing.Iterable[datetime.datetime]) -> typing.Iterable[datetime.datetime]:
-        """
-        Creates the event times for the specified dates in UTC
-        
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
-        """
-        ...
-
-
-class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
-    """Uses a function to define an enumerable of dates over a requested start/end period"""
-
-    @property
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    @overload
-    def __init__(self, name: str, get_dates_function: typing.Any) -> None:
-        """
-        Initializes a new instance of the FuncDateRule class using a Python function
-        
-        :param name: The name of this rule
-        :param get_dates_function: The time applicator function in Python
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, get_dates_function: typing.Callable[[datetime.datetime, datetime.datetime], typing.Iterable[datetime.datetime]]) -> None:
-        """
-        Initializes a new instance of the FuncDateRule class
-        
-        :param name: The name of this rule
-        :param get_dates_function: The time applicator function
-        """
-        ...
-
-    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
-        """
-        Gets the dates produced by this date rule between the specified times
-        
-        :param start: The start of the interval to produce dates for
-        :param end: The end of the interval to produce dates for
-        :returns: All dates in the interval matching this date rule.
-        """
-        ...
-
-
-class ScheduledEventException(System.Exception):
-    """Throw this if there is an exception in the callback function of the scheduled event"""
-
-    @property
-    def scheduled_event_name(self) -> str:
-        """Gets the name of the scheduled event"""
-        ...
-
-    def __init__(self, name: str, message: str, inner_exception: System.Exception) -> None:
-        """
-        ScheduledEventException constructor
-        
-        :param name: The name of the scheduled event
-        :param message: The exception as a string
-        :param inner_exception: The exception that is the cause of the current exception
         """
         ...
 

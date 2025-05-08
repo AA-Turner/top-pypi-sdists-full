@@ -64,14 +64,6 @@ class CodeAccessSecurityAttribute(System.Security.Permissions.SecurityAttribute,
         ...
 
 
-class PermissionState(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    UNRESTRICTED = 1
-
-
 class SecurityPermissionFlag(Enum):
     """Obsoletions.CodeAccessSecurityMessage"""
 
@@ -236,5 +228,13 @@ class SecurityPermissionAttribute(System.Security.Permissions.CodeAccessSecurity
 
     def create_permission(self) -> System.Security.IPermission:
         ...
+
+
+class PermissionState(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    UNRESTRICTED = 1
 
 

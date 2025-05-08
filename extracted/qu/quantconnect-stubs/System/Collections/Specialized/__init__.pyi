@@ -44,12 +44,12 @@ class NotifyCollectionChangedEventArgs(System.EventArgs):
         ...
 
     @property
-    def new_items(self) -> System.Collections.IList:
+    def new_items(self) -> typing.List[typing.Any]:
         """The items affected by the change."""
         ...
 
     @property
-    def old_items(self) -> System.Collections.IList:
+    def old_items(self) -> typing.List[typing.Any]:
         """The old items affected by the change (for Replace events)."""
         ...
 

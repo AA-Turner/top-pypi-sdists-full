@@ -15,30 +15,10 @@ import QuantConnect.Scheduling
 import pandas
 
 
-class FutureHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
-    """Class to manage information from History Request of Futures"""
-
-    def __init__(self, data: typing.Iterable[QuantConnect.Data.Slice]) -> None:
-        """Create a new instance of FutureHistory."""
-        ...
-
-    def get_all_data(self) -> typing.Any:
-        """
-        Gets all data from the History Request that are written in a pandas.DataFrame
-        
-        Please use the 'DataFrame' property
-        """
-        warnings.warn("Please use the 'DataFrame' property", DeprecationWarning)
-
-    def get_expiry_dates(self) -> typing.Any:
-        """Gets all expity dates in the future history"""
-        ...
-
-
 class OptionHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
     """Class to manage information from History Request of Options"""
 
-    def __init__(self, data: typing.Iterable[QuantConnect.Data.Slice]) -> None:
+    def __init__(self, data: typing.List[QuantConnect.Data.Slice]) -> None:
         """Create a new instance of OptionHistory."""
         ...
 
@@ -56,6 +36,26 @@ class OptionHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
 
     def get_strikes(self) -> typing.Any:
         """Gets all strikes in the option history"""
+        ...
+
+
+class FutureHistory(QuantConnect.Data.DataHistory[QuantConnect.Data.Slice]):
+    """Class to manage information from History Request of Futures"""
+
+    def __init__(self, data: typing.List[QuantConnect.Data.Slice]) -> None:
+        """Create a new instance of FutureHistory."""
+        ...
+
+    def get_all_data(self) -> typing.Any:
+        """
+        Gets all data from the History Request that are written in a pandas.DataFrame
+        
+        Please use the 'DataFrame' property
+        """
+        warnings.warn("Please use the 'DataFrame' property", DeprecationWarning)
+
+    def get_expiry_dates(self) -> typing.Any:
+        """Gets all expity dates in the future history"""
         ...
 
 
@@ -99,7 +99,7 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def get_fundamental(self, symbols: typing.Iterable[QuantConnect.Symbol], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
+    def get_fundamental(self, symbols: typing.List[QuantConnect.Symbol], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
         """
         Get fundamental data from given symbols
         
@@ -129,7 +129,7 @@ class QuantBook(QuantConnect.Algorithm.QCAlgorithm):
         ...
 
     @overload
-    def get_fundamental(self, tickers: typing.Iterable[str], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
+    def get_fundamental(self, tickers: typing.List[str], selector: str = None, start: typing.Optional[datetime.datetime] = None, end: typing.Optional[datetime.datetime] = None) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[typing.Any]]:
         """
         Get fundamental data for a given set of tickers
         

@@ -357,7 +357,7 @@ class ScheduledEventFactory(System.Object):
         warnings.warn("This method is deprecated. It will generate ScheduledEvents for the deprecated IAlgorithm.OnEndOfDay()", DeprecationWarning)
 
     @staticmethod
-    def every_day_at(name: str, dates: typing.Iterable[datetime.datetime], time_of_day: datetime.timedelta, callback: typing.Callable[[str, datetime.datetime], None], current_utc_time: typing.Optional[datetime.datetime] = None) -> QuantConnect.Scheduling.ScheduledEvent:
+    def every_day_at(name: str, dates: typing.List[datetime.datetime], time_of_day: datetime.timedelta, callback: typing.Callable[[str, datetime.datetime], None], current_utc_time: typing.Optional[datetime.datetime] = None) -> QuantConnect.Scheduling.ScheduledEvent:
         """
         Creates a new ScheduledEvent that will fire at the specified  for every day in
         

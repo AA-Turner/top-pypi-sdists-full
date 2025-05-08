@@ -28,10 +28,10 @@ def _forward(
 
 class __forward_spec(typing_extensions.Protocol):
     def __call__(
-        self, port: int, *, unencrypted: bool = False, client: typing.Optional[modal.client.Client] = None
+        self, /, port: int, *, unencrypted: bool = False, client: typing.Optional[modal.client.Client] = None
     ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Tunnel]: ...
     def aio(
-        self, port: int, *, unencrypted: bool = False, client: typing.Optional[modal.client.Client] = None
+        self, /, port: int, *, unencrypted: bool = False, client: typing.Optional[modal.client.Client] = None
     ) -> typing.AsyncContextManager[Tunnel]: ...
 
 forward: __forward_spec

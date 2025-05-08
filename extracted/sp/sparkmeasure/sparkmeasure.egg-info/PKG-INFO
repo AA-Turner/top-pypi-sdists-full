@@ -1,21 +1,41 @@
 Metadata-Version: 2.1
 Name: sparkmeasure
-Version: 0.24.0
+Version: 0.25.0
 Summary: Python API for sparkMeasure, a tool for performance troubleshooting of Apache Spark workloads.
 Home-page: https://github.com/lucacanali/sparkMeasure
 Author: Luca Canali
 Author-email: luca.canali@cern.ch
-License: Apache License, Version 2.0
+License: Apache License 2.0
+Project-URL: Documentation, https://github.com/lucacanali/sparkMeasure
+Project-URL: Source, https://github.com/lucacanali/sparkMeasure
+Project-URL: Tracker, https://github.com/lucacanali/sparkMeasure/issues
+Keywords: spark,apache spark,performance,monitoring,metrics,troubleshooting
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Intended Audience :: Developers
-Classifier: Development Status :: 4 - Beta
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+Requires-Dist: pyspark>=3.0.0
 
-SparkMeasure is a tool for performance troubleshooting of Apache Spark workloads.  
+
+SparkMeasure is a tool for performance troubleshooting of Apache Spark workloads.
 It simplifies the collection and analysis of Spark performance metrics. The bulk of sparkMeasure is written in Scala.
 This package contains the Python API for sparkMeasure.
-Use it from Python programs, PySpark, Jupyter notebooks, or in general as a tool to instrument and collect runtime metrics for your Spark jobs.  
-**[Link to sparkMeasure GitHub page and documentation](https://github.com/lucacanali/sparkMeasure)**
+Use it from Python programs, PySpark, Jupyter notebooks, or in general as a tool to instrument and collect runtime metrics for your Spark jobs.
+
+Key Features:
+- Interactive troubleshooting for Spark workloads.
+- Batch job analysis with Flight Recorder mode.
+- Monitoring with external systems (InfluxDB, Kafka, Prometheus).
+- Language support for Scala, Java, and Python.
+- Educational tool demonstrating Spark Listener interface.
+
+For more information, see the [sparkMeasure GitHub page and documentation](https://github.com/lucacanali/sparkMeasure).

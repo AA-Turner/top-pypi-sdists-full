@@ -1342,7 +1342,18 @@ def test_audits():
     """
     )
 
-    model = load_sql_based_model(expressions, path=Path("./examples/sushi/models/test_model.sql"))
+    audit_definitions = {
+        audit_name: load_audit(
+            d.parse(f"AUDIT (name {audit_name}); SELECT 1 WHERE FALSE"), dialect="duckdb"
+        )
+        for audit_name in ("audit_a", "audit_b", "audit_c")
+    }
+
+    model = load_sql_based_model(
+        expressions,
+        path=Path("./examples/sushi/models/test_model.sql"),
+        audit_definitions=audit_definitions,
+    )
     assert model.audits == [
         ("audit_a", {}),
         ("audit_b", {"key": exp.Literal.string("value")}),
@@ -2210,7 +2221,7 @@ def test_python_model(assert_exp_eq) -> None:
     m = model.get_registry()["my_model"].model(
         module_path=Path("."),
         path=Path("."),
-        dialect="duckdb",
+        dialect="duckdb,normalization_strategy=LOWERCASE",
     )
 
     assert list(m.pre_statements) == [
@@ -2220,14 +2231,14 @@ def test_python_model(assert_exp_eq) -> None:
         d.parse_one("DROP TABLE x"),
     ]
     assert m.enabled
-    assert m.dialect == "duckdb"
+    assert m.dialect == "duckdb,normalization_strategy=lowercase"
     assert m.depends_on == {'"foo"', '"bar"."baz"'}
-    assert m.columns_to_types == {"col": exp.DataType.build("int")}
+    assert m.columns_to_types == {"COL": exp.DataType.build("int")}
     assert_exp_eq(
         m.ctas_query(),
         """
 SELECT
-  CAST(NULL AS INT) AS "col"
+  CAST(NULL AS INT) AS "COL"
 FROM (VALUES
   (1)) AS t(dummy)
 WHERE
@@ -8845,6 +8856,54 @@ def entrypoint(context, *args, **kwargs):
     assert t.cast(pd.DataFrame, list(m.render(context=context))[0]).to_dict() == {"x": {0: 1}}
 
 
+def test_python_model_depends_on_blueprints(tmp_path: Path) -> None:
+    sql_model = tmp_path / "models" / "base_blueprints.sql"
+    sql_model.parent.mkdir(parents=True, exist_ok=True)
+    sql_model.write_text(
+        """
+        MODEL (
+          name test_schema1.@{model_name},
+          blueprints ((model_name := foo), (model_name := bar)),
+          kind FULL
+        );
+
+        SELECT 1 AS id
+        """
+    )
+
+    py_model = tmp_path / "models" / "depends_on_with_blueprint_vars.py"
+    py_model.parent.mkdir(parents=True, exist_ok=True)
+    py_model.write_text(
+        """
+import pandas as pd
+from sqlmesh import model
+
+@model(
+    "test_schema2.@model_name",
+    columns={
+        "id": "int",
+    },
+    blueprints=[
+        {"model_name": "foo"},
+        {"model_name": "bar"},
+    ],
+    depends_on=["test_schema1.@{model_name}"],
+)
+def entrypoint(context, *args, **kwargs):
+    table = context.resolve_table(f"test_schema1.{context.blueprint_var('model_name')}")
+    return context.fetchdf(f"SELECT * FROM {table}")"""
+    )
+
+    ctx = Context(
+        config=Config(model_defaults=ModelDefaultsConfig(dialect="duckdb")),
+        paths=tmp_path,
+    )
+    assert len(ctx.models) == 4
+
+    ctx.plan(no_prompts=True, auto_apply=True)
+    assert ctx.fetchdf("SELECT * FROM test_schema2.foo").to_dict() == {"id": {0: 1}}
+
+
 @time_machine.travel("2020-01-01 00:00:00 UTC")
 def test_dynamic_date_spine_model(assert_exp_eq):
     @macro()
@@ -9587,3 +9646,59 @@ SELECT
     plan = ctx.plan(no_prompts=True, auto_apply=True)
 
     assert not plan.context_diff.modified_snapshots
+
+
+def test_invalid_audit_reference():
+    sql = """
+    MODEL (
+      name test,
+      audits (not_nulll (columns := (id)))
+    );
+
+    SELECT
+      1 AS id
+    """
+    expressions = d.parse(sql)
+
+    with pytest.raises(ConfigError, match="Audit 'not_nulll' is undefined"):
+        load_sql_based_model(expressions)
+
+
+def test_scd_time_data_type_does_not_cause_diff_after_deserialization() -> None:
+    for dialect in (
+        "athena",
+        "bigquery",
+        "clickhouse",
+        "databricks",
+        "duckdb",
+        "dune",
+        "hive",
+        "mysql",
+        "postgres",
+        "presto",
+        "redshift",
+        "snowflake",
+        "spark",
+        "trino",
+        "tsql",
+    ):
+        sql = f"""
+        MODEL (
+          name test_schema.test_model,
+          kind SCD_TYPE_2_BY_COLUMN (
+            unique_key ARRAY(col),
+            columns ARRAY(col),
+            invalidate_hard_deletes TRUE,
+            on_destructive_change error
+          ),
+          dialect {dialect}
+        );
+
+        SELECT
+          1 AS col
+        """
+
+        model = load_sql_based_model(d.parse(sql))
+        deserialized_model = SqlModel.parse_raw(model.json())
+
+        assert model.data_hash == deserialized_model.data_hash

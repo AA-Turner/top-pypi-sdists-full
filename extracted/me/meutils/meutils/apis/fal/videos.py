@@ -32,7 +32,7 @@ async def create_task(request: FalVideoRequest, token: Optional[str] = None):
     token = token or await get_next_token_for_polling(feishu_url=FEISHU_URL)
     logger.debug(request)
 
-    application = f"fal-ai/{request.model}"
+    application = f"fal-ai/{request.model.removeprefix('fal-ai/')}"
 
     client = AsyncClient(key=token)
     response = await client.submit(
@@ -73,6 +73,9 @@ if __name__ == '__main__':
         audio_url=audio_url,
         video_url=video_url
     )
+
+    model = "fal-ai/kling-video/v2/master/image-to-video"
+    model = "fal-ai/kling-video/v1/standard/text-to-video"
 
     #
     # r = arun(create_task(request))

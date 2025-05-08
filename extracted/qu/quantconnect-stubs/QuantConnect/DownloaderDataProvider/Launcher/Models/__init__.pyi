@@ -121,19 +121,6 @@ class BaseDataDownloadConfig(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class DataUniverseDownloadConfig(QuantConnect.DownloaderDataProvider.Launcher.Models.BaseDataDownloadConfig):
-    """Represents the configuration for downloading data for a universe of securities."""
-
-    @property
-    def data_type(self) -> typing.Type:
-        """Gets the type of data universe download."""
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the DataUniverseDownloadConfig class using configuration settings."""
-        ...
-
-
 class BrokerageDataDownloader(System.Object, QuantConnect.IDataDownloader):
     """Class for downloading data from a brokerage."""
 
@@ -177,6 +164,19 @@ class DataDownloadConfig(QuantConnect.DownloaderDataProvider.Launcher.Models.Bas
         :param market_name: The name of the market from which the data is being downloaded.
         :param symbols: A list of symbols for which data is being downloaded.
         """
+        ...
+
+
+class DataUniverseDownloadConfig(QuantConnect.DownloaderDataProvider.Launcher.Models.BaseDataDownloadConfig):
+    """Represents the configuration for downloading data for a universe of securities."""
+
+    @property
+    def data_type(self) -> typing.Type:
+        """Gets the type of data universe download."""
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the DataUniverseDownloadConfig class using configuration settings."""
         ...
 
 

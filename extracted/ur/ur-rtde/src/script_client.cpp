@@ -31,16 +31,15 @@ ScriptClient::~ScriptClient() = default;
 
 void ScriptClient::connect()
 {
-  io_service_ = std::make_shared<boost::asio::io_service>();
-  socket_.reset(new boost::asio::ip::tcp::socket(*io_service_));
+  io_context_ = std::make_shared<boost::asio::io_context>();
+  socket_.reset(new boost::asio::ip::tcp::socket(*io_context_));
   socket_->open(boost::asio::ip::tcp::v4());
   boost::asio::ip::tcp::no_delay no_delay_option(true);
   boost::asio::socket_base::reuse_address sol_reuse_option(true);
   socket_->set_option(no_delay_option);
   socket_->set_option(sol_reuse_option);
-  resolver_ = std::make_shared<tcp::resolver>(*io_service_);
-  tcp::resolver::query query(hostname_, std::to_string(port_));
-  boost::asio::connect(*socket_, resolver_->resolve(query));
+  resolver_ = std::make_shared<tcp::resolver>(*io_context_);
+  boost::asio::connect(*socket_, resolver_->resolve(hostname_, std::to_string(port_)));
   conn_state_ = ConnectionState::CONNECTED;
   if (verbose_)
     std::cout << "Connected successfully to UR script server: " << hostname_ << " at " << port_ << std::endl;

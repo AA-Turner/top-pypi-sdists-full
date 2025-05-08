@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: safety
-Version: 3.4.0
+Version: 3.5.0
 Summary: Scan dependencies for known vulnerabilities and licenses.
 Project-URL: homepage, https://safetycli.com
 Project-URL: source, https://github.com/pyupio/safety

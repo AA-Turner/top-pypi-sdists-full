@@ -94,7 +94,6 @@ class CapabilityHostConfigurationOptions(object):
             ai_services_connections=["connection1"],
             storage_connections=["projectname/workspaceblobstore"],
             vector_store_connections=["connection1"],
-            thread_storage_connections=["connection1"],
         )
         result = ml_client.capability_hosts.begin_create_or_update(capability_host).result()
         # [END capability_host_begin_create_or_update_operation]
@@ -171,7 +170,7 @@ class CapabilityHostConfigurationOptions(object):
             resource_group,
             workspace_name=hub_name,
         )
-        capability_hosts = ml_client.capability_hosts.list()
+        capability_hosts = ml_client.capability_hosts.list()  # type:ignore
 
         # List CapabilityHosts created in Project
         ml_client = MLClient(
@@ -180,7 +179,7 @@ class CapabilityHostConfigurationOptions(object):
             resource_group,
             workspace_name=project_name,
         )
-        capability_hosts = ml_client.capability_hosts.list()
+        capability_hosts = ml_client.capability_hosts.list()  # type:ignore
         # [END capability_host_list_operation]
 
 

@@ -68,30 +68,6 @@ class EstimatedCapacityReportElement(QuantConnect.Report.ReportElements.ReportEl
         ...
 
 
-class ParametersReportElement(QuantConnect.Report.ReportElements.ReportElement):
-    """Class for creating a two column table for the Algorithm's Parameters in a report"""
-
-    def __init__(self, name: str, key: str, backtest_configuration: QuantConnect.AlgorithmConfiguration, live_configuration: QuantConnect.AlgorithmConfiguration, template: str) -> None:
-        """
-        Creates a two column table for the Algorithm's Parameters
-        
-        :param name: Name of the widget
-        :param key: Location of injection
-        :param backtest_configuration: The configuration of the backtest algorithm
-        :param live_configuration: The configuration of the live algorithm
-        :param template: HTML template to use
-        """
-        ...
-
-    def render(self) -> str:
-        """
-        Generates a HTML two column table for the Algorithm's Parameters
-        
-        :returns: Returns a string representing a HTML two column table.
-        """
-        ...
-
-
 class SharpeRatioReportElement(QuantConnect.Report.ReportElements.ReportElement):
     """Class for render the Sharpe Ratio statistic for a report"""
 
@@ -142,6 +118,30 @@ class SharpeRatioReportElement(QuantConnect.Report.ReportElements.ReportElement)
 
     def render(self) -> str:
         """The generated output string to be injected"""
+        ...
+
+
+class ParametersReportElement(QuantConnect.Report.ReportElements.ReportElement):
+    """Class for creating a two column table for the Algorithm's Parameters in a report"""
+
+    def __init__(self, name: str, key: str, backtest_configuration: QuantConnect.AlgorithmConfiguration, live_configuration: QuantConnect.AlgorithmConfiguration, template: str) -> None:
+        """
+        Creates a two column table for the Algorithm's Parameters
+        
+        :param name: Name of the widget
+        :param key: Location of injection
+        :param backtest_configuration: The configuration of the backtest algorithm
+        :param live_configuration: The configuration of the live algorithm
+        :param template: HTML template to use
+        """
+        ...
+
+    def render(self) -> str:
+        """
+        Generates a HTML two column table for the Algorithm's Parameters
+        
+        :returns: Returns a string representing a HTML two column table.
+        """
         ...
 
 

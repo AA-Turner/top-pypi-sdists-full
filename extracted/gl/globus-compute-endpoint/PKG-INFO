@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: globus-compute-endpoint
-Version: 3.6.0
+Version: 3.7.0
 Summary: Globus Compute: High Performance Function Serving for Science
 Home-page: https://github.com/globus/globus-compute
 Author: Globus Compute Team
@@ -21,7 +21,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests<3,>=2.31.0
 Requires-Dist: globus-sdk
-Requires-Dist: globus-compute-sdk==3.6.0
+Requires-Dist: globus-compute-sdk==3.7.0
 Requires-Dist: globus-compute-common==0.5.0
 Requires-Dist: globus-identity-mapping==0.4.0
 Requires-Dist: texttable<2,>=1.6.4

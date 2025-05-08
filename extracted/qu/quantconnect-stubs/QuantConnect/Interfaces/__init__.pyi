@@ -42,6 +42,174 @@ QuantConnect_Interfaces__EventContainer_Callable = typing.TypeVar("QuantConnect_
 QuantConnect_Interfaces__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Interfaces__EventContainer_ReturnType")
 
 
+class ISecurityService(metaclass=abc.ABCMeta):
+    """This interface exposes methods for creating a new Security"""
+
+    def create_benchmark_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Securities.Security:
+        """Creates a new benchmark security"""
+        ...
+
+    @overload
+    def create_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], subscription_data_config_list: typing.List[QuantConnect.Data.SubscriptionDataConfig], leverage: float = 0, add_to_symbol_cache: bool = True, underlying: QuantConnect.Securities.Security = None) -> QuantConnect.Securities.Security:
+        """Creates a new security"""
+        ...
+
+    @overload
+    def create_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], subscription_data_config: QuantConnect.Data.SubscriptionDataConfig, leverage: float = 0, add_to_symbol_cache: bool = True, underlying: QuantConnect.Securities.Security = None) -> QuantConnect.Securities.Security:
+        """Creates a new security"""
+        ...
+
+
+class DataProviderNewDataRequestEventArgs(System.EventArgs):
+    """Event arguments for the IDataProvider.NewDataRequest event"""
+
+    @property
+    def path(self) -> str:
+        """Path to the fetched data"""
+        ...
+
+    @property
+    def succeeded(self) -> bool:
+        """Whether the data was fetched successfully"""
+        ...
+
+    @property
+    def error_message(self) -> str:
+        """Any error message that occurred during the fetch"""
+        ...
+
+    def __init__(self, path: str, succeeded: bool, error_message: str) -> None:
+        """
+        Initializes a new instance of the DataProviderNewDataRequestEventArgs class
+        
+        :param path: The path to the fetched data
+        :param succeeded: Whether the data was fetched successfully
+        :param error_message: Any error message that occured during the fetch
+        """
+        ...
+
+
+class IDataProvider(metaclass=abc.ABCMeta):
+    """
+    Fetches a remote file for a security.
+    Must save the file to Globals.DataFolder.
+    """
+
+    @property
+    @abc.abstractmethod
+    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]:
+        """Event raised each time data fetch is finished (successfully or not)"""
+        ...
+
+    @new_data_request.setter
+    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]) -> None:
+        ...
+
+    def fetch(self, key: str) -> System.IO.Stream:
+        """
+        Retrieves data to be used in an algorithm
+        
+        :param key: A string representing where the data is stored
+        :returns: A Stream of the data requested.
+        """
+        ...
+
+
+class IMapFileProvider(metaclass=abc.ABCMeta):
+    """Provides instances of MapFileResolver at run time"""
+
+    def get(self, auxiliary_data_key: QuantConnect.Data.Auxiliary.AuxiliaryDataKey) -> QuantConnect.Data.Auxiliary.MapFileResolver:
+        """
+        Gets a MapFileResolver representing all the map
+        files for the specified market
+        
+        :param auxiliary_data_key: Key used to fetch a map file resolver. Specifying market and security type
+        :returns: A MapFileResolver containing all map files for the specified market.
+        """
+        ...
+
+    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
+        """
+        Initializes our MapFileProvider by supplying our data_provider
+        
+        :param data_provider: DataProvider to use
+        """
+        ...
+
+
+class IFactorFileProvider(metaclass=abc.ABCMeta):
+    """Provides instances of FactorFile{T} at run time"""
+
+    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
+        """
+        Gets a FactorFile{T} instance for the specified symbol, or null if not found
+        
+        :param symbol: The security's symbol whose factor file we seek
+        :returns: The resolved factor file, or null if not found.
+        """
+        ...
+
+    def initialize(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
+        """
+        Initializes our FactorFileProvider by supplying our map_file_provider
+        and data_provider
+        
+        :param map_file_provider: MapFileProvider to use
+        :param data_provider: DataProvider to use
+        """
+        ...
+
+
+class IPrimaryExchangeProvider(metaclass=abc.ABCMeta):
+    """Primary Exchange Provider interface"""
+
+    def get_primary_exchange(self, security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Exchange:
+        """
+        Gets the primary exchange for a given security identifier
+        
+        :param security_identifier: The security identifier to get the primary exchange for
+        :returns: Returns the primary exchange or null if not found.
+        """
+        ...
+
+
+class ITimeInForceHandler(metaclass=abc.ABCMeta):
+    """Handles the time in force for an order"""
+
+    def is_fill_valid(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, fill: QuantConnect.Orders.OrderEvent) -> bool:
+        """
+        Checks if an order fill is valid
+        
+        :param security: The security matching the order
+        :param order: The order to be checked
+        :param fill: The order fill to be checked
+        :returns: Returns true if the order fill can be emitted, false otherwise.
+        """
+        ...
+
+    def is_order_expired(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> bool:
+        """
+        Checks if an order is expired
+        
+        :param security: The security matching the order
+        :param order: The order to be checked
+        :returns: Returns true if the order has expired, false otherwise.
+        """
+        ...
+
+
+class IDataMonitor(System.IDisposable, metaclass=abc.ABCMeta):
+    """Monitors data requests and reports on missing data"""
+
+    def exit(self) -> None:
+        """Terminates the data monitor generating a final report"""
+        ...
+
+    def on_new_data_request(self, sender: typing.Any, e: QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs) -> None:
+        """Event handler for the IDataProvider.NewDataRequest event"""
+        ...
+
+
 class IApi(System.IDisposable, metaclass=abc.ABCMeta):
     """API for QuantConnect.com"""
 
@@ -103,7 +271,7 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def create_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint], estimated_cost: float, node_type: str, parallel_nodes: int) -> QuantConnect.Api.OptimizationSummary:
+    def create_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.List[QuantConnect.Optimizer.Objectives.Constraint], estimated_cost: float, node_type: str, parallel_nodes: int) -> QuantConnect.Api.OptimizationSummary:
         ...
 
     def create_project(self, name: str, language: QuantConnect.Language, organization_id: str = None) -> QuantConnect.Api.ProjectResponse:
@@ -165,7 +333,7 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def download(self, address: str, headers: typing.Iterable[System.Collections.Generic.KeyValuePair[str, str]], user_name: str, password: str) -> str:
+    def download(self, address: str, headers: typing.List[System.Collections.Generic.KeyValuePair[str, str]], user_name: str, password: str) -> str:
         """
         Local implementation for downloading data to algorithms
         
@@ -176,7 +344,7 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def download_bytes(self, address: str, headers: typing.Iterable[System.Collections.Generic.KeyValuePair[str, str]], user_name: str, password: str) -> typing.List[int]:
+    def download_bytes(self, address: str, headers: typing.List[System.Collections.Generic.KeyValuePair[str, str]], user_name: str, password: str) -> typing.List[int]:
         """
         Local implementation for downloading data to algorithms
         
@@ -196,7 +364,7 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def estimate_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint]) -> QuantConnect.Api.Estimate:
+    def estimate_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.List[QuantConnect.Optimizer.Objectives.Constraint]) -> QuantConnect.Api.Estimate:
         ...
 
     def get_algorithm_status(self, algorithm_id: str) -> QuantConnect.AlgorithmControl:
@@ -586,87 +754,104 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
 
-class MessagingHandlerInitializeParameters(System.Object):
-    """Parameters required to initialize a IMessagingHandler instance"""
-
-    @property
-    def api(self) -> QuantConnect.Interfaces.IApi:
-        """The api instance to use"""
-        ...
-
-    def __init__(self, api: QuantConnect.Interfaces.IApi) -> None:
-        """
-        Creates a new instance
-        
-        :param api: The api instance to use
-        """
-        ...
-
-
-class ISubscriptionDataConfigProvider(metaclass=abc.ABCMeta):
-    """Reduced interface which provides access to registered SubscriptionDataConfig"""
-
-    def get_subscription_data_configs(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, include_internal_configs: bool = False) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
-        """
-        Gets a list of all registered SubscriptionDataConfig for a given Symbol if any
-        else will return the whole list of subscriptions
-        """
-        ...
-
-
-class ISubscriptionDataConfigService(QuantConnect.Interfaces.ISubscriptionDataConfigProvider, metaclass=abc.ABCMeta):
+class IRegressionAlgorithmDefinition(metaclass=abc.ABCMeta):
     """
-    This interface exposes methods for creating a list of SubscriptionDataConfig for a given
-    configuration
+    Defines a C# algorithm as a regression algorithm to be run as part of the test suite.
+    This interface also allows the algorithm to declare that it has versions in other languages
+    that should yield identical results.
     """
 
     @property
     @abc.abstractmethod
-    def available_data_types(self) -> System.Collections.Generic.Dictionary[QuantConnect.SecurityType, typing.List[QuantConnect.TickType]]:
-        """Gets the available data types"""
+    def algorithm_status(self) -> QuantConnect.AlgorithmStatus:
+        """Final status of the algorithm"""
         ...
-
-    @overload
-    def add(self, data_type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, extended_market_hours: bool = False, is_filtered_subscription: bool = True, is_internal_feed: bool = False, is_custom_data: bool = False, data_normalization_mode: QuantConnect.DataNormalizationMode = ..., data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> QuantConnect.Data.SubscriptionDataConfig:
-        """
-        Creates and adds a list of SubscriptionDataConfig for a given symbol and configuration.
-        Can optionally pass in desired subscription data type to use.
-        If the config already existed will return existing instance instead
-        """
-        ...
-
-    @overload
-    def add(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, extended_market_hours: bool = False, is_filtered_subscription: bool = True, is_internal_feed: bool = False, is_custom_data: bool = False, subscription_data_types: typing.List[System.Tuple[typing.Type, QuantConnect.TickType]] = None, data_normalization_mode: QuantConnect.DataNormalizationMode = ..., data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
-        """
-        Creates and adds a list of SubscriptionDataConfig for a given symbol and configuration.
-        Can optionally pass in desired subscription data types to use.
-        If the config already existed will return existing instance instead
-        """
-        ...
-
-    def lookup_subscription_config_data_types(self, symbol_security_type: QuantConnect.SecurityType, resolution: QuantConnect.Resolution, is_canonical: bool) -> typing.List[System.Tuple[typing.Type, QuantConnect.TickType]]:
-        """
-        Get the data feed types for a given SecurityTypeResolution
-        
-        :param symbol_security_type: The SecurityType used to determine the types
-        :param resolution: The resolution of the data requested
-        :param is_canonical: Indicates whether the security is Canonical (future and options)
-        :returns: Types that should be added to the SubscriptionDataConfig.
-        """
-        ...
-
-
-class IAlgorithmSubscriptionManager(QuantConnect.Interfaces.ISubscriptionDataConfigService, metaclass=abc.ABCMeta):
-    """AlgorithmSubscriptionManager interface will manage the subscriptions for the SubscriptionManager"""
 
     @property
     @abc.abstractmethod
-    def subscription_manager_subscriptions(self) -> typing.Iterable[QuantConnect.Data.SubscriptionDataConfig]:
-        """Gets all the current data config subscriptions that are being processed for the SubscriptionManager"""
+    def can_run_locally(self) -> bool:
+        """This is used by the regression test system to indicate if the open source Lean repository has the required data to run this algorithm."""
         ...
 
-    def subscription_manager_count(self) -> int:
-        """Returns the amount of data config subscriptions processed for the SubscriptionManager"""
+    @property
+    @abc.abstractmethod
+    def languages(self) -> typing.List[QuantConnect.Language]:
+        """This is used by the regression test system to indicate which languages this algorithm is written in."""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def data_points(self) -> int:
+        """Data Points count of all timeslices of algorithm"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def algorithm_history_data_points(self) -> int:
+        """Data Points count of the algorithm history"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def expected_statistics(self) -> System.Collections.Generic.Dictionary[str, str]:
+        """This is used by the regression test system to indicate what the expected statistics are from running the algorithm"""
+        ...
+
+
+class IFutureChainProvider(metaclass=abc.ABCMeta):
+    """Provides the full future chain for a given underlying."""
+
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Gets the list of future contracts for a given underlying symbol
+        
+        :param symbol: The underlying symbol
+        :param date: The date for which to request the future chain (only used in backtesting)
+        :returns: The list of future contracts.
+        """
+        ...
+
+
+class ISecurityInitializerProvider(metaclass=abc.ABCMeta):
+    """Reduced interface which provides an instance which implements ISecurityInitializer"""
+
+    @property
+    @abc.abstractmethod
+    def security_initializer(self) -> QuantConnect.Securities.ISecurityInitializer:
+        """Gets an instance that is to be used to initialize newly created securities."""
+        ...
+
+
+class IAccountCurrencyProvider(metaclass=abc.ABCMeta):
+    """A reduced interface for an account currency provider"""
+
+    @property
+    @abc.abstractmethod
+    def account_currency(self) -> str:
+        """Gets the account currency"""
+        ...
+
+
+class ITimeKeeper(metaclass=abc.ABCMeta):
+    """Interface implemented by TimeKeeper"""
+
+    @property
+    @abc.abstractmethod
+    def utc_time(self) -> datetime.datetime:
+        """Gets the current time in UTC"""
+        ...
+
+    def add_time_zone(self, time_zone: typing.Any) -> None:
+        """Adds the specified time zone to this time keeper"""
+        ...
+
+    def get_local_time_keeper(self, time_zone: typing.Any) -> QuantConnect.LocalTimeKeeper:
+        """
+        Gets the LocalTimeKeeper instance for the specified time zone
+        
+        :param time_zone: The time zone whose LocalTimeKeeper we seek
+        :returns: The LocalTimeKeeper instance for the specified time zone.
+        """
         ...
 
 
@@ -733,7 +918,7 @@ class IHistoryProvider(QuantConnect.Interfaces.IDataProviderEvents, metaclass=ab
         """Gets the total number of data points emitted by this history provider"""
         ...
 
-    def get_history(self, requests: typing.Iterable[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
         """
         Gets the history for the requested securities
         
@@ -748,73 +933,6 @@ class IHistoryProvider(QuantConnect.Interfaces.IDataProviderEvents, metaclass=ab
         Initializes this history provider to work for the specified job
         
         :param parameters: The initialization parameters
-        """
-        ...
-
-
-class IBusyCollection(typing.Generic[QuantConnect_Interfaces_IBusyCollection_T], System.IDisposable, metaclass=abc.ABCMeta):
-    """Interface used to handle items being processed and communicate busy state"""
-
-    @property
-    @abc.abstractmethod
-    def wait_handle(self) -> System.Threading.WaitHandle:
-        """
-        Gets a wait handle that can be used to wait until this instance is done
-        processing all of it's item
-        """
-        ...
-
-    @property
-    @abc.abstractmethod
-    def count(self) -> int:
-        """Gets the number of items held within this collection"""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_busy(self) -> bool:
-        """Returns true if processing, false otherwise"""
-        ...
-
-    @overload
-    def add(self, item: QuantConnect_Interfaces_IBusyCollection_T) -> None:
-        """
-        Adds the items to this collection
-        
-        :param item: The item to be added
-        """
-        ...
-
-    @overload
-    def add(self, item: QuantConnect_Interfaces_IBusyCollection_T, cancellation_token: System.Threading.CancellationToken) -> None:
-        """
-        Adds the items to this collection
-        
-        :param item: The item to be added
-        :param cancellation_token: A cancellation token to observer
-        """
-        ...
-
-    def complete_adding(self) -> None:
-        """Marks the collection as not accepting any more additions"""
-        ...
-
-    @overload
-    def get_consuming_enumerable(self) -> typing.Iterable[QuantConnect_Interfaces_IBusyCollection_T]:
-        """
-        Provides a consuming enumerable for items in this collection.
-        
-        :returns: An enumerable that removes and returns items from the collection.
-        """
-        ...
-
-    @overload
-    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect_Interfaces_IBusyCollection_T]:
-        """
-        Provides a consuming enumerable for items in this collection.
-        
-        :param cancellation_token: A cancellation token to observer
-        :returns: An enumerable that removes and returns items from the collection.
         """
         ...
 
@@ -875,408 +993,6 @@ class ITradeBuilder(metaclass=abc.ABCMeta):
         Sets the security manager instance
         
         :param securities: The security manager
-        """
-        ...
-
-
-class IRegressionAlgorithmDefinition(metaclass=abc.ABCMeta):
-    """
-    Defines a C# algorithm as a regression algorithm to be run as part of the test suite.
-    This interface also allows the algorithm to declare that it has versions in other languages
-    that should yield identical results.
-    """
-
-    @property
-    @abc.abstractmethod
-    def algorithm_status(self) -> QuantConnect.AlgorithmStatus:
-        """Final status of the algorithm"""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def can_run_locally(self) -> bool:
-        """This is used by the regression test system to indicate if the open source Lean repository has the required data to run this algorithm."""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def languages(self) -> typing.List[QuantConnect.Language]:
-        """This is used by the regression test system to indicate which languages this algorithm is written in."""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def data_points(self) -> int:
-        """Data Points count of all timeslices of algorithm"""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def algorithm_history_data_points(self) -> int:
-        """Data Points count of the algorithm history"""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def expected_statistics(self) -> System.Collections.Generic.Dictionary[str, str]:
-        """This is used by the regression test system to indicate what the expected statistics are from running the algorithm"""
-        ...
-
-
-class IPrimaryExchangeProvider(metaclass=abc.ABCMeta):
-    """Primary Exchange Provider interface"""
-
-    def get_primary_exchange(self, security_identifier: QuantConnect.SecurityIdentifier) -> QuantConnect.Exchange:
-        """
-        Gets the primary exchange for a given security identifier
-        
-        :param security_identifier: The security identifier to get the primary exchange for
-        :returns: Returns the primary exchange or null if not found.
-        """
-        ...
-
-
-class IAccountCurrencyProvider(metaclass=abc.ABCMeta):
-    """A reduced interface for an account currency provider"""
-
-    @property
-    @abc.abstractmethod
-    def account_currency(self) -> str:
-        """Gets the account currency"""
-        ...
-
-
-class IFutureChainProvider(metaclass=abc.ABCMeta):
-    """Provides the full future chain for a given underlying."""
-
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Gets the list of future contracts for a given underlying symbol
-        
-        :param symbol: The underlying symbol
-        :param date: The date for which to request the future chain (only used in backtesting)
-        :returns: The list of future contracts.
-        """
-        ...
-
-
-class IJobQueueHandler(metaclass=abc.ABCMeta):
-    """Task requestor interface with cloud system"""
-
-    def acknowledge_job(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """
-        Signal task complete
-        
-        :param job: Work to do.
-        """
-        ...
-
-    def initialize(self, api: QuantConnect.Interfaces.IApi) -> None:
-        """Initialize the internal state"""
-        ...
-
-    def next_job(self, algorithm_path: typing.Optional[str]) -> typing.Tuple[QuantConnect.Packets.AlgorithmNodePacket, str]:
-        """
-        Request the next task to run through the engine:
-        
-        :returns: Algorithm job to process.
-        """
-        ...
-
-
-class ISecurityInitializerProvider(metaclass=abc.ABCMeta):
-    """Reduced interface which provides an instance which implements ISecurityInitializer"""
-
-    @property
-    @abc.abstractmethod
-    def security_initializer(self) -> QuantConnect.Securities.ISecurityInitializer:
-        """Gets an instance that is to be used to initialize newly created securities."""
-        ...
-
-
-class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictionary_TKey, QuantConnect_Interfaces_IExtendedDictionary_TValue], metaclass=abc.ABCMeta):
-    """Represents a generic collection of key/value pairs that implements python dictionary methods."""
-
-    def clear(self) -> None:
-        """Removes all keys and values from the IExtendedDictionary{TKey, TValue}."""
-        ...
-
-    def copy(self) -> typing.Any:
-        """
-        Creates a shallow copy of the IExtendedDictionary{TKey, TValue}.
-        
-        :returns: Returns a shallow copy of the dictionary. It doesn't modify the original dictionary.
-        """
-        ...
-
-    @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect_Interfaces_IExtendedDictionary_TKey]) -> typing.Any:
-        """
-        Creates a new dictionary from the given sequence of elements.
-        
-        :param sequence: Sequence of elements which is to be used as keys for the new dictionary
-        :returns: Returns a new dictionary with the given sequence of elements as the keys of the dictionary.
-        """
-        ...
-
-    @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect_Interfaces_IExtendedDictionary_TKey], value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> typing.Any:
-        """
-        Creates a new dictionary from the given sequence of elements with a value provided by the user.
-        
-        :param sequence: Sequence of elements which is to be used as keys for the new dictionary
-        :param value: Value which is set to each each element of the dictionary
-        :returns: Returns a new dictionary with the given sequence of elements as the keys of the dictionary. Each element of the newly created dictionary is set to the provided value.
-        """
-        ...
-
-    @overload
-    def get(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
-        """
-        Returns the value for the specified key if key is in dictionary.
-        
-        :param key: Key to be searched in the dictionary
-        :returns: The value for the specified key if key is in dictionary. None if the key is not found and value is not specified.
-        """
-        ...
-
-    @overload
-    def get(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey, value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
-        """
-        Returns the value for the specified key if key is in dictionary.
-        
-        :param key: Key to be searched in the dictionary
-        :param value: Value to be returned if the key is not found. The default value is null.
-        :returns: The value for the specified key if key is in dictionary. value if the key is not found and value is specified.
-        """
-        ...
-
-    def items(self) -> typing.Any:
-        """
-        Returns a view object that displays a list of dictionary's (key, value) tuple pairs.
-        
-        :returns: Returns a view object that displays a list of a given dictionary's (key, value) tuple pair.
-        """
-        ...
-
-    def keys(self) -> typing.Any:
-        """
-        Returns a view object that displays a list of all the keys in the dictionary
-        
-        :returns: Returns a view object that displays a list of all the keys. When the dictionary is changed, the view object also reflect these changes.
-        """
-        ...
-
-    @overload
-    def pop(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
-        """
-        Removes and returns an element from a dictionary having the given key.
-        
-        :param key: Key which is to be searched for removal
-        :returns: If key is found - removed/popped element from the dictionary If key is not found - KeyError exception is raised.
-        """
-        ...
-
-    @overload
-    def pop(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey, default_value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
-        """
-        Removes and returns an element from a dictionary having the given key.
-        
-        :param key: Key which is to be searched for removal
-        :param default_value: Value which is to be returned when the key is not in the dictionary
-        :returns: If key is found - removed/popped element from the dictionary If key is not found - value specified as the second argument(default).
-        """
-        ...
-
-    def popitem(self) -> typing.Any:
-        """
-        Returns and removes an arbitrary element (key, value) pair from the dictionary.
-        
-        :returns: Returns an arbitrary element (key, value) pair from the dictionary removes an arbitrary element(the same element which is returned) from the dictionary. Note: Arbitrary elements and random elements are not same.The popitem() doesn't return a random element.
-        """
-        ...
-
-    @overload
-    def setdefault(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
-        """
-        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
-        
-        :param key: Key with null/None value is inserted to the dictionary if key is not in the dictionary.
-        :returns: The value of the key if it is in the dictionary None if key is not in the dictionary.
-        """
-        ...
-
-    @overload
-    def setdefault(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey, default_value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
-        """
-        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
-        
-        :param key: Key with a value default_value is inserted to the dictionary if key is not in the dictionary.
-        :param default_value: Default value
-        :returns: The value of the key if it is in the dictionary default_value if key is not in the dictionary and default_value is specified.
-        """
-        ...
-
-    def update(self, other: typing.Any) -> None:
-        """
-        Updates the dictionary with the elements from the another dictionary object or from an iterable of key/value pairs.
-        The update() method adds element(s) to the dictionary if the key is not in the dictionary.If the key is in the dictionary, it updates the key with the new value.
-        
-        :param other: Takes either a dictionary or an iterable object of key/value pairs (generally tuples).
-        """
-        ...
-
-    def values(self) -> typing.Any:
-        """
-        Returns a view object that displays a list of all the values in the dictionary.
-        
-        :returns: Returns a view object that displays a list of all values in a given dictionary.
-        """
-        ...
-
-
-class IDataQueueHandler(System.IDisposable, metaclass=abc.ABCMeta):
-    """Task requestor interface with cloud system"""
-
-    @property
-    @abc.abstractmethod
-    def is_connected(self) -> bool:
-        """Returns whether the data provider is connected"""
-        ...
-
-    def set_job(self, job: QuantConnect.Packets.LiveNodePacket) -> None:
-        """
-        Sets the job we're subscribing for
-        
-        :param job: Job we're subscribing for
-        """
-        ...
-
-    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Subscribe to the specified configuration
-        
-        :param data_config: defines the parameters to subscribe to a data feed
-        :param new_data_available_handler: handler to be fired on new data available
-        :returns: The new enumerator for this subscription request.
-        """
-        ...
-
-    def unsubscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
-        """
-        Removes the specified configuration
-        
-        :param data_config: Subscription config to be removed
-        """
-        ...
-
-
-class IDataQueueUniverseProvider(metaclass=abc.ABCMeta):
-    """
-    This interface allows interested parties to lookup or enumerate the available symbols. Data source exposes it if this feature is available.
-    Availability of a symbol doesn't imply that it is possible to trade it. This is a data source specific interface, not broker specific.
-    """
-
-    def can_perform_selection(self) -> bool:
-        """
-        Returns whether selection can take place or not.
-        
-        :returns: True if selection can take place.
-        """
-        ...
-
-    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], include_expired: bool, security_currency: str = None) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Method returns a collection of Symbols that are available at the data source.
-        
-        :param symbol: Symbol to lookup
-        :param include_expired: Include expired contracts
-        :param security_currency: Expected security currency(if any)
-        :returns: Enumerable of Symbols, that are associated with the provided Symbol.
-        """
-        ...
-
-
-class IOrderProperties(metaclass=abc.ABCMeta):
-    """Contains additional properties and settings for an order"""
-
-    @property
-    @abc.abstractmethod
-    def time_in_force(self) -> QuantConnect.Orders.TimeInForce:
-        """Defines the length of time over which an order will continue working before it is cancelled"""
-        ...
-
-    @time_in_force.setter
-    def time_in_force(self, value: QuantConnect.Orders.TimeInForce) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
-        """Returns a new instance clone of this object"""
-        ...
-
-
-class ISecurityService(metaclass=abc.ABCMeta):
-    """This interface exposes methods for creating a new Security"""
-
-    def create_benchmark_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Securities.Security:
-        """Creates a new benchmark security"""
-        ...
-
-    @overload
-    def create_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], subscription_data_config_list: typing.List[QuantConnect.Data.SubscriptionDataConfig], leverage: float = 0, add_to_symbol_cache: bool = True, underlying: QuantConnect.Securities.Security = None) -> QuantConnect.Securities.Security:
-        """Creates a new security"""
-        ...
-
-    @overload
-    def create_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], subscription_data_config: QuantConnect.Data.SubscriptionDataConfig, leverage: float = 0, add_to_symbol_cache: bool = True, underlying: QuantConnect.Securities.Security = None) -> QuantConnect.Securities.Security:
-        """Creates a new security"""
-        ...
-
-
-class ITimeInForceHandler(metaclass=abc.ABCMeta):
-    """Handles the time in force for an order"""
-
-    def is_fill_valid(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, fill: QuantConnect.Orders.OrderEvent) -> bool:
-        """
-        Checks if an order fill is valid
-        
-        :param security: The security matching the order
-        :param order: The order to be checked
-        :param fill: The order fill to be checked
-        :returns: Returns true if the order fill can be emitted, false otherwise.
-        """
-        ...
-
-    def is_order_expired(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> bool:
-        """
-        Checks if an order is expired
-        
-        :param security: The security matching the order
-        :param order: The order to be checked
-        :returns: Returns true if the order has expired, false otherwise.
-        """
-        ...
-
-
-class ITimeKeeper(metaclass=abc.ABCMeta):
-    """Interface implemented by TimeKeeper"""
-
-    @property
-    @abc.abstractmethod
-    def utc_time(self) -> datetime.datetime:
-        """Gets the current time in UTC"""
-        ...
-
-    def add_time_zone(self, time_zone: typing.Any) -> None:
-        """Adds the specified time zone to this time keeper"""
-        ...
-
-    def get_local_time_keeper(self, time_zone: typing.Any) -> QuantConnect.LocalTimeKeeper:
-        """
-        Gets the LocalTimeKeeper instance for the specified time zone
-        
-        :param time_zone: The time zone whose LocalTimeKeeper we seek
-        :returns: The LocalTimeKeeper instance for the specified time zone.
         """
         ...
 
@@ -1467,6 +1183,24 @@ class IOptionChainProvider(metaclass=abc.ABCMeta):
         :param date: The date for which to request the option chain (only used in backtesting)
         :returns: The list of option contracts.
         """
+        ...
+
+
+class IOrderProperties(metaclass=abc.ABCMeta):
+    """Contains additional properties and settings for an order"""
+
+    @property
+    @abc.abstractmethod
+    def time_in_force(self) -> QuantConnect.Orders.TimeInForce:
+        """Defines the length of time over which an order will continue working before it is cancelled"""
+        ...
+
+    @time_in_force.setter
+    def time_in_force(self, value: QuantConnect.Orders.TimeInForce) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Returns a new instance clone of this object"""
         ...
 
 
@@ -2530,15 +2264,6 @@ class IBrokerageCashSynchronizer(metaclass=abc.ABCMeta):
         ...
 
 
-class IRegressionResearchDefinition(metaclass=abc.ABCMeta):
-    """Defines interface for research notebooks to be run as part of the research test suite."""
-
-    @property
-    @abc.abstractmethod
-    def expected_output(self) -> str:
-        ...
-
-
 class IBrokerage(QuantConnect.Interfaces.IBrokerageCashSynchronizer, System.IDisposable, metaclass=abc.ABCMeta):
     """
     Brokerage interface that defines the operations all brokerages must implement. The IBrokerage implementation
@@ -2798,174 +2523,6 @@ class IStreamReader(System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
 
-class DataProviderNewDataRequestEventArgs(System.EventArgs):
-    """Event arguments for the IDataProvider.NewDataRequest event"""
-
-    @property
-    def path(self) -> str:
-        """Path to the fetched data"""
-        ...
-
-    @property
-    def succeeded(self) -> bool:
-        """Whether the data was fetched successfully"""
-        ...
-
-    @property
-    def error_message(self) -> str:
-        """Any error message that occurred during the fetch"""
-        ...
-
-    def __init__(self, path: str, succeeded: bool, error_message: str) -> None:
-        """
-        Initializes a new instance of the DataProviderNewDataRequestEventArgs class
-        
-        :param path: The path to the fetched data
-        :param succeeded: Whether the data was fetched successfully
-        :param error_message: Any error message that occured during the fetch
-        """
-        ...
-
-
-class IDataMonitor(System.IDisposable, metaclass=abc.ABCMeta):
-    """Monitors data requests and reports on missing data"""
-
-    def exit(self) -> None:
-        """Terminates the data monitor generating a final report"""
-        ...
-
-    def on_new_data_request(self, sender: typing.Any, e: QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs) -> None:
-        """Event handler for the IDataProvider.NewDataRequest event"""
-        ...
-
-
-class IDataChannelProvider(metaclass=abc.ABCMeta):
-    """Specifies data channel settings"""
-
-    def initialize(self, packet: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """
-        Initializes the class with an algorithm node packet
-        
-        :param packet: Algorithm node packet
-        """
-        ...
-
-    def should_stream_subscription(self, config: QuantConnect.Data.SubscriptionDataConfig) -> bool:
-        """True if this subscription configuration should be streamed"""
-        ...
-
-
-class ISignalExportTarget(System.IDisposable, metaclass=abc.ABCMeta):
-    """Interface to send positions holdings to different 3rd party API's"""
-
-    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
-        """
-        Sends user's positions to certain 3rd party API
-        
-        :param parameters: Holdings the user have defined to be sent to certain 3rd party API and the algorithm being ran
-        """
-        ...
-
-
-class IDataProvider(metaclass=abc.ABCMeta):
-    """
-    Fetches a remote file for a security.
-    Must save the file to Globals.DataFolder.
-    """
-
-    @property
-    @abc.abstractmethod
-    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]:
-        """Event raised each time data fetch is finished (successfully or not)"""
-        ...
-
-    @new_data_request.setter
-    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]) -> None:
-        ...
-
-    def fetch(self, key: str) -> System.IO.Stream:
-        """
-        Retrieves data to be used in an algorithm
-        
-        :param key: A string representing where the data is stored
-        :returns: A Stream of the data requested.
-        """
-        ...
-
-
-class IMapFileProvider(metaclass=abc.ABCMeta):
-    """Provides instances of MapFileResolver at run time"""
-
-    def get(self, auxiliary_data_key: QuantConnect.Data.Auxiliary.AuxiliaryDataKey) -> QuantConnect.Data.Auxiliary.MapFileResolver:
-        """
-        Gets a MapFileResolver representing all the map
-        files for the specified market
-        
-        :param auxiliary_data_key: Key used to fetch a map file resolver. Specifying market and security type
-        :returns: A MapFileResolver containing all map files for the specified market.
-        """
-        ...
-
-    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
-        """
-        Initializes our MapFileProvider by supplying our data_provider
-        
-        :param data_provider: DataProvider to use
-        """
-        ...
-
-
-class IFactorFileProvider(metaclass=abc.ABCMeta):
-    """Provides instances of FactorFile{T} at run time"""
-
-    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Auxiliary.IFactorProvider:
-        """
-        Gets a FactorFile{T} instance for the specified symbol, or null if not found
-        
-        :param symbol: The security's symbol whose factor file we seek
-        :returns: The resolved factor file, or null if not found.
-        """
-        ...
-
-    def initialize(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider) -> None:
-        """
-        Initializes our FactorFileProvider by supplying our map_file_provider
-        and data_provider
-        
-        :param map_file_provider: MapFileProvider to use
-        :param data_provider: DataProvider to use
-        """
-        ...
-
-
-class IDataPermissionManager(metaclass=abc.ABCMeta):
-    """Entity in charge of handling data permissions"""
-
-    @property
-    @abc.abstractmethod
-    def data_channel_provider(self) -> QuantConnect.Interfaces.IDataChannelProvider:
-        """The data channel provider instance"""
-        ...
-
-    def assert_configuration(self, subscription_request: QuantConnect.Data.SubscriptionDataConfig, start_time_local: typing.Union[datetime.datetime, datetime.date], end_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Will assert the requested configuration is valid for the current job
-        
-        :param subscription_request: The data subscription configuration to assert
-        :param start_time_local: The start time of this request
-        :param end_time_local: The end time of this request
-        """
-        ...
-
-    def initialize(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """
-        Initialize the data permission manager
-        
-        :param job: The job packet
-        """
-        ...
-
-
 class ISecurityPrice(metaclass=abc.ABCMeta):
     """
     Reduced interface which allows setting and accessing
@@ -3048,7 +2605,7 @@ class ISecurityPrice(metaclass=abc.ABCMeta):
         """
         ...
 
-    def update(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool]) -> None:
+    def update(self, data: typing.List[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool]) -> None:
         """
         Updates all of the security properties, such as price/OHLCV/bid/ask based
         on the data provided. Data is also stored into the security's data cache
@@ -3083,34 +2640,81 @@ class IOptionPrice(QuantConnect.Interfaces.ISecurityPrice, metaclass=abc.ABCMeta
         ...
 
 
-class IDataCacheProvider(System.IDisposable, metaclass=abc.ABCMeta):
-    """Defines a cache for data"""
+class ISignalExportTarget(System.IDisposable, metaclass=abc.ABCMeta):
+    """Interface to send positions holdings to different 3rd party API's"""
+
+    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
+        """
+        Sends user's positions to certain 3rd party API
+        
+        :param parameters: Holdings the user have defined to be sent to certain 3rd party API and the algorithm being ran
+        """
+        ...
+
+
+class IBusyCollection(typing.Generic[QuantConnect_Interfaces_IBusyCollection_T], System.IDisposable, metaclass=abc.ABCMeta):
+    """Interface used to handle items being processed and communicate busy state"""
 
     @property
     @abc.abstractmethod
-    def is_data_ephemeral(self) -> bool:
-        """Property indicating the data is temporary in nature and should not be cached"""
+    def wait_handle(self) -> System.Threading.WaitHandle:
+        """
+        Gets a wait handle that can be used to wait until this instance is done
+        processing all of it's item
+        """
         ...
 
-    def fetch(self, key: str) -> System.IO.Stream:
+    @property
+    @abc.abstractmethod
+    def count(self) -> int:
+        """Gets the number of items held within this collection"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_busy(self) -> bool:
+        """Returns true if processing, false otherwise"""
+        ...
+
+    @overload
+    def add(self, item: QuantConnect_Interfaces_IBusyCollection_T) -> None:
         """
-        Fetch data from the cache
+        Adds the items to this collection
         
-        :param key: A string representing the key of the cached data
-        :returns: An Stream of the cached data.
+        :param item: The item to be added
         """
         ...
 
-    def get_zip_entries(self, zip_file: str) -> typing.List[str]:
-        """Returns a list of zip entries in a provided zip file"""
-        ...
-
-    def store(self, key: str, data: typing.List[int]) -> None:
+    @overload
+    def add(self, item: QuantConnect_Interfaces_IBusyCollection_T, cancellation_token: System.Threading.CancellationToken) -> None:
         """
-        Store the data in the cache
+        Adds the items to this collection
         
-        :param key: The source of the data, used as a key to retrieve data in the cache
-        :param data: The data to cache as a byte array
+        :param item: The item to be added
+        :param cancellation_token: A cancellation token to observer
+        """
+        ...
+
+    def complete_adding(self) -> None:
+        """Marks the collection as not accepting any more additions"""
+        ...
+
+    @overload
+    def get_consuming_enumerable(self) -> typing.Iterable[QuantConnect_Interfaces_IBusyCollection_T]:
+        """
+        Provides a consuming enumerable for items in this collection.
+        
+        :returns: An enumerable that removes and returns items from the collection.
+        """
+        ...
+
+    @overload
+    def get_consuming_enumerable(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect_Interfaces_IBusyCollection_T]:
+        """
+        Provides a consuming enumerable for items in this collection.
+        
+        :param cancellation_token: A cancellation token to observer
+        :returns: An enumerable that removes and returns items from the collection.
         """
         ...
 
@@ -3146,6 +2750,58 @@ class IShortableProvider(metaclass=abc.ABCMeta):
         :param symbol: Symbol to check shortable quantity
         :param local_time: Local time of the algorithm
         :returns: The quantity shortable for the given Symbol as a positive number. Null if the Symbol is shortable without restrictions.
+        """
+        ...
+
+
+class IDataQueueUniverseProvider(metaclass=abc.ABCMeta):
+    """
+    This interface allows interested parties to lookup or enumerate the available symbols. Data source exposes it if this feature is available.
+    Availability of a symbol doesn't imply that it is possible to trade it. This is a data source specific interface, not broker specific.
+    """
+
+    def can_perform_selection(self) -> bool:
+        """
+        Returns whether selection can take place or not.
+        
+        :returns: True if selection can take place.
+        """
+        ...
+
+    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], include_expired: bool, security_currency: str = None) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Method returns a collection of Symbols that are available at the data source.
+        
+        :param symbol: Symbol to lookup
+        :param include_expired: Include expired contracts
+        :param security_currency: Expected security currency(if any)
+        :returns: Enumerable of Symbols, that are associated with the provided Symbol.
+        """
+        ...
+
+
+class IRegressionResearchDefinition(metaclass=abc.ABCMeta):
+    """Defines interface for research notebooks to be run as part of the research test suite."""
+
+    @property
+    @abc.abstractmethod
+    def expected_output(self) -> str:
+        ...
+
+
+class MessagingHandlerInitializeParameters(System.Object):
+    """Parameters required to initialize a IMessagingHandler instance"""
+
+    @property
+    def api(self) -> QuantConnect.Interfaces.IApi:
+        """The api instance to use"""
+        ...
+
+    def __init__(self, api: QuantConnect.Interfaces.IApi) -> None:
+        """
+        Creates a new instance
+        
+        :param api: The api instance to use
         """
         ...
 
@@ -3202,10 +2858,280 @@ class IMessagingHandler(System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
 
+class IExtendedDictionary(typing.Generic[QuantConnect_Interfaces_IExtendedDictionary_TKey, QuantConnect_Interfaces_IExtendedDictionary_TValue], metaclass=abc.ABCMeta):
+    """Represents a generic collection of key/value pairs that implements python dictionary methods."""
+
+    def clear(self) -> None:
+        """Removes all keys and values from the IExtendedDictionary{TKey, TValue}."""
+        ...
+
+    def copy(self) -> typing.Any:
+        """
+        Creates a shallow copy of the IExtendedDictionary{TKey, TValue}.
+        
+        :returns: Returns a shallow copy of the dictionary. It doesn't modify the original dictionary.
+        """
+        ...
+
+    @overload
+    def fromkeys(self, sequence: typing.List[QuantConnect_Interfaces_IExtendedDictionary_TKey]) -> typing.Any:
+        """
+        Creates a new dictionary from the given sequence of elements.
+        
+        :param sequence: Sequence of elements which is to be used as keys for the new dictionary
+        :returns: Returns a new dictionary with the given sequence of elements as the keys of the dictionary.
+        """
+        ...
+
+    @overload
+    def fromkeys(self, sequence: typing.List[QuantConnect_Interfaces_IExtendedDictionary_TKey], value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> typing.Any:
+        """
+        Creates a new dictionary from the given sequence of elements with a value provided by the user.
+        
+        :param sequence: Sequence of elements which is to be used as keys for the new dictionary
+        :param value: Value which is set to each each element of the dictionary
+        :returns: Returns a new dictionary with the given sequence of elements as the keys of the dictionary. Each element of the newly created dictionary is set to the provided value.
+        """
+        ...
+
+    @overload
+    def get(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
+        """
+        Returns the value for the specified key if key is in dictionary.
+        
+        :param key: Key to be searched in the dictionary
+        :returns: The value for the specified key if key is in dictionary. None if the key is not found and value is not specified.
+        """
+        ...
+
+    @overload
+    def get(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey, value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
+        """
+        Returns the value for the specified key if key is in dictionary.
+        
+        :param key: Key to be searched in the dictionary
+        :param value: Value to be returned if the key is not found. The default value is null.
+        :returns: The value for the specified key if key is in dictionary. value if the key is not found and value is specified.
+        """
+        ...
+
+    def items(self) -> typing.Any:
+        """
+        Returns a view object that displays a list of dictionary's (key, value) tuple pairs.
+        
+        :returns: Returns a view object that displays a list of a given dictionary's (key, value) tuple pair.
+        """
+        ...
+
+    def keys(self) -> typing.Any:
+        """
+        Returns a view object that displays a list of all the keys in the dictionary
+        
+        :returns: Returns a view object that displays a list of all the keys. When the dictionary is changed, the view object also reflect these changes.
+        """
+        ...
+
+    @overload
+    def pop(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
+        """
+        Removes and returns an element from a dictionary having the given key.
+        
+        :param key: Key which is to be searched for removal
+        :returns: If key is found - removed/popped element from the dictionary If key is not found - KeyError exception is raised.
+        """
+        ...
+
+    @overload
+    def pop(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey, default_value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
+        """
+        Removes and returns an element from a dictionary having the given key.
+        
+        :param key: Key which is to be searched for removal
+        :param default_value: Value which is to be returned when the key is not in the dictionary
+        :returns: If key is found - removed/popped element from the dictionary If key is not found - value specified as the second argument(default).
+        """
+        ...
+
+    def popitem(self) -> typing.Any:
+        """
+        Returns and removes an arbitrary element (key, value) pair from the dictionary.
+        
+        :returns: Returns an arbitrary element (key, value) pair from the dictionary removes an arbitrary element(the same element which is returned) from the dictionary. Note: Arbitrary elements and random elements are not same.The popitem() doesn't return a random element.
+        """
+        ...
+
+    @overload
+    def setdefault(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
+        """
+        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
+        
+        :param key: Key with null/None value is inserted to the dictionary if key is not in the dictionary.
+        :returns: The value of the key if it is in the dictionary None if key is not in the dictionary.
+        """
+        ...
+
+    @overload
+    def setdefault(self, key: QuantConnect_Interfaces_IExtendedDictionary_TKey, default_value: QuantConnect_Interfaces_IExtendedDictionary_TValue) -> QuantConnect_Interfaces_IExtendedDictionary_TValue:
+        """
+        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
+        
+        :param key: Key with a value default_value is inserted to the dictionary if key is not in the dictionary.
+        :param default_value: Default value
+        :returns: The value of the key if it is in the dictionary default_value if key is not in the dictionary and default_value is specified.
+        """
+        ...
+
+    def update(self, other: typing.Any) -> None:
+        """
+        Updates the dictionary with the elements from the another dictionary object or from an iterable of key/value pairs.
+        The update() method adds element(s) to the dictionary if the key is not in the dictionary.If the key is in the dictionary, it updates the key with the new value.
+        
+        :param other: Takes either a dictionary or an iterable object of key/value pairs (generally tuples).
+        """
+        ...
+
+    def values(self) -> typing.Any:
+        """
+        Returns a view object that displays a list of all the values in the dictionary.
+        
+        :returns: Returns a view object that displays a list of all values in a given dictionary.
+        """
+        ...
+
+
+class IDataChannelProvider(metaclass=abc.ABCMeta):
+    """Specifies data channel settings"""
+
+    def initialize(self, packet: QuantConnect.Packets.AlgorithmNodePacket) -> None:
+        """
+        Initializes the class with an algorithm node packet
+        
+        :param packet: Algorithm node packet
+        """
+        ...
+
+    def should_stream_subscription(self, config: QuantConnect.Data.SubscriptionDataConfig) -> bool:
+        """True if this subscription configuration should be streamed"""
+        ...
+
+
+class IDataPermissionManager(metaclass=abc.ABCMeta):
+    """Entity in charge of handling data permissions"""
+
+    @property
+    @abc.abstractmethod
+    def data_channel_provider(self) -> QuantConnect.Interfaces.IDataChannelProvider:
+        """The data channel provider instance"""
+        ...
+
+    def assert_configuration(self, subscription_request: QuantConnect.Data.SubscriptionDataConfig, start_time_local: typing.Union[datetime.datetime, datetime.date], end_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Will assert the requested configuration is valid for the current job
+        
+        :param subscription_request: The data subscription configuration to assert
+        :param start_time_local: The start time of this request
+        :param end_time_local: The end time of this request
+        """
+        ...
+
+    def initialize(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
+        """
+        Initialize the data permission manager
+        
+        :param job: The job packet
+        """
+        ...
+
+
+class ISubscriptionDataConfigProvider(metaclass=abc.ABCMeta):
+    """Reduced interface which provides access to registered SubscriptionDataConfig"""
+
+    def get_subscription_data_configs(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, include_internal_configs: bool = False) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+        """
+        Gets a list of all registered SubscriptionDataConfig for a given Symbol if any
+        else will return the whole list of subscriptions
+        """
+        ...
+
+
+class ISubscriptionDataConfigService(QuantConnect.Interfaces.ISubscriptionDataConfigProvider, metaclass=abc.ABCMeta):
+    """
+    This interface exposes methods for creating a list of SubscriptionDataConfig for a given
+    configuration
+    """
+
+    @property
+    @abc.abstractmethod
+    def available_data_types(self) -> System.Collections.Generic.Dictionary[QuantConnect.SecurityType, typing.List[QuantConnect.TickType]]:
+        """Gets the available data types"""
+        ...
+
+    @overload
+    def add(self, data_type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, extended_market_hours: bool = False, is_filtered_subscription: bool = True, is_internal_feed: bool = False, is_custom_data: bool = False, data_normalization_mode: QuantConnect.DataNormalizationMode = ..., data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        Creates and adds a list of SubscriptionDataConfig for a given symbol and configuration.
+        Can optionally pass in desired subscription data type to use.
+        If the config already existed will return existing instance instead
+        """
+        ...
+
+    @overload
+    def add(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, extended_market_hours: bool = False, is_filtered_subscription: bool = True, is_internal_feed: bool = False, is_custom_data: bool = False, subscription_data_types: typing.List[System.Tuple[typing.Type, QuantConnect.TickType]] = None, data_normalization_mode: QuantConnect.DataNormalizationMode = ..., data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+        """
+        Creates and adds a list of SubscriptionDataConfig for a given symbol and configuration.
+        Can optionally pass in desired subscription data types to use.
+        If the config already existed will return existing instance instead
+        """
+        ...
+
+    def lookup_subscription_config_data_types(self, symbol_security_type: QuantConnect.SecurityType, resolution: QuantConnect.Resolution, is_canonical: bool) -> typing.List[System.Tuple[typing.Type, QuantConnect.TickType]]:
+        """
+        Get the data feed types for a given SecurityTypeResolution
+        
+        :param symbol_security_type: The SecurityType used to determine the types
+        :param resolution: The resolution of the data requested
+        :param is_canonical: Indicates whether the security is Canonical (future and options)
+        :returns: Types that should be added to the SubscriptionDataConfig.
+        """
+        ...
+
+
+class IDataCacheProvider(System.IDisposable, metaclass=abc.ABCMeta):
+    """Defines a cache for data"""
+
+    @property
+    @abc.abstractmethod
+    def is_data_ephemeral(self) -> bool:
+        """Property indicating the data is temporary in nature and should not be cached"""
+        ...
+
+    def fetch(self, key: str) -> System.IO.Stream:
+        """
+        Fetch data from the cache
+        
+        :param key: A string representing the key of the cached data
+        :returns: An Stream of the cached data.
+        """
+        ...
+
+    def get_zip_entries(self, zip_file: str) -> typing.List[str]:
+        """Returns a list of zip entries in a provided zip file"""
+        ...
+
+    def store(self, key: str, data: typing.List[int]) -> None:
+        """
+        Store the data in the cache
+        
+        :param key: The source of the data, used as a key to retrieve data in the cache
+        :param data: The data to cache as a byte array
+        """
+        ...
+
+
 class IDownloadProvider(metaclass=abc.ABCMeta):
     """Wrapper on the API for downloading data for an algorithm."""
 
-    def download(self, address: str, headers: typing.Iterable[System.Collections.Generic.KeyValuePair[str, str]], user_name: str, password: str) -> str:
+    def download(self, address: str, headers: typing.List[System.Collections.Generic.KeyValuePair[str, str]], user_name: str, password: str) -> str:
         """
         Method for downloading data for an algorithm
         
@@ -3217,7 +3143,7 @@ class IDownloadProvider(metaclass=abc.ABCMeta):
         """
         ...
 
-    def download_bytes(self, address: str, headers: typing.Iterable[System.Collections.Generic.KeyValuePair[str, str]], user_name: str, password: str) -> typing.List[int]:
+    def download_bytes(self, address: str, headers: typing.List[System.Collections.Generic.KeyValuePair[str, str]], user_name: str, password: str) -> typing.List[int]:
         """
         Method for downloading data for an algorithm that can be read from a stream
         
@@ -3226,6 +3152,80 @@ class IDownloadProvider(metaclass=abc.ABCMeta):
         :param user_name: Username for basic authentication
         :param password: Password for basic authentication
         :returns: String contents of file.
+        """
+        ...
+
+
+class IAlgorithmSubscriptionManager(QuantConnect.Interfaces.ISubscriptionDataConfigService, metaclass=abc.ABCMeta):
+    """AlgorithmSubscriptionManager interface will manage the subscriptions for the SubscriptionManager"""
+
+    @property
+    @abc.abstractmethod
+    def subscription_manager_subscriptions(self) -> typing.Iterable[QuantConnect.Data.SubscriptionDataConfig]:
+        """Gets all the current data config subscriptions that are being processed for the SubscriptionManager"""
+        ...
+
+    def subscription_manager_count(self) -> int:
+        """Returns the amount of data config subscriptions processed for the SubscriptionManager"""
+        ...
+
+
+class IDataQueueHandler(System.IDisposable, metaclass=abc.ABCMeta):
+    """Task requestor interface with cloud system"""
+
+    @property
+    @abc.abstractmethod
+    def is_connected(self) -> bool:
+        """Returns whether the data provider is connected"""
+        ...
+
+    def set_job(self, job: QuantConnect.Packets.LiveNodePacket) -> None:
+        """
+        Sets the job we're subscribing for
+        
+        :param job: Job we're subscribing for
+        """
+        ...
+
+    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Subscribe to the specified configuration
+        
+        :param data_config: defines the parameters to subscribe to a data feed
+        :param new_data_available_handler: handler to be fired on new data available
+        :returns: The new enumerator for this subscription request.
+        """
+        ...
+
+    def unsubscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
+        """
+        Removes the specified configuration
+        
+        :param data_config: Subscription config to be removed
+        """
+        ...
+
+
+class IJobQueueHandler(metaclass=abc.ABCMeta):
+    """Task requestor interface with cloud system"""
+
+    def acknowledge_job(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
+        """
+        Signal task complete
+        
+        :param job: Work to do.
+        """
+        ...
+
+    def initialize(self, api: QuantConnect.Interfaces.IApi) -> None:
+        """Initialize the internal state"""
+        ...
+
+    def next_job(self, algorithm_path: typing.Optional[str]) -> typing.Tuple[QuantConnect.Packets.AlgorithmNodePacket, str]:
+        """
+        Request the next task to run through the engine:
+        
+        :returns: Algorithm job to process.
         """
         ...
 

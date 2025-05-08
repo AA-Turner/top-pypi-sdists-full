@@ -3627,25 +3627,33 @@ class DictUpdateRequest(google.protobuf.message.Message):
 
     DICT_ID_FIELD_NUMBER: builtins.int
     UPDATES_FIELD_NUMBER: builtins.int
+    IF_NOT_EXISTS_FIELD_NUMBER: builtins.int
     dict_id: builtins.str
     @property
     def updates(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___DictEntry]: ...
+    if_not_exists: builtins.bool
     def __init__(
         self,
         *,
         dict_id: builtins.str = ...,
         updates: collections.abc.Iterable[global___DictEntry] | None = ...,
+        if_not_exists: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["dict_id", b"dict_id", "updates", b"updates"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["dict_id", b"dict_id", "if_not_exists", b"if_not_exists", "updates", b"updates"]) -> None: ...
 
 global___DictUpdateRequest = DictUpdateRequest
 
 class DictUpdateResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    CREATED_FIELD_NUMBER: builtins.int
+    created: builtins.bool
     def __init__(
         self,
+        *,
+        created: builtins.bool = ...,
     ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["created", b"created"]) -> None: ...
 
 global___DictUpdateResponse = DictUpdateResponse
 

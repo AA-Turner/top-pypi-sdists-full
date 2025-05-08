@@ -6,14 +6,16 @@ import typing
 from .extended_subscription_response_model_currency import (
     ExtendedSubscriptionResponseModelCurrency,
 )
-from .subscription_status import SubscriptionStatus
+from .extended_subscription_response_model_status import (
+    ExtendedSubscriptionResponseModelStatus,
+)
 from .extended_subscription_response_model_billing_period import (
     ExtendedSubscriptionResponseModelBillingPeriod,
 )
 from .extended_subscription_response_model_character_refresh_period import (
     ExtendedSubscriptionResponseModelCharacterRefreshPeriod,
 )
-from .invoice import Invoice
+from .invoice_response import InvoiceResponse
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 
 
@@ -53,12 +55,12 @@ class Subscription(UncheckedBaseModel):
     The Unix timestamp of the next character count reset.
     """
 
-    voice_slots_used: typing.Optional[int] = pydantic.Field(default=None)
+    voice_slots_used: int = pydantic.Field()
     """
     The number of voice slots used by the user.
     """
 
-    professional_voice_slots_used: typing.Optional[int] = pydantic.Field(default=None)
+    professional_voice_slots_used: int = pydantic.Field()
     """
     The number of professional voice slots used by the workspace/user if single seat.
     """
@@ -73,7 +75,7 @@ class Subscription(UncheckedBaseModel):
     The maximum number of voice add/edits allowed for the user.
     """
 
-    voice_add_edit_counter: typing.Optional[int] = pydantic.Field(default=None)
+    voice_add_edit_counter: int = pydantic.Field()
     """
     The number of voice add/edits used by the user.
     """
@@ -103,7 +105,7 @@ class Subscription(UncheckedBaseModel):
     The currency of the user's subscription.
     """
 
-    status: typing.Optional[SubscriptionStatus] = pydantic.Field(default=None)
+    status: ExtendedSubscriptionResponseModelStatus = pydantic.Field()
     """
     The status of the user's subscription.
     """
@@ -120,12 +122,12 @@ class Subscription(UncheckedBaseModel):
     The character refresh period of the user's subscription.
     """
 
-    next_invoice: typing.Optional[Invoice] = pydantic.Field(default=None)
+    next_invoice: typing.Optional[InvoiceResponse] = pydantic.Field(default=None)
     """
     The next invoice for the user.
     """
 
-    has_open_invoices: typing.Optional[bool] = pydantic.Field(default=None)
+    has_open_invoices: bool = pydantic.Field()
     """
     Whether the user has open invoices.
     """

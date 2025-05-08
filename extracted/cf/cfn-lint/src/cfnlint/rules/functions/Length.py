@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from cfnlint.jsonschema import ValidationError, ValidationResult, Validator
-from cfnlint.rules.functions._BaseFn import BaseFn, all_types
+from cfnlint.rules.functions._BaseFn import BaseFn
 
 
 class Length(BaseFn):
@@ -24,36 +24,7 @@ class Length(BaseFn):
         super().__init__(
             "Fn::Length",
             ("integer",),
-            (
-                "Ref",
-                "Fn::FindInMap",
-                "Fn::Split",
-                "Fn::If",
-                "Fn::GetAZs",
-            ),
         )
-
-    def schema(self, validator: Validator, instance: Any) -> dict[str, Any]:
-        return {
-            "type": ["array"],
-            "fn_items": {
-                "functions": [
-                    "Fn::If",
-                    "Fn::Base64",
-                    "Fn::FindInMap",
-                    "Fn::Join",
-                    "Fn::Select",
-                    "Fn::Split",
-                    "Fn::Sub",
-                    "Fn::ToJsonString",
-                    "Fn::GetAZs",
-                    "Ref",
-                ],
-                "schema": {
-                    "type": all_types,
-                },
-            },
-        }
 
     def fn_length(
         self, validator: Validator, s: Any, instance: Any, schema: Any

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-synthetics
-Version: 1.38.0
-Summary: Type annotations for boto3 Synthetics 1.38.0 service generated with mypy-boto3-builder 8.10.1
+Version: 1.38.11
+Summary: Type annotations for boto3 Synthetics 1.38.11 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,8 +56,9 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Synthetics 1.38.0](https://pypi.org/project/boto3/)
-compatible with [VSCode](https://code.visualstudio.com/),
+Type annotations for
+[boto3 Synthetics 1.38.11](https://pypi.org/project/boto3/) compatible with
+[VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
 [Sublime Text](https://www.sublimetext.com/),
@@ -65,7 +66,7 @@ compatible with [VSCode](https://code.visualstudio.com/),
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.10.1](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [boto3-stubs](https://pypi.org/project/boto3-stubs/) page and in
@@ -117,7 +118,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.38.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.38.11' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Synthetics` service.
 4. Use provided commands to install generated packages.

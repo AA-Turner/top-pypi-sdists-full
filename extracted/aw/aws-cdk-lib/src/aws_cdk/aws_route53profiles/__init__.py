@@ -714,7 +714,7 @@ class CfnProfileResourceAssociation(
     @builtins.property
     @jsii.member(jsii_name="attrResourceType")
     def attr_resource_type(self) -> builtins.str:
-        '''Resource type, such as a private hosted zone, or DNS Firewall rule group.
+        '''Resource type, such as a private hosted zone, interface VPC endpoint, or DNS Firewall rule group.
 
         :cloudformationAttribute: ResourceType
         '''

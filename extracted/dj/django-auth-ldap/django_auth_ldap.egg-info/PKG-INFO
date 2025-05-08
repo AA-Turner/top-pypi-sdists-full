@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-auth-ldap
-Version: 5.1.0
+Version: 5.2.0
 Summary: Django LDAP authentication backend
 Author-email: Peter Sagerson <psagers@ignorare.net>
 Maintainer-email: François Freitag <mail@franek.fr>
@@ -14,8 +14,8 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
@@ -35,6 +35,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: Django>=4.2
 Requires-Dist: python-ldap>=3.1
+Dynamic: license-file
 
 ================================
 Django Authentication Using LDAP

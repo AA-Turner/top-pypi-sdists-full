@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pulp-glue-deb
-Version: 0.3.2
+Version: 0.3.3
 Summary: Version agnostic glue library to talk to pulpcore's REST API. (deb plugin)
 Author-email: Pulp Team <pulp-list@redhat.com>
 License: GPLv2+

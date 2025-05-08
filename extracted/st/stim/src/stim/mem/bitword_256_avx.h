@@ -21,12 +21,10 @@
 #include <array>
 #include <bit>
 #include <immintrin.h>
-#include <iostream>
 #include <sstream>
 #include <stdexcept>
 
 #include "stim/mem/bitword.h"
-#include "stim/mem/simd_util.h"
 
 namespace stim {
 
@@ -48,17 +46,17 @@ struct bitword<256> {
         _mm_free(ptr);
     }
 
-    inline bitword<256>() : val(__m256i{}) {
+    inline bitword() : val(__m256i{}) {
     }
-    inline bitword<256>(__m256i val) : val(val) {
+    inline bitword(__m256i val) : val(val) {
     }
-    inline bitword<256>(std::array<uint64_t, 4> val) : val{_mm256_set_epi64x(val[3], val[2], val[1], val[0])} {
+    inline bitword(std::array<uint64_t, 4> val) : val{_mm256_set_epi64x(val[3], val[2], val[1], val[0])} {
     }
-    inline bitword<256>(uint64_t val) : val{_mm256_set_epi64x(0, 0, 0, val)} {
+    inline bitword(uint64_t val) : val{_mm256_set_epi64x(0, 0, 0, val)} {
     }
-    inline bitword<256>(int64_t val) : val{_mm256_set_epi64x(-(val < 0), -(val < 0), -(val < 0), val)} {
+    inline bitword(int64_t val) : val{_mm256_set_epi64x(-(val < 0), -(val < 0), -(val < 0), val)} {
     }
-    inline bitword<256>(int val) : val{_mm256_set_epi64x(-(val < 0), -(val < 0), -(val < 0), val)} {
+    inline bitword(int val) : val{_mm256_set_epi64x(-(val < 0), -(val < 0), -(val < 0), val)} {
     }
 
     inline static bitword<256> tile8(uint8_t pattern) {
@@ -220,9 +218,9 @@ struct bitword<256> {
             bitword<256> &x = data[stride * k];
             bitword<256> &y = data[stride * (k + shift)];
             bitword<256> a = x & mask;
-            bitword<256> b = x & ~mask;
+            bitword<256> b = _mm256_andnot_si256(mask, x.val);
             bitword<256> c = y & mask;
-            bitword<256> d = y & ~mask;
+            bitword<256> d = _mm256_andnot_si256(mask, y.val);
             x = a | bitword<256>(_mm256_slli_epi64(c.val, shift));
             y = bitword<256>(_mm256_srli_epi64(b.val, shift)) | d;
         }

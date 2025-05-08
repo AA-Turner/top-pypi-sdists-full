@@ -14,6 +14,7 @@ class LogLevel(Enum):
 LOG_LEVEL_ENV_VAR = "LUMOS_LOG_LEVEL"
 LOG_DIRECTORY_ENV_VAR = "LUMOS_LOG_DIRECTORY"
 LOG_TO_STDOUT_ENV_VAR = "LUMOS_LOG_TO_STDOUT"
+ADDITIONAL_REDACTED_LOG_KEYS_ENV_VAR = "LUMOS_ADDITIONAL_REDACTED_LOG_KEYS"
 
 
 class Config:
@@ -21,10 +22,11 @@ class Config:
         self.log_level: LogLevel = LogLevel.ERROR
         self.log_directory: Path | None = None
         self.log_to_stdout: bool = False
-
+        self.additional_redacted_log_keys: list[str] = []
         self.set_log_level()
         self.set_log_directory()
         self.set_log_to_stdout()
+        self.set_additional_redacted_log_keys()
 
     def set_log_level(self) -> None:
         log_level_string = os.environ.get(LOG_LEVEL_ENV_VAR, "ERROR")
@@ -43,6 +45,14 @@ class Config:
     def set_log_to_stdout(self) -> None:
         log_to_stdout_string = os.environ.get(LOG_TO_STDOUT_ENV_VAR, "False")
         self.log_to_stdout = log_to_stdout_string.lower() == "true"
+
+    def set_additional_redacted_log_keys(self) -> None:
+        additional_redacted_log_keys_string = os.environ.get(
+            ADDITIONAL_REDACTED_LOG_KEYS_ENV_VAR, ""
+        )
+        self.additional_redacted_log_keys = [
+            key.strip().lower() for key in additional_redacted_log_keys_string.split(",")
+        ]
 
 
 config = Config()

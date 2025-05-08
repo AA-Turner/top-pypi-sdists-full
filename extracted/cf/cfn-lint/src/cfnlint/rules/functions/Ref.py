@@ -22,41 +22,23 @@ class Ref(BaseFn):
     tags = ["functions", "ref"]
 
     def __init__(self) -> None:
-        super().__init__("Ref", all_types, resolved_rule="W1030")
+        super().__init__(
+            "Ref",
+            all_types,
+            resolved_rule="W1030",
+        )
         self._all_refs = [
             "W2010",
         ]
         self.child_rules.update(dict.fromkeys(self._all_refs))
 
-    def schema(self, validator, instance) -> dict[str, Any]:
-        return {
-            "type": ["string"],
-            "enum": validator.context.refs,
-        }
-
-    def validator(self, validator: Validator) -> Validator:
-        if validator.context.transforms.has_language_extensions_transform():
-            supported_functions = [
-                "Ref",
-                "Fn::Base64",
-                "Fn::FindInMap",
-                "Fn::If",
-                "Fn::Join",
-                "Fn::Sub",
-                "Fn::ToJsonString",
-            ]
-        else:
-            supported_functions = []
-        return validator.evolve(
-            context=validator.context.evolve(
-                functions=supported_functions,
-            ),
-            function_filter=validator.function_filter.evolve(
-                add_cfn_lint_keyword=False,
-            ),
-        )
-
-    def ref(self, validator, subschema, instance, schema):
+    def ref(
+        self,
+        validator: Validator,
+        subschema: Any,
+        instance: Any,
+        schema: dict[str, Any],
+    ):
         yield from super().validate(validator, subschema, instance, schema)
 
         _, value = self.key_value(instance)
@@ -89,7 +71,7 @@ class Ref(BaseFn):
         for rule_id in self._all_refs:
             rule = self.child_rules.get(rule_id)
             if rule:
-                yield from rule.validate(validator, {}, value, subschema)
+                yield from rule.validate(validator, {}, value, subschema)  # type: ignore[attr-defined]
 
         keyword = validator.context.path.cfn_path_string
         for rule in self.child_rules.values():
@@ -97,5 +79,5 @@ class Ref(BaseFn):
                 continue
             if not hasattr(rule, "keywords"):
                 continue
-            if keyword in rule.keywords or "*" in rule.keywords:
-                yield from rule.validate(validator, keyword, value, subschema)
+            if keyword in rule.keywords or "*" in rule.keywords:  # type: ignore[attr-defined]
+                yield from rule.validate(validator, keyword, value, subschema)  # type: ignore[attr-defined]

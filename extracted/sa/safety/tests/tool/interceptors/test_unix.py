@@ -41,14 +41,18 @@ class TestUnixAliasInterceptor(unittest.TestCase):
 
             self.assertTrue(result)
 
-            profile_path = Path(self.temp_dir) / ".profile"
+            rc_files = (".zshrc", ".bashrc", ".bash_profile")
+
+            rc_paths = [Path(self.temp_dir) / rc for rc in rc_files]
             safety_profile_path = Path(self.temp_dir) / ".safety" / ".safety_profile"
 
-            self.assertTrue(profile_path.exists())
+            self.assertTrue(
+                all(path.exists() for path in rc_paths), "Not all rc_paths exist"
+            )
             self.assertTrue(safety_profile_path.exists())
 
             # test the content of the generated files
-            expected_profile_content = (
+            expected_rc_content = (
                 "# >>> Safety >>>\n"
                 f'[ -f "{safety_profile_path}" ] && . "{safety_profile_path}"\n'
                 "# <<< Safety <<<\n"
@@ -60,13 +64,22 @@ class TestUnixAliasInterceptor(unittest.TestCase):
                 f"# Last updated at: {mock_now.isoformat()}\n"
                 "# Updated by: safety v1.0.0\n"
                 'alias pip="safety pip"\n'
-                'alias pip3="safety pip"\n'
+                'alias pip3="safety pip3"\n'
+                'alias pip3.8="safety pip3.8"\n'
+                'alias pip3.9="safety pip3.9"\n'
+                'alias pip3.10="safety pip3.10"\n'
+                'alias pip3.11="safety pip3.11"\n'
+                'alias pip3.12="safety pip3.12"\n'
+                'alias pip3.13="safety pip3.13"\n'
+                'alias pip3.14="safety pip3.14"\n'
                 'alias poetry="safety poetry"\n'
                 'alias uv="safety uv"\n'
                 "# <<< Safety <<<\n"
             )
 
-            self.assertEqual(profile_path.read_text(), expected_profile_content)
+            for rc_path in rc_paths:
+                self.assertEqual(rc_path.read_text(), expected_rc_content)
+
             self.assertEqual(
                 safety_profile_path.read_text(), expected_safety_profile_content
             )
@@ -75,8 +88,12 @@ class TestUnixAliasInterceptor(unittest.TestCase):
             result = interceptor.remove_interceptors()
 
             self.assertTrue(result)
-            self.assertTrue(profile_path.exists())
-            self.assertEqual(profile_path.read_text(), "")
+            self.assertTrue(
+                all(path.exists() for path in rc_paths), "Some rc_paths were removed"
+            )
+
+            for rc_path in rc_paths:
+                self.assertEqual(rc_path.read_text(), "")
 
             self.assertFalse(safety_profile_path.exists())
 

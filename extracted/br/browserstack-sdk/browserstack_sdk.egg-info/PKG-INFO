@@ -1,6 +1,6 @@
 Metadata-Version: 1.0
 Name: browserstack-sdk
-Version: 1.25.7
+Version: 1.25.8
 Summary: Python SDK for browserstack selenium-webdriver tests
 Home-page: UNKNOWN
 Author: BrowserStack

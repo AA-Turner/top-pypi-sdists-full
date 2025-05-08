@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-iot-alpha
-Version: 2.194.0a0
+Version: 2.195.0a0
 Summary: The CDK Construct Library for AWS::IoT
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,7 +22,7 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.194.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.195.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
 Requires-Dist: jsii<2.0.0,>=1.110.0
 Requires-Dist: publication>=0.0.3
@@ -155,6 +155,7 @@ iot.AccountAuditConfiguration(self, "AuditConfiguration",
         # disabled
         ca_certificate_key_quality_check=False,
         conflicting_client_ids_check=False,
+        device_certificate_age_check=False,
         device_certificate_expiring_check=False,
         device_certificate_key_quality_check=False,
         device_certificate_shared_check=False,
@@ -167,6 +168,22 @@ iot.AccountAuditConfiguration(self, "AuditConfiguration",
         revoked_ca_certificate_still_active_check=False,
         revoked_device_certificate_still_active_check=False,
         unauthenticated_cognito_role_overly_permissive_check=False
+    )
+)
+```
+
+To configure [the device certificate age check](https://docs.aws.amazon.com/iot-device-defender/latest/devguide/device-certificate-age-check.html), you can specify the duration for the check:
+
+```python
+from aws_cdk import Duration
+
+
+iot.AccountAuditConfiguration(self, "AuditConfiguration",
+    check_configuration=iot.CheckConfiguration(
+        device_certificate_age_check=True,
+        # The default value is 365 days
+        # Valid values range from 30 days (minimum) to 3652 days (10 years, maximum)
+        device_certificate_age_check_duration=Duration.days(365)
     )
 )
 ```

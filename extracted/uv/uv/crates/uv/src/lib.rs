@@ -1018,8 +1018,9 @@ async fn run(mut cli: Cli) -> Result<ExitStatus> {
                 SelfCommand::Update(SelfUpdateArgs {
                     target_version,
                     token,
+                    dry_run,
                 }),
-        }) => commands::self_update(target_version, token, printer).await,
+        }) => commands::self_update(target_version, token, dry_run, printer).await,
         Commands::Self_(SelfNamespace {
             command:
                 SelfCommand::Version {
@@ -1258,6 +1259,7 @@ async fn run(mut cli: Cli) -> Result<ExitStatus> {
             commands::tool_list(
                 args.show_paths,
                 args.show_version_specifiers,
+                args.show_with,
                 &cache,
                 printer,
             )
@@ -1333,6 +1335,7 @@ async fn run(mut cli: Cli) -> Result<ExitStatus> {
                 args.all_arches,
                 args.show_urls,
                 args.output_format,
+                args.python_downloads_json_url,
                 globals.python_preference,
                 globals.python_downloads,
                 &cache,
@@ -1355,6 +1358,7 @@ async fn run(mut cli: Cli) -> Result<ExitStatus> {
                 args.force,
                 args.python_install_mirror,
                 args.pypy_install_mirror,
+                args.python_downloads_json_url,
                 globals.network_settings,
                 args.default,
                 globals.python_downloads,

@@ -582,8 +582,8 @@ class LDAPTest(TestCase):
             [(log.levelname, log.msg, log.args) for log in logs.records],
             [
                 ("DEBUG", "Binding as %s", (dn,)),
-                ("DEBUG", "Creating Django user %s", ("alice",)),
-                ("DEBUG", "Populating Django user %s", ("alice",)),
+                ("INFO", "Creating Django user %s", ("alice",)),
+                ("INFO", "Populating Django user %s", ("alice",)),
                 ("DEBUG", "Binding as %s", ("",)),
                 (
                     "DEBUG",
@@ -1343,8 +1343,32 @@ class LDAPTest(TestCase):
 
         alice = authenticate(username="alice", password="password")
 
-        self.assertEqual(Group.objects.count(), 3)
-        self.assertEqual(set(alice.groups.all()), set(Group.objects.all()))
+        groups = set(Group.objects.all())
+        self.assertEqual(
+            {g.name for g in groups},
+            {"active_px", "staff_px", "superuser_px"},
+        )
+        self.assertEqual(set(alice.groups.all()), groups)
+
+    def test_group_mirroring_custom_grouptype(self):
+        self._init_settings(
+            USER_DN_TEMPLATE="uid=%(user)s,ou=people,o=test",
+            GROUP_SEARCH=LDAPSearch(
+                "ou=groups,o=test", ldap.SCOPE_SUBTREE, "(objectClass=posixGroup)"
+            ),
+            GROUP_TYPE=CustomGroupType(),
+            MIRROR_GROUPS=True,
+        )
+
+        self.assertEqual(Group.objects.count(), 0)
+
+        alice = authenticate(username="alice", password="password")
+        groups = set(Group.objects.all())
+        self.assertEqual(
+            {g.name for g in groups},
+            {"active_px", "staff_px"},
+        )
+        self.assertEqual(set(alice.groups.all()), groups)
 
     def test_nested_group_mirroring(self):
         self._init_settings(
@@ -1821,3 +1845,12 @@ class LDAPTest(TestCase):
 
         active_nis = Group.objects.create(name="active_nis")
         active_nis.permissions.add(*permissions)
+
+
+class CustomGroupType(PosixGroupType):
+    def group_name_from_info(self, group_info):
+        name = super().group_name_from_info(group_info)
+        if name.startswith("superuser"):
+            name = None
+
+        return name

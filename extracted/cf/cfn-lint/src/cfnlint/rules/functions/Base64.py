@@ -17,5 +17,9 @@ class Base64(BaseFn):
     tags = ["functions", "base64"]
 
     def __init__(self) -> None:
-        super().__init__("Fn::Base64", ("string",), tuple(FUNCTIONS_SINGLE))
+        super().__init__(
+            "Fn::Base64",
+            ("string",),
+            tuple(FUNCTIONS_SINGLE),
+        )
         self.fn_base64 = self.validate

@@ -1,5 +1,8 @@
 PUBLIC_REPOSITORY_URL = "https://pkgs.safetycli.com/repository/public/pypi/simple/"
 ORGANIZATION_REPOSITORY_URL = "https://pkgs.safetycli.com/repository/{}/pypi/simple/"
+PROJECT_REPOSITORY_URL = (
+    "https://pkgs.safetycli.com/repository/{}/project/{}/pypi/simple/"
+)
 PROJECT_CONFIG = ".safety-project.ini"
 
 MOST_FREQUENTLY_DOWNLOADED_PYPI_PACKAGES = [
@@ -1004,3 +1007,6 @@ MOST_FREQUENTLY_DOWNLOADED_PYPI_PACKAGES = [
     "meson-python",
     "google-cloud",
 ]
+
+MSG_NOT_AUTHENTICATED_TOOL = "{tool_name} is aliased to Safety to ensure your package installations are audited and secured."
+MSG_NOT_AUTHENTICATED_TOOL_NO_TTY = "Safety is not authenticated - this usage of {tool_name} will not be audited by Safety. Please run safety auth login or set an environment variable for SAFETY_API_KEY if running in a script."

@@ -6564,6 +6564,12 @@ class Manifest(
 ):
     '''Protocol utility class.'''
 
+    @jsii.member(jsii_name="cliVersion")
+    @builtins.classmethod
+    def cli_version(cls) -> typing.Optional[builtins.str]:
+        '''Return the CLI version that supports this Cloud Assembly Schema version.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.sinvoke(cls, "cliVersion", []))
+
     @jsii.member(jsii_name="loadAssemblyManifest")
     @builtins.classmethod
     def load_assembly_manifest(
@@ -6988,7 +6994,7 @@ class RequireApproval(enum.Enum):
     NEVER = "NEVER"
     '''Never ask for approval.'''
     ANYCHANGE = "ANYCHANGE"
-    '''Prompt for approval for any type  of change to the stack.'''
+    '''Prompt for approval for any type of change to the stack.'''
     BROADENING = "BROADENING"
     '''Only prompt for approval if there are security related changes.'''
 

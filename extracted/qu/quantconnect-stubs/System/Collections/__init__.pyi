@@ -10,35 +10,6 @@ import System.Globalization
 import System.Runtime.Serialization
 
 
-class DictionaryEntry:
-    """This class has no documentation."""
-
-    @property
-    def key(self) -> System.Object:
-        ...
-
-    @key.setter
-    def key(self, value: System.Object) -> None:
-        ...
-
-    @property
-    def value(self) -> System.Object:
-        ...
-
-    @value.setter
-    def value(self, value: System.Object) -> None:
-        ...
-
-    def __init__(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def deconstruct(self, key: typing.Optional[typing.Any], value: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any, typing.Any]:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
 class IEnumerator(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -83,60 +54,6 @@ class ICollection(System.Collections.IEnumerable, metaclass=abc.ABCMeta):
         ...
 
 
-class IList(System.Collections.ICollection, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_fixed_size(self) -> bool:
-        ...
-
-    def __getitem__(self, index: int) -> typing.Any:
-        ...
-
-    def __setitem__(self, index: int, value: typing.Any) -> None:
-        ...
-
-    def add(self, value: typing.Any) -> int:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, value: typing.Any) -> bool:
-        ...
-
-    def index_of(self, value: typing.Any) -> int:
-        ...
-
-    def insert(self, index: int, value: typing.Any) -> None:
-        ...
-
-    def remove(self, value: typing.Any) -> None:
-        ...
-
-    def remove_at(self, index: int) -> None:
-        ...
-
-
-class IHashCodeProvider(metaclass=abc.ABCMeta):
-    """
-    Provides a mechanism for a Hashtable user to override the default
-    GetHashCode() function on Objects, providing their own hash function.
-    
-    IHashCodeProvider has been deprecated. Use IEqualityComparer instead.
-    """
-
-    def get_hash_code(self, obj: typing.Any) -> int:
-        """Returns a hash code for the given object."""
-        ...
-
-
 class IDictionary(System.Collections.ICollection, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -176,6 +93,35 @@ class IDictionary(System.Collections.ICollection, metaclass=abc.ABCMeta):
         ...
 
     def remove(self, key: typing.Any) -> None:
+        ...
+
+
+class DictionaryEntry:
+    """This class has no documentation."""
+
+    @property
+    def key(self) -> System.Object:
+        ...
+
+    @key.setter
+    def key(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def value(self) -> System.Object:
+        ...
+
+    @value.setter
+    def value(self, value: System.Object) -> None:
+        ...
+
+    def __init__(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def deconstruct(self, key: typing.Optional[typing.Any], value: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any, typing.Any]:
+        ...
+
+    def to_string(self) -> str:
         ...
 
 
@@ -260,10 +206,44 @@ class ListDictionaryInternal(System.Object, System.Collections.IDictionary):
         ...
 
 
-class IComparer(metaclass=abc.ABCMeta):
+class IList(System.Collections.ICollection, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    def compare(self, x: typing.Any, y: typing.Any) -> int:
+    @property
+    @abc.abstractmethod
+    def is_read_only(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_fixed_size(self) -> bool:
+        ...
+
+    def __getitem__(self, index: int) -> typing.Any:
+        ...
+
+    def __setitem__(self, index: int, value: typing.Any) -> None:
+        ...
+
+    def add(self, value: typing.Any) -> int:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, value: typing.Any) -> bool:
+        ...
+
+    def index_of(self, value: typing.Any) -> int:
+        ...
+
+    def insert(self, index: int, value: typing.Any) -> None:
+        ...
+
+    def remove(self, value: typing.Any) -> None:
+        ...
+
+    def remove_at(self, index: int) -> None:
         ...
 
 
@@ -277,201 +257,6 @@ class IEqualityComparer(metaclass=abc.ABCMeta):
         ...
 
 
-class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.ICloneable):
-    """This class has no documentation."""
-
-    @property
-    def hcp(self) -> System.Collections.IHashCodeProvider:
-        """
-        This property is protected.
-        
-        Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.
-        """
-        warnings.warn("Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.", DeprecationWarning)
-
-    @hcp.setter
-    def hcp(self, value: System.Collections.IHashCodeProvider) -> None:
-        warnings.warn("Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.", DeprecationWarning)
-
-    @property
-    def comparer(self) -> System.Collections.IComparer:
-        """
-        This property is protected.
-        
-        Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.
-        """
-        warnings.warn("Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.", DeprecationWarning)
-
-    @comparer.setter
-    def comparer(self, value: System.Collections.IComparer) -> None:
-        warnings.warn("Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.", DeprecationWarning)
-
-    @property
-    def equality_comparer(self) -> System.Collections.IEqualityComparer:
-        """This property is protected."""
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    def is_fixed_size(self) -> bool:
-        ...
-
-    @property
-    def is_synchronized(self) -> bool:
-        ...
-
-    @property
-    def keys(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    def values(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    def sync_root(self) -> System.Object:
-        ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    def __contains__(self, key: typing.Any) -> bool:
-        ...
-
-    def __getitem__(self, key: typing.Any) -> typing.Any:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, load_factor: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, load_factor: float, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, load_factor: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, load_factor: float, equality_comparer: System.Collections.IEqualityComparer) -> None:
-        ...
-
-    @overload
-    def __init__(self, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        """This constructor has been deprecated. Use Hashtable(IEqualityComparer) instead."""
-        ...
-
-    @overload
-    def __init__(self, capacity: int, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        """This constructor has been deprecated. Use Hashtable(int, IEqualityComparer) instead."""
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        """This constructor has been deprecated. Use Hashtable(IDictionary, IEqualityComparer) instead."""
-        ...
-
-    @overload
-    def __init__(self, capacity: int, load_factor: float, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        """This constructor has been deprecated. Use Hashtable(int, float, IEqualityComparer) instead."""
-        ...
-
-    @overload
-    def __init__(self, d: System.Collections.IDictionary, load_factor: float, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
-        """This constructor has been deprecated. Use Hashtable(IDictionary, float, IEqualityComparer) instead."""
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def add(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    def contains(self, key: typing.Any) -> bool:
-        ...
-
-    def contains_key(self, key: typing.Any) -> bool:
-        ...
-
-    def contains_value(self, value: typing.Any) -> bool:
-        ...
-
-    def copy_to(self, array: System.Array, array_index: int) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
-        ...
-
-    def get_hash(self, key: typing.Any) -> int:
-        """This method is protected."""
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def key_equals(self, item: typing.Any, key: typing.Any) -> bool:
-        """This method is protected."""
-        ...
-
-    def on_deserialization(self, sender: typing.Any) -> None:
-        ...
-
-    def remove(self, key: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def synchronized(table: System.Collections.Hashtable) -> System.Collections.Hashtable:
-        ...
-
-
 class IStructuralEquatable(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -479,6 +264,26 @@ class IStructuralEquatable(metaclass=abc.ABCMeta):
         ...
 
     def get_hash_code(self, comparer: System.Collections.IEqualityComparer) -> int:
+        ...
+
+
+class IHashCodeProvider(metaclass=abc.ABCMeta):
+    """
+    Provides a mechanism for a Hashtable user to override the default
+    GetHashCode() function on Objects, providing their own hash function.
+    
+    IHashCodeProvider has been deprecated. Use IEqualityComparer instead.
+    """
+
+    def get_hash_code(self, obj: typing.Any) -> int:
+        """Returns a hash code for the given object."""
+        ...
+
+
+class IComparer(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def compare(self, x: typing.Any, y: typing.Any) -> int:
         ...
 
 
@@ -700,6 +505,201 @@ class IStructuralComparable(metaclass=abc.ABCMeta):
         ...
 
 
+class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.ICloneable):
+    """This class has no documentation."""
+
+    @property
+    def hcp(self) -> System.Collections.IHashCodeProvider:
+        """
+        This property is protected.
+        
+        Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.
+        """
+        warnings.warn("Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.", DeprecationWarning)
+
+    @hcp.setter
+    def hcp(self, value: System.Collections.IHashCodeProvider) -> None:
+        warnings.warn("Hashtable.hcp has been deprecated. Use the EqualityComparer property instead.", DeprecationWarning)
+
+    @property
+    def comparer(self) -> System.Collections.IComparer:
+        """
+        This property is protected.
+        
+        Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.
+        """
+        warnings.warn("Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.", DeprecationWarning)
+
+    @comparer.setter
+    def comparer(self, value: System.Collections.IComparer) -> None:
+        warnings.warn("Hashtable.comparer has been deprecated. Use the KeyComparer properties instead.", DeprecationWarning)
+
+    @property
+    def equality_comparer(self) -> System.Collections.IEqualityComparer:
+        """This property is protected."""
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        ...
+
+    @property
+    def is_fixed_size(self) -> bool:
+        ...
+
+    @property
+    def is_synchronized(self) -> bool:
+        ...
+
+    @property
+    def keys(self) -> System.Collections.ICollection:
+        ...
+
+    @property
+    def values(self) -> System.Collections.ICollection:
+        ...
+
+    @property
+    def sync_root(self) -> System.Object:
+        ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    def __contains__(self, key: typing.Any) -> bool:
+        ...
+
+    def __getitem__(self, key: typing.Any) -> typing.Any:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int, load_factor: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int, load_factor: float, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    @overload
+    def __init__(self, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary) -> None:
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary, load_factor: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary, load_factor: float, equality_comparer: System.Collections.IEqualityComparer) -> None:
+        ...
+
+    @overload
+    def __init__(self, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
+        """This constructor has been deprecated. Use Hashtable(IEqualityComparer) instead."""
+        ...
+
+    @overload
+    def __init__(self, capacity: int, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
+        """This constructor has been deprecated. Use Hashtable(int, IEqualityComparer) instead."""
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
+        """This constructor has been deprecated. Use Hashtable(IDictionary, IEqualityComparer) instead."""
+        ...
+
+    @overload
+    def __init__(self, capacity: int, load_factor: float, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
+        """This constructor has been deprecated. Use Hashtable(int, float, IEqualityComparer) instead."""
+        ...
+
+    @overload
+    def __init__(self, d: System.Collections.IDictionary, load_factor: float, hcp: System.Collections.IHashCodeProvider, comparer: System.Collections.IComparer) -> None:
+        """This constructor has been deprecated. Use Hashtable(IDictionary, float, IEqualityComparer) instead."""
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def add(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def clone(self) -> System.Object:
+        ...
+
+    def contains(self, key: typing.Any) -> bool:
+        ...
+
+    def contains_key(self, key: typing.Any) -> bool:
+        ...
+
+    def contains_value(self, value: typing.Any) -> bool:
+        ...
+
+    def copy_to(self, array: System.Array, array_index: int) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
+        ...
+
+    def get_hash(self, key: typing.Any) -> int:
+        """This method is protected."""
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def key_equals(self, item: typing.Any, key: typing.Any) -> bool:
+        """This method is protected."""
+        ...
+
+    def on_deserialization(self, sender: typing.Any) -> None:
+        ...
+
+    def remove(self, key: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def synchronized(table: System.Collections.Hashtable) -> System.Collections.Hashtable:
+        ...
+
+
 class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Serialization.ISerializable):
     """Compares two objects for equivalence, where string comparisons are case-sensitive."""
 
@@ -716,14 +716,6 @@ class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Seria
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         """Obsoletions.LegacyFormatterImplMessage"""
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class StructuralComparisons(System.Object):
-    """This class has no documentation."""
-
-    STRUCTURAL_COMPARER: System.Collections.IComparer
-
-    STRUCTURAL_EQUALITY_COMPARER: System.Collections.IEqualityComparer
 
 
 class BitArray(System.Object, System.Collections.ICollection, System.ICloneable):
@@ -834,5 +826,13 @@ class BitArray(System.Object, System.Collections.ICollection, System.ICloneable)
 
     def xor(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
         ...
+
+
+class StructuralComparisons(System.Object):
+    """This class has no documentation."""
+
+    STRUCTURAL_COMPARER: System.Collections.IComparer
+
+    STRUCTURAL_EQUALITY_COMPARER: System.Collections.IEqualityComparer
 
 
