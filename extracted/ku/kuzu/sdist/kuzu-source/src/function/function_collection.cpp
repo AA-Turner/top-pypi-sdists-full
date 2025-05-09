@@ -9,7 +9,6 @@
 #include "function/comparison/vector_comparison_functions.h"
 #include "function/date/vector_date_functions.h"
 #include "function/export/export_function.h"
-#include "function/gds/gds_function_collection.h"
 #include "function/hash/vector_hash_functions.h"
 #include "function/internal_id/vector_internal_id_functions.h"
 #include "function/interval/vector_interval_functions.h"
@@ -160,6 +159,7 @@ FunctionCollection* FunctionCollection::getFunctions() {
         // Timestamp functions
         SCALAR_FUNCTION(CenturyFunction), SCALAR_FUNCTION(EpochMsFunction),
         SCALAR_FUNCTION(ToTimestampFunction), SCALAR_FUNCTION(CurrentTimestampFunction),
+        SCALAR_FUNCTION(ToEpochMsFunction),
 
         // Interval functions
         SCALAR_FUNCTION(ToYearsFunction), SCALAR_FUNCTION(ToMonthsFunction),
@@ -191,6 +191,7 @@ FunctionCollection* FunctionCollection::getFunctions() {
         SCALAR_FUNCTION(OffsetFunction), REWRITE_FUNCTION(IDFunction),
         REWRITE_FUNCTION(StartNodeFunction), REWRITE_FUNCTION(EndNodeFunction),
         REWRITE_FUNCTION(LabelFunction), REWRITE_FUNCTION_ALIAS(LabelsFunction),
+        REWRITE_FUNCTION(CostFunction),
 
         // Path functions
         SCALAR_FUNCTION(NodesFunction), SCALAR_FUNCTION(RelsFunction),
@@ -220,28 +221,24 @@ FunctionCollection* FunctionCollection::getFunctions() {
         // Table functions
         TABLE_FUNCTION(CurrentSettingFunction), TABLE_FUNCTION(CatalogVersionFunction),
         TABLE_FUNCTION(DBVersionFunction), TABLE_FUNCTION(ShowTablesFunction),
-        TABLE_FUNCTION(ShowWarningsFunction), TABLE_FUNCTION(TableInfoFunction),
-        TABLE_FUNCTION(ShowConnectionFunction), TABLE_FUNCTION(StatsInfoFunction),
-        TABLE_FUNCTION(StorageInfoFunction), TABLE_FUNCTION(ShowAttachedDatabasesFunction),
-        TABLE_FUNCTION(ShowSequencesFunction), TABLE_FUNCTION(ShowFunctionsFunction),
-        TABLE_FUNCTION(BMInfoFunction), TABLE_FUNCTION(ShowLoadedExtensionsFunction),
+        TABLE_FUNCTION(FreeSpaceInfoFunction), TABLE_FUNCTION(ShowWarningsFunction),
+        TABLE_FUNCTION(TableInfoFunction), TABLE_FUNCTION(ShowConnectionFunction),
+        TABLE_FUNCTION(StatsInfoFunction), TABLE_FUNCTION(StorageInfoFunction),
+        TABLE_FUNCTION(ShowAttachedDatabasesFunction), TABLE_FUNCTION(ShowSequencesFunction),
+        TABLE_FUNCTION(ShowFunctionsFunction), TABLE_FUNCTION(BMInfoFunction),
+        TABLE_FUNCTION(ShowLoadedExtensionsFunction),
         TABLE_FUNCTION(ShowOfficialExtensionsFunction), TABLE_FUNCTION(ShowIndexesFunction),
         TABLE_FUNCTION(ShowProjectedGraphsFunction),
 
         // Standalone Table functions
         STANDALONE_TABLE_FUNCTION(LocalCacheArrayColumnFunction),
         STANDALONE_TABLE_FUNCTION(ClearWarningsFunction),
-        STANDALONE_TABLE_FUNCTION(CreateProjectedGraphFunction),
+        STANDALONE_TABLE_FUNCTION(ProjectGraphFunction),
         STANDALONE_TABLE_FUNCTION(DropProjectedGraphFunction),
 
         // Scan functions
         TABLE_FUNCTION(ParquetScanFunction), TABLE_FUNCTION(NpyScanFunction),
         TABLE_FUNCTION(SerialCSVScan), TABLE_FUNCTION(ParallelCSVScan),
-
-        // Algorithm functions
-        TABLE_FUNCTION(WeaklyConnectedComponentsFunction), TABLE_FUNCTION(SCCKosarajuFunction),
-        TABLE_FUNCTION(SCCFunction), TABLE_FUNCTION(KCoreDecompositionFunction),
-        TABLE_FUNCTION(PageRankFunction),
 
         // Export functions
         EXPORT_FUNCTION(ExportCSVFunction), EXPORT_FUNCTION(ExportParquetFunction),

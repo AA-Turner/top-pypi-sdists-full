@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""LiveKit RTC SDK"""
+"""LiveKit SDK for Python
+`pip install livekit`
+
+See https://docs.livekit.io/home/client/connect/#installing-the-livekit-sdk for more information.
+"""
 
 from ._proto import stats_pb2 as stats
 from ._proto.e2ee_pb2 import EncryptionState, EncryptionType
@@ -50,7 +54,15 @@ from .participant import (
     Participant,
     RemoteParticipant,
 )
-from .room import ConnectError, DataPacket, Room, RoomOptions, RtcConfiguration, SipDTMF
+from .room import (
+    ConnectError,
+    DataPacket,
+    Room,
+    RoomOptions,
+    RtcConfiguration,
+    SipDTMF,
+    RtcStats,
+)
 from .track import (
     AudioTrack,
     LocalAudioTrack,
@@ -123,6 +135,7 @@ __all__ = [
     "RoomOptions",
     "RtcConfiguration",
     "SipDTMF",
+    "RtcStats",
     "DataPacket",
     "LocalAudioTrack",
     "LocalVideoTrack",

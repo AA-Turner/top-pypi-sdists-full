@@ -63,9 +63,15 @@ except ImportError:
     pytz = None
 
 try:
-    from odps.src.utils_c import CMillisecondsConverter
+    from .src.utils_c import (
+        CMillisecondsConverter,
+        to_binary,
+        to_lower_str,
+        to_str,
+        to_text,
+    )
 except ImportError:
-    CMillisecondsConverter = None
+    CMillisecondsConverter = to_str = to_text = to_binary = to_lower_str = None
 
 TEMP_TABLE_PREFIX = "tmp_pyodps_"
 if six.PY3:  # make flake8 happy
@@ -184,7 +190,7 @@ def hmac_sha1(secret, data):
 
 
 def md5_hexdigest(data):
-    return md5(data).hexdigest()
+    return md5(to_binary(data)).hexdigest()
 
 
 def rshift(val, n):
@@ -502,34 +508,39 @@ def strptime_with_tz(dt, format="%Y-%m-%d %H:%M:%S"):
         return naive_dt.replace(tzinfo=FixedOffset(offset))
 
 
-def to_binary(text, encoding="utf-8"):
-    if text is None:
-        return text
-    if isinstance(text, six.text_type):
-        return text.encode(encoding)
-    elif isinstance(text, (six.binary_type, bytearray)):
-        return bytes(text)
-    else:
-        return str(text).encode(encoding) if six.PY3 else str(text)
+if to_binary is None or to_text is None or to_str is None or to_lower_str is None:
 
+    def to_binary(text, encoding="utf-8"):
+        if text is None:
+            return text
+        if isinstance(text, six.text_type):
+            return text.encode(encoding)
+        elif isinstance(text, (six.binary_type, bytearray)):
+            return bytes(text)
+        else:
+            return str(text).encode(encoding) if six.PY3 else str(text)
 
-def to_text(binary, encoding="utf-8"):
-    if binary is None:
-        return binary
-    if isinstance(binary, (six.binary_type, bytearray)):
-        return binary.decode(encoding)
-    elif isinstance(binary, six.text_type):
-        return binary
-    else:
-        return str(binary) if six.PY3 else str(binary).decode(encoding)
+    def to_text(binary, encoding="utf-8"):
+        if binary is None:
+            return binary
+        if isinstance(binary, (six.binary_type, bytearray)):
+            return binary.decode(encoding)
+        elif isinstance(binary, six.text_type):
+            return binary
+        else:
+            return str(binary) if six.PY3 else str(binary).decode(encoding)
 
+    def to_str(text, encoding="utf-8"):
+        return (
+            to_text(text, encoding=encoding)
+            if six.PY3
+            else to_binary(text, encoding=encoding)
+        )
 
-def to_str(text, encoding="utf-8"):
-    return (
-        to_text(text, encoding=encoding)
-        if six.PY3
-        else to_binary(text, encoding=encoding)
-    )
+    def to_lower_str(s, encoding="utf-8"):
+        if s is None:
+            return None
+        return to_str(s, encoding).lower()
 
 
 def get_zone_from_name(tzname):
@@ -580,7 +591,7 @@ def is_namedtuple(obj):
 
 
 def str_to_bool(s):
-    if isinstance(s, bool):
+    if isinstance(s, bool) or s is None:
         return s
     s = s.lower().strip()
     if s == "true":
@@ -769,6 +780,29 @@ def escape_odps_string(src):
         "\0": r"\0",
     }
     return "".join(trans_dict[ch] if ch in trans_dict else ch for ch in src)
+
+
+def to_odps_scalar(s):
+    try:
+        from pandas import Timestamp as pd_Timestamp
+    except ImportError:
+        pd_Timestamp = type("DummyType", (object,), {})
+
+    if s is None or (isinstance(s, float) and math.isnan(s)):
+        return "NULL"
+    if isinstance(s, six.string_types):
+        return "'%s'" % escape_odps_string(s)
+    elif isinstance(s, (datetime, pd_Timestamp)):
+        microsec = s.microsecond
+        nanosec = getattr(s, "nanosecond", 0)
+        if microsec or nanosec:
+            s = s.strftime("%Y-%m-%d %H:%M:%S.%f") + ("%03d" % nanosec)
+            out_type = "TIMESTAMP"
+        else:
+            s = s.strftime("%Y-%m-%d %H:%M:%S")
+            out_type = "DATETIME"
+        return "CAST('%s' AS %s)" % (escape_odps_string(s), out_type)
+    return str(s)
 
 
 def replace_sql_parameters(sql, ns):
@@ -1306,3 +1340,9 @@ def get_supported_python_tag(align=None):
             return "cp27"
     else:
         return "cp" + str(sys.version_info[0]) + str(sys.version_info[1])
+
+
+def chain_generator(*iterable):
+    for itr in iterable:
+        for item in itr:
+            yield item

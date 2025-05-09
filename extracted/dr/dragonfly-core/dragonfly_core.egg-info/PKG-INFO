@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dragonfly-core
-Version: 1.64.0
+Version: 1.64.2
 Summary: :dragon: dragonfly core library
 Home-page: https://github.com/ladybug-tools/dragonfly-core
 Author: Ladybug Tools
@@ -14,7 +14,7 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: honeybee-core==1.61.14
+Requires-Dist: honeybee-core==1.61.15
 Requires-Dist: dragonfly-schema==1.14.1; python_version >= "3.7"
 
 [![Build Status](https://travis-ci.com/ladybug-tools/dragonfly-core.svg?branch=master)](https://travis-ci.com/ladybug-tools/dragonfly-core)

@@ -9,7 +9,6 @@ from __future__ import annotations
 from threading import Thread
 from typing import TYPE_CHECKING, Any
 
-from scrapy import Spider
 from scrapy.commands import ScrapyCommand
 from scrapy.http import Request
 from scrapy.shell import Shell
@@ -19,13 +18,15 @@ from scrapy.utils.url import guess_scheme
 if TYPE_CHECKING:
     from argparse import ArgumentParser, Namespace
 
+    from scrapy import Spider
+
 
 class Command(ScrapyCommand):
     requires_project = False
     default_settings = {
+        "DUPEFILTER_CLASS": "scrapy.dupefilters.BaseDupeFilter",
         "KEEP_ALIVE": True,
         "LOGSTATS_INTERVAL": 0,
-        "DUPEFILTER_CLASS": "scrapy.dupefilters.BaseDupeFilter",
     }
 
     def syntax(self) -> str:
@@ -60,7 +61,6 @@ class Command(ScrapyCommand):
         """You can use this function to update the Scrapy objects that will be
         available in the shell
         """
-        pass
 
     def run(self, args: list[str], opts: Namespace) -> None:
         url = args[0] if args else None
@@ -85,7 +85,7 @@ class Command(ScrapyCommand):
         crawler._apply_settings()
         # The Shell class needs a persistent engine in the crawler
         crawler.engine = crawler._create_engine()
-        crawler.engine.start()
+        crawler.engine.start(_start_request_processing=False)
 
         self._start_crawler_thread()
 

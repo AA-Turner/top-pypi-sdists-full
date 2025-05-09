@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,70 +34,49 @@ class PageableObject(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'page_number': 'int',
         'page_size': 'int',
-        'unpaged': 'bool',
         'paged': 'bool',
+        'page_number': 'int',
+        'unpaged': 'bool',
         'offset': 'int',
         'sort': 'SortObject'
     }
 
     attribute_map = {
-        'page_number': 'pageNumber',
         'page_size': 'pageSize',
-        'unpaged': 'unpaged',
         'paged': 'paged',
+        'page_number': 'pageNumber',
+        'unpaged': 'unpaged',
         'offset': 'offset',
         'sort': 'sort'
     }
 
-    def __init__(self, page_number=None, page_size=None, unpaged=None, paged=None, offset=None, sort=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, page_size=None, paged=None, page_number=None, unpaged=None, offset=None, sort=None, local_vars_configuration=None):  # noqa: E501
         """PageableObject - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._page_number = None
         self._page_size = None
-        self._unpaged = None
         self._paged = None
+        self._page_number = None
+        self._unpaged = None
         self._offset = None
         self._sort = None
         self.discriminator = None
 
-        if page_number is not None:
-            self.page_number = page_number
         if page_size is not None:
             self.page_size = page_size
-        if unpaged is not None:
-            self.unpaged = unpaged
         if paged is not None:
             self.paged = paged
+        if page_number is not None:
+            self.page_number = page_number
+        if unpaged is not None:
+            self.unpaged = unpaged
         if offset is not None:
             self.offset = offset
         if sort is not None:
             self.sort = sort
-
-    @property
-    def page_number(self):
-        """Gets the page_number of this PageableObject.  # noqa: E501
-
-
-        :return: The page_number of this PageableObject.  # noqa: E501
-        :rtype: int
-        """
-        return self._page_number
-
-    @page_number.setter
-    def page_number(self, page_number):
-        """Sets the page_number of this PageableObject.
-
-
-        :param page_number: The page_number of this PageableObject.  # noqa: E501
-        :type: int
-        """
-
-        self._page_number = page_number
 
     @property
     def page_size(self):
@@ -121,27 +100,6 @@ class PageableObject(object):
         self._page_size = page_size
 
     @property
-    def unpaged(self):
-        """Gets the unpaged of this PageableObject.  # noqa: E501
-
-
-        :return: The unpaged of this PageableObject.  # noqa: E501
-        :rtype: bool
-        """
-        return self._unpaged
-
-    @unpaged.setter
-    def unpaged(self, unpaged):
-        """Sets the unpaged of this PageableObject.
-
-
-        :param unpaged: The unpaged of this PageableObject.  # noqa: E501
-        :type: bool
-        """
-
-        self._unpaged = unpaged
-
-    @property
     def paged(self):
         """Gets the paged of this PageableObject.  # noqa: E501
 
@@ -161,6 +119,48 @@ class PageableObject(object):
         """
 
         self._paged = paged
+
+    @property
+    def page_number(self):
+        """Gets the page_number of this PageableObject.  # noqa: E501
+
+
+        :return: The page_number of this PageableObject.  # noqa: E501
+        :rtype: int
+        """
+        return self._page_number
+
+    @page_number.setter
+    def page_number(self, page_number):
+        """Sets the page_number of this PageableObject.
+
+
+        :param page_number: The page_number of this PageableObject.  # noqa: E501
+        :type: int
+        """
+
+        self._page_number = page_number
+
+    @property
+    def unpaged(self):
+        """Gets the unpaged of this PageableObject.  # noqa: E501
+
+
+        :return: The unpaged of this PageableObject.  # noqa: E501
+        :rtype: bool
+        """
+        return self._unpaged
+
+    @unpaged.setter
+    def unpaged(self, unpaged):
+        """Sets the unpaged of this PageableObject.
+
+
+        :param unpaged: The unpaged of this PageableObject.  # noqa: E501
+        :type: bool
+        """
+
+        self._unpaged = unpaged
 
     @property
     def offset(self):

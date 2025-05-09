@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-kubernetes
-Version: 0.5.10
+Version: 0.6.0
 Summary: Prefect integrations for interacting with Kubernetes.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -25,6 +25,7 @@ Requires-Dist: kubernetes-asyncio>=32.0.0
 Requires-Dist: tenacity>=8.2.3
 Requires-Dist: exceptiongroup
 Requires-Dist: pyopenssl>=24.1.0
+Requires-Dist: kopf>=1.37.4
 Dynamic: license-file
 
 # prefect-kubernetes

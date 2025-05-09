@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aim
-Version: 3.28.0
+Version: 3.29.1
 Summary: A super-easy way to record, search and compare AI experiments.
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.7.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aim-ui==3.28.0
+Requires-Dist: aim-ui==3.29.1
 Requires-Dist: aimrecords==0.0.7
 Requires-Dist: aimrocks==0.5.*
 Requires-Dist: cachetools>=4.0.0
@@ -37,6 +37,7 @@ Requires-Dist: Pillow>=8.0.0
 Requires-Dist: packaging>=15.0
 Requires-Dist: python-dateutil
 Requires-Dist: requests
+Requires-Dist: watchdog
 Requires-Dist: websockets
 Requires-Dist: boto3
 Dynamic: classifier

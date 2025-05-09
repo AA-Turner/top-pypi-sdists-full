@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyodps
-Version: 0.12.2.2
+Version: 0.12.3
 Summary: ODPS Python SDK and data analysis framework
 Home-page: http://github.com/aliyun/aliyun-odps-python-sdk
 Author: Wu Wei

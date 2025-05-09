@@ -39,6 +39,7 @@ from worker_automate_hub.utils.util import (
     ocr_warnings,
     ocr_by_class,
     nf_busca_nf_saida,
+    nf_busca_nf_saida_mais_recente,
     pessoas_ativa_cliente_fornecedor,
     nf_devolucao_liquidar_cupom,
     status_trasmissao,
@@ -209,13 +210,26 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 )
         else:
             console.print("Não possui pop de Warning...\n")
+
+        
+        busca_nf_saida_recente = await nf_busca_nf_saida_mais_recente()
+        if busca_nf_saida_recente.sucesso == True:
+            console.log(busca_nf_saida.retorno, style="bold green")
+        else:
+            retorno = f"{busca_nf_saida_recente.retorno} \nEtapas Executadas:\n{steps}"
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=retorno,
+                status=RpaHistoricoStatusEnum.Falha, 
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+            )
         
 
         #VERIFICANDO SE O BOTÃO IR PARA A NOTA FATURA
         console.print("Verificando o status do Botão [Ir para Nota Fatura]...\n")
         try:
             btn_ir_para_nota = pyautogui.locateOnScreen(ASSETS_PATH +
-             "\\notas_saida\\ir_para_nota_a_fatura_esmaecido.png", confidence=0.8)
+             "\\notas_saida\\ir_para_nota_a_fatura_esmaecido.PNG", confidence=0.8)
             if btn_ir_para_nota:
                 console.print("Botão 'Ir para nota de faturar' inativo, seguindo com o processo...\n")
                 app = Application().connect(class_name="TFrmNotaFiscalSaida", timeout=60)

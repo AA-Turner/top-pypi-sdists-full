@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -39,6 +39,8 @@ class DomainDto(object):
         'domain': 'str',
         'verification_token': 'str',
         'dkim_tokens': 'list[str]',
+        'duplicate_records_message': 'str',
+        'has_duplicate_records': 'bool',
         'missing_records_message': 'str',
         'has_missing_records': 'bool',
         'is_verified': 'bool',
@@ -55,6 +57,8 @@ class DomainDto(object):
         'domain': 'domain',
         'verification_token': 'verificationToken',
         'dkim_tokens': 'dkimTokens',
+        'duplicate_records_message': 'duplicateRecordsMessage',
+        'has_duplicate_records': 'hasDuplicateRecords',
         'missing_records_message': 'missingRecordsMessage',
         'has_missing_records': 'hasMissingRecords',
         'is_verified': 'isVerified',
@@ -65,7 +69,7 @@ class DomainDto(object):
         'domain_type': 'domainType'
     }
 
-    def __init__(self, id=None, user_id=None, domain=None, verification_token=None, dkim_tokens=None, missing_records_message=None, has_missing_records=None, is_verified=None, domain_name_records=None, catch_all_inbox_id=None, created_at=None, updated_at=None, domain_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, user_id=None, domain=None, verification_token=None, dkim_tokens=None, duplicate_records_message=None, has_duplicate_records=None, missing_records_message=None, has_missing_records=None, is_verified=None, domain_name_records=None, catch_all_inbox_id=None, created_at=None, updated_at=None, domain_type=None, local_vars_configuration=None):  # noqa: E501
         """DomainDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -76,6 +80,8 @@ class DomainDto(object):
         self._domain = None
         self._verification_token = None
         self._dkim_tokens = None
+        self._duplicate_records_message = None
+        self._has_duplicate_records = None
         self._missing_records_message = None
         self._has_missing_records = None
         self._is_verified = None
@@ -91,6 +97,8 @@ class DomainDto(object):
         self.domain = domain
         self.verification_token = verification_token
         self.dkim_tokens = dkim_tokens
+        self.duplicate_records_message = duplicate_records_message
+        self.has_duplicate_records = has_duplicate_records
         self.missing_records_message = missing_records_message
         self.has_missing_records = has_missing_records
         self.is_verified = is_verified
@@ -220,6 +228,54 @@ class DomainDto(object):
             raise ValueError("Invalid value for `dkim_tokens`, must not be `None`")  # noqa: E501
 
         self._dkim_tokens = dkim_tokens
+
+    @property
+    def duplicate_records_message(self):
+        """Gets the duplicate_records_message of this DomainDto.  # noqa: E501
+
+        If the domain is duplicate records.  # noqa: E501
+
+        :return: The duplicate_records_message of this DomainDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._duplicate_records_message
+
+    @duplicate_records_message.setter
+    def duplicate_records_message(self, duplicate_records_message):
+        """Sets the duplicate_records_message of this DomainDto.
+
+        If the domain is duplicate records.  # noqa: E501
+
+        :param duplicate_records_message: The duplicate_records_message of this DomainDto.  # noqa: E501
+        :type: str
+        """
+
+        self._duplicate_records_message = duplicate_records_message
+
+    @property
+    def has_duplicate_records(self):
+        """Gets the has_duplicate_records of this DomainDto.  # noqa: E501
+
+        Whether the domain has duplicated required records. If true then see the domain in the dashboard app.  # noqa: E501
+
+        :return: The has_duplicate_records of this DomainDto.  # noqa: E501
+        :rtype: bool
+        """
+        return self._has_duplicate_records
+
+    @has_duplicate_records.setter
+    def has_duplicate_records(self, has_duplicate_records):
+        """Sets the has_duplicate_records of this DomainDto.
+
+        Whether the domain has duplicated required records. If true then see the domain in the dashboard app.  # noqa: E501
+
+        :param has_duplicate_records: The has_duplicate_records of this DomainDto.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and has_duplicate_records is None:  # noqa: E501
+            raise ValueError("Invalid value for `has_duplicate_records`, must not be `None`")  # noqa: E501
+
+        self._has_duplicate_records = has_duplicate_records
 
     @property
     def missing_records_message(self):

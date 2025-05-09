@@ -8,6 +8,10 @@ AdditionalContactEmailAddress = str
 AdminEmail = str
 AmazonResourceName = str
 ArchiveArn = str
+AttachmentContentDescription = str
+AttachmentContentId = str
+AttachmentContentType = str
+AttachmentFileName = str
 AttributesData = str
 BlacklistItemName = str
 BlacklistingDescription = str
@@ -102,6 +106,17 @@ UnsubscribeAll = bool
 UseCaseDescription = str
 UseDefaultIfPreferenceUnavailable = bool
 WebsiteURL = str
+
+
+class AttachmentContentDisposition(StrEnum):
+    ATTACHMENT = "ATTACHMENT"
+    INLINE = "INLINE"
+
+
+class AttachmentContentTransferEncoding(StrEnum):
+    BASE64 = "BASE64"
+    QUOTED_PRINTABLE = "QUOTED_PRINTABLE"
+    SEVEN_BIT = "SEVEN_BIT"
 
 
 class BehaviorOnMxFailure(StrEnum):
@@ -538,6 +553,22 @@ class ArchivingOptions(TypedDict, total=False):
     ArchiveArn: Optional[ArchiveArn]
 
 
+RawAttachmentData = bytes
+
+
+class Attachment(TypedDict, total=False):
+    """Contains metadata and attachment raw content."""
+
+    RawContent: RawAttachmentData
+    ContentDisposition: Optional[AttachmentContentDisposition]
+    FileName: AttachmentFileName
+    ContentDescription: Optional[AttachmentContentDescription]
+    ContentId: Optional[AttachmentContentId]
+    ContentTransferEncoding: Optional[AttachmentContentTransferEncoding]
+    ContentType: Optional[AttachmentContentType]
+
+
+AttachmentList = List[Attachment]
 Timestamp = datetime
 Dimensions = Dict[MetricDimensionName, MetricDimensionValue]
 
@@ -673,6 +704,7 @@ class Template(TypedDict, total=False):
     TemplateContent: Optional[EmailTemplateContent]
     TemplateData: Optional[EmailTemplateData]
     Headers: Optional[MessageHeaderList]
+    Attachments: Optional[AttachmentList]
 
 
 class BulkEmailContent(TypedDict, total=False):
@@ -1147,15 +1179,17 @@ class Message(TypedDict, total=False):
     Subject: Content
     Body: Body
     Headers: Optional[MessageHeaderList]
+    Attachments: Optional[AttachmentList]
 
 
 class EmailContent(TypedDict, total=False):
     """An object that defines the entire content of the email, including the
-    message headers and the body content. You can create a simple email
-    message, in which you specify the subject and the text and HTML versions
-    of the message body. You can also create raw messages, in which you
-    specify a complete MIME-formatted message. Raw messages can include
-    attachments and custom headers.
+    message headers, body content, and attachments. For a simple email
+    message, you specify the subject and provide both text and HTML versions
+    of the message body. You can also add attachments to simple and
+    templated messages. For a raw message, you provide a complete
+    MIME-formatted message, which can include custom headers and
+    attachments.
     """
 
     Simple: Optional[Message]
@@ -4445,6 +4479,10 @@ class Sesv2Api:
         **kwargs,
     ) -> ListContactListsResponse:
         """Lists all of the contact lists available.
+
+        If your output includes a "NextToken" field with a string value, this
+        indicates there may be additional contacts on the filtered list -
+        regardless of the number of contacts returned.
 
         :param page_size: Maximum number of contact lists to return at once.
         :param next_token: A string token indicating that there might be additional contact lists

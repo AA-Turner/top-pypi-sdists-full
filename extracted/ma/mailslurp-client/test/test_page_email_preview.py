@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -40,6 +40,7 @@ class TestPageEmailPreview(unittest.TestCase):
                 content = [
                     mailslurp_client.models.email_preview.EmailPreview(
                         id = '0', 
+                        inbox_id = '0', 
                         domain_id = '0', 
                         subject = '0', 
                         to = [
@@ -56,20 +57,34 @@ class TestPageEmailPreview(unittest.TestCase):
                         read = True, 
                         attachments = [
                             '0'
-                            ], )
+                            ], 
+                        thread_id = '0', 
+                        message_id = '0', 
+                        in_reply_to = '0', 
+                        sender = mailslurp_client.models.sender.Sender(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', ), 
+                        recipients = mailslurp_client.models.email_recipients.EmailRecipients(), 
+                        favourite = True, 
+                        body_part_content_types = [
+                            '0'
+                            ], 
+                        plus_address = '0', 
+                        size_bytes = 56, )
                     ], 
                 pageable = mailslurp_client.models.pageable_object.PageableObject(
-                    page_number = 56, 
                     page_size = 56, 
-                    unpaged = True, 
                     paged = True, 
+                    page_number = 56, 
+                    unpaged = True, 
                     offset = 56, 
                     sort = mailslurp_client.models.sort_object.SortObject(
                         sorted = True, 
                         unsorted = True, 
                         empty = True, ), ), 
-                total_pages = 56, 
                 total_elements = 56, 
+                total_pages = 56, 
                 last = True, 
                 number_of_elements = 56, 
                 first = True, 
@@ -83,8 +98,8 @@ class TestPageEmailPreview(unittest.TestCase):
             )
         else :
             return PageEmailPreview(
-                total_pages = 56,
                 total_elements = 56,
+                total_pages = 56,
         )
 
     def testPageEmailPreview(self):

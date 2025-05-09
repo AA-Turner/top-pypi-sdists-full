@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -37,13 +37,9 @@ class ConnectorDto(object):
         'id': 'str',
         'name': 'str',
         'enabled': 'bool',
+        'email_address': 'str',
         'user_id': 'str',
         'inbox_id': 'str',
-        'sync_enabled': 'bool',
-        'sync_schedule_type': 'str',
-        'sync_interval': 'int',
-        'has_imap_connection': 'bool',
-        'has_smtp_connection': 'bool',
         'created_at': 'datetime'
     }
 
@@ -51,17 +47,13 @@ class ConnectorDto(object):
         'id': 'id',
         'name': 'name',
         'enabled': 'enabled',
+        'email_address': 'emailAddress',
         'user_id': 'userId',
         'inbox_id': 'inboxId',
-        'sync_enabled': 'syncEnabled',
-        'sync_schedule_type': 'syncScheduleType',
-        'sync_interval': 'syncInterval',
-        'has_imap_connection': 'hasImapConnection',
-        'has_smtp_connection': 'hasSmtpConnection',
         'created_at': 'createdAt'
     }
 
-    def __init__(self, id=None, name=None, enabled=None, user_id=None, inbox_id=None, sync_enabled=None, sync_schedule_type=None, sync_interval=None, has_imap_connection=None, has_smtp_connection=None, created_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, enabled=None, email_address=None, user_id=None, inbox_id=None, created_at=None, local_vars_configuration=None):  # noqa: E501
         """ConnectorDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -70,26 +62,18 @@ class ConnectorDto(object):
         self._id = None
         self._name = None
         self._enabled = None
+        self._email_address = None
         self._user_id = None
         self._inbox_id = None
-        self._sync_enabled = None
-        self._sync_schedule_type = None
-        self._sync_interval = None
-        self._has_imap_connection = None
-        self._has_smtp_connection = None
         self._created_at = None
         self.discriminator = None
 
         self.id = id
         self.name = name
         self.enabled = enabled
+        self.email_address = email_address
         self.user_id = user_id
         self.inbox_id = inbox_id
-        self.sync_enabled = sync_enabled
-        self.sync_schedule_type = sync_schedule_type
-        self.sync_interval = sync_interval
-        self.has_imap_connection = has_imap_connection
-        self.has_smtp_connection = has_smtp_connection
         self.created_at = created_at
 
     @property
@@ -160,6 +144,27 @@ class ConnectorDto(object):
         self._enabled = enabled
 
     @property
+    def email_address(self):
+        """Gets the email_address of this ConnectorDto.  # noqa: E501
+
+
+        :return: The email_address of this ConnectorDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._email_address
+
+    @email_address.setter
+    def email_address(self, email_address):
+        """Sets the email_address of this ConnectorDto.
+
+
+        :param email_address: The email_address of this ConnectorDto.  # noqa: E501
+        :type: str
+        """
+
+        self._email_address = email_address
+
+    @property
     def user_id(self):
         """Gets the user_id of this ConnectorDto.  # noqa: E501
 
@@ -204,123 +209,6 @@ class ConnectorDto(object):
             raise ValueError("Invalid value for `inbox_id`, must not be `None`")  # noqa: E501
 
         self._inbox_id = inbox_id
-
-    @property
-    def sync_enabled(self):
-        """Gets the sync_enabled of this ConnectorDto.  # noqa: E501
-
-
-        :return: The sync_enabled of this ConnectorDto.  # noqa: E501
-        :rtype: bool
-        """
-        return self._sync_enabled
-
-    @sync_enabled.setter
-    def sync_enabled(self, sync_enabled):
-        """Sets the sync_enabled of this ConnectorDto.
-
-
-        :param sync_enabled: The sync_enabled of this ConnectorDto.  # noqa: E501
-        :type: bool
-        """
-        if self.local_vars_configuration.client_side_validation and sync_enabled is None:  # noqa: E501
-            raise ValueError("Invalid value for `sync_enabled`, must not be `None`")  # noqa: E501
-
-        self._sync_enabled = sync_enabled
-
-    @property
-    def sync_schedule_type(self):
-        """Gets the sync_schedule_type of this ConnectorDto.  # noqa: E501
-
-
-        :return: The sync_schedule_type of this ConnectorDto.  # noqa: E501
-        :rtype: str
-        """
-        return self._sync_schedule_type
-
-    @sync_schedule_type.setter
-    def sync_schedule_type(self, sync_schedule_type):
-        """Sets the sync_schedule_type of this ConnectorDto.
-
-
-        :param sync_schedule_type: The sync_schedule_type of this ConnectorDto.  # noqa: E501
-        :type: str
-        """
-        allowed_values = [None,"INTERVAL"]  # noqa: E501
-        if self.local_vars_configuration.client_side_validation and sync_schedule_type not in allowed_values:  # noqa: E501
-            raise ValueError(
-                "Invalid value for `sync_schedule_type` ({0}), must be one of {1}"  # noqa: E501
-                .format(sync_schedule_type, allowed_values)
-            )
-
-        self._sync_schedule_type = sync_schedule_type
-
-    @property
-    def sync_interval(self):
-        """Gets the sync_interval of this ConnectorDto.  # noqa: E501
-
-
-        :return: The sync_interval of this ConnectorDto.  # noqa: E501
-        :rtype: int
-        """
-        return self._sync_interval
-
-    @sync_interval.setter
-    def sync_interval(self, sync_interval):
-        """Sets the sync_interval of this ConnectorDto.
-
-
-        :param sync_interval: The sync_interval of this ConnectorDto.  # noqa: E501
-        :type: int
-        """
-
-        self._sync_interval = sync_interval
-
-    @property
-    def has_imap_connection(self):
-        """Gets the has_imap_connection of this ConnectorDto.  # noqa: E501
-
-
-        :return: The has_imap_connection of this ConnectorDto.  # noqa: E501
-        :rtype: bool
-        """
-        return self._has_imap_connection
-
-    @has_imap_connection.setter
-    def has_imap_connection(self, has_imap_connection):
-        """Sets the has_imap_connection of this ConnectorDto.
-
-
-        :param has_imap_connection: The has_imap_connection of this ConnectorDto.  # noqa: E501
-        :type: bool
-        """
-        if self.local_vars_configuration.client_side_validation and has_imap_connection is None:  # noqa: E501
-            raise ValueError("Invalid value for `has_imap_connection`, must not be `None`")  # noqa: E501
-
-        self._has_imap_connection = has_imap_connection
-
-    @property
-    def has_smtp_connection(self):
-        """Gets the has_smtp_connection of this ConnectorDto.  # noqa: E501
-
-
-        :return: The has_smtp_connection of this ConnectorDto.  # noqa: E501
-        :rtype: bool
-        """
-        return self._has_smtp_connection
-
-    @has_smtp_connection.setter
-    def has_smtp_connection(self, has_smtp_connection):
-        """Sets the has_smtp_connection of this ConnectorDto.
-
-
-        :param has_smtp_connection: The has_smtp_connection of this ConnectorDto.  # noqa: E501
-        :type: bool
-        """
-        if self.local_vars_configuration.client_side_validation and has_smtp_connection is None:  # noqa: E501
-            raise ValueError("Invalid value for `has_smtp_connection`, must not be `None`")  # noqa: E501
-
-        self._has_smtp_connection = has_smtp_connection
 
     @property
     def created_at(self):

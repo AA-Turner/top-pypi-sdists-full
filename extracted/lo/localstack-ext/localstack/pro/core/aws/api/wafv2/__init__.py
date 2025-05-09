@@ -545,6 +545,7 @@ class ResourceType(StrEnum):
     COGNITO_USER_POOL = "COGNITO_USER_POOL"
     APP_RUNNER_SERVICE = "APP_RUNNER_SERVICE"
     VERIFIED_ACCESS_INSTANCE = "VERIFIED_ACCESS_INSTANCE"
+    AMPLIFY = "AMPLIFY"
 
 
 class ResponseContentType(StrEnum):
@@ -3384,7 +3385,8 @@ class WebACL(TypedDict, total=False):
     Web Services resources to protect. The resource types include Amazon
     CloudFront distribution, Amazon API Gateway REST API, Application Load
     Balancer, AppSync GraphQL API, Amazon Cognito user pool, App Runner
-    service, and Amazon Web Services Verified Access instance.
+    service, Amplify application, and Amazon Web Services Verified Access
+    instance.
     """
 
     Name: EntityName
@@ -3413,9 +3415,10 @@ class GetWebACLForResourceResponse(TypedDict, total=False):
 
 
 class GetWebACLRequest(ServiceRequest):
-    Name: EntityName
-    Scope: Scope
-    Id: EntityId
+    Name: Optional[EntityName]
+    Scope: Optional[Scope]
+    Id: Optional[EntityId]
+    ARN: Optional[ResourceArn]
 
 
 class GetWebACLResponse(TypedDict, total=False):
@@ -4087,7 +4090,8 @@ class Wafv2Api:
         Web Services resources to protect. The resource types include Amazon
         CloudFront distribution, Amazon API Gateway REST API, Application Load
         Balancer, AppSync GraphQL API, Amazon Cognito user pool, App Runner
-        service, and Amazon Web Services Verified Access instance.
+        service, Amplify application, and Amazon Web Services Verified Access
+        instance.
 
         :param name: The name of the web ACL.
         :param scope: Specifies whether this is for a global resource type, such as a Amazon
@@ -4752,7 +4756,13 @@ class Wafv2Api:
 
     @handler("GetWebACL")
     def get_web_acl(
-        self, context: RequestContext, name: EntityName, scope: Scope, id: EntityId, **kwargs
+        self,
+        context: RequestContext,
+        name: EntityName = None,
+        scope: Scope = None,
+        id: EntityId = None,
+        arn: ResourceArn = None,
+        **kwargs,
     ) -> GetWebACLResponse:
         """Retrieves the specified WebACL.
 
@@ -4760,6 +4770,7 @@ class Wafv2Api:
         :param scope: Specifies whether this is for a global resource type, such as a Amazon
         CloudFront distribution.
         :param id: The unique identifier for the web ACL.
+        :param arn: The Amazon Resource Name (ARN) of the web ACL that you want to retrieve.
         :returns: GetWebACLResponse
         :raises WAFInternalErrorException:
         :raises WAFInvalidParameterException:
@@ -5683,7 +5694,8 @@ class Wafv2Api:
         Web Services resources to protect. The resource types include Amazon
         CloudFront distribution, Amazon API Gateway REST API, Application Load
         Balancer, AppSync GraphQL API, Amazon Cognito user pool, App Runner
-        service, and Amazon Web Services Verified Access instance.
+        service, Amplify application, and Amazon Web Services Verified Access
+        instance.
 
         **Temporary inconsistencies during updates**
 

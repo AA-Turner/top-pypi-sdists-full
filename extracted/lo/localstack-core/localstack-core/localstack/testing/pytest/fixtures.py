@@ -67,6 +67,38 @@ if TYPE_CHECKING:
     from mypy_boto3_sqs.type_defs import MessageTypeDef
 
 
+@pytest.fixture(scope="session")
+def aws_client_no_retry(aws_client_factory):
+    """
+    This fixture can be used to obtain Boto clients with disabled retries for testing.
+    botocore docs: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html#configuring-a-retry-mode
+
+    Use this client when testing exceptions (i.e., with pytest.raises(...)) or expected errors (e.g., status code 500)
+    to avoid unnecessary retries and mitigate test flakiness if the tested error condition is time-bound.
+
+    This client is needed for the following errors, exceptions, and HTTP status codes defined by the legacy retry mode:
+    https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html#legacy-retry-mode
+    General socket/connection errors:
+    * ConnectionError
+    * ConnectionClosedError
+    * ReadTimeoutError
+    * EndpointConnectionError
+
+    Service-side throttling/limit errors and exceptions:
+    * Throttling
+    * ThrottlingException
+    * ThrottledException
+    * RequestThrottledException
+    * ProvisionedThroughputExceededException
+
+    HTTP status codes: 429, 500, 502, 503, 504, and 509
+
+    Hence, this client is not needed for a `ResourceNotFound` error (but it doesn't harm).
+    """
+    no_retry_config = botocore.config.Config(retries={"max_attempts": 1})
+    return aws_client_factory(config=no_retry_config)
+
+
 @pytest.fixture(scope="class")
 def aws_http_client_factory(aws_session):
     """
@@ -1939,6 +1971,30 @@ def ses_verify_identity(aws_client):
 
     for identity in identities:
         aws_client.ses.delete_identity(Identity=identity)
+
+
+@pytest.fixture
+def setup_sender_email_address(ses_verify_identity):
+    """
+    If the test is running against AWS then assume the email address passed is already
+    verified, and passes the given email address through. Otherwise, it generates one random
+    email address and verify them.
+    """
+
+    def inner(sender_email_address: Optional[str] = None) -> str:
+        if is_aws_cloud():
+            if sender_email_address is None:
+                raise ValueError(
+                    "sender_email_address must be specified to run this test against AWS"
+                )
+        else:
+            # overwrite the given parameters with localstack specific ones
+            sender_email_address = f"sender-{short_uid()}@example.com"
+            ses_verify_identity(sender_email_address)
+
+        return sender_email_address
+
+    return inner
 
 
 @pytest.fixture

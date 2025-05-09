@@ -81,6 +81,11 @@ class EFSTransitEncryption(StrEnum):
     DISABLED = "DISABLED"
 
 
+class FirelensConfigurationType(StrEnum):
+    fluentd = "fluentd"
+    fluentbit = "fluentbit"
+
+
 class JQState(StrEnum):
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
@@ -126,6 +131,7 @@ class LogDriver(StrEnum):
     fluentd = "fluentd"
     awslogs = "awslogs"
     splunk = "splunk"
+    awsfirelens = "awsfirelens"
 
 
 class OrchestrationType(StrEnum):
@@ -284,8 +290,9 @@ JobExecutionTimeoutMinutes = int
 
 
 class UpdatePolicy(TypedDict, total=False):
-    """Specifies the infrastructure update policy for the compute environment.
-    For more information about infrastructure updates, see `Updating compute
+    """Specifies the infrastructure update policy for the Amazon EC2 compute
+    environment. For more information about infrastructure updates, see
+    `Updating compute
     environments <https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html>`__
     in the *Batch User Guide*.
     """
@@ -739,6 +746,7 @@ class ContainerDetail(TypedDict, total=False):
     ephemeralStorage: Optional[EphemeralStorage]
     runtimePlatform: Optional[RuntimePlatform]
     repositoryCredentials: Optional[RepositoryCredentials]
+    enableExecuteCommand: Optional[Boolean]
 
 
 class ContainerOverrides(TypedDict, total=False):
@@ -783,6 +791,7 @@ class ContainerProperties(TypedDict, total=False):
     secrets: Optional[SecretList]
     networkConfiguration: Optional[NetworkConfiguration]
     fargatePlatformConfiguration: Optional[FargatePlatformConfiguration]
+    enableExecuteCommand: Optional[Boolean]
     ephemeralStorage: Optional[EphemeralStorage]
     runtimePlatform: Optional[RuntimePlatform]
     repositoryCredentials: Optional[RepositoryCredentials]
@@ -862,9 +871,9 @@ class CreateJobQueueResponse(TypedDict, total=False):
 
 
 class ShareAttributes(TypedDict, total=False):
-    """Specifies the weights for the fair share identifiers for the fair share
-    policy. Fair share identifiers that aren't included have a default
-    weight of ``1.0``.
+    """Specifies the weights for the share identifiers for the fair-share
+    policy. Share identifiers that aren't included have a default weight of
+    ``1.0``.
     """
 
     shareIdentifier: String
@@ -875,7 +884,7 @@ ShareAttributesList = List[ShareAttributes]
 
 
 class FairsharePolicy(TypedDict, total=False):
-    """The fair share policy for a scheduling policy."""
+    """The fair-share scheduling policy details."""
 
     shareDecaySeconds: Optional[Integer]
     computeReservation: Optional[Integer]
@@ -1173,6 +1182,17 @@ class EksProperties(TypedDict, total=False):
     podProperties: Optional[EksPodProperties]
 
 
+FirelensConfigurationOptionsMap = Dict[String, String]
+FirelensConfiguration = TypedDict(
+    "FirelensConfiguration",
+    {
+        "type": FirelensConfigurationType,
+        "options": Optional[FirelensConfigurationOptionsMap],
+    },
+    total=False,
+)
+
+
 class TaskContainerDependency(TypedDict, total=False):
     """A list of containers that this task depends on."""
 
@@ -1193,6 +1213,7 @@ class TaskContainerProperties(TypedDict, total=False):
     dependsOn: Optional[TaskContainerDependencyList]
     environment: Optional[EnvironmentVariables]
     essential: Optional[Boolean]
+    firelensConfiguration: Optional[FirelensConfiguration]
     image: String
     linuxParameters: Optional[LinuxParameters]
     logConfiguration: Optional[LogConfiguration]
@@ -1227,6 +1248,7 @@ class EcsTaskProperties(TypedDict, total=False):
     networkConfiguration: Optional[NetworkConfiguration]
     runtimePlatform: Optional[RuntimePlatform]
     volumes: Optional[Volumes]
+    enableExecuteCommand: Optional[Boolean]
 
 
 ListEcsTaskProperties = List[EcsTaskProperties]
@@ -1381,6 +1403,7 @@ class TaskContainerDetails(TypedDict, total=False):
     dependsOn: Optional[TaskContainerDependencyList]
     environment: Optional[EnvironmentVariables]
     essential: Optional[Boolean]
+    firelensConfiguration: Optional[FirelensConfiguration]
     image: Optional[String]
     linuxParameters: Optional[LinuxParameters]
     logConfiguration: Optional[LogConfiguration]
@@ -1419,6 +1442,7 @@ class EcsTaskDetails(TypedDict, total=False):
     networkConfiguration: Optional[NetworkConfiguration]
     runtimePlatform: Optional[RuntimePlatform]
     volumes: Optional[Volumes]
+    enableExecuteCommand: Optional[Boolean]
 
 
 ListEcsTaskDetails = List[EcsTaskDetails]
@@ -2217,7 +2241,7 @@ class BatchApi:
         :param compute_environment_order: The set of compute environments mapped to a job queue and their order
         relative to each other.
         :param state: The state of the job queue.
-        :param scheduling_policy_arn: The Amazon Resource Name (ARN) of the fair share scheduling policy.
+        :param scheduling_policy_arn: The Amazon Resource Name (ARN) of the fair-share scheduling policy.
         :param tags: The tags that you apply to the job queue to help you categorize and
         organize your resources.
         :param job_state_time_limit_actions: The set of actions that Batch performs on jobs that remain at the head
@@ -2239,8 +2263,8 @@ class BatchApi:
     ) -> CreateSchedulingPolicyResponse:
         """Creates an Batch scheduling policy.
 
-        :param name: The name of the scheduling policy.
-        :param fairshare_policy: The fair share policy of the scheduling policy.
+        :param name: The name of the fair-share scheduling policy.
+        :param fairshare_policy: The fair-share scheduling policy details.
         :param tags: The tags that you apply to the scheduling policy to help you categorize
         and organize your resources.
         :returns: CreateSchedulingPolicyResponse
@@ -2667,7 +2691,7 @@ class BatchApi:
         parameters in a ``resourceRequirements`` object that's included in the
         ``containerOverrides`` parameter.
 
-        Job queues with a scheduling policy are limited to 500 active fair share
+        Job queues with a scheduling policy are limited to 500 active share
         identifiers at a time.
 
         Jobs that run on Fargate resources can't be guaranteed to run for more
@@ -2825,7 +2849,7 @@ class BatchApi:
 
         :param job_queue: The name or the Amazon Resource Name (ARN) of the job queue.
         :param state: Describes the queue's ability to accept new jobs.
-        :param scheduling_policy_arn: Amazon Resource Name (ARN) of the fair share scheduling policy.
+        :param scheduling_policy_arn: Amazon Resource Name (ARN) of the fair-share scheduling policy.
         :param priority: The priority of the job queue.
         :param compute_environment_order: Details the set of compute environments mapped to a job queue and their
         order relative to each other.
@@ -2848,7 +2872,7 @@ class BatchApi:
         """Updates a scheduling policy.
 
         :param arn: The Amazon Resource Name (ARN) of the scheduling policy to update.
-        :param fairshare_policy: The fair share policy.
+        :param fairshare_policy: The fair-share policy scheduling details.
         :returns: UpdateSchedulingPolicyResponse
         :raises ClientException:
         :raises ServerException:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: phonenumbers
-Version: 9.0.4
+Version: 9.0.5
 Summary: Python version of Google's common library for parsing, formatting, storing and validating international phone numbers.
 Home-page: https://github.com/daviddrysdale/python-phonenumbers
 Author: David Drysdale

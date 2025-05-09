@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import warnings
 from datetime import datetime
 
@@ -27,6 +28,7 @@ from .. import types as odps_types
 from .. import utils
 from ..compat import Enum, dir2, six
 from ..config import options
+from ..expressions import parse as parse_expression
 from .cluster_info import ClusterInfo
 from .core import JSONRemoteModel, LazyLoad
 from .partitions import Partitions
@@ -39,6 +41,8 @@ from .tableio import (
     TableRecordWriter,
     TableUpsertWriter,
 )
+
+_auto_part_regex = re.compile(r"^\S+\([^\)]+\)\s*AS\s*", re.I)
 
 
 class TableSchema(odps_types.OdpsSchema, JSONRemoteModel):
@@ -75,9 +79,13 @@ class TableSchema(odps_types.OdpsSchema, JSONRemoteModel):
         comment = serializers.JSONNodeField("comment")
         label = serializers.JSONNodeField("label")
         nullable = serializers.JSONNodeField("isNullable")
+        _generate_expression = serializers.JSONNodeField("generateExpression")
 
         def __init__(self, **kwargs):
             kwargs.setdefault("nullable", True)
+            self._parsed_generate_expression = None
+            if "generate_expression" in kwargs:
+                self._generate_expression = kwargs.pop("generate_expression")
             JSONRemoteModel.__init__(self, **kwargs)
             if self.type is not None:
                 self.type = odps_types.validate_data_type(self.type)
@@ -148,6 +156,9 @@ class TableSchema(odps_types.OdpsSchema, JSONRemoteModel):
     resources = serializers.JSONNodeField("resources", set_to_parent=True)
     serde_properties = serializers.JSONNodeField(
         "serDeProperties", type="json", set_to_parent=True
+    )
+    table_properties = serializers.JSONNodeField(
+        "tableProperties", type="json", set_to_parent=True
     )
     reserved = serializers.JSONNodeField("Reserved", type="json", set_to_parent=True)
     shard = serializers.JSONNodeReferenceField(
@@ -241,6 +252,7 @@ class Table(LazyLoad):
         "size",
         "shard",
         "record_num",
+        "table_properties",
         "_table_tunnel",
         "_id_thread_local",
     )
@@ -427,6 +439,21 @@ class Table(LazyLoad):
 
         return super(Table, self).__getattribute__(attr)
 
+    def _get_column_generate_expression(self, column_name):
+        if self.table_schema[column_name].generate_expression is not None:
+            return self.table_schema[column_name].generate_expression
+        else:
+            table_props = self.table_properties or {}
+            if column_name.lower() == "_partitiontime" and utils.str_to_bool(
+                table_props.get("ingestion_time_partition")
+            ):
+                col_expr = (
+                    '[{"functionCall":{"name":"current_timestamp_ntz","type":"%s"}}]'
+                    % str(self.table_schema[column_name].type)
+                )
+                return parse_expression(col_expr)
+        return None
+
     def _repr(self):
         buf = six.StringIO()
 
@@ -435,8 +462,10 @@ class Table(LazyLoad):
         if self.type:
             buf.write("  type: {0}\n".format(self.type.value))
 
-        name_space = 2 * max(len(col.name) for col in self.table_schema.columns)
-        type_space = 2 * max(len(repr(col.type)) for col in self.table_schema.columns)
+        max_name_len = max(len(col.name) for col in self.table_schema.columns)
+        name_space = max_name_len + min(max_name_len, 16)
+        max_type_len = max(len(repr(col.type)) for col in self.table_schema.columns)
+        type_space = max_type_len + min(max_type_len, 16)
 
         not_empty = lambda field: field is not None and len(field.strip()) > 0
 
@@ -450,7 +479,7 @@ class Table(LazyLoad):
                     "# {0}".format(utils.to_str(col.comment))
                     if not_empty(col.comment)
                     else "",
-                )
+                ).strip()
             )
         buf.write(utils.indent("\n".join(cols_strs), 4))
         buf.write("\n")
@@ -467,7 +496,7 @@ class Table(LazyLoad):
                         "# {0}".format(utils.to_str(partition.comment))
                         if not_empty(partition.comment)
                         else "",
-                    )
+                    ).strip()
                 )
             buf.write(utils.indent("\n".join(partition_strs), 4))
 
@@ -516,6 +545,7 @@ class Table(LazyLoad):
         output_format = kw.get("output_format")
         table_properties = kw.get("table_properties") or {}
         cluster_info = kw.get("cluster_info")
+        use_auto_partitioning = kw.get("use_auto_partitioning")
 
         rewrite_enabled = kw.get("rewrite_enabled")
         rewrite_enabled = rewrite_enabled if rewrite_enabled is not None else True
@@ -564,10 +594,17 @@ class Table(LazyLoad):
             buf.write(u"\n)\n")
             if comment:
                 buf.write(u"COMMENT '%s'\n" % utils.escape_odps_string(comment))
-            buf.write(u"PARTITIONED BY ")
-            buf.write(u"(\n")
-            buf.write(table_schema[1])
-            buf.write(u"\n)\n")
+
+            if len(table_schema) > 1 and table_schema[1]:
+                if (
+                    use_auto_partitioning is None
+                    and _auto_part_regex.search(table_schema[1])
+                ) or use_auto_partitioning:
+                    buf.write(u"AUTO \n")
+                buf.write(u"PARTITIONED BY ")
+                buf.write(u"(\n")
+                buf.write(table_schema[1])
+                buf.write(u"\n)\n")
         else:
 
             def write_columns(col_array, with_pk=False):
@@ -605,13 +642,28 @@ class Table(LazyLoad):
                 buf.write(u"COMMENT '%s'\n" % comment_str)
             if table_type == cls.Type.MATERIALIZED_VIEW and not rewrite_enabled:
                 buf.write(u"DISABLE REWRITE\n")
-            if table_schema.partitions:
+
+            manual_parts, auto_parts = [], []
+            for p in table_schema.partitions or []:
+                if p.generate_expression is None:
+                    manual_parts.append(p)
+                else:
+                    auto_parts.append(p)
+            if manual_parts and auto_parts:
+                raise ValueError(
+                    "Auto partitioning and manual partitioning can not coexist"
+                )
+
+            if manual_parts:
                 if not is_view:
                     buf.write(u"PARTITIONED BY ")
-                    write_columns(table_schema.partitions)
+                    write_columns(manual_parts)
                 else:
                     buf.write(u"PARTITIONED ON ")
-                    write_view_columns(table_schema.partitions)
+                    write_view_columns(manual_parts)
+            if auto_parts:
+                buf.write(u"AUTO PARTITIONED BY ")
+                write_columns(auto_parts)
 
         if cluster_info is not None:
             buf.write(cluster_info.to_sql_clause())
@@ -628,9 +680,18 @@ class Table(LazyLoad):
 
         if table_properties:
             buf.write(u"TBLPROPERTIES (\n")
-            for k, v in table_properties.items():
-                buf.write(u'  "%s"="%s"' % (k, v))
-            buf.write(u"\n)\n")
+            for idx, (k, v) in enumerate(
+                sorted(table_properties.items(), key=lambda x: x[0])
+            ):
+                k = utils.escape_odps_string(utils.to_text(k))
+                if isinstance(v, bool):
+                    v = "true" if v else "false"
+                v = utils.escape_odps_string(utils.to_text(v))
+                buf.write(u"  '%s' = '%s'" % (k, v))
+                if idx + 1 < len(table_properties):
+                    buf.write(u",")
+                buf.write(u"\n")
+            buf.write(u")\n")
 
         serde_properties = kw.get("serde_properties")
         resources = kw.get("resources")
@@ -646,14 +707,14 @@ class Table(LazyLoad):
                 )
             if serde_properties:
                 buf.write(u"WITH SERDEPROPERTIES (\n")
-                for idx, k in enumerate(serde_properties):
-                    buf.write(
-                        u"  '%s' = '%s'"
-                        % (
-                            utils.escape_odps_string(k),
-                            utils.escape_odps_string(serde_properties[k]),
-                        )
-                    )
+                for idx, (k, v) in enumerate(
+                    sorted(serde_properties.items(), key=lambda x: x[0])
+                ):
+                    k = utils.escape_odps_string(utils.to_text(k))
+                    if isinstance(v, bool):
+                        v = "true" if v else "false"
+                    v = utils.escape_odps_string(utils.to_text(v))
+                    buf.write(u"  '%s' = '%s'" % (k, v))
                     if idx + 1 < len(serde_properties):
                         buf.write(u",")
                     buf.write(u"\n")
@@ -728,6 +789,7 @@ class Table(LazyLoad):
             project=self.project.name,
             storage_handler=self.storage_handler,
             serde_properties=self.serde_properties,
+            table_properties=self.table_properties,
             stored_as=stored_as,
             row_format_serde=row_format_serde,
             input_format=input_format,
@@ -1122,11 +1184,11 @@ class Table(LazyLoad):
             raise ValueError(
                 "You must specify a partition when calling to_pandas on a partitioned table"
             )
-        kwargs.pop("arrow", None)
+        arrow = kwargs.pop("arrow", True)
         with self.open_reader(
             partition=partition,
             columns=columns,
-            arrow=True,
+            arrow=arrow,
             quota_name=quota_name,
             append_partitions=append_partitions,
             tags=tags,

@@ -213,22 +213,16 @@ class ServiceQuotaExceededException(ServiceException):
 
 
 class DeletionProtectionSettings(TypedDict, total=False):
-    """A parameter to configure deletion protection. If enabled, deletion
-    protection prevents a user from deleting a configuration profile or an
-    environment if AppConfig has called either
+    """A parameter to configure deletion protection. Deletion protection
+    prevents a user from deleting a configuration profile or an environment
+    if AppConfig has called either
     `GetLatestConfiguration <https://docs.aws.amazon.com/appconfig/2019-10-09/APIReference/API_appconfigdata_GetLatestConfiguration.html>`__
     or for the configuration profile or from the environment during the
     specified interval.
 
-    This setting uses the following default values:
-
-    -  Deletion protection is disabled by default.
-
-    -  The default interval specified by ``ProtectionPeriodInMinutes`` is
-       60.
-
-    -  ``DeletionProtectionCheck`` skips configuration profiles and
-       environments that were created in the past hour.
+    The default interval specified by ``ProtectionPeriodInMinutes`` is 60.
+    ``DeletionProtectionCheck`` skips configuration profiles and
+    environments that were created in the past hour.
     """
 
     Enabled: Optional[Boolean]

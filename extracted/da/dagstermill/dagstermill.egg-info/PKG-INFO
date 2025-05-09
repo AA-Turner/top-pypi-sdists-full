@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagstermill
-Version: 0.26.13
+Version: 0.26.14
 Summary: run notebooks using the Dagster tools
 Author: Dagster Labs
 Author-email: hello@dagsterlabs.com
@@ -12,7 +12,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
 License-File: LICENSE
-Requires-Dist: dagster==1.10.13
+Requires-Dist: dagster==1.10.14
 Requires-Dist: ipykernel!=5.4.0,!=5.4.1,>=4.9.0
 Requires-Dist: ipython_genutils>=0.2.0
 Requires-Dist: packaging>=20.9

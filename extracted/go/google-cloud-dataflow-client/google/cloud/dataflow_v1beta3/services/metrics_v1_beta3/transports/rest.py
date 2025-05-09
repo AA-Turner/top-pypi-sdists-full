@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ from google.api_core import gapic_v1, rest_helpers, rest_streaming
 from google.api_core import retry as retries
 from google.auth import credentials as ga_credentials  # type: ignore
 from google.auth.transport.requests import AuthorizedSession  # type: ignore
+import google.protobuf
 from google.protobuf import json_format
 from requests import __version__ as requests_version
 
@@ -51,6 +52,9 @@ DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     grpc_version=None,
     rest_version=f"requests@{requests_version}",
 )
+
+if hasattr(DEFAULT_CLIENT_INFO, "protobuf_runtime_version"):  # pragma: NO COVER
+    DEFAULT_CLIENT_INFO.protobuf_runtime_version = google.protobuf.__version__
 
 
 class MetricsV1Beta3RestInterceptor:
@@ -528,17 +532,16 @@ class MetricsV1Beta3RestTransport(_BaseMetricsV1Beta3RestTransport):
 
             Returns:
                 ~.metrics.JobMetrics:
-                    JobMetrics contains a collection of
-                metrics describing the detailed progress
-                of a Dataflow job. Metrics correspond to
-                user-defined and system-defined metrics
-                in the job.
+                    JobMetrics contains a collection of metrics describing
+                the detailed progress of a Dataflow job. Metrics
+                correspond to user-defined and system-defined metrics in
+                the job. For more information, see [Dataflow job
+                metrics]
+                (https://cloud.google.com/dataflow/docs/guides/using-monitoring-intf).
 
-                This resource captures only the most
-                recent values of each metric;
-                time-series data can be queried for them
-                (under the same metric names) from Cloud
-                Monitoring.
+                This resource captures only the most recent values of
+                each metric; time-series data can be queried for them
+                (under the same metric names) from Cloud Monitoring.
 
             """
 

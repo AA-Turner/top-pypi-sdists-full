@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-agents
-Version: 1.0.19
+Version: 1.0.20
 Summary: A powerful framework for building realtime voice AI agents
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -72,6 +72,8 @@ Provides-Extra: hume
 Requires-Dist: livekit-plugins-hume>=1.0.19; extra == 'hume'
 Provides-Extra: images
 Requires-Dist: pillow>=10.3.0; extra == 'images'
+Provides-Extra: mcp
+Requires-Dist: mcp<2,>=1.6.0; (python_version >= '3.10') and extra == 'mcp'
 Provides-Extra: neuphonic
 Requires-Dist: livekit-plugins-neuphonic>=1.0.19; extra == 'neuphonic'
 Provides-Extra: nltk
@@ -96,6 +98,40 @@ Provides-Extra: turn-detector
 Requires-Dist: livekit-plugins-turn-detector>=1.0.19; extra == 'turn-detector'
 Description-Content-Type: text/markdown
 
-# LiveKit Agents
+# LiveKit Agents for Python
 
-The core LiveKit Agents Framework. See top-level README for more information.
+Realtime framework for production-grade multimodal and voice AI agents.
+
+See [https://docs.livekit.io/agents/](https://docs.livekit.io/agents/) for quickstarts, documentation, and examples.
+
+```python
+from dotenv import load_dotenv
+
+from livekit import agents
+from livekit.agents import AgentSession, Agent, RoomInputOptions
+from livekit.plugins import openai
+
+load_dotenv()
+
+async def entrypoint(ctx: agents.JobContext):
+    await ctx.connect()
+
+    session = AgentSession(
+        llm=openai.realtime.RealtimeModel(
+            voice="coral"
+        )
+    )
+
+    await session.start(
+        room=ctx.room,
+        agent=Agent(instructions="You are a helpful voice AI assistant.")
+    )
+
+    await session.generate_reply(
+        instructions="Greet the user and offer your assistance."
+    )
+
+
+if __name__ == "__main__":
+    agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
+```

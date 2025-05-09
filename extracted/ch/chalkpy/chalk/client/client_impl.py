@@ -364,7 +364,7 @@ def _validate_offline_query_inputs(
             elif length != len(list(v)):
                 raise ChalkBaseException(
                     errors=[
-                        ChalkError(
+                        ChalkError.create(
                             code=ErrorCode.VALIDATION_FAILED,
                             message=(
                                 f"This query specified {length} output row{s(length)}, "
@@ -461,7 +461,7 @@ def _offline_query_inputs_to_parquet(
             if len(single_input_times) != len(input_table):
                 raise ChalkBaseException(
                     errors=[
-                        ChalkError(
+                        ChalkError.create(
                             code=ErrorCode.VALIDATION_FAILED,
                             message=(
                                 f"This query specified {len(input_table)} output row{s(len(input_table))}, "
@@ -1173,7 +1173,7 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
             elif status_code == 403:
                 known_error_code = ErrorCode.UNAUTHORIZED
 
-            chalk_error = ChalkError(
+            chalk_error = ChalkError.create(
                 code=known_error_code or ErrorCode.INTERNAL_SERVER_ERROR,
                 message=f"{status_code} {detail}",
             )
@@ -1560,7 +1560,7 @@ https://docs.chalk.ai/cli/apply
             return e.errors
         except Exception as e:
             return [
-                ChalkError(
+                ChalkError.create(
                     code=ErrorCode.INVALID_QUERY,
                     message="Client failed to convert inputs to a multi-upload request",
                     exception=ChalkException(
@@ -1857,7 +1857,7 @@ https://docs.chalk.ai/cli/apply
                 groups_dfs = None
                 query_meta = QueryMeta(**json.loads(single_feather_result.meta)) if single_feather_result.meta else None
                 errors = (
-                    [ChalkError(**json.loads(error_json_str)) for error_json_str in single_feather_result.errors]
+                    [ChalkError.create(**json.loads(error_json_str)) for error_json_str in single_feather_result.errors]
                     if single_feather_result.errors
                     else None
                 )
@@ -1998,7 +1998,7 @@ https://docs.chalk.ai/cli/apply
             groups_dfs = None
             query_meta = QueryMeta(**json.loads(single_feather_result.meta)) if single_feather_result.meta else None
             errors = (
-                [ChalkError(**json.loads(error_json_str)) for error_json_str in single_feather_result.errors]
+                [ChalkError.create(**json.loads(error_json_str)) for error_json_str in single_feather_result.errors]
                 if single_feather_result.errors
                 else None
             )

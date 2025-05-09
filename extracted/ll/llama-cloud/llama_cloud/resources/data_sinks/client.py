@@ -82,6 +82,19 @@ class DataSinksClient:
             - organization_id: typing.Optional[str].
 
             - request: DataSinkCreate.
+        ---
+        from llama_cloud import ConfigurableDataSinkNames, DataSinkCreate
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.data_sinks.create_data_sink(
+            request=DataSinkCreate(
+                name="string",
+                sink_type=ConfigurableDataSinkNames.PINECONE,
+            ),
+        )
         """
         _response = self._client_wrapper.httpx_client.request(
             "POST",
@@ -118,6 +131,19 @@ class DataSinksClient:
             - organization_id: typing.Optional[str].
 
             - request: DataSinkCreate.
+        ---
+        from llama_cloud import ConfigurableDataSinkNames, DataSinkCreate
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.data_sinks.upsert_data_sink(
+            request=DataSinkCreate(
+                name="string",
+                sink_type=ConfigurableDataSinkNames.PINECONE,
+            ),
+        )
         """
         _response = self._client_wrapper.httpx_client.request(
             "PUT",
@@ -143,6 +169,15 @@ class DataSinksClient:
 
         Parameters:
             - data_sink_id: str.
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.data_sinks.get_data_sink(
+            data_sink_id="string",
+        )
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
@@ -178,7 +213,18 @@ class DataSinksClient:
 
             - sink_type: ConfigurableDataSinkNames.
 
-            - component: typing.Optional[DataSinkUpdateComponent].
+            - component: typing.Optional[DataSinkUpdateComponent]. Component that implements the data sink
+        ---
+        from llama_cloud import ConfigurableDataSinkNames
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.data_sinks.update_data_sink(
+            data_sink_id="string",
+            sink_type=ConfigurableDataSinkNames.PINECONE,
+        )
         """
         _request: typing.Dict[str, typing.Any] = {"sink_type": sink_type}
         if name is not OMIT:
@@ -290,6 +336,19 @@ class AsyncDataSinksClient:
             - organization_id: typing.Optional[str].
 
             - request: DataSinkCreate.
+        ---
+        from llama_cloud import ConfigurableDataSinkNames, DataSinkCreate
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.data_sinks.create_data_sink(
+            request=DataSinkCreate(
+                name="string",
+                sink_type=ConfigurableDataSinkNames.PINECONE,
+            ),
+        )
         """
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
@@ -326,6 +385,19 @@ class AsyncDataSinksClient:
             - organization_id: typing.Optional[str].
 
             - request: DataSinkCreate.
+        ---
+        from llama_cloud import ConfigurableDataSinkNames, DataSinkCreate
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.data_sinks.upsert_data_sink(
+            request=DataSinkCreate(
+                name="string",
+                sink_type=ConfigurableDataSinkNames.PINECONE,
+            ),
+        )
         """
         _response = await self._client_wrapper.httpx_client.request(
             "PUT",
@@ -351,6 +423,15 @@ class AsyncDataSinksClient:
 
         Parameters:
             - data_sink_id: str.
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.data_sinks.get_data_sink(
+            data_sink_id="string",
+        )
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",
@@ -386,7 +467,18 @@ class AsyncDataSinksClient:
 
             - sink_type: ConfigurableDataSinkNames.
 
-            - component: typing.Optional[DataSinkUpdateComponent].
+            - component: typing.Optional[DataSinkUpdateComponent]. Component that implements the data sink
+        ---
+        from llama_cloud import ConfigurableDataSinkNames
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.data_sinks.update_data_sink(
+            data_sink_id="string",
+            sink_type=ConfigurableDataSinkNames.PINECONE,
+        )
         """
         _request: typing.Dict[str, typing.Any] = {"sink_type": sink_type}
         if name is not OMIT:

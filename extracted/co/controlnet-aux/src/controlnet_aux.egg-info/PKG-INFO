@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
-Name: controlnet-aux
-Version: 0.0.9
+Metadata-Version: 2.2
+Name: controlnet_aux
+Version: 0.0.10
 Summary: Auxillary models for controlnet
 Home-page: https://github.com/patrickvonplaten/controlnet_aux
 Author: The HuggingFace team
@@ -21,6 +21,29 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.7.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Requires-Dist: torch
+Requires-Dist: importlib_metadata
+Requires-Dist: huggingface_hub
+Requires-Dist: scipy
+Requires-Dist: opencv-python-headless
+Requires-Dist: filelock
+Requires-Dist: numpy
+Requires-Dist: Pillow
+Requires-Dist: einops
+Requires-Dist: torchvision
+Requires-Dist: timm
+Requires-Dist: scikit-image
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # ControlNet auxiliary models
 
@@ -32,18 +55,26 @@ All credit & copyright goes to <https://github.com/lllyasviel> .
 
 ## Install
 
-```
+```bash
 pip install -U controlnet-aux
 ```
 
-To support DWPose which is dependent on MMDetection, MMCV and MMPose
+### DWPose
 
+To use DWPose, you can install [easy-dwpose](https://github.com/reallyigor/easy_dwpose/tree/main).
+It's a lightweight package that uses ONNX models without requiring the installation of MMDetection, MMCV, or MMPose.
+
+```bash
+pip install easy-dwpose
 ```
-pip install -U openmim
-mim install mmengine
-mim install "mmcv>=2.0.1"
-mim install "mmdet>=3.1.0"
-mim install "mmpose>=1.1.0"
+
+```python
+from easy_dwpose import DWposeDetector
+
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
+dwpose = DWposeDetector(device=device)
+
+skeleton = dwpose(input_image, output_type="pil", include_hands=True, include_face=True)
 ```
 
 ## Usage

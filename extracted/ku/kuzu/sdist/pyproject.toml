@@ -4,7 +4,7 @@ description = "Highly scalable, extremely fast, easy-to-use embeddable graph dat
 readme = "README.md"
 license = { file = "LICENSE" }
 keywords = ["graph", "database"]
-version = "0.9.0"
+version = "0.10.0"
 
 [project.urls]
 Homepage = "https://kuzudb.com/"

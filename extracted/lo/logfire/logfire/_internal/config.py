@@ -19,17 +19,17 @@ from uuid import uuid4
 
 import requests
 from opentelemetry import trace
-from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider  # type: ignore
+from opentelemetry._logs import NoOpLoggerProvider, set_logger_provider
 from opentelemetry.environment_variables import OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER
 from opentelemetry.exporter.otlp.proto.http import Compression
-from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter  # type: ignore
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, set_meter_provider
 from opentelemetry.propagate import get_global_textmap, set_global_textmap
-from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor  # type: ignore
-from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor  # type: ignore
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor  # type: ignore
+from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogRecordProcessor
+from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
     OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -111,7 +111,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from opentelemetry._events import EventLoggerProvider  # type: ignore
+    from opentelemetry._events import EventLoggerProvider
 
     from .main import Logfire
 
@@ -254,7 +254,7 @@ class CodeSource:
     """The git revision of the code e.g. branch name, commit hash, tag name etc."""
 
     root_path: str = ''
-    """The root path for the source code in the repository.
+    """The path from the root of the repository to the current working directory of the process.
 
     If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
 
@@ -708,7 +708,7 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         try:
-            from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider  # type: ignore
+            from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
 
             self._event_logger_provider = SDKEventLoggerProvider(self._logger_provider)  # type: ignore
         except ImportError:
@@ -1024,7 +1024,18 @@ class LogfireConfig(_LogfireConfigData):
                         View(
                             instrument_type=Histogram,
                             aggregation=ExponentialBucketHistogramAggregation(),
-                        )
+                        ),
+                        View(
+                            instrument_type=UpDownCounter,
+                            instrument_name='http.server.active_requests',
+                            attribute_keys={
+                                'url.scheme',
+                                'http.scheme',
+                                'http.flavor',
+                                'http.method',
+                                'http.request.method',
+                            },
+                        ),
                     ],
                 )
             else:
@@ -1071,7 +1082,7 @@ class LogfireConfig(_LogfireConfigData):
                 set_meter_provider(self._meter_provider)
                 set_logger_provider(self._logger_provider)
                 if self._event_logger_provider:
-                    from opentelemetry._events import set_event_logger_provider  # type: ignore
+                    from opentelemetry._events import set_event_logger_provider
 
                     set_event_logger_provider(self._event_logger_provider)
 
@@ -1748,6 +1759,12 @@ def get_base_url_from_token(token: str) -> str:
     region = 'us'
     if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):
         region = match.group('region')
+
+        if region == 'stagingus':
+            return 'https://logfire-us.pydantic.info'
+        elif region == 'stagingeu':
+            return 'https://logfire-eu.pydantic.info'
+
         if region not in REGIONS:
             region = 'us'
 

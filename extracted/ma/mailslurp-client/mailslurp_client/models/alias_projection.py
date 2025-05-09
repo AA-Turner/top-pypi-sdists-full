@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,48 +34,48 @@ class AliasProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
-        'updated_at': 'datetime',
-        'inbox_id': 'str',
-        'email_address': 'str',
         'user_id': 'str',
+        'email_address': 'str',
+        'inbox_id': 'str',
+        'updated_at': 'datetime',
+        'created_at': 'datetime',
         'use_threads': 'bool',
         'name': 'str',
         'id': 'str'
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
-        'updated_at': 'updatedAt',
-        'inbox_id': 'inboxId',
-        'email_address': 'emailAddress',
         'user_id': 'userId',
+        'email_address': 'emailAddress',
+        'inbox_id': 'inboxId',
+        'updated_at': 'updatedAt',
+        'created_at': 'createdAt',
         'use_threads': 'useThreads',
         'name': 'name',
         'id': 'id'
     }
 
-    def __init__(self, created_at=None, updated_at=None, inbox_id=None, email_address=None, user_id=None, use_threads=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, user_id=None, email_address=None, inbox_id=None, updated_at=None, created_at=None, use_threads=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
         """AliasProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
-        self._updated_at = None
-        self._inbox_id = None
-        self._email_address = None
         self._user_id = None
+        self._email_address = None
+        self._inbox_id = None
+        self._updated_at = None
+        self._created_at = None
         self._use_threads = None
         self._name = None
         self._id = None
         self.discriminator = None
 
-        self.created_at = created_at
-        self.updated_at = updated_at
-        self.inbox_id = inbox_id
-        self.email_address = email_address
         self.user_id = user_id
+        self.email_address = email_address
+        self.inbox_id = inbox_id
+        self.updated_at = updated_at
+        self.created_at = created_at
         if use_threads is not None:
             self.use_threads = use_threads
         if name is not None:
@@ -83,73 +83,27 @@ class AliasProjection(object):
         self.id = id
 
     @property
-    def created_at(self):
-        """Gets the created_at of this AliasProjection.  # noqa: E501
+    def user_id(self):
+        """Gets the user_id of this AliasProjection.  # noqa: E501
 
 
-        :return: The created_at of this AliasProjection.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._created_at
-
-    @created_at.setter
-    def created_at(self, created_at):
-        """Sets the created_at of this AliasProjection.
-
-
-        :param created_at: The created_at of this AliasProjection.  # noqa: E501
-        :type: datetime
-        """
-        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
-
-        self._created_at = created_at
-
-    @property
-    def updated_at(self):
-        """Gets the updated_at of this AliasProjection.  # noqa: E501
-
-
-        :return: The updated_at of this AliasProjection.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._updated_at
-
-    @updated_at.setter
-    def updated_at(self, updated_at):
-        """Sets the updated_at of this AliasProjection.
-
-
-        :param updated_at: The updated_at of this AliasProjection.  # noqa: E501
-        :type: datetime
-        """
-        if self.local_vars_configuration.client_side_validation and updated_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `updated_at`, must not be `None`")  # noqa: E501
-
-        self._updated_at = updated_at
-
-    @property
-    def inbox_id(self):
-        """Gets the inbox_id of this AliasProjection.  # noqa: E501
-
-
-        :return: The inbox_id of this AliasProjection.  # noqa: E501
+        :return: The user_id of this AliasProjection.  # noqa: E501
         :rtype: str
         """
-        return self._inbox_id
+        return self._user_id
 
-    @inbox_id.setter
-    def inbox_id(self, inbox_id):
-        """Sets the inbox_id of this AliasProjection.
+    @user_id.setter
+    def user_id(self, user_id):
+        """Sets the user_id of this AliasProjection.
 
 
-        :param inbox_id: The inbox_id of this AliasProjection.  # noqa: E501
+        :param user_id: The user_id of this AliasProjection.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and inbox_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `inbox_id`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and user_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
 
-        self._inbox_id = inbox_id
+        self._user_id = user_id
 
     @property
     def email_address(self):
@@ -175,27 +129,73 @@ class AliasProjection(object):
         self._email_address = email_address
 
     @property
-    def user_id(self):
-        """Gets the user_id of this AliasProjection.  # noqa: E501
+    def inbox_id(self):
+        """Gets the inbox_id of this AliasProjection.  # noqa: E501
 
 
-        :return: The user_id of this AliasProjection.  # noqa: E501
+        :return: The inbox_id of this AliasProjection.  # noqa: E501
         :rtype: str
         """
-        return self._user_id
+        return self._inbox_id
 
-    @user_id.setter
-    def user_id(self, user_id):
-        """Sets the user_id of this AliasProjection.
+    @inbox_id.setter
+    def inbox_id(self, inbox_id):
+        """Sets the inbox_id of this AliasProjection.
 
 
-        :param user_id: The user_id of this AliasProjection.  # noqa: E501
+        :param inbox_id: The inbox_id of this AliasProjection.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and user_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and inbox_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `inbox_id`, must not be `None`")  # noqa: E501
 
-        self._user_id = user_id
+        self._inbox_id = inbox_id
+
+    @property
+    def updated_at(self):
+        """Gets the updated_at of this AliasProjection.  # noqa: E501
+
+
+        :return: The updated_at of this AliasProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._updated_at
+
+    @updated_at.setter
+    def updated_at(self, updated_at):
+        """Sets the updated_at of this AliasProjection.
+
+
+        :param updated_at: The updated_at of this AliasProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and updated_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `updated_at`, must not be `None`")  # noqa: E501
+
+        self._updated_at = updated_at
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this AliasProjection.  # noqa: E501
+
+
+        :return: The created_at of this AliasProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this AliasProjection.
+
+
+        :param created_at: The created_at of this AliasProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
 
     @property
     def use_threads(self):

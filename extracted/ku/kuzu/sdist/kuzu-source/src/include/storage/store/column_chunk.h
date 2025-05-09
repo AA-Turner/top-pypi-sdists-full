@@ -20,16 +20,16 @@ struct ChunkCheckpointState {
 struct ColumnCheckpointState {
     ColumnChunkData& persistentData;
     std::vector<ChunkCheckpointState> chunkCheckpointStates;
-    common::row_idx_t maxRowIdxToWrite;
+    common::row_idx_t endRowIdxToWrite;
 
     ColumnCheckpointState(ColumnChunkData& persistentData,
         std::vector<ChunkCheckpointState> chunkCheckpointStates)
         : persistentData{persistentData}, chunkCheckpointStates{std::move(chunkCheckpointStates)},
-          maxRowIdxToWrite{0} {
+          endRowIdxToWrite{0} {
         for (const auto& chunkCheckpointState : this->chunkCheckpointStates) {
             const auto endRowIdx = chunkCheckpointState.startRow + chunkCheckpointState.numRows;
-            if (endRowIdx > maxRowIdxToWrite) {
-                maxRowIdxToWrite = endRowIdx;
+            if (endRowIdx > endRowIdxToWrite) {
+                endRowIdxToWrite = endRowIdx;
             }
         }
     }
@@ -37,13 +37,9 @@ struct ColumnCheckpointState {
 
 class ColumnChunk {
 public:
-    // TODO(bmwinger): the dataType reference is copied when passing it to the ColumnChunkData
-    // It would be better to take it by value so that the caller can choose to either move or copy
-    // it
-    ColumnChunk(MemoryManager& memoryManager, const common::LogicalType& dataType,
-        uint64_t capacity, bool enableCompression, ResidencyState residencyState,
-        bool initializeToZero = true);
-    ColumnChunk(MemoryManager& memoryManager, const common::LogicalType& dataType,
+    ColumnChunk(MemoryManager& memoryManager, common::LogicalType&& dataType, uint64_t capacity,
+        bool enableCompression, ResidencyState residencyState, bool initializeToZero = true);
+    ColumnChunk(MemoryManager& memoryManager, common::LogicalType&& dataType,
         bool enableCompression, ColumnChunkMetadata metadata);
     ColumnChunk(bool enableCompression, std::unique_ptr<ColumnChunkData> data);
 
@@ -104,6 +100,8 @@ public:
 
     MergedColumnChunkStats getMergedColumnChunkStats(
         const transaction::Transaction* transaction) const;
+
+    void reclaimStorage(FileHandle& dataFH);
 
 private:
     void scanCommittedUpdates(const transaction::Transaction* transaction, ColumnChunkData& output,

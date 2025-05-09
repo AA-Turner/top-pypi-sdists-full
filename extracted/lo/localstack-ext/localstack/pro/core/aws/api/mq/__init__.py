@@ -500,6 +500,20 @@ class DeleteBrokerResponse(TypedDict, total=False):
     BrokerId: Optional[_string]
 
 
+class DeleteConfigurationOutput(TypedDict, total=False):
+    """Returns information about the deleted configuration."""
+
+    ConfigurationId: Optional[_string]
+
+
+class DeleteConfigurationRequest(ServiceRequest):
+    ConfigurationId: _string
+
+
+class DeleteConfigurationResponse(TypedDict, total=False):
+    ConfigurationId: Optional[_string]
+
+
 class DeleteTagsRequest(ServiceRequest):
     ResourceArn: _string
     TagKeys: _listOf__string
@@ -1226,6 +1240,22 @@ class MqApi:
         :raises NotFoundException:
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ForbiddenException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteConfiguration")
+    def delete_configuration(
+        self, context: RequestContext, configuration_id: _string, **kwargs
+    ) -> DeleteConfigurationResponse:
+        """Deletes the specified configuration.
+
+        :param configuration_id: The unique ID that Amazon MQ generates for the configuration.
+        :returns: DeleteConfigurationResponse
+        :raises NotFoundException:
+        :raises BadRequestException:
+        :raises InternalServerErrorException:
+        :raises ConflictException:
         :raises ForbiddenException:
         """
         raise NotImplementedError

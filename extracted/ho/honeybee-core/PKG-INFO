@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: honeybee-core
-Version: 1.61.14
+Version: 1.61.15
 Summary: A library to create 3D building geometry for various types of environmental simulation.
 Home-page: https://github.com/ladybug-tools/honeybee-core
 Author: Ladybug Tools
@@ -14,8 +14,8 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ladybug-core==0.44.9
-Requires-Dist: ladybug-geometry-polyskel==1.7.23
+Requires-Dist: ladybug-core==0.44.10
+Requires-Dist: ladybug-geometry-polyskel==1.7.24
 Requires-Dist: honeybee-schema==1.59.0; python_version >= "3.7"
 
 ![Honeybee](https://www.ladybug.tools/assets/img/honeybee.png)

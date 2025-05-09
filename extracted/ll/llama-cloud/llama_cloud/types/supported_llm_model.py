@@ -5,7 +5,6 @@ import typing
 
 from ..core.datetime_utils import serialize_datetime
 from .llm_model_data import LlmModelData
-from .supported_llm_model_names import SupportedLlmModelNames
 
 try:
     import pydantic
@@ -21,7 +20,7 @@ class SupportedLlmModel(pydantic.BaseModel):
     Response Schema for a supported eval LLM model.
     """
 
-    name: SupportedLlmModelNames = pydantic.Field(description="The name of the supported LLM model.")
+    name: str = pydantic.Field(description="The name of the supported LLM model.")
     enabled: typing.Optional[bool] = pydantic.Field(
         description="Whether the LLM model is enabled for use in LlamaCloud."
     )

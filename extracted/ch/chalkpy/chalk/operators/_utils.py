@@ -24,12 +24,12 @@ class _GetStaticOperatorError(Exception):
             except TypeError:
                 return "".join(traceback.format_exception(type(exc), exc, None))
 
-        self.underlying_error = ChalkError(
+        self.underlying_error = ChalkError.create(
             code=ErrorCode.RESOLVER_FAILED if underlying_exception else ErrorCode.VALIDATION_FAILED,
             category=ErrorCodeCategory.REQUEST,
             message=message,
             resolver=resolver_fqn,
-            exception=ChalkException(
+            exception=ChalkException.create(
                 kind=type(underlying_exception).__name__,
                 message=str(underlying_exception),
                 stacktrace=get_stacktrace(underlying_exception),

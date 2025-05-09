@@ -16,7 +16,6 @@ class InjectArgumentsDownloaderMiddleware:
     def process_request(self, request, spider):
         if request.callback.__name__ == "parse_downloader_mw":
             request.cb_kwargs["from_process_request"] = True
-        return None
 
     def process_response(self, request, response, spider):
         if request.callback.__name__ == "parse_downloader_mw":
@@ -29,17 +28,16 @@ class InjectArgumentsSpiderMiddleware:
     Make sure spider middlewares are able to update the keyword arguments
     """
 
-    def process_start_requests(self, start_requests, spider):
-        for request in start_requests:
+    async def process_start(self, start):
+        async for request in start:
             if request.callback.__name__ == "parse_spider_mw":
-                request.cb_kwargs["from_process_start_requests"] = True
+                request.cb_kwargs["from_process_start"] = True
             yield request
 
     def process_spider_input(self, response, spider):
         request = response.request
         if request.callback.__name__ == "parse_spider_mw":
             request.cb_kwargs["from_process_spider_input"] = True
-        return None
 
     def process_spider_output(self, response, result, spider):
         for element in result:
@@ -64,7 +62,7 @@ class KeywordArgumentsSpider(MockServerSpider):
 
     checks: list[bool] = []
 
-    def start_requests(self):
+    async def start(self):
         data = {"key": "value", "number": 123, "callback": "some_callback"}
         yield Request(self.mockserver.url("/first"), self.parse_first, cb_kwargs=data)
         yield Request(
@@ -140,11 +138,9 @@ class KeywordArgumentsSpider(MockServerSpider):
         self.checks.append(bool(from_process_response))
         self.crawler.stats.inc_value("boolean_checks", 2)
 
-    def parse_spider_mw(
-        self, response, from_process_spider_input, from_process_start_requests
-    ):
+    def parse_spider_mw(self, response, from_process_spider_input, from_process_start):
         self.checks.append(bool(from_process_spider_input))
-        self.checks.append(bool(from_process_start_requests))
+        self.checks.append(bool(from_process_start))
         self.crawler.stats.inc_value("boolean_checks", 2)
         return Request(self.mockserver.url("/spider_mw_2"), self.parse_spider_mw_2)
 
@@ -153,42 +149,36 @@ class KeywordArgumentsSpider(MockServerSpider):
         self.crawler.stats.inc_value("boolean_checks", 1)
 
 
-class CallbackKeywordArgumentsTestCase(TestCase):
+class TestCallbackKeywordArguments(TestCase):
     maxDiff = None
 
-    def setUp(self):
-        self.mockserver = MockServer()
-        self.mockserver.__enter__()
+    @classmethod
+    def setUpClass(cls):
+        cls.mockserver = MockServer()
+        cls.mockserver.__enter__()
 
-    def tearDown(self):
-        self.mockserver.__exit__(None, None, None)
+    @classmethod
+    def tearDownClass(cls):
+        cls.mockserver.__exit__(None, None, None)
 
     @defer.inlineCallbacks
     def test_callback_kwargs(self):
         crawler = get_crawler(KeywordArgumentsSpider)
         with LogCapture() as log:
             yield crawler.crawl(mockserver=self.mockserver)
-        self.assertTrue(all(crawler.spider.checks))
-        self.assertEqual(
-            len(crawler.spider.checks), crawler.stats.get_value("boolean_checks")
-        )
+        assert all(crawler.spider.checks)
+        assert len(crawler.spider.checks) == crawler.stats.get_value("boolean_checks")
         # check exceptions for argument mismatch
         exceptions = {}
         for line in log.records:
             for key in ("takes_less", "takes_more"):
                 if key in line.getMessage():
                     exceptions[key] = line
-        self.assertEqual(exceptions["takes_less"].exc_info[0], TypeError)
-        self.assertTrue(
-            str(exceptions["takes_less"].exc_info[1]).endswith(
-                "parse_takes_less() got an unexpected keyword argument 'number'"
-            ),
-            msg="Exception message: " + str(exceptions["takes_less"].exc_info[1]),
-        )
-        self.assertEqual(exceptions["takes_more"].exc_info[0], TypeError)
-        self.assertTrue(
-            str(exceptions["takes_more"].exc_info[1]).endswith(
-                "parse_takes_more() missing 1 required positional argument: 'other'"
-            ),
-            msg="Exception message: " + str(exceptions["takes_more"].exc_info[1]),
-        )
+        assert exceptions["takes_less"].exc_info[0] is TypeError
+        assert str(exceptions["takes_less"].exc_info[1]).endswith(
+            "parse_takes_less() got an unexpected keyword argument 'number'"
+        ), "Exception message: " + str(exceptions["takes_less"].exc_info[1])
+        assert exceptions["takes_more"].exc_info[0] is TypeError
+        assert str(exceptions["takes_more"].exc_info[1]).endswith(
+            "parse_takes_more() missing 1 required positional argument: 'other'"
+        ), "Exception message: " + str(exceptions["takes_more"].exc_info[1])

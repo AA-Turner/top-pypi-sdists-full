@@ -1,6 +1,6 @@
 import asyncio
 
-from pytest import mark
+import pytest
 from twisted.internet import defer
 from twisted.internet.defer import Deferred
 from twisted.trial import unittest
@@ -69,24 +69,26 @@ class AsyncDefNotAsyncioPipeline:
 class ItemSpider(Spider):
     name = "itemspider"
 
-    def start_requests(self):
+    async def start(self):
         yield Request(self.mockserver.url("/status?n=200"))
 
     def parse(self, response):
         return {"field": 42}
 
 
-class PipelineTestCase(unittest.TestCase):
-    def setUp(self):
-        self.mockserver = MockServer()
-        self.mockserver.__enter__()
+class TestPipeline(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mockserver = MockServer()
+        cls.mockserver.__enter__()
 
-    def tearDown(self):
-        self.mockserver.__exit__(None, None, None)
+    @classmethod
+    def tearDownClass(cls):
+        cls.mockserver.__exit__(None, None, None)
 
     def _on_item_scraped(self, item):
-        self.assertIsInstance(item, dict)
-        self.assertTrue(item.get("pipeline_passed"))
+        assert isinstance(item, dict)
+        assert item.get("pipeline_passed")
         self.items.append(item)
 
     def _create_crawler(self, pipeline_class):
@@ -102,30 +104,30 @@ class PipelineTestCase(unittest.TestCase):
     def test_simple_pipeline(self):
         crawler = self._create_crawler(SimplePipeline)
         yield crawler.crawl(mockserver=self.mockserver)
-        self.assertEqual(len(self.items), 1)
+        assert len(self.items) == 1
 
     @defer.inlineCallbacks
     def test_deferred_pipeline(self):
         crawler = self._create_crawler(DeferredPipeline)
         yield crawler.crawl(mockserver=self.mockserver)
-        self.assertEqual(len(self.items), 1)
+        assert len(self.items) == 1
 
     @defer.inlineCallbacks
     def test_asyncdef_pipeline(self):
         crawler = self._create_crawler(AsyncDefPipeline)
         yield crawler.crawl(mockserver=self.mockserver)
-        self.assertEqual(len(self.items), 1)
+        assert len(self.items) == 1
 
-    @mark.only_asyncio()
+    @pytest.mark.only_asyncio
     @defer.inlineCallbacks
     def test_asyncdef_asyncio_pipeline(self):
         crawler = self._create_crawler(AsyncDefAsyncioPipeline)
         yield crawler.crawl(mockserver=self.mockserver)
-        self.assertEqual(len(self.items), 1)
+        assert len(self.items) == 1
 
-    @mark.only_not_asyncio()
+    @pytest.mark.only_not_asyncio
     @defer.inlineCallbacks
     def test_asyncdef_not_asyncio_pipeline(self):
         crawler = self._create_crawler(AsyncDefNotAsyncioPipeline)
         yield crawler.crawl(mockserver=self.mockserver)
-        self.assertEqual(len(self.items), 1)
+        assert len(self.items) == 1

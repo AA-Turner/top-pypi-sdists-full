@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -115,6 +115,9 @@ class PubsubLocation(proto.Message):
         with_attributes (bool):
             If true, then the client has requested to get
             pubsub attributes.
+        dynamic_destinations (bool):
+            If true, then this location represents
+            dynamic topics.
     """
 
     topic: str = proto.Field(
@@ -144,6 +147,10 @@ class PubsubLocation(proto.Message):
     with_attributes: bool = proto.Field(
         proto.BOOL,
         number=7,
+    )
+    dynamic_destinations: bool = proto.Field(
+        proto.BOOL,
+        number=8,
     )
 
 

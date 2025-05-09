@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -148,6 +148,13 @@ class TestEmailControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_get_email_content_part_content(self):
+        """Test case for get_email_content_part_content
+
+        Get email content part by content type raw response  # noqa: E501
+        """
+        pass
+
     def test_get_email_count(self):
         """Test case for get_email_count
 
@@ -204,10 +211,38 @@ class TestEmailControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_get_email_summary(self):
+        """Test case for get_email_summary
+
+        Get email data including headers but not body. Expects email to exist by ID. For emails that may not have arrived yet use the WaitForController.  # noqa: E501
+        """
+        pass
+
     def test_get_email_text_lines(self):
         """Test case for get_email_text_lines
 
         Parse and return text from an email, stripping HTML and decoding encoded characters  # noqa: E501
+        """
+        pass
+
+    def test_get_email_thread(self):
+        """Test case for get_email_thread
+
+        Return email thread information. Use items endpoints to get messages for thread.  # noqa: E501
+        """
+        pass
+
+    def test_get_email_thread_items(self):
+        """Test case for get_email_thread_items
+
+        Return email thread items.  # noqa: E501
+        """
+        pass
+
+    def test_get_email_threads(self):
+        """Test case for get_email_threads
+
+        Return email threads in paginated form  # noqa: E501
         """
         pass
 
@@ -305,6 +340,13 @@ class TestEmailControllerApi(unittest.TestCase):
         """Test case for send_email_source_optional
 
         Send email  # noqa: E501
+        """
+        pass
+
+    def test_set_email_favourited(self):
+        """Test case for set_email_favourited
+
+        Set email favourited state  # noqa: E501
         """
         pass
 

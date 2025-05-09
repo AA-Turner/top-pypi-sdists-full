@@ -68,7 +68,7 @@ class ImagesPipeline(FilesPipeline):
             self._Image = Image
         except ImportError:
             raise NotConfigured(
-                "ImagesPipeline requires installing Pillow 4.0.0 or later"
+                "ImagesPipeline requires installing Pillow 8.0.0 or later"
             )
 
         super().__init__(
@@ -258,7 +258,7 @@ class ImagesPipeline(FilesPipeline):
         *,
         item: Any = None,
     ) -> str:
-        image_guid = hashlib.sha1(to_bytes(request.url)).hexdigest()  # nosec
+        image_guid = hashlib.sha1(to_bytes(request.url)).hexdigest()  # noqa: S324
         return f"full/{image_guid}.jpg"
 
     def thumb_path(
@@ -270,5 +270,5 @@ class ImagesPipeline(FilesPipeline):
         *,
         item: Any = None,
     ) -> str:
-        thumb_guid = hashlib.sha1(to_bytes(request.url)).hexdigest()  # nosec
+        thumb_guid = hashlib.sha1(to_bytes(request.url)).hexdigest()  # noqa: S324
         return f"thumbs/{thumb_id}/{thumb_guid}.jpg"

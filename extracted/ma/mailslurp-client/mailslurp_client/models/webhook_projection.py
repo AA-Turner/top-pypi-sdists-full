@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,101 +34,74 @@ class WebhookProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
-        'updated_at': 'datetime',
         'url': 'str',
+        'password': 'str',
+        'username': 'str',
+        'user_id': 'str',
         'inbox_id': 'str',
         'event_name': 'str',
+        'updated_at': 'datetime',
+        'created_at': 'datetime',
+        'health_status': 'str',
         'phone_number_id': 'str',
         'name': 'str',
         'id': 'str'
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
-        'updated_at': 'updatedAt',
         'url': 'url',
+        'password': 'password',
+        'username': 'username',
+        'user_id': 'userId',
         'inbox_id': 'inboxId',
         'event_name': 'eventName',
+        'updated_at': 'updatedAt',
+        'created_at': 'createdAt',
+        'health_status': 'healthStatus',
         'phone_number_id': 'phoneNumberId',
         'name': 'name',
         'id': 'id'
     }
 
-    def __init__(self, created_at=None, updated_at=None, url=None, inbox_id=None, event_name=None, phone_number_id=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, url=None, password=None, username=None, user_id=None, inbox_id=None, event_name=None, updated_at=None, created_at=None, health_status=None, phone_number_id=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
         """WebhookProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
-        self._updated_at = None
         self._url = None
+        self._password = None
+        self._username = None
+        self._user_id = None
         self._inbox_id = None
         self._event_name = None
+        self._updated_at = None
+        self._created_at = None
+        self._health_status = None
         self._phone_number_id = None
         self._name = None
         self._id = None
         self.discriminator = None
 
-        self.created_at = created_at
-        self.updated_at = updated_at
         self.url = url
+        if password is not None:
+            self.password = password
+        if username is not None:
+            self.username = username
+        self.user_id = user_id
         if inbox_id is not None:
             self.inbox_id = inbox_id
         if event_name is not None:
             self.event_name = event_name
+        self.updated_at = updated_at
+        self.created_at = created_at
+        if health_status is not None:
+            self.health_status = health_status
         if phone_number_id is not None:
             self.phone_number_id = phone_number_id
         if name is not None:
             self.name = name
         self.id = id
-
-    @property
-    def created_at(self):
-        """Gets the created_at of this WebhookProjection.  # noqa: E501
-
-
-        :return: The created_at of this WebhookProjection.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._created_at
-
-    @created_at.setter
-    def created_at(self, created_at):
-        """Sets the created_at of this WebhookProjection.
-
-
-        :param created_at: The created_at of this WebhookProjection.  # noqa: E501
-        :type: datetime
-        """
-        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
-
-        self._created_at = created_at
-
-    @property
-    def updated_at(self):
-        """Gets the updated_at of this WebhookProjection.  # noqa: E501
-
-
-        :return: The updated_at of this WebhookProjection.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._updated_at
-
-    @updated_at.setter
-    def updated_at(self, updated_at):
-        """Sets the updated_at of this WebhookProjection.
-
-
-        :param updated_at: The updated_at of this WebhookProjection.  # noqa: E501
-        :type: datetime
-        """
-        if self.local_vars_configuration.client_side_validation and updated_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `updated_at`, must not be `None`")  # noqa: E501
-
-        self._updated_at = updated_at
 
     @property
     def url(self):
@@ -152,6 +125,71 @@ class WebhookProjection(object):
             raise ValueError("Invalid value for `url`, must not be `None`")  # noqa: E501
 
         self._url = url
+
+    @property
+    def password(self):
+        """Gets the password of this WebhookProjection.  # noqa: E501
+
+
+        :return: The password of this WebhookProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._password
+
+    @password.setter
+    def password(self, password):
+        """Sets the password of this WebhookProjection.
+
+
+        :param password: The password of this WebhookProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._password = password
+
+    @property
+    def username(self):
+        """Gets the username of this WebhookProjection.  # noqa: E501
+
+
+        :return: The username of this WebhookProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._username
+
+    @username.setter
+    def username(self, username):
+        """Sets the username of this WebhookProjection.
+
+
+        :param username: The username of this WebhookProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._username = username
+
+    @property
+    def user_id(self):
+        """Gets the user_id of this WebhookProjection.  # noqa: E501
+
+
+        :return: The user_id of this WebhookProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._user_id
+
+    @user_id.setter
+    def user_id(self, user_id):
+        """Sets the user_id of this WebhookProjection.
+
+
+        :param user_id: The user_id of this WebhookProjection.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and user_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
+
+        self._user_id = user_id
 
     @property
     def inbox_id(self):
@@ -192,7 +230,7 @@ class WebhookProjection(object):
         :param event_name: The event_name of this WebhookProjection.  # noqa: E501
         :type: str
         """
-        allowed_values = ["EMAIL_RECEIVED", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS"]  # noqa: E501
+        allowed_values = ["EMAIL_RECEIVED", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS", "NEW_GUEST_USER"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and event_name not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `event_name` ({0}), must be one of {1}"  # noqa: E501
@@ -200,6 +238,79 @@ class WebhookProjection(object):
             )
 
         self._event_name = event_name
+
+    @property
+    def updated_at(self):
+        """Gets the updated_at of this WebhookProjection.  # noqa: E501
+
+
+        :return: The updated_at of this WebhookProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._updated_at
+
+    @updated_at.setter
+    def updated_at(self, updated_at):
+        """Sets the updated_at of this WebhookProjection.
+
+
+        :param updated_at: The updated_at of this WebhookProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and updated_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `updated_at`, must not be `None`")  # noqa: E501
+
+        self._updated_at = updated_at
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this WebhookProjection.  # noqa: E501
+
+
+        :return: The created_at of this WebhookProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this WebhookProjection.
+
+
+        :param created_at: The created_at of this WebhookProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
+
+    @property
+    def health_status(self):
+        """Gets the health_status of this WebhookProjection.  # noqa: E501
+
+
+        :return: The health_status of this WebhookProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._health_status
+
+    @health_status.setter
+    def health_status(self, health_status):
+        """Sets the health_status of this WebhookProjection.
+
+
+        :param health_status: The health_status of this WebhookProjection.  # noqa: E501
+        :type: str
+        """
+        allowed_values = ["HEALTHY", "UNHEALTHY"]  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and health_status not in allowed_values:  # noqa: E501
+            raise ValueError(
+                "Invalid value for `health_status` ({0}), must be one of {1}"  # noqa: E501
+                .format(health_status, allowed_values)
+            )
+
+        self._health_status = health_status
 
     @property
     def phone_number_id(self):

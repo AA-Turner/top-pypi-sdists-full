@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,102 +34,157 @@ class EmailProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
+        'sender': 'Sender',
+        'recipients': 'EmailRecipients',
         'attachments': 'list[str]',
         'inbox_id': 'str',
+        'created_at': 'datetime',
         'to': 'list[str]',
-        'domain_id': 'str',
-        'bcc': 'list[str]',
         'cc': 'list[str]',
+        'bcc': 'list[str]',
+        'message_id': 'str',
+        'domain_id': 'str',
+        'favourite': 'bool',
+        'in_reply_to': 'str',
+        'plus_address': 'str',
+        'size_bytes': 'int',
         'read': 'bool',
         'body_excerpt': 'str',
-        'team_access': 'bool',
-        'body_md5_hash': 'str',
         'text_excerpt': 'str',
+        'body_part_content_types': 'list[str]',
+        'body_md5_hash': 'str',
+        'team_access': 'bool',
         'subject': 'str',
         'id': 'str',
+        'thread_id': 'str',
         '_from': 'str'
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
+        'sender': 'sender',
+        'recipients': 'recipients',
         'attachments': 'attachments',
         'inbox_id': 'inboxId',
+        'created_at': 'createdAt',
         'to': 'to',
-        'domain_id': 'domainId',
-        'bcc': 'bcc',
         'cc': 'cc',
+        'bcc': 'bcc',
+        'message_id': 'messageId',
+        'domain_id': 'domainId',
+        'favourite': 'favourite',
+        'in_reply_to': 'inReplyTo',
+        'plus_address': 'plusAddress',
+        'size_bytes': 'sizeBytes',
         'read': 'read',
         'body_excerpt': 'bodyExcerpt',
-        'team_access': 'teamAccess',
-        'body_md5_hash': 'bodyMD5Hash',
         'text_excerpt': 'textExcerpt',
+        'body_part_content_types': 'bodyPartContentTypes',
+        'body_md5_hash': 'bodyMD5Hash',
+        'team_access': 'teamAccess',
         'subject': 'subject',
         'id': 'id',
+        'thread_id': 'threadId',
         '_from': 'from'
     }
 
-    def __init__(self, created_at=None, attachments=None, inbox_id=None, to=None, domain_id=None, bcc=None, cc=None, read=None, body_excerpt=None, team_access=None, body_md5_hash=None, text_excerpt=None, subject=None, id=None, _from=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, sender=None, recipients=None, attachments=None, inbox_id=None, created_at=None, to=None, cc=None, bcc=None, message_id=None, domain_id=None, favourite=None, in_reply_to=None, plus_address=None, size_bytes=None, read=None, body_excerpt=None, text_excerpt=None, body_part_content_types=None, body_md5_hash=None, team_access=None, subject=None, id=None, thread_id=None, _from=None, local_vars_configuration=None):  # noqa: E501
         """EmailProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
+        self._sender = None
+        self._recipients = None
         self._attachments = None
         self._inbox_id = None
+        self._created_at = None
         self._to = None
-        self._domain_id = None
-        self._bcc = None
         self._cc = None
+        self._bcc = None
+        self._message_id = None
+        self._domain_id = None
+        self._favourite = None
+        self._in_reply_to = None
+        self._plus_address = None
+        self._size_bytes = None
         self._read = None
         self._body_excerpt = None
-        self._team_access = None
-        self._body_md5_hash = None
         self._text_excerpt = None
+        self._body_part_content_types = None
+        self._body_md5_hash = None
+        self._team_access = None
         self._subject = None
         self._id = None
+        self._thread_id = None
         self.__from = None
         self.discriminator = None
 
-        self.created_at = created_at
+        self.sender = sender
+        self.recipients = recipients
         self.attachments = attachments
         self.inbox_id = inbox_id
+        self.created_at = created_at
         self.to = to
-        self.domain_id = domain_id
-        self.bcc = bcc
         self.cc = cc
+        self.bcc = bcc
+        self.message_id = message_id
+        self.domain_id = domain_id
+        self.favourite = favourite
+        self.in_reply_to = in_reply_to
+        self.plus_address = plus_address
+        self.size_bytes = size_bytes
         self.read = read
         self.body_excerpt = body_excerpt
-        self.team_access = team_access
-        self.body_md5_hash = body_md5_hash
         self.text_excerpt = text_excerpt
+        self.body_part_content_types = body_part_content_types
+        self.body_md5_hash = body_md5_hash
+        self.team_access = team_access
         self.subject = subject
         self.id = id
+        self.thread_id = thread_id
         self._from = _from
 
     @property
-    def created_at(self):
-        """Gets the created_at of this EmailProjection.  # noqa: E501
+    def sender(self):
+        """Gets the sender of this EmailProjection.  # noqa: E501
 
 
-        :return: The created_at of this EmailProjection.  # noqa: E501
-        :rtype: datetime
+        :return: The sender of this EmailProjection.  # noqa: E501
+        :rtype: Sender
         """
-        return self._created_at
+        return self._sender
 
-    @created_at.setter
-    def created_at(self, created_at):
-        """Sets the created_at of this EmailProjection.
+    @sender.setter
+    def sender(self, sender):
+        """Sets the sender of this EmailProjection.
 
 
-        :param created_at: The created_at of this EmailProjection.  # noqa: E501
-        :type: datetime
+        :param sender: The sender of this EmailProjection.  # noqa: E501
+        :type: Sender
         """
-        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
 
-        self._created_at = created_at
+        self._sender = sender
+
+    @property
+    def recipients(self):
+        """Gets the recipients of this EmailProjection.  # noqa: E501
+
+
+        :return: The recipients of this EmailProjection.  # noqa: E501
+        :rtype: EmailRecipients
+        """
+        return self._recipients
+
+    @recipients.setter
+    def recipients(self, recipients):
+        """Sets the recipients of this EmailProjection.
+
+
+        :param recipients: The recipients of this EmailProjection.  # noqa: E501
+        :type: EmailRecipients
+        """
+
+        self._recipients = recipients
 
     @property
     def attachments(self):
@@ -176,6 +231,29 @@ class EmailProjection(object):
         self._inbox_id = inbox_id
 
     @property
+    def created_at(self):
+        """Gets the created_at of this EmailProjection.  # noqa: E501
+
+
+        :return: The created_at of this EmailProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this EmailProjection.
+
+
+        :param created_at: The created_at of this EmailProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
+
+    @property
     def to(self):
         """Gets the to of this EmailProjection.  # noqa: E501
 
@@ -199,25 +277,25 @@ class EmailProjection(object):
         self._to = to
 
     @property
-    def domain_id(self):
-        """Gets the domain_id of this EmailProjection.  # noqa: E501
+    def cc(self):
+        """Gets the cc of this EmailProjection.  # noqa: E501
 
 
-        :return: The domain_id of this EmailProjection.  # noqa: E501
-        :rtype: str
+        :return: The cc of this EmailProjection.  # noqa: E501
+        :rtype: list[str]
         """
-        return self._domain_id
+        return self._cc
 
-    @domain_id.setter
-    def domain_id(self, domain_id):
-        """Sets the domain_id of this EmailProjection.
+    @cc.setter
+    def cc(self, cc):
+        """Sets the cc of this EmailProjection.
 
 
-        :param domain_id: The domain_id of this EmailProjection.  # noqa: E501
-        :type: str
+        :param cc: The cc of this EmailProjection.  # noqa: E501
+        :type: list[str]
         """
 
-        self._domain_id = domain_id
+        self._cc = cc
 
     @property
     def bcc(self):
@@ -241,25 +319,130 @@ class EmailProjection(object):
         self._bcc = bcc
 
     @property
-    def cc(self):
-        """Gets the cc of this EmailProjection.  # noqa: E501
+    def message_id(self):
+        """Gets the message_id of this EmailProjection.  # noqa: E501
 
 
-        :return: The cc of this EmailProjection.  # noqa: E501
-        :rtype: list[str]
+        :return: The message_id of this EmailProjection.  # noqa: E501
+        :rtype: str
         """
-        return self._cc
+        return self._message_id
 
-    @cc.setter
-    def cc(self, cc):
-        """Sets the cc of this EmailProjection.
+    @message_id.setter
+    def message_id(self, message_id):
+        """Sets the message_id of this EmailProjection.
 
 
-        :param cc: The cc of this EmailProjection.  # noqa: E501
-        :type: list[str]
+        :param message_id: The message_id of this EmailProjection.  # noqa: E501
+        :type: str
         """
 
-        self._cc = cc
+        self._message_id = message_id
+
+    @property
+    def domain_id(self):
+        """Gets the domain_id of this EmailProjection.  # noqa: E501
+
+
+        :return: The domain_id of this EmailProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._domain_id
+
+    @domain_id.setter
+    def domain_id(self, domain_id):
+        """Sets the domain_id of this EmailProjection.
+
+
+        :param domain_id: The domain_id of this EmailProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._domain_id = domain_id
+
+    @property
+    def favourite(self):
+        """Gets the favourite of this EmailProjection.  # noqa: E501
+
+
+        :return: The favourite of this EmailProjection.  # noqa: E501
+        :rtype: bool
+        """
+        return self._favourite
+
+    @favourite.setter
+    def favourite(self, favourite):
+        """Sets the favourite of this EmailProjection.
+
+
+        :param favourite: The favourite of this EmailProjection.  # noqa: E501
+        :type: bool
+        """
+
+        self._favourite = favourite
+
+    @property
+    def in_reply_to(self):
+        """Gets the in_reply_to of this EmailProjection.  # noqa: E501
+
+
+        :return: The in_reply_to of this EmailProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._in_reply_to
+
+    @in_reply_to.setter
+    def in_reply_to(self, in_reply_to):
+        """Sets the in_reply_to of this EmailProjection.
+
+
+        :param in_reply_to: The in_reply_to of this EmailProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._in_reply_to = in_reply_to
+
+    @property
+    def plus_address(self):
+        """Gets the plus_address of this EmailProjection.  # noqa: E501
+
+
+        :return: The plus_address of this EmailProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._plus_address
+
+    @plus_address.setter
+    def plus_address(self, plus_address):
+        """Sets the plus_address of this EmailProjection.
+
+
+        :param plus_address: The plus_address of this EmailProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._plus_address = plus_address
+
+    @property
+    def size_bytes(self):
+        """Gets the size_bytes of this EmailProjection.  # noqa: E501
+
+
+        :return: The size_bytes of this EmailProjection.  # noqa: E501
+        :rtype: int
+        """
+        return self._size_bytes
+
+    @size_bytes.setter
+    def size_bytes(self, size_bytes):
+        """Sets the size_bytes of this EmailProjection.
+
+
+        :param size_bytes: The size_bytes of this EmailProjection.  # noqa: E501
+        :type: int
+        """
+
+        self._size_bytes = size_bytes
 
     @property
     def read(self):
@@ -306,27 +489,46 @@ class EmailProjection(object):
         self._body_excerpt = body_excerpt
 
     @property
-    def team_access(self):
-        """Gets the team_access of this EmailProjection.  # noqa: E501
+    def text_excerpt(self):
+        """Gets the text_excerpt of this EmailProjection.  # noqa: E501
 
 
-        :return: The team_access of this EmailProjection.  # noqa: E501
-        :rtype: bool
+        :return: The text_excerpt of this EmailProjection.  # noqa: E501
+        :rtype: str
         """
-        return self._team_access
+        return self._text_excerpt
 
-    @team_access.setter
-    def team_access(self, team_access):
-        """Sets the team_access of this EmailProjection.
+    @text_excerpt.setter
+    def text_excerpt(self, text_excerpt):
+        """Sets the text_excerpt of this EmailProjection.
 
 
-        :param team_access: The team_access of this EmailProjection.  # noqa: E501
-        :type: bool
+        :param text_excerpt: The text_excerpt of this EmailProjection.  # noqa: E501
+        :type: str
         """
-        if self.local_vars_configuration.client_side_validation and team_access is None:  # noqa: E501
-            raise ValueError("Invalid value for `team_access`, must not be `None`")  # noqa: E501
 
-        self._team_access = team_access
+        self._text_excerpt = text_excerpt
+
+    @property
+    def body_part_content_types(self):
+        """Gets the body_part_content_types of this EmailProjection.  # noqa: E501
+
+
+        :return: The body_part_content_types of this EmailProjection.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._body_part_content_types
+
+    @body_part_content_types.setter
+    def body_part_content_types(self, body_part_content_types):
+        """Sets the body_part_content_types of this EmailProjection.
+
+
+        :param body_part_content_types: The body_part_content_types of this EmailProjection.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._body_part_content_types = body_part_content_types
 
     @property
     def body_md5_hash(self):
@@ -350,25 +552,27 @@ class EmailProjection(object):
         self._body_md5_hash = body_md5_hash
 
     @property
-    def text_excerpt(self):
-        """Gets the text_excerpt of this EmailProjection.  # noqa: E501
+    def team_access(self):
+        """Gets the team_access of this EmailProjection.  # noqa: E501
 
 
-        :return: The text_excerpt of this EmailProjection.  # noqa: E501
-        :rtype: str
+        :return: The team_access of this EmailProjection.  # noqa: E501
+        :rtype: bool
         """
-        return self._text_excerpt
+        return self._team_access
 
-    @text_excerpt.setter
-    def text_excerpt(self, text_excerpt):
-        """Sets the text_excerpt of this EmailProjection.
+    @team_access.setter
+    def team_access(self, team_access):
+        """Sets the team_access of this EmailProjection.
 
 
-        :param text_excerpt: The text_excerpt of this EmailProjection.  # noqa: E501
-        :type: str
+        :param team_access: The team_access of this EmailProjection.  # noqa: E501
+        :type: bool
         """
+        if self.local_vars_configuration.client_side_validation and team_access is None:  # noqa: E501
+            raise ValueError("Invalid value for `team_access`, must not be `None`")  # noqa: E501
 
-        self._text_excerpt = text_excerpt
+        self._team_access = team_access
 
     @property
     def subject(self):
@@ -413,6 +617,27 @@ class EmailProjection(object):
             raise ValueError("Invalid value for `id`, must not be `None`")  # noqa: E501
 
         self._id = id
+
+    @property
+    def thread_id(self):
+        """Gets the thread_id of this EmailProjection.  # noqa: E501
+
+
+        :return: The thread_id of this EmailProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._thread_id
+
+    @thread_id.setter
+    def thread_id(self, thread_id):
+        """Sets the thread_id of this EmailProjection.
+
+
+        :param thread_id: The thread_id of this EmailProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._thread_id = thread_id
 
     @property
     def _from(self):

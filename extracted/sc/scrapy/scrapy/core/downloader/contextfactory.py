@@ -22,6 +22,7 @@ from scrapy.core.downloader.tls import (
     openssl_methods,
 )
 from scrapy.exceptions import ScrapyDeprecationWarning
+from scrapy.utils.deprecate import method_is_overridden
 from scrapy.utils.misc import build_from_crawler, load_object
 
 if TYPE_CHECKING:
@@ -62,6 +63,13 @@ class ScrapyClientContextFactory(BrowserLikePolicyForHTTPS):
             self.tls_ciphers = AcceptableCiphers.fromOpenSSLCipherString(tls_ciphers)
         else:
             self.tls_ciphers = DEFAULT_CIPHERS
+        if method_is_overridden(type(self), ScrapyClientContextFactory, "getContext"):
+            warnings.warn(
+                "Overriding ScrapyClientContextFactory.getContext() is deprecated and that method"
+                " will be removed in a future Scrapy version. Override creatorForNetloc() instead.",
+                category=ScrapyDeprecationWarning,
+                stacklevel=2,
+            )
 
     @classmethod
     def from_settings(
@@ -111,18 +119,9 @@ class ScrapyClientContextFactory(BrowserLikePolicyForHTTPS):
     def getCertificateOptions(self) -> CertificateOptions:
         # setting verify=True will require you to provide CAs
         # to verify against; in other words: it's not that simple
-
-        # backward-compatible SSL/TLS method:
-        #
-        # * this will respect `method` attribute in often recommended
-        #   `ScrapyClientContextFactory` subclass
-        #   (https://github.com/scrapy/scrapy/issues/1429#issuecomment-131782133)
-        #
-        # * getattr() for `_ssl_method` attribute for context factories
-        #   not calling super().__init__
         return CertificateOptions(
             verify=False,
-            method=getattr(self, "method", getattr(self, "_ssl_method", None)),
+            method=self._ssl_method,
             fixBrokenPeers=True,
             acceptableCiphers=self.tls_ciphers,
         )

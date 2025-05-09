@@ -3,11 +3,15 @@ from twisted.internet import defer
 Tests borrowed from the twisted.web.client tests.
 """
 
+from __future__ import annotations
+
 import shutil
 from pathlib import Path
 from tempfile import mkdtemp
+from urllib.parse import urlparse
 
 import OpenSSL.SSL
+import pytest
 from twisted.internet import defer, reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.testing import StringTransport
@@ -16,7 +20,9 @@ from twisted.trial import unittest
 from twisted.web import resource, server, static, util
 
 from scrapy.core.downloader import webclient as client
-from scrapy.core.downloader.contextfactory import ScrapyClientContextFactory
+from scrapy.core.downloader.contextfactory import (
+    ScrapyClientContextFactory,
+)
 from scrapy.http import Headers, Request
 from scrapy.utils.misc import build_from_crawler
 from scrapy.utils.python import to_bytes, to_unicode
@@ -30,6 +36,7 @@ from tests.mockserver import (
     PayloadResource,
     ssl_context_factory,
 )
+from tests.test_core_downloader import TestContextFactoryBase
 
 
 def getPage(url, contextFactory=None, response_transform=None, *args, **kwargs):
@@ -55,73 +62,8 @@ def getPage(url, contextFactory=None, response_transform=None, *args, **kwargs):
     ).deferred
 
 
-class ParseUrlTestCase(unittest.TestCase):
-    """Test URL parsing facility and defaults values."""
-
-    def _parse(self, url):
-        f = client.ScrapyHTTPClientFactory(Request(url))
-        return (f.scheme, f.netloc, f.host, f.port, f.path)
-
-    def testParse(self):
-        lip = "127.0.0.1"
-        tests = (
-            (
-                "http://127.0.0.1?c=v&c2=v2#fragment",
-                ("http", lip, lip, 80, "/?c=v&c2=v2"),
-            ),
-            (
-                "http://127.0.0.1/?c=v&c2=v2#fragment",
-                ("http", lip, lip, 80, "/?c=v&c2=v2"),
-            ),
-            (
-                "http://127.0.0.1/foo?c=v&c2=v2#frag",
-                ("http", lip, lip, 80, "/foo?c=v&c2=v2"),
-            ),
-            (
-                "http://127.0.0.1:100?c=v&c2=v2#fragment",
-                ("http", lip + ":100", lip, 100, "/?c=v&c2=v2"),
-            ),
-            (
-                "http://127.0.0.1:100/?c=v&c2=v2#frag",
-                ("http", lip + ":100", lip, 100, "/?c=v&c2=v2"),
-            ),
-            (
-                "http://127.0.0.1:100/foo?c=v&c2=v2#frag",
-                ("http", lip + ":100", lip, 100, "/foo?c=v&c2=v2"),
-            ),
-            ("http://127.0.0.1", ("http", lip, lip, 80, "/")),
-            ("http://127.0.0.1/", ("http", lip, lip, 80, "/")),
-            ("http://127.0.0.1/foo", ("http", lip, lip, 80, "/foo")),
-            ("http://127.0.0.1?param=value", ("http", lip, lip, 80, "/?param=value")),
-            ("http://127.0.0.1/?param=value", ("http", lip, lip, 80, "/?param=value")),
-            (
-                "http://127.0.0.1:12345/foo",
-                ("http", lip + ":12345", lip, 12345, "/foo"),
-            ),
-            ("http://spam:12345/foo", ("http", "spam:12345", "spam", 12345, "/foo")),
-            (
-                "http://spam.test.org/foo",
-                ("http", "spam.test.org", "spam.test.org", 80, "/foo"),
-            ),
-            ("https://127.0.0.1/foo", ("https", lip, lip, 443, "/foo")),
-            (
-                "https://127.0.0.1/?param=value",
-                ("https", lip, lip, 443, "/?param=value"),
-            ),
-            ("https://127.0.0.1:12345/", ("https", lip + ":12345", lip, 12345, "/")),
-            (
-                "http://scrapytest.org/foo ",
-                ("http", "scrapytest.org", "scrapytest.org", 80, "/foo"),
-            ),
-            ("http://egg:7890 ", ("http", "egg:7890", "egg", 7890, "/")),
-        )
-
-        for url, test in tests:
-            test = tuple(to_bytes(x) if not isinstance(x, int) else x for x in test)
-            self.assertEqual(client._parse(url), test, url)
-
-
-class ScrapyHTTPPageGetterTests(unittest.TestCase):
+@pytest.mark.filterwarnings("ignore::scrapy.exceptions.ScrapyDeprecationWarning")
+class TestScrapyHTTPPageGetter:
     def test_earlyHeaders(self):
         # basic test stolen from twisted HTTPageGetter
         factory = client.ScrapyHTTPClientFactory(
@@ -153,7 +95,7 @@ class ScrapyHTTPPageGetterTests(unittest.TestCase):
 
         # test minimal sent headers
         factory = client.ScrapyHTTPClientFactory(Request("http://foo/bar"))
-        self._test(factory, b"GET /bar HTTP/1.0\r\n" b"Host: foo\r\n" b"\r\n")
+        self._test(factory, b"GET /bar HTTP/1.0\r\nHost: foo\r\n\r\n")
 
         # test a simple POST with body and content-type
         factory = client.ScrapyHTTPClientFactory(
@@ -183,7 +125,7 @@ class ScrapyHTTPPageGetterTests(unittest.TestCase):
 
         self._test(
             factory,
-            b"POST /bar HTTP/1.0\r\n" b"Host: foo\r\n" b"Content-Length: 0\r\n" b"\r\n",
+            b"POST /bar HTTP/1.0\r\nHost: foo\r\nContent-Length: 0\r\n\r\n",
         )
 
         # test with single and multivalued headers
@@ -235,9 +177,7 @@ class ScrapyHTTPPageGetterTests(unittest.TestCase):
         protocol = client.ScrapyHTTPPageGetter()
         protocol.factory = factory
         protocol.makeConnection(transport)
-        self.assertEqual(
-            set(transport.value().splitlines()), set(testvalue.splitlines())
-        )
+        assert set(transport.value().splitlines()) == set(testvalue.splitlines())
         return testvalue
 
     def test_non_standard_line_endings(self):
@@ -250,9 +190,7 @@ class ScrapyHTTPPageGetterTests(unittest.TestCase):
         protocol.dataReceived(b"Hello: World\n")
         protocol.dataReceived(b"Foo: Bar\n")
         protocol.dataReceived(b"\n")
-        self.assertEqual(
-            protocol.headers, Headers({"Hello": ["World"], "Foo": ["Bar"]})
-        )
+        assert protocol.headers == Headers({"Hello": ["World"], "Foo": ["Bar"]})
 
 
 class EncodingResource(resource.Resource):
@@ -264,7 +202,8 @@ class EncodingResource(resource.Resource):
         return body.encode(self.out_encoding)
 
 
-class WebClientTestCase(unittest.TestCase):
+@pytest.mark.filterwarnings("ignore::scrapy.exceptions.ScrapyDeprecationWarning")
+class TestWebClient(unittest.TestCase):
     def _listen(self, site):
         return reactor.listenTCP(0, site, interface="127.0.0.1")
 
@@ -376,30 +315,30 @@ class WebClientTestCase(unittest.TestCase):
         return getPage(self.getURL("notsuchfile")).addCallback(self._cbNoSuchFile)
 
     def _cbNoSuchFile(self, pageData):
-        self.assertIn(b"404 - No Such Resource", pageData)
+        assert b"404 - No Such Resource" in pageData
 
     def testFactoryInfo(self):
         url = self.getURL("file")
-        _, _, host, port, _ = client._parse(url)
+        parsed = urlparse(url)
         factory = client.ScrapyHTTPClientFactory(Request(url))
-        reactor.connectTCP(to_unicode(host), port, factory)
+        reactor.connectTCP(parsed.hostname, parsed.port, factory)
         return factory.deferred.addCallback(self._cbFactoryInfo, factory)
 
     def _cbFactoryInfo(self, ignoredResult, factory):
-        self.assertEqual(factory.status, b"200")
-        self.assertTrue(factory.version.startswith(b"HTTP/"))
-        self.assertEqual(factory.message, b"OK")
-        self.assertEqual(factory.response_headers[b"content-length"], b"10")
+        assert factory.status == b"200"
+        assert factory.version.startswith(b"HTTP/")
+        assert factory.message == b"OK"
+        assert factory.response_headers[b"content-length"] == b"10"
 
     def testRedirect(self):
         return getPage(self.getURL("redirect")).addCallback(self._cbRedirect)
 
     def _cbRedirect(self, pageData):
-        self.assertEqual(
-            pageData,
-            b'\n<html>\n    <head>\n        <meta http-equiv="refresh" content="0;URL=/file">\n'
+        assert (
+            pageData
+            == b'\n<html>\n    <head>\n        <meta http-equiv="refresh" content="0;URL=/file">\n'
             b'    </head>\n    <body bgcolor="#FFFFFF" text="#000000">\n    '
-            b'<a href="/file">click here</a>\n    </body>\n</html>\n',
+            b'<a href="/file">click here</a>\n    </body>\n</html>\n'
         )
 
     def test_encoding(self):
@@ -413,41 +352,12 @@ class WebClientTestCase(unittest.TestCase):
 
     def _check_Encoding(self, response, original_body):
         content_encoding = to_unicode(response.headers[b"Content-Encoding"])
-        self.assertEqual(content_encoding, EncodingResource.out_encoding)
-        self.assertEqual(
-            response.body.decode(content_encoding), to_unicode(original_body)
-        )
+        assert content_encoding == EncodingResource.out_encoding
+        assert response.body.decode(content_encoding) == to_unicode(original_body)
 
 
-class WebClientSSLTestCase(unittest.TestCase):
-    context_factory = None
-
-    def _listen(self, site):
-        return reactor.listenSSL(
-            0,
-            site,
-            contextFactory=self.context_factory or ssl_context_factory(),
-            interface="127.0.0.1",
-        )
-
-    def getURL(self, path):
-        return f"https://127.0.0.1:{self.portno}/{path}"
-
-    def setUp(self):
-        self.tmpname = Path(mkdtemp())
-        (self.tmpname / "file").write_bytes(b"0123456789")
-        r = static.File(str(self.tmpname))
-        r.putChild(b"payload", PayloadResource())
-        self.site = server.Site(r, timeout=None)
-        self.wrapper = WrappingFactory(self.site)
-        self.port = self._listen(self.wrapper)
-        self.portno = self.port.getHost().port
-
-    @inlineCallbacks
-    def tearDown(self):
-        yield self.port.stopListening()
-        shutil.rmtree(self.tmpname)
-
+@pytest.mark.filterwarnings("ignore::scrapy.exceptions.ScrapyDeprecationWarning")
+class WebClientSSLTestCase(TestContextFactoryBase):
     def testPayload(self):
         s = "0123456789" * 10
         return getPage(self.getURL("payload"), body=s).addCallback(

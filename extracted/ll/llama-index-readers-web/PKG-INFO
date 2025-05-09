@@ -1,31 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llama-index-readers-web
-Version: 0.3.9
+Version: 0.4.1
 Summary: llama-index readers web integration
-License: GPL-3.0-or-later
-Keywords: BFS,article,atom,documentation,feed,main content extractor,news,readthedocs,rss,scraper,selenium,seo,sitemap,substack,trafilatura,unstructured.io,url,web reader,web,website
-Author: Your Name
-Author-email: you@example.com
-Maintainer: HawkClaws
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: aiohttp (>=3.9.1,<4.0.0)
-Requires-Dist: beautifulsoup4 (>=4.12.3,<5.0.0)
-Requires-Dist: chromedriver-autoinstaller (>=0.6.3,<0.7.0)
-Requires-Dist: defusedxml (>=0.7.1,<0.8.0)
-Requires-Dist: html2text (>=2024.2.26,<2025.0.0)
-Requires-Dist: llama-index-core (>=0.12.0,<0.13.0)
-Requires-Dist: newspaper3k (>=0.2.8,<0.3.0)
-Requires-Dist: playwright (>=1.30,<2.0)
-Requires-Dist: requests (>=2.31.0,<3.0.0)
-Requires-Dist: selenium (>=4.17.2,<5.0.0)
-Requires-Dist: spider-client (>=0.0.27,<0.0.28)
-Requires-Dist: urllib3 (>=1.1.0)
-Description-Content-Type: text/markdown
-
-
+Author-email: Your Name <you@example.com>
+Maintainer: HawkClaws, Hironsan, NA, an-bluecat, bborn, jasonwcfan, kravetsmic, pandazki, ruze00, selamanse, thejessezhang
+License-Expression: GPL-3.0-or-later
+License-File: LICENSE
+Keywords: BFS,article,atom,documentation,feed,main content extractor,news,readthedocs,rss,scraper,selenium,seo,sitemap,substack,trafilatura,unstructured.io,url,web,web reader,website
+Requires-Python: <4.0,>=3.9
+Requires-Dist: aiohttp<4,>=3.9.1
+Requires-Dist: beautifulsoup4<5,>=4.12.3
+Requires-Dist: chromedriver-autoinstaller<0.7,>=0.6.3
+Requires-Dist: defusedxml<0.8,>=0.7.1
+Requires-Dist: html2text<2025,>=2024.2.26
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: llama-index-core<0.13,>=0.12.0
+Requires-Dist: lxml-html-clean>=0.4.2
+Requires-Dist: lxml>=5.4.0
+Requires-Dist: markdownify>=1.1.0
+Requires-Dist: newspaper3k<0.3,>=0.2.8
+Requires-Dist: oxylabs>=2.0.0
+Requires-Dist: playwright<2.0,>=1.30
+Requires-Dist: requests<3,>=2.31.0
+Requires-Dist: selenium<5,>=4.17.2
+Requires-Dist: spider-client<0.0.28,>=0.0.27
+Requires-Dist: urllib3>=1.1.0

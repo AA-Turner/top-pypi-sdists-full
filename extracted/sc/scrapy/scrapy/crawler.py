@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 import pprint
 import signal
@@ -18,10 +19,8 @@ from scrapy.addons import AddonManager
 from scrapy.core.engine import ExecutionEngine
 from scrapy.extension import ExtensionManager
 from scrapy.interfaces import ISpiderLoader
-from scrapy.logformatter import LogFormatter
 from scrapy.settings import BaseSettings, Settings, overridden_settings
 from scrapy.signalmanager import SignalManager
-from scrapy.statscollectors import StatsCollector
 from scrapy.utils.log import (
     LogCounterHandler,
     configure_logging,
@@ -42,8 +41,10 @@ from scrapy.utils.reactor import (
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterable
 
-    from scrapy.spiderloader import SpiderLoader
-    from scrapy.utils.request import RequestFingerprinter
+    from scrapy.logformatter import LogFormatter
+    from scrapy.spiderloader import SpiderLoaderProtocol
+    from scrapy.statscollectors import StatsCollector
+    from scrapy.utils.request import RequestFingerprinterProtocol
 
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ class Crawler:
         self.extensions: ExtensionManager | None = None
         self.stats: StatsCollector | None = None
         self.logformatter: LogFormatter | None = None
-        self.request_fingerprinter: RequestFingerprinter | None = None
+        self.request_fingerprinter: RequestFingerprinterProtocol | None = None
         self.spider: Spider | None = None
         self.engine: ExecutionEngine | None = None
 
@@ -119,12 +120,12 @@ class Crawler:
                 install_reactor(reactor_class, event_loop)
             else:
                 from twisted.internet import reactor  # noqa: F401
-            log_reactor_info()
         if reactor_class:
             verify_installed_reactor(reactor_class)
             if is_asyncio_reactor_installed() and event_loop:
                 verify_installed_asyncio_event_loop(event_loop)
 
+        if self._init_reactor or reactor_class:
             log_reactor_info()
 
         self.extensions = ExtensionManager.from_crawler(self)
@@ -135,6 +136,9 @@ class Crawler:
             "Overridden settings:\n%(settings)s", {"settings": pprint.pformat(d)}
         )
 
+    # Cannot use @deferred_f_from_coro_f because that relies on the reactor
+    # being installed already, which is done within _apply_settings(), inside
+    # this method.
     @inlineCallbacks
     def crawl(self, *args: Any, **kwargs: Any) -> Generator[Deferred[Any], Any, None]:
         if self.crawling:
@@ -150,9 +154,8 @@ class Crawler:
             self._apply_settings()
             self._update_root_log_handler()
             self.engine = self._create_engine()
-            start_requests = iter(self.spider.start_requests())
-            yield self.engine.open_spider(self.spider, start_requests)
-            yield maybeDeferred(self.engine.start)
+            yield self.engine.open_spider(self.spider)
+            yield self.engine.start()
         except Exception:
             self.crawling = False
             if self.engine is not None:
@@ -281,18 +284,21 @@ class CrawlerRunner:
     )
 
     @staticmethod
-    def _get_spider_loader(settings: BaseSettings) -> SpiderLoader:
+    def _get_spider_loader(settings: BaseSettings) -> SpiderLoaderProtocol:
         """Get SpiderLoader instance from settings"""
         cls_path = settings.get("SPIDER_LOADER_CLASS")
         loader_cls = load_object(cls_path)
         verifyClass(ISpiderLoader, loader_cls)
-        return cast("SpiderLoader", loader_cls.from_settings(settings.frozencopy()))
+        return cast(
+            "SpiderLoaderProtocol", loader_cls.from_settings(settings.frozencopy())
+        )
 
     def __init__(self, settings: dict[str, Any] | Settings | None = None):
         if isinstance(settings, dict) or settings is None:
             settings = Settings(settings)
+        AddonManager.load_pre_crawler_settings(settings)
         self.settings: Settings = settings
-        self.spider_loader: SpiderLoader = self._get_spider_loader(settings)
+        self.spider_loader: SpiderLoaderProtocol = self._get_spider_loader(settings)
         self._crawlers: set[Crawler] = set()
         self._active: set[Deferred[None]] = set()
         self.bootstrap_failed = False
@@ -503,7 +509,6 @@ class CrawlerProcess(CrawlerRunner):
     def _stop_reactor(self, _: Any = None) -> None:
         from twisted.internet import reactor
 
-        try:
+        # raised if already stopped or in shutdown stage
+        with contextlib.suppress(RuntimeError):
             reactor.stop()
-        except RuntimeError:  # raised if already stopped or in shutdown stage
-            pass

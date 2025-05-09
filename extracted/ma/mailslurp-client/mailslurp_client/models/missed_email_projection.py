@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,39 +34,60 @@ class MissedEmailProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
         'user_id': 'str',
+        'created_at': 'datetime',
         'subject': 'str',
         'id': 'str',
         '_from': 'str'
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
         'user_id': 'userId',
+        'created_at': 'createdAt',
         'subject': 'subject',
         'id': 'id',
         '_from': 'from'
     }
 
-    def __init__(self, created_at=None, user_id=None, subject=None, id=None, _from=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, user_id=None, created_at=None, subject=None, id=None, _from=None, local_vars_configuration=None):  # noqa: E501
         """MissedEmailProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
         self._user_id = None
+        self._created_at = None
         self._subject = None
         self._id = None
         self.__from = None
         self.discriminator = None
 
-        self.created_at = created_at
         self.user_id = user_id
+        self.created_at = created_at
         self.subject = subject
         self.id = id
         self._from = _from
+
+    @property
+    def user_id(self):
+        """Gets the user_id of this MissedEmailProjection.  # noqa: E501
+
+
+        :return: The user_id of this MissedEmailProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._user_id
+
+    @user_id.setter
+    def user_id(self, user_id):
+        """Sets the user_id of this MissedEmailProjection.
+
+
+        :param user_id: The user_id of this MissedEmailProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._user_id = user_id
 
     @property
     def created_at(self):
@@ -90,27 +111,6 @@ class MissedEmailProjection(object):
             raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
 
         self._created_at = created_at
-
-    @property
-    def user_id(self):
-        """Gets the user_id of this MissedEmailProjection.  # noqa: E501
-
-
-        :return: The user_id of this MissedEmailProjection.  # noqa: E501
-        :rtype: str
-        """
-        return self._user_id
-
-    @user_id.setter
-    def user_id(self, user_id):
-        """Sets the user_id of this MissedEmailProjection.
-
-
-        :param user_id: The user_id of this MissedEmailProjection.  # noqa: E501
-        :type: str
-        """
-
-        self._user_id = user_id
 
     @property
     def subject(self):

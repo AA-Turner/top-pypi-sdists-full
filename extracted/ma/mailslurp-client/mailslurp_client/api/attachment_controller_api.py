@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -40,6 +40,7 @@ class AttachmentControllerApi(object):
     def delete_all_attachments(self, **kwargs):  # noqa: E501
         """Delete all attachments  # noqa: E501
 
+        Delete all attachments  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_all_attachments(async_req=True)
@@ -63,6 +64,7 @@ class AttachmentControllerApi(object):
     def delete_all_attachments_with_http_info(self, **kwargs):  # noqa: E501
         """Delete all attachments  # noqa: E501
 
+        Delete all attachments  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_all_attachments_with_http_info(async_req=True)
@@ -139,6 +141,7 @@ class AttachmentControllerApi(object):
     def delete_attachment(self, attachment_id, **kwargs):  # noqa: E501
         """Delete an attachment  # noqa: E501
 
+        Delete an attachment  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_attachment(attachment_id, async_req=True)
@@ -163,6 +166,7 @@ class AttachmentControllerApi(object):
     def delete_attachment_with_http_info(self, attachment_id, **kwargs):  # noqa: E501
         """Delete an attachment  # noqa: E501
 
+        Delete an attachment  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_attachment_with_http_info(attachment_id, async_req=True)
@@ -489,7 +493,7 @@ class AttachmentControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: AttachmentEntity
+        :return: AttachmentEntityDto
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -515,7 +519,7 @@ class AttachmentControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(AttachmentEntity, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(AttachmentEntityDto, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -576,7 +580,7 @@ class AttachmentControllerApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='AttachmentEntity',  # noqa: E501
+            response_type='AttachmentEntityDto',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -715,6 +719,8 @@ class AttachmentControllerApi(object):
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
         :param str inbox_id: Optional inboxId to filter attachments by
+        :param str email_id: Optional emailId to filter attachments by
+        :param str sent_email_id: Optional sentEmailId to filter attachments by
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -746,6 +752,8 @@ class AttachmentControllerApi(object):
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
         :param str inbox_id: Optional inboxId to filter attachments by
+        :param str email_id: Optional emailId to filter attachments by
+        :param str sent_email_id: Optional sentEmailId to filter attachments by
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -769,7 +777,9 @@ class AttachmentControllerApi(object):
             'file_name_filter',
             'since',
             'before',
-            'inbox_id'
+            'inbox_id',
+            'email_id',
+            'sent_email_id'
         ]
         all_params.extend(
             [
@@ -808,6 +818,10 @@ class AttachmentControllerApi(object):
             query_params.append(('before', local_var_params['before']))  # noqa: E501
         if 'inbox_id' in local_var_params and local_var_params['inbox_id'] is not None:  # noqa: E501
             query_params.append(('inboxId', local_var_params['inbox_id']))  # noqa: E501
+        if 'email_id' in local_var_params and local_var_params['email_id'] is not None:  # noqa: E501
+            query_params.append(('emailId', local_var_params['email_id']))  # noqa: E501
+        if 'sent_email_id' in local_var_params and local_var_params['sent_email_id'] is not None:  # noqa: E501
+            query_params.append(('sentEmailId', local_var_params['sent_email_id']))  # noqa: E501
 
         header_params = {}
 
@@ -967,6 +981,7 @@ class AttachmentControllerApi(object):
         :param str content_type2: Optional contentType for file. For instance `application/pdf`
         :param str content_id: Optional content ID (CID) to save upload with
         :param str filename: Optional filename to save upload with
+        :param int file_size: Optional byte length to save upload with
         :param str filename2:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
@@ -995,6 +1010,7 @@ class AttachmentControllerApi(object):
         :param str content_type2: Optional contentType for file. For instance `application/pdf`
         :param str content_id: Optional content ID (CID) to save upload with
         :param str filename: Optional filename to save upload with
+        :param int file_size: Optional byte length to save upload with
         :param str filename2:
         :param _return_http_data_only: response data without head status code
                                        and headers
@@ -1017,6 +1033,7 @@ class AttachmentControllerApi(object):
             'content_type2',
             'content_id',
             'filename',
+            'file_size',
             'filename2'
         ]
         all_params.extend(
@@ -1048,6 +1065,8 @@ class AttachmentControllerApi(object):
             query_params.append(('contentId', local_var_params['content_id']))  # noqa: E501
         if 'filename' in local_var_params and local_var_params['filename'] is not None:  # noqa: E501
             query_params.append(('filename', local_var_params['filename']))  # noqa: E501
+        if 'file_size' in local_var_params and local_var_params['file_size'] is not None:  # noqa: E501
+            query_params.append(('fileSize', local_var_params['file_size']))  # noqa: E501
 
         header_params = {}
         if 'content_type' in local_var_params:
@@ -1094,7 +1113,10 @@ class AttachmentControllerApi(object):
         :param str content_id: Optional content ID of attachment
         :param str content_type: Optional content type of attachment
         :param str filename: Optional name of file
-        :param str x_filename: Optional content type header of attachment
+        :param str content_type_header: Optional content type header of attachment
+        :param str x_filename: Optional filename header of attachment
+        :param str x_filename_raw: Optional raw filename header of attachment that will be converted to punycode
+        :param int x_filesize: Optional content size of attachment
         :param InlineObject inline_object:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
@@ -1122,7 +1144,10 @@ class AttachmentControllerApi(object):
         :param str content_id: Optional content ID of attachment
         :param str content_type: Optional content type of attachment
         :param str filename: Optional name of file
-        :param str x_filename: Optional content type header of attachment
+        :param str content_type_header: Optional content type header of attachment
+        :param str x_filename: Optional filename header of attachment
+        :param str x_filename_raw: Optional raw filename header of attachment that will be converted to punycode
+        :param int x_filesize: Optional content size of attachment
         :param InlineObject inline_object:
         :param _return_http_data_only: response data without head status code
                                        and headers
@@ -1144,7 +1169,10 @@ class AttachmentControllerApi(object):
             'content_id',
             'content_type',
             'filename',
+            'content_type_header',
             'x_filename',
+            'x_filename_raw',
+            'x_filesize',
             'inline_object'
         ]
         all_params.extend(
@@ -1176,8 +1204,14 @@ class AttachmentControllerApi(object):
             query_params.append(('contentType', local_var_params['content_type']))  # noqa: E501
         if 'filename' in local_var_params and local_var_params['filename'] is not None:  # noqa: E501
             query_params.append(('filename', local_var_params['filename']))  # noqa: E501
+        if 'content_type_header' in local_var_params and local_var_params['content_type_header'] is not None:  # noqa: E501
+            query_params.append(('contentTypeHeader', local_var_params['content_type_header']))  # noqa: E501
         if 'x_filename' in local_var_params and local_var_params['x_filename'] is not None:  # noqa: E501
             query_params.append(('x-filename', local_var_params['x_filename']))  # noqa: E501
+        if 'x_filename_raw' in local_var_params and local_var_params['x_filename_raw'] is not None:  # noqa: E501
+            query_params.append(('x-filename-raw', local_var_params['x_filename_raw']))  # noqa: E501
+        if 'x_filesize' in local_var_params and local_var_params['x_filesize'] is not None:  # noqa: E501
+            query_params.append(('x-filesize', local_var_params['x_filesize']))  # noqa: E501
 
         header_params = {}
 

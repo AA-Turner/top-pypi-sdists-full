@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: turbopuffer
-Version: 0.2.3
+Version: 0.3.0
 Summary: Python Client for accessing the turbopuffer API
 License: MIT
 Keywords: turbopuffer,vector,database,cloud
@@ -30,7 +30,9 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Provides-Extra: fast
 Requires-Dist: iso8601 (>=2.1.0,<3.0.0)
+Requires-Dist: numpy (>=1.24.0)
 Requires-Dist: orjson (>=3.9) ; extra == "fast"
+Requires-Dist: pandas (>=2.0.0)
 Requires-Dist: pybase64 (>=1.4.1) ; extra == "fast"
 Requires-Dist: requests (>=2.31,<3.0)
 Requires-Dist: typing-extensions (>=4.12.2,<5.0.0)
@@ -97,21 +99,22 @@ ns.write(
 
 # Query your dataset
 results = ns.query(
-    vector=[0.18, 0.19],
+    rank_by=["vector", "ANN", [0.18, 0.19]],
     top_k=10,
     filters=['And', [
         ['name', 'Glob', '*o*'],
         ['name', 'NotEq', 'other'],
     ]],
-    include_attributes=['name'],
-    include_vectors=True
+    include_attributes=['name', 'vector'],
 )
 print(results)
 # Output:
-# [
-#   VectorRow(id=2, vector=[0.2, 0.2], attributes={'name': 'two'}, dist=0.00049999997),
-#   VectorRow(id=1, vector=[0.1, 0.1], attributes={'name': 'one'}, dist=0.0145)]
-# ]
+# QueryResult(
+#   rows=[
+#     VectorRow(id=2, vector=[0.2, 0.2], attributes={'name': 'two'}, dist=0.00049999997),
+#     VectorRow(id=1, vector=[0.1, 0.1], attributes={'name': 'one'}, dist=0.0145)
+#   ]
+# )
 
 # List all namespaces
 namespaces = tpuf.namespaces()

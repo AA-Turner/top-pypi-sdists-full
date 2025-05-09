@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: prefect-dbt
-Version: 0.6.6
+Version: 0.6.7
 Summary: Prefect integrations for working with dbt
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -60,6 +60,7 @@ Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-env; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: respx; extra == "dev"
+Dynamic: license-file
 
 # prefect-dbt
 

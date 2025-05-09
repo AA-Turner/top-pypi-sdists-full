@@ -67,56 +67,14 @@ from .configurable_transformation_definition import ConfigurableTransformationDe
 from .configurable_transformation_names import ConfigurableTransformationNames
 from .credit_type import CreditType
 from .data_sink import DataSink
-from .data_sink_component import (
-    DataSinkComponent,
-    DataSinkComponent_AzureAiSearch,
-    DataSinkComponent_Milvus,
-    DataSinkComponent_MongodbAtlas,
-    DataSinkComponent_Pinecone,
-    DataSinkComponent_Postgres,
-    DataSinkComponent_Qdrant,
-)
+from .data_sink_component import DataSinkComponent
 from .data_sink_create import DataSinkCreate
-from .data_sink_create_component import (
-    DataSinkCreateComponent,
-    DataSinkCreateComponent_AzureAiSearch,
-    DataSinkCreateComponent_Milvus,
-    DataSinkCreateComponent_MongodbAtlas,
-    DataSinkCreateComponent_Pinecone,
-    DataSinkCreateComponent_Postgres,
-    DataSinkCreateComponent_Qdrant,
-)
+from .data_sink_create_component import DataSinkCreateComponent
 from .data_sink_definition import DataSinkDefinition
 from .data_source import DataSource
 from .data_source_component import DataSourceComponent
-from .data_source_component_one import (
-    DataSourceComponentOne,
-    DataSourceComponentOne_AzureStorageBlob,
-    DataSourceComponentOne_Box,
-    DataSourceComponentOne_Confluence,
-    DataSourceComponentOne_GoogleDrive,
-    DataSourceComponentOne_Jira,
-    DataSourceComponentOne_MicrosoftOnedrive,
-    DataSourceComponentOne_MicrosoftSharepoint,
-    DataSourceComponentOne_NotionPage,
-    DataSourceComponentOne_S3,
-    DataSourceComponentOne_Slack,
-)
 from .data_source_create import DataSourceCreate
 from .data_source_create_component import DataSourceCreateComponent
-from .data_source_create_component_one import (
-    DataSourceCreateComponentOne,
-    DataSourceCreateComponentOne_AzureStorageBlob,
-    DataSourceCreateComponentOne_Box,
-    DataSourceCreateComponentOne_Confluence,
-    DataSourceCreateComponentOne_GoogleDrive,
-    DataSourceCreateComponentOne_Jira,
-    DataSourceCreateComponentOne_MicrosoftOnedrive,
-    DataSourceCreateComponentOne_MicrosoftSharepoint,
-    DataSourceCreateComponentOne_NotionPage,
-    DataSourceCreateComponentOne_S3,
-    DataSourceCreateComponentOne_Slack,
-)
 from .data_source_create_custom_metadata_value import DataSourceCreateCustomMetadataValue
 from .data_source_custom_metadata_value import DataSourceCustomMetadataValue
 from .data_source_definition import DataSourceDefinition
@@ -277,19 +235,6 @@ from .pipeline_create_embedding_config import (
 from .pipeline_create_transform_config import PipelineCreateTransformConfig
 from .pipeline_data_source import PipelineDataSource
 from .pipeline_data_source_component import PipelineDataSourceComponent
-from .pipeline_data_source_component_one import (
-    PipelineDataSourceComponentOne,
-    PipelineDataSourceComponentOne_AzureStorageBlob,
-    PipelineDataSourceComponentOne_Box,
-    PipelineDataSourceComponentOne_Confluence,
-    PipelineDataSourceComponentOne_GoogleDrive,
-    PipelineDataSourceComponentOne_Jira,
-    PipelineDataSourceComponentOne_MicrosoftOnedrive,
-    PipelineDataSourceComponentOne_MicrosoftSharepoint,
-    PipelineDataSourceComponentOne_NotionPage,
-    PipelineDataSourceComponentOne_S3,
-    PipelineDataSourceComponentOne_Slack,
-)
 from .pipeline_data_source_create import PipelineDataSourceCreate
 from .pipeline_data_source_custom_metadata_value import PipelineDataSourceCustomMetadataValue
 from .pipeline_data_source_status import PipelineDataSourceStatus
@@ -316,6 +261,7 @@ from .pipeline_file_update_dispatcher_config import PipelineFileUpdateDispatcher
 from .pipeline_file_updater_config import PipelineFileUpdaterConfig
 from .pipeline_managed_ingestion_job_params import PipelineManagedIngestionJobParams
 from .pipeline_metadata_config import PipelineMetadataConfig
+from .pipeline_status import PipelineStatus
 from .pipeline_transform_config import (
     PipelineTransformConfig,
     PipelineTransformConfig_Advanced,
@@ -458,47 +404,13 @@ __all__ = [
     "CreditType",
     "DataSink",
     "DataSinkComponent",
-    "DataSinkComponent_AzureAiSearch",
-    "DataSinkComponent_Milvus",
-    "DataSinkComponent_MongodbAtlas",
-    "DataSinkComponent_Pinecone",
-    "DataSinkComponent_Postgres",
-    "DataSinkComponent_Qdrant",
     "DataSinkCreate",
     "DataSinkCreateComponent",
-    "DataSinkCreateComponent_AzureAiSearch",
-    "DataSinkCreateComponent_Milvus",
-    "DataSinkCreateComponent_MongodbAtlas",
-    "DataSinkCreateComponent_Pinecone",
-    "DataSinkCreateComponent_Postgres",
-    "DataSinkCreateComponent_Qdrant",
     "DataSinkDefinition",
     "DataSource",
     "DataSourceComponent",
-    "DataSourceComponentOne",
-    "DataSourceComponentOne_AzureStorageBlob",
-    "DataSourceComponentOne_Box",
-    "DataSourceComponentOne_Confluence",
-    "DataSourceComponentOne_GoogleDrive",
-    "DataSourceComponentOne_Jira",
-    "DataSourceComponentOne_MicrosoftOnedrive",
-    "DataSourceComponentOne_MicrosoftSharepoint",
-    "DataSourceComponentOne_NotionPage",
-    "DataSourceComponentOne_S3",
-    "DataSourceComponentOne_Slack",
     "DataSourceCreate",
     "DataSourceCreateComponent",
-    "DataSourceCreateComponentOne",
-    "DataSourceCreateComponentOne_AzureStorageBlob",
-    "DataSourceCreateComponentOne_Box",
-    "DataSourceCreateComponentOne_Confluence",
-    "DataSourceCreateComponentOne_GoogleDrive",
-    "DataSourceCreateComponentOne_Jira",
-    "DataSourceCreateComponentOne_MicrosoftOnedrive",
-    "DataSourceCreateComponentOne_MicrosoftSharepoint",
-    "DataSourceCreateComponentOne_NotionPage",
-    "DataSourceCreateComponentOne_S3",
-    "DataSourceCreateComponentOne_Slack",
     "DataSourceCreateCustomMetadataValue",
     "DataSourceCustomMetadataValue",
     "DataSourceDefinition",
@@ -649,17 +561,6 @@ __all__ = [
     "PipelineCreateTransformConfig",
     "PipelineDataSource",
     "PipelineDataSourceComponent",
-    "PipelineDataSourceComponentOne",
-    "PipelineDataSourceComponentOne_AzureStorageBlob",
-    "PipelineDataSourceComponentOne_Box",
-    "PipelineDataSourceComponentOne_Confluence",
-    "PipelineDataSourceComponentOne_GoogleDrive",
-    "PipelineDataSourceComponentOne_Jira",
-    "PipelineDataSourceComponentOne_MicrosoftOnedrive",
-    "PipelineDataSourceComponentOne_MicrosoftSharepoint",
-    "PipelineDataSourceComponentOne_NotionPage",
-    "PipelineDataSourceComponentOne_S3",
-    "PipelineDataSourceComponentOne_Slack",
     "PipelineDataSourceCreate",
     "PipelineDataSourceCustomMetadataValue",
     "PipelineDataSourceStatus",
@@ -684,6 +585,7 @@ __all__ = [
     "PipelineFileUpdaterConfig",
     "PipelineManagedIngestionJobParams",
     "PipelineMetadataConfig",
+    "PipelineStatus",
     "PipelineTransformConfig",
     "PipelineTransformConfig_Advanced",
     "PipelineTransformConfig_Auto",

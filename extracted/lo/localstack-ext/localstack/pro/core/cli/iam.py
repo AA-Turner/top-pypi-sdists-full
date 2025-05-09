@@ -9,7 +9,7 @@ from click import ClickException
 from localstack import config
 from localstack.cli import console
 from localstack.pro.core.cli.aws import aws
-from localstack.pro.core.cli.cli import RequiresLicenseGroup
+from localstack.pro.core.cli.cli import RequiresPlatformLicenseGroup
 from localstack.utils.analytics.cli import publish_invocation
 from localstack.utils.platform import is_windows
 from localstack.utils.strings import to_str
@@ -17,7 +17,8 @@ def _print_plain(generated_policy):A=generated_policy;console.print(f'Attached t
 def print_generated_policy_plain(generated_policy):A=generated_policy;A=json.loads(to_str(A));_print_plain(A)
 def print_generated_policy_json(generated_policy):console.print(to_str(generated_policy),highlight=False)
 def get_iam_endpoint():A=config.external_service_url();return f"{A}/_aws/iam"
-@aws.group(name='iam',short_help='(Preview) Access LocalStack IAM features',help='\n    Access LocalStack IAM features.\n\n    This command provides tools to make it easier to write IAM policies for your cloud application.\n    ',cls=RequiresLicenseGroup)
+class IAMCliGroup(RequiresPlatformLicenseGroup):name='iam-stream';tier='higher'
+@aws.group(name='iam',short_help='(Preview) Access LocalStack IAM features',help='\n    Access LocalStack IAM features.\n\n    This command provides tools to make it easier to write IAM policies for your cloud application.\n    ',cls=IAMCliGroup)
 def iam():0
 @iam.command(name='stream',short_help='Stream policies for all requests enforced on LocalStack',help='\n    Live stream of policies as requests are coming into LocalStack.\n\n    This command generates a live stream of policies and the principals or resources they should be attached to.\n\n    For every request, it will print the principal or resource the policy should be attached to first.\n    (will be a service resource if it is a resource based policy, an IAM principal otherwise)\n    After that the recommended policy will be printed.\n    ')
 @click.option('-f','--format','format_',type=click.Choice([_A,'json']),default=_A,help='The formatting style for the command output. Use plain if it should be human readable, and json to get a newline-separated list of json documents.')

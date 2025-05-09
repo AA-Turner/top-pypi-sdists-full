@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import pydantic
 import pytest
+from dirty_equals import IsStr
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
@@ -66,7 +67,7 @@ async def test_mcp(exporter: TestExporter):
 
         class MyMCPServer(_MCPServerWithClientSession):
             def __init__(self, streams: Any):
-                super().__init__(False)
+                super().__init__(cache_tools_list=False, client_session_timeout_seconds=1000)
                 self._streams = streams
 
             @asynccontextmanager
@@ -123,7 +124,7 @@ async def test_mcp(exporter: TestExporter):
                             'resources': {'subscribe': False, 'listChanged': False},
                             'tools': {'listChanged': False},
                         },
-                        'serverInfo': {'name': 'FastMCP', 'version': '1.6.0'},
+                        'serverInfo': {'name': 'FastMCP', 'version': IsStr()},
                         'instructions': None,
                     },
                     'logfire.json_schema': {
@@ -238,6 +239,7 @@ async def test_mcp(exporter: TestExporter):
                                 'name': 'random_number',
                                 'description': '',
                                 'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
+                                'annotations': None,
                             }
                         ],
                     },
@@ -322,6 +324,7 @@ async def test_mcp(exporter: TestExporter):
                         'include_usage': None,
                         'extra_query': None,
                         'extra_body': None,
+                        'extra_headers': None,
                     },
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
@@ -626,6 +629,7 @@ async def test_mcp(exporter: TestExporter):
                         'include_usage': None,
                         'extra_query': None,
                         'extra_body': None,
+                        'extra_headers': None,
                     },
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',

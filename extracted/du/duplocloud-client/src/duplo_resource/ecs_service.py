@@ -1,6 +1,6 @@
 from duplocloud.client import DuploClient
 from duplocloud.resource import DuploTenantResourceV2
-from duplocloud.errors import DuploError
+from duplocloud.errors import DuploError, DuploStillWaiting
 from duplocloud.commander import Command, Resource
 import duplocloud.args as args
 
@@ -158,8 +158,7 @@ class DuploEcsService(DuploTenantResourceV2):
   @Command()
   def update_image(self, 
                    name: args.NAME, 
-                   image: args.IMAGE,
-                   wait: args.WAIT) -> dict:
+                   image: args.IMAGE) -> dict:
     """Update the image for an ECS service.
 
     Example:
@@ -191,7 +190,7 @@ class DuploEcsService(DuploTenantResourceV2):
     # run update here so the errors bubble up correctly
     if svc: 
       self.update_service(svc)
-      if wait:
+      if self.duplo.wait:
         self.wait(lambda: self.wait_on_task(name))
     return {
       "message": msg
@@ -208,7 +207,8 @@ class DuploEcsService(DuploTenantResourceV2):
       "Memory": task_def["Memory"],
       "InferenceAccelerators": task_def.get("InferenceAccelerators", []),
       "NetworkMode": task_def.get("NetworkMode", {}),
-      "ContainerDefinitions": containers
+      "ContainerDefinitions": containers,
+      "RuntimePlatform": task_def.get("RuntimePlatform", {})
     }
   
   def __ecs_container_update_body(self, container_def):
@@ -220,6 +220,7 @@ class DuploEcsService(DuploTenantResourceV2):
         "Environment": container_def.get("Environment", {}) ,
         "Command": container_def.get("Command", {}) ,
         "Secrets": container_def.get("Secrets", {}) ,
+        "EnvironmentFiles": container_def.get("EnvironmentFiles", {})
     }
     
     # Add LogConfiguration only if it exists in container_def
@@ -243,8 +244,7 @@ class DuploEcsService(DuploTenantResourceV2):
   @Command()
   def run_task(self, 
                name: args.NAME,
-               replicas: args.REPLICAS,
-               wait: args.WAIT) -> dict:
+               replicas: args.REPLICAS) -> dict:
     """Run a task for an ECS service."
 
     Execute a task based on some definition. 
@@ -264,7 +264,7 @@ class DuploEcsService(DuploTenantResourceV2):
       "Count": replicas if replicas else 1
     }
     res = self.duplo.post(path, body)
-    if wait:
+    if self.duplo.wait:
       self.wait(lambda: self.wait_on_task(name))
     return res.json()
 
@@ -275,4 +275,4 @@ class DuploEcsService(DuploTenantResourceV2):
     # filter the tasks down to any where the DesiredStatus and LastStatus are different
     running_tasks = [t for t in tasks if t["DesiredStatus"] != t["LastStatus"]]
     if len(running_tasks) > 0:
-      raise DuploError(f"Service {name} waiting for replicas update", 400)
+      raise DuploStillWaiting(f"Service {name} waiting for replicas update")

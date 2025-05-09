@@ -229,6 +229,8 @@ class ArtifactMetadataEntryType(enum.Enum):
     '''Represents the CloudFormation logical ID of a resource at a certain path.'''
     STACK_TAGS = "STACK_TAGS"
     '''Represents tags of a stack.'''
+    DO_NOT_REFACTOR = "DO_NOT_REFACTOR"
+    '''Whether the resource should be excluded during refactoring.'''
 
 
 @jsii.enum(jsii_type="@aws-cdk/cloud-assembly-schema.ArtifactType")

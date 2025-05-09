@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect
-Version: 3.4.0
+Version: 3.4.1
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -72,6 +72,7 @@ Requires-Dist: toml>=0.10.0
 Requires-Dist: typer!=0.12.2,<0.16.0,>=0.12.0
 Requires-Dist: typing-extensions<5.0.0,>=4.10.0
 Requires-Dist: ujson<6.0.0,>=5.8.0
+Requires-Dist: uuid7>=0.1.0
 Requires-Dist: uv>=0.6.0
 Requires-Dist: uvicorn!=0.29.0,>=0.14.0
 Requires-Dist: websockets<16.0,>=13.0

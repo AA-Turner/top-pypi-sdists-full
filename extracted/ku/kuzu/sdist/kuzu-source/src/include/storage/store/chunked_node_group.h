@@ -27,6 +27,7 @@ struct TableScanState;
 struct TableAddColumnState;
 struct NodeGroupScanState;
 class ColumnStats;
+class FileHandle;
 
 enum class NodeGroupDataFormat : uint8_t { REGULAR = 0, CSR = 1 };
 
@@ -152,6 +153,8 @@ public:
         common::transaction_t commitTS);
     void rollbackDelete(common::row_idx_t startRow, common::row_idx_t numRows_,
         common::transaction_t commitTS);
+    virtual void reclaimStorage(FileHandle& dataFH);
+    void reclaimColumn(FileHandle& dataFH, common::column_id_t columnID);
 
     uint64_t getEstimatedMemoryUsage() const;
 

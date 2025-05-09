@@ -18,30 +18,8 @@ from . import (
     reports,
     retrievers,
 )
-from .data_sinks import (
-    DataSinkUpdateComponent,
-    DataSinkUpdateComponent_AzureAiSearch,
-    DataSinkUpdateComponent_Milvus,
-    DataSinkUpdateComponent_MongodbAtlas,
-    DataSinkUpdateComponent_Pinecone,
-    DataSinkUpdateComponent_Postgres,
-    DataSinkUpdateComponent_Qdrant,
-)
-from .data_sources import (
-    DataSourceUpdateComponent,
-    DataSourceUpdateComponentOne,
-    DataSourceUpdateComponentOne_AzureStorageBlob,
-    DataSourceUpdateComponentOne_Box,
-    DataSourceUpdateComponentOne_Confluence,
-    DataSourceUpdateComponentOne_GoogleDrive,
-    DataSourceUpdateComponentOne_Jira,
-    DataSourceUpdateComponentOne_MicrosoftOnedrive,
-    DataSourceUpdateComponentOne_MicrosoftSharepoint,
-    DataSourceUpdateComponentOne_NotionPage,
-    DataSourceUpdateComponentOne_S3,
-    DataSourceUpdateComponentOne_Slack,
-    DataSourceUpdateCustomMetadataValue,
-)
+from .data_sinks import DataSinkUpdateComponent
+from .data_sources import DataSourceUpdateComponent, DataSourceUpdateCustomMetadataValue
 from .embedding_model_configs import (
     EmbeddingModelConfigCreateEmbeddingConfig,
     EmbeddingModelConfigCreateEmbeddingConfig_AzureEmbedding,
@@ -79,24 +57,7 @@ from .reports import UpdateReportPlanApiV1ReportsReportIdPlanPatchRequestAction
 
 __all__ = [
     "DataSinkUpdateComponent",
-    "DataSinkUpdateComponent_AzureAiSearch",
-    "DataSinkUpdateComponent_Milvus",
-    "DataSinkUpdateComponent_MongodbAtlas",
-    "DataSinkUpdateComponent_Pinecone",
-    "DataSinkUpdateComponent_Postgres",
-    "DataSinkUpdateComponent_Qdrant",
     "DataSourceUpdateComponent",
-    "DataSourceUpdateComponentOne",
-    "DataSourceUpdateComponentOne_AzureStorageBlob",
-    "DataSourceUpdateComponentOne_Box",
-    "DataSourceUpdateComponentOne_Confluence",
-    "DataSourceUpdateComponentOne_GoogleDrive",
-    "DataSourceUpdateComponentOne_Jira",
-    "DataSourceUpdateComponentOne_MicrosoftOnedrive",
-    "DataSourceUpdateComponentOne_MicrosoftSharepoint",
-    "DataSourceUpdateComponentOne_NotionPage",
-    "DataSourceUpdateComponentOne_S3",
-    "DataSourceUpdateComponentOne_Slack",
     "DataSourceUpdateCustomMetadataValue",
     "EmbeddingModelConfigCreateEmbeddingConfig",
     "EmbeddingModelConfigCreateEmbeddingConfig_AzureEmbedding",

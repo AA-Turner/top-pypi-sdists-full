@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: kuzu
-Version: 0.9.0
+Version: 0.10.0
 Summary: Highly scalable, extremely fast, easy-to-use embeddable graph database
 Home-page: https://github.com/kuzudb/kuzu
 License: MIT License

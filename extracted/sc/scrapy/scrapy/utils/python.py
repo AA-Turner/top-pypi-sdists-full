@@ -10,7 +10,7 @@ import re
 import sys
 import warnings
 import weakref
-from collections.abc import AsyncIterable, Iterable, Mapping
+from collections.abc import AsyncIterator, Iterable, Mapping
 from functools import partial, wraps
 from itertools import chain
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -19,11 +19,12 @@ from scrapy.exceptions import ScrapyDeprecationWarning
 from scrapy.utils.asyncgen import as_async_generator
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Iterator
+    from collections.abc import Callable, Iterator
     from re import Pattern
 
     # typing.Concatenate and typing.ParamSpec require Python 3.10
-    from typing_extensions import Concatenate, ParamSpec
+    # typing.Self requires Python 3.11
+    from typing_extensions import Concatenate, ParamSpec, Self
 
     _P = ParamSpec("_P")
 
@@ -119,8 +120,7 @@ def to_unicode(
         return text
     if not isinstance(text, (bytes, str)):
         raise TypeError(
-            "to_unicode must receive a bytes or str "
-            f"object, got {type(text).__name__}"
+            f"to_unicode must receive a bytes or str object, got {type(text).__name__}"
         )
     if encoding is None:
         encoding = "utf-8"
@@ -136,7 +136,7 @@ def to_bytes(
         return text
     if not isinstance(text, str):
         raise TypeError(
-            "to_bytes must receive a str or bytes " f"object, got {type(text).__name__}"
+            f"to_bytes must receive a str or bytes object, got {type(text).__name__}"
         )
     if encoding is None:
         encoding = "utf-8"
@@ -183,7 +183,7 @@ _SelfT = TypeVar("_SelfT")
 
 
 def memoizemethod_noargs(
-    method: Callable[Concatenate[_SelfT, _P], _T]
+    method: Callable[Concatenate[_SelfT, _P], _T],
 ) -> Callable[Concatenate[_SelfT, _P], _T]:
     """Decorator to cache the result of a method (without arguments) using a
     weak reference to its object
@@ -235,8 +235,7 @@ def get_func_args(func: Callable[..., Any], stripself: bool = False) -> list[str
                 continue
             args.append(name)
     else:
-        for name in sig.parameters.keys():
-            args.append(name)
+        args = list(sig.parameters)
 
     if stripself and args and args[0] == "self":
         args = args[1:]
@@ -314,7 +313,7 @@ def without_none_values(iterable: Iterable[_KT]) -> Iterable[_KT]: ...
 
 
 def without_none_values(
-    iterable: Mapping[_KT, _VT] | Iterable[_KT]
+    iterable: Mapping[_KT, _VT] | Iterable[_KT],
 ) -> dict[_KT, _VT] | Iterable[_KT]:
     """Return a copy of ``iterable`` with all ``None`` entries removed.
 
@@ -328,11 +327,13 @@ def without_none_values(
 
 
 def global_object_name(obj: Any) -> str:
-    """Return the full import path of the given class.
+    """Return the full import path of the given object.
 
     >>> from scrapy import Request
     >>> global_object_name(Request)
     'scrapy.http.request.Request'
+    >>> global_object_name(Request.replace)
+    'scrapy.http.request.Request.replace'
     """
     return f"{obj.__module__}.{obj.__qualname__}"
 
@@ -369,25 +370,25 @@ class MutableChain(Iterable[_T]):
 
 
 async def _async_chain(
-    *iterables: Iterable[_T] | AsyncIterable[_T],
+    *iterables: Iterable[_T] | AsyncIterator[_T],
 ) -> AsyncIterator[_T]:
     for it in iterables:
         async for o in as_async_generator(it):
             yield o
 
 
-class MutableAsyncChain(AsyncIterable[_T]):
+class MutableAsyncChain(AsyncIterator[_T]):
     """
     Similar to MutableChain but for async iterables
     """
 
-    def __init__(self, *args: Iterable[_T] | AsyncIterable[_T]):
+    def __init__(self, *args: Iterable[_T] | AsyncIterator[_T]):
         self.data: AsyncIterator[_T] = _async_chain(*args)
 
-    def extend(self, *iterables: Iterable[_T] | AsyncIterable[_T]) -> None:
+    def extend(self, *iterables: Iterable[_T] | AsyncIterator[_T]) -> None:
         self.data = _async_chain(self.data, _async_chain(*iterables))
 
-    def __aiter__(self) -> AsyncIterator[_T]:
+    def __aiter__(self) -> Self:
         return self
 
     async def __anext__(self) -> _T:

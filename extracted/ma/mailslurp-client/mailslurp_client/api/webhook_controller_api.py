@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -751,9 +751,11 @@ class WebhookControllerApi(object):
         :param int page: Optional page index in list pagination
         :param int size: Optional page size for paginated result list.
         :param str sort: Optional createdAt sort direction ASC or DESC
-        :param str event_type: Optional event type
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str event_type: Optional event type
+        :param str health: Filter by webhook health
+        :param str search_filter: Optional search filter
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -781,9 +783,11 @@ class WebhookControllerApi(object):
         :param int page: Optional page index in list pagination
         :param int size: Optional page size for paginated result list.
         :param str sort: Optional createdAt sort direction ASC or DESC
-        :param str event_type: Optional event type
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str event_type: Optional event type
+        :param str health: Filter by webhook health
+        :param str search_filter: Optional search filter
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -804,9 +808,11 @@ class WebhookControllerApi(object):
             'page',
             'size',
             'sort',
-            'event_type',
             'since',
-            'before'
+            'before',
+            'event_type',
+            'health',
+            'search_filter'
         ]
         all_params.extend(
             [
@@ -845,12 +851,16 @@ class WebhookControllerApi(object):
             query_params.append(('size', local_var_params['size']))  # noqa: E501
         if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
             query_params.append(('sort', local_var_params['sort']))  # noqa: E501
-        if 'event_type' in local_var_params and local_var_params['event_type'] is not None:  # noqa: E501
-            query_params.append(('eventType', local_var_params['event_type']))  # noqa: E501
         if 'since' in local_var_params and local_var_params['since'] is not None:  # noqa: E501
             query_params.append(('since', local_var_params['since']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'event_type' in local_var_params and local_var_params['event_type'] is not None:  # noqa: E501
+            query_params.append(('eventType', local_var_params['event_type']))  # noqa: E501
+        if 'health' in local_var_params and local_var_params['health'] is not None:  # noqa: E501
+            query_params.append(('health', local_var_params['health']))  # noqa: E501
+        if 'search_filter' in local_var_params and local_var_params['search_filter'] is not None:  # noqa: E501
+            query_params.append(('searchFilter', local_var_params['search_filter']))  # noqa: E501
 
         header_params = {}
 
@@ -874,6 +884,169 @@ class WebhookControllerApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='PageWebhookProjection',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_all_webhook_endpoints(self, **kwargs):  # noqa: E501
+        """List Webhooks endpoints Paginated  # noqa: E501
+
+        List webhooks URL in paginated form. Allows for page index, page size, and sort direction.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_all_webhook_endpoints(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size for paginated result list.
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter
+        :param datetime since: Filter by created at after the given timestamp
+        :param str inbox_id: Filter by inboxId
+        :param str phone_id: Filter by phoneId
+        :param datetime before: Filter by created at before the given timestamp
+        :param str health: Filter by webhook health
+        :param str event_type: Optional event type
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PageWebhookEndpointProjection
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_all_webhook_endpoints_with_http_info(**kwargs)  # noqa: E501
+
+    def get_all_webhook_endpoints_with_http_info(self, **kwargs):  # noqa: E501
+        """List Webhooks endpoints Paginated  # noqa: E501
+
+        List webhooks URL in paginated form. Allows for page index, page size, and sort direction.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_all_webhook_endpoints_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size for paginated result list.
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter
+        :param datetime since: Filter by created at after the given timestamp
+        :param str inbox_id: Filter by inboxId
+        :param str phone_id: Filter by phoneId
+        :param datetime before: Filter by created at before the given timestamp
+        :param str health: Filter by webhook health
+        :param str event_type: Optional event type
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PageWebhookEndpointProjection, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'page',
+            'size',
+            'sort',
+            'search_filter',
+            'since',
+            'inbox_id',
+            'phone_id',
+            'before',
+            'health',
+            'event_type'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_all_webhook_endpoints" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        if self.api_client.client_side_validation and 'page' in local_var_params and local_var_params['page'] > 9223372036854775807:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `page` when calling `get_all_webhook_endpoints`, must be a value less than or equal to `9223372036854775807`")  # noqa: E501
+        if self.api_client.client_side_validation and 'page' in local_var_params and local_var_params['page'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `page` when calling `get_all_webhook_endpoints`, must be a value greater than or equal to `0`")  # noqa: E501
+        if self.api_client.client_side_validation and 'size' in local_var_params and local_var_params['size'] > 100:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `size` when calling `get_all_webhook_endpoints`, must be a value less than or equal to `100`")  # noqa: E501
+        if self.api_client.client_side_validation and 'size' in local_var_params and local_var_params['size'] < 1:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `size` when calling `get_all_webhook_endpoints`, must be a value greater than or equal to `1`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+        if 'search_filter' in local_var_params and local_var_params['search_filter'] is not None:  # noqa: E501
+            query_params.append(('searchFilter', local_var_params['search_filter']))  # noqa: E501
+        if 'since' in local_var_params and local_var_params['since'] is not None:  # noqa: E501
+            query_params.append(('since', local_var_params['since']))  # noqa: E501
+        if 'inbox_id' in local_var_params and local_var_params['inbox_id'] is not None:  # noqa: E501
+            query_params.append(('inboxId', local_var_params['inbox_id']))  # noqa: E501
+        if 'phone_id' in local_var_params and local_var_params['phone_id'] is not None:  # noqa: E501
+            query_params.append(('phoneId', local_var_params['phone_id']))  # noqa: E501
+        if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
+            query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'health' in local_var_params and local_var_params['health'] is not None:  # noqa: E501
+            query_params.append(('health', local_var_params['health']))  # noqa: E501
+        if 'event_type' in local_var_params and local_var_params['event_type'] is not None:  # noqa: E501
+            query_params.append(('eventType', local_var_params['event_type']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/webhooks/endpoints', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PageWebhookEndpointProjection',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -1082,6 +1255,9 @@ class WebhookControllerApi(object):
         :param str inbox_id: Filter by inboxId
         :param str phone_id: Filter by phoneId
         :param datetime before: Filter by created at before the given timestamp
+        :param str health: Filter by webhook health
+        :param str event_type: Optional event type
+        :param str url: Optional url endpoint filter
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1114,6 +1290,9 @@ class WebhookControllerApi(object):
         :param str inbox_id: Filter by inboxId
         :param str phone_id: Filter by phoneId
         :param datetime before: Filter by created at before the given timestamp
+        :param str health: Filter by webhook health
+        :param str event_type: Optional event type
+        :param str url: Optional url endpoint filter
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1138,7 +1317,10 @@ class WebhookControllerApi(object):
             'since',
             'inbox_id',
             'phone_id',
-            'before'
+            'before',
+            'health',
+            'event_type',
+            'url'
         ]
         all_params.extend(
             [
@@ -1187,6 +1369,12 @@ class WebhookControllerApi(object):
             query_params.append(('phoneId', local_var_params['phone_id']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'health' in local_var_params and local_var_params['health'] is not None:  # noqa: E501
+            query_params.append(('health', local_var_params['health']))  # noqa: E501
+        if 'event_type' in local_var_params and local_var_params['event_type'] is not None:  # noqa: E501
+            query_params.append(('eventType', local_var_params['event_type']))  # noqa: E501
+        if 'url' in local_var_params and local_var_params['url'] is not None:  # noqa: E501
+            query_params.append(('url', local_var_params['url']))  # noqa: E501
 
         header_params = {}
 
@@ -1233,6 +1421,8 @@ class WebhookControllerApi(object):
         :param str search_filter: Optional search filter
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str health: Filter by webhook health
+        :param str event_type: Optional event type
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1263,6 +1453,8 @@ class WebhookControllerApi(object):
         :param str search_filter: Optional search filter
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str health: Filter by webhook health
+        :param str event_type: Optional event type
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1286,7 +1478,9 @@ class WebhookControllerApi(object):
             'sort',
             'search_filter',
             'since',
-            'before'
+            'before',
+            'health',
+            'event_type'
         ]
         all_params.extend(
             [
@@ -1329,6 +1523,10 @@ class WebhookControllerApi(object):
             query_params.append(('since', local_var_params['since']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'health' in local_var_params and local_var_params['health'] is not None:  # noqa: E501
+            query_params.append(('health', local_var_params['health']))  # noqa: E501
+        if 'event_type' in local_var_params and local_var_params['event_type'] is not None:  # noqa: E501
+            query_params.append(('eventType', local_var_params['event_type']))  # noqa: E501
 
         header_params = {}
 
@@ -1602,6 +1800,9 @@ class WebhookControllerApi(object):
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str event_type: Optional event type
+        :param str search_filter: Optional search filter
+        :param str health: Filter by webhook health
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1631,6 +1832,9 @@ class WebhookControllerApi(object):
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str event_type: Optional event type
+        :param str search_filter: Optional search filter
+        :param str health: Filter by webhook health
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1653,7 +1857,10 @@ class WebhookControllerApi(object):
             'size',
             'sort',
             'since',
-            'before'
+            'before',
+            'event_type',
+            'search_filter',
+            'health'
         ]
         all_params.extend(
             [
@@ -1694,6 +1901,12 @@ class WebhookControllerApi(object):
             query_params.append(('since', local_var_params['since']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'event_type' in local_var_params and local_var_params['event_type'] is not None:  # noqa: E501
+            query_params.append(('eventType', local_var_params['event_type']))  # noqa: E501
+        if 'search_filter' in local_var_params and local_var_params['search_filter'] is not None:  # noqa: E501
+            query_params.append(('searchFilter', local_var_params['search_filter']))  # noqa: E501
+        if 'health' in local_var_params and local_var_params['health'] is not None:  # noqa: E501
+            query_params.append(('health', local_var_params['health']))  # noqa: E501
 
         header_params = {}
 
@@ -3524,6 +3737,9 @@ class WebhookControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str inbox_id: (required)
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -3531,7 +3747,7 @@ class WebhookControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: list[WebhookDto]
+        :return: list[WebhookProjection]
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -3548,6 +3764,9 @@ class WebhookControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str inbox_id: (required)
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -3557,7 +3776,7 @@ class WebhookControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(list[WebhookDto], status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(list[WebhookProjection], status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -3565,7 +3784,10 @@ class WebhookControllerApi(object):
         local_var_params = locals()
 
         all_params = [
-            'inbox_id'
+            'inbox_id',
+            'page',
+            'size',
+            'sort'
         ]
         all_params.extend(
             [
@@ -3596,6 +3818,12 @@ class WebhookControllerApi(object):
             path_params['inboxId'] = local_var_params['inbox_id']  # noqa: E501
 
         query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
 
         header_params = {}
 
@@ -3618,7 +3846,7 @@ class WebhookControllerApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='list[WebhookDto]',  # noqa: E501
+            response_type='list[WebhookProjection]',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -3950,6 +4178,146 @@ class WebhookControllerApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='WebhookTestResult',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def update_webhook(self, webhook_id, create_webhook_options, **kwargs):  # noqa: E501
+        """Update a webhook  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_webhook(webhook_id, create_webhook_options, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str webhook_id: (required)
+        :param CreateWebhookOptions create_webhook_options: (required)
+        :param str inbox_id:
+        :param str phone_number_id:
+        :param bool override_auth:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WebhookDto
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.update_webhook_with_http_info(webhook_id, create_webhook_options, **kwargs)  # noqa: E501
+
+    def update_webhook_with_http_info(self, webhook_id, create_webhook_options, **kwargs):  # noqa: E501
+        """Update a webhook  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_webhook_with_http_info(webhook_id, create_webhook_options, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str webhook_id: (required)
+        :param CreateWebhookOptions create_webhook_options: (required)
+        :param str inbox_id:
+        :param str phone_number_id:
+        :param bool override_auth:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WebhookDto, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'webhook_id',
+            'create_webhook_options',
+            'inbox_id',
+            'phone_number_id',
+            'override_auth'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method update_webhook" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'webhook_id' is set
+        if self.api_client.client_side_validation and ('webhook_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['webhook_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `webhook_id` when calling `update_webhook`")  # noqa: E501
+        # verify the required parameter 'create_webhook_options' is set
+        if self.api_client.client_side_validation and ('create_webhook_options' not in local_var_params or  # noqa: E501
+                                                        local_var_params['create_webhook_options'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `create_webhook_options` when calling `update_webhook`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'webhook_id' in local_var_params:
+            path_params['webhookId'] = local_var_params['webhook_id']  # noqa: E501
+
+        query_params = []
+        if 'inbox_id' in local_var_params and local_var_params['inbox_id'] is not None:  # noqa: E501
+            query_params.append(('inboxId', local_var_params['inbox_id']))  # noqa: E501
+        if 'phone_number_id' in local_var_params and local_var_params['phone_number_id'] is not None:  # noqa: E501
+            query_params.append(('phoneNumberId', local_var_params['phone_number_id']))  # noqa: E501
+        if 'override_auth' in local_var_params and local_var_params['override_auth'] is not None:  # noqa: E501
+            query_params.append(('overrideAuth', local_var_params['override_auth']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'create_webhook_options' in local_var_params:
+            body_params = local_var_params['create_webhook_options']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/webhooks/{webhookId}', 'PATCH',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WebhookDto',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

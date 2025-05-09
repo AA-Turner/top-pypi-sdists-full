@@ -43,6 +43,7 @@ from chalk.features.resolver import (
     FunctionCapturedGlobalFunction,
     FunctionCapturedGlobalModule,
     FunctionCapturedGlobalModuleMember,
+    FunctionCapturedGlobalProto,
     FunctionCapturedGlobalStruct,
     FunctionCapturedGlobalVariable,
     OfflineResolver,
@@ -465,6 +466,17 @@ class ToProtoConverter:
                 ),
             )
 
+        elif isinstance(captured_global, FunctionCapturedGlobalProto):
+            return pb.FunctionReferenceCapturedGlobal(
+                global_name=name,
+                proto=pb.FunctionGlobalCapturedProto(
+                    name=captured_global.name,
+                    module=captured_global.module,
+                    pa_dtype=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(captured_global.pa_dtype),
+                    fd=captured_global.serialized_fd,
+                ),
+            )
+
         elif isinstance(captured_global, FunctionCapturedGlobalStruct):  # pyright: ignore[reportUnnecessaryIsInstance]
             return pb.FunctionReferenceCapturedGlobal(
                 global_name=captured_global.name,
@@ -474,6 +486,7 @@ class ToProtoConverter:
                     pa_dtype=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(captured_global.pa_dtype),
                 ),
             )
+
         raise ValueError(
             f"The captured global reference '{captured_global}' (type {type(captured_global)}) cannot be converted into a protobuf message `FunctionReferenceCapturedGlobal`"
         )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: osqp
-Version: 1.0.3
+Version: 1.0.4
 Summary: OSQP: The Operator Splitting QP Solver
 Author: Goran Banjac
 Author-Email: Bartolomeo Stellato <bartolomeo.stellato@gmail.com>, Vineet Bansal <vineetbansal@protonmail.com>, Amit Solomon <as3993@princeton.edu>, Henry Schreiner <HenrySchreinerIII@gmail.com>

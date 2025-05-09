@@ -4,20 +4,30 @@ import math
 import io
 import itertools
 import os
+import platform
 import unittest
 import tempfile
 import threading
+import multiprocessing.resource_sharer
 
 import pyhmmer
-from pyhmmer.plan7 import Pipeline, HMMFile, HMMPressedFile, TopHits, Hit
+from pyhmmer.plan7 import HMM, Pipeline, HMMFile, HMMPressedFile, TopHits, Hit
 from pyhmmer.easel import Alphabet, DigitalMSA, MSAFile, SequenceFile, TextSequence
 
 from .utils import resource_files
 
 class _TestSearch(metaclass=abc.ABCMeta):
+
+    def tearDown(self):
+        multiprocessing.resource_sharer.stop()
+        self.assertEqual(threading.active_count(), 1, threading.enumerate())
+
     @abc.abstractmethod
     def get_hits(self, hmm, sequences):
         return NotImplemented
+
+    def get_hits_multi(self, hmms, sequences):
+        return [self.get_hits(hmm, sequences) for hmm in hmms]
 
     @staticmethod
     def table(name):
@@ -95,7 +105,7 @@ class _TestSearch(metaclass=abc.ABCMeta):
     @unittest.skipUnless(resource_files, "importlib.resources not available")
     def test_pf02826_file(self):
         with self.hmm_file("PF02826") as hmm_file:
-            hmm = next(hmm_file)
+            hmm = hmm_file.read()
         with self.seqs_file("938293.PRJEB85.HG003687", digital=True) as seqs_file:
             hits = self.get_hits(hmm, seqs_file)
             self.assertEqual(len(hits), 22)
@@ -120,7 +130,7 @@ class _TestSearch(metaclass=abc.ABCMeta):
     @unittest.skipUnless(resource_files, "importlib.resources not available")
     def test_pf02826_block(self):
         with self.hmm_file("PF02826") as hmm_file:
-            hmm = next(hmm_file)
+            hmm = hmm_file.read()
         with self.seqs_file("938293.PRJEB85.HG003687", digital=True) as seqs_file:
             seqs = seqs_file.read_block()
 
@@ -150,7 +160,7 @@ class _TestSearch(metaclass=abc.ABCMeta):
             seqs = seqs_file.read_block()
 
         with self.hmm_file("RREFam") as hmm_file:
-            all_hits = [self.get_hits(hmm, seqs) for hmm in hmm_file]
+            all_hits = self.get_hits_multi(list(hmm_file), seqs)
 
         hits = (hit for hits in all_hits for hit in hits)
         with self.table("RREFam.tbl") as table:
@@ -181,8 +191,7 @@ class _TestSearch(metaclass=abc.ABCMeta):
                 self.assertEqual(domain.hit.name.decode(), fields[0])
                 self.assertAlmostEqual(domain.score, float(fields[13]), places=1)
                 self.assertAlmostEqual(domain.bias, float(fields[14]), places=1)
-                # FIXME: it looks like domZ is not extracted properly
-                # self.assertEqual(f"{domain.c_evalue:9.2g}", f"{float(fields[11]):9.2g}")
+                self.assertEqual(f"{domain.c_evalue:9.2g}", f"{float(fields[11]):9.2g}")
                 self.assertEqual(f"{domain.i_evalue:9.2g}", f"{float(fields[12]):9.2g}")
 
     @unittest.skipUnless(resource_files, "importlib.resources not available")
@@ -226,10 +235,26 @@ class _TestSearch(metaclass=abc.ABCMeta):
 
 
 class TestHmmsearch(_TestSearch, unittest.TestCase):
-    def get_hits(self, hmm, seqs):
-        return list(pyhmmer.hmmsearch(hmm, seqs))[0]
+    parallel = "queries"
 
-    @unittest.skipUnless(resource_files, "importlib.resources not available")
+    @staticmethod
+    def _random_sequences(n=20):
+        rng = pyhmmer.easel.Randomness(42)
+        alphabet = Alphabet.amino()
+        return pyhmmer.easel.DigitalSequenceBlock(
+            alphabet,
+            [
+                pyhmmer.easel.DigitalSequence.sample(alphabet, 200, rng)
+                for _ in range(10)
+            ]
+        )
+
+    def get_hits(self, hmm, seqs):
+        return list(pyhmmer.hmmsearch(hmm, seqs, parallel=self.parallel))[0]
+
+    def get_hits_multi(self, hmms, seqs):
+        return list(pyhmmer.hmmsearch(hmms, seqs, parallel=self.parallel))
+
     def test_callback_error(self):
 
         class MyException(Exception):
@@ -238,59 +263,83 @@ class TestHmmsearch(_TestSearch, unittest.TestCase):
         def callback(hmm, total):
             raise MyException("oopsie")
 
-        with self.hmm_file("Thioesterase") as hmm_file:
-            hmm = hmm_file.read()
-        with self.seqs_file("938293.PRJEB85.HG003687", digital=True) as seqs_file:
-            seqs = seqs_file.read_block()
+        rng = pyhmmer.easel.Randomness(42)
+        alphabet = Alphabet.amino()
+        hmm = HMM.sample(alphabet, 100, rng)
+        seqs = self._random_sequences()
 
-        hits = pyhmmer.hmmsearch(hmm, seqs, cpus=1, callback=callback)
+        hits = pyhmmer.hmmsearch(hmm, seqs, cpus=1, callback=callback, parallel=self.parallel)
         with self.assertRaises(MyException):
             hit = next(hits)
 
-        hits = pyhmmer.hmmsearch(hmm, seqs, cpus=2, callback=callback)
+        hits = pyhmmer.hmmsearch(hmm, seqs, cpus=2, callback=callback, parallel=self.parallel)
         with self.assertRaises(MyException):
             hit = next(hits)
 
-    @unittest.skipUnless(resource_files, "importlib.resources not available")
     def test_background_error(self):
         # check that errors occuring in worker threads are recovered and raised
         # in the main threads (a common error is mismatching the HMM and the
         # sequence alphabets).
+        rng = pyhmmer.easel.Randomness(42)
         seqs = [TextSequence().digitize(Alphabet.dna())]
-        with self.hmm_file("PF02826") as hmm_file:
-            hmm = next(hmm_file)
+        hmm = HMM.sample(Alphabet.amino(), 100, rng)
         self.assertRaises(ValueError, self.get_hits, hmm, seqs)
 
-    @unittest.skipUnless(resource_files, "importlib.resources not available")
     def test_no_queries(self):
-        with self.seqs_file("938293.PRJEB85.HG003687", digital=True) as seqs_file:
-            seqs = list(seqs_file)
-        hits = pyhmmer.hmmsearch([], seqs)
+        seqs = self._random_sequences()
+        hits = pyhmmer.hmmsearch([], seqs, parallel=self.parallel)
         self.assertIs(None, next(hits, None))
 
 
 class TestHmmsearchSingle(TestHmmsearch, unittest.TestCase):
     def get_hits(self, hmm, seqs):
-        return list(pyhmmer.hmmsearch(hmm, seqs, cpus=1))[0]
+        return list(pyhmmer.hmmsearch(hmm, seqs, cpus=1, parallel=self.parallel))[0]
 
-    @unittest.skipUnless(resource_files, "importlib.resources not available")
+    def get_hits_multi(self, hmm, seqs):
+        return list(pyhmmer.hmmsearch(hmm, seqs, cpus=1, parallel=self.parallel))
+
     def test_no_queries(self):
-        with self.seqs_file("938293.PRJEB85.HG003687", digital=True) as seqs_file:
-            seqs = list(seqs_file)
-        hits = pyhmmer.hmmsearch([], seqs, cpus=1)
+        seqs = self._random_sequences()
+        hits = pyhmmer.hmmsearch([], seqs, cpus=1, parallel=self.parallel)
         self.assertIs(None, next(hits, None))
 
-
+@unittest.skipIf(platform.system() == "Darwin", "may deadlock on MacOS")
 class TestHmmsearchProcess(TestHmmsearch, unittest.TestCase):
     def get_hits(self, hmm, seqs):
-        return list(pyhmmer.hmmsearch(hmm, seqs, cpus=2, backend="multiprocessing"))[0]
+        return list(pyhmmer.hmmsearch(hmm, seqs, cpus=2, backend="multiprocessing", parallel=self.parallel))[0]
 
-    @unittest.skipUnless(resource_files, "importlib.resources not available")
+    def get_hits_multi(self, hmm, seqs):
+        return list(pyhmmer.hmmsearch(hmm, seqs, cpus=2, backend="multiprocessing", parallel=self.parallel))
+
     def test_no_queries(self):
-        with self.seqs_file("938293.PRJEB85.HG003687", digital=True) as seqs_file:
-            seqs = list(seqs_file)
-        hits = pyhmmer.hmmsearch([], seqs, cpus=2, backend="multiprocessing")
+        seqs = self._random_sequences()
+        hits = pyhmmer.hmmsearch([], seqs, cpus=2, backend="multiprocessing", parallel=self.parallel)
         self.assertIs(None, next(hits, None))
+
+
+class TestHmmsearchReverse(TestHmmsearch):
+    parallel = "targets"
+
+    @unittest.skip("unsupported parallel mode with sequence file")
+    def test_pf02826_file(self):
+        pass
+
+
+class TestHmmsearchReverseSingle(TestHmmsearchSingle):
+    parallel = "targets"
+
+    @unittest.skip("unsupported parallel mode with sequence file")
+    def test_pf02826_file(self):
+        pass
+
+
+@unittest.skipIf(platform.system() == "Darwin", "may deadlock on MacOS")
+class TestHmmsearchReverseProcess(TestHmmsearchProcess):
+    parallel = "targets"
+
+    @unittest.skip("unsupported parallel mode with sequence file")
+    def test_pf02826_file(self):
+        pass
 
 
 class TestPipelinesearch(_TestSearch, unittest.TestCase):
@@ -326,6 +375,19 @@ class TestHmmpress(unittest.TestCase):
 
 
 class TestPhmmer(unittest.TestCase):
+
+    @staticmethod
+    def _random_sequences(n=20):
+        rng = pyhmmer.easel.Randomness(42)
+        alphabet = Alphabet.amino()
+        return pyhmmer.easel.DigitalSequenceBlock(
+            alphabet,
+            [
+                pyhmmer.easel.DigitalSequence.sample(alphabet, 200, rng)
+                for _ in range(10)
+            ]
+        )
+
     @staticmethod
     def table(name):
         path = resource_files(__package__).joinpath("data", "tables", name)
@@ -353,12 +415,8 @@ class TestPhmmer(unittest.TestCase):
         with self.assertRaises(MyException):
             hit = next(hits)
 
-    @unittest.skipUnless(resource_files, "importlib.resources not available")
     def test_no_queries(self):
-        alphabet = Alphabet.amino()
-        path = resource_files(__package__).joinpath("data", "seqs", "PKSI.faa")
-        with SequenceFile(path, digital=True, alphabet=alphabet) as seqs_file:
-            seqs = seqs_file.read_block()
+        seqs = self._random_sequences()
         hits = pyhmmer.phmmer([], seqs, cpus=1)
         self.assertIs(None, next(hits, None))
 

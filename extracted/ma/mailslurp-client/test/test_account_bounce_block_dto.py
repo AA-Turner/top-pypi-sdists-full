@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -37,6 +37,7 @@ class TestAccountBounceBlockDto(unittest.TestCase):
         # model = mailslurp_client.models.account_bounce_block_dto.AccountBounceBlockDto()  # noqa: E501
         if include_optional :
             return AccountBounceBlockDto(
+                is_frozen = True, 
                 is_sending_blocked = True, 
                 bounce_count = 56, 
                 bounce_count_today = 56, 
@@ -45,6 +46,7 @@ class TestAccountBounceBlockDto(unittest.TestCase):
             )
         else :
             return AccountBounceBlockDto(
+                is_frozen = True,
                 is_sending_blocked = True,
                 bounce_count = 56,
                 bounce_count_today = 56,

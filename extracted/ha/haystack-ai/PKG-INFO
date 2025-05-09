@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: haystack-ai
-Version: 2.13.1
+Version: 2.13.2
 Summary: LLM framework to build customizable, production-ready LLM applications. Connect components (models, vector DBs, file converters) to pipelines or agents that can interact with your data.
 Project-URL: CI: GitHub, https://github.com/deepset-ai/haystack/actions
 Project-URL: Docs: RTD, https://haystack.deepset.ai/overview/intro

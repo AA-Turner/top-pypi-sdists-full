@@ -101,7 +101,8 @@ void CSRNodeGroup::initScanForCommittedPersistent(const Transaction* transaction
     }
     KU_ASSERT(csrHeader.offset->getNumValues() == csrHeader.length->getNumValues());
     if (relScanState.randomLookup) {
-        auto nodeOffset = relScanState.nodeIDVector->readNodeOffset(0);
+        auto pos = relScanState.nodeIDVector->state->getSelVector()[0];
+        auto nodeOffset = relScanState.nodeIDVector->readNodeOffset(pos);
         auto offsetInGroup = nodeOffset % StorageConfig::NODE_GROUP_SIZE;
         auto offsetToScanFrom = offsetInGroup == 0 ? 0 : offsetInGroup - 1;
         csrHeader.offset->scanCommitted<ResidencyState::ON_DISK>(transaction, offsetState,
@@ -167,7 +168,7 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedPersistent(const Transaction* tra
     RelTableScanState& tableState, CSRNodeGroupScanState& nodeGroupScanState) const {
     if (tableState.cachedBoundNodeSelVector.getSelSize() == 1) {
         // Note that we don't apply cache when there is only one bound node.
-        return scanCommittedPersistentWtihoutCache(transaction, tableState, nodeGroupScanState);
+        return scanCommittedPersistentWithoutCache(transaction, tableState, nodeGroupScanState);
     }
     return scanCommittedPersistentWithCache(transaction, tableState, nodeGroupScanState);
 }
@@ -214,7 +215,7 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedPersistentWithCache(const Transac
     }
 }
 
-NodeGroupScanResult CSRNodeGroup::scanCommittedPersistentWtihoutCache(
+NodeGroupScanResult CSRNodeGroup::scanCommittedPersistentWithoutCache(
     const Transaction* transaction, RelTableScanState& tableState,
     CSRNodeGroupScanState& nodeGroupScanState) const {
     const auto currNodeOffset = tableState.nodeIDVector->readNodeOffset(
@@ -468,6 +469,22 @@ void CSRNodeGroup::checkpoint(MemoryManager&, NodeGroupCheckpointState& state) {
     checkpointDataTypesNoLock(state);
 }
 
+void CSRNodeGroup::reclaimStorage(FileHandle& dataFH, const common::UniqLock& lock) const {
+    NodeGroup::reclaimStorage(dataFH, lock);
+    if (persistentChunkGroup) {
+        persistentChunkGroup->reclaimStorage(dataFH);
+    }
+}
+
+static std::unique_ptr<ChunkedCSRNodeGroup> createNewPersistentChunkGroup(
+    ChunkedCSRNodeGroup& oldPersistentChunkGroup, CSRNodeGroupCheckpointState& csrState) {
+    auto newGroup =
+        std::make_unique<ChunkedCSRNodeGroup>(oldPersistentChunkGroup, csrState.columnIDs);
+    // checkpointed columns have been moved to the new group, reclaim storage for dropped column
+    oldPersistentChunkGroup.reclaimStorage(csrState.dataFH);
+    return newGroup;
+}
+
 void CSRNodeGroup::checkpointInMemAndOnDisk(const UniqLock& lock, NodeGroupCheckpointState& state) {
     // TODO(Guodong): Should skip early here if no changes in the node group, so we avoid scanning
     // the csr header. Case: No insertions/deletions in persistent chunk and no in-mem chunks.
@@ -490,8 +507,8 @@ void CSRNodeGroup::checkpointInMemAndOnDisk(const UniqLock& lock, NodeGroupCheck
         if (csrState.columnIDs.size() != persistentChunkGroup->getNumColumns()) {
             // The column set of the node group has changed. We need to re-create the persistent
             // chunked group.
-            persistentChunkGroup = std::make_unique<ChunkedCSRNodeGroup>(
-                persistentChunkGroup->cast<ChunkedCSRNodeGroup>(), csrState.columnIDs);
+            persistentChunkGroup = createNewPersistentChunkGroup(
+                persistentChunkGroup->cast<ChunkedCSRNodeGroup>(), csrState);
         }
         return;
     }
@@ -508,13 +525,25 @@ void CSRNodeGroup::checkpointInMemAndOnDisk(const UniqLock& lock, NodeGroupCheck
                       csrState.newHeader->getStartCSROffset(region.leftNodeOffset));
         }
     }
-    KU_ASSERT(csrState.newHeader->sanityCheck());
-    for (const auto columnID : csrState.columnIDs) {
-        checkpointColumn(lock, columnID, csrState, regionsToCheckpoint);
+
+    uint64_t numTuplesAfterCheckpoint = 0;
+    for (const auto& region : regionsToCheckpoint) {
+        for (auto i = region.leftNodeOffset; i < region.rightNodeOffset; ++i) {
+            numTuplesAfterCheckpoint += csrState.newHeader->getCSRLength(i);
+        }
     }
-    checkpointCSRHeaderColumns(csrState);
-    persistentChunkGroup = std::make_unique<ChunkedCSRNodeGroup>(
-        persistentChunkGroup->cast<ChunkedCSRNodeGroup>(), csrState.columnIDs);
+    if (numTuplesAfterCheckpoint == 0) {
+        reclaimStorage(csrState.dataFH, lock);
+        persistentChunkGroup = nullptr;
+    } else {
+        KU_ASSERT(csrState.newHeader->sanityCheck());
+        for (const auto columnID : csrState.columnIDs) {
+            checkpointColumn(lock, columnID, csrState, regionsToCheckpoint);
+        }
+        checkpointCSRHeaderColumns(csrState);
+        persistentChunkGroup = createNewPersistentChunkGroup(
+            persistentChunkGroup->cast<ChunkedCSRNodeGroup>(), csrState);
+    }
     finalizeCheckpoint(lock);
 }
 
@@ -809,7 +838,7 @@ void CSRNodeGroup::checkpointInMemOnly(const UniqLock& lock, NodeGroupCheckpoint
     for (auto i = 0u; i < numColumnsToCheckpoint; i++) {
         const auto columnID = csrState.columnIDs[i];
         KU_ASSERT(columnID < dataTypes.size());
-        dataChunksToFlush[i] = std::make_unique<ColumnChunk>(*state.mm, dataTypes[columnID],
+        dataChunksToFlush[i] = std::make_unique<ColumnChunk>(*state.mm, dataTypes[columnID].copy(),
             chunkCapacity, enableCompression, ResidencyState::IN_MEMORY);
     }
 
@@ -968,8 +997,10 @@ bool CSRNodeGroup::isWithinDensityBound(const ChunkedCSRHeader& header,
 
 void CSRNodeGroup::finalizeCheckpoint(const UniqLock& lock) {
     // Clean up versions and in mem chunked groups.
-    persistentChunkGroup->resetNumRowsFromChunks();
-    persistentChunkGroup->resetVersionAndUpdateInfo();
+    if (persistentChunkGroup) {
+        persistentChunkGroup->resetNumRowsFromChunks();
+        persistentChunkGroup->resetVersionAndUpdateInfo();
+    }
     chunkedGroups.clear(lock);
     // Set `numRows` back to 0 is to reflect that the in mem part of the node group is empty.
     numRows = 0;

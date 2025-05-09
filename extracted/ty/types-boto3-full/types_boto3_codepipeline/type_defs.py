@@ -28,6 +28,7 @@ from .literals import (
     ApprovalStatusType,
     ConditionExecutionStatusType,
     ConditionTypeType,
+    EnvironmentVariableTypeType,
     ExecutionModeType,
     ExecutionTypeType,
     ExecutorTypeType,
@@ -336,9 +337,14 @@ class ActionTypeIdTypeDef(TypedDict):
     version: str
 
 
-class EnvironmentVariableTypeDef(TypedDict):
-    name: str
-    value: str
+EnvironmentVariableTypeDef = TypedDict(
+    "EnvironmentVariableTypeDef",
+    {
+        "name": str,
+        "value": str,
+        "type": NotRequired[EnvironmentVariableTypeType],
+    },
+)
 
 
 class InputArtifactTypeDef(TypedDict):

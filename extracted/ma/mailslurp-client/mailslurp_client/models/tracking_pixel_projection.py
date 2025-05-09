@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,10 +34,10 @@ class TrackingPixelProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
-        'inbox_id': 'str',
         'user_id': 'str',
+        'inbox_id': 'str',
         'sent_email_id': 'str',
+        'created_at': 'datetime',
         'recipient': 'str',
         'seen': 'bool',
         'seen_at': 'datetime',
@@ -46,10 +46,10 @@ class TrackingPixelProjection(object):
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
-        'inbox_id': 'inboxId',
         'user_id': 'userId',
+        'inbox_id': 'inboxId',
         'sent_email_id': 'sentEmailId',
+        'created_at': 'createdAt',
         'recipient': 'recipient',
         'seen': 'seen',
         'seen_at': 'seenAt',
@@ -57,16 +57,16 @@ class TrackingPixelProjection(object):
         'id': 'id'
     }
 
-    def __init__(self, created_at=None, inbox_id=None, user_id=None, sent_email_id=None, recipient=None, seen=None, seen_at=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, user_id=None, inbox_id=None, sent_email_id=None, created_at=None, recipient=None, seen=None, seen_at=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
         """TrackingPixelProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
-        self._inbox_id = None
         self._user_id = None
+        self._inbox_id = None
         self._sent_email_id = None
+        self._created_at = None
         self._recipient = None
         self._seen = None
         self._seen_at = None
@@ -74,12 +74,12 @@ class TrackingPixelProjection(object):
         self._id = None
         self.discriminator = None
 
-        self.created_at = created_at
+        self.user_id = user_id
         if inbox_id is not None:
             self.inbox_id = inbox_id
-        self.user_id = user_id
         if sent_email_id is not None:
             self.sent_email_id = sent_email_id
+        self.created_at = created_at
         if recipient is not None:
             self.recipient = recipient
         self.seen = seen
@@ -88,50 +88,6 @@ class TrackingPixelProjection(object):
         if name is not None:
             self.name = name
         self.id = id
-
-    @property
-    def created_at(self):
-        """Gets the created_at of this TrackingPixelProjection.  # noqa: E501
-
-
-        :return: The created_at of this TrackingPixelProjection.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._created_at
-
-    @created_at.setter
-    def created_at(self, created_at):
-        """Sets the created_at of this TrackingPixelProjection.
-
-
-        :param created_at: The created_at of this TrackingPixelProjection.  # noqa: E501
-        :type: datetime
-        """
-        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
-
-        self._created_at = created_at
-
-    @property
-    def inbox_id(self):
-        """Gets the inbox_id of this TrackingPixelProjection.  # noqa: E501
-
-
-        :return: The inbox_id of this TrackingPixelProjection.  # noqa: E501
-        :rtype: str
-        """
-        return self._inbox_id
-
-    @inbox_id.setter
-    def inbox_id(self, inbox_id):
-        """Sets the inbox_id of this TrackingPixelProjection.
-
-
-        :param inbox_id: The inbox_id of this TrackingPixelProjection.  # noqa: E501
-        :type: str
-        """
-
-        self._inbox_id = inbox_id
 
     @property
     def user_id(self):
@@ -157,6 +113,27 @@ class TrackingPixelProjection(object):
         self._user_id = user_id
 
     @property
+    def inbox_id(self):
+        """Gets the inbox_id of this TrackingPixelProjection.  # noqa: E501
+
+
+        :return: The inbox_id of this TrackingPixelProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._inbox_id
+
+    @inbox_id.setter
+    def inbox_id(self, inbox_id):
+        """Sets the inbox_id of this TrackingPixelProjection.
+
+
+        :param inbox_id: The inbox_id of this TrackingPixelProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._inbox_id = inbox_id
+
+    @property
     def sent_email_id(self):
         """Gets the sent_email_id of this TrackingPixelProjection.  # noqa: E501
 
@@ -176,6 +153,29 @@ class TrackingPixelProjection(object):
         """
 
         self._sent_email_id = sent_email_id
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this TrackingPixelProjection.  # noqa: E501
+
+
+        :return: The created_at of this TrackingPixelProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this TrackingPixelProjection.
+
+
+        :param created_at: The created_at of this TrackingPixelProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
 
     @property
     def recipient(self):

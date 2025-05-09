@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -45,7 +45,11 @@ class OrganizationInboxProjection(object):
         'inbox_type': 'str',
         'read_only': 'bool',
         'virtual_inbox': 'bool',
-        'functions_as': 'str'
+        'functions_as': 'str',
+        'user_id': 'str',
+        'description': 'str',
+        'expires_at': 'datetime',
+        'account_region': 'str'
     }
 
     attribute_map = {
@@ -60,10 +64,14 @@ class OrganizationInboxProjection(object):
         'inbox_type': 'inboxType',
         'read_only': 'readOnly',
         'virtual_inbox': 'virtualInbox',
-        'functions_as': 'functionsAs'
+        'functions_as': 'functionsAs',
+        'user_id': 'userId',
+        'description': 'description',
+        'expires_at': 'expiresAt',
+        'account_region': 'accountRegion'
     }
 
-    def __init__(self, id=None, domain_id=None, created_at=None, name=None, email_address=None, favourite=None, tags=None, team_access=None, inbox_type=None, read_only=None, virtual_inbox=None, functions_as=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, domain_id=None, created_at=None, name=None, email_address=None, favourite=None, tags=None, team_access=None, inbox_type=None, read_only=None, virtual_inbox=None, functions_as=None, user_id=None, description=None, expires_at=None, account_region=None, local_vars_configuration=None):  # noqa: E501
         """OrganizationInboxProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -81,6 +89,10 @@ class OrganizationInboxProjection(object):
         self._read_only = None
         self._virtual_inbox = None
         self._functions_as = None
+        self._user_id = None
+        self._description = None
+        self._expires_at = None
+        self._account_region = None
         self.discriminator = None
 
         self.id = id
@@ -95,6 +107,10 @@ class OrganizationInboxProjection(object):
         self.read_only = read_only
         self.virtual_inbox = virtual_inbox
         self.functions_as = functions_as
+        self.user_id = user_id
+        self.description = description
+        self.expires_at = expires_at
+        self.account_region = account_region
 
     @property
     def id(self):
@@ -387,7 +403,7 @@ class OrganizationInboxProjection(object):
         :param functions_as: The functions_as of this OrganizationInboxProjection.  # noqa: E501
         :type: str
         """
-        allowed_values = [None,"ALIAS", "THREAD", "CATCH_ALL", "CONNECTOR"]  # noqa: E501
+        allowed_values = [None,"ALIAS", "THREAD", "CATCH_ALL", "CONNECTOR", "ACCOUNT", "GUEST", "OAUTH_CONNECTION_GMAIL"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and functions_as not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `functions_as` ({0}), must be one of {1}"  # noqa: E501
@@ -395,6 +411,106 @@ class OrganizationInboxProjection(object):
             )
 
         self._functions_as = functions_as
+
+    @property
+    def user_id(self):
+        """Gets the user_id of this OrganizationInboxProjection.  # noqa: E501
+
+        ID of user that inbox belongs to  # noqa: E501
+
+        :return: The user_id of this OrganizationInboxProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._user_id
+
+    @user_id.setter
+    def user_id(self, user_id):
+        """Sets the user_id of this OrganizationInboxProjection.
+
+        ID of user that inbox belongs to  # noqa: E501
+
+        :param user_id: The user_id of this OrganizationInboxProjection.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and user_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
+
+        self._user_id = user_id
+
+    @property
+    def description(self):
+        """Gets the description of this OrganizationInboxProjection.  # noqa: E501
+
+        Description of an inbox for labelling and searching purposes  # noqa: E501
+
+        :return: The description of this OrganizationInboxProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """Sets the description of this OrganizationInboxProjection.
+
+        Description of an inbox for labelling and searching purposes  # noqa: E501
+
+        :param description: The description of this OrganizationInboxProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._description = description
+
+    @property
+    def expires_at(self):
+        """Gets the expires_at of this OrganizationInboxProjection.  # noqa: E501
+
+        Inbox expiration time. When, if ever, the inbox should expire and be deleted. If null then this inbox is permanent and the emails in it won't be deleted. This is the default behavior unless expiration date is set. If an expiration date is set and the time is reached MailSlurp will expire the inbox and move it to an expired inbox entity. You can still access the emails belonging to it but it can no longer send or receive email.  # noqa: E501
+
+        :return: The expires_at of this OrganizationInboxProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._expires_at
+
+    @expires_at.setter
+    def expires_at(self, expires_at):
+        """Sets the expires_at of this OrganizationInboxProjection.
+
+        Inbox expiration time. When, if ever, the inbox should expire and be deleted. If null then this inbox is permanent and the emails in it won't be deleted. This is the default behavior unless expiration date is set. If an expiration date is set and the time is reached MailSlurp will expire the inbox and move it to an expired inbox entity. You can still access the emails belonging to it but it can no longer send or receive email.  # noqa: E501
+
+        :param expires_at: The expires_at of this OrganizationInboxProjection.  # noqa: E501
+        :type: datetime
+        """
+
+        self._expires_at = expires_at
+
+    @property
+    def account_region(self):
+        """Gets the account_region of this OrganizationInboxProjection.  # noqa: E501
+
+        Region of the inbox  # noqa: E501
+
+        :return: The account_region of this OrganizationInboxProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._account_region
+
+    @account_region.setter
+    def account_region(self, account_region):
+        """Sets the account_region of this OrganizationInboxProjection.
+
+        Region of the inbox  # noqa: E501
+
+        :param account_region: The account_region of this OrganizationInboxProjection.  # noqa: E501
+        :type: str
+        """
+        allowed_values = [None,"US_WEST_2"]  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and account_region not in allowed_values:  # noqa: E501
+            raise ValueError(
+                "Invalid value for `account_region` ({0}), must be one of {1}"  # noqa: E501
+                .format(account_region, allowed_values)
+            )
+
+        self._account_region = account_region
 
     def to_dict(self):
         """Returns the model properties as a dict"""

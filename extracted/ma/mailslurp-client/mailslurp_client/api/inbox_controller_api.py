@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -1450,6 +1450,107 @@ class InboxControllerApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def does_inbox_have_automations(self, **kwargs):  # noqa: E501
+        """Does inbox have automations  # noqa: E501
+
+        Check if an inbox has automations.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.does_inbox_have_automations(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.does_inbox_have_automations_with_http_info(**kwargs)  # noqa: E501
+
+    def does_inbox_have_automations_with_http_info(self, **kwargs):  # noqa: E501
+        """Does inbox have automations  # noqa: E501
+
+        Check if an inbox has automations.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.does_inbox_have_automations_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method does_inbox_have_automations" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/automations', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def flush_expired(self, **kwargs):  # noqa: E501
         """Remove expired inboxes  # noqa: E501
 
@@ -1890,6 +1991,131 @@ class InboxControllerApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_all_plus_addresses(self, **kwargs):  # noqa: E501
+        """Get all sub address plus address aliases for an inbox  # noqa: E501
+
+        Returns paginated list of all plus alias addresses found for in account based on received emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_all_plus_addresses(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in inbox tracking pixel list pagination
+        :param int size: Optional page size in inbox tracking pixel list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str inbox_id: Optional inboxId filter
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PagePlusAddressProjection
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_all_plus_addresses_with_http_info(**kwargs)  # noqa: E501
+
+    def get_all_plus_addresses_with_http_info(self, **kwargs):  # noqa: E501
+        """Get all sub address plus address aliases for an inbox  # noqa: E501
+
+        Returns paginated list of all plus alias addresses found for in account based on received emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_all_plus_addresses_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in inbox tracking pixel list pagination
+        :param int size: Optional page size in inbox tracking pixel list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str inbox_id: Optional inboxId filter
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PagePlusAddressProjection, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'page',
+            'size',
+            'sort',
+            'inbox_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_all_plus_addresses" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+        if 'inbox_id' in local_var_params and local_var_params['inbox_id'] is not None:  # noqa: E501
+            query_params.append(('inboxId', local_var_params['inbox_id']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/plus-addresses', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PagePlusAddressProjection',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_all_scheduled_jobs(self, **kwargs):  # noqa: E501
         """Get all scheduled email sending jobs for account  # noqa: E501
 
@@ -1905,6 +2131,7 @@ class InboxControllerApi(object):
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str inbox_id:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1934,6 +2161,7 @@ class InboxControllerApi(object):
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str inbox_id:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1955,7 +2183,8 @@ class InboxControllerApi(object):
             'size',
             'sort',
             'since',
-            'before'
+            'before',
+            'inbox_id'
         ]
         all_params.extend(
             [
@@ -1990,6 +2219,8 @@ class InboxControllerApi(object):
             query_params.append(('since', local_var_params['since']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'inbox_id' in local_var_params and local_var_params['inbox_id'] is not None:  # noqa: E501
+            query_params.append(('inboxId', local_var_params['inbox_id']))  # noqa: E501
 
         header_params = {}
 
@@ -3330,6 +3561,7 @@ class InboxControllerApi(object):
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param datetime since: Optional filter by received after given date time
         :param datetime before: Optional filter by received before given date time
+        :param bool sync_connectors: Sync connectors before fetching emails
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -3360,6 +3592,7 @@ class InboxControllerApi(object):
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param datetime since: Optional filter by received after given date time
         :param datetime before: Optional filter by received before given date time
+        :param bool sync_connectors: Sync connectors before fetching emails
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -3382,7 +3615,8 @@ class InboxControllerApi(object):
             'size',
             'sort',
             'since',
-            'before'
+            'before',
+            'sync_connectors'
         ]
         all_params.extend(
             [
@@ -3423,6 +3657,8 @@ class InboxControllerApi(object):
             query_params.append(('since', local_var_params['since']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'sync_connectors' in local_var_params and local_var_params['sync_connectors'] is not None:  # noqa: E501
+            query_params.append(('syncConnectors', local_var_params['sync_connectors']))  # noqa: E501
 
         header_params = {}
 
@@ -3551,6 +3787,785 @@ class InboxControllerApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='InboxIdsResult',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_inbox_plus_address(self, plus_address_id, inbox_id, **kwargs):  # noqa: E501
+        """Get sub address plus address for an inbox  # noqa: E501
+
+        Returns a plus address object based on emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_address(plus_address_id, inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str plus_address_id: ID of the plus address you want to fetch (required)
+        :param str inbox_id: ID of the inbox you want to fetch (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PlusAddressDto
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_inbox_plus_address_with_http_info(plus_address_id, inbox_id, **kwargs)  # noqa: E501
+
+    def get_inbox_plus_address_with_http_info(self, plus_address_id, inbox_id, **kwargs):  # noqa: E501
+        """Get sub address plus address for an inbox  # noqa: E501
+
+        Returns a plus address object based on emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_address_with_http_info(plus_address_id, inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str plus_address_id: ID of the plus address you want to fetch (required)
+        :param str inbox_id: ID of the inbox you want to fetch (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PlusAddressDto, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'plus_address_id',
+            'inbox_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_inbox_plus_address" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'plus_address_id' is set
+        if self.api_client.client_side_validation and ('plus_address_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['plus_address_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `plus_address_id` when calling `get_inbox_plus_address`")  # noqa: E501
+        # verify the required parameter 'inbox_id' is set
+        if self.api_client.client_side_validation and ('inbox_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['inbox_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `inbox_id` when calling `get_inbox_plus_address`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'plus_address_id' in local_var_params:
+            path_params['plusAddressId'] = local_var_params['plus_address_id']  # noqa: E501
+        if 'inbox_id' in local_var_params:
+            path_params['inboxId'] = local_var_params['inbox_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/{inboxId}/plus-addresses/{plusAddressId}', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PlusAddressDto',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_inbox_plus_address_by_id(self, plus_address_id, **kwargs):  # noqa: E501
+        """Get sub address plus address by ID  # noqa: E501
+
+        Returns a plus address object based on emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_address_by_id(plus_address_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str plus_address_id: ID of the plus address you want to fetch (required)
+        :param str inbox_id: ID of the inbox you want to filter for
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PlusAddressDto
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_inbox_plus_address_by_id_with_http_info(plus_address_id, **kwargs)  # noqa: E501
+
+    def get_inbox_plus_address_by_id_with_http_info(self, plus_address_id, **kwargs):  # noqa: E501
+        """Get sub address plus address by ID  # noqa: E501
+
+        Returns a plus address object based on emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_address_by_id_with_http_info(plus_address_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str plus_address_id: ID of the plus address you want to fetch (required)
+        :param str inbox_id: ID of the inbox you want to filter for
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PlusAddressDto, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'plus_address_id',
+            'inbox_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_inbox_plus_address_by_id" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'plus_address_id' is set
+        if self.api_client.client_side_validation and ('plus_address_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['plus_address_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `plus_address_id` when calling `get_inbox_plus_address_by_id`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'plus_address_id' in local_var_params:
+            path_params['plusAddressId'] = local_var_params['plus_address_id']  # noqa: E501
+
+        query_params = []
+        if 'inbox_id' in local_var_params and local_var_params['inbox_id'] is not None:  # noqa: E501
+            query_params.append(('inboxId', local_var_params['inbox_id']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/plus-addresses/{plusAddressId}', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PlusAddressDto',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_inbox_plus_address_emails(self, plus_address, inbox_id, **kwargs):  # noqa: E501
+        """Get emails for a given inbox plus address  # noqa: E501
+
+        Returns paginated list of all emails for a given plus alias addresses found for an inbox based on received emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_address_emails(plus_address, inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str plus_address: The plus address to fetch emails for. If your inbox address is `123@test.com` and the email was sent to `123+abc@test.com` then the plus address is `abc` (required)
+        :param str inbox_id: ID of the inbox you want to send the email from (required)
+        :param int page: Optional page index in inbox tracking pixel list pagination
+        :param int size: Optional page size in inbox tracking pixel list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param datetime since: Optional filter by created after given date time
+        :param datetime before: Optional filter by created before given date time
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PageEmailPreview
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_inbox_plus_address_emails_with_http_info(plus_address, inbox_id, **kwargs)  # noqa: E501
+
+    def get_inbox_plus_address_emails_with_http_info(self, plus_address, inbox_id, **kwargs):  # noqa: E501
+        """Get emails for a given inbox plus address  # noqa: E501
+
+        Returns paginated list of all emails for a given plus alias addresses found for an inbox based on received emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_address_emails_with_http_info(plus_address, inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str plus_address: The plus address to fetch emails for. If your inbox address is `123@test.com` and the email was sent to `123+abc@test.com` then the plus address is `abc` (required)
+        :param str inbox_id: ID of the inbox you want to send the email from (required)
+        :param int page: Optional page index in inbox tracking pixel list pagination
+        :param int size: Optional page size in inbox tracking pixel list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param datetime since: Optional filter by created after given date time
+        :param datetime before: Optional filter by created before given date time
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PageEmailPreview, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'plus_address',
+            'inbox_id',
+            'page',
+            'size',
+            'sort',
+            'since',
+            'before'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_inbox_plus_address_emails" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'plus_address' is set
+        if self.api_client.client_side_validation and ('plus_address' not in local_var_params or  # noqa: E501
+                                                        local_var_params['plus_address'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `plus_address` when calling `get_inbox_plus_address_emails`")  # noqa: E501
+        # verify the required parameter 'inbox_id' is set
+        if self.api_client.client_side_validation and ('inbox_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['inbox_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `inbox_id` when calling `get_inbox_plus_address_emails`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'inbox_id' in local_var_params:
+            path_params['inboxId'] = local_var_params['inbox_id']  # noqa: E501
+
+        query_params = []
+        if 'plus_address' in local_var_params and local_var_params['plus_address'] is not None:  # noqa: E501
+            query_params.append(('plusAddress', local_var_params['plus_address']))  # noqa: E501
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+        if 'since' in local_var_params and local_var_params['since'] is not None:  # noqa: E501
+            query_params.append(('since', local_var_params['since']))  # noqa: E501
+        if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
+            query_params.append(('before', local_var_params['before']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/{inboxId}/plus-addresses/emails', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PageEmailPreview',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_inbox_plus_address_emails_for_plus_address_id(self, plus_address_id, inbox_id, **kwargs):  # noqa: E501
+        """Get emails for a given inbox plus address  # noqa: E501
+
+        Returns paginated list of all emails for a given plus alias addresses found for an inbox based on received emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_address_emails_for_plus_address_id(plus_address_id, inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str plus_address_id: The plus address ID to fetch emails for. (required)
+        :param str inbox_id: ID of the inbox you want to send the email from (required)
+        :param int page: Optional page index in inbox tracking pixel list pagination
+        :param int size: Optional page size in inbox tracking pixel list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param datetime since: Optional filter by created after given date time
+        :param datetime before: Optional filter by created before given date time
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PageEmailPreview
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_inbox_plus_address_emails_for_plus_address_id_with_http_info(plus_address_id, inbox_id, **kwargs)  # noqa: E501
+
+    def get_inbox_plus_address_emails_for_plus_address_id_with_http_info(self, plus_address_id, inbox_id, **kwargs):  # noqa: E501
+        """Get emails for a given inbox plus address  # noqa: E501
+
+        Returns paginated list of all emails for a given plus alias addresses found for an inbox based on received emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_address_emails_for_plus_address_id_with_http_info(plus_address_id, inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str plus_address_id: The plus address ID to fetch emails for. (required)
+        :param str inbox_id: ID of the inbox you want to send the email from (required)
+        :param int page: Optional page index in inbox tracking pixel list pagination
+        :param int size: Optional page size in inbox tracking pixel list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param datetime since: Optional filter by created after given date time
+        :param datetime before: Optional filter by created before given date time
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PageEmailPreview, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'plus_address_id',
+            'inbox_id',
+            'page',
+            'size',
+            'sort',
+            'since',
+            'before'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_inbox_plus_address_emails_for_plus_address_id" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'plus_address_id' is set
+        if self.api_client.client_side_validation and ('plus_address_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['plus_address_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `plus_address_id` when calling `get_inbox_plus_address_emails_for_plus_address_id`")  # noqa: E501
+        # verify the required parameter 'inbox_id' is set
+        if self.api_client.client_side_validation and ('inbox_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['inbox_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `inbox_id` when calling `get_inbox_plus_address_emails_for_plus_address_id`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'plus_address_id' in local_var_params:
+            path_params['plusAddressId'] = local_var_params['plus_address_id']  # noqa: E501
+        if 'inbox_id' in local_var_params:
+            path_params['inboxId'] = local_var_params['inbox_id']  # noqa: E501
+
+        query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+        if 'since' in local_var_params and local_var_params['since'] is not None:  # noqa: E501
+            query_params.append(('since', local_var_params['since']))  # noqa: E501
+        if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
+            query_params.append(('before', local_var_params['before']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/{inboxId}/plus-addresses/{plusAddressId}/emails', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PageEmailPreview',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_inbox_plus_addresses(self, inbox_id, **kwargs):  # noqa: E501
+        """Get sub address plus address aliases for an inbox  # noqa: E501
+
+        Returns paginated list of all plus alias addresses found for an inbox based on received emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_addresses(inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str inbox_id: ID of the inbox you want to send the email from (required)
+        :param int page: Optional page index in inbox tracking pixel list pagination
+        :param int size: Optional page size in inbox tracking pixel list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PagePlusAddressProjection
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_inbox_plus_addresses_with_http_info(inbox_id, **kwargs)  # noqa: E501
+
+    def get_inbox_plus_addresses_with_http_info(self, inbox_id, **kwargs):  # noqa: E501
+        """Get sub address plus address aliases for an inbox  # noqa: E501
+
+        Returns paginated list of all plus alias addresses found for an inbox based on received emails that used the inbox address with a +xyz alias.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_plus_addresses_with_http_info(inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str inbox_id: ID of the inbox you want to send the email from (required)
+        :param int page: Optional page index in inbox tracking pixel list pagination
+        :param int size: Optional page size in inbox tracking pixel list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PagePlusAddressProjection, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'inbox_id',
+            'page',
+            'size',
+            'sort'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_inbox_plus_addresses" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'inbox_id' is set
+        if self.api_client.client_side_validation and ('inbox_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['inbox_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `inbox_id` when calling `get_inbox_plus_addresses`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'inbox_id' in local_var_params:
+            path_params['inboxId'] = local_var_params['inbox_id']  # noqa: E501
+
+        query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/{inboxId}/plus-addresses', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PagePlusAddressProjection',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_inbox_sent_count(self, inbox_id, **kwargs):  # noqa: E501
+        """Get sent email count in inbox  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_sent_count(inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str inbox_id: Id of inbox that emails were sent from (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: CountDto
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_inbox_sent_count_with_http_info(inbox_id, **kwargs)  # noqa: E501
+
+    def get_inbox_sent_count_with_http_info(self, inbox_id, **kwargs):  # noqa: E501
+        """Get sent email count in inbox  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_sent_count_with_http_info(inbox_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str inbox_id: Id of inbox that emails were sent from (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(CountDto, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'inbox_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_inbox_sent_count" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'inbox_id' is set
+        if self.api_client.client_side_validation and ('inbox_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['inbox_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `inbox_id` when calling `get_inbox_sent_count`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'inbox_id' in local_var_params:
+            path_params['inboxId'] = local_var_params['inbox_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/{inboxId}/sent/count', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='CountDto',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -3712,6 +4727,10 @@ class InboxControllerApi(object):
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -3736,6 +4755,10 @@ class InboxControllerApi(object):
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -3753,6 +4776,10 @@ class InboxControllerApi(object):
         local_var_params = locals()
 
         all_params = [
+            'page',
+            'size',
+            'sort',
+            'search_filter'
         ]
         all_params.extend(
             [
@@ -3777,6 +4804,14 @@ class InboxControllerApi(object):
         path_params = {}
 
         query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+        if 'search_filter' in local_var_params and local_var_params['search_filter'] is not None:  # noqa: E501
+            query_params.append(('searchFilter', local_var_params['search_filter']))  # noqa: E501
 
         header_params = {}
 
@@ -3807,6 +4842,131 @@ class InboxControllerApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_inbox_tags_paginated(self, **kwargs):  # noqa: E501
+        """Get inbox tags paginated  # noqa: E501
+
+        Get all inbox tags paginated  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_tags_paginated(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PageInboxTags
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_inbox_tags_paginated_with_http_info(**kwargs)  # noqa: E501
+
+    def get_inbox_tags_paginated_with_http_info(self, **kwargs):  # noqa: E501
+        """Get inbox tags paginated  # noqa: E501
+
+        Get all inbox tags paginated  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inbox_tags_paginated_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PageInboxTags, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'page',
+            'size',
+            'sort',
+            'search_filter'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_inbox_tags_paginated" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+        if 'search_filter' in local_var_params and local_var_params['search_filter'] is not None:  # noqa: E501
+            query_params.append(('searchFilter', local_var_params['search_filter']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/tags/paginated', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PageInboxTags',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_inboxes(self, **kwargs):  # noqa: E501
         """List Inboxes and email addresses  # noqa: E501
 
@@ -3822,6 +4982,7 @@ class InboxControllerApi(object):
         :param datetime since: Optional filter by created after given date time
         :param bool exclude_catch_all_inboxes: Optional exclude catch all inboxes
         :param datetime before: Optional filter by created before given date time
+        :param list[str] include: Optional inboxIds to include in result
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -3851,6 +5012,7 @@ class InboxControllerApi(object):
         :param datetime since: Optional filter by created after given date time
         :param bool exclude_catch_all_inboxes: Optional exclude catch all inboxes
         :param datetime before: Optional filter by created before given date time
+        :param list[str] include: Optional inboxIds to include in result
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -3872,7 +5034,8 @@ class InboxControllerApi(object):
             'sort',
             'since',
             'exclude_catch_all_inboxes',
-            'before'
+            'before',
+            'include'
         ]
         all_params.extend(
             [
@@ -3909,6 +5072,9 @@ class InboxControllerApi(object):
             query_params.append(('excludeCatchAllInboxes', local_var_params['exclude_catch_all_inboxes']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'include' in local_var_params and local_var_params['include'] is not None:  # noqa: E501
+            query_params.append(('include', local_var_params['include']))  # noqa: E501
+            collection_formats['include'] = 'multi'  # noqa: E501
 
         header_params = {}
 
@@ -3932,6 +5098,140 @@ class InboxControllerApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='list[InboxDto]',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_inboxes_by_tag(self, tag, **kwargs):  # noqa: E501
+        """Get inboxes for a tag  # noqa: E501
+
+        Get all inboxes for a given inbox tag  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inboxes_by_tag(tag, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str tag: Tag to filter by (required)
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PageInboxProjection
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_inboxes_by_tag_with_http_info(tag, **kwargs)  # noqa: E501
+
+    def get_inboxes_by_tag_with_http_info(self, tag, **kwargs):  # noqa: E501
+        """Get inboxes for a tag  # noqa: E501
+
+        Get all inboxes for a given inbox tag  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_inboxes_by_tag_with_http_info(tag, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str tag: Tag to filter by (required)
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PageInboxProjection, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'tag',
+            'page',
+            'size',
+            'sort',
+            'search_filter'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_inboxes_by_tag" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'tag' is set
+        if self.api_client.client_side_validation and ('tag' not in local_var_params or  # noqa: E501
+                                                        local_var_params['tag'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `tag` when calling `get_inboxes_by_tag`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+        if 'search_filter' in local_var_params and local_var_params['search_filter'] is not None:  # noqa: E501
+            query_params.append(('searchFilter', local_var_params['search_filter']))  # noqa: E501
+        if 'tag' in local_var_params and local_var_params['tag'] is not None:  # noqa: E501
+            query_params.append(('tag', local_var_params['tag']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/tags/inboxes', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PageInboxProjection',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -4190,6 +5490,126 @@ class InboxControllerApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='PageOrganizationInboxProjection',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_outboxes(self, **kwargs):  # noqa: E501
+        """List all inboxes with sent emails  # noqa: E501
+
+        List inboxes that have sent emails  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_outboxes(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PageInboxProjection
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_outboxes_with_http_info(**kwargs)  # noqa: E501
+
+    def get_outboxes_with_http_info(self, **kwargs):  # noqa: E501
+        """List all inboxes with sent emails  # noqa: E501
+
+        List inboxes that have sent emails  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_outboxes_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int page: Optional page index in list pagination
+        :param int size: Optional page size in list pagination
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PageInboxProjection, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'page',
+            'size',
+            'sort'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_outboxes" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/inboxes/outboxes', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PageInboxProjection',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -5844,7 +7264,7 @@ class InboxControllerApi(object):
     def set_inbox_favourited(self, inbox_id, set_inbox_favourited_options, **kwargs):  # noqa: E501
         """Set inbox favourited state  # noqa: E501
 
-        Set and return new favourite state for an inbox  # noqa: E501
+        Set and return new favorite state for an inbox  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.set_inbox_favourited(inbox_id, set_inbox_favourited_options, async_req=True)
@@ -5870,7 +7290,7 @@ class InboxControllerApi(object):
     def set_inbox_favourited_with_http_info(self, inbox_id, set_inbox_favourited_options, **kwargs):  # noqa: E501
         """Set inbox favourited state  # noqa: E501
 
-        Set and return new favourite state for an inbox  # noqa: E501
+        Set and return new favorite state for an inbox  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.set_inbox_favourited_with_http_info(inbox_id, set_inbox_favourited_options, async_req=True)

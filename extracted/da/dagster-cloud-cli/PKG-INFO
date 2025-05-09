@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-cloud-cli
-Version: 1.10.13
+Version: 1.10.14
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-cloud-cli
 Author: Dagster Labs
 Author-email: hello@dagsterlabs.com

@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,118 +34,31 @@ class CreateConnectorOptions(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'sync_enabled': 'bool',
-        'sync_schedule_type': 'str',
-        'sync_interval': 'int',
         'name': 'str',
         'email_address': 'str',
         'enabled': 'bool'
     }
 
     attribute_map = {
-        'sync_enabled': 'syncEnabled',
-        'sync_schedule_type': 'syncScheduleType',
-        'sync_interval': 'syncInterval',
         'name': 'name',
         'email_address': 'emailAddress',
         'enabled': 'enabled'
     }
 
-    def __init__(self, sync_enabled=None, sync_schedule_type=None, sync_interval=None, name=None, email_address=None, enabled=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, email_address=None, enabled=None, local_vars_configuration=None):  # noqa: E501
         """CreateConnectorOptions - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._sync_enabled = None
-        self._sync_schedule_type = None
-        self._sync_interval = None
         self._name = None
         self._email_address = None
         self._enabled = None
         self.discriminator = None
 
-        self.sync_enabled = sync_enabled
-        self.sync_schedule_type = sync_schedule_type
-        self.sync_interval = sync_interval
         self.name = name
         self.email_address = email_address
         self.enabled = enabled
-
-    @property
-    def sync_enabled(self):
-        """Gets the sync_enabled of this CreateConnectorOptions.  # noqa: E501
-
-        Enable automatic background sync  # noqa: E501
-
-        :return: The sync_enabled of this CreateConnectorOptions.  # noqa: E501
-        :rtype: bool
-        """
-        return self._sync_enabled
-
-    @sync_enabled.setter
-    def sync_enabled(self, sync_enabled):
-        """Sets the sync_enabled of this CreateConnectorOptions.
-
-        Enable automatic background sync  # noqa: E501
-
-        :param sync_enabled: The sync_enabled of this CreateConnectorOptions.  # noqa: E501
-        :type: bool
-        """
-
-        self._sync_enabled = sync_enabled
-
-    @property
-    def sync_schedule_type(self):
-        """Gets the sync_schedule_type of this CreateConnectorOptions.  # noqa: E501
-
-        Sync schedule type  # noqa: E501
-
-        :return: The sync_schedule_type of this CreateConnectorOptions.  # noqa: E501
-        :rtype: str
-        """
-        return self._sync_schedule_type
-
-    @sync_schedule_type.setter
-    def sync_schedule_type(self, sync_schedule_type):
-        """Sets the sync_schedule_type of this CreateConnectorOptions.
-
-        Sync schedule type  # noqa: E501
-
-        :param sync_schedule_type: The sync_schedule_type of this CreateConnectorOptions.  # noqa: E501
-        :type: str
-        """
-        allowed_values = [None,"INTERVAL"]  # noqa: E501
-        if self.local_vars_configuration.client_side_validation and sync_schedule_type not in allowed_values:  # noqa: E501
-            raise ValueError(
-                "Invalid value for `sync_schedule_type` ({0}), must be one of {1}"  # noqa: E501
-                .format(sync_schedule_type, allowed_values)
-            )
-
-        self._sync_schedule_type = sync_schedule_type
-
-    @property
-    def sync_interval(self):
-        """Gets the sync_interval of this CreateConnectorOptions.  # noqa: E501
-
-        Sync interval in minutes  # noqa: E501
-
-        :return: The sync_interval of this CreateConnectorOptions.  # noqa: E501
-        :rtype: int
-        """
-        return self._sync_interval
-
-    @sync_interval.setter
-    def sync_interval(self, sync_interval):
-        """Sets the sync_interval of this CreateConnectorOptions.
-
-        Sync interval in minutes  # noqa: E501
-
-        :param sync_interval: The sync_interval of this CreateConnectorOptions.  # noqa: E501
-        :type: int
-        """
-
-        self._sync_interval = sync_interval
 
     @property
     def name(self):

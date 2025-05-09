@@ -2,13 +2,14 @@ import hashlib
 import shutil
 import sys
 import tempfile
-import unittest
 from pathlib import Path
+from warnings import catch_warnings
 
 from testfixtures import LogCapture
 
 from scrapy.core.scheduler import Scheduler
-from scrapy.dupefilters import RFPDupeFilter
+from scrapy.dupefilters import BaseDupeFilter, RFPDupeFilter
+from scrapy.exceptions import ScrapyDeprecationWarning
 from scrapy.http import Request
 from scrapy.utils.python import to_bytes
 from scrapy.utils.test import get_crawler
@@ -37,7 +38,7 @@ class DirectDupeFilter:
     method = "n/a"
 
 
-class RFPDupeFilterTest(unittest.TestCase):
+class TestRFPDupeFilter:
     def test_df_from_crawler_scheduler(self):
         settings = {
             "DUPEFILTER_DEBUG": True,
@@ -45,8 +46,8 @@ class RFPDupeFilterTest(unittest.TestCase):
         }
         crawler = get_crawler(settings_dict=settings)
         scheduler = Scheduler.from_crawler(crawler)
-        self.assertTrue(scheduler.df.debug)
-        self.assertEqual(scheduler.df.method, "from_crawler")
+        assert scheduler.df.debug
+        assert scheduler.df.method == "from_crawler"
 
     def test_df_direct_scheduler(self):
         settings = {
@@ -54,7 +55,7 @@ class RFPDupeFilterTest(unittest.TestCase):
         }
         crawler = get_crawler(settings_dict=settings)
         scheduler = Scheduler.from_crawler(crawler)
-        self.assertEqual(scheduler.df.method, "n/a")
+        assert scheduler.df.method == "n/a"
 
     def test_filter(self):
         dupefilter = _get_dupefilter()
@@ -252,3 +253,18 @@ class RFPDupeFilterTest(unittest.TestCase):
             )
 
             dupefilter.close("finished")
+
+
+class TestBaseDupeFilter:
+    def test_log_deprecation(self):
+        dupefilter = _get_dupefilter(
+            settings={"DUPEFILTER_CLASS": BaseDupeFilter},
+        )
+        with catch_warnings(record=True) as warning_list:
+            dupefilter.log(None, None)
+        assert len(warning_list) == 1
+        assert (
+            str(warning_list[0].message)
+            == "Calling BaseDupeFilter.log() is deprecated."
+        )
+        assert warning_list[0].category == ScrapyDeprecationWarning

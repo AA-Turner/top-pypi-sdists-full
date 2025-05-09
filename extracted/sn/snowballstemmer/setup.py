@@ -3,7 +3,7 @@
 from setuptools import setup
 import re
 
-SNOWBALL_VERSION = '2.2.0'
+SNOWBALL_VERSION = '3.0.0.1'
 
 n_stemmers = 0
 
@@ -42,7 +42,7 @@ classifiers = [
 for lang in langs:
     lang_titlecase = lang.title()
     # Only classifiers listed in https://pypi.org/classifiers/ are allowed
-    if lang_titlecase not in ('Armenian', 'Yiddish'):
+    if lang_titlecase not in ('Armenian', 'Estonian', 'Yiddish'):
         classifiers.append('Natural Language :: ' + lang_titlecase)
 
 classifiers.extend([
@@ -52,6 +52,7 @@ classifiers.extend([
     'Programming Language :: Python :: 2.6',
     'Programming Language :: Python :: 2.7',
     'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.3',
     'Programming Language :: Python :: 3.4',
     'Programming Language :: Python :: 3.5',
     'Programming Language :: Python :: 3.6',
@@ -59,6 +60,9 @@ classifiers.extend([
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Topic :: Database',
@@ -77,5 +81,6 @@ setup(name='snowballstemmer',
       license="BSD-3-Clause",
       packages=['snowballstemmer'],
       package_dir={"snowballstemmer": "src/snowballstemmer"},
+      python_requires='!=3.0.*, !=3.1.*, !=3.2.*',
       classifiers = classifiers
 )

@@ -498,7 +498,10 @@ class ClickHouse(Dialect):
 
         FUNCTION_PARSERS.pop("MATCH")
 
-        PROPERTY_PARSERS = parser.Parser.PROPERTY_PARSERS.copy()
+        PROPERTY_PARSERS = {
+            **parser.Parser.PROPERTY_PARSERS,
+            "ENGINE": lambda self: self._parse_engine_property(),
+        }
         PROPERTY_PARSERS.pop("DYNAMIC")
 
         NO_PAREN_FUNCTION_PARSERS = parser.Parser.NO_PAREN_FUNCTION_PARSERS.copy()
@@ -567,6 +570,13 @@ class ClickHouse(Dialect):
             **parser.Parser.PLACEHOLDER_PARSERS,
             TokenType.L_BRACE: lambda self: self._parse_query_parameter(),
         }
+
+        def _parse_engine_property(self) -> exp.EngineProperty:
+            self._match(TokenType.EQ)
+            return self.expression(
+                exp.EngineProperty,
+                this=self._parse_field(any_token=True, anonymous_func=True),
+            )
 
         # https://clickhouse.com/docs/en/sql-reference/statements/create/function
         def _parse_user_defined_function_expression(self) -> t.Optional[exp.Expression]:
@@ -1006,6 +1016,7 @@ class ClickHouse(Dialect):
             exp.DataType.Type.DECIMAL128: "Decimal128",
             exp.DataType.Type.DECIMAL256: "Decimal256",
             exp.DataType.Type.TIMESTAMP: "DateTime",
+            exp.DataType.Type.TIMESTAMPNTZ: "DateTime",
             exp.DataType.Type.TIMESTAMPTZ: "DateTime",
             exp.DataType.Type.DOUBLE: "Float64",
             exp.DataType.Type.ENUM: "Enum",

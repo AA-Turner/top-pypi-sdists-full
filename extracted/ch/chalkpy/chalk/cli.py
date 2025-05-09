@@ -5,25 +5,16 @@ import os
 import sys
 import traceback
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, cast
+from typing import List, Optional, cast
 
 from dataclasses_json import DataClassJsonMixin
 
 from chalk._gen.chalk.artifacts.v1 import export_pb2 as export_pb
 from chalk._lsp.error_builder import LSPErrorBuilder
-from chalk.parsed._proto.export import import_files_then_export_from_registry
-from chalk.parsed._proto.lsp import convert_lsp_gql_to_proto
-
-if TYPE_CHECKING:
-    from pydantic import ValidationError
-else:
-    try:
-        from pydantic.v1 import ValidationError
-    except ImportError:
-        from pydantic import ValidationError
-
 from chalk.config.project_config import load_project_config
 from chalk.importer import import_all_files
+from chalk.parsed._proto.export import import_files_then_export_from_registry
+from chalk.parsed._proto.lsp import convert_lsp_gql_to_proto
 from chalk.parsed.user_types_to_json import get_lsp_gql, get_registered_types_as_json
 from chalk.utils.stubgen import configure_stubgen_argparse, run_stubgen
 
@@ -97,18 +88,17 @@ def dump_cmd(filename: str, directory: Optional[str], filter_file: Optional[str]
 
 
 def config_cmd():
-    json_response: str
     try:
         model = load_project_config()
-    except ValidationError as e:
-        json_response = json.dumps({"error": str(e)})
-    else:
-        if model is None:
-            print("No `chalk.yaml` configuration file found")
-            return
-        json_response = model.json()
+    except ValueError as e:
+        print(json.dumps({"error": str(e)}))
+        return
 
-    print(json_response)
+    if model is None:
+        print("No `chalk.yaml` configuration file found")
+        return
+    json_response = model.as_dict()
+    print(json.dumps(json_response))
 
 
 def cli(args_override: Optional[List[str]] = None):

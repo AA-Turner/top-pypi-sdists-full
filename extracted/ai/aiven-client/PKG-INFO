@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiven-client
-Version: 4.7.0
+Version: 4.7.1
 Summary: Aiven.io client library / command-line client
 Project-URL: Homepage, https://github.com/aiven/aiven-client
 Project-URL: Bug Tracker, https://github.com/aiven/aiven-client/issues

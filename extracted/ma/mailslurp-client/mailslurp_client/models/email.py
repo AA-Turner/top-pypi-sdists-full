@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -62,6 +62,12 @@ class Email(object):
         'team_access': 'bool',
         'is_x_amp_html': 'bool',
         'body_part_content_types': 'list[str]',
+        'external_id': 'str',
+        'message_id': 'str',
+        'thread_id': 'str',
+        'in_reply_to': 'str',
+        'favourite': 'bool',
+        'size_bytes': 'int',
         'html': 'bool',
         'xamp_html': 'bool'
     }
@@ -95,11 +101,17 @@ class Email(object):
         'team_access': 'teamAccess',
         'is_x_amp_html': 'isXAmpHtml',
         'body_part_content_types': 'bodyPartContentTypes',
+        'external_id': 'externalId',
+        'message_id': 'messageId',
+        'thread_id': 'threadId',
+        'in_reply_to': 'inReplyTo',
+        'favourite': 'favourite',
+        'size_bytes': 'sizeBytes',
         'html': 'html',
         'xamp_html': 'xampHtml'
     }
 
-    def __init__(self, id=None, user_id=None, inbox_id=None, domain_id=None, to=None, _from=None, sender=None, recipients=None, reply_to=None, cc=None, bcc=None, headers=None, headers_map=None, attachments=None, subject=None, body=None, body_excerpt=None, text_excerpt=None, body_md5_hash=None, is_html=None, charset=None, analysis=None, created_at=None, updated_at=None, read=None, team_access=None, is_x_amp_html=None, body_part_content_types=None, html=None, xamp_html=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, user_id=None, inbox_id=None, domain_id=None, to=None, _from=None, sender=None, recipients=None, reply_to=None, cc=None, bcc=None, headers=None, headers_map=None, attachments=None, subject=None, body=None, body_excerpt=None, text_excerpt=None, body_md5_hash=None, is_html=None, charset=None, analysis=None, created_at=None, updated_at=None, read=None, team_access=None, is_x_amp_html=None, body_part_content_types=None, external_id=None, message_id=None, thread_id=None, in_reply_to=None, favourite=None, size_bytes=None, html=None, xamp_html=None, local_vars_configuration=None):  # noqa: E501
         """Email - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -133,6 +145,12 @@ class Email(object):
         self._team_access = None
         self._is_x_amp_html = None
         self._body_part_content_types = None
+        self._external_id = None
+        self._message_id = None
+        self._thread_id = None
+        self._in_reply_to = None
+        self._favourite = None
+        self._size_bytes = None
         self._html = None
         self._xamp_html = None
         self.discriminator = None
@@ -165,6 +183,12 @@ class Email(object):
         self.team_access = team_access
         self.is_x_amp_html = is_x_amp_html
         self.body_part_content_types = body_part_content_types
+        self.external_id = external_id
+        self.message_id = message_id
+        self.thread_id = thread_id
+        self.in_reply_to = in_reply_to
+        self.favourite = favourite
+        self.size_bytes = size_bytes
         if html is not None:
             self.html = html
         if xamp_html is not None:
@@ -823,6 +847,144 @@ class Email(object):
         """
 
         self._body_part_content_types = body_part_content_types
+
+    @property
+    def external_id(self):
+        """Gets the external_id of this Email.  # noqa: E501
+
+        UID used by external IMAP server to identify email  # noqa: E501
+
+        :return: The external_id of this Email.  # noqa: E501
+        :rtype: str
+        """
+        return self._external_id
+
+    @external_id.setter
+    def external_id(self, external_id):
+        """Sets the external_id of this Email.
+
+        UID used by external IMAP server to identify email  # noqa: E501
+
+        :param external_id: The external_id of this Email.  # noqa: E501
+        :type: str
+        """
+
+        self._external_id = external_id
+
+    @property
+    def message_id(self):
+        """Gets the message_id of this Email.  # noqa: E501
+
+        RFC 5322 Message-ID header value without angle brackets.  # noqa: E501
+
+        :return: The message_id of this Email.  # noqa: E501
+        :rtype: str
+        """
+        return self._message_id
+
+    @message_id.setter
+    def message_id(self, message_id):
+        """Sets the message_id of this Email.
+
+        RFC 5322 Message-ID header value without angle brackets.  # noqa: E501
+
+        :param message_id: The message_id of this Email.  # noqa: E501
+        :type: str
+        """
+
+        self._message_id = message_id
+
+    @property
+    def thread_id(self):
+        """Gets the thread_id of this Email.  # noqa: E501
+
+        MailSlurp thread ID for email chain that enables lookup for In-Reply-To and References fields.  # noqa: E501
+
+        :return: The thread_id of this Email.  # noqa: E501
+        :rtype: str
+        """
+        return self._thread_id
+
+    @thread_id.setter
+    def thread_id(self, thread_id):
+        """Sets the thread_id of this Email.
+
+        MailSlurp thread ID for email chain that enables lookup for In-Reply-To and References fields.  # noqa: E501
+
+        :param thread_id: The thread_id of this Email.  # noqa: E501
+        :type: str
+        """
+
+        self._thread_id = thread_id
+
+    @property
+    def in_reply_to(self):
+        """Gets the in_reply_to of this Email.  # noqa: E501
+
+        Parsed value of In-Reply-To header. A Message-ID in a thread.  # noqa: E501
+
+        :return: The in_reply_to of this Email.  # noqa: E501
+        :rtype: str
+        """
+        return self._in_reply_to
+
+    @in_reply_to.setter
+    def in_reply_to(self, in_reply_to):
+        """Sets the in_reply_to of this Email.
+
+        Parsed value of In-Reply-To header. A Message-ID in a thread.  # noqa: E501
+
+        :param in_reply_to: The in_reply_to of this Email.  # noqa: E501
+        :type: str
+        """
+
+        self._in_reply_to = in_reply_to
+
+    @property
+    def favourite(self):
+        """Gets the favourite of this Email.  # noqa: E501
+
+        Is email favourited  # noqa: E501
+
+        :return: The favourite of this Email.  # noqa: E501
+        :rtype: bool
+        """
+        return self._favourite
+
+    @favourite.setter
+    def favourite(self, favourite):
+        """Sets the favourite of this Email.
+
+        Is email favourited  # noqa: E501
+
+        :param favourite: The favourite of this Email.  # noqa: E501
+        :type: bool
+        """
+
+        self._favourite = favourite
+
+    @property
+    def size_bytes(self):
+        """Gets the size_bytes of this Email.  # noqa: E501
+
+        Size of raw email message in bytes  # noqa: E501
+
+        :return: The size_bytes of this Email.  # noqa: E501
+        :rtype: int
+        """
+        return self._size_bytes
+
+    @size_bytes.setter
+    def size_bytes(self, size_bytes):
+        """Sets the size_bytes of this Email.
+
+        Size of raw email message in bytes  # noqa: E501
+
+        :param size_bytes: The size_bytes of this Email.  # noqa: E501
+        :type: int
+        """
+
+        self._size_bytes = size_bytes
 
     @property
     def html(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiodns
-Version: 3.3.0
+Version: 3.4.0
 Summary: Simple DNS resolver for asyncio
 Home-page: https://github.com/saghul/aiodns
 Author: Saúl Ibarra Corretgé

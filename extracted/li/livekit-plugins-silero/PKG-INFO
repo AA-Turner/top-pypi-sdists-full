@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-silero
-Version: 1.0.19
+Version: 1.0.20
 Summary: Agent Framework Plugin for Silero
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -18,14 +18,16 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9.0
-Requires-Dist: livekit-agents>=1.0.19
+Requires-Dist: livekit-agents>=1.0.20
 Requires-Dist: numpy>=1.26
 Requires-Dist: onnxruntime>=1.18
 Description-Content-Type: text/markdown
 
-# LiveKit Plugins Silero
+# Silero VAD plugin for LiveKit Agents
 
-Agent Framework Plugin for Silero. Currently supports Voice Activity Detection.
+Support for VAD-based turn detection.
+
+See [https://docs.livekit.io/build/turns/vad/](https://docs.livekit.io/build/turns/vad/) for more information.
 
 ## Installation
 

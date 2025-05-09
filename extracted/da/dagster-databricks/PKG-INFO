@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-databricks
-Version: 0.26.13
+Version: 0.26.14
 Summary: Package for Databricks-specific Dagster framework op and resource components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-databricks
 Author: Dagster Labs
@@ -12,9 +12,9 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
 License-File: LICENSE
-Requires-Dist: dagster==1.10.13
-Requires-Dist: dagster-pipes==1.10.13
-Requires-Dist: dagster-pyspark==0.26.13
+Requires-Dist: dagster==1.10.14
+Requires-Dist: dagster-pipes==1.10.14
+Requires-Dist: dagster-pyspark==0.26.14
 Requires-Dist: databricks-sdk<=0.17.0
 Dynamic: author
 Dynamic: author-email

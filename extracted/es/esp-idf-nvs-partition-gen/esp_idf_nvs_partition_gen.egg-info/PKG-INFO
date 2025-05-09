@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: esp_idf_nvs_partition_gen
-Version: 0.1.9
+Version: 0.2.0
 Summary: ESP-IDF NVS partition generation tool
 Author: Espressif Systems
 License:                                  Apache License

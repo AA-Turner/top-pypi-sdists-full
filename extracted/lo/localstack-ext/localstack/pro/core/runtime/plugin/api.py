@@ -19,4 +19,5 @@ class PlatformPlugin(BasePlatformPlugin):
 	def on_platform_ready(A):0
 	def on_platform_shutdown(A):0
 class ProPlatformPlugin(PlatformPlugin):
+	requires_license:bool=True
 	def should_load(B):from localstack.pro.core import config as A;return A.ACTIVATE_PRO

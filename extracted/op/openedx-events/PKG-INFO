@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-events
-Version: 10.1.0
+Version: 10.2.0
 Summary: Open edX events from the Hooks Extensions Framework
 Home-page: https://github.com/openedx/openedx-events
 Author: edX
@@ -184,6 +184,22 @@ Change Log
 
 Unreleased
 __________
+
+
+[10.2.0] - 2024-05-08
+---------------------
+
+Added
+~~~~~
+
+* Added new ``LIBRARY_BLOCK_PUBLISHED`` event in authoring.
+* Added new ``LIBRARY_CONTAINER_PUBLISHED`` event in authoring.
+
+Changed
+~~~~~~~
+* Deprecated the ``update_blocks`` and ``background`` attributes of various
+  content library events in authoring.
+* Clarified the use case of various content library events in authoring.
 
 [10.1.0] - 2024-05-01
 ---------------------

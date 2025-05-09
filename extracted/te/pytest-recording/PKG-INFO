@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-recording
-Version: 0.13.3
+Version: 0.13.4
 Summary: A pytest plugin powered by VCR.py to record and replay HTTP traffic
 Project-URL: Documentation, https://github.com/kiwicom/pytest-recording
 Project-URL: Changelog, https://github.com/kiwicom/pytest-recording/blob/master/docs/changelog.rst
@@ -67,7 +67,9 @@ This project can be installed via pip:
 
     pip install pytest-recording
 
- ⚠️ Incompatible with ``pytest-vcr`` — please uninstall ``pytest-vcr`` before use. ⚠️
+⚠️ Incompatibility Warning
+
+  If you have ``pytest-vcr`` installed, please uninstall it before using ``pytest-recording``, as the two plugins are incompatible.
 
 Usage
 -----

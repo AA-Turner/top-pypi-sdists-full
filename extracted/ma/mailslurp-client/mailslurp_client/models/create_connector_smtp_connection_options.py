@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -39,7 +39,15 @@ class CreateConnectorSmtpConnectionOptions(object):
         'smtp_port': 'int',
         'smtp_ssl': 'bool',
         'smtp_username': 'str',
-        'smtp_password': 'str'
+        'smtp_password': 'str',
+        'smtp_mechanisms': 'list[str]',
+        'start_tls': 'bool',
+        'local_host_name': 'str',
+        'proxy_host': 'str',
+        'proxy_port': 'int',
+        'proxy_enabled': 'bool',
+        'ssl_trust': 'str',
+        'ssl_protocols': 'list[str]'
     }
 
     attribute_map = {
@@ -48,10 +56,18 @@ class CreateConnectorSmtpConnectionOptions(object):
         'smtp_port': 'smtpPort',
         'smtp_ssl': 'smtpSsl',
         'smtp_username': 'smtpUsername',
-        'smtp_password': 'smtpPassword'
+        'smtp_password': 'smtpPassword',
+        'smtp_mechanisms': 'smtpMechanisms',
+        'start_tls': 'startTls',
+        'local_host_name': 'localHostName',
+        'proxy_host': 'proxyHost',
+        'proxy_port': 'proxyPort',
+        'proxy_enabled': 'proxyEnabled',
+        'ssl_trust': 'sslTrust',
+        'ssl_protocols': 'sslProtocols'
     }
 
-    def __init__(self, enabled=None, smtp_host=None, smtp_port=None, smtp_ssl=None, smtp_username=None, smtp_password=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, enabled=None, smtp_host=None, smtp_port=None, smtp_ssl=None, smtp_username=None, smtp_password=None, smtp_mechanisms=None, start_tls=None, local_host_name=None, proxy_host=None, proxy_port=None, proxy_enabled=None, ssl_trust=None, ssl_protocols=None, local_vars_configuration=None):  # noqa: E501
         """CreateConnectorSmtpConnectionOptions - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -63,19 +79,30 @@ class CreateConnectorSmtpConnectionOptions(object):
         self._smtp_ssl = None
         self._smtp_username = None
         self._smtp_password = None
+        self._smtp_mechanisms = None
+        self._start_tls = None
+        self._local_host_name = None
+        self._proxy_host = None
+        self._proxy_port = None
+        self._proxy_enabled = None
+        self._ssl_trust = None
+        self._ssl_protocols = None
         self.discriminator = None
 
-        if enabled is not None:
-            self.enabled = enabled
+        self.enabled = enabled
         self.smtp_host = smtp_host
-        if smtp_port is not None:
-            self.smtp_port = smtp_port
-        if smtp_ssl is not None:
-            self.smtp_ssl = smtp_ssl
-        if smtp_username is not None:
-            self.smtp_username = smtp_username
-        if smtp_password is not None:
-            self.smtp_password = smtp_password
+        self.smtp_port = smtp_port
+        self.smtp_ssl = smtp_ssl
+        self.smtp_username = smtp_username
+        self.smtp_password = smtp_password
+        self.smtp_mechanisms = smtp_mechanisms
+        self.start_tls = start_tls
+        self.local_host_name = local_host_name
+        self.proxy_host = proxy_host
+        self.proxy_port = proxy_port
+        self.proxy_enabled = proxy_enabled
+        self.ssl_trust = ssl_trust
+        self.ssl_protocols = ssl_protocols
 
     @property
     def enabled(self):
@@ -204,6 +231,174 @@ class CreateConnectorSmtpConnectionOptions(object):
         """
 
         self._smtp_password = smtp_password
+
+    @property
+    def smtp_mechanisms(self):
+        """Gets the smtp_mechanisms of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+
+
+        :return: The smtp_mechanisms of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._smtp_mechanisms
+
+    @smtp_mechanisms.setter
+    def smtp_mechanisms(self, smtp_mechanisms):
+        """Sets the smtp_mechanisms of this CreateConnectorSmtpConnectionOptions.
+
+
+        :param smtp_mechanisms: The smtp_mechanisms of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._smtp_mechanisms = smtp_mechanisms
+
+    @property
+    def start_tls(self):
+        """Gets the start_tls of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+
+
+        :return: The start_tls of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :rtype: bool
+        """
+        return self._start_tls
+
+    @start_tls.setter
+    def start_tls(self, start_tls):
+        """Sets the start_tls of this CreateConnectorSmtpConnectionOptions.
+
+
+        :param start_tls: The start_tls of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :type: bool
+        """
+
+        self._start_tls = start_tls
+
+    @property
+    def local_host_name(self):
+        """Gets the local_host_name of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+
+
+        :return: The local_host_name of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_host_name
+
+    @local_host_name.setter
+    def local_host_name(self, local_host_name):
+        """Sets the local_host_name of this CreateConnectorSmtpConnectionOptions.
+
+
+        :param local_host_name: The local_host_name of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :type: str
+        """
+
+        self._local_host_name = local_host_name
+
+    @property
+    def proxy_host(self):
+        """Gets the proxy_host of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+
+
+        :return: The proxy_host of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :rtype: str
+        """
+        return self._proxy_host
+
+    @proxy_host.setter
+    def proxy_host(self, proxy_host):
+        """Sets the proxy_host of this CreateConnectorSmtpConnectionOptions.
+
+
+        :param proxy_host: The proxy_host of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :type: str
+        """
+
+        self._proxy_host = proxy_host
+
+    @property
+    def proxy_port(self):
+        """Gets the proxy_port of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+
+
+        :return: The proxy_port of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :rtype: int
+        """
+        return self._proxy_port
+
+    @proxy_port.setter
+    def proxy_port(self, proxy_port):
+        """Sets the proxy_port of this CreateConnectorSmtpConnectionOptions.
+
+
+        :param proxy_port: The proxy_port of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :type: int
+        """
+
+        self._proxy_port = proxy_port
+
+    @property
+    def proxy_enabled(self):
+        """Gets the proxy_enabled of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+
+
+        :return: The proxy_enabled of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :rtype: bool
+        """
+        return self._proxy_enabled
+
+    @proxy_enabled.setter
+    def proxy_enabled(self, proxy_enabled):
+        """Sets the proxy_enabled of this CreateConnectorSmtpConnectionOptions.
+
+
+        :param proxy_enabled: The proxy_enabled of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :type: bool
+        """
+
+        self._proxy_enabled = proxy_enabled
+
+    @property
+    def ssl_trust(self):
+        """Gets the ssl_trust of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+
+
+        :return: The ssl_trust of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :rtype: str
+        """
+        return self._ssl_trust
+
+    @ssl_trust.setter
+    def ssl_trust(self, ssl_trust):
+        """Sets the ssl_trust of this CreateConnectorSmtpConnectionOptions.
+
+
+        :param ssl_trust: The ssl_trust of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :type: str
+        """
+
+        self._ssl_trust = ssl_trust
+
+    @property
+    def ssl_protocols(self):
+        """Gets the ssl_protocols of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+
+
+        :return: The ssl_protocols of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._ssl_protocols
+
+    @ssl_protocols.setter
+    def ssl_protocols(self, ssl_protocols):
+        """Sets the ssl_protocols of this CreateConnectorSmtpConnectionOptions.
+
+
+        :param ssl_protocols: The ssl_protocols of this CreateConnectorSmtpConnectionOptions.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._ssl_protocols = ssl_protocols
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -204,9 +204,7 @@ class BaseSQLSource(BaseSQLSourceProtocol):
                 async_engine_args.setdefault(k, v)
         if getattr(self, "kind", None) != SQLSourceKind.trino:
             engine_args.setdefault("pool_pre_ping", env_var_bool("USE_CLIENT_POOL_PRE_PING"))
-            engine_args.setdefault("echo", CHALK_QUERY_LOGGING)
             async_engine_args.setdefault("pool_pre_ping", env_var_bool("USE_CLIENT_POOL_PRE_PING"))
-            async_engine_args.setdefault("echo", CHALK_QUERY_LOGGING)
         self.engine_args = engine_args
         self.async_engine_args = async_engine_args
         self._engine = None
@@ -343,6 +341,17 @@ class BaseSQLSource(BaseSQLSourceProtocol):
         efficient_execution_failed: bool = False
         efficient_execution_traceback: str | None = None
         attempt_efficient_execution = query_execution_parameters.attempt_efficient_execution
+
+        if CHALK_QUERY_LOGGING:
+            log_dialect = None
+            try:
+                log_dialect = self.get_sqlalchemy_dialect(paramstyle="pyformat")
+            except Exception as e:
+                _logger.warning(f"Could not determine sqlalchemy dialect of source of type {self.kind}", exc_info=e)
+            _logger.info(
+                f"Executing SQL query: {finalized_query.query.compile(compile_kwargs={'literal_binds': True}, dialect=log_dialect)}"
+            )
+
         if attempt_efficient_execution:
             try:
                 yield from self._execute_query_efficient(

@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,8 +34,8 @@ class BounceProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
         'sender': 'str',
+        'created_at': 'datetime',
         'bounce_type': 'str',
         'bounce_mta': 'str',
         'subject': 'str',
@@ -43,58 +43,35 @@ class BounceProjection(object):
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
         'sender': 'sender',
+        'created_at': 'createdAt',
         'bounce_type': 'bounceType',
         'bounce_mta': 'bounceMta',
         'subject': 'subject',
         'id': 'id'
     }
 
-    def __init__(self, created_at=None, sender=None, bounce_type=None, bounce_mta=None, subject=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, sender=None, created_at=None, bounce_type=None, bounce_mta=None, subject=None, id=None, local_vars_configuration=None):  # noqa: E501
         """BounceProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
         self._sender = None
+        self._created_at = None
         self._bounce_type = None
         self._bounce_mta = None
         self._subject = None
         self._id = None
         self.discriminator = None
 
-        self.created_at = created_at
         self.sender = sender
+        self.created_at = created_at
         self.bounce_type = bounce_type
         self.bounce_mta = bounce_mta
         self.subject = subject
         if id is not None:
             self.id = id
-
-    @property
-    def created_at(self):
-        """Gets the created_at of this BounceProjection.  # noqa: E501
-
-
-        :return: The created_at of this BounceProjection.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._created_at
-
-    @created_at.setter
-    def created_at(self, created_at):
-        """Sets the created_at of this BounceProjection.
-
-
-        :param created_at: The created_at of this BounceProjection.  # noqa: E501
-        :type: datetime
-        """
-        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
-
-        self._created_at = created_at
 
     @property
     def sender(self):
@@ -118,6 +95,29 @@ class BounceProjection(object):
             raise ValueError("Invalid value for `sender`, must not be `None`")  # noqa: E501
 
         self._sender = sender
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this BounceProjection.  # noqa: E501
+
+
+        :return: The created_at of this BounceProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this BounceProjection.
+
+
+        :param created_at: The created_at of this BounceProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
 
     @property
     def bounce_type(self):

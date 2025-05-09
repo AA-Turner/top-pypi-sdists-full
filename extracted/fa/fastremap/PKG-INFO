@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.2
 Name: fastremap
-Version: 1.16.0
+Version: 1.16.1
 Summary: Remap, mask, renumber, unique, and in-place transposition of 3D labeled images. Point cloud too.
 Home-page: https://github.com/seung-lab/fastremap/
 Author: William Silversmith
@@ -27,7 +27,6 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
-Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

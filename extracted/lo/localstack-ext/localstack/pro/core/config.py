@@ -224,9 +224,6 @@ RDS_CLUSTER_ENDPOINT_HOST_ONLY = localstack_config.is_env_not_false(
     "RDS_CLUSTER_ENDPOINT_HOST_ONLY"
 )
 
-# Rds provider override
-RDS_V2_PROVIDER_OVERRIDE = os.getenv("PROVIDER_OVERRIDE_RDS") == "v2"
-
 # whether to start redis instances (ElastiCache/MemoryDB) in separate containers
 REDIS_CONTAINER_MODE = localstack_config.is_env_true("REDIS_CONTAINER_MODE")
 
@@ -261,6 +258,10 @@ DEFAULT_BEDROCK_MODEL = os.environ.get("DEFAULT_BEDROCK_MODEL", "smollm2:360m").
 BEDROCK_PULL_MODELS = {
     model.strip() for model in os.environ.get("BEDROCK_PULL_MODELS", "").split(",") if model.strip()
 } | {DEFAULT_BEDROCK_MODEL}
+
+# Glue job executor to use
+GLUE_JOB_EXECUTOR = os.environ.get("GLUE_JOB_EXECUTOR", "local").strip()
+GLUE_JOB_EXECUTOR_PROVIDER = os.environ.get("GLUE_JOB_EXECUTOR_PROVIDER", "v1").strip()
 
 
 def is_auth_token_set_in_cache() -> bool:
@@ -457,6 +458,8 @@ localstack_config.CONFIG_ENV_VARS += [
     "NEPTUNE_USE_SSL",
     # Removed in 3.0.0
     "LAMBDA_XRAY_INIT",  # deprecated since 2.0.0
+    "GLUE_JOB_EXECUTOR",
+    "GLUE_JOB_EXECUTOR_PROVIDER",
 ]
 
 # re-initialize configs in localstack

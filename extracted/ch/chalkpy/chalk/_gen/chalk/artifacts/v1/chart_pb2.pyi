@@ -36,6 +36,19 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_STREAM_MESSAGE_LATENCY: _ClassVar[MetricKind]
     METRIC_KIND_STREAM_WINDOWS_PROCESSED: _ClassVar[MetricKind]
     METRIC_KIND_STREAM_WINDOW_LATENCY: _ClassVar[MetricKind]
+    METRIC_KIND_ONLINE_STORE_KEY_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_ONLINE_STORE_EXPIRED_KEY_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_ONLINE_STORE_REQUESTS_PER_SECOND: _ClassVar[MetricKind]
+    METRIC_KIND_CPU_UTILIZATION_PERCENT: _ClassVar[MetricKind]
+    METRIC_KIND_REPLICA_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_ONLINE_STORE_USED_MEMORY: _ClassVar[MetricKind]
+    METRIC_KIND_ONLINE_STORE_TOTAL_MEMORY: _ClassVar[MetricKind]
+    METRIC_KIND_MEMORY_USAGE_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_TOTAL_MEMORY_AVAILABLE_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_NETWORK_READ_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_NETWORK_WRITE_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_DISK_READ_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_DISK_WRITE_BYTES: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -56,6 +69,7 @@ class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FILTER_KIND_IS_NULL: _ClassVar[FilterKind]
     FILTER_KIND_USAGE_KIND: _ClassVar[FilterKind]
     FILTER_KIND_RESOURCE_GROUP: _ClassVar[FilterKind]
+    FILTER_KIND_POD_NAME: _ClassVar[FilterKind]
 
 class ComparatorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -94,6 +108,9 @@ class GroupByKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GROUP_BY_KIND_CACHE_HIT: _ClassVar[GroupByKind]
     GROUP_BY_KIND_USAGE_KIND: _ClassVar[GroupByKind]
     GROUP_BY_KIND_RESOURCE_GROUP: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_DEPLOYMENT_ID: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_OPERATION_ID: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_POD_NAME: _ClassVar[GroupByKind]
 
 class MetricFormulaKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -156,6 +173,19 @@ METRIC_KIND_STREAM_MESSAGES_PROCESSED: MetricKind
 METRIC_KIND_STREAM_MESSAGE_LATENCY: MetricKind
 METRIC_KIND_STREAM_WINDOWS_PROCESSED: MetricKind
 METRIC_KIND_STREAM_WINDOW_LATENCY: MetricKind
+METRIC_KIND_ONLINE_STORE_KEY_COUNT: MetricKind
+METRIC_KIND_ONLINE_STORE_EXPIRED_KEY_COUNT: MetricKind
+METRIC_KIND_ONLINE_STORE_REQUESTS_PER_SECOND: MetricKind
+METRIC_KIND_CPU_UTILIZATION_PERCENT: MetricKind
+METRIC_KIND_REPLICA_COUNT: MetricKind
+METRIC_KIND_ONLINE_STORE_USED_MEMORY: MetricKind
+METRIC_KIND_ONLINE_STORE_TOTAL_MEMORY: MetricKind
+METRIC_KIND_MEMORY_USAGE_BYTES: MetricKind
+METRIC_KIND_TOTAL_MEMORY_AVAILABLE_BYTES: MetricKind
+METRIC_KIND_NETWORK_READ_BYTES: MetricKind
+METRIC_KIND_NETWORK_WRITE_BYTES: MetricKind
+METRIC_KIND_DISK_READ_BYTES: MetricKind
+METRIC_KIND_DISK_WRITE_BYTES: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind
@@ -173,6 +203,7 @@ FILTER_KIND_QUERY_STATUS: FilterKind
 FILTER_KIND_IS_NULL: FilterKind
 FILTER_KIND_USAGE_KIND: FilterKind
 FILTER_KIND_RESOURCE_GROUP: FilterKind
+FILTER_KIND_POD_NAME: FilterKind
 COMPARATOR_KIND_UNSPECIFIED: ComparatorKind
 COMPARATOR_KIND_EQ: ComparatorKind
 COMPARATOR_KIND_NEQ: ComparatorKind
@@ -202,6 +233,9 @@ GROUP_BY_KIND_ONLINE_OFFLINE: GroupByKind
 GROUP_BY_KIND_CACHE_HIT: GroupByKind
 GROUP_BY_KIND_USAGE_KIND: GroupByKind
 GROUP_BY_KIND_RESOURCE_GROUP: GroupByKind
+GROUP_BY_KIND_DEPLOYMENT_ID: GroupByKind
+GROUP_BY_KIND_OPERATION_ID: GroupByKind
+GROUP_BY_KIND_POD_NAME: GroupByKind
 METRIC_FORMULA_KIND_UNSPECIFIED: MetricFormulaKind
 METRIC_FORMULA_KIND_SUM: MetricFormulaKind
 METRIC_FORMULA_KIND_TOTAL_RATIO: MetricFormulaKind

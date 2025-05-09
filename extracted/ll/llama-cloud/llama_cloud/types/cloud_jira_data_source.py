@@ -15,6 +15,10 @@ except ImportError:
 
 
 class CloudJiraDataSource(pydantic.BaseModel):
+    """
+    Cloud Jira Data Source integrating JiraReader.
+    """
+
     supports_access_control: typing.Optional[bool]
     email: typing.Optional[str]
     api_token: typing.Optional[str]

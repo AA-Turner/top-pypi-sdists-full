@@ -18,6 +18,7 @@ import collections
 import functools
 import json
 import struct
+import sys
 import warnings
 from collections import OrderedDict
 from decimal import Decimal
@@ -112,6 +113,16 @@ if BaseTunnelRecordReader is None:
                 PartitionSpec(partition_spec) if partition_spec else None
             )
             self._append_partitions = append_partitions
+
+            map_as_ordered_dict = options.map_as_ordered_dict
+            if map_as_ordered_dict is None:
+                map_as_ordered_dict = sys.version_info[:2] <= (3, 6)
+            self._map_dict_hook = OrderedDict if map_as_ordered_dict else dict
+
+            struct_as_ordered_dict = options.struct_as_ordered_dict
+            if struct_as_ordered_dict is None:
+                struct_as_ordered_dict = sys.version_info[:2] <= (3, 6)
+            self._struct_dict_hook = OrderedDict if struct_as_ordered_dict else dict
 
             if self._enable_client_metrics:
                 self._local_wall_time_ms += compat.long_type(
@@ -240,7 +251,7 @@ if BaseTunnelRecordReader is None:
             elif isinstance(data_type, types.Map):
                 keys = self._read_array(data_type.key_type)
                 values = self._read_array(data_type.value_type)
-                val = collections.OrderedDict(zip(keys, values))
+                val = self._map_dict_hook(zip(keys, values))
             elif isinstance(data_type, types.Struct):
                 val = self._read_struct(data_type)
             else:
@@ -265,7 +276,9 @@ if BaseTunnelRecordReader is None:
                 if not self._reader.read_bool():
                     res_list[idx] = self._read_field(field_type)
             if options.struct_as_dict:
-                return OrderedDict(zip(value_type.field_types.keys(), res_list))
+                return self._struct_dict_hook(
+                    zip(value_type.field_types.keys(), res_list)
+                )
             else:
                 return value_type.namedtuple_type(*res_list)
 
@@ -918,15 +931,18 @@ class ArrowRecordFieldConverter(object):
         )
 
     @staticmethod
-    def _convert_struct(value, field_converters, tuple_type):
+    def _convert_struct(value, field_converters, tuple_type, use_ordered_dict=False):
         if value is None:
             return None
 
-        results = {k: field_converters[k](v) for k, v in value.items()}
+        result_iter = ((k, field_converters[k](v)) for k, v in value.items())
         if tuple_type is not None:
-            return tuple_type(**results)
+            return tuple_type(**dict(result_iter))
+        elif not use_ordered_dict:
+            return dict(result_iter)
         else:
-            return results
+            d = dict(result_iter)
+            return OrderedDict([(k, d[k]) for k in field_converters if k in d])
 
     def _build_converter(self, odps_type, arrow_type=None):
         import pyarrow as pa
@@ -968,7 +984,11 @@ class ArrowRecordFieldConverter(object):
             )
             if sub_converter is _reflective:
                 return _reflective
-            return lambda value: [sub_converter(x) for x in value]
+            return (
+                lambda value: [sub_converter(x) for x in value]
+                if value is not None
+                else None
+            )
         elif isinstance(odps_type, types.Map):
             arrow_key_type = getattr(arrow_type, "key_type", None)
             arrow_value_type = getattr(arrow_type, "item_type", None)
@@ -977,14 +997,19 @@ class ArrowRecordFieldConverter(object):
             value_converter = self._build_converter(
                 odps_type.value_type, arrow_value_type
             )
+            dict_hook = OrderedDict if odps_type._use_ordered_dict else dict
             if key_converter is _reflective and value_converter is _reflective:
-                return OrderedDict
+                return dict_hook
 
-            return lambda value: OrderedDict(
-                [(key_converter(k), value_converter(v)) for k, v in value]
+            return (
+                lambda value: dict_hook(
+                    [(key_converter(k), value_converter(v)) for k, v in value]
+                )
+                if value is not None
+                else None
             )
         elif isinstance(odps_type, types.Struct):
-            field_converters = {}
+            field_converters = OrderedDict()
             for field_name, field_type in odps_type.field_types.items():
                 arrow_field_type = None
                 if arrow_type is not None:
@@ -997,15 +1022,19 @@ class ArrowRecordFieldConverter(object):
                 tuple_type = None
             else:
                 tuple_type = odps_type.namedtuple_type
+            use_ordered_dict = odps_type._use_ordered_dict
             return functools.partial(
                 self._convert_struct,
                 field_converters=field_converters,
                 tuple_type=tuple_type,
+                use_ordered_dict=use_ordered_dict,
             )
         else:
             return _reflective
 
     def __call__(self, value):
+        if value is None:
+            return None
         return self._converter(value)
 
 

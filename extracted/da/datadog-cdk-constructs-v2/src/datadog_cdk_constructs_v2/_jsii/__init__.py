@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "datadog-cdk-constructs-v2",
-    "2.3.0",
+    "2.4.0",
     __name__[0:-6],
-    "datadog-cdk-constructs-v2@2.3.0.jsii.tgz",
+    "datadog-cdk-constructs-v2@2.4.0.jsii.tgz",
 )
 
 __all__ = [

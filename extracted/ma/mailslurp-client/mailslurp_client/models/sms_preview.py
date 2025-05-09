@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -39,6 +39,7 @@ class SmsPreview(object):
         'body': 'str',
         'phone_number': 'str',
         'from_number': 'str',
+        'read': 'bool',
         'created_at': 'datetime'
     }
 
@@ -48,10 +49,11 @@ class SmsPreview(object):
         'body': 'body',
         'phone_number': 'phoneNumber',
         'from_number': 'fromNumber',
+        'read': 'read',
         'created_at': 'createdAt'
     }
 
-    def __init__(self, id=None, user_id=None, body=None, phone_number=None, from_number=None, created_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, user_id=None, body=None, phone_number=None, from_number=None, read=None, created_at=None, local_vars_configuration=None):  # noqa: E501
         """SmsPreview - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class SmsPreview(object):
         self._body = None
         self._phone_number = None
         self._from_number = None
+        self._read = None
         self._created_at = None
         self.discriminator = None
 
@@ -70,6 +73,7 @@ class SmsPreview(object):
         self.body = body
         self.phone_number = phone_number
         self.from_number = from_number
+        self.read = read
         self.created_at = created_at
 
     @property
@@ -186,6 +190,29 @@ class SmsPreview(object):
             raise ValueError("Invalid value for `from_number`, must not be `None`")  # noqa: E501
 
         self._from_number = from_number
+
+    @property
+    def read(self):
+        """Gets the read of this SmsPreview.  # noqa: E501
+
+
+        :return: The read of this SmsPreview.  # noqa: E501
+        :rtype: bool
+        """
+        return self._read
+
+    @read.setter
+    def read(self, read):
+        """Sets the read of this SmsPreview.
+
+
+        :param read: The read of this SmsPreview.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and read is None:  # noqa: E501
+            raise ValueError("Invalid value for `read`, must not be `None`")  # noqa: E501
+
+        self._read = read
 
     @property
     def created_at(self):

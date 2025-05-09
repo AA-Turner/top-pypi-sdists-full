@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -1588,7 +1588,6 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_id: (required)
-        :param bool decode: Decode email body quoted-printable encoding to plain text. SMTP servers often encode text using quoted-printable format (for instance `=D7`). This can be a pain for testing
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1614,7 +1613,6 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_id: (required)
-        :param bool decode: Decode email body quoted-printable encoding to plain text. SMTP servers often encode text using quoted-printable format (for instance `=D7`). This can be a pain for testing
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1632,8 +1630,7 @@ class EmailControllerApi(object):
         local_var_params = locals()
 
         all_params = [
-            'email_id',
-            'decode'
+            'email_id'
         ]
         all_params.extend(
             [
@@ -1664,8 +1661,6 @@ class EmailControllerApi(object):
             path_params['emailId'] = local_var_params['email_id']  # noqa: E501
 
         query_params = []
-        if 'decode' in local_var_params and local_var_params['decode'] is not None:  # noqa: E501
-            query_params.append(('decode', local_var_params['decode']))  # noqa: E501
 
         header_params = {}
 
@@ -1675,7 +1670,7 @@ class EmailControllerApi(object):
         body_params = None
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.select_header_accept(
-            ['*/*'])  # noqa: E501
+            ['application/json;charset=UTF-8', 'application/xml;charset=UTF-8', 'application/json; charset=UTF-8', 'application/xml; charset=UTF-8'])  # noqa: E501
 
         # Authentication setting
         auth_settings = ['API_KEY']  # noqa: E501
@@ -1949,6 +1944,8 @@ class EmailControllerApi(object):
         :param async_req bool: execute request asynchronously
         :param str email_id: ID of email to match against (required)
         :param str content_type: Content type (required)
+        :param bool strict: Strict content type match
+        :param int index: Index of content type part if multiple
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1975,6 +1972,8 @@ class EmailControllerApi(object):
         :param async_req bool: execute request asynchronously
         :param str email_id: ID of email to match against (required)
         :param str content_type: Content type (required)
+        :param bool strict: Strict content type match
+        :param int index: Index of content type part if multiple
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1993,7 +1992,9 @@ class EmailControllerApi(object):
 
         all_params = [
             'email_id',
-            'content_type'
+            'content_type',
+            'strict',
+            'index'
         ]
         all_params.extend(
             [
@@ -2030,6 +2031,143 @@ class EmailControllerApi(object):
         query_params = []
         if 'content_type' in local_var_params and local_var_params['content_type'] is not None:  # noqa: E501
             query_params.append(('contentType', local_var_params['content_type']))  # noqa: E501
+        if 'strict' in local_var_params and local_var_params['strict'] is not None:  # noqa: E501
+            query_params.append(('strict', local_var_params['strict']))  # noqa: E501
+        if 'index' in local_var_params and local_var_params['index'] is not None:  # noqa: E501
+            query_params.append(('index', local_var_params['index']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json;charset=UTF-8', 'application/xml;charset=UTF-8', 'application/json; charset=UTF-8', 'application/xml; charset=UTF-8'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/emails/{emailId}/contentPart', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='EmailContentPartResult',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_email_content_part_content(self, email_id, content_type, **kwargs):  # noqa: E501
+        """Get email content part by content type raw response  # noqa: E501
+
+        Get email body content parts from a multipart email message for a given content type and return as response  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_content_part_content(email_id, content_type, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str email_id: ID of email to match against (required)
+        :param str content_type: Content type (required)
+        :param bool strict: Strict content type match
+        :param int index: Index of content type part if multiple. Starts from 0 and applies to the result list after selecting for your content type. Content type parts are sorted by order found in original MIME message.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: str
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_email_content_part_content_with_http_info(email_id, content_type, **kwargs)  # noqa: E501
+
+    def get_email_content_part_content_with_http_info(self, email_id, content_type, **kwargs):  # noqa: E501
+        """Get email content part by content type raw response  # noqa: E501
+
+        Get email body content parts from a multipart email message for a given content type and return as response  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_content_part_content_with_http_info(email_id, content_type, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str email_id: ID of email to match against (required)
+        :param str content_type: Content type (required)
+        :param bool strict: Strict content type match
+        :param int index: Index of content type part if multiple. Starts from 0 and applies to the result list after selecting for your content type. Content type parts are sorted by order found in original MIME message.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(str, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'email_id',
+            'content_type',
+            'strict',
+            'index'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_email_content_part_content" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'email_id' is set
+        if self.api_client.client_side_validation and ('email_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['email_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `email_id` when calling `get_email_content_part_content`")  # noqa: E501
+        # verify the required parameter 'content_type' is set
+        if self.api_client.client_side_validation and ('content_type' not in local_var_params or  # noqa: E501
+                                                        local_var_params['content_type'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `content_type` when calling `get_email_content_part_content`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'email_id' in local_var_params:
+            path_params['emailId'] = local_var_params['email_id']  # noqa: E501
+
+        query_params = []
+        if 'content_type' in local_var_params and local_var_params['content_type'] is not None:  # noqa: E501
+            query_params.append(('contentType', local_var_params['content_type']))  # noqa: E501
+        if 'strict' in local_var_params and local_var_params['strict'] is not None:  # noqa: E501
+            query_params.append(('strict', local_var_params['strict']))  # noqa: E501
+        if 'index' in local_var_params and local_var_params['index'] is not None:  # noqa: E501
+            query_params.append(('index', local_var_params['index']))  # noqa: E501
 
         header_params = {}
 
@@ -2045,14 +2183,14 @@ class EmailControllerApi(object):
         auth_settings = ['API_KEY']  # noqa: E501
 
         return self.api_client.call_api(
-            '/emails/{emailId}/contentPart', 'GET',
+            '/emails/{emailId}/contentPart/raw', 'GET',
             path_params,
             query_params,
             header_params,
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='EmailContentPartResult',  # noqa: E501
+            response_type='str',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -2179,7 +2317,6 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_id: (required)
-        :param bool decode:
         :param bool replace_cid_images:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
@@ -2206,7 +2343,6 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_id: (required)
-        :param bool decode:
         :param bool replace_cid_images:
         :param _return_http_data_only: response data without head status code
                                        and headers
@@ -2226,7 +2362,6 @@ class EmailControllerApi(object):
 
         all_params = [
             'email_id',
-            'decode',
             'replace_cid_images'
         ]
         all_params.extend(
@@ -2258,8 +2393,6 @@ class EmailControllerApi(object):
             path_params['emailId'] = local_var_params['email_id']  # noqa: E501
 
         query_params = []
-        if 'decode' in local_var_params and local_var_params['decode'] is not None:  # noqa: E501
-            query_params.append(('decode', local_var_params['decode']))  # noqa: E501
         if 'replace_cid_images' in local_var_params and local_var_params['replace_cid_images'] is not None:  # noqa: E501
             query_params.append(('replaceCidImages', local_var_params['replace_cid_images']))  # noqa: E501
 
@@ -2303,7 +2436,6 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_id: (required)
-        :param bool decode:
         :param bool replace_cid_images:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
@@ -2330,7 +2462,6 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_id: (required)
-        :param bool decode:
         :param bool replace_cid_images:
         :param _return_http_data_only: response data without head status code
                                        and headers
@@ -2350,7 +2481,6 @@ class EmailControllerApi(object):
 
         all_params = [
             'email_id',
-            'decode',
             'replace_cid_images'
         ]
         all_params.extend(
@@ -2382,8 +2512,6 @@ class EmailControllerApi(object):
             path_params['emailId'] = local_var_params['email_id']  # noqa: E501
 
         query_params = []
-        if 'decode' in local_var_params and local_var_params['decode'] is not None:  # noqa: E501
-            query_params.append(('decode', local_var_params['decode']))  # noqa: E501
         if 'replace_cid_images' in local_var_params and local_var_params['replace_cid_images'] is not None:  # noqa: E501
             query_params.append(('replaceCidImages', local_var_params['replace_cid_images']))  # noqa: E501
 
@@ -2550,6 +2678,7 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_id: ID of email to fetch text for (required)
+        :param str selector: Optional HTML query selector for links
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -2575,6 +2704,7 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str email_id: ID of email to fetch text for (required)
+        :param str selector: Optional HTML query selector for links
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -2592,7 +2722,8 @@ class EmailControllerApi(object):
         local_var_params = locals()
 
         all_params = [
-            'email_id'
+            'email_id',
+            'selector'
         ]
         all_params.extend(
             [
@@ -2623,6 +2754,8 @@ class EmailControllerApi(object):
             path_params['emailId'] = local_var_params['email_id']  # noqa: E501
 
         query_params = []
+        if 'selector' in local_var_params and local_var_params['selector'] is not None:  # noqa: E501
+            query_params.append(('selector', local_var_params['selector']))  # noqa: E501
 
         header_params = {}
 
@@ -3017,6 +3150,125 @@ class EmailControllerApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_email_summary(self, email_id, **kwargs):  # noqa: E501
+        """Get email data including headers but not body. Expects email to exist by ID. For emails that may not have arrived yet use the WaitForController.  # noqa: E501
+
+        Returns a email summary object with headers. To retrieve the body see getEmail and to get raw unparsed email use the getRawEmail endpoints  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_summary(email_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str email_id: (required)
+        :param bool decode:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: EmailPreview
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_email_summary_with_http_info(email_id, **kwargs)  # noqa: E501
+
+    def get_email_summary_with_http_info(self, email_id, **kwargs):  # noqa: E501
+        """Get email data including headers but not body. Expects email to exist by ID. For emails that may not have arrived yet use the WaitForController.  # noqa: E501
+
+        Returns a email summary object with headers. To retrieve the body see getEmail and to get raw unparsed email use the getRawEmail endpoints  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_summary_with_http_info(email_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str email_id: (required)
+        :param bool decode:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(EmailPreview, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'email_id',
+            'decode'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_email_summary" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'email_id' is set
+        if self.api_client.client_side_validation and ('email_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['email_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `email_id` when calling `get_email_summary`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'email_id' in local_var_params:
+            path_params['emailId'] = local_var_params['email_id']  # noqa: E501
+
+        query_params = []
+        if 'decode' in local_var_params and local_var_params['decode'] is not None:  # noqa: E501
+            query_params.append(('decode', local_var_params['decode']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/emails/{emailId}/summary', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='EmailPreview',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_email_text_lines(self, email_id, **kwargs):  # noqa: E501
         """Parse and return text from an email, stripping HTML and decoding encoded characters  # noqa: E501
 
@@ -3141,6 +3393,381 @@ class EmailControllerApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_email_thread(self, thread_id, **kwargs):  # noqa: E501
+        """Return email thread information. Use items endpoints to get messages for thread.  # noqa: E501
+
+        Return email message thread summary from Message-ID, In-Reply-To, and References header. Get messages using items endpoint  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_thread(thread_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str thread_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: EmailThreadDto
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_email_thread_with_http_info(thread_id, **kwargs)  # noqa: E501
+
+    def get_email_thread_with_http_info(self, thread_id, **kwargs):  # noqa: E501
+        """Return email thread information. Use items endpoints to get messages for thread.  # noqa: E501
+
+        Return email message thread summary from Message-ID, In-Reply-To, and References header. Get messages using items endpoint  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_thread_with_http_info(thread_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str thread_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(EmailThreadDto, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'thread_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_email_thread" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'thread_id' is set
+        if self.api_client.client_side_validation and ('thread_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['thread_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `thread_id` when calling `get_email_thread`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'thread_id' in local_var_params:
+            path_params['threadId'] = local_var_params['thread_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/emails/threads/{threadId}', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='EmailThreadDto',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_email_thread_items(self, thread_id, **kwargs):  # noqa: E501
+        """Return email thread items.  # noqa: E501
+
+        Return email thread messages based on Message-ID, In-Reply-To, and References header  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_thread_items(thread_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str thread_id: (required)
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: EmailThreadItemsDto
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_email_thread_items_with_http_info(thread_id, **kwargs)  # noqa: E501
+
+    def get_email_thread_items_with_http_info(self, thread_id, **kwargs):  # noqa: E501
+        """Return email thread items.  # noqa: E501
+
+        Return email thread messages based on Message-ID, In-Reply-To, and References header  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_thread_items_with_http_info(thread_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str thread_id: (required)
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(EmailThreadItemsDto, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'thread_id',
+            'sort'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_email_thread_items" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'thread_id' is set
+        if self.api_client.client_side_validation and ('thread_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['thread_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `thread_id` when calling `get_email_thread_items`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'thread_id' in local_var_params:
+            path_params['threadId'] = local_var_params['thread_id']  # noqa: E501
+
+        query_params = []
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/emails/threads/{threadId}/items', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='EmailThreadItemsDto',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_email_threads(self, **kwargs):  # noqa: E501
+        """Return email threads in paginated form  # noqa: E501
+
+        Return email message chains built from Message-ID, In-Reply-To, and References header.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_threads(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str html_selector: Optional inbox filter
+        :param int page: Optional page index in email thread pagination
+        :param int size: Optional page size in email thread pagination. Maximum size is 100. Use page index and sort to page through larger results
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter search filter for email threads.
+        :param datetime since: Optional filter email threads created since time
+        :param datetime before: Optional filter emails threads created before given date time
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PageEmailThreadProjection
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_email_threads_with_http_info(**kwargs)  # noqa: E501
+
+    def get_email_threads_with_http_info(self, **kwargs):  # noqa: E501
+        """Return email threads in paginated form  # noqa: E501
+
+        Return email message chains built from Message-ID, In-Reply-To, and References header.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_email_threads_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str html_selector: Optional inbox filter
+        :param int page: Optional page index in email thread pagination
+        :param int size: Optional page size in email thread pagination. Maximum size is 100. Use page index and sort to page through larger results
+        :param str sort: Optional createdAt sort direction ASC or DESC
+        :param str search_filter: Optional search filter search filter for email threads.
+        :param datetime since: Optional filter email threads created since time
+        :param datetime before: Optional filter emails threads created before given date time
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PageEmailThreadProjection, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'html_selector',
+            'page',
+            'size',
+            'sort',
+            'search_filter',
+            'since',
+            'before'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_email_threads" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        if self.api_client.client_side_validation and 'size' in local_var_params and local_var_params['size'] > 100:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `size` when calling `get_email_threads`, must be a value less than or equal to `100`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'html_selector' in local_var_params and local_var_params['html_selector'] is not None:  # noqa: E501
+            query_params.append(('htmlSelector', local_var_params['html_selector']))  # noqa: E501
+        if 'page' in local_var_params and local_var_params['page'] is not None:  # noqa: E501
+            query_params.append(('page', local_var_params['page']))  # noqa: E501
+        if 'size' in local_var_params and local_var_params['size'] is not None:  # noqa: E501
+            query_params.append(('size', local_var_params['size']))  # noqa: E501
+        if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
+            query_params.append(('sort', local_var_params['sort']))  # noqa: E501
+        if 'search_filter' in local_var_params and local_var_params['search_filter'] is not None:  # noqa: E501
+            query_params.append(('searchFilter', local_var_params['search_filter']))  # noqa: E501
+        if 'since' in local_var_params and local_var_params['since'] is not None:  # noqa: E501
+            query_params.append(('since', local_var_params['since']))  # noqa: E501
+        if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
+            query_params.append(('before', local_var_params['before']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['*/*'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/emails/threads', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PageEmailThreadProjection',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_emails_offset_paginated(self, **kwargs):  # noqa: E501
         """Get all emails in all inboxes in paginated form. Email API list all.  # noqa: E501
 
@@ -3159,6 +3786,9 @@ class EmailControllerApi(object):
         :param str search_filter: Optional search filter. Searches email recipients, sender, subject, email address and ID. Does not search email body
         :param datetime since: Optional filter emails received after given date time
         :param datetime before: Optional filter emails received before given date time
+        :param bool favourited: Optional filter emails that are favourited
+        :param bool sync_connectors: Sync connectors
+        :param str plus_address_id: Optional plus address ID filter
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -3191,6 +3821,9 @@ class EmailControllerApi(object):
         :param str search_filter: Optional search filter. Searches email recipients, sender, subject, email address and ID. Does not search email body
         :param datetime since: Optional filter emails received after given date time
         :param datetime before: Optional filter emails received before given date time
+        :param bool favourited: Optional filter emails that are favourited
+        :param bool sync_connectors: Sync connectors
+        :param str plus_address_id: Optional plus address ID filter
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -3215,7 +3848,10 @@ class EmailControllerApi(object):
             'unread_only',
             'search_filter',
             'since',
-            'before'
+            'before',
+            'favourited',
+            'sync_connectors',
+            'plus_address_id'
         ]
         all_params.extend(
             [
@@ -3259,6 +3895,12 @@ class EmailControllerApi(object):
             query_params.append(('since', local_var_params['since']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'favourited' in local_var_params and local_var_params['favourited'] is not None:  # noqa: E501
+            query_params.append(('favourited', local_var_params['favourited']))  # noqa: E501
+        if 'sync_connectors' in local_var_params and local_var_params['sync_connectors'] is not None:  # noqa: E501
+            query_params.append(('syncConnectors', local_var_params['sync_connectors']))  # noqa: E501
+        if 'plus_address_id' in local_var_params and local_var_params['plus_address_id'] is not None:  # noqa: E501
+            query_params.append(('plusAddressId', local_var_params['plus_address_id']))  # noqa: E501
 
         header_params = {}
 
@@ -3307,6 +3949,9 @@ class EmailControllerApi(object):
         :param str search_filter: Optional search filter. Searches email recipients, sender, subject, email address and ID. Does not search email body
         :param datetime since: Optional filter emails received after given date time. If unset will use time 24hours prior to now.
         :param datetime before: Optional filter emails received before given date time
+        :param bool sync_connectors: Sync connectors
+        :param str plus_address_id: Optional plus address ID filter
+        :param bool favourited: Optional filter emails that are favourited
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -3339,6 +3984,9 @@ class EmailControllerApi(object):
         :param str search_filter: Optional search filter. Searches email recipients, sender, subject, email address and ID. Does not search email body
         :param datetime since: Optional filter emails received after given date time. If unset will use time 24hours prior to now.
         :param datetime before: Optional filter emails received before given date time
+        :param bool sync_connectors: Sync connectors
+        :param str plus_address_id: Optional plus address ID filter
+        :param bool favourited: Optional filter emails that are favourited
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -3363,7 +4011,10 @@ class EmailControllerApi(object):
             'unread_only',
             'search_filter',
             'since',
-            'before'
+            'before',
+            'sync_connectors',
+            'plus_address_id',
+            'favourited'
         ]
         all_params.extend(
             [
@@ -3407,6 +4058,12 @@ class EmailControllerApi(object):
             query_params.append(('since', local_var_params['since']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'sync_connectors' in local_var_params and local_var_params['sync_connectors'] is not None:  # noqa: E501
+            query_params.append(('syncConnectors', local_var_params['sync_connectors']))  # noqa: E501
+        if 'plus_address_id' in local_var_params and local_var_params['plus_address_id'] is not None:  # noqa: E501
+            query_params.append(('plusAddressId', local_var_params['plus_address_id']))  # noqa: E501
+        if 'favourited' in local_var_params and local_var_params['favourited'] is not None:  # noqa: E501
+            query_params.append(('favourited', local_var_params['favourited']))  # noqa: E501
 
         header_params = {}
 
@@ -3799,6 +4456,9 @@ class EmailControllerApi(object):
         :param str search_filter: Optional search filter search filter for emails.
         :param datetime since: Optional filter emails received after given date time. If unset will use time 24hours prior to now.
         :param datetime before: Optional filter emails received before given date time
+        :param bool sync_connectors: Sync connectors
+        :param bool favourited: Search only favorited emails
+        :param str plus_address_id: Optional plus address ID filter
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -3831,6 +4491,9 @@ class EmailControllerApi(object):
         :param str search_filter: Optional search filter search filter for emails.
         :param datetime since: Optional filter emails received after given date time. If unset will use time 24hours prior to now.
         :param datetime before: Optional filter emails received before given date time
+        :param bool sync_connectors: Sync connectors
+        :param bool favourited: Search only favorited emails
+        :param str plus_address_id: Optional plus address ID filter
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -3855,7 +4518,10 @@ class EmailControllerApi(object):
             'unread_only',
             'search_filter',
             'since',
-            'before'
+            'before',
+            'sync_connectors',
+            'favourited',
+            'plus_address_id'
         ]
         all_params.extend(
             [
@@ -3899,6 +4565,12 @@ class EmailControllerApi(object):
             query_params.append(('since', local_var_params['since']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'sync_connectors' in local_var_params and local_var_params['sync_connectors'] is not None:  # noqa: E501
+            query_params.append(('syncConnectors', local_var_params['sync_connectors']))  # noqa: E501
+        if 'favourited' in local_var_params and local_var_params['favourited'] is not None:  # noqa: E501
+            query_params.append(('favourited', local_var_params['favourited']))  # noqa: E501
+        if 'plus_address_id' in local_var_params and local_var_params['plus_address_id'] is not None:  # noqa: E501
+            query_params.append(('plusAddressId', local_var_params['plus_address_id']))  # noqa: E501
 
         header_params = {}
 
@@ -4631,6 +5303,9 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param SearchEmailsOptions search_emails_options: (required)
+        :param bool sync_connectors: Sync connectors
+        :param bool favourited: Search only favourited emails
+        :param str plus_address_id: Optional plus address ID filter
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -4656,6 +5331,9 @@ class EmailControllerApi(object):
 
         :param async_req bool: execute request asynchronously
         :param SearchEmailsOptions search_emails_options: (required)
+        :param bool sync_connectors: Sync connectors
+        :param bool favourited: Search only favourited emails
+        :param str plus_address_id: Optional plus address ID filter
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -4673,7 +5351,10 @@ class EmailControllerApi(object):
         local_var_params = locals()
 
         all_params = [
-            'search_emails_options'
+            'search_emails_options',
+            'sync_connectors',
+            'favourited',
+            'plus_address_id'
         ]
         all_params.extend(
             [
@@ -4702,6 +5383,12 @@ class EmailControllerApi(object):
         path_params = {}
 
         query_params = []
+        if 'sync_connectors' in local_var_params and local_var_params['sync_connectors'] is not None:  # noqa: E501
+            query_params.append(('syncConnectors', local_var_params['sync_connectors']))  # noqa: E501
+        if 'favourited' in local_var_params and local_var_params['favourited'] is not None:  # noqa: E501
+            query_params.append(('favourited', local_var_params['favourited']))  # noqa: E501
+        if 'plus_address_id' in local_var_params and local_var_params['plus_address_id'] is not None:  # noqa: E501
+            query_params.append(('plusAddressId', local_var_params['plus_address_id']))  # noqa: E501
 
         header_params = {}
 
@@ -4853,6 +5540,125 @@ class EmailControllerApi(object):
 
         return self.api_client.call_api(
             '/emails', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def set_email_favourited(self, email_id, favourited, **kwargs):  # noqa: E501
+        """Set email favourited state  # noqa: E501
+
+        Set and return new favorite state for an email  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_email_favourited(email_id, favourited, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str email_id: ID of email to set favourite state (required)
+        :param bool favourited: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.set_email_favourited_with_http_info(email_id, favourited, **kwargs)  # noqa: E501
+
+    def set_email_favourited_with_http_info(self, email_id, favourited, **kwargs):  # noqa: E501
+        """Set email favourited state  # noqa: E501
+
+        Set and return new favorite state for an email  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.set_email_favourited_with_http_info(email_id, favourited, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str email_id: ID of email to set favourite state (required)
+        :param bool favourited: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'email_id',
+            'favourited'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method set_email_favourited" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'email_id' is set
+        if self.api_client.client_side_validation and ('email_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['email_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `email_id` when calling `set_email_favourited`")  # noqa: E501
+        # verify the required parameter 'favourited' is set
+        if self.api_client.client_side_validation and ('favourited' not in local_var_params or  # noqa: E501
+                                                        local_var_params['favourited'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `favourited` when calling `set_email_favourited`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'email_id' in local_var_params:
+            path_params['emailId'] = local_var_params['email_id']  # noqa: E501
+
+        query_params = []
+        if 'favourited' in local_var_params and local_var_params['favourited'] is not None:  # noqa: E501
+            query_params.append(('favourited', local_var_params['favourited']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # Authentication setting
+        auth_settings = ['API_KEY']  # noqa: E501
+
+        return self.api_client.call_api(
+            '/emails/{emailId}/favourite', 'PUT',
             path_params,
             query_params,
             header_params,

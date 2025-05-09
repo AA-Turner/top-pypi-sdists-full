@@ -24,7 +24,7 @@ else:
 class _UploadFeaturesValidationErrors:
     @staticmethod
     def expected_mapping(e: Any):
-        return ChalkError(
+        return ChalkError.create(
             code=ErrorCode.INVALID_QUERY,
             message=(
                 f"Multi upload detected a list of items, but some list items are `{type(e).__name__}`. If you "
@@ -41,7 +41,7 @@ class _UploadFeaturesValidationErrors:
     ):
         expected_s = "" if expected_length == 1 else "s"
         actual_s = "" if actual_length == 1 else "s"
-        return ChalkError(
+        return ChalkError.create(
             code=ErrorCode.INVALID_QUERY,
             message=(
                 f"expected all values in mapping to be lists of the same length, found {expected_length} "
@@ -51,14 +51,14 @@ class _UploadFeaturesValidationErrors:
 
     @staticmethod
     def expected_list_in_mapping(col_name: str, col_value: Any):
-        return ChalkError(
+        return ChalkError.create(
             code=ErrorCode.INVALID_QUERY,
             message=f"expected all values in mapping to be lists, found '{type(col_value).__name__}' for '{col_name}'",
         )
 
     @staticmethod
     def structs_not_supported(fqn: str, obj: Any) -> ChalkError:
-        return ChalkError(
+        return ChalkError.create(
             code=ErrorCode.INVALID_QUERY,
             message=(
                 f"Multi-upload does not yet support uploading structs, "
@@ -168,6 +168,6 @@ def to_multi_upload_inputs(
             tables.append(pa.Table.from_pandas(df))
 
     if not tables:
-        raise ValueError(f"Multi upload received an empty `inputs` object")
+        raise ValueError("Multi upload received an empty `inputs` object")
 
     return tables

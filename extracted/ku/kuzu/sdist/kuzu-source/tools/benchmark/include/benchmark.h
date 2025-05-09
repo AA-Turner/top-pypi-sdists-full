@@ -20,7 +20,7 @@ public:
 
 private:
     void loadBenchmark(const std::string& benchmarkPath);
-    void logQueryInfo(std::ofstream& log, uint32_t runNum,
+    void writeLogFile(std::ofstream& log, uint32_t runNum, const main::QuerySummary& querySummary,
         const std::vector<std::string>& actualOutput) const;
     void verify(const std::vector<std::string>& actualOutput) const;
 
@@ -28,7 +28,9 @@ public:
     BenchmarkConfig& config;
     std::unique_ptr<main::Connection> conn;
     std::string name;
+    std::string preRun;
     std::string query;
+    std::string postRun;
     std::vector<std::string> expectedOutput;
     bool compareResult;
     uint64_t expectedNumTuples;

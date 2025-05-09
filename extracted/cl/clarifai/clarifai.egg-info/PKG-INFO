@@ -1,7 +1,6 @@
 Metadata-Version: 2.4
 Name: clarifai
-Version: 11.3.0
-Summary: Clarifai Python SDK
+Version: 11.4.0
 Home-page: https://github.com/Clarifai/clarifai-python
 Author: Clarifai
 Author-email: support@clarifai.com
@@ -20,8 +19,8 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: clarifai-grpc>=11.3.2
-Requires-Dist: clarifai-protocol>=0.0.22
+Requires-Dist: clarifai-grpc>=11.3.4
+Requires-Dist: clarifai-protocol>=0.0.23
 Requires-Dist: numpy>=1.22.0
 Requires-Dist: tqdm>=4.65.0
 Requires-Dist: rich>=13.4.2
@@ -34,7 +33,7 @@ Requires-Dist: click>=8.1.7
 Requires-Dist: requests>=2.32.3
 Requires-Dist: aiohttp>=3.10.0
 Provides-Extra: all
-Requires-Dist: pycocotools==2.0.6; extra == "all"
+Requires-Dist: pycocotools>=2.0.7; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -46,7 +45,6 @@ Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
-Dynamic: summary
 
 <h1 align="center">
   <a href="https://www.clarifai.com/"><img alt="Clarifai" title="Clarifai" src="https://github.com/user-attachments/assets/623b883b-7fe5-4b95-bbfa-8691f5779af4"></a>

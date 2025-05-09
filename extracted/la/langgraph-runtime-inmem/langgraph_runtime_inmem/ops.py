@@ -1135,6 +1135,18 @@ class Threads(Authenticated):
 
             metadata = thread["metadata"]
             thread_config = thread["config"]
+            # Check that there are no in-flight runs
+            pending_runs = [
+                run
+                for run in conn.store["runs"]
+                if run["thread_id"] == thread_id
+                and run["status"] in ("pending", "running")
+            ]
+            if pending_runs:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Thread {thread_id} has in-flight runs: {pending_runs}",
+                )
 
             if graph_id := metadata.get("graph_id"):
                 config["configurable"].setdefault("graph_id", graph_id)
@@ -1536,6 +1548,7 @@ class Runs(Authenticated):
                 metadata={
                     "graph_id": assistant["graph_id"],
                     "assistant_id": str(assistant_id),
+                    **(config.get("metadata") or {}),
                     **metadata,
                 },
                 config=Runs._merge_jsonb(
@@ -1625,6 +1638,7 @@ class Runs(Authenticated):
         merged_metadata = Runs._merge_jsonb(
             assistant["metadata"],
             existing_thread["metadata"] if existing_thread else {},
+            config.get("metadata") or {},
             metadata,
         )
         new_run = Run(
@@ -1878,6 +1892,14 @@ class Runs(Authenticated):
 
             if run["status"] in ("pending", "running"):
                 if queues or action != "rollback":
+                    if run["status"] == "pending":
+                        thread = next(
+                            (t for t in conn.store["threads"] if t["thread_id"] == run["thread_id"]),
+                            None,
+                        )
+                        if thread:
+                            thread["status"] = "idle"
+                            thread["updated_at"] = datetime.now(tz=UTC)
                     run["status"] = "interrupted"
                     run["updated_at"] = datetime.now(tz=UTC)
                 else:
@@ -2141,8 +2163,8 @@ class Crons:
         conn: InMemConnectionProto,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
-        yield
         raise NotImplementedError("The in-mem server does not implement Crons.")
+        yield {"payload": None}
 
     @staticmethod
     async def set_next_run_date(

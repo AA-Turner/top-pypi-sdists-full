@@ -31,6 +31,7 @@ namespace storage {
 class Column;
 class NullChunkData;
 class ColumnStats;
+class FileHandle;
 
 // TODO(bmwinger): Hide access to variables.
 struct ChunkState {
@@ -79,9 +80,10 @@ struct ChunkState {
         KU_ASSERT(std::holds_alternative<GetType>(alpExceptionChunk));
         return std::get<GetType>(alpExceptionChunk).get();
     }
+
+    void reclaimAllocatedPages(FileHandle& dataFH) const;
 };
 
-class FileHandle;
 class Spiller;
 // Base data segment covers all fixed-sized data types.
 class KUZU_API ColumnChunkData {
@@ -156,7 +158,7 @@ public:
 
     virtual void flush(FileHandle& dataFH);
 
-    ColumnChunkMetadata flushBuffer(FileHandle* dataFH, common::page_idx_t startPageIdx,
+    ColumnChunkMetadata flushBuffer(FileHandle* dataFH, const PageRange& entry,
         const ColumnChunkMetadata& metadata) const;
 
     static common::page_idx_t getNumPagesForBytes(uint64_t numBytes) {
@@ -234,6 +236,8 @@ public:
 
     void updateStats(const common::ValueVector* vector, const common::SelectionView& selVector);
 
+    virtual void reclaimStorage(FileHandle& dataFH);
+
 protected:
     // Initializes the data buffer and functions. They are (and should be) only called in
     // constructor.
@@ -251,7 +255,7 @@ protected:
 
 private:
     using flush_buffer_func_t = std::function<ColumnChunkMetadata(const std::span<uint8_t>,
-        FileHandle*, common::page_idx_t, const ColumnChunkMetadata&)>;
+        FileHandle*, const PageRange&, const ColumnChunkMetadata&)>;
     flush_buffer_func_t initializeFlushBufferFunction(
         std::shared_ptr<CompressionAlg> compression) const;
     uint64_t getBufferSize(uint64_t capacity_) const;

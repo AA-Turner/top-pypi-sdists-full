@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-cloud
-Version: 1.10.13
+Version: 1.10.14
 Author-email: Elementl <support@elementl.com>
 License: Apache-2.0
 Project-URL: Homepage, https://dagster.io/cloud
@@ -28,9 +28,9 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Operating System :: OS Independent
 Requires-Python: <3.13,>=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: dagster==1.10.13
-Requires-Dist: dagster-shared==0.26.13
-Requires-Dist: dagster-cloud-cli==1.10.13
+Requires-Dist: dagster==1.10.14
+Requires-Dist: dagster-shared==0.26.14
+Requires-Dist: dagster-cloud-cli==1.10.14
 Requires-Dist: opentelemetry-api<2,>=1.27.0
 Requires-Dist: opentelemetry-sdk<2,>=1.27.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2,>=1.27.0
@@ -65,12 +65,12 @@ Provides-Extra: insights
 Requires-Dist: pyarrow; extra == "insights"
 Provides-Extra: docker
 Requires-Dist: docker; extra == "docker"
-Requires-Dist: dagster-docker==0.26.13; extra == "docker"
+Requires-Dist: dagster-docker==0.26.14; extra == "docker"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes; extra == "kubernetes"
-Requires-Dist: dagster-k8s==0.26.13; extra == "kubernetes"
+Requires-Dist: dagster-k8s==0.26.14; extra == "kubernetes"
 Provides-Extra: ecs
-Requires-Dist: dagster-aws==0.26.13; extra == "ecs"
+Requires-Dist: dagster-aws==0.26.14; extra == "ecs"
 Requires-Dist: boto3; extra == "ecs"
 Provides-Extra: sandbox
 Requires-Dist: supervisor; extra == "sandbox"

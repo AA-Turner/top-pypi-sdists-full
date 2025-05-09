@@ -1,6 +1,6 @@
 from . import args
 from .client import DuploClient
-from .errors import DuploError, DuploFailedResource
+from .errors import DuploError, DuploFailedResource, DuploStillWaiting
 from .commander import get_parser, extract_args, Command
 import math
 import time
@@ -41,8 +41,7 @@ class DuploResource():
       return command(**pargs)
     return wrapped
   
-  def wait(self, wait_check: callable, timeout: int=None, poll: int=10):
-    timeout = timeout or self.duplo.timeout
+  def wait(self, wait_check: callable, timeout: int=3600, poll: int=10):
     exp = math.ceil(timeout / poll)
     for _ in range(exp):
       try:
@@ -50,15 +49,15 @@ class DuploResource():
         break
       except DuploFailedResource as e:
         raise e
-      except DuploError as e:
+      except DuploStillWaiting as e:
         if e.message:
           self.duplo.logger.debug(e)
         time.sleep(poll)
       except KeyboardInterrupt as e:
         raise e
     else:
-      raise DuploError("Timed out waiting", 404)
-    
+      raise DuploStillWaiting("Timed out waiting")
+
 class DuploResourceV2(DuploResource):
 
   def name_from_body(self, body):
@@ -140,8 +139,6 @@ class DuploTenantResourceV2(DuploResourceV2):
     return self.__tenant_id
   
   def prefixed_name(self, name: str) -> str:
-    """Make sure name is prefixed
-    """
     tenant_name = self.tenant["AccountName"]
     prefix = f"duploservices-{tenant_name}-"
     if not name.startswith(prefix):
@@ -311,8 +308,28 @@ class DuploTenantResourceV3(DuploResource):
   def apply(self,
              body: args.BODY,
              wait: args.WAIT = False,
-             patches: args.PATCHES = None,):
-    """Apply a service."""
+             patches: args.PATCHES = None,) -> dict:
+    """Apply a {{kind}}
+    
+    Create or Update a {{kind}} resource with Duplocloud cli. 
+
+    Usage: CLI Usage
+      ```sh
+      duploctl {{kind | lower}} apply -f '{{kind | lower}}.yaml'
+      ```
+      Contents of the `{{kind|lower}}.yaml` file
+      ```yaml
+      --8<-- "src/tests/data/{{kind|lower}}.yaml"
+      ```
+    
+    Args:
+      body: The resource to apply.
+      wait: Wait for the resource to be created.
+      patches: The patches to apply to the resource.
+
+    Returns:
+      message: Success message.
+    """
     name = self.name_from_body(body)
     try:
       self.find(name)

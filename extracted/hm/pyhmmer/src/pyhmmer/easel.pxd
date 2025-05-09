@@ -3,7 +3,7 @@
 
 # --- C imports --------------------------------------------------------------
 
-from libc.stdint cimport int64_t, uint8_t, uint16_t, uint32_t
+from libc.stdint cimport int64_t, uint8_t, uint16_t, uint32_t, uint64_t
 from posix.types cimport off_t
 
 cimport libeasel.sq
@@ -137,30 +137,21 @@ cdef class MatrixU8(Matrix):
 
 # --- Multiple Sequences Alignment -------------------------------------------
 
-cdef class _MSASequences:
-    cdef MSA msa
-
-
 cdef class MSA:
     cdef ESL_MSA* _msa
 
     cdef int _rehash(self) except 1 nogil
+    cdef int _set_annotation(self, char** field, char* value) except 1 nogil
+
     cpdef uint32_t checksum(self)
+    cpdef MSA select(self, sequences = ?, columns = ?)
     cpdef void write(self, object fh, str format) except *
-
-
-cdef class _TextMSASequences(_MSASequences):
-    pass
 
 
 cdef class TextMSA(MSA):
     cdef int _set_sequence(self, int idx, ESL_SQ* seq) except 1 nogil
     cpdef TextMSA copy(self)
     cpdef DigitalMSA digitize(self, Alphabet alphabet)
-
-
-cdef class _DigitalMSASequences(_MSASequences):
-    cdef readonly Alphabet alphabet
 
 
 cdef class DigitalMSA(MSA):
@@ -170,6 +161,19 @@ cdef class DigitalMSA(MSA):
     cpdef DigitalMSA copy(self)
     cpdef TextMSA textize(self)
 
+    cpdef DigitalMSA identity_filter(
+        self,
+        float max_identity=*,
+        float fragment_threshold=*,
+        float consensus_fraction=*,
+        bint ignore_rf=*,
+        bint sample=*,
+        int sample_threshold=*,
+        int sample_count=*,
+        int max_fragments=*,
+        uint64_t seed=?,
+        str preference=*,
+    )
 
 # --- MSA File ---------------------------------------------------------------
 
@@ -197,6 +201,11 @@ cdef class Randomness:
     cpdef Randomness copy(self)
     cpdef double random(self)
     cpdef double normalvariate(self, double mu, double sigma)
+
+
+ctypedef fused RandomnessOrSeed:
+    Randomness
+    object
 
 
 # --- Sequence ---------------------------------------------------------------
@@ -233,8 +242,10 @@ cdef class SequenceBlock:
     cdef          list       _storage  # the actual Python list where `Sequence` objects are stored
     cdef          object     _owner    # the owner, if the object is just a shallow copy
     cdef          ssize_t    _largest  # the index of the largest sequence, or -1
+    cdef readonly KeyHash    _indexed  # a mapping of sequence names to sequences indices
 
-    cdef void _on_modification(self) except *
+    cdef void _on_modification(self) noexcept
+    cdef int _rehash(self) except 1 nogil
 
     cdef void _allocate(self, size_t n) except *
     cdef void _append(self, Sequence sequence) except *

@@ -12,6 +12,7 @@ from localstack import config
 from localstack.utils.collections import ensure_list
 from localstack.utils.container_utils.container_client import (
     AccessDenied,
+    BindMount,
     CancellableStream,
     ContainerClient,
     ContainerException,
@@ -29,7 +30,7 @@ from localstack.utils.container_utils.container_client import (
     SimpleVolumeBind,
     Ulimit,
     Util,
-    VolumeBind,
+    VolumeDirMount,
 )
 from localstack.utils.run import run
 from localstack.utils.strings import first_char_to_upper, to_str
@@ -878,7 +879,7 @@ class CmdDockerClient(ContainerClient):
         return cmd, env_file
 
     @staticmethod
-    def _map_to_volume_param(volume: Union[SimpleVolumeBind, VolumeBind]) -> str:
+    def _map_to_volume_param(volume: Union[SimpleVolumeBind, BindMount, VolumeDirMount]) -> str:
         """
         Maps the mount volume, to a parameter for the -v docker cli argument.
 
@@ -889,7 +890,7 @@ class CmdDockerClient(ContainerClient):
         :param volume: Either a SimpleVolumeBind, in essence a tuple (host_dir, container_dir), or a VolumeBind object
         :return: String which is passable as parameter to the docker cli -v option
         """
-        if isinstance(volume, VolumeBind):
+        if isinstance(volume, (BindMount, VolumeDirMount)):
             return volume.to_str()
         else:
             return f"{volume[0]}:{volume[1]}"
@@ -908,12 +909,15 @@ class CmdDockerClient(ContainerClient):
         if any(msg.lower() in process_stdout_lower for msg in error_messages):
             raise NoSuchContainer(container_name_or_id, stdout=error.stdout, stderr=error.stderr)
 
-    def _transform_container_labels(self, labels: str) -> Dict[str, str]:
+    def _transform_container_labels(self, labels: Union[str, Dict[str, str]]) -> Dict[str, str]:
         """
         Transforms the container labels returned by the docker command from the key-value pair format to a dict
         :param labels: Input string, comma separated key value pairs. Example: key1=value1,key2=value2
         :return: Dict representation of the passed values, example: {"key1": "value1", "key2": "value2"}
         """
+        if isinstance(labels, Dict):
+            return labels
+
         labels = labels.split(",")
         labels = [label.partition("=") for label in labels]
         return {label[0]: label[2] for label in labels}

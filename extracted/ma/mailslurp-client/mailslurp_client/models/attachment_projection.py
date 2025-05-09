@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,74 +34,106 @@ class AttachmentProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
-        'updated_at': 'datetime',
         'user_id': 'str',
+        'inbox_id': 'str',
+        'updated_at': 'datetime',
+        'created_at': 'datetime',
         'content_id': 'str',
         'attachment_id': 'str',
         'name': 'str',
+        'id': 'str',
         'content_length': 'int',
         'content_type': 'str'
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
-        'updated_at': 'updatedAt',
         'user_id': 'userId',
+        'inbox_id': 'inboxId',
+        'updated_at': 'updatedAt',
+        'created_at': 'createdAt',
         'content_id': 'contentId',
         'attachment_id': 'attachmentId',
         'name': 'name',
+        'id': 'id',
         'content_length': 'contentLength',
         'content_type': 'contentType'
     }
 
-    def __init__(self, created_at=None, updated_at=None, user_id=None, content_id=None, attachment_id=None, name=None, content_length=None, content_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, user_id=None, inbox_id=None, updated_at=None, created_at=None, content_id=None, attachment_id=None, name=None, id=None, content_length=None, content_type=None, local_vars_configuration=None):  # noqa: E501
         """AttachmentProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
-        self._updated_at = None
         self._user_id = None
+        self._inbox_id = None
+        self._updated_at = None
+        self._created_at = None
         self._content_id = None
         self._attachment_id = None
         self._name = None
+        self._id = None
         self._content_length = None
         self._content_type = None
         self.discriminator = None
 
-        self.created_at = created_at
-        self.updated_at = updated_at
         self.user_id = user_id
+        if inbox_id is not None:
+            self.inbox_id = inbox_id
+        self.updated_at = updated_at
+        self.created_at = created_at
         self.content_id = content_id
         self.attachment_id = attachment_id
         self.name = name
+        self.id = id
         self.content_length = content_length
         self.content_type = content_type
 
     @property
-    def created_at(self):
-        """Gets the created_at of this AttachmentProjection.  # noqa: E501
+    def user_id(self):
+        """Gets the user_id of this AttachmentProjection.  # noqa: E501
 
 
-        :return: The created_at of this AttachmentProjection.  # noqa: E501
-        :rtype: datetime
+        :return: The user_id of this AttachmentProjection.  # noqa: E501
+        :rtype: str
         """
-        return self._created_at
+        return self._user_id
 
-    @created_at.setter
-    def created_at(self, created_at):
-        """Sets the created_at of this AttachmentProjection.
+    @user_id.setter
+    def user_id(self, user_id):
+        """Sets the user_id of this AttachmentProjection.
 
 
-        :param created_at: The created_at of this AttachmentProjection.  # noqa: E501
-        :type: datetime
+        :param user_id: The user_id of this AttachmentProjection.  # noqa: E501
+        :type: str
         """
-        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and user_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
 
-        self._created_at = created_at
+        self._user_id = user_id
+
+    @property
+    def inbox_id(self):
+        """Gets the inbox_id of this AttachmentProjection.  # noqa: E501
+
+        Inbox ID  # noqa: E501
+
+        :return: The inbox_id of this AttachmentProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._inbox_id
+
+    @inbox_id.setter
+    def inbox_id(self, inbox_id):
+        """Sets the inbox_id of this AttachmentProjection.
+
+        Inbox ID  # noqa: E501
+
+        :param inbox_id: The inbox_id of this AttachmentProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._inbox_id = inbox_id
 
     @property
     def updated_at(self):
@@ -127,27 +159,27 @@ class AttachmentProjection(object):
         self._updated_at = updated_at
 
     @property
-    def user_id(self):
-        """Gets the user_id of this AttachmentProjection.  # noqa: E501
+    def created_at(self):
+        """Gets the created_at of this AttachmentProjection.  # noqa: E501
 
 
-        :return: The user_id of this AttachmentProjection.  # noqa: E501
-        :rtype: str
+        :return: The created_at of this AttachmentProjection.  # noqa: E501
+        :rtype: datetime
         """
-        return self._user_id
+        return self._created_at
 
-    @user_id.setter
-    def user_id(self, user_id):
-        """Sets the user_id of this AttachmentProjection.
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this AttachmentProjection.
 
 
-        :param user_id: The user_id of this AttachmentProjection.  # noqa: E501
-        :type: str
+        :param created_at: The created_at of this AttachmentProjection.  # noqa: E501
+        :type: datetime
         """
-        if self.local_vars_configuration.client_side_validation and user_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
 
-        self._user_id = user_id
+        self._created_at = created_at
 
     @property
     def content_id(self):
@@ -217,6 +249,31 @@ class AttachmentProjection(object):
         """
 
         self._name = name
+
+    @property
+    def id(self):
+        """Gets the id of this AttachmentProjection.  # noqa: E501
+
+        ID  # noqa: E501
+
+        :return: The id of this AttachmentProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._id
+
+    @id.setter
+    def id(self, id):
+        """Sets the id of this AttachmentProjection.
+
+        ID  # noqa: E501
+
+        :param id: The id of this AttachmentProjection.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and id is None:  # noqa: E501
+            raise ValueError("Invalid value for `id`, must not be `None`")  # noqa: E501
+
+        self._id = id
 
     @property
     def content_length(self):

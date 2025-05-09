@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: truss
-Version: 0.9.88
+Version: 0.9.89
 Summary: A seamless bridge from model development to model delivery
 License: MIT
 Keywords: MLOps,AI,Model Serving,Model Deployment,Machine Learning

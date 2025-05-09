@@ -186,6 +186,13 @@ class Function(
     def _check_no_web_url(self, fn_name: str): ...
     @property
     def web_url(self) -> typing.Optional[str]: ...
+
+    class __get_web_url_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(self, /) -> typing.Optional[str]: ...
+        async def aio(self, /) -> typing.Optional[str]: ...
+
+    get_web_url: __get_web_url_spec[typing_extensions.Self]
+
     @property
     def is_generator(self) -> bool: ...
 
@@ -227,11 +234,11 @@ class Function(
 
     _call_generator_nowait: ___call_generator_nowait_spec[typing_extensions.Self]
 
-    class __remote_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER, SUPERSELF]):
+    class __remote_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER, SUPERSELF]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> ReturnType_INNER: ...
         async def aio(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> ReturnType_INNER: ...
 
-    remote: __remote_spec[modal._functions.P, modal._functions.ReturnType, typing_extensions.Self]
+    remote: __remote_spec[modal._functions.ReturnType, modal._functions.P, typing_extensions.Self]
 
     class __remote_gen_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, *args, **kwargs) -> typing.Generator[typing.Any, None, None]: ...
@@ -246,12 +253,12 @@ class Function(
         self, *args: modal._functions.P.args, **kwargs: modal._functions.P.kwargs
     ) -> modal._functions.OriginalReturnType: ...
 
-    class ___experimental_spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER, SUPERSELF]):
+    class ___experimental_spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER, SUPERSELF]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]: ...
         async def aio(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]: ...
 
     _experimental_spawn: ___experimental_spawn_spec[
-        modal._functions.P, modal._functions.ReturnType, typing_extensions.Self
+        modal._functions.ReturnType, modal._functions.P, typing_extensions.Self
     ]
 
     class ___spawn_map_inner_spec(typing_extensions.Protocol[P_INNER, SUPERSELF]):
@@ -260,11 +267,11 @@ class Function(
 
     _spawn_map_inner: ___spawn_map_inner_spec[modal._functions.P, typing_extensions.Self]
 
-    class __spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER, SUPERSELF]):
+    class __spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER, SUPERSELF]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]: ...
         async def aio(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]: ...
 
-    spawn: __spawn_spec[modal._functions.P, modal._functions.ReturnType, typing_extensions.Self]
+    spawn: __spawn_spec[modal._functions.ReturnType, modal._functions.P, typing_extensions.Self]
 
     def get_raw_f(self) -> collections.abc.Callable[..., typing.Any]: ...
 

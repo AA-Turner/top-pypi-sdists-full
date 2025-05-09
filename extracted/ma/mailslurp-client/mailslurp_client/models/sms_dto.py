@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -38,6 +38,8 @@ class SmsDto(object):
         'user_id': 'str',
         'phone_number': 'str',
         'from_number': 'str',
+        'to_number': 'str',
+        'favourite': 'bool',
         'body': 'str',
         'read': 'bool',
         'created_at': 'datetime',
@@ -49,13 +51,15 @@ class SmsDto(object):
         'user_id': 'userId',
         'phone_number': 'phoneNumber',
         'from_number': 'fromNumber',
+        'to_number': 'toNumber',
+        'favourite': 'favourite',
         'body': 'body',
         'read': 'read',
         'created_at': 'createdAt',
         'updated_at': 'updatedAt'
     }
 
-    def __init__(self, id=None, user_id=None, phone_number=None, from_number=None, body=None, read=None, created_at=None, updated_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, user_id=None, phone_number=None, from_number=None, to_number=None, favourite=None, body=None, read=None, created_at=None, updated_at=None, local_vars_configuration=None):  # noqa: E501
         """SmsDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +69,8 @@ class SmsDto(object):
         self._user_id = None
         self._phone_number = None
         self._from_number = None
+        self._to_number = None
+        self._favourite = None
         self._body = None
         self._read = None
         self._created_at = None
@@ -75,6 +81,9 @@ class SmsDto(object):
         self.user_id = user_id
         self.phone_number = phone_number
         self.from_number = from_number
+        if to_number is not None:
+            self.to_number = to_number
+        self.favourite = favourite
         self.body = body
         self.read = read
         self.created_at = created_at
@@ -171,6 +180,50 @@ class SmsDto(object):
             raise ValueError("Invalid value for `from_number`, must not be `None`")  # noqa: E501
 
         self._from_number = from_number
+
+    @property
+    def to_number(self):
+        """Gets the to_number of this SmsDto.  # noqa: E501
+
+
+        :return: The to_number of this SmsDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._to_number
+
+    @to_number.setter
+    def to_number(self, to_number):
+        """Sets the to_number of this SmsDto.
+
+
+        :param to_number: The to_number of this SmsDto.  # noqa: E501
+        :type: str
+        """
+
+        self._to_number = to_number
+
+    @property
+    def favourite(self):
+        """Gets the favourite of this SmsDto.  # noqa: E501
+
+
+        :return: The favourite of this SmsDto.  # noqa: E501
+        :rtype: bool
+        """
+        return self._favourite
+
+    @favourite.setter
+    def favourite(self, favourite):
+        """Sets the favourite of this SmsDto.
+
+
+        :param favourite: The favourite of this SmsDto.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and favourite is None:  # noqa: E501
+            raise ValueError("Invalid value for `favourite`, must not be `None`")  # noqa: E501
+
+        self._favourite = favourite
 
     @property
     def body(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tirex-tracker
-Version: 0.2.13
+Version: 0.2.14
 Summary: Automatic resource and metadata tracking for information retrieval experiments.
 Author-email: Maik Fröbe <maik.froebe@uni-jena.de>, Jan Heinrich Merker <heinrich.merker@uni-jena.de>, Tim Hagen <tim.hagen@uni-kassel.de>
 Project-URL: Homepage, https://github.com/tira-io/tirex-tracker

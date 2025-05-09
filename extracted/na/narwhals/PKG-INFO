@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: narwhals
-Version: 1.38.0
+Version: 1.38.2
 Summary: Extremely lightweight compatibility layer between dataframe libraries
 Project-URL: Homepage, https://github.com/narwhals-dev/narwhals
 Project-URL: Documentation, https://narwhals-dev.github.io/narwhals/
@@ -170,6 +170,7 @@ Join the party!
 - [tea-tasting](https://github.com/e10v/tea-tasting)
 - [timebasedcv](https://github.com/FBruzzesi/timebasedcv)
 - [tubular](https://github.com/lvgig/tubular)
+- [Validoopsie](https://github.com/akmalsoliev/Validoopsie)
 - [vegafusion](https://github.com/vega/vegafusion)
 - [wimsey](https://github.com/benrutter/wimsey)
 

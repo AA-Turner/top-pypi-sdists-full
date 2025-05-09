@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -38,11 +38,14 @@ class FakeEmailDto(object):
         'email_address': 'str',
         'sender': 'Sender',
         'recipients': 'EmailRecipients',
+        'attachment_names': 'list[str]',
         'subject': 'str',
         'preview': 'str',
         'body': 'str',
         'seen': 'bool',
-        'created_at': 'datetime'
+        'created_at': 'datetime',
+        'content_type': 'str',
+        'body_url': 'str'
     }
 
     attribute_map = {
@@ -50,14 +53,17 @@ class FakeEmailDto(object):
         'email_address': 'emailAddress',
         'sender': 'sender',
         'recipients': 'recipients',
+        'attachment_names': 'attachmentNames',
         'subject': 'subject',
         'preview': 'preview',
         'body': 'body',
         'seen': 'seen',
-        'created_at': 'createdAt'
+        'created_at': 'createdAt',
+        'content_type': 'contentType',
+        'body_url': 'bodyUrl'
     }
 
-    def __init__(self, id=None, email_address=None, sender=None, recipients=None, subject=None, preview=None, body=None, seen=None, created_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, email_address=None, sender=None, recipients=None, attachment_names=None, subject=None, preview=None, body=None, seen=None, created_at=None, content_type=None, body_url=None, local_vars_configuration=None):  # noqa: E501
         """FakeEmailDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -67,17 +73,21 @@ class FakeEmailDto(object):
         self._email_address = None
         self._sender = None
         self._recipients = None
+        self._attachment_names = None
         self._subject = None
         self._preview = None
         self._body = None
         self._seen = None
         self._created_at = None
+        self._content_type = None
+        self._body_url = None
         self.discriminator = None
 
         self.id = id
         self.email_address = email_address
         self.sender = sender
         self.recipients = recipients
+        self.attachment_names = attachment_names
         if subject is not None:
             self.subject = subject
         if preview is not None:
@@ -85,6 +95,8 @@ class FakeEmailDto(object):
         self.body = body
         self.seen = seen
         self.created_at = created_at
+        self.content_type = content_type
+        self.body_url = body_url
 
     @property
     def id(self):
@@ -173,6 +185,29 @@ class FakeEmailDto(object):
         """
 
         self._recipients = recipients
+
+    @property
+    def attachment_names(self):
+        """Gets the attachment_names of this FakeEmailDto.  # noqa: E501
+
+
+        :return: The attachment_names of this FakeEmailDto.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._attachment_names
+
+    @attachment_names.setter
+    def attachment_names(self, attachment_names):
+        """Sets the attachment_names of this FakeEmailDto.
+
+
+        :param attachment_names: The attachment_names of this FakeEmailDto.  # noqa: E501
+        :type: list[str]
+        """
+        if self.local_vars_configuration.client_side_validation and attachment_names is None:  # noqa: E501
+            raise ValueError("Invalid value for `attachment_names`, must not be `None`")  # noqa: E501
+
+        self._attachment_names = attachment_names
 
     @property
     def subject(self):
@@ -284,6 +319,52 @@ class FakeEmailDto(object):
             raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
 
         self._created_at = created_at
+
+    @property
+    def content_type(self):
+        """Gets the content_type of this FakeEmailDto.  # noqa: E501
+
+
+        :return: The content_type of this FakeEmailDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._content_type
+
+    @content_type.setter
+    def content_type(self, content_type):
+        """Sets the content_type of this FakeEmailDto.
+
+
+        :param content_type: The content_type of this FakeEmailDto.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and content_type is None:  # noqa: E501
+            raise ValueError("Invalid value for `content_type`, must not be `None`")  # noqa: E501
+
+        self._content_type = content_type
+
+    @property
+    def body_url(self):
+        """Gets the body_url of this FakeEmailDto.  # noqa: E501
+
+
+        :return: The body_url of this FakeEmailDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._body_url
+
+    @body_url.setter
+    def body_url(self, body_url):
+        """Sets the body_url of this FakeEmailDto.
+
+
+        :param body_url: The body_url of this FakeEmailDto.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and body_url is None:  # noqa: E501
+            raise ValueError("Invalid value for `body_url`, must not be `None`")  # noqa: E501
+
+        self._body_url = body_url
 
     def to_dict(self):
         """Returns the model properties as a dict"""

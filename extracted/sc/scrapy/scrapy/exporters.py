@@ -6,14 +6,13 @@ from __future__ import annotations
 
 import csv
 import marshal
-import pickle  # nosec
+import pickle
 import pprint
 from collections.abc import Callable, Iterable, Mapping
 from io import BytesIO, TextIOWrapper
-from json import JSONEncoder
-from typing import Any
-from xml.sax.saxutils import XMLGenerator  # nosec
-from xml.sax.xmlreader import AttributesImpl  # nosec
+from typing import TYPE_CHECKING, Any
+from xml.sax.saxutils import XMLGenerator
+from xml.sax.xmlreader import AttributesImpl
 
 from itemadapter import ItemAdapter, is_item
 
@@ -21,15 +20,18 @@ from scrapy.item import Field, Item
 from scrapy.utils.python import is_listlike, to_bytes, to_unicode
 from scrapy.utils.serialize import ScrapyJSONEncoder
 
+if TYPE_CHECKING:
+    from json import JSONEncoder
+
 __all__ = [
     "BaseItemExporter",
-    "PprintItemExporter",
-    "PickleItemExporter",
     "CsvItemExporter",
-    "XmlItemExporter",
-    "JsonLinesItemExporter",
     "JsonItemExporter",
+    "JsonLinesItemExporter",
     "MarshalItemExporter",
+    "PickleItemExporter",
+    "PprintItemExporter",
+    "XmlItemExporter",
 ]
 
 
@@ -79,10 +81,7 @@ class BaseItemExporter:
             include_empty = self.export_empty_fields
 
         if self.fields_to_export is None:
-            if include_empty:
-                field_iter = item.field_names()
-            else:
-                field_iter = item.keys()
+            field_iter = item.field_names() if include_empty else item.keys()
         elif isinstance(self.fields_to_export, Mapping):
             if include_empty:
                 field_iter = self.fields_to_export.items()
@@ -90,11 +89,10 @@ class BaseItemExporter:
                 field_iter = (
                     (x, y) for x, y in self.fields_to_export.items() if x in item
                 )
+        elif include_empty:
+            field_iter = self.fields_to_export
         else:
-            if include_empty:
-                field_iter = self.fields_to_export
-            else:
-                field_iter = (x for x in self.fields_to_export if x in item)
+            field_iter = (x for x in self.fields_to_export if x in item)
 
         for field_name in field_iter:
             if isinstance(field_name, str):
@@ -358,12 +356,12 @@ class PythonItemExporter(BaseItemExporter):
     def _serialize_value(self, value: Any) -> Any:
         if isinstance(value, Item):
             return self.export_item(value)
+        if isinstance(value, (str, bytes)):
+            return to_unicode(value, encoding=self.encoding)
         if is_item(value):
             return dict(self._serialize_item(value))
         if is_listlike(value):
             return [self._serialize_value(v) for v in value]
-        if isinstance(value, (str, bytes)):
-            return to_unicode(value, encoding=self.encoding)
         return value
 
     def _serialize_item(self, item: Any) -> Iterable[tuple[str | bytes, Any]]:

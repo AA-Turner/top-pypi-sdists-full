@@ -271,6 +271,7 @@ __all__ = (
     "FleetReplacementStrategyType",
     "FleetStateCodeType",
     "FleetTypeType",
+    "FlexibleEnaQueuesSupportType",
     "FlowLogsResourceTypeType",
     "FpgaImageAttributeNameType",
     "FpgaImageStateCodeType",
@@ -1036,6 +1037,7 @@ FleetStateCodeType = Literal[
     "submitted",
 ]
 FleetTypeType = Literal["instant", "maintain", "request"]
+FlexibleEnaQueuesSupportType = Literal["supported", "unsupported"]
 FlowLogsResourceTypeType = Literal[
     "NetworkInterface", "Subnet", "TransitGateway", "TransitGatewayAttachment", "VPC"
 ]

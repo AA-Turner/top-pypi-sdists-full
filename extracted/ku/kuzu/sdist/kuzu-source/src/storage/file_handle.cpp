@@ -14,7 +14,8 @@ FileHandle::FileHandle(const std::string& path, uint8_t flags, BufferManager* bm
     uint32_t fileIndex, PageSizeClass pageSizeClass, VirtualFileSystem* vfs,
     main::ClientContext* context)
     : flags{flags}, fileIndex{fileIndex}, numPages{0}, pageCapacity{0}, bm{bm},
-      pageSizeClass{pageSizeClass}, pageStates{0, 0}, frameGroupIdxes{0, 0} {
+      pageSizeClass{pageSizeClass}, pageStates{0, 0}, frameGroupIdxes{0, 0},
+      pageManager(std::make_unique<PageManager>(this)) {
     if (!isNewTmpFile()) {
         constructExistingFileHandle(path, vfs, context);
     } else {
@@ -37,7 +38,7 @@ void FileHandle::constructExistingFileHandle(const std::string& path, VirtualFil
         openFlags = FileFlags::WRITE | FileFlags::READ_ONLY |
                     ((createFileIfNotExists()) ? FileFlags::CREATE_IF_NOT_EXISTS : 0x00000000);
     }
-    fileInfo = vfs->openFile(path, openFlags, context);
+    fileInfo = vfs->openFile(path, FileOpenFlags{openFlags}, context);
     const auto fileLength = fileInfo->getFileSize();
     numPages = ceil(static_cast<double>(fileLength) / static_cast<double>(getPageSize()));
     pageCapacity = 0;

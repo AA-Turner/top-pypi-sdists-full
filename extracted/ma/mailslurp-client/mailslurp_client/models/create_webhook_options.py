@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -41,7 +41,8 @@ class CreateWebhookOptions(object):
         'include_headers': 'WebhookHeaders',
         'request_body_template': 'str',
         'use_static_ip_range': 'bool',
-        'ignore_insecure_ssl_certificates': 'bool'
+        'ignore_insecure_ssl_certificates': 'bool',
+        'tags': 'list[str]'
     }
 
     attribute_map = {
@@ -52,10 +53,11 @@ class CreateWebhookOptions(object):
         'include_headers': 'includeHeaders',
         'request_body_template': 'requestBodyTemplate',
         'use_static_ip_range': 'useStaticIpRange',
-        'ignore_insecure_ssl_certificates': 'ignoreInsecureSslCertificates'
+        'ignore_insecure_ssl_certificates': 'ignoreInsecureSslCertificates',
+        'tags': 'tags'
     }
 
-    def __init__(self, url=None, basic_auth=None, name=None, event_name=None, include_headers=None, request_body_template=None, use_static_ip_range=False, ignore_insecure_ssl_certificates=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, url=None, basic_auth=None, name=None, event_name=None, include_headers=None, request_body_template=None, use_static_ip_range=False, ignore_insecure_ssl_certificates=None, tags=None, local_vars_configuration=None):  # noqa: E501
         """CreateWebhookOptions - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -69,6 +71,7 @@ class CreateWebhookOptions(object):
         self._request_body_template = None
         self._use_static_ip_range = None
         self._ignore_insecure_ssl_certificates = None
+        self._tags = None
         self.discriminator = None
 
         self.url = url
@@ -80,6 +83,7 @@ class CreateWebhookOptions(object):
         self.request_body_template = request_body_template
         self.use_static_ip_range = use_static_ip_range
         self.ignore_insecure_ssl_certificates = ignore_insecure_ssl_certificates
+        self.tags = tags
 
     @property
     def url(self):
@@ -170,7 +174,7 @@ class CreateWebhookOptions(object):
         :param event_name: The event_name of this CreateWebhookOptions.  # noqa: E501
         :type: str
         """
-        allowed_values = [None,"EMAIL_RECEIVED", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS"]  # noqa: E501
+        allowed_values = [None,"EMAIL_RECEIVED", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS", "NEW_GUEST_USER"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and event_name not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `event_name` ({0}), must be one of {1}"  # noqa: E501
@@ -268,6 +272,29 @@ class CreateWebhookOptions(object):
         """
 
         self._ignore_insecure_ssl_certificates = ignore_insecure_ssl_certificates
+
+    @property
+    def tags(self):
+        """Gets the tags of this CreateWebhookOptions.  # noqa: E501
+
+        Optional list of tags  # noqa: E501
+
+        :return: The tags of this CreateWebhookOptions.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this CreateWebhookOptions.
+
+        Optional list of tags  # noqa: E501
+
+        :param tags: The tags of this CreateWebhookOptions.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._tags = tags
 
     def to_dict(self):
         """Returns the model properties as a dict"""

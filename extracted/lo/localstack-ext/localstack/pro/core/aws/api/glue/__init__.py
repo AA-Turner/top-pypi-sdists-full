@@ -46,6 +46,7 @@ ComputeEnvironmentName = str
 ConfigValueString = str
 ConnectionName = str
 ConnectionSchemaVersion = int
+ConnectionString = str
 ContextKey = str
 ContextValue = str
 CrawlId = str
@@ -231,10 +232,12 @@ VersionString = str
 VersionsString = str
 ViewDialectVersionString = str
 ViewTextString = str
+WorkflowDescriptionString = str
 databaseNameString = str
 double = float
 dpuCounts = int
 dpuDurationInHour = float
+dpuHours = float
 glueConnectionNameString = str
 tableNameString = str
 
@@ -3755,13 +3758,13 @@ CodeGenConfigurationNode = TypedDict(
     total=False,
 )
 CodeGenConfigurationNodes = Dict[NodeId, CodeGenConfigurationNode]
-OrchestrationStringList = List[GenericString]
+ConnectionStringList = List[ConnectionString]
 
 
 class ConnectionsList(TypedDict, total=False):
     """Specifies the connections used by a job."""
 
-    Connections: Optional[OrchestrationStringList]
+    Connections: Optional[ConnectionStringList]
 
 
 class JobCommand(TypedDict, total=False):
@@ -3887,6 +3890,7 @@ class IcebergOrphanFileDeletionMetrics(TypedDict, total=False):
     """Orphan file deletion metrics for Iceberg for the optimizer run."""
 
     NumberOfOrphanFilesDeleted: Optional[metricCounts]
+    DpuHours: Optional[dpuHours]
     NumberOfDpus: Optional[dpuCounts]
     JobDurationInHour: Optional[dpuDurationInHour]
 
@@ -3905,6 +3909,7 @@ class IcebergRetentionMetrics(TypedDict, total=False):
     NumberOfDataFilesDeleted: Optional[metricCounts]
     NumberOfManifestFilesDeleted: Optional[metricCounts]
     NumberOfManifestListsDeleted: Optional[metricCounts]
+    DpuHours: Optional[dpuHours]
     NumberOfDpus: Optional[dpuCounts]
     JobDurationInHour: Optional[dpuDurationInHour]
 
@@ -3920,6 +3925,7 @@ class IcebergCompactionMetrics(TypedDict, total=False):
 
     NumberOfBytesCompacted: Optional[metricCounts]
     NumberOfFilesCompacted: Optional[metricCounts]
+    DpuHours: Optional[dpuHours]
     NumberOfDpus: Optional[dpuCounts]
     JobDurationInHour: Optional[dpuDurationInHour]
 
@@ -5936,7 +5942,7 @@ class CreateUserDefinedFunctionResponse(TypedDict, total=False):
 
 class CreateWorkflowRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[GenericString]
+    Description: Optional[WorkflowDescriptionString]
     DefaultRunProperties: Optional[WorkflowRunProperties]
     Tags: Optional[TagsMap]
     MaxConcurrentRuns: Optional[NullableInteger]
@@ -7573,6 +7579,7 @@ class GetStatementRequest(ServiceRequest):
 
 
 LongValue = int
+OrchestrationStringList = List[GenericString]
 
 
 class StatementOutputData(TypedDict, total=False):
@@ -9297,7 +9304,7 @@ class UpdateUserDefinedFunctionResponse(TypedDict, total=False):
 
 class UpdateWorkflowRequest(ServiceRequest):
     Name: NameString
-    Description: Optional[GenericString]
+    Description: Optional[WorkflowDescriptionString]
     DefaultRunProperties: Optional[WorkflowRunProperties]
     MaxConcurrentRuns: Optional[NullableInteger]
 
@@ -10806,7 +10813,7 @@ class GlueApi:
         self,
         context: RequestContext,
         name: NameString,
-        description: GenericString = None,
+        description: WorkflowDescriptionString = None,
         default_run_properties: WorkflowRunProperties = None,
         tags: TagsMap = None,
         max_concurrent_runs: NullableInteger = None,
@@ -15817,7 +15824,7 @@ class GlueApi:
         self,
         context: RequestContext,
         name: NameString,
-        description: GenericString = None,
+        description: WorkflowDescriptionString = None,
         default_run_properties: WorkflowRunProperties = None,
         max_concurrent_runs: NullableInteger = None,
         **kwargs,

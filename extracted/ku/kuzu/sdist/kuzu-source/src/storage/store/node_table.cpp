@@ -207,8 +207,9 @@ bool NodeTableScanState::scanNext(Transaction* transaction) {
         nodeGroupStartOffset = transaction->getUncommittedOffset(tableID, nodeGroupStartOffset);
     }
     for (auto i = 0u; i < scanResult.numRows; i++) {
-        nodeIDVector->setValue(i,
-            nodeID_t{nodeGroupStartOffset + scanResult.startRow + i, tableID});
+        auto& nodeID = nodeIDVector->getValue<nodeID_t>(i);
+        nodeID.tableID = tableID;
+        nodeID.offset = nodeGroupStartOffset + scanResult.startRow + i;
     }
     return true;
 }
@@ -593,6 +594,10 @@ void NodeTable::rollbackGroupCollectionInsert(row_idx_t numRows_) {
 
 void NodeTable::rollbackCheckpoint() {
     pkIndex->rollbackCheckpoint();
+}
+
+void NodeTable::reclaimStorage(FileHandle& dataFH) {
+    nodeGroups->reclaimStorage(dataFH);
 }
 
 TableStats NodeTable::getStats(const Transaction* transaction) const {

@@ -1131,6 +1131,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
         "function",
         "struct",
         "variable",
+        "proto",
         "source_reference",
     )
     GLOBAL_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -1142,6 +1143,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
     FUNCTION_FIELD_NUMBER: _ClassVar[int]
     STRUCT_FIELD_NUMBER: _ClassVar[int]
     VARIABLE_FIELD_NUMBER: _ClassVar[int]
+    PROTO_FIELD_NUMBER: _ClassVar[int]
     SOURCE_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     global_name: str
     builtin: FunctionGlobalCapturedBuiltin
@@ -1152,6 +1154,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
     function: FunctionGlobalCapturedFunction
     struct: FunctionGlobalCapturedStruct
     variable: FunctionGlobalCapturedVariable
+    proto: FunctionGlobalCapturedProto
     source_reference: SourceFileReference
     def __init__(
         self,
@@ -1164,6 +1167,7 @@ class FunctionReferenceCapturedGlobal(_message.Message):
         function: _Optional[_Union[FunctionGlobalCapturedFunction, _Mapping]] = ...,
         struct: _Optional[_Union[FunctionGlobalCapturedStruct, _Mapping]] = ...,
         variable: _Optional[_Union[FunctionGlobalCapturedVariable, _Mapping]] = ...,
+        proto: _Optional[_Union[FunctionGlobalCapturedProto, _Mapping]] = ...,
         source_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
     ) -> None: ...
 
@@ -1260,6 +1264,24 @@ class FunctionGlobalCapturedFunction(_message.Message):
         captured_globals: _Optional[_Iterable[_Union[FunctionReferenceCapturedGlobal, _Mapping]]] = ...,
         module: _Optional[str] = ...,
         name: _Optional[str] = ...,
+    ) -> None: ...
+
+class FunctionGlobalCapturedProto(_message.Message):
+    __slots__ = ("module", "name", "fd", "pa_dtype")
+    MODULE_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FD_FIELD_NUMBER: _ClassVar[int]
+    PA_DTYPE_FIELD_NUMBER: _ClassVar[int]
+    module: str
+    name: str
+    fd: bytes
+    pa_dtype: _arrow_pb2.ArrowType
+    def __init__(
+        self,
+        module: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        fd: _Optional[bytes] = ...,
+        pa_dtype: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...,
     ) -> None: ...
 
 class SourceFileReference(_message.Message):

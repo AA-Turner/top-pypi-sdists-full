@@ -19,6 +19,7 @@ ConnectorId = str
 ConnectorSecurityPolicyName = str
 CustomStepTarget = str
 CustomStepTimeoutSeconds = int
+DeleteId = str
 Description = str
 DirectoryId = str
 EfsFileSystemId = str
@@ -42,10 +43,12 @@ ListingId = str
 LogGroupName = str
 MapEntry = str
 MapTarget = str
+MaxConcurrentConnections = int
 MaxItems = int
 MaxResults = int
 Message = str
 MessageSubject = str
+MoveId = str
 NextToken = str
 NullableRole = str
 OutputFileName = str
@@ -74,6 +77,7 @@ ServerId = str
 ServiceErrorMessage = str
 ServiceManagedEgressIpAddress = str
 SessionId = str
+SftpConnectorHostKey = str
 SftpConnectorTrustedHostKey = str
 SourceFileLocation = str
 SourceIp = str
@@ -298,6 +302,11 @@ class TransferTableStatus(StrEnum):
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
+
+class WebAppEndpointPolicy(StrEnum):
+    FIPS = "FIPS"
+    STANDARD = "STANDARD"
 
 
 class WorkflowStepType(StrEnum):
@@ -590,17 +599,11 @@ SftpConnectorTrustedHostKeyList = List[SftpConnectorTrustedHostKey]
 class SftpConnectorConfig(TypedDict, total=False):
     """Contains the details for an SFTP connector object. The connector object
     is used for transferring files to and from a partner's SFTP server.
-
-    Because the ``SftpConnectorConfig`` data type is used for both creating
-    and updating SFTP connectors, its parameters, ``TrustedHostKeys`` and
-    ``UserSecretId`` are marked as not required. This is a bit misleading,
-    as they are not required when you are updating an existing SFTP
-    connector, but *are required* when you are creating a new SFTP
-    connector.
     """
 
     UserSecretId: Optional[SecretId]
     TrustedHostKeys: Optional[SftpConnectorTrustedHostKeyList]
+    MaxConcurrentConnections: Optional[MaxConcurrentConnections]
 
 
 class CreateConnectorRequest(ServiceRequest):
@@ -796,6 +799,7 @@ class CreateWebAppRequest(ServiceRequest):
     AccessEndpoint: Optional[WebAppAccessEndpoint]
     WebAppUnits: Optional[WebAppUnits]
     Tags: Optional[Tags]
+    WebAppEndpointPolicy: Optional[WebAppEndpointPolicy]
 
 
 class CreateWebAppResponse(TypedDict, total=False):
@@ -1343,6 +1347,7 @@ class DescribedWebApp(TypedDict, total=False):
     WebAppEndpoint: Optional[WebAppEndpoint]
     WebAppUnits: Optional[WebAppUnits]
     Tags: Optional[Tags]
+    WebAppEndpointPolicy: Optional[WebAppEndpointPolicy]
 
 
 class DescribeWebAppResponse(TypedDict, total=False):
@@ -1732,6 +1737,12 @@ class SendWorkflowStepStateResponse(TypedDict, total=False):
     pass
 
 
+class SftpConnectorConnectionDetails(TypedDict, total=False):
+    """Contains the details for an SFTP connector connection."""
+
+    HostKey: Optional[SftpConnectorHostKey]
+
+
 class StartDirectoryListingRequest(ServiceRequest):
     ConnectorId: ConnectorId
     RemoteDirectoryPath: FilePath
@@ -1754,6 +1765,25 @@ class StartFileTransferRequest(ServiceRequest):
 
 class StartFileTransferResponse(TypedDict, total=False):
     TransferId: TransferId
+
+
+class StartRemoteDeleteRequest(ServiceRequest):
+    ConnectorId: ConnectorId
+    DeletePath: FilePath
+
+
+class StartRemoteDeleteResponse(TypedDict, total=False):
+    DeleteId: DeleteId
+
+
+class StartRemoteMoveRequest(ServiceRequest):
+    ConnectorId: ConnectorId
+    SourcePath: FilePath
+    TargetPath: FilePath
+
+
+class StartRemoteMoveResponse(TypedDict, total=False):
+    MoveId: MoveId
 
 
 class StartServerRequest(ServiceRequest):
@@ -1780,6 +1810,7 @@ class TestConnectionResponse(TypedDict, total=False):
     ConnectorId: Optional[ConnectorId]
     Status: Optional[Status]
     StatusMessage: Optional[Message]
+    SftpConnectionDetails: Optional[SftpConnectorConnectionDetails]
 
 
 class TestIdentityProviderRequest(ServiceRequest):
@@ -2183,7 +2214,7 @@ class TransferApi:
         :param identity_provider_type: The mode of authentication for a server.
         :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management
         (IAM) role that allows a server to turn on Amazon CloudWatch logging for
-        Amazon S3 or Amazon EFSevents.
+        Amazon S3 or Amazon EFS events.
         :param post_authentication_login_banner: Specifies a string to display when users connect to a server.
         :param pre_authentication_login_banner: Specifies a string to display when users connect to a server.
         :param protocols: Specifies the file transfer protocol or protocols over which your file
@@ -2270,6 +2301,7 @@ class TransferApi:
         access_endpoint: WebAppAccessEndpoint = None,
         web_app_units: WebAppUnits = None,
         tags: Tags = None,
+        web_app_endpoint_policy: WebAppEndpointPolicy = None,
         **kwargs,
     ) -> CreateWebAppResponse:
         """Creates a web app based on specified parameters, and returns the ID for
@@ -2282,6 +2314,7 @@ class TransferApi:
         :param web_app_units: A union that contains the value for number of concurrent connections or
         the user sessions on your web app.
         :param tags: Key-value pairs that can be used to group and search for web apps.
+        :param web_app_endpoint_policy: Setting for the type of endpoint policy for the web app.
         :returns: CreateWebAppResponse
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
@@ -2772,6 +2805,12 @@ class TransferApi:
     ) -> ImportCertificateResponse:
         """Imports the signing and encryption certificates that you need to create
         local (AS2) profiles and partner profiles.
+
+        You can import both the certificate and its chain in the ``Certificate``
+        parameter.
+
+        If you use the ``Certificate`` parameter to upload both the certificate
+        and its chain, don't use the ``CertificateChain`` parameter.
 
         :param usage: Specifies how this certificate is used.
         :param certificate: -  For the CLI, provide a file path for a certificate in URI format.
@@ -3355,6 +3394,46 @@ class TransferApi:
         """
         raise NotImplementedError
 
+    @handler("StartRemoteDelete")
+    def start_remote_delete(
+        self, context: RequestContext, connector_id: ConnectorId, delete_path: FilePath, **kwargs
+    ) -> StartRemoteDeleteResponse:
+        """Deletes a file or directory on the remote SFTP server.
+
+        :param connector_id: The unique identifier for the connector.
+        :param delete_path: The absolute path of the file or directory to delete.
+        :returns: StartRemoteDeleteResponse
+        :raises ResourceNotFoundException:
+        :raises InvalidRequestException:
+        :raises ThrottlingException:
+        :raises InternalServiceError:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
+    @handler("StartRemoteMove")
+    def start_remote_move(
+        self,
+        context: RequestContext,
+        connector_id: ConnectorId,
+        source_path: FilePath,
+        target_path: FilePath,
+        **kwargs,
+    ) -> StartRemoteMoveResponse:
+        """Moves or renames a file or directory on the remote SFTP server.
+
+        :param connector_id: The unique identifier for the connector.
+        :param source_path: The absolute path of the file or directory to move or rename.
+        :param target_path: The absolute path for the target of the move/rename operation.
+        :returns: StartRemoteMoveResponse
+        :raises ResourceNotFoundException:
+        :raises InvalidRequestException:
+        :raises ThrottlingException:
+        :raises InternalServiceError:
+        :raises ServiceUnavailableException:
+        """
+        raise NotImplementedError
+
     @handler("StartServer")
     def start_server(self, context: RequestContext, server_id: ServerId, **kwargs) -> None:
         """Changes the state of a file transfer protocol-enabled server from
@@ -3776,7 +3855,7 @@ class TransferApi:
         authentication API method.
         :param logging_role: The Amazon Resource Name (ARN) of the Identity and Access Management
         (IAM) role that allows a server to turn on Amazon CloudWatch logging for
-        Amazon S3 or Amazon EFSevents.
+        Amazon S3 or Amazon EFS events.
         :param post_authentication_login_banner: Specifies a string to display when users connect to a server.
         :param pre_authentication_login_banner: Specifies a string to display when users connect to a server.
         :param protocols: Specifies the file transfer protocol or protocols over which your file
@@ -3908,7 +3987,7 @@ class TransferApi:
         :param web_app_id: Provide the identifier of the web app that you are updating.
         :param title: Provide an updated title.
         :param logo_file: Specify logo file data string (in base64 encoding).
-        :param favicon_file: Specify icon file data string (in base64 encoding).
+        :param favicon_file: Specify an icon file data string (in base64 encoding).
         :returns: UpdateWebAppCustomizationResponse
         :raises ConflictException:
         :raises ResourceNotFoundException:

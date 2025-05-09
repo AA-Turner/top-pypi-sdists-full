@@ -4,29 +4,29 @@
 {
     "distutils": {
         "depends": [
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rdb_include/comparator_wrapper.hpp",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rdb_include/filter_policy_wrapper.hpp",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rdb_include/memtable_factories.hpp",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rdb_include/merge_operator_wrapper.hpp",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rdb_include/slice_transform_wrapper.hpp",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rdb_include/utils.hpp",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rdb_include/write_batch_iter_helper.hpp",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/cache.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/comparator.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/db.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/env.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/filter_policy.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/iterator.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/memtablerep.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/merge_operator.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/options.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/slice.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/slice_transform.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/status.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/table.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/universal_compaction.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/utilities/backup_engine.h",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include/rocksdb/write_batch.h"
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rdb_include/comparator_wrapper.hpp",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rdb_include/filter_policy_wrapper.hpp",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rdb_include/memtable_factories.hpp",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rdb_include/merge_operator_wrapper.hpp",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rdb_include/slice_transform_wrapper.hpp",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rdb_include/utils.hpp",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rdb_include/write_batch_iter_helper.hpp",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/cache.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/comparator.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/db.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/env.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/filter_policy.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/iterator.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/memtablerep.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/merge_operator.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/options.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/slice.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/slice_transform.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/status.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/table.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/universal_compaction.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/utilities/backup_engine.h",
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include/rocksdb/write_batch.h"
         ],
         "extra_compile_args": [
             "-std=c++11",
@@ -39,14 +39,14 @@
             "-fPIC"
         ],
         "include_dirs": [
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include"
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include"
         ],
         "language": "c++",
         "libraries": [
             "rocksdb"
         ],
         "library_dirs": [
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks"
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks"
         ],
         "name": "aim.storage.container",
         "sources": [

@@ -15,6 +15,7 @@ Boolean = bool
 BrandedName = str
 BucketName = str
 ContentType = str
+CustomMetricInstructions = str
 CustomModelArn = str
 CustomModelName = str
 CustomModelUnitsVersion = str
@@ -34,6 +35,7 @@ EvaluationPrecomputedRagSourceIdentifier = str
 EvaluationRatingMethod = str
 EvaluatorModelIdentifier = str
 FilterKey = str
+Float = float
 FoundationModelArn = str
 GuardrailArn = str
 GuardrailBlockedMessaging = str
@@ -88,6 +90,7 @@ MaxResults = int
 MaxTokens = int
 Message = str
 MetricFloat = float
+MetricName = str
 ModelArchitecture = str
 ModelArn = str
 ModelCopyJobArn = str
@@ -116,6 +119,8 @@ ProvisionedModelArn = str
 ProvisionedModelId = str
 ProvisionedModelName = str
 RAGStopSequencesMemberString = str
+RatingScaleItemDefinition = str
+RatingScaleItemValueStringValueString = str
 RequestMetadataMapKeyString = str
 RequestMetadataMapValueString = str
 RoleArn = str
@@ -192,6 +197,11 @@ class FoundationModelLifecycleStatus(StrEnum):
     LEGACY = "LEGACY"
 
 
+class GuardrailContentFilterAction(StrEnum):
+    BLOCK = "BLOCK"
+    NONE = "NONE"
+
+
 class GuardrailContentFilterType(StrEnum):
     SEXUAL = "SEXUAL"
     VIOLENCE = "VIOLENCE"
@@ -199,6 +209,11 @@ class GuardrailContentFilterType(StrEnum):
     INSULTS = "INSULTS"
     MISCONDUCT = "MISCONDUCT"
     PROMPT_ATTACK = "PROMPT_ATTACK"
+
+
+class GuardrailContextualGroundingAction(StrEnum):
+    BLOCK = "BLOCK"
+    NONE = "NONE"
 
 
 class GuardrailContextualGroundingFilterType(StrEnum):
@@ -259,6 +274,7 @@ class GuardrailPiiEntityType(StrEnum):
 class GuardrailSensitiveInformationAction(StrEnum):
     BLOCK = "BLOCK"
     ANONYMIZE = "ANONYMIZE"
+    NONE = "NONE"
 
 
 class GuardrailStatus(StrEnum):
@@ -270,8 +286,18 @@ class GuardrailStatus(StrEnum):
     DELETING = "DELETING"
 
 
+class GuardrailTopicAction(StrEnum):
+    BLOCK = "BLOCK"
+    NONE = "NONE"
+
+
 class GuardrailTopicType(StrEnum):
     DENY = "DENY"
+
+
+class GuardrailWordAction(StrEnum):
+    BLOCK = "BLOCK"
+    NONE = "NONE"
 
 
 class InferenceProfileStatus(StrEnum):
@@ -286,6 +312,15 @@ class InferenceProfileType(StrEnum):
 class InferenceType(StrEnum):
     ON_DEMAND = "ON_DEMAND"
     PROVISIONED = "PROVISIONED"
+
+
+class JobStatusDetails(StrEnum):
+    InProgress = "InProgress"
+    Completed = "Completed"
+    Stopping = "Stopping"
+    Stopped = "Stopped"
+    Failed = "Failed"
+    NotStarted = "NotStarted"
 
 
 class ModelCopyJobStatus(StrEnum):
@@ -485,6 +520,88 @@ AdditionalModelRequestFields = Dict[
 ]
 
 
+class CustomMetricBedrockEvaluatorModel(TypedDict, total=False):
+    """Defines the model you want to evaluate custom metrics in an Amazon
+    Bedrock evaluation job.
+    """
+
+    modelIdentifier: EvaluatorModelIdentifier
+
+
+CustomMetricBedrockEvaluatorModels = List[CustomMetricBedrockEvaluatorModel]
+
+
+class CustomMetricEvaluatorModelConfig(TypedDict, total=False):
+    """Configuration of the evaluator model you want to use to evaluate custom
+    metrics in an Amazon Bedrock evaluation job.
+    """
+
+    bedrockEvaluatorModels: CustomMetricBedrockEvaluatorModels
+
+
+class RatingScaleItemValue(TypedDict, total=False):
+    """Defines the value for one rating in a custom metric rating scale."""
+
+    stringValue: Optional[RatingScaleItemValueStringValueString]
+    floatValue: Optional[Float]
+
+
+class RatingScaleItem(TypedDict, total=False):
+    """Defines the value and corresponding definition for one rating in a
+    custom metric rating scale.
+    """
+
+    definition: RatingScaleItemDefinition
+    value: RatingScaleItemValue
+
+
+RatingScale = List[RatingScaleItem]
+
+
+class CustomMetricDefinition(TypedDict, total=False):
+    """The definition of a custom metric for use in an Amazon Bedrock
+    evaluation job. A custom metric definition includes a metric name,
+    prompt (instructions) and optionally, a rating scale. Your prompt must
+    include a task description and input variables. The required input
+    variables are different for model-as-a-judge and RAG evaluations.
+
+    For more information about how to define a custom metric in Amazon
+    Bedrock, see `Create a prompt for a custom metrics (LLM-as-a-judge model
+    evaluations) <https://docs.aws.amazon.com/bedrock/latest/userguide/model-evaluation-custom-metrics-prompt-formats.html>`__
+    and `Create a prompt for a custom metrics (RAG
+    evaluations) <https://docs.aws.amazon.com/bedrock/latest/userguide/kb-evaluation-custom-metrics-prompt-formats.html>`__.
+    """
+
+    name: MetricName
+    instructions: CustomMetricInstructions
+    ratingScale: Optional[RatingScale]
+
+
+class AutomatedEvaluationCustomMetricSource(TypedDict, total=False):
+    """An array item definining a single custom metric for use in an Amazon
+    Bedrock evaluation job.
+    """
+
+    customMetricDefinition: Optional[CustomMetricDefinition]
+
+
+AutomatedEvaluationCustomMetrics = List[AutomatedEvaluationCustomMetricSource]
+
+
+class AutomatedEvaluationCustomMetricConfig(TypedDict, total=False):
+    """Defines the configuration of custom metrics to be used in an evaluation
+    job. To learn more about using custom metrics in Amazon Bedrock
+    evaluation jobs, see `Create a prompt for a custom metrics
+    (LLM-as-a-judge model
+    evaluations) <https://docs.aws.amazon.com/bedrock/latest/userguide/model-evaluation-custom-metrics-prompt-formats.html>`__
+    and `Create a prompt for a custom metrics (RAG
+    evaluations) <https://docs.aws.amazon.com/bedrock/latest/userguide/kb-evaluation-custom-metrics-prompt-formats.html>`__.
+    """
+
+    customMetrics: AutomatedEvaluationCustomMetrics
+    evaluatorModelConfig: CustomMetricEvaluatorModelConfig
+
+
 class BedrockEvaluatorModel(TypedDict, total=False):
     """The evaluator model used in knowledge base evaluation job or in model
     evaluation job that use a model as judge. This model computes all
@@ -546,6 +663,7 @@ class AutomatedEvaluationConfig(TypedDict, total=False):
 
     datasetMetricConfigs: EvaluationDatasetMetricConfigs
     evaluatorModelConfig: Optional[EvaluatorModelConfig]
+    customMetricConfig: Optional[AutomatedEvaluationCustomMetricConfig]
 
 
 class BatchDeleteEvaluationJobError(TypedDict, total=False):
@@ -1001,6 +1119,8 @@ GuardrailContextualGroundingFilterConfig = TypedDict(
     {
         "type": GuardrailContextualGroundingFilterType,
         "threshold": GuardrailContextualGroundingFilterConfigThresholdDouble,
+        "action": Optional[GuardrailContextualGroundingAction],
+        "enabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1022,6 +1142,10 @@ class GuardrailRegexConfig(TypedDict, total=False):
     description: Optional[GuardrailRegexConfigDescriptionString]
     pattern: GuardrailRegexConfigPatternString
     action: GuardrailSensitiveInformationAction
+    inputAction: Optional[GuardrailSensitiveInformationAction]
+    outputAction: Optional[GuardrailSensitiveInformationAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
 
 
 GuardrailRegexesConfig = List[GuardrailRegexConfig]
@@ -1030,6 +1154,10 @@ GuardrailPiiEntityConfig = TypedDict(
     {
         "type": GuardrailPiiEntityType,
         "action": GuardrailSensitiveInformationAction,
+        "inputAction": Optional[GuardrailSensitiveInformationAction],
+        "outputAction": Optional[GuardrailSensitiveInformationAction],
+        "inputEnabled": Optional[Boolean],
+        "outputEnabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1049,6 +1177,10 @@ GuardrailManagedWordsConfig = TypedDict(
     "GuardrailManagedWordsConfig",
     {
         "type": GuardrailManagedWordsType,
+        "inputAction": Optional[GuardrailWordAction],
+        "outputAction": Optional[GuardrailWordAction],
+        "inputEnabled": Optional[Boolean],
+        "outputEnabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1059,6 +1191,10 @@ class GuardrailWordConfig(TypedDict, total=False):
     """A word to configure for the guardrail."""
 
     text: GuardrailWordConfigTextString
+    inputAction: Optional[GuardrailWordAction]
+    outputAction: Optional[GuardrailWordAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
 
 
 GuardrailWordsConfig = List[GuardrailWordConfig]
@@ -1080,6 +1216,10 @@ GuardrailContentFilterConfig = TypedDict(
         "outputStrength": GuardrailFilterStrength,
         "inputModalities": Optional[GuardrailModalities],
         "outputModalities": Optional[GuardrailModalities],
+        "inputAction": Optional[GuardrailContentFilterAction],
+        "outputAction": Optional[GuardrailContentFilterAction],
+        "inputEnabled": Optional[Boolean],
+        "outputEnabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1100,6 +1240,10 @@ GuardrailTopicConfig = TypedDict(
         "definition": GuardrailTopicDefinition,
         "examples": Optional[GuardrailTopicExamples],
         "type": GuardrailTopicType,
+        "inputAction": Optional[GuardrailTopicAction],
+        "outputAction": Optional[GuardrailTopicAction],
+        "inputEnabled": Optional[Boolean],
+        "outputEnabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1505,6 +1649,16 @@ class CustomModelUnits(TypedDict, total=False):
     customModelUnitsVersion: Optional[CustomModelUnitsVersion]
 
 
+class DataProcessingDetails(TypedDict, total=False):
+    """For a Distillation job, the status details for the data processing
+    sub-task of the job.
+    """
+
+    status: Optional[JobStatusDetails]
+    creationTime: Optional[Timestamp]
+    lastModifiedTime: Optional[Timestamp]
+
+
 class DeleteCustomModelRequest(ServiceRequest):
     modelIdentifier: ModelIdentifier
 
@@ -1636,6 +1790,7 @@ class EvaluationSummary(TypedDict, total=False):
     modelIdentifiers: Optional[EvaluationBedrockModelIdentifiers]
     ragIdentifiers: Optional[EvaluationBedrockKnowledgeBaseIdentifiers]
     evaluatorModelIdentifiers: Optional[EvaluatorModelIdentifiers]
+    customMetricsEvaluatorModelIdentifiers: Optional[EvaluatorModelIdentifiers]
     inferenceConfigSummary: Optional[EvaluationInferenceConfigSummary]
     applicationType: Optional[ApplicationType]
 
@@ -1765,6 +1920,8 @@ GuardrailContextualGroundingFilter = TypedDict(
     {
         "type": GuardrailContextualGroundingFilterType,
         "threshold": GuardrailContextualGroundingFilterThresholdDouble,
+        "action": Optional[GuardrailContextualGroundingAction],
+        "enabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1784,6 +1941,10 @@ class GuardrailRegex(TypedDict, total=False):
     description: Optional[GuardrailRegexDescriptionString]
     pattern: GuardrailRegexPatternString
     action: GuardrailSensitiveInformationAction
+    inputAction: Optional[GuardrailSensitiveInformationAction]
+    outputAction: Optional[GuardrailSensitiveInformationAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
 
 
 GuardrailRegexes = List[GuardrailRegex]
@@ -1792,6 +1953,10 @@ GuardrailPiiEntity = TypedDict(
     {
         "type": GuardrailPiiEntityType,
         "action": GuardrailSensitiveInformationAction,
+        "inputAction": Optional[GuardrailSensitiveInformationAction],
+        "outputAction": Optional[GuardrailSensitiveInformationAction],
+        "inputEnabled": Optional[Boolean],
+        "outputEnabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1811,6 +1976,10 @@ GuardrailManagedWords = TypedDict(
     "GuardrailManagedWords",
     {
         "type": GuardrailManagedWordsType,
+        "inputAction": Optional[GuardrailWordAction],
+        "outputAction": Optional[GuardrailWordAction],
+        "inputEnabled": Optional[Boolean],
+        "outputEnabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1821,6 +1990,10 @@ class GuardrailWord(TypedDict, total=False):
     """A word configured for the guardrail."""
 
     text: GuardrailWordTextString
+    inputAction: Optional[GuardrailWordAction]
+    outputAction: Optional[GuardrailWordAction]
+    inputEnabled: Optional[Boolean]
+    outputEnabled: Optional[Boolean]
 
 
 GuardrailWords = List[GuardrailWord]
@@ -1841,6 +2014,10 @@ GuardrailContentFilter = TypedDict(
         "outputStrength": GuardrailFilterStrength,
         "inputModalities": Optional[GuardrailModalities],
         "outputModalities": Optional[GuardrailModalities],
+        "inputAction": Optional[GuardrailContentFilterAction],
+        "outputAction": Optional[GuardrailContentFilterAction],
+        "inputEnabled": Optional[Boolean],
+        "outputEnabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1866,6 +2043,10 @@ GuardrailTopic = TypedDict(
         "definition": GuardrailTopicDefinition,
         "examples": Optional[GuardrailTopicExamples],
         "type": Optional[GuardrailTopicType],
+        "inputAction": Optional[GuardrailTopicAction],
+        "outputAction": Optional[GuardrailTopicAction],
+        "inputEnabled": Optional[Boolean],
+        "outputEnabled": Optional[Boolean],
     },
     total=False,
 )
@@ -1981,6 +2162,48 @@ class GetModelCustomizationJobRequest(ServiceRequest):
     jobIdentifier: ModelCustomizationJobIdentifier
 
 
+class TrainingDetails(TypedDict, total=False):
+    """For a Distillation job, the status details for the training sub-task of
+    the job.
+    """
+
+    status: Optional[JobStatusDetails]
+    creationTime: Optional[Timestamp]
+    lastModifiedTime: Optional[Timestamp]
+
+
+class ValidationDetails(TypedDict, total=False):
+    """For a Distillation job, the status details for the validation sub-task
+    of the job.
+    """
+
+    status: Optional[JobStatusDetails]
+    creationTime: Optional[Timestamp]
+    lastModifiedTime: Optional[Timestamp]
+
+
+class StatusDetails(TypedDict, total=False):
+    """For a Distillation job, the status details for sub-tasks of the job.
+    Possible statuses for each sub-task include the following:
+
+    -  NotStarted
+
+    -  InProgress
+
+    -  Completed
+
+    -  Stopping
+
+    -  Stopped
+
+    -  Failed
+    """
+
+    validationDetails: Optional[ValidationDetails]
+    dataProcessingDetails: Optional[DataProcessingDetails]
+    trainingDetails: Optional[TrainingDetails]
+
+
 class GetModelCustomizationJobResponse(TypedDict, total=False):
     jobArn: ModelCustomizationJobArn
     jobName: JobName
@@ -1990,6 +2213,7 @@ class GetModelCustomizationJobResponse(TypedDict, total=False):
     roleArn: RoleArn
     status: Optional[ModelCustomizationJobStatus]
     failureMessage: Optional[ErrorMessage]
+    statusDetails: Optional[StatusDetails]
     creationTime: Timestamp
     lastModifiedTime: Optional[Timestamp]
     endTime: Optional[Timestamp]
@@ -2332,6 +2556,7 @@ class ModelCustomizationJobSummary(TypedDict, total=False):
     jobName: JobName
     status: ModelCustomizationJobStatus
     lastModifiedTime: Optional[Timestamp]
+    statusDetails: Optional[StatusDetails]
     creationTime: Timestamp
     endTime: Optional[Timestamp]
     customModelArn: Optional[CustomModelArn]

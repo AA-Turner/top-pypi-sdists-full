@@ -276,12 +276,12 @@ class BuildWorkflow(
         build_task: _Task_9fa875b6,
         artifacts_directory: typing.Optional[builtins.str] = None,
         container_image: typing.Optional[builtins.str] = None,
-        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
         pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -292,12 +292,12 @@ class BuildWorkflow(
         :param build_task: (experimental) The task to execute in order to build the project.
         :param artifacts_directory: (experimental) A name of a directory that includes build artifacts. Default: "dist"
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
-        :param env: (experimental) Build environment variables. Default: {}
         :param git_identity: (experimental) Git identity to use for the workflow. Default: - default identity
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
         :param post_build_steps: (experimental) Steps to execute after build. Default: []
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param runs_on_group: (experimental) Github Runner Group selection options.
+        :param env: (experimental) Build environment variables. Default: {}
         :param name: (experimental) Name of the buildfile (e.g. "build" becomes "build.yml"). Default: "build"
         :param permissions: (experimental) Permissions granted to the build job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``. Default: ``{ contents: JobPermission.WRITE }``
         :param pre_build_steps: (experimental) Steps to execute before the build. Default: []
@@ -312,12 +312,12 @@ class BuildWorkflow(
             build_task=build_task,
             artifacts_directory=artifacts_directory,
             container_image=container_image,
-            env=env,
             git_identity=git_identity,
             mutable_build=mutable_build,
             post_build_steps=post_build_steps,
             runs_on=runs_on,
             runs_on_group=runs_on_group,
+            env=env,
             name=name,
             permissions=permissions,
             pre_build_steps=pre_build_steps,
@@ -516,6 +516,7 @@ class BuildWorkflow(
     jsii_type="projen.build.BuildWorkflowCommonOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "env": "env",
         "name": "name",
         "permissions": "permissions",
         "pre_build_steps": "preBuildSteps",
@@ -526,12 +527,14 @@ class BuildWorkflowCommonOptions:
     def __init__(
         self,
         *,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
         pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
+        :param env: (experimental) Build environment variables. Default: {}
         :param name: (experimental) Name of the buildfile (e.g. "build" becomes "build.yml"). Default: "build"
         :param permissions: (experimental) Permissions granted to the build job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``. Default: ``{ contents: JobPermission.WRITE }``
         :param pre_build_steps: (experimental) Steps to execute before the build. Default: []
@@ -545,11 +548,14 @@ class BuildWorkflowCommonOptions:
             workflow_triggers = _Triggers_e9ae7617(**workflow_triggers)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c47ecd67d7b1fa42db0bfe937571471191786b92fd702c85fceb89eb2d1b05c5)
+            check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument pre_build_steps", value=pre_build_steps, expected_type=type_hints["pre_build_steps"])
             check_type(argname="argument workflow_triggers", value=workflow_triggers, expected_type=type_hints["workflow_triggers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if env is not None:
+            self._values["env"] = env
         if name is not None:
             self._values["name"] = name
         if permissions is not None:
@@ -558,6 +564,17 @@ class BuildWorkflowCommonOptions:
             self._values["pre_build_steps"] = pre_build_steps
         if workflow_triggers is not None:
             self._values["workflow_triggers"] = workflow_triggers
+
+    @builtins.property
+    def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -619,6 +636,7 @@ class BuildWorkflowCommonOptions:
     jsii_type="projen.build.BuildWorkflowOptions",
     jsii_struct_bases=[BuildWorkflowCommonOptions],
     name_mapping={
+        "env": "env",
         "name": "name",
         "permissions": "permissions",
         "pre_build_steps": "preBuildSteps",
@@ -626,7 +644,6 @@ class BuildWorkflowCommonOptions:
         "build_task": "buildTask",
         "artifacts_directory": "artifactsDirectory",
         "container_image": "containerImage",
-        "env": "env",
         "git_identity": "gitIdentity",
         "mutable_build": "mutableBuild",
         "post_build_steps": "postBuildSteps",
@@ -638,6 +655,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
     def __init__(
         self,
         *,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
         pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -645,7 +663,6 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         build_task: _Task_9fa875b6,
         artifacts_directory: typing.Optional[builtins.str] = None,
         container_image: typing.Optional[builtins.str] = None,
-        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -653,6 +670,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
+        :param env: (experimental) Build environment variables. Default: {}
         :param name: (experimental) Name of the buildfile (e.g. "build" becomes "build.yml"). Default: "build"
         :param permissions: (experimental) Permissions granted to the build job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``. Default: ``{ contents: JobPermission.WRITE }``
         :param pre_build_steps: (experimental) Steps to execute before the build. Default: []
@@ -660,7 +678,6 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :param build_task: (experimental) The task to execute in order to build the project.
         :param artifacts_directory: (experimental) A name of a directory that includes build artifacts. Default: "dist"
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
-        :param env: (experimental) Build environment variables. Default: {}
         :param git_identity: (experimental) Git identity to use for the workflow. Default: - default identity
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
         :param post_build_steps: (experimental) Steps to execute after build. Default: []
@@ -679,6 +696,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             runs_on_group = _GroupRunnerOptions_148c59c1(**runs_on_group)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d08c9df51ed0147527f9d30b5f0f37c5e4482b10a1ea4f55a14885626d0721e)
+            check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument pre_build_steps", value=pre_build_steps, expected_type=type_hints["pre_build_steps"])
@@ -686,7 +704,6 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             check_type(argname="argument build_task", value=build_task, expected_type=type_hints["build_task"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument container_image", value=container_image, expected_type=type_hints["container_image"])
-            check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument git_identity", value=git_identity, expected_type=type_hints["git_identity"])
             check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
             check_type(argname="argument post_build_steps", value=post_build_steps, expected_type=type_hints["post_build_steps"])
@@ -695,6 +712,8 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "build_task": build_task,
         }
+        if env is not None:
+            self._values["env"] = env
         if name is not None:
             self._values["name"] = name
         if permissions is not None:
@@ -707,8 +726,6 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             self._values["artifacts_directory"] = artifacts_directory
         if container_image is not None:
             self._values["container_image"] = container_image
-        if env is not None:
-            self._values["env"] = env
         if git_identity is not None:
             self._values["git_identity"] = git_identity
         if mutable_build is not None:
@@ -719,6 +736,17 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             self._values["runs_on"] = runs_on
         if runs_on_group is not None:
             self._values["runs_on_group"] = runs_on_group
+
+    @builtins.property
+    def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -795,17 +823,6 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         '''
         result = self._values.get("container_image")
         return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Build environment variables.
-
-        :default: {}
-
-        :stability: experimental
-        '''
-        result = self._values.get("env")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def git_identity(self) -> typing.Optional[_GitIdentity_6effc3de]:
@@ -921,12 +938,12 @@ def _typecheckingstub__f4d192684ec38f19e56855947a401da7aa8d483beaeef832704f28ff4
     build_task: _Task_9fa875b6,
     artifacts_directory: typing.Optional[builtins.str] = None,
     container_image: typing.Optional[builtins.str] = None,
-    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
     post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
     pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -991,6 +1008,7 @@ def _typecheckingstub__43bc47daca0c138fa9c8bc13154f9acea9c452e82f2dc45b3f3a655c6
 
 def _typecheckingstub__c47ecd67d7b1fa42db0bfe937571471191786b92fd702c85fceb89eb2d1b05c5(
     *,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
     pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1001,6 +1019,7 @@ def _typecheckingstub__c47ecd67d7b1fa42db0bfe937571471191786b92fd702c85fceb89eb2
 
 def _typecheckingstub__9d08c9df51ed0147527f9d30b5f0f37c5e4482b10a1ea4f55a14885626d0721e(
     *,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
     pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1008,7 +1027,6 @@ def _typecheckingstub__9d08c9df51ed0147527f9d30b5f0f37c5e4482b10a1ea4f55a1488562
     build_task: _Task_9fa875b6,
     artifacts_directory: typing.Optional[builtins.str] = None,
     container_image: typing.Optional[builtins.str] = None,
-    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
     post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,

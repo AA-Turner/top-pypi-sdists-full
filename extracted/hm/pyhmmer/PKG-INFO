@@ -1,30 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: pyhmmer
-Version: 0.11.0
+Version: 0.11.1
 Summary: Cython bindings and Python interface to HMMER3.
 Keywords: bioinformatics,profile,HMM,sequence,pfam
 Author-Email: Martin Larralde <martin.larralde@embl.de>
 License: MIT License
-        
-        Copyright (c) 2020-2025 Martin Larralde <martin.larralde@embl.de>
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
+         
+         Copyright (c) 2020-2025 Martin Larralde <martin.larralde@embl.de>
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy
+         of this software and associated documentation files (the "Software"), to deal
+         in the Software without restriction, including without limitation the rights
+         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+         copies of the Software, and to permit persons to whom the Software is
+         furnished to do so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all
+         copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         SOFTWARE.
+         
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -38,22 +39,24 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
 Classifier: Typing :: Typed
 Project-URL: Documentation, https://pyhmmer.readthedocs.io/en/stable/
-Project-URL: Bug tracker, https://github.com/althonos/pyhmmer/issues
+Project-URL: Bug Tracker, https://github.com/althonos/pyhmmer/issues
 Project-URL: Changelog, https://github.com/althonos/pyhmmer/blob/master/CHANGELOG.md
 Project-URL: Coverage, https://codecov.io/gh/althonos/pyhmmer/
 Project-URL: Builds, https://github.com/althonos/pyhmmer/actions
 Project-URL: Paper, https://doi.org/10.1093/bioinformatics/btad214
-Project-URL: Pypi, https://pypi.org/project/pyhmmer
+Project-URL: PyPI, https://pypi.org/project/pyhmmer
+Project-URL: PiWheels, https://piwheels.org/project/pyhmmer/
 Requires-Python: >=3.7
-Requires-Dist: psutil~=6.0
-Requires-Dist: importlib-resources; python_version < "3.9" and extra == "test"
+Requires-Dist: psutil<8.0,>=6.0
 Provides-Extra: test
+Requires-Dist: importlib-resources; python_version < "3.9" and extra == "test"
 Description-Content-Type: text/markdown
 
 # 🐍🟡♦️🟦 PyHMMER [![Stars](https://img.shields.io/github/stars/althonos/pyhmmer.svg?style=social&maxAge=3600&label=Star)](https://github.com/althonos/pyhmmer/stargazers)
@@ -120,9 +123,10 @@ HMMER internals, which has the following advantages over CLI wrappers
   the `hmmsearch` binary from HMMER, which can help getting the most of
   multiple CPUs when annotating smaller sequence databases.
 
-*This library is still a work-in-progress, and in an experimental stage,
-but it should already pack enough features to run biological analyses or
-workflows involving `hmmsearch`, `hmmscan`, `nhmmer`, `phmmer`, `hmmbuild`
+*This library is still a work-in-progress. It follows [semantic-versioning](https://semver.org/),
+so API changes will be documented, but past `v0.10` the API has been more or
+less stable. It should already pack enough features to run biological analyses 
+or workflows involving `hmmsearch`, `hmmscan`, `nhmmer`, `phmmer`, `hmmbuild`
 and `hmmalign`.*
 
 
@@ -188,11 +192,11 @@ object is yielded for every [`HMM`] passed in the input iterable.
 import pyhmmer
 
 with pyhmmer.easel.SequenceFile("pyhmmer/tests/data/seqs/938293.PRJEB85.HG003687.faa", digital=True) as seq_file:
-    sequences = list(seq_file)
+    sequences = seq_file.read_block()
 
 with pyhmmer.plan7.HMMFile("pyhmmer/tests/data/hmms/txt/t2pks.hmm") as hmm_file:
     for hits in pyhmmer.hmmsearch(hmm_file, sequences, cpus=4):
-      print(f"HMM {hits.query_name.decode()} found {len(hits)} hits in the target sequences")
+      print(f"HMM {hits.query.name.decode()} found {len(hits)} hits in the target sequences")
 ```
 
 Have a look at more in-depth examples such as [building a HMM from an alignment](https://pyhmmer.readthedocs.io/en/stable/examples/msa_to_hmm.html),

@@ -1,6 +1,6 @@
 """
 This module provides some useful functions for working with
-scrapy.http.Request objects
+scrapy.Request objects
 """
 
 from __future__ import annotations
@@ -94,7 +94,9 @@ def fingerprint(
             "headers": headers,
         }
         fingerprint_json = json.dumps(fingerprint_data, sort_keys=True)
-        cache[cache_key] = hashlib.sha1(fingerprint_json.encode()).digest()  # nosec
+        cache[cache_key] = hashlib.sha1(  # noqa: S324
+            fingerprint_json.encode()
+        ).digest()
     return cache[cache_key]
 
 
@@ -107,12 +109,10 @@ class RequestFingerprinter:
 
     It takes into account a canonical version
     (:func:`w3lib.url.canonicalize_url`) of :attr:`request.url
-    <scrapy.http.Request.url>` and the values of :attr:`request.method
-    <scrapy.http.Request.method>` and :attr:`request.body
-    <scrapy.http.Request.body>`. It then generates an `SHA1
+    <scrapy.Request.url>` and the values of :attr:`request.method
+    <scrapy.Request.method>` and :attr:`request.body
+    <scrapy.Request.body>`. It then generates an `SHA1
     <https://en.wikipedia.org/wiki/SHA-1>`_ hash.
-
-    .. seealso:: :setting:`REQUEST_FINGERPRINTER_IMPLEMENTATION`.
     """
 
     @classmethod
@@ -227,7 +227,8 @@ def request_to_curl(request: Request) -> str:
             cookies = f"--cookie '{cookie}'"
         elif isinstance(request.cookies, list):
             cookie = "; ".join(
-                f"{list(c.keys())[0]}={list(c.values())[0]}" for c in request.cookies
+                f"{next(iter(c.keys()))}={next(iter(c.values()))}"
+                for c in request.cookies
             )
             cookies = f"--cookie '{cookie}'"
 

@@ -9,9 +9,14 @@ cdef class A:
 a_as_obj = A
 
 
-@cython.test_assert_path_exists('//SimpleCallNode//SimpleCallNode')
-@cython.test_fail_if_path_exists('//SimpleCallNode//PythonCapiCallNode',
-                                 '//PythonCapiCallNode//SimpleCallNode')
+@cython.test_assert_path_exists(
+    '//SimpleCallNode',
+    '//PyMethodCallNode',
+    '//SimpleCallNode//PyMethodCallNode',
+)
+@cython.test_fail_if_path_exists(
+    "//PythonCapiCallNode",
+)
 def test_non_optimised():
     """
     >>> test_non_optimised()
@@ -23,21 +28,25 @@ def test_non_optimised():
     return True
 
 
-@cython.test_assert_path_exists('//PythonCapiCallNode',
-                                '//PythonCapiCallNode//SimpleCallNode',
-                                '//PythonCapiFunctionNode[@cname = "PyType_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PyInt_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PyFloat_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PyBytes_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PyUnicode_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PyTuple_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PyList_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PyDict_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PySet_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PySlice_Check"]',
-                                '//PythonCapiFunctionNode[@cname = "PyComplex_Check"]')
-@cython.test_fail_if_path_exists('//SimpleCallNode//SimpleCallNode',
-                                 '//SimpleCallNode//PythonCapiCallNode')
+@cython.test_assert_path_exists(
+    '//PythonCapiCallNode',
+    '//PyMethodCallNode',
+    '//PythonCapiCallNode//PyMethodCallNode',
+    '//PythonCapiFunctionNode[@cname = "PyType_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PyLong_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PyFloat_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PyBytes_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PyUnicode_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PyTuple_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PyList_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PyDict_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PySet_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PySlice_Check"]',
+    '//PythonCapiFunctionNode[@cname = "PyComplex_Check"]',
+)
+@cython.test_fail_if_path_exists(
+    '//SimpleCallNode',
+)
 def test_optimised():
     """
     >>> test_optimised()
@@ -55,10 +64,7 @@ def test_optimised():
     cdef object intval = int()
     assert isinstance(intval, int)
     assert isinstance(int(), int)
-
-    cdef object longval = long()
-    assert isinstance(longval, long)
-    assert isinstance(long(), long)
+    assert not isinstance(u"xyz", int)
 
     cdef object floatval = float()
     assert isinstance(floatval, float)
@@ -119,14 +125,13 @@ def test_optimised_tuple():
     >>> test_optimised_tuple()
     True
     """
-    assert isinstance(int(),   (int, long, float, bytes, str, unicode, tuple, list, dict, set, slice, type, A))
-    assert isinstance(list(),  (int, long, float, bytes, str, unicode, tuple, list, dict, set, slice, type, A))
-    assert isinstance(A(),  (int, long, float, bytes, str, unicode, tuple, list, dict, set, slice, type, A))
-    assert isinstance(A(),  (int, long, float, bytes, str, unicode, tuple, list, dict, set, slice, type, A, a_as_obj))
-    assert isinstance(A(),  (int, long, float, bytes, str, unicode, tuple, list, dict, set, slice, type, a_as_obj, A))
-    assert isinstance(A(),  (int, long, float, bytes, str, unicode, a_as_obj, tuple, list, dict, set, slice, type, A))
-    assert isinstance(0, (int, long))
-    assert not isinstance(u"xyz", (int, long))
+    assert isinstance(int(),   (int, float, bytes, str, unicode, tuple, list, dict, set, slice, type, A))
+    assert isinstance(list(),  (int, float, bytes, str, unicode, tuple, list, dict, set, slice, type, A))
+    assert isinstance(A(),  (int, float, bytes, str, unicode, tuple, list, dict, set, slice, type, A))
+    assert isinstance(A(),  (int, float, bytes, str, unicode, tuple, list, dict, set, slice, type, A, a_as_obj))
+    assert isinstance(A(),  (int, float, bytes, str, unicode, tuple, list, dict, set, slice, type, a_as_obj, A))
+    assert isinstance(A(),  (int, float, bytes, str, unicode, a_as_obj, tuple, list, dict, set, slice, type, A))
+    assert isinstance(0, (str, int))
     return True
 
 

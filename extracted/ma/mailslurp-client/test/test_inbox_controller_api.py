@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -113,6 +113,13 @@ class TestInboxControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_does_inbox_have_automations(self):
+        """Test case for does_inbox_have_automations
+
+        Does inbox have automations  # noqa: E501
+        """
+        pass
+
     def test_flush_expired(self):
         """Test case for flush_expired
 
@@ -131,6 +138,13 @@ class TestInboxControllerApi(unittest.TestCase):
         """Test case for get_all_inboxes_offset_paginated
 
         List All Inboxes Offset Paginated  # noqa: E501
+        """
+        pass
+
+    def test_get_all_plus_addresses(self):
+        """Test case for get_all_plus_addresses
+
+        Get all sub address plus address aliases for an inbox  # noqa: E501
         """
         pass
 
@@ -227,6 +241,48 @@ class TestInboxControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_get_inbox_plus_address(self):
+        """Test case for get_inbox_plus_address
+
+        Get sub address plus address for an inbox  # noqa: E501
+        """
+        pass
+
+    def test_get_inbox_plus_address_by_id(self):
+        """Test case for get_inbox_plus_address_by_id
+
+        Get sub address plus address by ID  # noqa: E501
+        """
+        pass
+
+    def test_get_inbox_plus_address_emails(self):
+        """Test case for get_inbox_plus_address_emails
+
+        Get emails for a given inbox plus address  # noqa: E501
+        """
+        pass
+
+    def test_get_inbox_plus_address_emails_for_plus_address_id(self):
+        """Test case for get_inbox_plus_address_emails_for_plus_address_id
+
+        Get emails for a given inbox plus address  # noqa: E501
+        """
+        pass
+
+    def test_get_inbox_plus_addresses(self):
+        """Test case for get_inbox_plus_addresses
+
+        Get sub address plus address aliases for an inbox  # noqa: E501
+        """
+        pass
+
+    def test_get_inbox_sent_count(self):
+        """Test case for get_inbox_sent_count
+
+        Get sent email count in inbox  # noqa: E501
+        """
+        pass
+
     def test_get_inbox_sent_emails(self):
         """Test case for get_inbox_sent_emails
 
@@ -241,10 +297,24 @@ class TestInboxControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_get_inbox_tags_paginated(self):
+        """Test case for get_inbox_tags_paginated
+
+        Get inbox tags paginated  # noqa: E501
+        """
+        pass
+
     def test_get_inboxes(self):
         """Test case for get_inboxes
 
         List Inboxes and email addresses  # noqa: E501
+        """
+        pass
+
+    def test_get_inboxes_by_tag(self):
+        """Test case for get_inboxes_by_tag
+
+        Get inboxes for a tag  # noqa: E501
         """
         pass
 
@@ -259,6 +329,13 @@ class TestInboxControllerApi(unittest.TestCase):
         """Test case for get_organization_inboxes
 
         List Organization Inboxes Paginated  # noqa: E501
+        """
+        pass
+
+    def test_get_outboxes(self):
+        """Test case for get_outboxes
+
+        List all inboxes with sent emails  # noqa: E501
         """
         pass
 

@@ -9,6 +9,7 @@ _double = float
 _doubleMin0 = float
 _doubleMin0Max1 = float
 _doubleMin0Max2147483647 = float
+_doubleMin1Max10 = float
 _doubleMinNegative59Max0 = float
 _doubleMinNegative60Max3 = float
 _doubleMinNegative60Max6 = float
@@ -3468,14 +3469,14 @@ class AudioDescription(TypedDict, total=False):
 
 
 class FrameRate(TypedDict, total=False):
-    """the calculated frame rate of the asset."""
+    """The frame rate of the video or audio track."""
 
     Denominator: Optional[_integer]
     Numerator: Optional[_integer]
 
 
 class AudioProperties(TypedDict, total=False):
-    """Properties specific to audio tracks."""
+    """Details about the media file's audio track."""
 
     BitDepth: Optional[_integer]
     BitRate: Optional[_integer]
@@ -3613,6 +3614,7 @@ class AutomatedAbrSettings(TypedDict, total=False):
     """
 
     MaxAbrBitrate: Optional[_integerMin100000Max100000000]
+    MaxQualityLevel: Optional[_doubleMin1Max10]
     MaxRenditions: Optional[_integerMin3Max15]
     MinAbrBitrate: Optional[_integerMin100000Max100000000]
     Rules: Optional[_listOfAutomatedAbrRule]
@@ -4260,7 +4262,7 @@ class ColorCorrector(TypedDict, total=False):
 
 
 class VideoProperties(TypedDict, total=False):
-    """Properties specific to video tracks."""
+    """Details about the media file's video track."""
 
     BitDepth: Optional[_integer]
     BitRate: Optional[_integer]
@@ -4273,13 +4275,13 @@ class VideoProperties(TypedDict, total=False):
 
 
 class DataProperties(TypedDict, total=False):
-    """Properties specific to data tracks."""
+    """Details about the media file's data track."""
 
     LanguageCode: Optional[_string]
 
 
 class Track(TypedDict, total=False):
-    """The track information such as codec, duration, etc."""
+    """Details about each track (video, audio, or data) in the media file."""
 
     AudioProperties: Optional[AudioProperties]
     Codec: Optional[Codec]
@@ -4294,7 +4296,10 @@ _listOfTrack = List[Track]
 
 
 class Container(TypedDict, total=False):
-    """Information about the container format of the media file."""
+    """The container of your media file. This information helps you understand
+    the overall structure and details of your media, including format,
+    duration, and track layout.
+    """
 
     Duration: Optional[_double]
     Format: Optional[Format]
@@ -6288,7 +6293,7 @@ _long = int
 
 
 class Metadata(TypedDict, total=False):
-    """Metadata about the file."""
+    """Metadata and other file information."""
 
     ETag: Optional[_string]
     FileSize: Optional[_long]
@@ -6313,7 +6318,7 @@ _listOf__integer = List[_integer]
 
 
 class TrackMapping(TypedDict, total=False):
-    """Track mapping information."""
+    """An array containing track mapping information."""
 
     AudioTrackIndexes: Optional[_listOf__integer]
     DataTrackIndexes: Optional[_listOf__integer]
@@ -6324,7 +6329,7 @@ _listOfTrackMapping = List[TrackMapping]
 
 
 class ProbeResult(TypedDict, total=False):
-    """The metadata and analysis results for a media file."""
+    """Probe results for your media file."""
 
     Container: Optional[Container]
     Metadata: Optional[Metadata]
@@ -6974,11 +6979,13 @@ class MediaconvertApi:
     def probe(
         self, context: RequestContext, input_files: _listOfProbeInputFile = None, **kwargs
     ) -> ProbeResponse:
-        """The Probe operation analyzes the provided media file and returns
-        comprehensive metadata about its container format, tracks, and any
-        encountered errors.
+        """Use Probe to obtain detailed information about your input media files.
+        Probe returns a JSON that includes container, codec, frame rate,
+        resolution, track count, audio layout, captions, and more. You can use
+        this information to learn more about your media files, or to help make
+        decisions while automating your transcoding workflow.
 
-        :param input_files: The list of input media files to be probed.
+        :param input_files: Specify a media file to probe.
         :returns: ProbeResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:

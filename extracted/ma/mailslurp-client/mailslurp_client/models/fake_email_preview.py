@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -38,6 +38,7 @@ class FakeEmailPreview(object):
         'email_address': 'str',
         'sender': 'Sender',
         'recipients': 'EmailRecipients',
+        'has_attachments': 'bool',
         'subject': 'str',
         'preview': 'str',
         'created_at': 'datetime',
@@ -49,13 +50,14 @@ class FakeEmailPreview(object):
         'email_address': 'emailAddress',
         'sender': 'sender',
         'recipients': 'recipients',
+        'has_attachments': 'hasAttachments',
         'subject': 'subject',
         'preview': 'preview',
         'created_at': 'createdAt',
         'seen': 'seen'
     }
 
-    def __init__(self, id=None, email_address=None, sender=None, recipients=None, subject=None, preview=None, created_at=None, seen=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, email_address=None, sender=None, recipients=None, has_attachments=None, subject=None, preview=None, created_at=None, seen=None, local_vars_configuration=None):  # noqa: E501
         """FakeEmailPreview - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class FakeEmailPreview(object):
         self._email_address = None
         self._sender = None
         self._recipients = None
+        self._has_attachments = None
         self._subject = None
         self._preview = None
         self._created_at = None
@@ -75,6 +78,7 @@ class FakeEmailPreview(object):
         self.email_address = email_address
         self.sender = sender
         self.recipients = recipients
+        self.has_attachments = has_attachments
         if subject is not None:
             self.subject = subject
         if preview is not None:
@@ -169,6 +173,29 @@ class FakeEmailPreview(object):
         """
 
         self._recipients = recipients
+
+    @property
+    def has_attachments(self):
+        """Gets the has_attachments of this FakeEmailPreview.  # noqa: E501
+
+
+        :return: The has_attachments of this FakeEmailPreview.  # noqa: E501
+        :rtype: bool
+        """
+        return self._has_attachments
+
+    @has_attachments.setter
+    def has_attachments(self, has_attachments):
+        """Sets the has_attachments of this FakeEmailPreview.
+
+
+        :param has_attachments: The has_attachments of this FakeEmailPreview.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and has_attachments is None:  # noqa: E501
+            raise ValueError("Invalid value for `has_attachments`, must not be `None`")  # noqa: E501
+
+        self._has_attachments = has_attachments
 
     @property
     def subject(self):

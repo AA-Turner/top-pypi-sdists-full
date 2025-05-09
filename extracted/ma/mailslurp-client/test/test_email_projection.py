@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -37,40 +37,73 @@ class TestEmailProjection(unittest.TestCase):
         # model = mailslurp_client.models.email_projection.EmailProjection()  # noqa: E501
         if include_optional :
             return EmailProjection(
-                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                sender = mailslurp_client.models.sender.Sender(
+                    raw_value = '0', 
+                    email_address = '0', 
+                    name = '0', ), 
+                recipients = mailslurp_client.models.email_recipients.EmailRecipients(
+                    to = [
+                        mailslurp_client.models.recipient.Recipient(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', )
+                        ], 
+                    cc = [
+                        mailslurp_client.models.recipient.Recipient(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', )
+                        ], 
+                    bcc = [
+                        mailslurp_client.models.recipient.Recipient(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', )
+                        ], ), 
                 attachments = [
                     '0'
                     ], 
                 inbox_id = '0', 
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                 to = [
-                    '0'
-                    ], 
-                domain_id = '0', 
-                bcc = [
                     '0'
                     ], 
                 cc = [
                     '0'
                     ], 
+                bcc = [
+                    '0'
+                    ], 
+                message_id = '0', 
+                domain_id = '0', 
+                favourite = True, 
+                in_reply_to = '0', 
+                plus_address = '0', 
+                size_bytes = 56, 
                 read = True, 
                 body_excerpt = '0', 
-                team_access = True, 
-                body_md5_hash = '0', 
                 text_excerpt = '0', 
+                body_part_content_types = [
+                    '0'
+                    ], 
+                body_md5_hash = '0', 
+                team_access = True, 
                 subject = '0', 
                 id = '0', 
+                thread_id = '0', 
                 _from = '0'
             )
         else :
             return EmailProjection(
-                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 inbox_id = '0',
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 to = [
                     '0'
                     ],
                 read = True,
                 team_access = True,
                 id = '0',
+                _from = '0',
         )
 
     def testEmailProjection(self):

@@ -71,8 +71,8 @@ def odps_type_to_arrow_type(odps_type):
                 odps_type_to_arrow_type(odps_type.value_type),
             )
         elif isinstance(odps_type, types.Decimal):
-            precision = odps_type.precision or types.Decimal._max_precision
-            scale = odps_type.scale or types.Decimal._max_scale
+            precision = odps_type.precision or types.Decimal._default_precision
+            scale = odps_type.scale or types.Decimal._default_scale
             if odps_type.precision is None and not hasattr(pa, "decimal256"):
                 # need to be less than minimal allowed digits of pa.decimal128
                 precision = min(precision, 38)
@@ -104,6 +104,10 @@ def odps_schema_to_arrow_schema(odps_schema):
 def arrow_type_to_odps_type(arrow_type):
     from ... import types
 
+    arrow_decimal_types = (pa.Decimal128Type,)
+    if hasattr(pa, "Decimal256Type"):
+        arrow_decimal_types += (pa.Decimal256Type,)
+
     if arrow_type in _ARROW_TO_ODPS_TYPE:
         col_type = _ARROW_TO_ODPS_TYPE[arrow_type]
     else:
@@ -114,17 +118,14 @@ def arrow_type_to_odps_type(arrow_type):
                 arrow_type_to_odps_type(arrow_type.key_type),
                 arrow_type_to_odps_type(arrow_type.item_type),
             )
-        elif isinstance(arrow_type, (pa.Decimal128Type, pa.Decimal256Type)):
-            precision = arrow_type.precision or types.Decimal._max_precision
-            scale = arrow_type.scale or types.Decimal._max_scale
+        elif isinstance(arrow_type, arrow_decimal_types):
+            precision = arrow_type.precision or types.Decimal._default_precision
+            scale = arrow_type.scale or types.Decimal._default_scale
             col_type = types.Decimal(precision, scale)
         elif isinstance(arrow_type, pa.StructType):
             fields = [
-                (
-                    arrow_type.field(idx).name,
-                    arrow_type_to_odps_type(arrow_type.field(idx).type),
-                )
-                for idx in arrow_type.num_fields
+                (arrow_type[idx].name, arrow_type_to_odps_type(arrow_type[idx].type))
+                for idx in range(arrow_type.num_fields)
             ]
             col_type = types.Struct(fields)
         else:

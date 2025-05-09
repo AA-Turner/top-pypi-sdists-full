@@ -62,7 +62,14 @@ class Column(object):
     """
 
     def __init__(
-        self, name=None, typo=None, comment=None, label=None, nullable=True, **kw
+        self,
+        name=None,
+        typo=None,
+        comment=None,
+        label=None,
+        nullable=True,
+        generate_expression=None,
+        **kw
     ):
         self.name = utils.to_str(name)
         self.type = validate_data_type(
@@ -73,6 +80,10 @@ class Column(object):
             warnings.warn("label is deprecated.", DeprecationWarning)
         self.label = label
         self.nullable = nullable
+
+        self._generate_expression = generate_expression
+        self._parsed_generate_expression = None
+
         if kw:
             raise TypeError("Arguments not supported for Column: %s" % list(kw))
 
@@ -83,17 +94,80 @@ class Column(object):
         )
 
     def __hash__(self):
-        return hash((type(self), self.name, self.type, self.comment, self.label))
+        return hash(
+            (
+                type(self),
+                self.name,
+                self.type,
+                self.comment,
+                self.label,
+                self.nullable,
+                self._generate_expression,
+            )
+        )
+
+    def __eq__(self, other):
+        return self is other or all(
+            getattr(self, attr, None) == getattr(other, attr, None)
+            for attr in (
+                "name",
+                "type",
+                "comment",
+                "label",
+                "nullable",
+                "_generate_expression",
+            )
+        )
+
+    @property
+    def generate_expression(self):
+        from .expressions import parse as parse_expression
+
+        if not self._generate_expression:
+            return None
+        if not self._parsed_generate_expression:
+            try:
+                self._parsed_generate_expression = parse_expression(
+                    self._generate_expression
+                )
+            except (SyntaxError, ValueError):
+                self._parsed_generate_expression = self._generate_expression
+        return self._parsed_generate_expression
 
     def to_sql_clause(self, with_column_comments=True):
         sio = six.StringIO()
-        sio.write(u"  `%s` %s" % (utils.to_text(self.name), utils.to_text(self.type)))
-        if not self.nullable and not options.sql.ignore_fields_not_null:
-            sio.write(u" NOT NULL")
+        if self.generate_expression:
+            sio.write(
+                u"  %s AS `%s`" % (utils.to_text(self.generate_expression), self.name)
+            )
+        else:
+            sio.write(
+                u"  `%s` %s" % (utils.to_text(self.name), utils.to_text(self.type))
+            )
+            if not self.nullable and not options.sql.ignore_fields_not_null:
+                sio.write(u" NOT NULL")
         if with_column_comments and self.comment:
             comment_str = utils.escape_odps_string(utils.to_text(self.comment))
             sio.write(u" COMMENT '%s'" % comment_str)
         return sio.getvalue()
+
+    def replace(
+        self,
+        name=None,
+        type=None,
+        comment=None,
+        label=None,
+        nullable=None,
+        generate_expression=None,
+    ):
+        return Column(
+            name=name or self.name,
+            typo=type or self.type,
+            comment=comment or self.comment,
+            label=label or self.label,
+            nullable=nullable or self.nullable,
+            generate_expression=generate_expression or self._generate_expression,
+        )
 
 
 class Partition(Column):
@@ -212,10 +286,11 @@ class Schema(object):
         self.names = names
         self.types = [validate_data_type(t) for t in types]
 
-        self._name_indexes = {n: i for i, n in enumerate(self.names)}
+        lower_names = [utils.to_lower_str(n) for n in self.names]
+        self._name_indexes = {n: i for i, n in enumerate(lower_names)}
 
         if len(self._name_indexes) < len(self.names):
-            duplicates = [n for n in self._name_indexes if self.names.count(n) > 1]
+            duplicates = [n for n in self._name_indexes if lower_names.count(n) > 1]
             raise ValueError("Duplicate column names: %s" % ", ".join(duplicates))
 
         self._snapshot = None
@@ -227,7 +302,7 @@ class Schema(object):
         return len(self.names)
 
     def __contains__(self, name):
-        return utils.to_str(name) in self._name_indexes
+        return utils.to_lower_str(name) in self._name_indexes
 
     def _repr(self):
         buf = six.StringIO()
@@ -247,7 +322,7 @@ class Schema(object):
         return self.names == other.names and self.types == self.types
 
     def get_type(self, name):
-        return self.types[self._name_indexes[utils.to_str(name)]]
+        return self.types[self._name_indexes[utils.to_lower_str(name)]]
 
     def append(self, name, typo):
         names = self.names + [name]
@@ -328,12 +403,12 @@ class OdpsSchema(Schema):
             else:
                 raise IndexError("Index out of range")
         elif isinstance(item, six.string_types):
-            item = utils.to_str(item)
-            if item in self._name_indexes:
-                idx = self._name_indexes[item]
+            lower_item = utils.to_lower_str(item)
+            if lower_item in self._name_indexes:
+                idx = self._name_indexes[lower_item]
                 return self[idx]
             elif item in self._partition_schema:
-                idx = self._partition_schema._name_indexes[item]
+                idx = self._partition_schema._name_indexes[lower_item]
                 n_columns = len(self._name_indexes)
                 return self[n_columns + idx]
             else:
@@ -343,7 +418,10 @@ class OdpsSchema(Schema):
         else:
             return self.columns[item]
 
-    def _repr(self):
+    def _repr(self, strip=True):
+        def _strip(line):
+            return line.rstrip() if strip else line
+
         buf = six.StringIO()
 
         name_dict = dict(
@@ -355,8 +433,10 @@ class OdpsSchema(Schema):
                 for k, v in six.iteritems(name_dict)
             ]
         )
-        name_space = 2 * max(six.itervalues(name_display_lens))
-        type_space = 2 * max(len(repr(col.type)) for col in self.columns)
+        max_name_len = max(six.itervalues(name_display_lens))
+        name_space = max_name_len + min(16, max_name_len)
+        max_type_len = max(len(repr(col.type)) for col in self.columns)
+        type_space = max_type_len + min(16, max_type_len)
         has_not_null = any(not col.nullable for col in self.columns)
 
         not_empty = lambda field: field is not None and len(field.strip()) > 0
@@ -366,16 +446,15 @@ class OdpsSchema(Schema):
         for col in self._columns:
             pad_spaces = name_space - name_display_lens[col.name]
             not_null = "not null" if not col.nullable else " " * 8
-            cols_strs.append(
-                "{0}{1}{2}{3}".format(
-                    utils.to_str(name_dict[col.name] + " " * pad_spaces),
-                    repr(col.type).ljust(type_space),
-                    not_null + " " * 4 if has_not_null else "",
-                    "# {0}".format(utils.to_str(col.comment))
-                    if not_empty(col.comment)
-                    else "",
-                )
+            row = "{0}{1}{2}{3}".format(
+                utils.to_str(name_dict[col.name] + " " * pad_spaces),
+                repr(col.type).ljust(type_space),
+                not_null + " " * 4 if has_not_null else "",
+                "# {0}".format(utils.to_str(col.comment))
+                if not_empty(col.comment)
+                else "",
             )
+            cols_strs.append(_strip(row))
         buf.write(utils.indent("\n".join(cols_strs), 2))
         buf.write("\n")
         buf.write("}\n")
@@ -385,15 +464,14 @@ class OdpsSchema(Schema):
 
             partition_strs = []
             for partition in self._partitions:
-                partition_strs.append(
-                    "{0}{1}{2}".format(
-                        utils.to_str(name_dict[partition.name].ljust(name_space)),
-                        repr(partition.type).ljust(type_space),
-                        "# {0}".format(utils.to_str(partition.comment))
-                        if not_empty(partition.comment)
-                        else "",
-                    )
+                row = "{0}{1}{2}".format(
+                    utils.to_str(name_dict[partition.name].ljust(name_space)),
+                    repr(partition.type).ljust(type_space),
+                    "# {0}".format(utils.to_str(partition.comment))
+                    if not_empty(partition.comment)
+                    else "",
                 )
+                partition_strs.append(_strip(row))
             buf.write(utils.indent("\n".join(partition_strs), 2))
             buf.write("\n")
             buf.write("}\n")
@@ -444,13 +522,13 @@ class OdpsSchema(Schema):
         return self._partitions
 
     def get_column(self, name):
-        index = self._name_indexes.get(utils.to_str(name))
+        index = self._name_indexes.get(utils.to_lower_str(name))
         if index is None:
             raise ValueError("Column %s does not exists" % name)
         return self._columns[index]
 
     def get_partition(self, name):
-        index = self._partition_schema._name_indexes.get(utils.to_str(name))
+        index = self._partition_schema._name_indexes.get(utils.to_lower_str(name))
         if index is None:
             raise ValueError("Partition %s does not exists" % name)
         return self._partitions[index]
@@ -460,12 +538,13 @@ class OdpsSchema(Schema):
             name = name.name
         except AttributeError:
             pass
-        return name in self._partition_schema._name_indexes
+        return utils.to_lower_str(name) in self._partition_schema._name_indexes
 
     def get_type(self, name):
-        if name in self._name_indexes:
+        lower_name = utils.to_lower_str(name)
+        if lower_name in self._name_indexes:
             return super(OdpsSchema, self).get_type(name)
-        elif name in self._partition_schema:
+        elif lower_name in self._partition_schema:
             return self._partition_schema.get_type(name)
         raise ValueError("Column does not exist: %s" % name)
 
@@ -583,9 +662,13 @@ class BaseRecord(object):
     __slots__ = "_values", "_columns", "_name_indexes", "_max_field_size"
 
     def __init__(self, columns=None, schema=None, values=None, max_field_size=None):
+        if isinstance(columns, Schema):
+            schema, columns = columns, None
         if columns is not None:
             self._columns = columns
-            self._name_indexes = {col.name: i for i, col in enumerate(self._columns)}
+            self._name_indexes = {
+                col.name.lower(): i for i, col in enumerate(self._columns)
+            }
         else:
             self._columns = schema.columns
             self._name_indexes = schema._name_indexes
@@ -653,18 +736,18 @@ class BaseRecord(object):
             object.__setattr__(self, key, value)
 
     def get_by_name(self, name):
-        i = self._name_indexes[name]
+        i = self._name_indexes[utils.to_lower_str(name)]
         return self._values[i]
 
     def set_by_name(self, name, value):
-        i = self._name_indexes[name]
+        i = self._name_indexes[utils.to_lower_str(name)]
         self._set(i, value)
 
     def __len__(self):
         return len(self._columns)
 
     def __contains__(self, item):
-        return item in self._name_indexes
+        return utils.to_lower_str(item) in self._name_indexes
 
     def __iter__(self):
         for i, col in enumerate(self._columns):
@@ -955,6 +1038,17 @@ class Double(BaseFloat):
     _type_id = 1
 
 
+def _check_string_byte_size(val, max_size):
+    if isinstance(val, six.binary_type):
+        byt_len = len(val)
+    else:
+        byt_len = 4 * len(val)
+        if byt_len > max_size:
+            # encode only when necessary
+            byt_len = len(utils.to_binary(val))
+    return byt_len <= max_size, byt_len
+
+
 @_primitive_doc(is_odps2=False)
 class String(OdpsPrimitive):
     __slots__ = ()
@@ -974,11 +1068,12 @@ class String(OdpsPrimitive):
         if val is None and self.nullable:
             return True
         max_field_size = max_field_size or self._max_length
-        if len(val) <= max_field_size:
+        valid, byt_len = _check_string_byte_size(val, max_field_size)
+        if valid:
             return True
         raise ValueError(
-            "InvalidData: Length of string(%s) is more than %sM.'"
-            % (val, max_field_size / (1024**2))
+            "InvalidData: Byte length of string(%s) is more than %sM.'"
+            % (byt_len, max_field_size / (1024**2))
         )
 
     def cast_value(self, value, data_type):
@@ -1081,11 +1176,12 @@ class Binary(OdpsPrimitive):
         if val is None and self.nullable:
             return True
         max_field_size = max_field_size or self._max_length
-        if len(val) <= max_field_size:
+        valid, byt_len = _check_string_byte_size(val, max_field_size)
+        if valid:
             return True
         raise ValueError(
-            "InvalidData: Length of binary(%s) is more than %sM.'"
-            % (val, max_field_size / (1024**2))
+            "InvalidData: Byte length of binary(%s) is more than %sM.'"
+            % (byt_len, max_field_size / (1024**2))
         )
 
     def cast_value(self, value, data_type):
@@ -1238,9 +1334,14 @@ class SizeLimitedString(String, CompositeDataType):
         if val is None and self.nullable:
             return True
         if len(val) <= self.size_limit:
+            # binary size >= unicode size
             return True
+        elif isinstance(val, six.binary_type):
+            val = val.decode("utf-8")
+            if len(val) <= self.size_limit:
+                return True
         raise ValueError(
-            "InvalidData: Length of string(%d) is more than %sM.'"
+            "InvalidData: Length of string(%d) is more than %s.'"
             % (len(val), self.size_limit)
         )
 
@@ -1356,29 +1457,26 @@ class Decimal(CompositeDataType):
 
     _has_other_decimal_type = len(DECIMAL_TYPES) > 1
 
-    _max_precision = 54
-    _max_scale = 18
-    _decimal_ctx = _decimal.Context(prec=_max_precision)
+    _default_precision = 54
+    _default_scale = 18
+    _decimal_ctx = _decimal.Context(prec=_default_precision)
 
     def __init__(self, precision=None, scale=None, nullable=True):
         super(Decimal, self).__init__(nullable=nullable)
-        if precision and precision > self._max_precision:
-            raise ValueError(
-                "InvalidData: Precision(%d) is larger than %d."
-                % (precision, self._max_precision)
-            )
-        if scale and scale > self._max_scale:
-            raise ValueError(
-                "InvalidData: Scale(%d) is larger than %d." % (scale, self._max_scale)
-            )
         if precision is None and scale is not None:
             raise ValueError(
                 "InvalidData: Scale should be provided along with precision."
             )
+        if precision is not None and precision < 1:
+            raise ValueError("InvalidData: Decimal precision < 1")
+        if precision is not None and scale is not None and scale > precision:
+            raise ValueError(
+                "InvalidData: Decimal precision must be larger than or equal to scale"
+            )
         self.precision = precision
         self.scale = scale
         self._scale_decimal = _decimal.Decimal(
-            "1e%d" % -(scale if scale is not None else self._max_scale)
+            "1e%d" % -(scale if scale is not None else self._default_scale)
         )
 
     @property
@@ -1427,9 +1525,9 @@ class Decimal(CompositeDataType):
             val = _decimal.Decimal(str(val))
 
         precision = (
-            self.precision if self.precision is not None else self._max_precision
+            self.precision if self.precision is not None else self._default_precision
         )
-        scale = self.scale if self.scale is not None else self._max_scale
+        scale = self.scale if self.scale is not None else self._default_scale
         scaled_val = val.quantize(
             self._scale_decimal, _decimal.ROUND_HALF_UP, self._decimal_ctx
         )
@@ -1691,13 +1789,17 @@ class Struct(CompositeDataType):
 
         self._struct_as_dict = options.struct_as_dict
         if self._struct_as_dict:
+            self._use_ordered_dict = options.struct_as_ordered_dict
+            if self._use_ordered_dict is None:
+                self._use_ordered_dict = sys.version_info[:2] <= (3, 6)
             warnings.warn(
                 "Representing struct values as dicts is now deprecated. Try config "
                 "`options.struct_as_dict=False` and return structs as named tuples "
                 "instead.",
                 DeprecationWarning,
             )
-            utils.add_survey_call("options.struct_as_dict")
+        else:
+            self._use_ordered_dict = False
 
     @property
     def name(self):
@@ -1714,7 +1816,7 @@ class Struct(CompositeDataType):
             isinstance(other, Struct)
             and len(self.field_types) == len(other.field_types)
             and all(
-                self.field_types[k] == other.field_types[k]
+                self.field_types[k] == other.field_types.get(k)
                 for k in six.iterkeys(self.field_types)
             )
         )
@@ -1758,11 +1860,12 @@ class Struct(CompositeDataType):
         if value is None and self.nullable:
             return value
         if self._struct_as_dict:
+            dict_hook = OrderedDict if self._use_ordered_dict else dict
             if isinstance(value, tuple):
                 fields = getattr(value, "_fields", None) or self.field_types.keys()
-                value = OrderedDict(compat.izip(fields, value))
+                value = dict_hook(compat.izip(fields, value))
             if isinstance(value, dict):
-                return OrderedDict(
+                return dict_hook(
                     (validate_value(k, string), validate_value(value[k], tp))
                     for k, tp in six.iteritems(self.field_types)
                 )

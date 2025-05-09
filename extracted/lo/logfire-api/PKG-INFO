@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: logfire-api
-Version: 3.14.1
+Version: 3.15.0
 Summary: Shim for the Logfire SDK which does nothing unless Logfire is installed
 Author-email: Pydantic Team <engineering@pydantic.dev>, Samuel Colvin <samuel@pydantic.dev>, Hasan Ramezani <hasan@pydantic.dev>, Adrian Garcia Badaracco <adrian@pydantic.dev>, David Montague <david@pydantic.dev>, Marcelo Trylesinski <marcelo@pydantic.dev>, David Hewitt <david.hewitt@pydantic.dev>, Alex Hall <alex@pydantic.dev>
 License-Expression: MIT

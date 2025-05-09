@@ -31,7 +31,10 @@ DRIVERS = {
     ".geojsonl": "GeoJSONSeq",
     ".geojsons": "GeoJSONSeq",
     ".gpkg": "GPKG",
+    ".gpkg.zip": "GPKG",
     ".shp": "ESRI Shapefile",
+    ".shp.zip": "ESRI Shapefile",
+    ".shz": "ESRI Shapefile",
 }
 
 # mapping of driver name to extension
@@ -121,6 +124,11 @@ def naturalearth_lowres(tmp_path, request):
 
 @pytest.fixture(scope="function", params=ALL_EXTS)
 def naturalearth_lowres_all_ext(tmp_path, naturalearth_lowres, request):
+    return prepare_testfile(naturalearth_lowres, tmp_path, request.param)
+
+
+@pytest.fixture(scope="function", params=[".geojson"])
+def naturalearth_lowres_geojson(tmp_path, naturalearth_lowres, request):
     return prepare_testfile(naturalearth_lowres, tmp_path, request.param)
 
 

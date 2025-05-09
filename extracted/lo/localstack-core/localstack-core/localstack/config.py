@@ -605,7 +605,7 @@ class HostAndPort:
     def is_unprivileged(self) -> bool:
         return self.port >= self._get_unprivileged_port_range_start()
 
-    def host_and_port(self):
+    def host_and_port(self) -> str:
         formatted_host = f"[{self.host}]" if is_ipv6_address(self.host) else self.host
         return f"{formatted_host}:{self.port}" if self.port is not None else formatted_host
 
@@ -1089,10 +1089,8 @@ LAMBDA_EVENT_SOURCE_MAPPING_MAX_BACKOFF_ON_EMPTY_POLL_SEC = float(
     os.environ.get("LAMBDA_EVENT_SOURCE_MAPPING_MAX_BACKOFF_ON_EMPTY_POLL_SEC") or 10
 )
 
-# Adding Stepfunctions default port
-LOCAL_PORT_STEPFUNCTIONS = int(os.environ.get("LOCAL_PORT_STEPFUNCTIONS") or 8083)
-# Stepfunctions lambda endpoint override
-STEPFUNCTIONS_LAMBDA_ENDPOINT = os.environ.get("STEPFUNCTIONS_LAMBDA_ENDPOINT", "").strip()
+# Specifies the path to the mock configuration file for Step Functions, commonly named MockConfigFile.json.
+SFN_MOCK_CONFIG = os.environ.get("SFN_MOCK_CONFIG", "").strip()
 
 # path prefix for windows volume mounting
 WINDOWS_DOCKER_MOUNT_PREFIX = os.environ.get("WINDOWS_DOCKER_MOUNT_PREFIX", "/host_mnt")
@@ -1364,7 +1362,6 @@ CONFIG_ENV_VARS = [
     "SQS_ENDPOINT_STRATEGY",
     "SQS_DISABLE_CLOUDWATCH_METRICS",
     "SQS_CLOUDWATCH_METRICS_REPORT_INTERVAL",
-    "STEPFUNCTIONS_LAMBDA_ENDPOINT",
     "STRICT_SERVICE_LOADING",
     "TF_COMPAT_MODE",
     "USE_SSL",

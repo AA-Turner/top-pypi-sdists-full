@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -37,18 +37,18 @@ class InboxForwarderControllerApi(object):
             api_client = ApiClient()
         self.api_client = api_client
 
-    def create_new_inbox_forwarder(self, inbox_id, create_inbox_forwarder_options, **kwargs):  # noqa: E501
+    def create_new_inbox_forwarder(self, create_inbox_forwarder_options, **kwargs):  # noqa: E501
         """Create an inbox forwarder  # noqa: E501
 
         Create a new inbox rule for forwarding, blocking, and allowing emails when sending and receiving  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.create_new_inbox_forwarder(inbox_id, create_inbox_forwarder_options, async_req=True)
+        >>> thread = api.create_new_inbox_forwarder(create_inbox_forwarder_options, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param str inbox_id: Inbox id to attach forwarder to (required)
         :param CreateInboxForwarderOptions create_inbox_forwarder_options: (required)
+        :param str inbox_id: Inbox id to attach forwarder to
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -61,20 +61,20 @@ class InboxForwarderControllerApi(object):
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
-        return self.create_new_inbox_forwarder_with_http_info(inbox_id, create_inbox_forwarder_options, **kwargs)  # noqa: E501
+        return self.create_new_inbox_forwarder_with_http_info(create_inbox_forwarder_options, **kwargs)  # noqa: E501
 
-    def create_new_inbox_forwarder_with_http_info(self, inbox_id, create_inbox_forwarder_options, **kwargs):  # noqa: E501
+    def create_new_inbox_forwarder_with_http_info(self, create_inbox_forwarder_options, **kwargs):  # noqa: E501
         """Create an inbox forwarder  # noqa: E501
 
         Create a new inbox rule for forwarding, blocking, and allowing emails when sending and receiving  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.create_new_inbox_forwarder_with_http_info(inbox_id, create_inbox_forwarder_options, async_req=True)
+        >>> thread = api.create_new_inbox_forwarder_with_http_info(create_inbox_forwarder_options, async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
-        :param str inbox_id: Inbox id to attach forwarder to (required)
         :param CreateInboxForwarderOptions create_inbox_forwarder_options: (required)
+        :param str inbox_id: Inbox id to attach forwarder to
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -92,8 +92,8 @@ class InboxForwarderControllerApi(object):
         local_var_params = locals()
 
         all_params = [
-            'inbox_id',
-            'create_inbox_forwarder_options'
+            'create_inbox_forwarder_options',
+            'inbox_id'
         ]
         all_params.extend(
             [
@@ -112,10 +112,6 @@ class InboxForwarderControllerApi(object):
                 )
             local_var_params[key] = val
         del local_var_params['kwargs']
-        # verify the required parameter 'inbox_id' is set
-        if self.api_client.client_side_validation and ('inbox_id' not in local_var_params or  # noqa: E501
-                                                        local_var_params['inbox_id'] is None):  # noqa: E501
-            raise ApiValueError("Missing the required parameter `inbox_id` when calling `create_new_inbox_forwarder`")  # noqa: E501
         # verify the required parameter 'create_inbox_forwarder_options' is set
         if self.api_client.client_side_validation and ('create_inbox_forwarder_options' not in local_var_params or  # noqa: E501
                                                         local_var_params['create_inbox_forwarder_options'] is None):  # noqa: E501
@@ -393,6 +389,8 @@ class InboxForwarderControllerApi(object):
         :param int page: Optional page index in inbox forwarder event list pagination
         :param int size: Optional page size in inbox forwarder event list pagination
         :param str inbox_id: Optional inbox ID to filter for
+        :param str email_id: Optional email ID to filter for
+        :param str sent_id: Optional sent ID to filter for
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
@@ -421,6 +419,8 @@ class InboxForwarderControllerApi(object):
         :param int page: Optional page index in inbox forwarder event list pagination
         :param int size: Optional page size in inbox forwarder event list pagination
         :param str inbox_id: Optional inbox ID to filter for
+        :param str email_id: Optional email ID to filter for
+        :param str sent_id: Optional sent ID to filter for
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param _return_http_data_only: response data without head status code
                                        and headers
@@ -442,6 +442,8 @@ class InboxForwarderControllerApi(object):
             'page',
             'size',
             'inbox_id',
+            'email_id',
+            'sent_id',
             'sort'
         ]
         all_params.extend(
@@ -473,6 +475,10 @@ class InboxForwarderControllerApi(object):
             query_params.append(('size', local_var_params['size']))  # noqa: E501
         if 'inbox_id' in local_var_params and local_var_params['inbox_id'] is not None:  # noqa: E501
             query_params.append(('inboxId', local_var_params['inbox_id']))  # noqa: E501
+        if 'email_id' in local_var_params and local_var_params['email_id'] is not None:  # noqa: E501
+            query_params.append(('emailId', local_var_params['email_id']))  # noqa: E501
+        if 'sent_id' in local_var_params and local_var_params['sent_id'] is not None:  # noqa: E501
+            query_params.append(('sentId', local_var_params['sent_id']))  # noqa: E501
         if 'sort' in local_var_params and local_var_params['sort'] is not None:  # noqa: E501
             query_params.append(('sort', local_var_params['sort']))  # noqa: E501
 

@@ -106,9 +106,9 @@ def test_detect_write_driver_unsupported(path):
         detect_write_driver(path)
 
 
-@pytest.mark.parametrize("path", ["test.xml", "test.txt"])
+@pytest.mark.parametrize("path", ["test.xml"])
 def test_detect_write_driver_multiple_unsupported(path):
-    with pytest.raises(ValueError, match="multiple drivers are available"):
+    with pytest.raises(ValueError, match="multiple drivers are available "):
         detect_write_driver(path)
 
 
@@ -286,8 +286,12 @@ def test_read_bounds_negative_skip_features(naturalearth_lowres):
 
 
 def test_read_bounds_where_invalid(naturalearth_lowres_all_ext):
-    with pytest.raises(ValueError, match="Invalid SQL"):
-        read_bounds(naturalearth_lowres_all_ext, where="invalid")
+    if naturalearth_lowres_all_ext.suffix == ".gpkg" and __gdal_version__ >= (3, 11, 0):
+        with pytest.raises(DataLayerError, match="no such column"):
+            read_bounds(naturalearth_lowres_all_ext, where="invalid")
+    else:
+        with pytest.raises(ValueError, match="Invalid SQL"):
+            read_bounds(naturalearth_lowres_all_ext, where="invalid")
 
 
 def test_read_bounds_where(naturalearth_lowres):

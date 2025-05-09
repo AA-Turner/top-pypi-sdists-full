@@ -13,6 +13,7 @@ except ImportError:
     from typing_extensions import Literal  # type: ignore
 
 BUFFER = typing.Union[bytes, bytearray, memoryview]
+IDENTITY_FILTER_PREFERENCE = Literal["conscover", "origorder", "random"]
 
 # --- Alphabet ---------------------------------------------------------------
 
@@ -362,17 +363,12 @@ class MatrixU8(Matrix[int]):
 
 # --- Multiple Sequences Alignment -------------------------------------------
 
-class _MSASequences(typing.Sequence[Sequence], abc.ABC):
-    def __len__(self) -> int: ...
-    @abc.abstractmethod
-    def __getitem__(self, idx: int) -> Sequence: ...  # type: ignore
-
 class MSA(abc.ABC, typing.Sized):
     @abc.abstractmethod
     def __init__(
         self, nsequences: int, length: typing.Optional[int] = None
     ) -> None: ...
-    def __copy__(self) -> MSA: ...
+    def __copy__(self: _M) -> _M: ...
     def __eq__(self, other: object) -> bool: ...
     def __len__(self) -> int: ...
     @property
@@ -393,19 +389,38 @@ class MSA(abc.ABC, typing.Sized):
     def description(self, description: typing.Optional[bytes]) -> None: ...
     @property
     def names(self) -> typing.Tuple[bytes]: ...
+    @property
+    def reference(self) -> typing.Optional[bytes]: ...
+    @reference.setter
+    def reference(self, reference: typing.Optional[bytes]) -> None: ...
+    @property
+    def model_mask(self) -> typing.Optional[bytes]: ...
+    @model_mask.setter
+    def model_mask(self, model_mask: typing.Optional[bytes]) -> None: ...
+    @property
+    def secondary_structure(self) -> typing.Optional[bytes]: ...
+    @secondary_structure.setter
+    def secondary_structure(self, secondary_structure: typing.Optional[bytes]) -> None: ...
+    @property
+    def surface_accessibility(self) -> typing.Optional[bytes]: ...
+    @surface_accessibility.setter
+    def surface_accessibility(self, surface_accessibility: typing.Optional[bytes]) -> None: ...
+    @property
+    def posterior_probabilities(self) -> typing.Optional[bytes]: ...
+    @posterior_probabilities.setter
+    def posterior_probabilities(self, posterior_probabilities: typing.Optional[bytes]) -> None: ...
+    @property
+    def indexed(self) -> typing.Mapping[bytes, Sequence]: ...
     @abc.abstractmethod
-    def copy(self) -> MSA: ...
+    def copy(self: _M) -> _M: ...
     def checksum(self) -> int: ...
+    def select(self: _M, sequences: typing.Optional[typing.Iterable[int]] = None, columns: typing.Optional[typing.Iterable[int]] = None) -> _M: ...
     def write(self, fh: typing.BinaryIO, format: str) -> None: ...
-
-class _TextMSASequences(_MSASequences, typing.Sequence[TextSequence]):
-    def __init__(self, msa: TextMSA) -> None: ...
-    def __getitem__(self, idx: int) -> TextSequence: ...  # type: ignore
-    def __setitem__(self, idx: int, item: TextSequence) -> None: ...
 
 class TextMSA(MSA):
     def __init__(
         self,
+        *,
         name: typing.Optional[bytes] = None,
         description: typing.Optional[bytes] = None,
         accession: typing.Optional[bytes] = None,
@@ -416,20 +431,25 @@ class TextMSA(MSA):
     def copy(self) -> TextMSA: ...
     def digitize(self, alphabet: Alphabet) -> DigitalMSA: ...
     @property
-    def alignment(self) -> typing.Tuple[str]: ...
+    def alignment(self) -> typing.Sequence[str]: ...
     @property
-    def sequences(self) -> _TextMSASequences: ...
-
-class _DigitalMSASequences(_MSASequences, typing.Sequence[DigitalSequence]):
-    alphabet: Alphabet
-    def __init__(self, msa: DigitalMSA) -> None: ...
-    def __getitem__(self, idx: int) -> DigitalSequence: ...  # type: ignore
-    def __setitem__(self, idx: int, item: DigitalSequence) -> None: ...
+    def sequences(self) -> typing.Sequence[TextSequence]: ...
+    @property
+    def indexed(self) -> typing.Mapping[bytes, TextSequence]: ...
 
 class DigitalMSA(MSA):
     alphabet: Alphabet
+    @classmethod
+    def sample(
+        cls,
+        alphabet: Alphabet,
+        max_sequences: int,
+        max_length: int,
+        randomness: typing.Union[Randomness, int, None] = None,
+    ) -> DigitalMSA: ...
     def __init__(
         self,
+        *,
         alphabet: Alphabet,
         name: typing.Optional[bytes] = None,
         description: typing.Optional[bytes] = None,
@@ -441,7 +461,25 @@ class DigitalMSA(MSA):
     def copy(self) -> DigitalMSA: ...
     def textize(self) -> TextMSA: ...
     @property
-    def sequences(self) -> _DigitalMSASequences: ...
+    def alignment(self) -> typing.Sequence[VectorU8]: ...
+    @property
+    def sequences(self) -> typing.Sequence[DigitalSequence]: ...
+    @property
+    def indexed(self) -> typing.Mapping[bytes, DigitalSequence]: ...
+    def identity_filter(
+        self,
+        max_identity: float = 0.8,
+        *,
+        fragment_threshold: float = 0.5,
+        consensus_fraction: float = 0.5,
+        ignore_rf: bool = False,
+        sample: bool = True,
+        sample_threshold: int = 50000,
+        sample_count: int = 10000,
+        max_fragments: int = 5000,
+        seed: int = 42,
+        preference: IDENTITY_FILTER_PREFERENCE = "conscover",
+    ) -> DigitalMSA: ...
 
 # --- MSA File ---------------------------------------------------------------
 
@@ -547,8 +585,15 @@ class Sequence(typing.Sized, abc.ABC):
     def reverse_complement(self, inplace: Literal[False] = False) -> Sequence: ...
 
 class TextSequence(Sequence):
+    @classmethod
+    def sample(
+        cls,
+        max_length: int,
+        randomness: typing.Union[Randomness, int, None] = None,
+    ) -> TextSequence: ...
     def __init__(
         self,
+        *,
         name: typing.Optional[bytes] = None,
         description: typing.Optional[bytes] = None,
         accession: typing.Optional[bytes] = None,
@@ -571,9 +616,17 @@ class TextSequence(Sequence):
 
 class DigitalSequence(Sequence):
     alphabet: Alphabet
+    @classmethod
+    def sample(
+        cls,
+        alphabet: Alphabet,
+        max_length: int,
+        randomness: typing.Union[Randomness, int, None] = None,
+    ) -> DigitalSequence: ...
     def __init__(
         self,
         alphabet: Alphabet,
+        *,
         name: typing.Optional[bytes] = None,
         description: typing.Optional[bytes] = None,
         accession: typing.Optional[bytes] = None,
@@ -620,6 +673,8 @@ class SequenceBlock(typing.Generic[S], typing.MutableSequence[S]):
     def __contains__(self, item: object) -> bool: ...
     def __eq__(self, other: object) -> bool: ...
     def __copy__(self: B) -> B: ...
+    @property
+    def indexed(self) -> typing.Mapping[bytes, S]: ...
     def clear(self) -> None: ...
     def append(self, sequence: S) -> None: ...
     def extend(self, iterable: typing.Iterable[S]) -> None: ...
@@ -700,7 +755,7 @@ class SequenceFile(typing.Generic[S], typing.ContextManager[SequenceFile[S]], ty
         self: SequenceFile[TextSequence],
         sequences: typing.Optional[int] = None,
         residues: typing.Optional[int] = None,
-    ) -> TextSequenceBlock: ... 
+    ) -> TextSequenceBlock: ...
     @typing.overload
     def read_block(
         self: SequenceFile[DigitalSequence],

@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,8 +34,8 @@ class BounceRecipientProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
         'sent_email_id': 'str',
+        'created_at': 'datetime',
         'recipient': 'str',
         'bounce_type': 'str',
         'action': 'str',
@@ -44,8 +44,8 @@ class BounceRecipientProjection(object):
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
         'sent_email_id': 'sentEmailId',
+        'created_at': 'createdAt',
         'recipient': 'recipient',
         'bounce_type': 'bounceType',
         'action': 'action',
@@ -53,14 +53,14 @@ class BounceRecipientProjection(object):
         'status': 'status'
     }
 
-    def __init__(self, created_at=None, sent_email_id=None, recipient=None, bounce_type=None, action=None, id=None, status=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, sent_email_id=None, created_at=None, recipient=None, bounce_type=None, action=None, id=None, status=None, local_vars_configuration=None):  # noqa: E501
         """BounceRecipientProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
         self._sent_email_id = None
+        self._created_at = None
         self._recipient = None
         self._bounce_type = None
         self._action = None
@@ -68,14 +68,35 @@ class BounceRecipientProjection(object):
         self._status = None
         self.discriminator = None
 
-        self.created_at = created_at
         self.sent_email_id = sent_email_id
+        self.created_at = created_at
         self.recipient = recipient
         self.bounce_type = bounce_type
         self.action = action
         if id is not None:
             self.id = id
         self.status = status
+
+    @property
+    def sent_email_id(self):
+        """Gets the sent_email_id of this BounceRecipientProjection.  # noqa: E501
+
+
+        :return: The sent_email_id of this BounceRecipientProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._sent_email_id
+
+    @sent_email_id.setter
+    def sent_email_id(self, sent_email_id):
+        """Sets the sent_email_id of this BounceRecipientProjection.
+
+
+        :param sent_email_id: The sent_email_id of this BounceRecipientProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._sent_email_id = sent_email_id
 
     @property
     def created_at(self):
@@ -99,27 +120,6 @@ class BounceRecipientProjection(object):
             raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
 
         self._created_at = created_at
-
-    @property
-    def sent_email_id(self):
-        """Gets the sent_email_id of this BounceRecipientProjection.  # noqa: E501
-
-
-        :return: The sent_email_id of this BounceRecipientProjection.  # noqa: E501
-        :rtype: str
-        """
-        return self._sent_email_id
-
-    @sent_email_id.setter
-    def sent_email_id(self, sent_email_id):
-        """Sets the sent_email_id of this BounceRecipientProjection.
-
-
-        :param sent_email_id: The sent_email_id of this BounceRecipientProjection.  # noqa: E501
-        :type: str
-        """
-
-        self._sent_email_id = sent_email_id
 
     @property
     def recipient(self):

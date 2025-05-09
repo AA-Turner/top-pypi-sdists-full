@@ -158,7 +158,11 @@ def cli_command_delete_file_template(ctx, **kwargs):
     "--template-argument", multiple=True, type=click.Tuple([str, str]), default=None
 )
 @click.option(
-    "--outfile", type=click.File("wb"), default=None, help="defaults to stdout"
+    # "--outfile", type=click.File("wb"), default=None, help="defaults to stdout"
+    "--outfile",
+    type=str,
+    default=None,
+    help="defaults to stdout",
 )
 @click.option("--org-id")
 @click.option("--compressed", is_flag=True)
@@ -169,8 +173,10 @@ def cli_command_render_file_template(
     result = file_templates.render_file_template(
         ctx, template_arguments=template_argument, **kwargs
     )
-    if outfile is None:
+    if outfile is None or outfile == "-":
         outfile = sys.stdout.buffer
+    else:
+        outfile = open(outfile, "wb")
     if compressed:
         outfile = zipfile.ZipFile(outfile, "w", zipfile.ZIP_DEFLATED)
         outfile.writestr(os.path.basename(result.name), result.read())

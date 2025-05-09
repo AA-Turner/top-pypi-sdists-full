@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -50,6 +50,20 @@ class TestConnectorControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_create_connector_sync_settings(self):
+        """Test case for create_connector_sync_settings
+
+        Create an inbox connector sync settings  # noqa: E501
+        """
+        pass
+
+    def test_create_connector_with_options(self):
+        """Test case for create_connector_with_options
+
+        Create an inbox connector with options  # noqa: E501
+        """
+        pass
+
     def test_delete_all_connector(self):
         """Test case for delete_all_connector
 
@@ -78,10 +92,17 @@ class TestConnectorControllerApi(unittest.TestCase):
         """
         pass
 
-    def test_get_all_connector_sync_events(self):
-        """Test case for get_all_connector_sync_events
+    def test_delete_connector_sync_settings(self):
+        """Test case for delete_connector_sync_settings
 
-        Get all inbox connector sync events  # noqa: E501
+        Create an inbox connector sync settings  # noqa: E501
+        """
+        pass
+
+    def test_get_all_connector_events(self):
+        """Test case for get_all_connector_events
+
+        Get all inbox connector events  # noqa: E501
         """
         pass
 
@@ -92,17 +113,66 @@ class TestConnectorControllerApi(unittest.TestCase):
         """
         pass
 
-    def test_get_connector_sync_event(self):
-        """Test case for get_connector_sync_event
+    def test_get_connector_by_email_address(self):
+        """Test case for get_connector_by_email_address
 
-        Get an inbox connector sync event  # noqa: E501
+        Get connector by email address  # noqa: E501
         """
         pass
 
-    def test_get_connector_sync_events(self):
-        """Test case for get_connector_sync_events
+    def test_get_connector_by_inbox_id(self):
+        """Test case for get_connector_by_inbox_id
 
-        Get an inbox connector sync events  # noqa: E501
+        Get connector by inbox ID  # noqa: E501
+        """
+        pass
+
+    def test_get_connector_by_name(self):
+        """Test case for get_connector_by_name
+
+        Get connector by name  # noqa: E501
+        """
+        pass
+
+    def test_get_connector_event(self):
+        """Test case for get_connector_event
+
+        Get an inbox connector event  # noqa: E501
+        """
+        pass
+
+    def test_get_connector_events(self):
+        """Test case for get_connector_events
+
+        Get an inbox connector events  # noqa: E501
+        """
+        pass
+
+    def test_get_connector_imap_connection(self):
+        """Test case for get_connector_imap_connection
+
+        Get an inbox connector IMAP connection  # noqa: E501
+        """
+        pass
+
+    def test_get_connector_provider_settings(self):
+        """Test case for get_connector_provider_settings
+
+        Get SMTP and IMAP connection settings for common mail providers  # noqa: E501
+        """
+        pass
+
+    def test_get_connector_smtp_connection(self):
+        """Test case for get_connector_smtp_connection
+
+        Get an inbox connector SMTP connection  # noqa: E501
+        """
+        pass
+
+    def test_get_connector_sync_settings(self):
+        """Test case for get_connector_sync_settings
+
+        Get an inbox connector sync settings  # noqa: E501
         """
         pass
 
@@ -113,6 +183,13 @@ class TestConnectorControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_send_email_from_connector(self):
+        """Test case for send_email_from_connector
+
+        Send from an inbox connector  # noqa: E501
+        """
+        pass
+
     def test_sync_connector(self):
         """Test case for sync_connector
 
@@ -120,10 +197,52 @@ class TestConnectorControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_test_connector_imap_connection(self):
+        """Test case for test_connector_imap_connection
+
+        Test an inbox connector IMAP connection  # noqa: E501
+        """
+        pass
+
+    def test_test_connector_imap_connection_options(self):
+        """Test case for test_connector_imap_connection_options
+
+        Test an inbox connector IMAP connection options  # noqa: E501
+        """
+        pass
+
+    def test_test_connector_smtp_connection(self):
+        """Test case for test_connector_smtp_connection
+
+        Test an inbox connector SMTP connection  # noqa: E501
+        """
+        pass
+
+    def test_test_connector_smtp_connection_options(self):
+        """Test case for test_connector_smtp_connection_options
+
+        Test an inbox connector SMTP connection options  # noqa: E501
+        """
+        pass
+
     def test_update_connector(self):
         """Test case for update_connector
 
         Update an inbox connector  # noqa: E501
+        """
+        pass
+
+    def test_update_connector_imap_connection(self):
+        """Test case for update_connector_imap_connection
+
+        Update an inbox connector IMAP connection  # noqa: E501
+        """
+        pass
+
+    def test_update_connector_smtp_connection(self):
+        """Test case for update_connector_smtp_connection
+
+        Update an inbox connector SMTP connection  # noqa: E501
         """
         pass
 

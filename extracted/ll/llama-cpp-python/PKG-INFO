@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: llama_cpp_python
-Version: 0.3.8
+Version: 0.3.9
 Summary: Python bindings for the llama.cpp library
 Author-Email: Andrei Betlen <abetlen@gmail.com>
 License: MIT

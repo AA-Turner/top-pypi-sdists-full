@@ -13,13 +13,7 @@
 # limitations under the License.
 
 from newrelic_telemetry_sdk.batch import EventBatch, SpanBatch
-from newrelic_telemetry_sdk.client import (
-    EventClient,
-    HTTPError,
-    LogClient,
-    MetricClient,
-    SpanClient,
-)
+from newrelic_telemetry_sdk.client import EventClient, HTTPError, LogClient, MetricClient, SpanClient
 from newrelic_telemetry_sdk.event import Event
 from newrelic_telemetry_sdk.harvester import Harvester
 from newrelic_telemetry_sdk.log import Log, NewRelicLogFormatter
@@ -33,20 +27,20 @@ except ImportError:  # pragma: no cover
     __version__ = "unknown"  # pragma: no cover
 
 __all__ = (
-    "HTTPError",
-    "SpanClient",
-    "MetricClient",
-    "EventClient",
-    "LogClient",
-    "Span",
-    "GaugeMetric",
     "CountMetric",
-    "SummaryMetric",
     "Event",
-    "Log",
-    "NewRelicLogFormatter",
-    "MetricBatch",
-    "SpanBatch",
     "EventBatch",
+    "EventClient",
+    "GaugeMetric",
+    "HTTPError",
     "Harvester",
+    "Log",
+    "LogClient",
+    "MetricBatch",
+    "MetricClient",
+    "NewRelicLogFormatter",
+    "Span",
+    "SpanBatch",
+    "SpanClient",
+    "SummaryMetric",
 )

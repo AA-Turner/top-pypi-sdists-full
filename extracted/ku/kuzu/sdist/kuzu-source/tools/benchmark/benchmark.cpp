@@ -2,6 +2,7 @@
 
 #include <fstream>
 
+#include "benchmark_parser.h"
 #include "spdlog/spdlog.h"
 #include "test_helper.h"
 
@@ -19,10 +20,13 @@ Benchmark::Benchmark(const std::string& benchmarkPath, Database* database, Bench
 }
 
 void Benchmark::loadBenchmark(const std::string& benchmarkPath) {
-    const auto queryConfigs = testing::TestHelper::parseTestFile(benchmarkPath);
-    KU_ASSERT(queryConfigs.size() == 1);
-    const auto queryConfig = queryConfigs[0].get();
+    BenchmarkParser parser;
+    const auto parsedBenchmarks = parser.parseBenchmarkFile(benchmarkPath);
+    KU_ASSERT(parsedBenchmarks.size() == 1);
+    const auto queryConfig = parsedBenchmarks[0].get();
+    preRun = queryConfig->preRun;
     query = queryConfig->query;
+    postRun = queryConfig->postRun;
     name = queryConfig->name;
     expectedOutput = queryConfig->expectedTuples;
     compareResult = queryConfig->compareResult;
@@ -37,10 +41,11 @@ std::unique_ptr<QueryResult> Benchmark::runWithProfile() const {
     return conn->query("PROFILE " + query);
 }
 
-void Benchmark::logQueryInfo(std::ofstream& log, uint32_t runNum,
+void Benchmark::writeLogFile(std::ofstream& log, uint32_t runNum, const QuerySummary& querySummary,
     const std::vector<std::string>& actualOutput) const {
     log << "Run Num: " << runNum << '\n';
-    log << "Status: " << (actualOutput == expectedOutput ? "pass" : "error") << '\n';
+    log << "Status: " << (compareResult && actualOutput != expectedOutput ? "error" : "pass")
+        << '\n';
     log << "Query: " << query << '\n';
     log << "Expected output: " << '\n';
     for (auto& result : expectedOutput) {
@@ -50,7 +55,10 @@ void Benchmark::logQueryInfo(std::ofstream& log, uint32_t runNum,
     for (auto& result : actualOutput) {
         log << result << '\n';
     }
-    log << std::flush;
+    log << "Compiling time: " << querySummary.getCompilingTime() << '\n';
+    log << "Execution time: " << querySummary.getExecutionTime() << "\n\n";
+    log.flush();
+    log.close();
 }
 
 void Benchmark::log(uint32_t runNum, QueryResult& queryResult) const {
@@ -65,29 +73,37 @@ void Benchmark::log(uint32_t runNum, QueryResult& queryResult) const {
     spdlog::info("");
     if (!config.outputPath.empty()) {
         std::ofstream logFile(config.outputPath + "/" + name + "_log.txt", std::ios_base::app);
-        logQueryInfo(logFile, runNum, actualOutput);
-        logFile << "Compiling time: " << querySummary->getCompilingTime() << '\n';
-        logFile << "Execution time: " << querySummary->getExecutionTime() << "\n\n";
-        logFile.flush();
-        logFile.close();
+        writeLogFile(logFile, runNum, *querySummary, actualOutput);
     }
 }
 
 void Benchmark::verify(const std::vector<std::string>& actualOutput) const {
-    bool matched = expectedNumTuples == actualOutput.size();
-    if (matched && compareResult) {
-        matched = actualOutput == expectedOutput;
-    }
-    if (!matched) {
-        spdlog::error("Query: {}", query);
-        spdlog::error("Result tuples are not matched");
-        spdlog::error("RESULT:");
-        for (auto& tuple : actualOutput) {
-            spdlog::error(tuple);
+    if (actualOutput.size() == expectedNumTuples) {
+        if (compareResult && actualOutput != expectedOutput) {
+            spdlog::info("Output:");
+            for (auto& tuple : actualOutput) {
+                spdlog::info(tuple);
+            }
+            for (auto i = 0u; i < actualOutput.size(); i++) {
+                if (actualOutput[i] != expectedOutput[i]) {
+                    spdlog::error("Result tuple at index {} did not match the expected value", i);
+                    spdlog::error("Actual  :", actualOutput[i]);
+                    spdlog::error("Expected:", expectedOutput[i]);
+                }
+            }
         }
-        spdlog::error("EXPECTED:");
-        for (auto& tuple : expectedOutput) {
-            spdlog::error(tuple);
+    } else {
+        spdlog::error("Expected {} tuples but found {} tuples", expectedNumTuples,
+            actualOutput.size());
+        if (compareResult && actualOutput != expectedOutput) {
+            spdlog::error("RESULT:");
+            for (auto& tuple : actualOutput) {
+                spdlog::error(tuple);
+            }
+            spdlog::error("EXPECTED:");
+            for (auto& tuple : expectedOutput) {
+                spdlog::error(tuple);
+            }
         }
     }
 }

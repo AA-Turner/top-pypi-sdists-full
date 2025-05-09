@@ -169,9 +169,9 @@ std::pair<CSRNodeGroupScanSource, row_idx_t> RelTableData::findMatchingRow(Trans
     scanChunk.insert(0, std::make_shared<ValueVector>(LogicalType::INTERNAL_ID()));
     std::vector columnIDs = {REL_ID_COLUMN_ID, ROW_IDX_COLUMN_ID};
     std::vector<const Column*> columns{getColumn(REL_ID_COLUMN_ID), nullptr};
-    auto scanState =
-        std::make_unique<RelTableScanState>(*transaction->getClientContext()->getMemoryManager(),
-            &boundNodeIDVector, std::vector{&scanChunk.getValueVectorMutable(0)}, scanChunk.state);
+    auto scanState = std::make_unique<RelTableScanState>(
+        *transaction->getClientContext()->getMemoryManager(), &boundNodeIDVector,
+        std::vector{&scanChunk.getValueVectorMutable(0)}, scanChunk.state, true /*randomLookup*/);
     auto table = transaction->getClientContext()->getStorageManager()->getTable(tableID);
     scanState->setToTable(transaction, table, columnIDs, {}, direction);
     scanState->initState(transaction, getNodeGroup(nodeGroupIdx));
@@ -213,9 +213,9 @@ bool RelTableData::checkIfNodeHasRels(Transaction* transaction,
     scanChunk.insert(0, std::make_shared<ValueVector>(LogicalType::INTERNAL_ID()));
     std::vector columnIDs = {REL_ID_COLUMN_ID};
     std::vector<const Column*> columns{getColumn(REL_ID_COLUMN_ID)};
-    auto scanState =
-        std::make_unique<RelTableScanState>(*transaction->getClientContext()->getMemoryManager(),
-            srcNodeIDVector, std::vector{&scanChunk.getValueVectorMutable(0)}, scanChunk.state);
+    auto scanState = std::make_unique<RelTableScanState>(
+        *transaction->getClientContext()->getMemoryManager(), srcNodeIDVector,
+        std::vector{&scanChunk.getValueVectorMutable(0)}, scanChunk.state, true /*randomLookup*/);
     auto table = transaction->getClientContext()->getStorageManager()->getTable(tableID);
     scanState->setToTable(transaction, table, columnIDs, {}, direction);
     scanState->initState(transaction, getNodeGroup(nodeGroupIdx));
@@ -284,6 +284,10 @@ const VersionRecordHandler* RelTableData::getVersionRecordHandler(
 // NOLINTNEXTLINE(readability-make-member-function-const): Semantically non-const.
 void RelTableData::rollbackGroupCollectionInsert(row_idx_t numRows_, bool isPersistent) {
     nodeGroups->rollbackInsert(numRows_, !isPersistent);
+}
+
+void RelTableData::reclaimStorage(FileHandle& dataFH) {
+    nodeGroups->reclaimStorage(dataFH);
 }
 
 } // namespace storage

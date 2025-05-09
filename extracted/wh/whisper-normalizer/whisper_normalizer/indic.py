@@ -449,7 +449,6 @@ class HindiNormalizer(BaseNormalizer):
         self.tts_mode = tts_mode
 
     def __call__(self, text):
-
         # common normalization for Indic scripts
         text = super(HindiNormalizer, self).normalize(text)
 
@@ -457,20 +456,20 @@ class HindiNormalizer(BaseNormalizer):
         text = text.replace("\u0972", "\u090f")
 
         # decomposing Nukta based composite characters
-        text = text.replace("\u0929", "\u0928" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u0931", "\u0930" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u0934", "\u0933" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u0958", "\u0915" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u0959", "\u0916" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u095a", "\u0917" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u095b", "\u091c" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u095c", "\u0921" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u095d", "\u0922" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u095e", "\u092b" + DevanagariNormalizer.NUKTA)
-        text = text.replace("\u095f", "\u092f" + DevanagariNormalizer.NUKTA)
+        text = text.replace("\u0929", "\u0928" + HindiNormalizer.NUKTA)
+        text = text.replace("\u0931", "\u0930" + HindiNormalizer.NUKTA)
+        text = text.replace("\u0934", "\u0933" + HindiNormalizer.NUKTA)
+        text = text.replace("\u0958", "\u0915" + HindiNormalizer.NUKTA)
+        text = text.replace("\u0959", "\u0916" + HindiNormalizer.NUKTA)
+        text = text.replace("\u095a", "\u0917" + HindiNormalizer.NUKTA)
+        text = text.replace("\u095b", "\u091c" + HindiNormalizer.NUKTA)
+        text = text.replace("\u095c", "\u0921" + HindiNormalizer.NUKTA)
+        text = text.replace("\u095d", "\u0922" + HindiNormalizer.NUKTA)
+        text = text.replace("\u095e", "\u092b" + HindiNormalizer.NUKTA)
+        text = text.replace("\u095f", "\u092f" + HindiNormalizer.NUKTA)
 
         if self.remove_nuktas:
-            text = text.replace(DevanagariNormalizer.NUKTA, "")
+            text = text.replace(HindiNormalizer.NUKTA, "")
 
         # replace pipe character for poorna virama
         text = text.replace("\u007c", "\u0964")
@@ -490,7 +489,10 @@ class HindiNormalizer(BaseNormalizer):
             # Handle decimal numbers
             def replace_decimal(match):
                 whole, frac = match.group(1), match.group(2)
-                return f"{whole} पॉइंट {frac}"
+                # Convert both parts to Hindi words
+                whole_words = num2words(whole, lang="hi")
+                frac_words = " ".join(num2words(digit, lang="hi") for digit in frac)
+                return f"{whole_words} पॉइंट {frac_words}"
 
             text = re.sub(r"(\d+)\.(\d+)", replace_decimal, text)
 
@@ -560,15 +562,17 @@ class HindiNormalizer(BaseNormalizer):
                 return " ".join(match.group(0))
 
             text = re.sub(r"\b[A-Z]{2,}\b", expand_acronyms, text)
+            text = text.lower()
 
         has_digits = any(char.isdigit() for char in text)
         if has_digits:
-            digit_parts = re.findall(r"\d+", text)
-            for part in digit_parts:
-                text = text.replace(part, num2words(part, lang="hi"))
-        return text.lower()
+            # digit_parts = re.findall(r"\d+", text)
+            digit_parts = re.findall(r"\d+\.\d+|\d+", text)
+            for x in digit_parts:
+                text = text.replace(x, num2words(x, lang="hi"))
+        return text
 
-# %% ../nbs/1b.indic_normalizer.ipynb 14
+# %% ../nbs/1b.indic_normalizer.ipynb 17
 class PunjabiNormalizer(BaseNormalizer):
     """
     Normalizer for the Gurmukhi script. In addition to basic normalization by the super class,
@@ -646,7 +650,7 @@ class PunjabiNormalizer(BaseNormalizer):
         # Addak
         if self.do_canonicalize_addak:
             ## replace addak+consonant with consonat+halant+consonant
-            text = re.sub(r"\u0a71(.)", "\\1\u0a4d\\1", text)
+            text = re.sub(r"\u0a71(.)", "\1\u0a4d\1", text)
 
         # Tippi
         if self.do_canonicalize_tippi:
@@ -679,7 +683,7 @@ class PunjabiNormalizer(BaseNormalizer):
         text = text.replace("\u007c", "\u0964")
 
         # correct visarge
-        text = re.sub(r"([\u0a00-\u0a7f]):", "\\1\u0a03", text)
+        text = re.sub(r"([\u0a00-\u0a7f]):", "\1\u0a03", text)
 
         if self.tts_mode:
             # Handle currencies
@@ -687,7 +691,7 @@ class PunjabiNormalizer(BaseNormalizer):
             text = re.sub(r"Rs\.\s+(\d+)", r"ਰੁਪਏ \1", text)
             text = re.sub(r"₹\s*(\d+)", r"ਰੁਪਏ \1", text)
             text = re.sub(r"USD\s+(\d+)", r"ਡਾਲਰ \1", text)
-            text = re.sub(r"\$\s*(\d+)", r"ਡਾਲਰ \1", text)
+            text = re.sub(r"$\s*(\d+)", r"ਡਾਲਰ \1", text)
             text = re.sub(r"KRW\s+(\d+)", r"ਕੋਰੀਆਈ ਵੌਨ \1", text)
             text = re.sub(r"₩\s*(\d+)", r"ਕੋਰੀਆਈ ਵੌਨ \1", text)
 
@@ -768,13 +772,13 @@ class PunjabiNormalizer(BaseNormalizer):
 
         has_digits = any(char.isdigit() for char in text)
         if has_digits:
-            digit_parts = re.findall(r"\d+", text)
-            for part in digit_parts:
-                text = text.replace(part, num2words(part, lang="pa"))
+            # digit_parts = re.findall(r"\d+", text)
+            digit_parts = re.findall(r"\d+\.\d+|\d+", text)
+            for x in digit_parts:
+                text = text.replace(x, num2words(x, lang="pa"))
+        return text
 
-        return text.lower()
-
-# %% ../nbs/1b.indic_normalizer.ipynb 17
+# %% ../nbs/1b.indic_normalizer.ipynb 20
 class TeluguNormalizer(BaseNormalizer):
     """
     Normalizer for the Teluguscript. In addition to basic normalization by the super class,
@@ -815,7 +819,7 @@ class TeluguNormalizer(BaseNormalizer):
         text = text.replace("\u0c46\u0c56", "\u0c48")
 
         # correct visarge
-        text = re.sub(r"([\u0c00-\u0c7f]):", "\\1\u0c03", text)
+        text = re.sub(r"([\u0c00-\u0c7f]):", "\1\u0c03", text)
 
         if self.tts_mode:
             # Handle currencies
@@ -823,7 +827,7 @@ class TeluguNormalizer(BaseNormalizer):
             text = re.sub(r"Rs\.\s+(\d+)", r"రూపాయలు \1", text)
             text = re.sub(r"₹\s*(\d+)", r"రూపాయలు \1", text)
             text = re.sub(r"USD\s+(\d+)", r"డాలర్లు \1", text)
-            text = re.sub(r"\$\s*(\d+)", r"డాలర్లు \1", text)
+            text = re.sub(r"$\s*(\d+)", r"డాలర్లు \1", text)
             text = re.sub(r"KRW\s+(\d+)", r"కొరియన్ వాన్ \1", text)
             text = re.sub(r"₩\s*(\d+)", r"కొరియన్ వాన్ \1", text)
 
@@ -909,7 +913,7 @@ class TeluguNormalizer(BaseNormalizer):
 
         return text.lower()
 
-# %% ../nbs/1b.indic_normalizer.ipynb 20
+# %% ../nbs/1b.indic_normalizer.ipynb 23
 class GujaratiNormalizer(BaseNormalizer):
     """
     Normalizer for the Gujarati script. In addition to basic normalization by the super class,
@@ -1046,7 +1050,7 @@ class GujaratiNormalizer(BaseNormalizer):
 
         return text.lower()
 
-# %% ../nbs/1b.indic_normalizer.ipynb 22
+# %% ../nbs/1b.indic_normalizer.ipynb 25
 class OdiaNormalizer(BaseNormalizer):
     """
     Normalizer for the Oriya script. In addition to basic normalization by the super class,
@@ -1225,7 +1229,7 @@ class OdiaNormalizer(BaseNormalizer):
 
         return text.lower()
 
-# %% ../nbs/1b.indic_normalizer.ipynb 24
+# %% ../nbs/1b.indic_normalizer.ipynb 27
 class BengaliNormalizer(BaseNormalizer):
     """
     Normalizer for the Bengali script. In addition to basic normalization by the super class,
@@ -1383,7 +1387,7 @@ class BengaliNormalizer(BaseNormalizer):
 
         return text.lower()
 
-# %% ../nbs/1b.indic_normalizer.ipynb 26
+# %% ../nbs/1b.indic_normalizer.ipynb 29
 class TamilNormalizer(BaseNormalizer):
     """
     Normalizer for the Tamil script. In addition to basic normalization by the super class,
@@ -1523,7 +1527,7 @@ class TamilNormalizer(BaseNormalizer):
 
         return text.lower()
 
-# %% ../nbs/1b.indic_normalizer.ipynb 29
+# %% ../nbs/1b.indic_normalizer.ipynb 32
 class KannadaNormalizer(BaseNormalizer):
     """
     Normalizer for the Kannada script. In addition to basic normalization by the super class,
@@ -1665,7 +1669,7 @@ class KannadaNormalizer(BaseNormalizer):
 
         return text.lower()
 
-# %% ../nbs/1b.indic_normalizer.ipynb 31
+# %% ../nbs/1b.indic_normalizer.ipynb 34
 class MalayalamNormalizer(BaseNormalizer):
     """
     Normalizer for the Malayalam script. In addition to basic normalization by the super class,

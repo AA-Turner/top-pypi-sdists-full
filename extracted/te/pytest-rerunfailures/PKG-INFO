@@ -1,15 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-rerunfailures
-Version: 15.0
+Version: 15.1
 Summary: pytest plugin to re-run tests to eliminate flaky failures
 Author-email: Leah Klearman <lklrmn@gmail.com>
-License: Mozilla Public License 2.0 (MPL 2.0)
+License: MPL-2.0
 Project-URL: Homepage, https://github.com/pytest-dev/pytest-rerunfailures
-Keywords: failures,flaky,pytest,pytest,rerun
+Keywords: failures,flaky,pytest,rerun
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
@@ -29,14 +28,19 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: packaging>=17.1
 Requires-Dist: pytest!=8.2.2,>=7.4
+Dynamic: license-file
 
 .. contents::
 
 pytest-rerunfailures
 ====================
 
+.. START-SHORT-DESCRIPTION
+
 pytest-rerunfailures is a plugin for `pytest <https://pytest.org>`_ that
 re-runs tests to eliminate intermittent failures.
+
+.. END-SHORT-DESCRIPTION
 
 .. image:: https://img.shields.io/badge/license-MPL%202.0-blue.svg
    :target: https://github.com/pytest-dev/pytest-rerunfailures/blob/master/LICENSE
@@ -47,6 +51,11 @@ re-runs tests to eliminate intermittent failures.
 .. image:: https://github.com/pytest-dev/pytest-rerunfailures/workflows/Test/badge.svg
    :target: https://github.com/pytest-dev/pytest-rerunfailures/actions
    :alt: GitHub Actions
+.. image:: https://readthedocs.org/projects/pytest-rerunfailures/badge/?version=latest
+    :target: https://pytest-rerunfailures.readthedocs.io/latest/?badge=latest
+    :alt: Documentation Status
+
+.. START-INSTALLATION
 
 Requirements
 ------------
@@ -73,6 +82,8 @@ To install pytest-rerunfailures:
 .. code-block:: bash
 
   $ pip install pytest-rerunfailures
+
+.. END-INSTALLATION
 
 Recover from hard crashes
 -------------------------
@@ -140,13 +151,6 @@ would only rerun those errors that does not match with ``AssertionError`` or ``O
 .. code-block:: bash
 
    $ pytest --reruns 5 --rerun-except AssertionError --rerun-except OSError
-
-.. note::
-
-   When the ```AssertionError``` comes from the use of the ``assert`` keyword,
-   use ``--rerun-except assert`` instead::
-
-   $ pytest --reruns 5 --rerun-except assert
 
 Re-run individual failures
 --------------------------
@@ -246,6 +250,8 @@ Here's an example of the output provided by the plugin when run with
 Note that output will show all re-runs. Tests that fail on all the re-runs will
 be marked as failed.
 
+.. START-COMPATIBILITY
+
 Compatibility
 -------------
 
@@ -255,6 +261,10 @@ Compatibility
 * This plugin is *not* compatible with the plugin
   `flaky <https://pypi.org/project/flaky/>`_, you can only have
   ``pytest-rerunfailures`` or ``flaky`` but not both.
+
+.. END-COMPATIBILITY
+
+.. START-CONTRIBUTING
 
 Resources
 ---------
@@ -274,8 +284,29 @@ Development
     def pytest_runtest_makereport(item, call):
         print(item.execution_count)
 
+.. END-CONTRIBUTING
+
 Changelog
 =========
+
+15.1 (2025-05-08)
+-----------------
+
+Bug fixes
++++++++++
+
+- Fix ``--fail-on-flaky`` option to fail the test run with custom exit code
+  only when reruns are detected.
+  (`#287 <https://github.com/pytest-dev/pytest-rerunfailures/issues/287>`_)
+
+- Switched to using the SPDX license identifier in the project metadata.
+
+Other changes
++++++++++++++
+
+- Change exception filtering logic to match ``AssertionError`` raised via
+  ``assert`` statements when filtering by "AssertionError".
+  (`#292 <https://github.com/pytest-dev/pytest-rerunfailures/issues/292>`_)
 
 15.0 (2024-11-20)
 -----------------

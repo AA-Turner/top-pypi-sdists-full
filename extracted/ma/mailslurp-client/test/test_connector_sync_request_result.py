@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -39,42 +39,13 @@ class TestConnectorSyncRequestResult(unittest.TestCase):
             return ConnectorSyncRequestResult(
                 sync_result = mailslurp_client.models.connector_sync_result.ConnectorSyncResult(
                     email_sync_count = 56, 
-                    log_lines = [
+                    logs = [
+                        '0'
+                        ], 
+                    email_ids = [
                         '0'
                         ], ), 
-                exception = mailslurp_client.models.connector_sync_request_result_exception.ConnectorSyncRequestResult_exception(
-                    cause = mailslurp_client.models.connector_sync_request_result_exception_cause.ConnectorSyncRequestResult_exception_cause(
-                        stack_trace = [
-                            mailslurp_client.models.connector_sync_request_result_exception_cause_stack_trace.ConnectorSyncRequestResult_exception_cause_stackTrace(
-                                class_loader_name = '0', 
-                                module_name = '0', 
-                                module_version = '0', 
-                                method_name = '0', 
-                                file_name = '0', 
-                                line_number = 56, 
-                                class_name = '0', 
-                                native_method = True, )
-                            ], 
-                        message = '0', 
-                        localized_message = '0', ), 
-                    stack_trace = [
-                        mailslurp_client.models.connector_sync_request_result_exception_cause_stack_trace.ConnectorSyncRequestResult_exception_cause_stackTrace(
-                            class_loader_name = '0', 
-                            module_name = '0', 
-                            module_version = '0', 
-                            method_name = '0', 
-                            file_name = '0', 
-                            line_number = 56, 
-                            class_name = '0', 
-                            native_method = True, )
-                        ], 
-                    message = '0', 
-                    suppressed = [
-                        mailslurp_client.models.connector_sync_request_result_exception_cause.ConnectorSyncRequestResult_exception_cause(
-                            message = '0', 
-                            localized_message = '0', )
-                        ], 
-                    localized_message = '0', ), 
+                exception = '0', 
                 event_id = '0'
             )
         else :

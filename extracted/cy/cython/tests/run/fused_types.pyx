@@ -37,7 +37,7 @@ def test_pure():
     >>> test_pure()
     10
     """
-    mytype = pure_cython.typedef(pure_cython.fused_type(int, long, complex))
+    mytype = pure_cython.typedef(pure_cython.fused_type(int, complex))
     print(mytype(10))
 
 
@@ -276,9 +276,11 @@ def test_normal_class_refcount():
     0
     """
     import sys
+    import gc
     x = NormalClass()
     c = sys.getrefcount(x)
     x.method[pure_cython.short](10)
+    gc.collect()  # Limited API creates circular references inside CyFunction, so a GC collection is needed
     print(sys.getrefcount(x) - c)
 
 def test_fused_declarations(cython.integral i, cython.floating f):

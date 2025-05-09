@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-core
-Version: 1.0.31
+Version: 1.0.33
 Summary: An python package for sagemaker core functionalities
 Author-email: AWS <sagemaker-interests@amazon.com>
 Project-URL: Repository, https://github.com/aws/sagemaker-core.git
@@ -20,7 +20,7 @@ Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: PyYAML<7.0,>=6.0
 Requires-Dist: jsonschema<5.0.0
 Requires-Dist: platformdirs<5.0.0,>=4.0.0
-Requires-Dist: rich<14.0.0,>=13.0.0
+Requires-Dist: rich<15.0.0,>=14.0.0
 Requires-Dist: mock<5.0,>4.0
 Requires-Dist: importlib-metadata<7.0,>=1.4.0
 Provides-Extra: codegen

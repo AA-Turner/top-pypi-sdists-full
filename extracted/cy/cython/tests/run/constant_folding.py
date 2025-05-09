@@ -5,17 +5,6 @@
 import cython
 
 
-import sys
-IS_PY2 = sys.version_info < (3, 0)
-
-
-def print_big_ints(t):
-    s = repr(t)
-    if IS_PY2:
-        s = s.replace('L', '')
-    print(s)
-
-
 @cython.test_fail_if_path_exists(
     "//UnaryMinusNode",
     "//UnaryPlusNode",
@@ -126,7 +115,7 @@ def binop_bool():
 )
 def binop_mul_pow():
     """
-    >>> print_big_ints(binop_mul_pow())
+    >>> binop_mul_pow()
     (800, 12193263111263526900, 248832, 12467572902176589255564000298710470656)
     """
     mul_int = 20 * 40
@@ -138,7 +127,7 @@ def binop_mul_pow():
 
 def binop_pow_negative():
     """
-    >>> print_big_ints(binop_pow_negative())
+    >>> binop_pow_negative()
     (4.018775720164609e-06, 8.020807320287816e-38, 0.1)
     """
     pow_int = 12 ** -5
@@ -516,3 +505,35 @@ def const_in_binop(v):
         return 1
     else:
         return 0
+
+
+@cython.test_fail_if_path_exists(
+    "//JoinedStrNode",
+)
+def const_fstring():
+    """
+    >>> const_fstring()
+    ('123a456', 'a456', '-123b', 'a-45b')
+    """
+    return (
+        f"{123}a{456}",
+        f"a{456}",
+        f"{-123}b",
+        f"a{-45}b",
+    )
+
+
+@cython.test_fail_if_path_exists(
+    "//AddNode",
+)
+def fstring_plus(x: cython.int):
+    """
+    >>> fstring_plus(9)
+    ('9a9xyz', 'xyza9a', 'b9b', 'a9bx9x')
+    """
+    return (
+        f"{x}a{x}" + "xyz",
+        "xyz" + f"a{x}a",
+        f"b{x}b" + "",
+        f"a{x}b" + f"x{x}x",
+    )

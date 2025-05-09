@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import json
 import struct
 
@@ -35,7 +36,7 @@ except (ImportError, ValueError):
     pd = None
 
 from ... import compat, options, types, utils
-from ...compat import Enum, futures, six
+from ...compat import Decimal, Enum, futures, six
 from ...lib.monotonic import monotonic
 from ..base import TunnelMetrics
 from ..checksum import Checksum
@@ -759,43 +760,133 @@ class BaseArrowWriter(object):
             pd_col = col.to_pandas().dt.tz_localize(tz)
             return pa.Array.from_pandas(pd_col)
 
+    @classmethod
+    def _str_to_decimal_array(cls, col, dec_type):
+        dec_col = col.to_pandas().map(Decimal)
+        return pa.Array.from_pandas(dec_col, type=dec_type)
+
+    def _convert_df_types(self, df):
+        pa_dec_types = (pa.Decimal128Type,)
+        if hasattr(pa, "Decimal256Type"):
+            pa_dec_types += (pa.Decimal256Type,)
+
+        def _need_cast(arrow_type):
+            if isinstance(arrow_type, (pa.MapType, pa.StructType) + pa_dec_types):
+                return True
+            elif isinstance(arrow_type, pa.ListType):
+                return _need_cast(arrow_type.value_type)
+            else:
+                return False
+
+        def _cast_map_data(data, cur_type):
+            if data is None:
+                return None
+
+            if isinstance(cur_type, pa.MapType):
+                if isinstance(data, dict):
+                    return [
+                        (
+                            _cast_map_data(k, cur_type.key_type),
+                            _cast_map_data(v, cur_type.item_type),
+                        )
+                        for k, v in data.items()
+                    ]
+                else:
+                    return data
+            elif isinstance(cur_type, pa.ListType):
+                return [
+                    _cast_map_data(element, cur_type.value_type) for element in data
+                ]
+            elif isinstance(cur_type, pa.StructType):
+                if isinstance(data, (list, tuple)):
+                    field_names = getattr(data, "_fields", None) or [
+                        cur_type[fid].name for fid in range(cur_type.num_fields)
+                    ]
+                    data = dict(zip(data, field_names))
+                if isinstance(data, dict):
+                    fields = {}
+                    for fid in range(cur_type.num_fields):
+                        field = cur_type[fid]
+                        fields[field.name] = _cast_map_data(
+                            data.get(field.name), field.type
+                        )
+                    data = fields
+                return data
+            elif isinstance(cur_type, pa_dec_types):
+                return Decimal(data)
+            else:
+                return data
+
+        dest_df = df.copy()
+        lower_to_df_name = {utils.to_lower_str(s): s for s in df.columns}
+        new_fields = []
+        for name, typ in zip(self._arrow_schema.names, self._arrow_schema.types):
+            df_name = lower_to_df_name[name.lower()]
+            new_fields.append(pa.field(df_name, typ))
+            if df_name not in df.columns:
+                dest_df[df_name] = None
+                continue
+            if not _need_cast(typ):
+                continue
+            dest_df[df_name] = df[df_name].map(
+                functools.partial(_cast_map_data, cur_type=typ)
+            )
+        df_arrow_schema = pa.schema(new_fields)
+        return pa.Table.from_pandas(dest_df, df_arrow_schema)
+
     def write(self, data):
         """
         Write an Arrow RecordBatch, an Arrow Table or a pandas DataFrame.
         """
         if isinstance(data, pd.DataFrame):
-            arrow_data = pa.RecordBatch.from_pandas(data)
+            arrow_data = self._convert_df_types(data)
         elif isinstance(data, (pa.Table, pa.RecordBatch)):
             arrow_data = data
         else:
             raise TypeError("Cannot support writing data type %s", type(data))
+
+        arrow_decimal_types = (pa.Decimal128Type,)
+        if hasattr(pa, "Decimal256Type"):
+            arrow_decimal_types += (pa.Decimal256Type,)
 
         assert isinstance(arrow_data, (pa.RecordBatch, pa.Table))
 
         if arrow_data.schema != self._arrow_schema or any(
             isinstance(tp, pa.TimestampType) for tp in arrow_data.schema.types
         ):
-            type_dict = dict(zip(arrow_data.schema.names, arrow_data.schema.types))
-            column_dict = dict(zip(arrow_data.schema.names, arrow_data.columns))
+            lower_names = [n.lower() for n in arrow_data.schema.names]
+            type_dict = dict(zip(lower_names, arrow_data.schema.types))
+            column_dict = dict(zip(lower_names, arrow_data.columns))
             arrays = []
             for name, tp in zip(self._arrow_schema.names, self._arrow_schema.types):
-                if name not in column_dict:
+                lower_name = name.lower()
+                if lower_name not in column_dict:
                     raise ValueError(
                         "Input record batch does not contain column %s" % name
                     )
 
                 if isinstance(tp, pa.TimestampType):
-                    if self._schema[name].type == types.timestamp_ntz:
-                        col = self._localize_timezone(column_dict[name], "UTC")
+                    if self._schema[lower_name].type == types.timestamp_ntz:
+                        col = self._localize_timezone(column_dict[lower_name], "UTC")
                     else:
-                        col = self._localize_timezone(column_dict[name])
-                    column_dict[name] = col.cast(pa.timestamp(tp.unit, col.type.tz))
+                        col = self._localize_timezone(column_dict[lower_name])
+                    column_dict[lower_name] = col.cast(
+                        pa.timestamp(tp.unit, col.type.tz)
+                    )
+                elif (
+                    isinstance(tp, arrow_decimal_types)
+                    and isinstance(column_dict[lower_name], (pa.Array, pa.ChunkedArray))
+                    and column_dict[lower_name].type in (pa.binary(), pa.string())
+                ):
+                    column_dict[lower_name] = self._str_to_decimal_array(
+                        column_dict[lower_name], tp
+                    )
 
-                if tp == type_dict[name]:
-                    arrays.append(column_dict[name])
+                if tp == type_dict[lower_name]:
+                    arrays.append(column_dict[lower_name])
                 else:
                     try:
-                        arrays.append(column_dict[name].cast(tp, safe=False))
+                        arrays.append(column_dict[lower_name].cast(tp, safe=False))
                     except (pa.ArrowInvalid, pa.ArrowNotImplementedError):
                         raise ValueError(
                             "Failed to cast column %s to type %s" % (name, tp)

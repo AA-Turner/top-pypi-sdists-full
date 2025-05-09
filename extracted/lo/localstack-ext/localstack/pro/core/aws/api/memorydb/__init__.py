@@ -41,6 +41,17 @@ class InputAuthenticationType(StrEnum):
     iam = "iam"
 
 
+class IpDiscovery(StrEnum):
+    ipv4 = "ipv4"
+    ipv6 = "ipv6"
+
+
+class NetworkType(StrEnum):
+    ipv4 = "ipv4"
+    ipv6 = "ipv6"
+    dual_stack = "dual_stack"
+
+
 class ServiceUpdateStatus(StrEnum):
     available = "available"
     in_progress = "in-progress"
@@ -635,6 +646,8 @@ class Cluster(TypedDict, total=False):
     ACLName: Optional[ACLName]
     AutoMinorVersionUpgrade: Optional[BooleanOptional]
     DataTiering: Optional[DataTieringStatus]
+    NetworkType: Optional[NetworkType]
+    IpDiscovery: Optional[IpDiscovery]
 
 
 ClusterList = List[Cluster]
@@ -773,6 +786,8 @@ class CreateClusterRequest(ServiceRequest):
     EngineVersion: Optional[String]
     AutoMinorVersionUpgrade: Optional[BooleanOptional]
     DataTiering: Optional[BooleanOptional]
+    NetworkType: Optional[NetworkType]
+    IpDiscovery: Optional[IpDiscovery]
 
 
 class CreateClusterResponse(TypedDict, total=False):
@@ -867,6 +882,9 @@ class CreateSubnetGroupRequest(ServiceRequest):
     Tags: Optional[TagList]
 
 
+NetworkTypeList = List[NetworkType]
+
+
 class Subnet(TypedDict, total=False):
     """Represents the subnet associated with a cluster. This parameter refers
     to subnets defined in Amazon Virtual Private Cloud (Amazon VPC) and used
@@ -875,6 +893,7 @@ class Subnet(TypedDict, total=False):
 
     Identifier: Optional[String]
     AvailabilityZone: Optional[AvailabilityZone]
+    SupportedNetworkTypes: Optional[NetworkTypeList]
 
 
 SubnetList = List[Subnet]
@@ -897,6 +916,7 @@ class SubnetGroup(TypedDict, total=False):
     VpcId: Optional[String]
     Subnets: Optional[SubnetList]
     ARN: Optional[String]
+    SupportedNetworkTypes: Optional[NetworkTypeList]
 
 
 class CreateSubnetGroupResponse(TypedDict, total=False):
@@ -1422,6 +1442,7 @@ class UpdateClusterRequest(ServiceRequest):
     ReplicaConfiguration: Optional[ReplicaConfigurationRequest]
     ShardConfiguration: Optional[ShardConfigurationRequest]
     ACLName: Optional[ACLName]
+    IpDiscovery: Optional[IpDiscovery]
 
 
 class UpdateClusterResponse(TypedDict, total=False):
@@ -1581,6 +1602,8 @@ class MemorydbApi:
         engine_version: String = None,
         auto_minor_version_upgrade: BooleanOptional = None,
         data_tiering: BooleanOptional = None,
+        network_type: NetworkType = None,
+        ip_discovery: IpDiscovery = None,
         **kwargs,
     ) -> CreateClusterResponse:
         """Creates a cluster. All nodes in the cluster run the same
@@ -1616,6 +1639,9 @@ class MemorydbApi:
         :param auto_minor_version_upgrade: When set to true, the cluster will automatically receive minor engine
         version upgrades after launch.
         :param data_tiering: Enables data tiering.
+        :param network_type: Specifies the IP address type for the cluster.
+        :param ip_discovery: The mechanism for discovering IP addresses for the cluster discovery
+        protocol.
         :returns: CreateClusterResponse
         :raises ClusterAlreadyExistsFault:
         :raises SubnetGroupNotFoundFault:
@@ -1655,7 +1681,7 @@ class MemorydbApi:
     ) -> CreateMultiRegionClusterResponse:
         """Creates a new multi-Region cluster.
 
-        :param multi_region_cluster_name_suffix: A suffix to be added to the multi-Region cluster name.
+        :param multi_region_cluster_name_suffix: A suffix to be added to the Multi-Region cluster name.
         :param node_type: The node type to be used for the multi-Region cluster.
         :param description: A description for the multi-Region cluster.
         :param engine: The name of the engine to be used for the multi-Region cluster.
@@ -2337,6 +2363,12 @@ class MemorydbApi:
         `Tagging your MemoryDB
         resources <https://docs.aws.amazon.com/MemoryDB/latest/devguide/Tagging-Resources.html>`__.
 
+        When you add or remove tags from multi region clusters, you might not
+        immediately see the latest effective tags in the ListTags API response
+        due to it being eventually consistent specifically for multi region
+        clusters. For more information, see `Tagging your MemoryDB
+        resources <https://docs.aws.amazon.com/MemoryDB/latest/devguide/Tagging-Resources.html>`__.
+
         :param resource_arn: The Amazon Resource Name (ARN) of the resource for which you want the
         list of tags.
         :returns: ListTagsResponse
@@ -2413,20 +2445,24 @@ class MemorydbApi:
     def tag_resource(
         self, context: RequestContext, resource_arn: String, tags: TagList, **kwargs
     ) -> TagResourceResponse:
-        """A tag is a key-value pair where the key and value are case-sensitive.
-        You can use tags to categorize and track all your MemoryDB resources.
-        When you add or remove tags on clusters, those actions will be
-        replicated to all nodes in the cluster. For more information, see
-        `Resource-level
-        permissions <https://docs.aws.amazon.com/MemoryDB/latest/devguide/iam.resourcelevelpermissions.html>`__.
+        """Use this operation to add tags to a resource. A tag is a key-value pair
+        where the key and value are case-sensitive. You can use tags to
+        categorize and track all your MemoryDB resources. For more information,
+        see `Tagging your MemoryDB
+        resources <https://docs.aws.amazon.com/MemoryDB/latest/devguide/Tagging-Resources.html>`__.
 
-        For example, you can use cost-allocation tags to your MemoryDB
-        resources, Amazon generates a cost allocation report as a
-        comma-separated value (CSV) file with your usage and costs aggregated by
-        your tags. You can apply tags that represent business categories (such
-        as cost centers, application names, or owners) to organize your costs
-        across multiple services. For more information, see `Using Cost
-        Allocation
+        When you add tags to multi region clusters, you might not immediately
+        see the latest effective tags in the ListTags API response due to it
+        being eventually consistent specifically for multi region clusters. For
+        more information, see `Tagging your MemoryDB
+        resources <https://docs.aws.amazon.com/MemoryDB/latest/devguide/Tagging-Resources.html>`__.
+
+        You can specify cost-allocation tags for your MemoryDB resources, Amazon
+        generates a cost allocation report as a comma-separated value (CSV) file
+        with your usage and costs aggregated by your tags. You can apply tags
+        that represent business categories (such as cost centers, application
+        names, or owners) to organize your costs across multiple services. For
+        more information, see `Using Cost Allocation
         Tags <https://docs.aws.amazon.com/MemoryDB/latest/devguide/tagging.html>`__.
 
         :param resource_arn: The Amazon Resource Name (ARN) of the resource to which the tags are to
@@ -2453,7 +2489,25 @@ class MemorydbApi:
     def untag_resource(
         self, context: RequestContext, resource_arn: String, tag_keys: KeyList, **kwargs
     ) -> UntagResourceResponse:
-        """Use this operation to remove tags on a resource.
+        """Use this operation to remove tags on a resource. A tag is a key-value
+        pair where the key and value are case-sensitive. You can use tags to
+        categorize and track all your MemoryDB resources. For more information,
+        see `Tagging your MemoryDB
+        resources <https://docs.aws.amazon.com/MemoryDB/latest/devguide/Tagging-Resources.html>`__.
+
+        When you remove tags from multi region clusters, you might not
+        immediately see the latest effective tags in the ListTags API response
+        due to it being eventually consistent specifically for multi region
+        clusters. For more information, see `Tagging your MemoryDB
+        resources <https://docs.aws.amazon.com/MemoryDB/latest/devguide/Tagging-Resources.html>`__.
+
+        You can specify cost-allocation tags for your MemoryDB resources, Amazon
+        generates a cost allocation report as a comma-separated value (CSV) file
+        with your usage and costs aggregated by your tags. You can apply tags
+        that represent business categories (such as cost centers, application
+        names, or owners) to organize your costs across multiple services. For
+        more information, see `Using Cost Allocation
+        Tags <https://docs.aws.amazon.com/MemoryDB/latest/devguide/tagging.html>`__.
 
         :param resource_arn: The Amazon Resource Name (ARN) of the resource to which the tags are to
         be removed.
@@ -2519,6 +2573,7 @@ class MemorydbApi:
         replica_configuration: ReplicaConfigurationRequest = None,
         shard_configuration: ShardConfigurationRequest = None,
         acl_name: ACLName = None,
+        ip_discovery: IpDiscovery = None,
         **kwargs,
     ) -> UpdateClusterResponse:
         """Modifies the settings for a cluster. You can use this operation to
@@ -2543,6 +2598,8 @@ class MemorydbApi:
         :param replica_configuration: The number of replicas that will reside in each shard.
         :param shard_configuration: The number of shards in the cluster.
         :param acl_name: The Access Control List that is associated with the cluster.
+        :param ip_discovery: The mechanism for discovering IP addresses for the cluster discovery
+        protocol.
         :returns: UpdateClusterResponse
         :raises ClusterNotFoundFault:
         :raises InvalidClusterStateFault:
@@ -2584,7 +2641,7 @@ class MemorydbApi:
         :param engine_version: The new engine version to be used for the multi-Region cluster.
         :param shard_configuration: A request to configure the sharding properties of a cluster.
         :param multi_region_parameter_group_name: The new multi-Region parameter group to be associated with the cluster.
-        :param update_strategy: Whether to force the update even if it may cause data loss.
+        :param update_strategy: The strategy to use for the update operation.
         :returns: UpdateMultiRegionClusterResponse
         :raises MultiRegionClusterNotFoundFault:
         :raises MultiRegionParameterGroupNotFoundFault:

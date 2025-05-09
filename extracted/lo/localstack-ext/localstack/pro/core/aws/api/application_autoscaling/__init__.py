@@ -85,6 +85,8 @@ class MetricType(StrEnum):
     CassandraReadCapacityUtilization = "CassandraReadCapacityUtilization"
     CassandraWriteCapacityUtilization = "CassandraWriteCapacityUtilization"
     KafkaBrokerStorageUtilization = "KafkaBrokerStorageUtilization"
+    ElastiCacheEngineCPUUtilization = "ElastiCacheEngineCPUUtilization"
+    ElastiCacheDatabaseMemoryUsagePercentage = "ElastiCacheDatabaseMemoryUsagePercentage"
     ElastiCachePrimaryEngineCPUUtilization = "ElastiCachePrimaryEngineCPUUtilization"
     ElastiCacheReplicaEngineCPUUtilization = "ElastiCacheReplicaEngineCPUUtilization"
     ElastiCacheDatabaseMemoryUsageCountedForEvictPercentage = (
@@ -147,6 +149,7 @@ class ScalableDimension(StrEnum):
     cassandra_table_ReadCapacityUnits = "cassandra:table:ReadCapacityUnits"
     cassandra_table_WriteCapacityUnits = "cassandra:table:WriteCapacityUnits"
     kafka_broker_storage_VolumeSize = "kafka:broker-storage:VolumeSize"
+    elasticache_cache_cluster_Nodes = "elasticache:cache-cluster:Nodes"
     elasticache_replication_group_NodeGroups = "elasticache:replication-group:NodeGroups"
     elasticache_replication_group_Replicas = "elasticache:replication-group:Replicas"
     neptune_cluster_ReadReplicaCount = "neptune:cluster:ReadReplicaCount"
@@ -1280,9 +1283,11 @@ class ApplicationAutoscalingApi:
         instruct the scalable target to scale out again.
 
         For more information, see `Target tracking scaling
-        policies <https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-target-tracking.html>`__
-        and `Step scaling
-        policies <https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-step-scaling-policies.html>`__
+        policies <https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-target-tracking.html>`__,
+        `Step scaling
+        policies <https://docs.aws.amazon.com/autoscaling/application/userguide/application-auto-scaling-step-scaling-policies.html>`__,
+        and `Predictive scaling
+        policies <https://docs.aws.amazon.com/autoscaling/application/userguide/aas-create-predictive-scaling-policy.html>`__
         in the *Application Auto Scaling User Guide*.
 
         If a scalable target is deregistered, the scalable target is no longer

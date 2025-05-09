@@ -78,6 +78,7 @@ class SpawnedInstanceReaderMixin(object):
         instance_id=None,
         tunnel_endpoint=None,
         columns=None,
+        arrow=False,
     ):
         # read part data
         from ..tunnel import InstanceTunnel
@@ -93,10 +94,16 @@ class SpawnedInstanceReaderMixin(object):
             )
 
             def _data_to_pandas():
-                with session.open_record_reader(
-                    start, count, columns=columns
-                ) as reader:
-                    return reader.to_pandas()
+                if not arrow:
+                    with session.open_record_reader(
+                        start, count, columns=columns
+                    ) as reader:
+                        return reader.to_pandas()
+                else:
+                    with session.open_arrow_reader(
+                        start, count, columns=columns
+                    ) as reader:
+                        return reader.to_pandas()
 
             data = utils.call_with_retry(_data_to_pandas)
             conn.send((idx, data, True))
@@ -118,6 +125,7 @@ class SpawnedInstanceReaderMixin(object):
             rest_client=rest_client,
             project=project,
             instance_id=instance_id,
+            arrow=isinstance(self, TunnelArrowReader),
             tunnel_endpoint=tunnel_endpoint,
             columns=columns or self._column_names,
         )
@@ -168,6 +176,8 @@ class Instance(LazyLoad):
         "_status_api_lock",
         "_logview_address",
         "_logview_address_time",
+        "_last_progress_value",
+        "_last_progress_time",
         "_logview_logged",
         "_job_source",
     )
@@ -194,6 +204,8 @@ class Instance(LazyLoad):
 
         self._logview_address = None
         self._logview_address_time = None
+        self._last_progress_value = None
+        self._last_progress_time = None
         self._logview_logged = False
         self._job_source = None
 
@@ -760,6 +772,55 @@ class Instance(LazyLoad):
             for task_name in self.get_task_names()
         }
 
+    def _dump_instance_progress(self, start_time, check_time, final=False):
+        if logger.getEffectiveLevel() > logging.INFO:
+            return
+
+        prog_time_interval = options.progress_time_interval
+        prog_percentage_gap = options.progress_percentage_gap
+        logview_latency = min(options.logview_latency, prog_time_interval)
+        try:
+            task_progresses = self.get_all_task_progresses()
+            total_progress = sum(
+                stage.finished_percentage
+                for progress in task_progresses.values()
+                for stage in progress.stages
+            )
+
+            if not self._logview_logged and check_time - start_time >= logview_latency:
+                self._logview_logged = True
+                logger.info(
+                    "Instance ID: %s\n  Log view: %s",
+                    self.id,
+                    self.get_logview_address(),
+                )
+
+            # final log need to be outputed once the progress is updated and logview
+            #  address is printed
+            need_final_log = (
+                final
+                and self._logview_logged
+                and self._last_progress_value < total_progress
+            )
+            # intermediate log need to be outputed once current progress exceeds certain
+            #  gap or certain time elapsed
+            need_intermediate_log = check_time - start_time >= prog_time_interval and (
+                total_progress - self._last_progress_value >= prog_percentage_gap
+                or check_time - self._last_progress_time >= prog_time_interval
+            )
+            if need_final_log or need_intermediate_log:
+                output_parts = [str(self.id)] + [
+                    progress.get_stage_progress_formatted_string()
+                    for progress in task_progresses.values()
+                ]
+                if len(output_parts) > 1:
+                    logger.info(" ".join(output_parts))
+                self._last_progress_value = total_progress
+                self._last_progress_time = check_time
+        except:  # pragma: no cover
+            # make sure progress display does not affect execution
+            pass
+
     def wait_for_completion(
         self, interval=1, timeout=None, max_interval=None, blocking=True
     ):
@@ -775,8 +836,8 @@ class Instance(LazyLoad):
         :return: None
         """
 
-        start_time = check_time = progress_time = monotonic()
-        last_progress = 0
+        start_time = check_time = self._last_progress_time = monotonic()
+        self._last_progress_value = 0
         while not self.is_terminated(
             retry=True, blocking=blocking, retry_timeout=_STATUS_QUERY_TIMEOUT
         ):
@@ -793,44 +854,11 @@ class Instance(LazyLoad):
                         instance_id=self.id,
                     )
 
-                if logger.getEffectiveLevel() <= logging.INFO:
-                    try:
-                        task_progresses = self.get_all_task_progresses()
-                        total_progress = sum(
-                            stage.finished_percentage
-                            for progress in task_progresses.values()
-                            for stage in progress.stages
-                        )
-                        if (
-                            check_time - start_time >= options.progress_time_interval
-                            and (
-                                total_progress - last_progress
-                                >= options.progress_percentage_gap
-                                or check_time - progress_time
-                                >= options.progress_time_interval
-                            )
-                        ):
-                            if not self._logview_logged:
-                                self._logview_logged = True
-                                logger.info(
-                                    "Instance ID: %s\n  Log view: %s",
-                                    self.id,
-                                    self.get_logview_address(),
-                                )
-
-                            output_parts = [str(self.id)] + [
-                                progress.get_stage_progress_formatted_string()
-                                for progress in task_progresses.values()
-                            ]
-                            if len(output_parts) > 1:
-                                logger.info(" ".join(output_parts))
-                            last_progress = total_progress
-                            progress_time = check_time
-                    except:  # pragma: no cover
-                        # make sure progress display does not affect execution
-                        pass
+                self._dump_instance_progress(start_time, check_time)
             except KeyboardInterrupt:
                 break
+        # dump final progress
+        self._dump_instance_progress(start_time, check_time, final=True)
 
     def wait_for_success(
         self, interval=1, timeout=None, max_interval=None, blocking=True
@@ -1105,6 +1133,10 @@ class Instance(LazyLoad):
             raise errors.ODPSError("Multiple SQLTasks exist in instance %s.", self.id)
         return task[0].query
 
+    def get_unique_identifier_id(self):
+        job = self._get_job()
+        return job.unique_identifier_id
+
     def _check_get_task_name(self, task_type, task_name=None, err_head=None):
         if not self.is_successful(retry=True):
             raise errors.ODPSError(
@@ -1262,7 +1294,7 @@ class Instance(LazyLoad):
                 if not kwargs.get("limit"):
                     warnings.warn(
                         "Instance tunnel not supported, will fallback to "
-                        "conventional ways. 10000 records will be limited. "
+                        "restricted approach. 10000 records will be limited. "
                         + _RESULT_LIMIT_HELPER_MSG
                     )
             except requests.Timeout:
@@ -1272,7 +1304,7 @@ class Instance(LazyLoad):
                     raise
                 if not kwargs.get("limit"):
                     warnings.warn(
-                        "Instance tunnel timed out, will fallback to conventional ways. "
+                        "Instance tunnel timed out, will fallback to restricted approach. "
                         "10000 records will be limited. You may try merging small files "
                         "on your source table. " + _RESULT_LIMIT_HELPER_MSG
                     )
@@ -1284,13 +1316,16 @@ class Instance(LazyLoad):
                 # InternalServerError when creating download sessions.
                 if not auto_fallback_result:
                     raise
-            except errors.NoPermission:
-                # project is protected
+            except errors.NoPermission as exc:
+                # project is protected or data permission is configured
                 if not auto_fallback_protection:
                     raise
                 if not kwargs.get("limit"):
                     warnings.warn(
-                        "Project under protection, 10000 records will be limited."
+                        "Project or data under protection, 10000 records will be limited. "
+                        "Raw error message:\n"
+                        + str(exc)
+                        + "\n"
                         + _RESULT_LIMIT_HELPER_MSG
                     )
                     kwargs["limit"] = True

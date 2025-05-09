@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zigpy-deconz
-Version: 0.24.2
+Version: 0.25.0
 Summary: A library which communicates with Deconz radios for zigpy
 Author-email: Daniel Schmidt <schmidt.d@aon.at>
 License: GPL-3.0
@@ -10,7 +10,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
 Requires-Dist: voluptuous
-Requires-Dist: zigpy>=0.70.0
+Requires-Dist: zigpy>=0.80.0
 Requires-Dist: async-timeout; python_version < "3.11"
 Provides-Extra: testing
 Requires-Dist: pytest>=7.1.2; extra == "testing"

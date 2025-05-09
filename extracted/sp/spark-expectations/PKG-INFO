@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: spark-expectations
-Version: 2.3.1
+Version: 2.4.0
 Summary: This project helps us to run Data Quality Rules in flight while spark job is being run
 Author: Ashok Singamaneni
 Author-email: ashok.singamaneni@nike.com
@@ -10,8 +10,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Provides-Extra: pyspark
 Requires-Dist: pluggy (>=1)
-Requires-Dist: pyspark (>=3.0.0,<4.0.0)
+Requires-Dist: pyspark[connect] (>=3.0.0,<4.0.0) ; extra == "pyspark"
 Requires-Dist: requests (>=2.28.1)
 Description-Content-Type: text/markdown
 
@@ -135,6 +136,8 @@ se_user_conf = {
     #user_config.se_notifications_email_custom_body: "Custom statistics: 'product_id': {}",
     #Below parameter is optional and needs to be enabled in case authorization is required to access smtp server.
     #user_config.se_notifications_email_smtp_auth: True,
+    #Below parameter is optional and used to specify environment value.
+    #user_config.se_dq_rules_params: {"env": "prod/dev/local" }
 }
 ```
 

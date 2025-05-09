@@ -116,7 +116,7 @@ def md5sum(file: IO[bytes]) -> str:
         ScrapyDeprecationWarning,
         stacklevel=2,
     )
-    m = hashlib.md5()  # nosec
+    m = hashlib.md5()  # noqa: S324
     while True:
         d = file.read(8096)
         if not d:
@@ -252,7 +252,9 @@ def is_generator_with_return_value(callable: Callable[..., Any]) -> bool:
 
     def returns_none(return_node: ast.Return) -> bool:
         value = return_node.value
-        return value is None or isinstance(value, ast.Constant) and value.value is None
+        return value is None or (
+            isinstance(value, ast.Constant) and value.value is None
+        )
 
     if inspect.isgeneratorfunction(callable):
         func = callable
@@ -284,6 +286,8 @@ def warn_on_generator_with_return_value(
     Logs a warning if a callable is a generator function and includes
     a 'return' statement with a value different than None
     """
+    if not spider.settings.getbool("WARN_ON_GENERATOR_RETURN_VALUE"):
+        return
     try:
         if is_generator_with_return_value(callable):
             warnings.warn(

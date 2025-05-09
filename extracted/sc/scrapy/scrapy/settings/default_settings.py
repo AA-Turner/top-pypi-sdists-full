@@ -49,6 +49,8 @@ CONCURRENT_REQUESTS_PER_IP = 0
 COOKIES_ENABLED = True
 COOKIES_DEBUG = False
 
+DEFAULT_DROPITEM_LOG_LEVEL = "WARNING"
+
 DEFAULT_ITEM_CLASS = "scrapy.item.Item"
 
 DEFAULT_REQUEST_HEADERS = {
@@ -178,7 +180,7 @@ FILES_STORE_S3_ACL = "private"
 FILES_STORE_GCS_ACL = ""
 
 FTP_USER = "anonymous"
-FTP_PASSWORD = "guest"  # nosec
+FTP_PASSWORD = "guest"  # noqa: S105
 FTP_PASSIVE_MODE = True
 
 GCS_PROJECT_ID = None
@@ -219,6 +221,18 @@ LOG_LEVEL = "DEBUG"
 LOG_FILE = None
 LOG_FILE_APPEND = True
 LOG_SHORT_NAMES = False
+LOG_VERSIONS = [
+    "lxml",
+    "libxml2",
+    "cssselect",
+    "parsel",
+    "w3lib",
+    "Twisted",
+    "Python",
+    "pyOpenSSL",
+    "cryptography",
+    "Platform",
+]
 
 SCHEDULER_DEBUG = False
 
@@ -291,6 +305,8 @@ SCHEDULER = "scrapy.core.scheduler.Scheduler"
 SCHEDULER_DISK_QUEUE = "scrapy.squeues.PickleLifoDiskQueue"
 SCHEDULER_MEMORY_QUEUE = "scrapy.squeues.LifoMemoryQueue"
 SCHEDULER_PRIORITY_QUEUE = "scrapy.pqueues.ScrapyPriorityQueue"
+SCHEDULER_START_DISK_QUEUE = "scrapy.squeues.PickleFifoDiskQueue"
+SCHEDULER_START_MEMORY_QUEUE = "scrapy.squeues.FifoMemoryQueue"
 
 SCRAPER_SLOT_MAX_ACTIVE_SIZE = 5000000
 
@@ -301,6 +317,7 @@ SPIDER_MIDDLEWARES = {}
 
 SPIDER_MIDDLEWARES_BASE = {
     # Engine side
+    "scrapy.spidermiddlewares.start.StartSpiderMiddleware": 25,
     "scrapy.spidermiddlewares.httperror.HttpErrorMiddleware": 50,
     "scrapy.spidermiddlewares.referer.RefererMiddleware": 700,
     "scrapy.spidermiddlewares.urllength.UrlLengthMiddleware": 800,
@@ -319,7 +336,7 @@ TEMPLATES_DIR = str((Path(__file__).parent / ".." / "templates").resolve())
 
 URLLENGTH_LIMIT = 2083
 
-USER_AGENT = f'Scrapy/{import_module("scrapy").__version__} (+https://scrapy.org)'
+USER_AGENT = f"Scrapy/{import_module('scrapy').__version__} (+https://scrapy.org)"
 
 TELNETCONSOLE_ENABLED = 1
 TELNETCONSOLE_PORT = [6023, 6073]
@@ -327,7 +344,7 @@ TELNETCONSOLE_HOST = "127.0.0.1"
 TELNETCONSOLE_USERNAME = "scrapy"
 TELNETCONSOLE_PASSWORD = None
 
-TWISTED_REACTOR = None
+TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 
 SPIDER_CONTRACTS = {}
 SPIDER_CONTRACTS_BASE = {
@@ -337,3 +354,5 @@ SPIDER_CONTRACTS_BASE = {
     "scrapy.contracts.default.ReturnsContract": 2,
     "scrapy.contracts.default.ScrapesContract": 3,
 }
+
+WARN_ON_GENERATOR_RETURN_VALUE = True

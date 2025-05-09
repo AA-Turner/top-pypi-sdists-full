@@ -3480,7 +3480,7 @@ class CeApi:
     ) -> StartCostAllocationTagBackfillResponse:
         """Request a cost allocation tag backfill. This will backfill the
         activation status (either ``active`` or ``inactive``) for all tag keys
-        from ``para:BackfillFrom`` up to the when this request is made.
+        from ``para:BackfillFrom`` up to the time this request is made.
 
         You can request a backfill once every 24 hours.
 

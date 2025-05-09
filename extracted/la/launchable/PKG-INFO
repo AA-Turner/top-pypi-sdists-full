@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: launchable
-Version: 1.98.0
+Version: 1.98.2
 Summary: Launchable CLI
 Home-page: https://launchableinc.com/
 Author: Launchable, Inc.
@@ -21,6 +21,7 @@ Requires-Dist: setuptools
 Requires-Dist: more_itertools>=7.1.0; python_version >= "3.6"
 Requires-Dist: python-dateutil
 Requires-Dist: tabulate
+Dynamic: license-file
 
 # Usage
 

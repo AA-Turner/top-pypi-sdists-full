@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,12 +69,11 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
                 f"Sending request for {client_call_details.method}",
                 extra={
                     "serviceName": "google.dataflow.v1beta3.JobsV1Beta3",
-                    "rpcName": client_call_details.method,
+                    "rpcName": str(client_call_details.method),
                     "request": grpc_request,
                     "metadata": grpc_request["metadata"],
                 },
             )
-
         response = continuation(client_call_details, request)
         if logging_enabled:  # pragma: NO COVER
             response_metadata = response.trailing_metadata()
@@ -334,6 +333,9 @@ class JobsV1Beta3GrpcTransport(JobsV1Beta3Transport):
         Using ``projects.jobs.create`` is not recommended, as your job
         will always start in ``us-central1``.
 
+        Do not enter confidential information when you supply string
+        values using the API.
+
         Returns:
             Callable[[~.CreateJobRequest],
                     ~.Job]:
@@ -424,8 +426,12 @@ class JobsV1Beta3GrpcTransport(JobsV1Beta3Transport):
         (https://cloud.google.com/dataflow/docs/concepts/regional-endpoints).
         To list the all jobs across all regions, use
         ``projects.jobs.aggregated``. Using ``projects.jobs.list`` is
-        not recommended, as you can only get the list of jobs that are
-        running in ``us-central1``.
+        not recommended, because you can only get the list of jobs that
+        are running in ``us-central1``.
+
+        ``projects.locations.jobs.list`` and ``projects.jobs.list``
+        support filtering the list of jobs by name. Filtering by name
+        isn't supported by ``projects.jobs.aggregated``.
 
         Returns:
             Callable[[~.ListJobsRequest],
@@ -452,6 +458,9 @@ class JobsV1Beta3GrpcTransport(JobsV1Beta3Transport):
         r"""Return a callable for the aggregated list jobs method over gRPC.
 
         List the jobs of a project across all regions.
+
+        **Note:** This method doesn't support filtering the list of jobs
+        by name.
 
         Returns:
             Callable[[~.ListJobsRequest],

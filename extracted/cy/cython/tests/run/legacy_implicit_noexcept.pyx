@@ -54,13 +54,9 @@ def func_pure_noexcept() -> cython.int:
 def print_stderr(func):
     @functools.wraps(func)
     def testfunc():
-        old_stderr = sys.stderr
-        stderr = sys.stderr = StringIO()
-        try:
+        from contextlib import redirect_stderr
+        with redirect_stderr(sys.stdout):
             func()
-        finally:
-            sys.stderr = old_stderr
-        print(stderr.getvalue())
 
     return testfunc
 
@@ -150,10 +146,11 @@ def test_pure_noexcept():
 cdef extern int extern_fun()
 cdef extern int extern_fun_fun(int (*f)(int))
 
+
 _WARNINGS = """
-12:5: Unraisable exception in function 'legacy_implicit_noexcept.func_implicit'.
+12:0: Unraisable exception in function 'legacy_implicit_noexcept.func_implicit'.
 12:22: Implicit noexcept declaration is deprecated. Function declaration should contain 'noexcept' keyword.
-15:5: Unraisable exception in function 'legacy_implicit_noexcept.func_noexcept'.
+15:0: Unraisable exception in function 'legacy_implicit_noexcept.func_noexcept'.
 27:28: Implicit noexcept declaration is deprecated. Function declaration should contain 'noexcept' keyword.
 45:0: Implicit noexcept declaration is deprecated. Function declaration should contain 'noexcept' keyword.
 45:0: Unraisable exception in function 'legacy_implicit_noexcept.func_pure_implicit'.

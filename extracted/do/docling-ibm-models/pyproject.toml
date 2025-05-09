@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "docling-ibm-models"
-version = "3.4.2"  # DO NOT EDIT, updated automatically
+version = "3.4.3"  # DO NOT EDIT, updated automatically
 description = "This package contains the AI models used by the Docling PDF conversion package"
 authors = ["Nikos Livathinos <nli@zurich.ibm.com>", "Maxim Lysak <mly@zurich.ibm.com>", "Ahmed Nassar <ahn@zurich.ibm.com>", "Christoph Auer <cau@zurich.ibm.com>", "Michele Dolfi <dol@zurich.ibm.com>", "Peter Staar <taa@zurich.ibm.com>"]
 license = "MIT"
@@ -25,8 +25,9 @@ python = "^3.9"
 torch = "^2.2.2"
 torchvision = "^0"
 transformers = [
+  {markers = "python_version >= '3.13' and (sys_platform != 'darwin' or platform_machine != 'x86_64')", version = "^4.47.0"},
   {markers = "sys_platform != 'darwin' or platform_machine != 'x86_64'", version = "^4.42.0"},
-  {markers = "sys_platform == 'darwin' and platform_machine == 'x86_64'", version = "~4.42.0"}
+  {markers = "python_version < '3.13' and sys_platform == 'darwin' and platform_machine == 'x86_64'", version = "~4.42.0"}
 ]
 numpy = [
     { version = ">=1.24.4,<3.0.0", markers = 'sys_platform != "darwin" or platform_machine != "x86_64"' },

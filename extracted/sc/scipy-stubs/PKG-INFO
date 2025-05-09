@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scipy-stubs
-Version: 1.15.2.2
+Version: 1.15.3.0
 Summary: Type annotations for SciPy
 Project-URL: Homepage, https://scipy.org/
 Project-URL: Repository, https://github.com/scipy/scipy-stubs/
@@ -14,7 +14,6 @@ Keywords: pep484,scipy,typing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -26,7 +25,7 @@ Classifier: Typing :: Stubs Only
 Requires-Python: >=3.10
 Requires-Dist: optype>=0.9.3
 Provides-Extra: scipy
-Requires-Dist: scipy<1.16,>=1.15.2; extra == 'scipy'
+Requires-Dist: scipy<1.16,>=1.15.3; extra == 'scipy'
 Description-Content-Type: text/markdown
 
 <h1 align="center">scipy-stubs</h1>

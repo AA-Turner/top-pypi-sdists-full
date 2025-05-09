@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+import warnings
+from collections.abc import AsyncIterator, Iterable
 from typing import TYPE_CHECKING, Any, cast
 
 from scrapy import Request
+from scrapy.exceptions import ScrapyDeprecationWarning
 from scrapy.spiders import Spider
 from scrapy.utils.spider import iterate_spider_output
 
@@ -12,7 +14,28 @@ if TYPE_CHECKING:
 
 
 class InitSpider(Spider):
-    """Base Spider with initialization facilities"""
+    """Base Spider with initialization facilities
+
+    .. warning:: This class is deprecated. Copy its code into your project if needed.
+    It will be removed in a future Scrapy version.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        warnings.warn(
+            "InitSpider is deprecated. Copy its code from Scrapy's source if needed. "
+            "Will be removed in a future version.",
+            ScrapyDeprecationWarning,
+            stacklevel=2,
+        )
+
+    async def start(self) -> AsyncIterator[Any]:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", category=ScrapyDeprecationWarning, module=r"^scrapy\.spiders$"
+            )
+            for item_or_request in self.start_requests():
+                yield item_or_request
 
     def start_requests(self) -> Iterable[Request]:
         self._postinit_reqs: Iterable[Request] = super().start_requests()

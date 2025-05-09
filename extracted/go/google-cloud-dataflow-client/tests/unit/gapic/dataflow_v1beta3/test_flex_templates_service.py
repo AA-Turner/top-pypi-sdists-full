@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1161,8 +1161,6 @@ def test_flex_templates_service_client_create_channel_credentials_file(
             default_scopes=(
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/compute",
-                "https://www.googleapis.com/auth/compute.readonly",
-                "https://www.googleapis.com/auth/userinfo.email",
             ),
             scopes=None,
             default_host="dataflow.googleapis.com",
@@ -1871,8 +1869,6 @@ def test_flex_templates_service_base_transport_with_credentials_file():
             default_scopes=(
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/compute",
-                "https://www.googleapis.com/auth/compute.readonly",
-                "https://www.googleapis.com/auth/userinfo.email",
             ),
             quota_project_id="octopus",
         )
@@ -1899,8 +1895,6 @@ def test_flex_templates_service_auth_adc():
             default_scopes=(
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/compute",
-                "https://www.googleapis.com/auth/compute.readonly",
-                "https://www.googleapis.com/auth/userinfo.email",
             ),
             quota_project_id=None,
         )
@@ -1924,8 +1918,6 @@ def test_flex_templates_service_transport_auth_adc(transport_class):
             default_scopes=(
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/compute",
-                "https://www.googleapis.com/auth/compute.readonly",
-                "https://www.googleapis.com/auth/userinfo.email",
             ),
             quota_project_id="octopus",
         )
@@ -1981,8 +1973,6 @@ def test_flex_templates_service_transport_create_channel(transport_class, grpc_h
             default_scopes=(
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/compute",
-                "https://www.googleapis.com/auth/compute.readonly",
-                "https://www.googleapis.com/auth/userinfo.email",
             ),
             scopes=["1", "2"],
             default_host="dataflow.googleapis.com",

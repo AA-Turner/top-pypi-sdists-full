@@ -50,7 +50,7 @@ void ExportDB::initGlobalStateInternal(ExecutionContext* context) {
 static void writeStringStreamToFile(ClientContext* context, const std::string& ssString,
     const std::string& path) {
     const auto fileInfo = context->getVFSUnsafe()->openFile(path,
-        FileFlags::WRITE | FileFlags::CREATE_IF_NOT_EXISTS, context);
+        FileOpenFlags(FileFlags::WRITE | FileFlags::CREATE_IF_NOT_EXISTS), context);
     fileInfo->writeFile(reinterpret_cast<const uint8_t*>(ssString.c_str()), ssString.size(),
         0 /* offset */);
 }
@@ -66,7 +66,7 @@ static void writeCopyStatement(stringstream& ss, const TableCatalogEntry* entry,
         if (prop.getType() == LogicalType::INTERNAL_ID()) {
             continue;
         }
-        columns += prop.getName();
+        columns += "`" + prop.getName() + "`";
         columns += i == numProperties - 1 ? "" : ",";
     }
     if (columns.empty()) {
@@ -105,7 +105,10 @@ std::string getSchemaCypher(ClientContext* clientContext) {
         ss << catalog->getScalarMacroFunction(transaction, macroName)->toCypher(macroName)
            << std::endl;
     }
-    ss << clientContext->getExtensionManager()->toCypher() << std::endl;
+    auto extensionCypher = clientContext->getExtensionManager()->toCypher();
+    if (!extensionCypher.empty()) {
+        ss << extensionCypher << std::endl;
+    }
     return ss.str();
 }
 
@@ -127,7 +130,10 @@ std::string getIndexCypher(ClientContext* clientContext, const FileScanInfo& exp
     IndexToCypherInfo info{clientContext, exportFileInfo};
     for (auto entry :
         clientContext->getCatalog()->getIndexEntries(clientContext->getTransaction())) {
-        ss << entry->toCypher(info) << std::endl;
+        auto indexCypher = entry->toCypher(info);
+        if (!indexCypher.empty()) {
+            ss << indexCypher << std::endl;
+        }
     }
     return ss.str();
 }

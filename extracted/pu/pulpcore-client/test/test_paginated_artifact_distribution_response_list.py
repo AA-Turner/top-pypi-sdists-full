@@ -43,17 +43,17 @@ class TestPaginatedArtifactDistributionResponseList(unittest.TestCase):
                     pulpcore.client.pulpcore.models.artifact_distribution_response.ArtifactDistributionResponse(
                         pulp_href = '', 
                         name = '', 
-                        hidden = True, 
+                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         prn = '', 
-                        base_path = '', 
-                        base_url = '', 
-                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         no_content_change_since = '', 
                         pulp_labels = {
                             'key' : ''
                             }, 
-                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        content_guard = '', )
+                        content_guard = '', 
+                        base_url = '', 
+                        base_path = '', 
+                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        hidden = True, )
                     ]
             )
         else:
@@ -63,17 +63,17 @@ class TestPaginatedArtifactDistributionResponseList(unittest.TestCase):
                     pulpcore.client.pulpcore.models.artifact_distribution_response.ArtifactDistributionResponse(
                         pulp_href = '', 
                         name = '', 
-                        hidden = True, 
+                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         prn = '', 
-                        base_path = '', 
-                        base_url = '', 
-                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         no_content_change_since = '', 
                         pulp_labels = {
                             'key' : ''
                             }, 
-                        pulp_last_updated = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        content_guard = '', )
+                        content_guard = '', 
+                        base_url = '', 
+                        base_path = '', 
+                        pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        hidden = True, )
                     ],
         )
         """

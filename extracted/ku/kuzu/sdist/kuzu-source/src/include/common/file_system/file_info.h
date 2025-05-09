@@ -29,7 +29,11 @@ struct KUZU_API FileInfo {
 
     int64_t seek(uint64_t offset, int whence);
 
+    void reset();
+
     void truncate(uint64_t size);
+
+    bool canPerformSeek() const;
 
     template<class TARGET>
     TARGET* ptrCast() {

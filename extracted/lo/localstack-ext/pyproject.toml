@@ -17,9 +17,9 @@ dependencies = [
     "packaging",
     "build",
     "plux>=1.10.0",
-    "localstack-core==4.3.0",
+    "localstack-core==4.4.0",
     "pyotp>=2.9.0",
-    "python-jose[cryptography]>=3.1.0",
+    "PyJWT[crypto]>=1.7.0",
     "requests>=2.20.0",
     "python-dateutil>=2.8",
     "tabulate",
@@ -27,11 +27,10 @@ dependencies = [
     "windows-curses;platform_system=='Windows'",
 ]
 dynamic = ["version"]
-license = { text = "Proprietary" }
+license = "LicenseRef-All-Rights-Reserved"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
-    "License :: Other/Proprietary License",
     "Topic :: Internet",
     "Topic :: Software Development :: Testing",
     "Topic :: System :: Emulators",
@@ -55,9 +54,10 @@ runtime = [
     "avro>=1.11.0",
     "aws-encryption-sdk>=3.1.0",
     "aws-json-term-matcher>=0.1.5",
+    "cedarpy>=4.1.0",
     "dirtyjson>=1.0.7",
     "distro",
-    "docker-registry-client>=0.5.2",
+    "python-dxf>=12.1.1",
     "dulwich>=0.19.16",
     "graphql-core>=3.0.3",
     "janus>=0.5.0",
@@ -66,8 +66,8 @@ runtime = [
     "kafka-python",
     "confluent-kafka",
     "kubernetes>=21.7.0",
-    "libvirt-python==10.2.0",
-    "localstack-core[runtime]==4.3.0",
+    "libvirt-python",
+    "localstack-core[runtime]==4.4.0",
     "paho-mqtt>=1.5",
     "parquet[snappy]>=1.3.1",
     "parse>=1.19.0",
@@ -86,7 +86,6 @@ runtime = [
     # TODO remove this transitive dependency of pyhive[hive_pure_sasl] once extra detection works with latest setuptools
     "thrift_sasl>=0.1.0",
     "pyion2json>=0.0.2",
-    "PyJWT>=1.7.0",
     "pymysql",
     "mysql-replication",
     "pproxy-ext>=2.7.9",
@@ -101,7 +100,7 @@ runtime = [
     "srp-ext>=1.0.7.1",
     "testing.common.database>=1.1.0",
     "tornado>=6.0",
-    "warrant-ext>=0.6.2",
+    "pycognito>=2024.5.1",
     # TODO: Upgrade websockets to v14, see https://websockets.readthedocs.io/en/stable/project/changelog.html#id4
     "websockets>=8.1,<14",
     "Whoosh>=2.7.4"
@@ -111,7 +110,7 @@ test = [
     # test always needs the runtime to be able to run the tests
     "localstack-ext[runtime]",
     # TODO fix issues with pytest-httpserver==1.1.2, remove upper boundary
-    "pytest-httpserver>=1.0.1,<1.1.2",
+    "pytest-httpserver>=1.0.1",
     "aiohttp",
     "async-timeout",
     "awsiotsdk",
@@ -121,7 +120,7 @@ test = [
     "deepdiff>=5.5.0",
     "gremlinpython",
     "jws>=0.1.3",
-    "localstack-core[test]==4.3.0",
+    "localstack-core[test]==4.4.0",
     "msal",
     "msal-extensions",
     "msrest",

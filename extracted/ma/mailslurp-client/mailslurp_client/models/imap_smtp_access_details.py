@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,6 +34,7 @@ class ImapSmtpAccessDetails(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'email_address': 'str',
         'secure_smtp_server_host': 'str',
         'secure_smtp_server_port': 'int',
         'secure_smtp_username': 'str',
@@ -55,6 +56,7 @@ class ImapSmtpAccessDetails(object):
     }
 
     attribute_map = {
+        'email_address': 'emailAddress',
         'secure_smtp_server_host': 'secureSmtpServerHost',
         'secure_smtp_server_port': 'secureSmtpServerPort',
         'secure_smtp_username': 'secureSmtpUsername',
@@ -75,12 +77,13 @@ class ImapSmtpAccessDetails(object):
         'mail_from_domain': 'mailFromDomain'
     }
 
-    def __init__(self, secure_smtp_server_host=None, secure_smtp_server_port=None, secure_smtp_username=None, secure_smtp_password=None, smtp_server_host=None, smtp_server_port=None, smtp_username=None, smtp_password=None, secure_imap_server_host=None, secure_imap_server_port=None, secure_imap_username=None, secure_imap_password=None, imap_server_host=None, imap_server_port=None, imap_username=None, imap_password=None, imap_mailbox=None, mail_from_domain=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, email_address=None, secure_smtp_server_host=None, secure_smtp_server_port=None, secure_smtp_username=None, secure_smtp_password=None, smtp_server_host=None, smtp_server_port=None, smtp_username=None, smtp_password=None, secure_imap_server_host=None, secure_imap_server_port=None, secure_imap_username=None, secure_imap_password=None, imap_server_host=None, imap_server_port=None, imap_username=None, imap_password=None, imap_mailbox=None, mail_from_domain=None, local_vars_configuration=None):  # noqa: E501
         """ImapSmtpAccessDetails - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._email_address = None
         self._secure_smtp_server_host = None
         self._secure_smtp_server_port = None
         self._secure_smtp_username = None
@@ -101,6 +104,7 @@ class ImapSmtpAccessDetails(object):
         self._mail_from_domain = None
         self.discriminator = None
 
+        self.email_address = email_address
         self.secure_smtp_server_host = secure_smtp_server_host
         self.secure_smtp_server_port = secure_smtp_server_port
         self.secure_smtp_username = secure_smtp_username
@@ -119,6 +123,31 @@ class ImapSmtpAccessDetails(object):
         self.imap_password = imap_password
         self.imap_mailbox = imap_mailbox
         self.mail_from_domain = mail_from_domain
+
+    @property
+    def email_address(self):
+        """Gets the email_address of this ImapSmtpAccessDetails.  # noqa: E501
+
+        Email address for SMTP/IMAP login  # noqa: E501
+
+        :return: The email_address of this ImapSmtpAccessDetails.  # noqa: E501
+        :rtype: str
+        """
+        return self._email_address
+
+    @email_address.setter
+    def email_address(self, email_address):
+        """Sets the email_address of this ImapSmtpAccessDetails.
+
+        Email address for SMTP/IMAP login  # noqa: E501
+
+        :param email_address: The email_address of this ImapSmtpAccessDetails.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and email_address is None:  # noqa: E501
+            raise ValueError("Invalid value for `email_address`, must not be `None`")  # noqa: E501
+
+        self._email_address = email_address
 
     @property
     def secure_smtp_server_host(self):

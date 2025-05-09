@@ -4,7 +4,7 @@ from localstack.pro.core.runtime.plugin.api import ProPlatformPlugin
 from localstack.runtime import hooks
 LOG=logging.getLogger(__name__)
 class EncryptionPlugin(ProPlatformPlugin):
-	name='pod-encryption';requires_license=True
+	name='pod-encryption'
 	def on_platform_ready(B):from localstack.pro.core.persistence.utils.encryption import patch_create_and_pull_content as A;A()
 	def should_load(A):
 		if not super().should_load():return False

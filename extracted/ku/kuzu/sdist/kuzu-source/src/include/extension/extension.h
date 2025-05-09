@@ -70,7 +70,7 @@ struct KUZU_API ExtensionUtils {
     static constexpr const char* EXTENSION_FILE_NAME = "lib{}.kuzu_extension";
 
     static constexpr const char* OFFICIAL_EXTENSION[] = {"HTTPFS", "POSTGRES", "DUCKDB", "JSON",
-        "SQLITE", "FTS", "DELTA", "ICEBERG", "UNITY_CATALOG", "VECTOR"};
+        "SQLITE", "FTS", "DELTA", "ICEBERG", "UNITY_CATALOG", "VECTOR", "NEO4J", "ALGO"};
 
     static constexpr const char* EXTENSION_LOADER_SUFFIX = "_loader";
 
@@ -116,6 +116,12 @@ struct KUZU_API ExtensionUtils {
     template<typename T>
     static void addTableFunc(main::Database& database) {
         addFunc<T>(database, T::name, catalog::CatalogEntryType::TABLE_FUNCTION_ENTRY);
+    }
+
+    template<typename T>
+    static void addTableFuncAlias(main::Database& database) {
+        addFunc<typename T::alias>(database, T::name,
+            catalog::CatalogEntryType::TABLE_FUNCTION_ENTRY);
     }
 
     template<typename T>

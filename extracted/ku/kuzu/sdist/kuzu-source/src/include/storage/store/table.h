@@ -27,7 +27,6 @@ struct KUZU_API TableScanState {
     std::shared_ptr<common::DataChunkState> outState;
     std::vector<common::column_id_t> columnIDs;
     common::SemiMask* semiMask;
-    bool randomLookup = false;
 
     // Only used when scan from persistent data.
     std::vector<const Column*> columns;
@@ -174,6 +173,7 @@ public:
         catalog::TableCatalogEntry* tableEntry, LocalTable* localTable) = 0;
     virtual void checkpoint(common::Serializer& ser, catalog::TableCatalogEntry* tableEntry) = 0;
     virtual void rollbackCheckpoint() = 0;
+    virtual void reclaimStorage(FileHandle& dataFH) = 0;
 
     virtual common::row_idx_t getNumTotalRows(const transaction::Transaction* transaction) = 0;
 

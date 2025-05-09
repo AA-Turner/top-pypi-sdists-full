@@ -35,8 +35,16 @@ int64_t FileInfo::seek(uint64_t offset, int whence) {
     return fileSystem->seek(*this, offset, whence);
 }
 
+void FileInfo::reset() {
+    fileSystem->reset(*this);
+}
+
 void FileInfo::truncate(uint64_t size) {
     fileSystem->truncate(*this, size);
+}
+
+bool FileInfo::canPerformSeek() const {
+    return fileSystem->canPerformSeek();
 }
 
 } // namespace common

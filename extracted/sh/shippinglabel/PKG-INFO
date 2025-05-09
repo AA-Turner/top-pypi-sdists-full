@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shippinglabel
-Version: 2.2.0
+Version: 2.3.0
 Summary: Utilities for handling packages.
 Project-URL: Homepage, https://github.com/domdfcoding/shippinglabel
 Project-URL: Issue Tracker, https://github.com/domdfcoding/shippinglabel/issues
@@ -34,19 +34,19 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Archiving :: Packaging
 Classifier: Typing :: Typed
-Requires-Python: >=3.6.1
+Requires-Python: >=3.7
 Requires-Dist: dist-meta>=0.1.2
 Requires-Dist: dom-toml>=0.2.2
 Requires-Dist: domdf-python-tools>=3.1.0
@@ -156,7 +156,7 @@ shippinglabel
 .. |language| image:: https://img.shields.io/github/languages/top/domdfcoding/shippinglabel
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/shippinglabel/v2.2.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/shippinglabel/v2.3.0
 	:target: https://github.com/domdfcoding/shippinglabel/pulse
 	:alt: GitHub commits since tagged version
 

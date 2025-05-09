@@ -23,11 +23,11 @@ static std::string getQueryFromFile(VirtualFileSystem* vfs, const std::string& b
         }
         throw BinderException(stringFormat("File {} does not exist.", filePath));
     }
-    auto fileInfo = vfs->openFile(filePath, FileFlags::READ_ONLY
+    auto fileInfo = vfs->openFile(filePath, FileOpenFlags(FileFlags::READ_ONLY
 #ifdef _WIN32
-                                                | FileFlags::BINARY
+                                                          | FileFlags::BINARY
 #endif
-    );
+                                                ));
     auto fsize = fileInfo->getFileSize();
     auto buffer = std::make_unique<char[]>(fsize);
     fileInfo->readFile(buffer.get(), fsize);
@@ -37,9 +37,9 @@ static std::string getQueryFromFile(VirtualFileSystem* vfs, const std::string& b
 static std::string getColumnNamesToCopy(const CopyFrom& copyFrom) {
     std::string columns = "";
     std::string delimiter = "";
-    for (auto& column : copyFrom.getColumnNames()) {
+    for (auto& column : copyFrom.getCopyColumnInfo().columnNames) {
         columns += delimiter;
-        columns += column;
+        columns += "`" + column + "`";
         if (delimiter == "") {
             delimiter = ",";
         }
@@ -59,7 +59,23 @@ static std::string getCopyFilePath(const std::string& boundFilePath, const std::
         // csv files to copy.cypher files.
         return filePath;
     }
-    return boundFilePath + "/" + filePath;
+
+    auto path = boundFilePath + "/" + filePath;
+#if defined(_WIN32)
+    // TODO(Ziyi): This is a temporary workaround because our parser requires input cypher queries
+    // to escape all special characters in string literal. E.g. The user input query is: 'IMPORT
+    // DATABASE 'C:\\db\\uw''. The parser removes any escaped characters and this function accepts
+    // the path parameter as 'C:\db\uw'. Then the ImportDatabase operator gives the file path to
+    // antlr4 parser directly without escaping any special characters in the path, which causes a
+    // parser exception. However, the parser exception is not thrown properly which leads to the
+    // undefined behaviour.
+    size_t pos = 0;
+    while ((pos = path.find('\\', pos)) != std::string::npos) {
+        path.replace(pos, 1, "\\\\");
+        pos += 2;
+    }
+#endif
+    return path;
 }
 
 std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement& statement) {

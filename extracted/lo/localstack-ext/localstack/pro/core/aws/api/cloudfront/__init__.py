@@ -6,6 +6,7 @@ from localstack.aws.api import RequestContext, ServiceException, ServiceRequest,
 
 AnycastIpListName = str
 CommentType = str
+CreateDistributionTenantRequestNameString = str
 FunctionARN = str
 FunctionName = str
 KeyValueStoreARN = str
@@ -13,6 +14,8 @@ KeyValueStoreComment = str
 KeyValueStoreName = str
 LambdaFunctionARN = str
 OriginShieldRegion = str
+ParameterName = str
+ParameterValue = str
 ResourceARN = str
 SamplingRate = float
 TagKey = str
@@ -57,9 +60,40 @@ class CertificateSource(StrEnum):
     acm = "acm"
 
 
+class CertificateTransparencyLoggingPreference(StrEnum):
+    enabled = "enabled"
+    disabled = "disabled"
+
+
+class ConnectionMode(StrEnum):
+    direct = "direct"
+    tenant_only = "tenant-only"
+
+
 class ContinuousDeploymentPolicyType(StrEnum):
     SingleWeight = "SingleWeight"
     SingleHeader = "SingleHeader"
+
+
+class CustomizationActionType(StrEnum):
+    override = "override"
+    disable = "disable"
+
+
+class DistributionResourceType(StrEnum):
+    distribution = "distribution"
+    distribution_tenant = "distribution-tenant"
+
+
+class DnsConfigurationStatus(StrEnum):
+    valid_configuration = "valid-configuration"
+    invalid_configuration = "invalid-configuration"
+    unknown_configuration = "unknown-configuration"
+
+
+class DomainStatus(StrEnum):
+    active = "active"
+    inactive = "inactive"
 
 
 class EventType(StrEnum):
@@ -115,6 +149,16 @@ class ItemSelection(StrEnum):
     none = "none"
     whitelist = "whitelist"
     all = "all"
+
+
+class ManagedCertificateStatus(StrEnum):
+    pending_validation = "pending-validation"
+    issued = "issued"
+    inactive = "inactive"
+    expired = "expired"
+    validation_timed_out = "validation-timed-out"
+    revoked = "revoked"
+    failed = "failed"
 
 
 class Method(StrEnum):
@@ -196,6 +240,7 @@ class PriceClass(StrEnum):
     PriceClass_100 = "PriceClass_100"
     PriceClass_200 = "PriceClass_200"
     PriceClass_All = "PriceClass_All"
+    None_ = "None"
 
 
 class RealtimeMetricsSubscriptionStatus(StrEnum):
@@ -241,6 +286,11 @@ class SslProtocol(StrEnum):
     TLSv1 = "TLSv1"
     TLSv1_1 = "TLSv1.1"
     TLSv1_2 = "TLSv1.2"
+
+
+class ValidationTokenHost(StrEnum):
+    cloudfront = "cloudfront"
+    self_hosted = "self-hosted"
 
 
 class ViewerProtocolPolicy(StrEnum):
@@ -530,6 +580,14 @@ class InvalidArgument(ServiceException):
     code: str = "InvalidArgument"
     sender_fault: bool = True
     status_code: int = 400
+
+
+class InvalidAssociation(ServiceException):
+    """The specified CloudFront resource can't be associated."""
+
+    code: str = "InvalidAssociation"
+    sender_fault: bool = True
+    status_code: int = 409
 
 
 class InvalidDefaultRootObject(ServiceException):
@@ -1026,6 +1084,14 @@ class ResourceInUse(ServiceException):
     """Cannot delete this resource because it is in use."""
 
     code: str = "ResourceInUse"
+    sender_fault: bool = True
+    status_code: int = 409
+
+
+class ResourceNotDisabled(ServiceException):
+    """The specified CloudFront resource hasn't been disabled yet."""
+
+    code: str = "ResourceNotDisabled"
     sender_fault: bool = True
     status_code: int = 409
 
@@ -1868,6 +1934,30 @@ class AssociateAliasRequest(ServiceRequest):
     Alias: string
 
 
+class AssociateDistributionTenantWebACLRequest(ServiceRequest):
+    Id: string
+    WebACLArn: string
+    IfMatch: Optional[string]
+
+
+class AssociateDistributionTenantWebACLResult(TypedDict, total=False):
+    Id: Optional[string]
+    WebACLArn: Optional[string]
+    ETag: Optional[string]
+
+
+class AssociateDistributionWebACLRequest(ServiceRequest):
+    Id: string
+    WebACLArn: string
+    IfMatch: Optional[string]
+
+
+class AssociateDistributionWebACLResult(TypedDict, total=False):
+    Id: Optional[string]
+    WebACLArn: Optional[string]
+    ETag: Optional[string]
+
+
 AwsAccountNumberList = List[string]
 long = int
 QueryStringCacheKeysList = List[string]
@@ -2257,6 +2347,14 @@ class CachePolicyList(TypedDict, total=False):
     Items: Optional[CachePolicySummaryList]
 
 
+class Certificate(TypedDict, total=False):
+    """The Certificate Manager (ACM) certificate associated with your
+    distribution.
+    """
+
+    Arn: string
+
+
 class CloudFrontOriginAccessIdentityConfig(TypedDict, total=False):
     """Origin access identity configuration. Send a ``GET`` request to the
     ``/CloudFront API version/CloudFront/identity ID/config`` resource.
@@ -2331,6 +2429,71 @@ class ConflictingAliasesList(TypedDict, total=False):
     MaxItems: Optional[integer]
     Quantity: Optional[integer]
     Items: Optional[ConflictingAliases]
+
+
+class Tag(TypedDict, total=False):
+    """A complex type that contains ``Tag`` key and ``Tag`` value."""
+
+    Key: TagKey
+    Value: Optional[TagValue]
+
+
+TagList = List[Tag]
+
+
+class Tags(TypedDict, total=False):
+    """A complex type that contains zero or more ``Tag`` elements."""
+
+    Items: Optional[TagList]
+
+
+class ConnectionGroup(TypedDict, total=False):
+    """The connection group for your distribution tenants. When you first
+    create a distribution tenant and you don't specify a connection group,
+    CloudFront will automatically create a default connection group for you.
+    When you create a new distribution tenant and don't specify a connection
+    group, the default one will be associated with your distribution tenant.
+    """
+
+    Id: Optional[string]
+    Name: Optional[string]
+    Arn: Optional[string]
+    CreatedTime: Optional[timestamp]
+    LastModifiedTime: Optional[timestamp]
+    Tags: Optional[Tags]
+    Ipv6Enabled: Optional[boolean]
+    RoutingEndpoint: Optional[string]
+    AnycastIpListId: Optional[string]
+    Status: Optional[string]
+    Enabled: Optional[boolean]
+    IsDefault: Optional[boolean]
+
+
+class ConnectionGroupAssociationFilter(TypedDict, total=False):
+    """Contains information about what CloudFront resources your connection
+    groups are associated with.
+    """
+
+    AnycastIpListId: Optional[string]
+
+
+class ConnectionGroupSummary(TypedDict, total=False):
+    """A summary that contains details about your connection groups."""
+
+    Id: string
+    Name: string
+    Arn: string
+    RoutingEndpoint: string
+    CreatedTime: timestamp
+    LastModifiedTime: timestamp
+    ETag: string
+    AnycastIpListId: Optional[string]
+    Enabled: Optional[boolean]
+    Status: Optional[string]
+    IsDefault: Optional[boolean]
+
+
+ConnectionGroupSummaryList = List[ConnectionGroupSummary]
 
 
 class ContentTypeProfile(TypedDict, total=False):
@@ -2448,6 +2611,40 @@ class CopyDistributionRequest(ServiceRequest):
     IfMatch: Optional[string]
     CallerReference: string
     Enabled: Optional[boolean]
+
+
+class StringSchemaConfig(TypedDict, total=False):
+    """The configuration for a string schema."""
+
+    Comment: Optional[string]
+    DefaultValue: Optional[ParameterValue]
+    Required: boolean
+
+
+class ParameterDefinitionSchema(TypedDict, total=False):
+    """An object that contains information about the parameter definition."""
+
+    StringSchema: Optional[StringSchemaConfig]
+
+
+class ParameterDefinition(TypedDict, total=False):
+    """A list of parameter values to add to the resource. A parameter is
+    specified as a key-value pair. A valid parameter value must exist for
+    any parameter that is marked as required in the multi-tenant
+    distribution.
+    """
+
+    Name: ParameterName
+    Definition: ParameterDefinitionSchema
+
+
+ParameterDefinitions = List[ParameterDefinition]
+
+
+class TenantConfig(TypedDict, total=False):
+    """The configuration for a distribution tenant."""
+
+    ParameterDefinitions: Optional[ParameterDefinitions]
 
 
 LocationList = List[string]
@@ -2856,6 +3053,8 @@ class DistributionConfig(TypedDict, total=False):
     ContinuousDeploymentPolicyId: Optional[string]
     Staging: Optional[boolean]
     AnycastIpListId: Optional[string]
+    TenantConfig: Optional[TenantConfig]
+    ConnectionMode: Optional[ConnectionMode]
 
 
 class Distribution(TypedDict, total=False):
@@ -2879,22 +3078,6 @@ class CopyDistributionResult(TypedDict, total=False):
     Distribution: Optional[Distribution]
     Location: Optional[string]
     ETag: Optional[string]
-
-
-class Tag(TypedDict, total=False):
-    """A complex type that contains ``Tag`` key and ``Tag`` value."""
-
-    Key: TagKey
-    Value: Optional[TagValue]
-
-
-TagList = List[Tag]
-
-
-class Tags(TypedDict, total=False):
-    """A complex type that contains zero or more ``Tag`` elements."""
-
-    Items: Optional[TagList]
 
 
 class CreateAnycastIpListRequest(ServiceRequest):
@@ -2939,6 +3122,19 @@ class CreateCloudFrontOriginAccessIdentityResult(TypedDict, total=False):
     ETag: Optional[string]
 
 
+class CreateConnectionGroupRequest(ServiceRequest):
+    Name: string
+    Ipv6Enabled: Optional[boolean]
+    Tags: Optional[Tags]
+    AnycastIpListId: Optional[string]
+    Enabled: Optional[boolean]
+
+
+class CreateConnectionGroupResult(TypedDict, total=False):
+    ConnectionGroup: Optional[ConnectionGroup]
+    ETag: Optional[string]
+
+
 class CreateContinuousDeploymentPolicyRequest(ServiceRequest):
     ContinuousDeploymentPolicyConfig: ContinuousDeploymentPolicyConfig
 
@@ -2960,6 +3156,113 @@ class CreateDistributionResult(TypedDict, total=False):
 
     Distribution: Optional[Distribution]
     Location: Optional[string]
+    ETag: Optional[string]
+
+
+class ManagedCertificateRequest(TypedDict, total=False):
+    """An object that represents the request for the Amazon CloudFront managed
+    ACM certificate.
+    """
+
+    ValidationTokenHost: ValidationTokenHost
+    PrimaryDomainName: Optional[string]
+    CertificateTransparencyLoggingPreference: Optional[CertificateTransparencyLoggingPreference]
+
+
+class Parameter(TypedDict, total=False):
+    """A list of parameter values to add to the resource. A parameter is
+    specified as a key-value pair. A valid parameter value must exist for
+    any parameter that is marked as required in the multi-tenant
+    distribution.
+    """
+
+    Name: ParameterName
+    Value: ParameterValue
+
+
+Parameters = List[Parameter]
+
+
+class GeoRestrictionCustomization(TypedDict, total=False):
+    """The customizations that you specified for the distribution tenant for
+    geographic restrictions.
+    """
+
+    RestrictionType: GeoRestrictionType
+    Locations: Optional[LocationList]
+
+
+class WebAclCustomization(TypedDict, total=False):
+    """The WAF web ACL customization specified for the distribution tenant."""
+
+    Action: CustomizationActionType
+    Arn: Optional[string]
+
+
+class Customizations(TypedDict, total=False):
+    """Customizations for the distribution tenant. For each distribution
+    tenant, you can specify the geographic restrictions, and the Amazon
+    Resource Names (ARNs) for the ACM certificate and WAF web ACL. These are
+    specific values that you can override or disable from the multi-tenant
+    distribution that was used to create the distribution tenant.
+    """
+
+    WebAcl: Optional[WebAclCustomization]
+    Certificate: Optional[Certificate]
+    GeoRestrictions: Optional[GeoRestrictionCustomization]
+
+
+class DomainItem(TypedDict, total=False):
+    """The domain for the specified distribution tenant."""
+
+    Domain: string
+
+
+DomainList = List[DomainItem]
+
+
+class CreateDistributionTenantRequest(ServiceRequest):
+    DistributionId: string
+    Name: CreateDistributionTenantRequestNameString
+    Domains: DomainList
+    Tags: Optional[Tags]
+    Customizations: Optional[Customizations]
+    Parameters: Optional[Parameters]
+    ConnectionGroupId: Optional[string]
+    ManagedCertificateRequest: Optional[ManagedCertificateRequest]
+    Enabled: Optional[boolean]
+
+
+class DomainResult(TypedDict, total=False):
+    """The details about the domain result."""
+
+    Domain: string
+    Status: Optional[DomainStatus]
+
+
+DomainResultList = List[DomainResult]
+
+
+class DistributionTenant(TypedDict, total=False):
+    """The distribution tenant."""
+
+    Id: Optional[string]
+    DistributionId: Optional[string]
+    Name: Optional[string]
+    Arn: Optional[string]
+    Domains: Optional[DomainResultList]
+    Tags: Optional[Tags]
+    Customizations: Optional[Customizations]
+    Parameters: Optional[Parameters]
+    ConnectionGroupId: Optional[string]
+    CreatedTime: Optional[timestamp]
+    LastModifiedTime: Optional[timestamp]
+    Enabled: Optional[boolean]
+    Status: Optional[string]
+
+
+class CreateDistributionTenantResult(TypedDict, total=False):
+    DistributionTenant: Optional[DistributionTenant]
     ETag: Optional[string]
 
 
@@ -3184,10 +3487,8 @@ class InvalidationBatch(TypedDict, total=False):
     CallerReference: string
 
 
-class CreateInvalidationRequest(ServiceRequest):
-    """The request to create an invalidation."""
-
-    DistributionId: string
+class CreateInvalidationForDistributionTenantRequest(ServiceRequest):
+    Id: string
     InvalidationBatch: InvalidationBatch
 
 
@@ -3197,6 +3498,18 @@ class Invalidation(TypedDict, total=False):
     Id: string
     Status: string
     CreateTime: timestamp
+    InvalidationBatch: InvalidationBatch
+
+
+class CreateInvalidationForDistributionTenantResult(TypedDict, total=False):
+    Location: Optional[string]
+    Invalidation: Optional[Invalidation]
+
+
+class CreateInvalidationRequest(ServiceRequest):
+    """The request to create an invalidation."""
+
+    DistributionId: string
     InvalidationBatch: InvalidationBatch
 
 
@@ -3477,7 +3790,7 @@ class KinesisStreamConfig(TypedDict, total=False):
 
 
 class EndPoint(TypedDict, total=False):
-    """Contains information about the Amazon Kinesis data stream where you are
+    """Contains information about the Amazon Kinesis data stream where you're
     sending real-time log data in a real-time log configuration.
     """
 
@@ -3939,6 +4252,11 @@ class DeleteCloudFrontOriginAccessIdentityRequest(ServiceRequest):
     IfMatch: Optional[string]
 
 
+class DeleteConnectionGroupRequest(ServiceRequest):
+    Id: string
+    IfMatch: string
+
+
 class DeleteContinuousDeploymentPolicyRequest(ServiceRequest):
     Id: string
     IfMatch: Optional[string]
@@ -3989,6 +4307,11 @@ class DeleteDistributionRequest(ServiceRequest):
 
     Id: string
     IfMatch: Optional[string]
+
+
+class DeleteDistributionTenantRequest(ServiceRequest):
+    Id: string
+    IfMatch: string
 
 
 class DeleteFieldLevelEncryptionConfigRequest(ServiceRequest):
@@ -4085,6 +4408,26 @@ class DescribeKeyValueStoreResult(TypedDict, total=False):
     ETag: Optional[string]
 
 
+class DisassociateDistributionTenantWebACLRequest(ServiceRequest):
+    Id: string
+    IfMatch: Optional[string]
+
+
+class DisassociateDistributionTenantWebACLResult(TypedDict, total=False):
+    Id: Optional[string]
+    ETag: Optional[string]
+
+
+class DisassociateDistributionWebACLRequest(ServiceRequest):
+    Id: string
+    IfMatch: Optional[string]
+
+
+class DisassociateDistributionWebACLResult(TypedDict, total=False):
+    Id: Optional[string]
+    ETag: Optional[string]
+
+
 DistributionIdListSummary = List[string]
 
 
@@ -4104,6 +4447,7 @@ class DistributionSummary(TypedDict, total=False):
 
     Id: string
     ARN: string
+    ETag: Optional[string]
     Status: string
     LastModifiedTime: timestamp
     DomainName: string
@@ -4123,6 +4467,7 @@ class DistributionSummary(TypedDict, total=False):
     IsIPV6Enabled: boolean
     AliasICPRecordals: Optional[AliasICPRecordals]
     Staging: boolean
+    ConnectionMode: Optional[ConnectionMode]
     AnycastIpListId: Optional[string]
 
 
@@ -4138,6 +4483,66 @@ class DistributionList(TypedDict, total=False):
     IsTruncated: boolean
     Quantity: integer
     Items: Optional[DistributionSummaryList]
+
+
+class DistributionResourceId(TypedDict, total=False):
+    """The IDs for the distribution resources."""
+
+    DistributionId: Optional[string]
+    DistributionTenantId: Optional[string]
+
+
+class DistributionTenantAssociationFilter(TypedDict, total=False):
+    """Filter by the associated distribution ID or connection group ID."""
+
+    DistributionId: Optional[string]
+    ConnectionGroupId: Optional[string]
+
+
+class DistributionTenantSummary(TypedDict, total=False):
+    """A summary of the information about a distribution tenant."""
+
+    Id: string
+    DistributionId: string
+    Name: string
+    Arn: string
+    Domains: DomainResultList
+    ConnectionGroupId: Optional[string]
+    Customizations: Optional[Customizations]
+    CreatedTime: timestamp
+    LastModifiedTime: timestamp
+    ETag: string
+    Enabled: Optional[boolean]
+    Status: Optional[string]
+
+
+DistributionTenantList = List[DistributionTenantSummary]
+
+
+class DnsConfiguration(TypedDict, total=False):
+    """The DNS configuration for your domain names."""
+
+    Domain: string
+    Status: DnsConfigurationStatus
+    Reason: Optional[string]
+
+
+DnsConfigurationList = List[DnsConfiguration]
+
+
+class DomainConflict(TypedDict, total=False):
+    """Contains information about the domain conflict. Use this information to
+    determine the affected domain, the related resource, and the affected
+    Amazon Web Services account.
+    """
+
+    Domain: string
+    ResourceType: DistributionResourceType
+    ResourceId: string
+    AccountId: string
+
+
+DomainConflictsList = List[DomainConflict]
 
 
 class FieldLevelEncryptionSummary(TypedDict, total=False):
@@ -4254,6 +4659,24 @@ class GetCloudFrontOriginAccessIdentityResult(TypedDict, total=False):
     ETag: Optional[string]
 
 
+class GetConnectionGroupByRoutingEndpointRequest(ServiceRequest):
+    RoutingEndpoint: string
+
+
+class GetConnectionGroupByRoutingEndpointResult(TypedDict, total=False):
+    ConnectionGroup: Optional[ConnectionGroup]
+    ETag: Optional[string]
+
+
+class GetConnectionGroupRequest(ServiceRequest):
+    Identifier: string
+
+
+class GetConnectionGroupResult(TypedDict, total=False):
+    ConnectionGroup: Optional[ConnectionGroup]
+    ETag: Optional[string]
+
+
 class GetContinuousDeploymentPolicyConfigRequest(ServiceRequest):
     Id: string
 
@@ -4295,6 +4718,24 @@ class GetDistributionResult(TypedDict, total=False):
     """The returned result of the corresponding request."""
 
     Distribution: Optional[Distribution]
+    ETag: Optional[string]
+
+
+class GetDistributionTenantByDomainRequest(ServiceRequest):
+    Domain: string
+
+
+class GetDistributionTenantByDomainResult(TypedDict, total=False):
+    DistributionTenant: Optional[DistributionTenant]
+    ETag: Optional[string]
+
+
+class GetDistributionTenantRequest(ServiceRequest):
+    Identifier: string
+
+
+class GetDistributionTenantResult(TypedDict, total=False):
+    DistributionTenant: Optional[DistributionTenant]
     ETag: Optional[string]
 
 
@@ -4345,6 +4786,15 @@ class GetFunctionResult(TypedDict, total=False):
     ContentType: Optional[string]
 
 
+class GetInvalidationForDistributionTenantRequest(ServiceRequest):
+    DistributionTenantId: string
+    Id: string
+
+
+class GetInvalidationForDistributionTenantResult(TypedDict, total=False):
+    Invalidation: Optional[Invalidation]
+
+
 class GetInvalidationRequest(ServiceRequest):
     """The request to get an invalidation's information."""
 
@@ -4374,6 +4824,34 @@ class GetKeyGroupRequest(ServiceRequest):
 class GetKeyGroupResult(TypedDict, total=False):
     KeyGroup: Optional[KeyGroup]
     ETag: Optional[string]
+
+
+class GetManagedCertificateDetailsRequest(ServiceRequest):
+    Identifier: string
+
+
+class ValidationTokenDetail(TypedDict, total=False):
+    """Contains details about the validation token."""
+
+    Domain: string
+    RedirectTo: Optional[string]
+    RedirectFrom: Optional[string]
+
+
+ValidationTokenDetailList = List[ValidationTokenDetail]
+
+
+class ManagedCertificateDetails(TypedDict, total=False):
+    """Contains details about the CloudFront managed ACM certificate."""
+
+    CertificateArn: Optional[string]
+    CertificateStatus: Optional[ManagedCertificateStatus]
+    ValidationTokenHost: Optional[ValidationTokenHost]
+    ValidationTokenDetails: Optional[ValidationTokenDetailList]
+
+
+class GetManagedCertificateDetailsResult(TypedDict, total=False):
+    ManagedCertificateDetails: Optional[ManagedCertificateDetails]
 
 
 class GetMonitoringSubscriptionRequest(ServiceRequest):
@@ -4600,6 +5078,17 @@ class ListConflictingAliasesResult(TypedDict, total=False):
     ConflictingAliasesList: Optional[ConflictingAliasesList]
 
 
+class ListConnectionGroupsRequest(ServiceRequest):
+    AssociationFilter: Optional[ConnectionGroupAssociationFilter]
+    Marker: Optional[string]
+    MaxItems: Optional[integer]
+
+
+class ListConnectionGroupsResult(TypedDict, total=False):
+    NextMarker: Optional[string]
+    ConnectionGroups: Optional[ConnectionGroupSummaryList]
+
+
 class ListContinuousDeploymentPoliciesRequest(ServiceRequest):
     Marker: Optional[string]
     MaxItems: Optional[string]
@@ -4607,6 +5096,29 @@ class ListContinuousDeploymentPoliciesRequest(ServiceRequest):
 
 class ListContinuousDeploymentPoliciesResult(TypedDict, total=False):
     ContinuousDeploymentPolicyList: Optional[ContinuousDeploymentPolicyList]
+
+
+class ListDistributionTenantsByCustomizationRequest(ServiceRequest):
+    WebACLArn: Optional[string]
+    CertificateArn: Optional[string]
+    Marker: Optional[string]
+    MaxItems: Optional[integer]
+
+
+class ListDistributionTenantsByCustomizationResult(TypedDict, total=False):
+    NextMarker: Optional[string]
+    DistributionTenantList: Optional[DistributionTenantList]
+
+
+class ListDistributionTenantsRequest(ServiceRequest):
+    AssociationFilter: Optional[DistributionTenantAssociationFilter]
+    Marker: Optional[string]
+    MaxItems: Optional[integer]
+
+
+class ListDistributionTenantsResult(TypedDict, total=False):
+    NextMarker: Optional[string]
+    DistributionTenantList: Optional[DistributionTenantList]
 
 
 class ListDistributionsByAnycastIpListIdRequest(ServiceRequest):
@@ -4627,6 +5139,16 @@ class ListDistributionsByCachePolicyIdRequest(ServiceRequest):
 
 class ListDistributionsByCachePolicyIdResult(TypedDict, total=False):
     DistributionIdList: Optional[DistributionIdList]
+
+
+class ListDistributionsByConnectionModeRequest(ServiceRequest):
+    Marker: Optional[string]
+    MaxItems: Optional[integer]
+    ConnectionMode: ConnectionMode
+
+
+class ListDistributionsByConnectionModeResult(TypedDict, total=False):
+    DistributionList: Optional[DistributionList]
 
 
 class ListDistributionsByKeyGroupRequest(ServiceRequest):
@@ -4711,6 +5233,18 @@ class ListDistributionsResult(TypedDict, total=False):
     DistributionList: Optional[DistributionList]
 
 
+class ListDomainConflictsRequest(ServiceRequest):
+    Domain: string
+    DomainControlValidationResource: DistributionResourceId
+    MaxItems: Optional[integer]
+    Marker: Optional[string]
+
+
+class ListDomainConflictsResult(TypedDict, total=False):
+    DomainConflicts: Optional[DomainConflictsList]
+    NextMarker: Optional[string]
+
+
 class ListFieldLevelEncryptionConfigsRequest(ServiceRequest):
     Marker: Optional[string]
     MaxItems: Optional[string]
@@ -4737,6 +5271,16 @@ class ListFunctionsRequest(ServiceRequest):
 
 class ListFunctionsResult(TypedDict, total=False):
     FunctionList: Optional[FunctionList]
+
+
+class ListInvalidationsForDistributionTenantRequest(ServiceRequest):
+    Id: string
+    Marker: Optional[string]
+    MaxItems: Optional[integer]
+
+
+class ListInvalidationsForDistributionTenantResult(TypedDict, total=False):
+    InvalidationList: Optional[InvalidationList]
 
 
 class ListInvalidationsRequest(ServiceRequest):
@@ -5092,6 +5636,19 @@ class UpdateCloudFrontOriginAccessIdentityResult(TypedDict, total=False):
     ETag: Optional[string]
 
 
+class UpdateConnectionGroupRequest(ServiceRequest):
+    Id: string
+    Ipv6Enabled: Optional[boolean]
+    IfMatch: string
+    AnycastIpListId: Optional[string]
+    Enabled: Optional[boolean]
+
+
+class UpdateConnectionGroupResult(TypedDict, total=False):
+    ConnectionGroup: Optional[ConnectionGroup]
+    ETag: Optional[string]
+
+
 class UpdateContinuousDeploymentPolicyRequest(ServiceRequest):
     ContinuousDeploymentPolicyConfig: ContinuousDeploymentPolicyConfig
     Id: string
@@ -5118,6 +5675,23 @@ class UpdateDistributionResult(TypedDict, total=False):
     ETag: Optional[string]
 
 
+class UpdateDistributionTenantRequest(ServiceRequest):
+    Id: string
+    DistributionId: Optional[string]
+    Domains: Optional[DomainList]
+    Customizations: Optional[Customizations]
+    Parameters: Optional[Parameters]
+    ConnectionGroupId: Optional[string]
+    IfMatch: string
+    ManagedCertificateRequest: Optional[ManagedCertificateRequest]
+    Enabled: Optional[boolean]
+
+
+class UpdateDistributionTenantResult(TypedDict, total=False):
+    DistributionTenant: Optional[DistributionTenant]
+    ETag: Optional[string]
+
+
 class UpdateDistributionWithStagingConfigRequest(ServiceRequest):
     Id: string
     StagingDistributionId: Optional[string]
@@ -5126,6 +5700,18 @@ class UpdateDistributionWithStagingConfigRequest(ServiceRequest):
 
 class UpdateDistributionWithStagingConfigResult(TypedDict, total=False):
     Distribution: Optional[Distribution]
+    ETag: Optional[string]
+
+
+class UpdateDomainAssociationRequest(ServiceRequest):
+    Domain: string
+    TargetResource: DistributionResourceId
+    IfMatch: Optional[string]
+
+
+class UpdateDomainAssociationResult(TypedDict, total=False):
+    Domain: Optional[string]
+    ResourceId: Optional[string]
     ETag: Optional[string]
 
 
@@ -5267,6 +5853,15 @@ class UpdateVpcOriginResult(TypedDict, total=False):
     ETag: Optional[string]
 
 
+class VerifyDnsConfigurationRequest(ServiceRequest):
+    Domain: Optional[string]
+    Identifier: string
+
+
+class VerifyDnsConfigurationResult(TypedDict, total=False):
+    DnsConfigurationList: Optional[DnsConfigurationList]
+
+
 class CloudfrontApi:
     service = "cloudfront"
     version = "2020-05-31"
@@ -5299,6 +5894,53 @@ class CloudfrontApi:
         :raises InvalidArgument:
         :raises TooManyDistributionCNAMEs:
         :raises IllegalUpdate:
+        """
+        raise NotImplementedError
+
+    @handler("AssociateDistributionTenantWebACL")
+    def associate_distribution_tenant_web_acl(
+        self,
+        context: RequestContext,
+        id: string,
+        web_acl_arn: string,
+        if_match: string = None,
+        **kwargs,
+    ) -> AssociateDistributionTenantWebACLResult:
+        """Associates the WAF web ACL with a distribution tenant.
+
+        :param id: The ID of the distribution tenant.
+        :param web_acl_arn: The Amazon Resource Name (ARN) of the WAF web ACL to associate.
+        :param if_match: The current ``ETag`` of the distribution tenant.
+        :returns: AssociateDistributionTenantWebACLResult
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
+    @handler("AssociateDistributionWebACL")
+    def associate_distribution_web_acl(
+        self,
+        context: RequestContext,
+        id: string,
+        web_acl_arn: string,
+        if_match: string = None,
+        **kwargs,
+    ) -> AssociateDistributionWebACLResult:
+        """Associates the WAF web ACL with a distribution.
+
+        :param id: The ID of the distribution.
+        :param web_acl_arn: The Amazon Resource Name (ARN) of the WAF web ACL to associate.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the
+        distribution that you're associating with the WAF web ACL.
+        :returns: AssociateDistributionWebACLResult
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
 
@@ -5500,6 +6142,34 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("CreateConnectionGroup")
+    def create_connection_group(
+        self,
+        context: RequestContext,
+        name: string,
+        ipv6_enabled: boolean = None,
+        tags: Tags = None,
+        anycast_ip_list_id: string = None,
+        enabled: boolean = None,
+        **kwargs,
+    ) -> CreateConnectionGroupResult:
+        """Creates a connection group.
+
+        :param name: The name of the connection group.
+        :param ipv6_enabled: Enable IPv6 for the connection group.
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
+        :param anycast_ip_list_id: The ID of the Anycast static IP list.
+        :param enabled: Enable the connection group.
+        :returns: CreateConnectionGroupResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises EntityAlreadyExists:
+        :raises InvalidTagging:
+        :raises InvalidArgument:
+        :raises EntityLimitExceeded:
+        """
+        raise NotImplementedError
+
     @handler("CreateContinuousDeploymentPolicy")
     def create_continuous_deployment_policy(
         self,
@@ -5602,9 +6272,51 @@ class CloudfrontApi:
         :raises InvalidFunctionAssociation:
         :raises TooManyDistributionsWithLambdaAssociations:
         :raises TooManyDistributionsAssociatedToKeyGroup:
+        :raises EntityLimitExceeded:
         :raises DistributionAlreadyExists:
         :raises NoSuchOrigin:
         :raises TooManyCacheBehaviors:
+        """
+        raise NotImplementedError
+
+    @handler("CreateDistributionTenant")
+    def create_distribution_tenant(
+        self,
+        context: RequestContext,
+        distribution_id: string,
+        name: CreateDistributionTenantRequestNameString,
+        domains: DomainList,
+        tags: Tags = None,
+        customizations: Customizations = None,
+        parameters: Parameters = None,
+        connection_group_id: string = None,
+        managed_certificate_request: ManagedCertificateRequest = None,
+        enabled: boolean = None,
+        **kwargs,
+    ) -> CreateDistributionTenantResult:
+        """Creates a distribution tenant.
+
+        :param distribution_id: The ID of the multi-tenant distribution to use for creating the
+        distribution tenant.
+        :param name: The name of the distribution tenant.
+        :param domains: The domains associated with the distribution tenant.
+        :param tags: A complex type that contains zero or more ``Tag`` elements.
+        :param customizations: Customizations for the distribution tenant.
+        :param parameters: A list of parameter values to add to the resource.
+        :param connection_group_id: The ID of the connection group to associate with the distribution
+        tenant.
+        :param managed_certificate_request: The configuration for the CloudFront managed ACM certificate request.
+        :param enabled: Indicates whether the distribution tenant should be enabled when
+        created.
+        :returns: CreateDistributionTenantResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises EntityAlreadyExists:
+        :raises CNAMEAlreadyExists:
+        :raises InvalidAssociation:
+        :raises InvalidTagging:
+        :raises InvalidArgument:
+        :raises EntityLimitExceeded:
         """
         raise NotImplementedError
 
@@ -5791,6 +6503,28 @@ class CloudfrontApi:
         :param invalidation_batch: The batch information for the invalidation.
         :returns: CreateInvalidationResult
         :raises NoSuchDistribution:
+        :raises AccessDenied:
+        :raises TooManyInvalidationsInProgress:
+        :raises MissingBody:
+        :raises InconsistentQuantities:
+        :raises InvalidArgument:
+        :raises BatchTooLarge:
+        """
+        raise NotImplementedError
+
+    @handler("CreateInvalidationForDistributionTenant")
+    def create_invalidation_for_distribution_tenant(
+        self, context: RequestContext, id: string, invalidation_batch: InvalidationBatch, **kwargs
+    ) -> CreateInvalidationForDistributionTenantResult:
+        """Creates an invalidation for a distribution tenant. For more information,
+        see `Invalidating
+        files <https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html>`__
+        in the *Amazon CloudFront Developer Guide*.
+
+        :param id: The ID of the distribution tenant.
+        :param invalidation_batch: An invalidation batch.
+        :returns: CreateInvalidationForDistributionTenantResult
+        :raises EntityNotFound:
         :raises AccessDenied:
         :raises TooManyInvalidationsInProgress:
         :raises MissingBody:
@@ -6195,6 +6929,24 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteConnectionGroup")
+    def delete_connection_group(
+        self, context: RequestContext, id: string, if_match: string, **kwargs
+    ) -> None:
+        """Deletes a connection group.
+
+        :param id: The ID of the connection group to delete.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the
+        connection group to delete.
+        :raises CannotDeleteEntityWhileInUse:
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises ResourceNotDisabled:
+        :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
     @handler("DeleteContinuousDeploymentPolicy")
     def delete_continuous_deployment_policy(
         self, context: RequestContext, id: string, if_match: string = None, **kwargs
@@ -6227,10 +6979,32 @@ class CloudfrontApi:
         :param id: The distribution ID.
         :param if_match: The value of the ``ETag`` header that you received when you disabled the
         distribution.
+        :raises ResourceInUse:
         :raises NoSuchDistribution:
         :raises PreconditionFailed:
         :raises AccessDenied:
         :raises DistributionNotDisabled:
+        :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteDistributionTenant")
+    def delete_distribution_tenant(
+        self, context: RequestContext, id: string, if_match: string, **kwargs
+    ) -> None:
+        """Deletes a distribution tenant. If you use this API operation to delete a
+        distribution tenant that is currently enabled, the request will fail.
+
+        To delete a distribution tenant, you must first disable the distribution
+        tenant by using the ``UpdateDistributionTenant`` API operation.
+
+        :param id: The ID of the distribution tenant to delete.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the
+        distribution tenant.
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises ResourceNotDisabled:
         :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
@@ -6578,6 +7352,42 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("DisassociateDistributionTenantWebACL")
+    def disassociate_distribution_tenant_web_acl(
+        self, context: RequestContext, id: string, if_match: string = None, **kwargs
+    ) -> DisassociateDistributionTenantWebACLResult:
+        """Disassociates a distribution tenant from the WAF web ACL.
+
+        :param id: The ID of the distribution tenant.
+        :param if_match: The current version of the distribution tenant that you're
+        disassociating from the WAF web ACL.
+        :returns: DisassociateDistributionTenantWebACLResult
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
+    @handler("DisassociateDistributionWebACL")
+    def disassociate_distribution_web_acl(
+        self, context: RequestContext, id: string, if_match: string = None, **kwargs
+    ) -> DisassociateDistributionWebACLResult:
+        """Disassociates a distribution from the WAF web ACL.
+
+        :param id: The ID of the distribution.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the
+        distribution that you're disassociating from the WAF web ACL.
+        :returns: DisassociateDistributionWebACLResult
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
     @handler("GetAnycastIpList")
     def get_anycast_ip_list(
         self, context: RequestContext, id: string, **kwargs
@@ -6662,6 +7472,34 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("GetConnectionGroup")
+    def get_connection_group(
+        self, context: RequestContext, identifier: string, **kwargs
+    ) -> GetConnectionGroupResult:
+        """Gets information about a connection group.
+
+        :param identifier: The ID, name, or Amazon Resource Name (ARN) of the connection group.
+        :returns: GetConnectionGroupResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        """
+        raise NotImplementedError
+
+    @handler("GetConnectionGroupByRoutingEndpoint")
+    def get_connection_group_by_routing_endpoint(
+        self, context: RequestContext, routing_endpoint: string, **kwargs
+    ) -> GetConnectionGroupByRoutingEndpointResult:
+        """Gets information about a connection group by using the endpoint that you
+        specify.
+
+        :param routing_endpoint: The routing endpoint for the target connection group, such as
+        d111111abcdef8.
+        :returns: GetConnectionGroupByRoutingEndpointResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        """
+        raise NotImplementedError
+
     @handler("GetContinuousDeploymentPolicy")
     def get_continuous_deployment_policy(
         self, context: RequestContext, id: string, **kwargs
@@ -6712,6 +7550,32 @@ class CloudfrontApi:
         :param id: The distribution's ID.
         :returns: GetDistributionConfigResult
         :raises NoSuchDistribution:
+        :raises AccessDenied:
+        """
+        raise NotImplementedError
+
+    @handler("GetDistributionTenant")
+    def get_distribution_tenant(
+        self, context: RequestContext, identifier: string, **kwargs
+    ) -> GetDistributionTenantResult:
+        """Gets information about a distribution tenant.
+
+        :param identifier: The ID of the distribution tenant.
+        :returns: GetDistributionTenantResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        """
+        raise NotImplementedError
+
+    @handler("GetDistributionTenantByDomain")
+    def get_distribution_tenant_by_domain(
+        self, context: RequestContext, domain: string, **kwargs
+    ) -> GetDistributionTenantByDomainResult:
+        """Gets information about a distribution tenant by the associated domain.
+
+        :param domain: A domain name associated with the target distribution tenant.
+        :returns: GetDistributionTenantByDomainResult
+        :raises EntityNotFound:
         :raises AccessDenied:
         """
         raise NotImplementedError
@@ -6803,6 +7667,22 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("GetInvalidationForDistributionTenant")
+    def get_invalidation_for_distribution_tenant(
+        self, context: RequestContext, distribution_tenant_id: string, id: string, **kwargs
+    ) -> GetInvalidationForDistributionTenantResult:
+        """Gets information about a specific invalidation for a distribution
+        tenant.
+
+        :param distribution_tenant_id: The ID of the distribution tenant.
+        :param id: The ID of the invalidation to retrieve.
+        :returns: GetInvalidationForDistributionTenantResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises NoSuchInvalidation:
+        """
+        raise NotImplementedError
+
     @handler("GetKeyGroup")
     def get_key_group(self, context: RequestContext, id: string, **kwargs) -> GetKeyGroupResult:
         """Gets a key group, including the date and time when the key group was
@@ -6836,6 +7716,19 @@ class CloudfrontApi:
         :param id: The identifier of the key group whose configuration you are getting.
         :returns: GetKeyGroupConfigResult
         :raises NoSuchResource:
+        """
+        raise NotImplementedError
+
+    @handler("GetManagedCertificateDetails")
+    def get_managed_certificate_details(
+        self, context: RequestContext, identifier: string, **kwargs
+    ) -> GetManagedCertificateDetailsResult:
+        """Gets details about the CloudFront managed ACM certificate.
+
+        :param identifier: The identifier of the multi-tenant distribution.
+        :returns: GetManagedCertificateDetailsResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
         """
         raise NotImplementedError
 
@@ -7167,6 +8060,27 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("ListConnectionGroups")
+    def list_connection_groups(
+        self,
+        context: RequestContext,
+        association_filter: ConnectionGroupAssociationFilter = None,
+        marker: string = None,
+        max_items: integer = None,
+        **kwargs,
+    ) -> ListConnectionGroupsResult:
+        """Lists the connection groups in your Amazon Web Services account.
+
+        :param association_filter: Filter by associated Anycast IP list ID.
+        :param marker: The marker for the next set of connection groups to retrieve.
+        :param max_items: The maximum number of connection groups to return.
+        :returns: ListConnectionGroupsResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
     @handler("ListContinuousDeploymentPolicies")
     def list_continuous_deployment_policies(
         self, context: RequestContext, marker: string = None, max_items: string = None, **kwargs
@@ -7189,6 +8103,54 @@ class CloudfrontApi:
         :raises AccessDenied:
         :raises InvalidArgument:
         :raises NoSuchContinuousDeploymentPolicy:
+        """
+        raise NotImplementedError
+
+    @handler("ListDistributionTenants")
+    def list_distribution_tenants(
+        self,
+        context: RequestContext,
+        association_filter: DistributionTenantAssociationFilter = None,
+        marker: string = None,
+        max_items: integer = None,
+        **kwargs,
+    ) -> ListDistributionTenantsResult:
+        """Lists the distribution tenants in your Amazon Web Services account.
+
+        :param association_filter: Filter by the associated distribution ID or connection group ID.
+        :param marker: The marker for the next set of results.
+        :param max_items: The maximum number of distribution tenants to return.
+        :returns: ListDistributionTenantsResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
+    @handler("ListDistributionTenantsByCustomization")
+    def list_distribution_tenants_by_customization(
+        self,
+        context: RequestContext,
+        web_acl_arn: string = None,
+        certificate_arn: string = None,
+        marker: string = None,
+        max_items: integer = None,
+        **kwargs,
+    ) -> ListDistributionTenantsByCustomizationResult:
+        """Lists distribution tenants by the customization that you specify.
+
+        You must specify either the ``CertificateArn`` parameter or
+        ``WebACLArn`` parameter, but not both in the same request.
+
+        :param web_acl_arn: Filter by the ARN of the associated WAF web ACL.
+        :param certificate_arn: Filter by the ARN of the associated ACM certificate.
+        :param marker: The marker for the next set of results.
+        :param max_items: The maximum number of distribution tenants to return by the specified
+        customization.
+        :returns: ListDistributionTenantsByCustomizationResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
         """
         raise NotImplementedError
 
@@ -7257,6 +8219,26 @@ class CloudfrontApi:
         :param max_items: The maximum number of distribution IDs that you want in the response.
         :returns: ListDistributionsByCachePolicyIdResult
         :raises NoSuchCachePolicy:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
+    @handler("ListDistributionsByConnectionMode")
+    def list_distributions_by_connection_mode(
+        self,
+        context: RequestContext,
+        connection_mode: ConnectionMode,
+        marker: string = None,
+        max_items: integer = None,
+        **kwargs,
+    ) -> ListDistributionsByConnectionModeResult:
+        """Lists the distributions by the connection mode that you specify.
+
+        :param connection_mode: The connection mode to filter distributions by.
+        :param marker: The marker for the next set of distributions to retrieve.
+        :param max_items: The maximum number of distributions to return.
+        :returns: ListDistributionsByConnectionModeResult
         :raises AccessDenied:
         :raises InvalidArgument:
         """
@@ -7436,6 +8418,34 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("ListDomainConflicts")
+    def list_domain_conflicts(
+        self,
+        context: RequestContext,
+        domain: string,
+        domain_control_validation_resource: DistributionResourceId,
+        max_items: integer = None,
+        marker: string = None,
+        **kwargs,
+    ) -> ListDomainConflictsResult:
+        """Lists existing domain associations that conflict with the domain that
+        you specify.
+
+        You can use this API operation when transferring domains to identify
+        potential domain conflicts. Domain conflicts must be resolved first
+        before they can be moved.
+
+        :param domain: The domain to check for conflicts.
+        :param domain_control_validation_resource: The distribution resource identifier.
+        :param max_items: The maximum number of domain conflicts to return.
+        :param marker: The marker for the next set of domain conflicts.
+        :returns: ListDomainConflictsResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
     @handler("ListFieldLevelEncryptionConfigs")
     def list_field_level_encryption_configs(
         self, context: RequestContext, marker: string = None, max_items: string = None, **kwargs
@@ -7519,6 +8529,29 @@ class CloudfrontApi:
         body.
         :returns: ListInvalidationsResult
         :raises NoSuchDistribution:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        """
+        raise NotImplementedError
+
+    @handler("ListInvalidationsForDistributionTenant")
+    def list_invalidations_for_distribution_tenant(
+        self,
+        context: RequestContext,
+        id: string,
+        marker: string = None,
+        max_items: integer = None,
+        **kwargs,
+    ) -> ListInvalidationsForDistributionTenantResult:
+        """Lists the invalidations for a distribution tenant.
+
+        :param id: The ID of the distribution tenant.
+        :param marker: Use this parameter when paginating results to indicate where to begin in
+        your list of invalidation batches.
+        :param max_items: The maximum number of invalidations to return for the distribution
+        tenant.
+        :returns: ListInvalidationsForDistributionTenantResult
+        :raises EntityNotFound:
         :raises AccessDenied:
         :raises InvalidArgument:
         """
@@ -7911,6 +8944,37 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("UpdateConnectionGroup")
+    def update_connection_group(
+        self,
+        context: RequestContext,
+        id: string,
+        if_match: string,
+        ipv6_enabled: boolean = None,
+        anycast_ip_list_id: string = None,
+        enabled: boolean = None,
+        **kwargs,
+    ) -> UpdateConnectionGroupResult:
+        """Updates a connection group.
+
+        :param id: The ID of the connection group.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the
+        connection group that you're updating.
+        :param ipv6_enabled: Enable IPv6 for the connection group.
+        :param anycast_ip_list_id: The ID of the Anycast static IP list.
+        :param enabled: Whether the connection group is enabled.
+        :returns: UpdateConnectionGroupResult
+        :raises ResourceInUse:
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises EntityAlreadyExists:
+        :raises InvalidArgument:
+        :raises EntityLimitExceeded:
+        :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
     @handler("UpdateContinuousDeploymentPolicy")
     def update_continuous_deployment_policy(
         self,
@@ -8067,6 +9131,47 @@ class CloudfrontApi:
         """
         raise NotImplementedError
 
+    @handler("UpdateDistributionTenant")
+    def update_distribution_tenant(
+        self,
+        context: RequestContext,
+        id: string,
+        if_match: string,
+        distribution_id: string = None,
+        domains: DomainList = None,
+        customizations: Customizations = None,
+        parameters: Parameters = None,
+        connection_group_id: string = None,
+        managed_certificate_request: ManagedCertificateRequest = None,
+        enabled: boolean = None,
+        **kwargs,
+    ) -> UpdateDistributionTenantResult:
+        """Updates a distribution tenant.
+
+        :param id: The ID of the distribution tenant.
+        :param if_match: The value of the ``ETag`` header that you received when retrieving the
+        distribution tenant to update.
+        :param distribution_id: The ID for the multi-tenant distribution.
+        :param domains: The domains to update for the distribution tenant.
+        :param customizations: Customizations for the distribution tenant.
+        :param parameters: A list of parameter values to add to the resource.
+        :param connection_group_id: The ID of the target connection group.
+        :param managed_certificate_request: An object that contains the CloudFront managed ACM certificate request.
+        :param enabled: Indicates whether the distribution tenant should be updated to an
+        enabled state.
+        :returns: UpdateDistributionTenantResult
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises EntityAlreadyExists:
+        :raises CNAMEAlreadyExists:
+        :raises InvalidAssociation:
+        :raises InvalidArgument:
+        :raises EntityLimitExceeded:
+        :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
     @handler("UpdateDistributionWithStagingConfig")
     def update_distribution_with_staging_config(
         self,
@@ -8166,6 +9271,32 @@ class CloudfrontApi:
         :raises TooManyDistributionsAssociatedToKeyGroup:
         :raises NoSuchOrigin:
         :raises TooManyCacheBehaviors:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateDomainAssociation")
+    def update_domain_association(
+        self,
+        context: RequestContext,
+        domain: string,
+        target_resource: DistributionResourceId,
+        if_match: string = None,
+        **kwargs,
+    ) -> UpdateDomainAssociationResult:
+        """Moves a domain from its current distribution or distribution tenant to
+        another one.
+
+        :param domain: The domain to update.
+        :param target_resource: The target distribution resource for the domain.
+        :param if_match: The value of the ``ETag`` identifier for the distribution or
+        distribution tenant that will be associated with the domain.
+        :returns: UpdateDomainAssociationResult
+        :raises PreconditionFailed:
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
+        :raises IllegalUpdate:
+        :raises InvalidIfMatchVersion:
         """
         raise NotImplementedError
 
@@ -8569,5 +9700,24 @@ class CloudfrontApi:
         :raises EntityLimitExceeded:
         :raises IllegalUpdate:
         :raises InvalidIfMatchVersion:
+        """
+        raise NotImplementedError
+
+    @handler("VerifyDnsConfiguration")
+    def verify_dns_configuration(
+        self, context: RequestContext, identifier: string, domain: string = None, **kwargs
+    ) -> VerifyDnsConfigurationResult:
+        """Verify the DNS configuration for your domain names. This API operation
+        checks whether your domain name points to the correct routing endpoint
+        of the connection group, such as d111111abcdef8.cloudfront.net. You can
+        use this API operation to troubleshoot and resolve DNS configuration
+        issues.
+
+        :param identifier: The ID of the distribution tenant.
+        :param domain: The domain name that you're verifying.
+        :returns: VerifyDnsConfigurationResult
+        :raises EntityNotFound:
+        :raises AccessDenied:
+        :raises InvalidArgument:
         """
         raise NotImplementedError

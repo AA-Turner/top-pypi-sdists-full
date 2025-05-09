@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,51 +34,23 @@ class InlineObject(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'content_type_header': 'str',
         'file': 'file'
     }
 
     attribute_map = {
-        'content_type_header': 'contentTypeHeader',
         'file': 'file'
     }
 
-    def __init__(self, content_type_header=None, file=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, file=None, local_vars_configuration=None):  # noqa: E501
         """InlineObject - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._content_type_header = None
         self._file = None
         self.discriminator = None
 
-        if content_type_header is not None:
-            self.content_type_header = content_type_header
         self.file = file
-
-    @property
-    def content_type_header(self):
-        """Gets the content_type_header of this InlineObject.  # noqa: E501
-
-        Optional content type header of attachment  # noqa: E501
-
-        :return: The content_type_header of this InlineObject.  # noqa: E501
-        :rtype: str
-        """
-        return self._content_type_header
-
-    @content_type_header.setter
-    def content_type_header(self, content_type_header):
-        """Sets the content_type_header of this InlineObject.
-
-        Optional content type header of attachment  # noqa: E501
-
-        :param content_type_header: The content_type_header of this InlineObject.  # noqa: E501
-        :type: str
-        """
-
-        self._content_type_header = content_type_header
 
     @property
     def file(self):

@@ -34,15 +34,17 @@ class GetTagKeysRequest(object):
     """
     swagger_types = {
         'max_results': 'int',
-        'next_token': 'str'
+        'next_token': 'str',
+        'tag_type': 'str'
     }
 
     attribute_map = {
         'max_results': 'MaxResults',
-        'next_token': 'NextToken'
+        'next_token': 'NextToken',
+        'tag_type': 'TagType'
     }
 
-    def __init__(self, max_results=None, next_token=None, _configuration=None):  # noqa: E501
+    def __init__(self, max_results=None, next_token=None, tag_type=None, _configuration=None):  # noqa: E501
         """GetTagKeysRequest - a model defined in Swagger"""  # noqa: E501
         if _configuration is None:
             _configuration = Configuration()
@@ -50,12 +52,15 @@ class GetTagKeysRequest(object):
 
         self._max_results = None
         self._next_token = None
+        self._tag_type = None
         self.discriminator = None
 
         if max_results is not None:
             self.max_results = max_results
         if next_token is not None:
             self.next_token = next_token
+        if tag_type is not None:
+            self.tag_type = tag_type
 
     @property
     def max_results(self):
@@ -98,6 +103,27 @@ class GetTagKeysRequest(object):
         """
 
         self._next_token = next_token
+
+    @property
+    def tag_type(self):
+        """Gets the tag_type of this GetTagKeysRequest.  # noqa: E501
+
+
+        :return: The tag_type of this GetTagKeysRequest.  # noqa: E501
+        :rtype: str
+        """
+        return self._tag_type
+
+    @tag_type.setter
+    def tag_type(self, tag_type):
+        """Sets the tag_type of this GetTagKeysRequest.
+
+
+        :param tag_type: The tag_type of this GetTagKeysRequest.  # noqa: E501
+        :type: str
+        """
+
+        self._tag_type = tag_type
 
     def to_dict(self):
         """Returns the model properties as a dict"""

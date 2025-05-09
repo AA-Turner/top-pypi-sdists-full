@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-turn-detector
-Version: 1.0.19
+Version: 1.0.20
 Summary: End of utterance detection for LiveKit Agents
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -19,19 +19,21 @@ Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9.0
 Requires-Dist: jinja2
-Requires-Dist: livekit-agents>=1.0.19
+Requires-Dist: livekit-agents>=1.0.20
 Requires-Dist: numpy>=1.26
 Requires-Dist: onnxruntime>=1.18
 Requires-Dist: transformers>=4.47.1
 Description-Content-Type: text/markdown
 
-# LiveKit Plugins Turn Detector
+# Turn detector plugin for LiveKit Agents
 
 This plugin introduces end-of-turn detection for LiveKit Agents using a custom open-weight model to determine when a user has finished speaking.
 
 Traditional voice agents use VAD (voice activity detection) for end-of-turn detection. However, VAD models lack language understanding, often causing false positives where the agent interrupts the user before they finish speaking.
 
 By leveraging a language model specifically trained for this task, this plugin offers a more accurate and robust method for detecting end-of-turns.
+
+See [https://docs.livekit.io/agents/build/turns/turn-detector/](https://docs.livekit.io/agents/build/turns/turn-detector/) for more information.
 
 ## Installation
 

@@ -18,7 +18,7 @@
 #include "storage/buffer_manager/spiller.h"
 #include "storage/compression/compression.h"
 #include "storage/compression/float_compression.h"
-#include "storage/file_handle.h"
+#include "storage/page_manager.h"
 #include "storage/stats/column_stats.h"
 #include "storage/store/column.h"
 #include "storage/store/column_chunk_metadata.h"
@@ -33,6 +33,19 @@ using namespace kuzu::transaction;
 
 namespace kuzu {
 namespace storage {
+
+void ChunkState::reclaimAllocatedPages(FileHandle& dataFH) const {
+    const auto& entry = metadata.pageRange;
+    if (entry.startPageIdx != INVALID_PAGE_IDX) {
+        dataFH.getPageManager()->freePageRange(entry);
+    }
+    if (nullState) {
+        nullState->reclaimAllocatedPages(dataFH);
+    }
+    for (const auto& child : childrenStates) {
+        child.reclaimAllocatedPages(dataFH);
+    }
+}
 
 static std::shared_ptr<CompressionAlg> getCompression(const LogicalType& dataType,
     bool enableCompression) {
@@ -117,7 +130,7 @@ void ColumnChunkData::initializeBuffer(common::PhysicalTypeID physicalType, Memo
 
     // Some columnChunks are much smaller than the 256KB minimum size used by allocateBuffer
     // Which would lead to excessive memory use, particularly in the partitioner
-    buffer = mm.mallocBuffer(initializeToZero, getBufferSize(capacity));
+    buffer = mm.allocateBuffer(initializeToZero, getBufferSize(capacity));
 }
 
 void ColumnChunkData::initializeFunction() {
@@ -292,8 +305,8 @@ void ColumnChunkData::append(ColumnChunkData* other, offset_t startPosInOtherChu
 
 void ColumnChunkData::flush(FileHandle& dataFH) {
     const auto preScanMetadata = getMetadataToFlush();
-    const auto startPageIdx = dataFH.addNewPages(preScanMetadata.numPages);
-    const auto flushedMetadata = flushBuffer(&dataFH, startPageIdx, preScanMetadata);
+    auto allocatedEntry = dataFH.getPageManager()->allocatePageRange(preScanMetadata.getNumPages());
+    const auto flushedMetadata = flushBuffer(&dataFH, allocatedEntry, preScanMetadata);
     setToOnDisk(flushedMetadata);
     if (nullData) {
         nullData->flush(dataFH);
@@ -305,18 +318,19 @@ void ColumnChunkData::setToOnDisk(const ColumnChunkMetadata& otherMetadata) {
     residencyState = ResidencyState::ON_DISK;
     capacity = 0;
     // Note: We don't need to set the buffer to nullptr, as it allows ColumnChunkData to be resized.
-    buffer = buffer->getMemoryManager()->mallocBuffer(true, 0 /*size*/);
+    buffer = buffer->getMemoryManager()->allocateBuffer(true, 0 /*size*/);
     this->metadata = otherMetadata;
     this->numValues = otherMetadata.numValues;
     resetInMemoryStats();
 }
 
-ColumnChunkMetadata ColumnChunkData::flushBuffer(FileHandle* dataFH, page_idx_t startPageIdx,
+ColumnChunkMetadata ColumnChunkData::flushBuffer(FileHandle* dataFH, const PageRange& entry,
     const ColumnChunkMetadata& otherMetadata) const {
     if (!otherMetadata.compMeta.isConstant() && getBufferSize() != 0) {
         KU_ASSERT(getBufferSize() == getBufferSize(capacity));
-        return flushBufferFunction(buffer->getBuffer(), dataFH, startPageIdx, otherMetadata);
+        return flushBufferFunction(buffer->getBuffer(), dataFH, entry, otherMetadata);
     }
+    KU_ASSERT(otherMetadata.getNumPages() == 0);
     return otherMetadata;
 }
 
@@ -461,7 +475,7 @@ void ColumnChunkData::resize(uint64_t newCapacity) {
     }
     const auto numBytesAfterResize = getBufferSize(newCapacity);
     if (numBytesAfterResize > getBufferSize()) {
-        auto resizedBuffer = buffer->getMemoryManager()->mallocBuffer(false, numBytesAfterResize);
+        auto resizedBuffer = buffer->getMemoryManager()->allocateBuffer(false, numBytesAfterResize);
         auto bufferSize = getBufferSize();
         auto resizedBufferData = resizedBuffer->getBuffer().data();
         memcpy(resizedBufferData, buffer->getBuffer().data(), bufferSize);
@@ -479,7 +493,7 @@ void ColumnChunkData::resizeWithoutPreserve(uint64_t newCapacity) {
     }
     const auto numBytesAfterResize = getBufferSize(newCapacity);
     if (numBytesAfterResize > getBufferSize()) {
-        auto resizedBuffer = buffer->getMemoryManager()->mallocBuffer(false, numBytesAfterResize);
+        auto resizedBuffer = buffer->getMemoryManager()->allocateBuffer(false, numBytesAfterResize);
         buffer = std::move(resizedBuffer);
     }
     if (nullData) {
@@ -986,11 +1000,23 @@ void ColumnChunkData::loadFromDisk() {
     buffer->getMemoryManager()->getBufferManager()->getSpillerOrSkip(
         [&](auto& spiller) { spiller.loadFromDisk(*this); });
 }
+
 uint64_t ColumnChunkData::spillToDisk() {
     uint64_t spilledBytes = 0;
     buffer->getMemoryManager()->getBufferManager()->getSpillerOrSkip(
         [&](auto& spiller) { spilledBytes = spiller.spillToDisk(*this); });
     return spilledBytes;
+}
+
+void ColumnChunkData::reclaimStorage(FileHandle& dataFH) {
+    if (nullData) {
+        nullData->reclaimStorage(dataFH);
+    }
+    if (residencyState == ResidencyState::ON_DISK) {
+        if (metadata.getStartPageIdx() != INVALID_PAGE_IDX) {
+            dataFH.getPageManager()->freePageRange(metadata.pageRange);
+        }
+    }
 }
 
 ColumnChunkData::~ColumnChunkData() = default;

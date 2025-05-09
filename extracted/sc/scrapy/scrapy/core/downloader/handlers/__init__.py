@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from twisted.internet import defer
@@ -15,7 +14,7 @@ from scrapy.utils.misc import build_from_crawler, load_object
 from scrapy.utils.python import without_none_values
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
 
     from twisted.internet.defer import Deferred
 
@@ -35,13 +34,12 @@ class DownloadHandlerProtocol(Protocol):
 class DownloadHandlers:
     def __init__(self, crawler: Crawler):
         self._crawler: Crawler = crawler
-        self._schemes: dict[str, str | Callable[..., Any]] = (
-            {}
-        )  # stores acceptable schemes on instancing
-        self._handlers: dict[str, DownloadHandlerProtocol] = (
-            {}
-        )  # stores instanced handlers for schemes
-        self._notconfigured: dict[str, str] = {}  # remembers failed handlers
+        # stores acceptable schemes on instancing
+        self._schemes: dict[str, str | Callable[..., Any]] = {}
+        # stores instanced handlers for schemes
+        self._handlers: dict[str, DownloadHandlerProtocol] = {}
+        # remembers failed handlers
+        self._notconfigured: dict[str, str] = {}
         handlers: dict[str, str | Callable[..., Any]] = without_none_values(
             cast(
                 "dict[str, str | Callable[..., Any]]",

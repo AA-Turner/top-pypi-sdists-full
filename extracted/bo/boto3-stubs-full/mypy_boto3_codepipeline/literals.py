@@ -35,6 +35,7 @@ __all__ = (
     "ConditionExecutionStatusType",
     "ConditionTypeType",
     "EncryptionKeyTypeType",
+    "EnvironmentVariableTypeType",
     "ExecutionModeType",
     "ExecutionTypeType",
     "ExecutorTypeType",
@@ -84,6 +85,7 @@ ConditionExecutionStatusType = Literal[
 ]
 ConditionTypeType = Literal["BEFORE_ENTRY", "ON_SUCCESS"]
 EncryptionKeyTypeType = Literal["KMS"]
+EnvironmentVariableTypeType = Literal["PLAINTEXT", "SECRETS_MANAGER"]
 ExecutionModeType = Literal["PARALLEL", "QUEUED", "SUPERSEDED"]
 ExecutionTypeType = Literal["ROLLBACK", "STANDARD"]
 ExecutorTypeType = Literal["JobWorker", "Lambda"]

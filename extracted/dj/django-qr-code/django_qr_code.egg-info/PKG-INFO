@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-qr-code
-Version: 4.1.0
+Version: 4.2.0
 Summary: An application that provides tools for displaying QR codes on your Django site.
 Home-page: https://github.com/dprog-philippe-docourt/django-qr-code
 Author: Philippe Docourt
@@ -15,7 +15,7 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.2
 Classifier: Natural Language :: English
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -23,6 +23,19 @@ License-File: LICENSE
 Requires-Dist: segno>=1.6
 Requires-Dist: django>=4.2
 Requires-Dist: pydantic>=2.7
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Django QR Code
 [![Latest PyPI version](https://badge.fury.io/py/django-qr-code.svg)](https://badge.fury.io/py/django-qr-code)

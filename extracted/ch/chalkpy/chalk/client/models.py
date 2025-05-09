@@ -214,10 +214,25 @@ class ChalkException(BaseModel, frozen=True):
 
     @classmethod
     def from_exception(cls, exc: BaseException) -> "ChalkException":
-        return ChalkException(
+        return ChalkException.create(
             kind=type(exc).__name__,
             message=str(exc),
             stacktrace="".join(traceback.format_exception(exc)),
+        )
+
+    @classmethod
+    def create(
+        cls,
+        kind: str,
+        message: str,
+        stacktrace: str,
+        internal_stacktrace: Optional[str] = None,
+    ) -> "ChalkException":
+        return ChalkException(
+            kind=kind,
+            message=message[0:MAX_STR_LENGTH],
+            stacktrace=stacktrace[-MAX_STR_LENGTH:],
+            internal_stacktrace=internal_stacktrace[-MAX_STR_LENGTH:] if internal_stacktrace is not None else None,
         )
 
 
@@ -266,7 +281,7 @@ class ChalkError(BaseModel, frozen=True):
         """
         Returns True if the error indicates an issue with user's resolver, rather than an internal Chalk failure.
         """
-        return self.code in [ErrorCode.RESOLVER_FAILED, ErrorCode.RESOLVER_TIMED_OUT, ErrorCode.UPSTREAM_FAILED]
+        return self.code in (ErrorCode.RESOLVER_FAILED, ErrorCode.RESOLVER_TIMED_OUT, ErrorCode.UPSTREAM_FAILED)
 
     def copy_for_feature(self, feature: str) -> "ChalkError":
         return self.copy(update={"feature": feature})
@@ -297,9 +312,7 @@ class ChalkError(BaseModel, frozen=True):
                     start_stack_from = i + 1
             values["message"] = (
                 values["message"]
-                + "\n"
-                + _HAS_CHALK_TRACE
-                + "\n"
+                + f"\n{_HAS_CHALK_TRACE}\n"
                 + "[" * 200
                 + "\n"
                 + "\n".join(formatted_stack[start_stack_from:])
@@ -309,6 +322,57 @@ class ChalkError(BaseModel, frozen=True):
             )
 
         return values
+
+    @classmethod
+    def create(
+        cls,
+        code: ErrorCode,
+        message: str,
+        category: Optional[ErrorCodeCategory] = None,
+        display_primary_key: Optional[str] = None,
+        display_primary_key_fqn: Optional[str] = None,
+        exception: Optional[ChalkException] = None,
+        feature: Optional[str] = None,
+        resolver: Optional[str] = None,
+    ) -> "ChalkError":
+        category = category or _category_for_error_code(code)
+        if not _CHALK_DEBUG_FULL_TRACE:
+            # Truncate the message to a specified maximum length.
+            message = message[0:MAX_STR_LENGTH]
+
+        _HAS_CHALK_TRACE = "[has chalk trace]"
+        if _CHALK_DEBUG_FULL_TRACE and _HAS_CHALK_TRACE not in message:
+            # Include a stack trace if it's not already present and the super-verbose
+            # full trace flag is enabled.
+            import traceback
+
+            formatted_stack = traceback.format_stack()[:-1]  # Exclude this validation function.
+            start_stack_from = 0
+            for i in range(len(formatted_stack)):
+                if "run_endpoint_function" in formatted_stack[i]:
+                    # This function occurs in the stack trace before the actual entry into the engine-
+                    # everything before it is boilerplate.
+                    start_stack_from = i + 1
+            message = (
+                f"{message}\n{_HAS_CHALK_TRACE}\n"
+                + "[" * 200
+                + "\n"
+                + "\n".join(formatted_stack[start_stack_from:])
+                + "\n"
+                + "]" * 200
+                + "\n"
+            )
+
+        return ChalkError(
+            code=code,
+            category=category,
+            message=message,
+            display_primary_key=display_primary_key,
+            display_primary_key_fqn=display_primary_key_fqn,
+            exception=exception,
+            feature=feature,
+            resolver=resolver,
+        )
 
     if TYPE_CHECKING:
         # Defining __hash__ only when type checking
@@ -1346,10 +1410,12 @@ class UpdateGraphEntityResponse(BaseModel):
 
 
 class UpdateResolverResponse(BaseModel):
-    updated_fqn: Optional[
-        str
-    ] = None  # The resolver fqn that was updated (may not be the same as the one that was requested)
-    is_new: Optional[bool] = None  # Whether a new resolver was created, or if an existing one was replaced
+    updated_fqn: Optional[str] = None
+    """The resolver fqn that was updated (may not be the same as the one that was requested)"""
+
+    is_new: Optional[bool] = None
+    """Whether a new resolver was created, or if an existing one was replaced"""
+
     errors: Optional[List[ChalkError]] = None
 
 

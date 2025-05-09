@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sdcclient"
-version = "0.18.0" # Updated by poetry-dynamic-versioning
+version = "0.19.0" # Updated by poetry-dynamic-versioning
 description = "Python client for Sysdig Platform"
 authors = ["Sysdig Inc. <info@sysdig.com>"]
 license = "MIT"

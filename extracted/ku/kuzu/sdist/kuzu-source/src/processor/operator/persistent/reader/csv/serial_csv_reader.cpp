@@ -3,6 +3,7 @@
 #include "binder/binder.h"
 #include "function/table/bind_data.h"
 #include "function/table/table_function.h"
+#include "main/client_context.h"
 #include "processor/execution_context.h"
 #include "processor/operator/persistent/reader/csv/driver.h"
 #include "processor/operator/persistent/reader/reader_bind_utils.h"
@@ -73,7 +74,7 @@ uint64_t SerialCSVReader::parseBlock(block_idx_t blockIdx, DataChunk& resultChun
     }
     SerialParsingDriver driver(resultChunk, this);
     const auto [numRowsRead, numErrors] = parseCSV(driver);
-    errorHandler->reportFinishedBlock(blockIdx, numRowsRead);
+    errorHandler->reportFinishedBlock(blockIdx, numRowsRead + numErrors);
     resultChunk.state->getSelVectorUnsafe().setSelSize(numRowsRead);
     increaseNumRowsInCurrentBlock(numRowsRead, numErrors);
     return numRowsRead;
@@ -285,12 +286,7 @@ function_set SerialCSVScan::getFunctionSet() {
 
 void SerialCSVReader::resetReaderState() {
     // Reset file position to the beginning.
-    if (-1 == fileInfo->seek(0, SEEK_SET)) {
-        handleCopyException(
-            stringFormat("Failed to seek to the beginning of the file:, errno: {}.", errno), true);
-        return;
-    }
-
+    fileInfo->reset();
     buffer.reset();
     bufferSize = 0;
     position = 0;

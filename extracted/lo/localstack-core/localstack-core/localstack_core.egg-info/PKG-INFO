@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: localstack-core
-Version: 4.3.0
+Version: 4.4.0
 Summary: The core library and runtime of LocalStack
 Author-email: LocalStack Contributors <info@localstack.cloud>
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://localstack.cloud
 Project-URL: Documentation, https://docs.localstack.cloud
 Project-URL: Repository, https://github.com/localstack/localstack.git
 Project-URL: Issues, https://github.com/localstack/localstack/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Emulators
@@ -31,8 +31,8 @@ Requires-Dist: requests>=2.20.0
 Requires-Dist: semver>=2.10
 Requires-Dist: tailer>=0.4.1
 Provides-Extra: base-runtime
-Requires-Dist: boto3==1.37.18; extra == "base-runtime"
-Requires-Dist: botocore==1.37.18; extra == "base-runtime"
+Requires-Dist: boto3==1.38.8; extra == "base-runtime"
+Requires-Dist: botocore==1.38.8; extra == "base-runtime"
 Requires-Dist: awscrt>=0.13.14; extra == "base-runtime"
 Requires-Dist: cbor2>=5.5.0; extra == "base-runtime"
 Requires-Dist: dnspython>=1.16.0; extra == "base-runtime"
@@ -50,9 +50,9 @@ Requires-Dist: xmltodict>=0.13.0; extra == "base-runtime"
 Requires-Dist: rolo>=0.7; extra == "base-runtime"
 Provides-Extra: runtime
 Requires-Dist: localstack-core[base-runtime]; extra == "runtime"
-Requires-Dist: awscli>=1.32.117; extra == "runtime"
+Requires-Dist: awscli>=1.37.0; extra == "runtime"
 Requires-Dist: airspeed-ext>=0.6.3; extra == "runtime"
-Requires-Dist: amazon_kclpy>=3.0.0; extra == "runtime"
+Requires-Dist: kclpy-ext>=3.0.0; extra == "runtime"
 Requires-Dist: antlr4-python3-runtime==4.13.2; extra == "runtime"
 Requires-Dist: apispec>=5.1.1; extra == "runtime"
 Requires-Dist: aws-sam-translator>=1.15.1; extra == "runtime"
@@ -62,7 +62,7 @@ Requires-Dist: jpype1-ext>=0.0.1; extra == "runtime"
 Requires-Dist: json5>=0.9.11; extra == "runtime"
 Requires-Dist: jsonpath-ng>=1.6.1; extra == "runtime"
 Requires-Dist: jsonpath-rw>=1.4.0; extra == "runtime"
-Requires-Dist: moto-ext[all]==5.1.1.post1; extra == "runtime"
+Requires-Dist: moto-ext[all]==5.1.4.post1; extra == "runtime"
 Requires-Dist: opensearch-py>=2.4.1; extra == "runtime"
 Requires-Dist: pymongo>=4.2.0; extra == "runtime"
 Requires-Dist: pyopenssl>=23.0.0; extra == "runtime"
@@ -74,7 +74,7 @@ Requires-Dist: httpx[http2]>=0.25; extra == "test"
 Requires-Dist: pluggy>=1.3.0; extra == "test"
 Requires-Dist: pytest>=7.4.2; extra == "test"
 Requires-Dist: pytest-split>=0.8.0; extra == "test"
-Requires-Dist: pytest-httpserver<1.1.2,>=1.0.1; extra == "test"
+Requires-Dist: pytest-httpserver>=1.1.2; extra == "test"
 Requires-Dist: pytest-rerunfailures>=12.0; extra == "test"
 Requires-Dist: pytest-tinybird>=0.2.0; extra == "test"
 Requires-Dist: aws-cdk-lib>=2.88.0; extra == "test"
@@ -91,7 +91,8 @@ Requires-Dist: pre-commit>=3.5.0; extra == "dev"
 Requires-Dist: pypandoc; extra == "dev"
 Requires-Dist: ruff>=0.3.3; extra == "dev"
 Requires-Dist: rstr>=3.2.0; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
 Provides-Extra: typehint
 Requires-Dist: localstack-core[dev]; extra == "typehint"
-Requires-Dist: boto3-stubs[acm,acm-pca,amplify,apigateway,apigatewayv2,appconfig,appconfigdata,application-autoscaling,appsync,athena,autoscaling,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codebuild,codecommit,codedeploy,codepipeline,codestar-connections,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,identitystore,iot,iot-data,iotanalytics,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,managedblockchain,mediaconvert,mediastore,mq,mwaa,neptune,opensearch,organizations,pi,pinpoint,pipes,qldb,qldb-session,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,wafv2,xray]; extra == "typehint"
+Requires-Dist: boto3-stubs[acm,acm-pca,amplify,apigateway,apigatewayv2,appconfig,appconfigdata,application-autoscaling,appsync,athena,autoscaling,backup,batch,ce,cloudcontrol,cloudformation,cloudfront,cloudtrail,cloudwatch,codebuild,codecommit,codeconnections,codedeploy,codepipeline,codestar-connections,cognito-identity,cognito-idp,dms,docdb,dynamodb,dynamodbstreams,ec2,ecr,ecs,efs,eks,elasticache,elasticbeanstalk,elbv2,emr,emr-serverless,es,events,firehose,fis,glacier,glue,iam,identitystore,iot,iot-data,iotanalytics,iotwireless,kafka,kinesis,kinesisanalytics,kinesisanalyticsv2,kms,lakeformation,lambda,logs,managedblockchain,mediaconvert,mediastore,mq,mwaa,neptune,opensearch,organizations,pi,pinpoint,pipes,qldb,qldb-session,rds,rds-data,redshift,redshift-data,resource-groups,resourcegroupstaggingapi,route53,route53resolver,s3,s3control,sagemaker,sagemaker-runtime,secretsmanager,serverlessrepo,servicediscovery,ses,sesv2,sns,sqs,ssm,sso-admin,stepfunctions,sts,timestream-query,timestream-write,transcribe,verifiedpermissions,wafv2,xray]; extra == "typehint"
 Dynamic: license-file

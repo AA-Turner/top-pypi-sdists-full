@@ -14,10 +14,9 @@
 import inspect
 import json
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import lightning.pytorch as pl
-import torch
 import torch.distributed
 from lightning.pytorch.trainer.states import TrainerFn
 from megatron.core.inference.common_inference_params import CommonInferenceParams
@@ -35,6 +34,11 @@ from nemo.lightning.io.pl import ckpt_to_weights_subdir
 from nemo.lightning.pytorch.callbacks import PEFT
 from nemo.lightning.pytorch.strategies.megatron_strategy import MegatronStrategy
 from nemo.lightning.pytorch.strategies.utils import RestoreConfig
+from nemo.utils import logging
+
+if TYPE_CHECKING:
+    from nemo.collections.llm.gpt.model.base import GPTModel
+    from nemo.collections.llm.t5.model.t5 import T5Model
 
 
 class MCoreTokenizerWrappper:
@@ -43,10 +47,10 @@ class MCoreTokenizerWrappper:
     tokenizer.detokenize, tokenizer.tokenize, tokenizer.bos, tokenizer.pad, etc. to encode and decode prompts
     """
 
-    def __init__(self, tokenizer):
+    def __init__(self, tokenizer, vocab_size=None):
         self.tokenizer = tokenizer
         self.eod = tokenizer.eod
-        self.vocab_size = tokenizer.vocab_size
+        self.vocab_size = vocab_size or tokenizer.vocab_size
 
     def detokenize(self, tokens, remove_special_tokens=False):
         """
@@ -108,7 +112,9 @@ class MCoreTokenizerWrappper:
 
 
 # TODO: Move to lightning Fabric API.
-def _setup_trainer_and_restore_model(path: Path, trainer: nl.Trainer, model: pl.LightningModule):
+def _setup_trainer_and_restore_model(
+    path: Path, trainer: nl.Trainer, model: pl.LightningModule, tokenizer: Any = None
+):
     """
     Sets up the trainer and restores the model from the given checkpoint path.
 
@@ -122,12 +128,18 @@ def _setup_trainer_and_restore_model(path: Path, trainer: nl.Trainer, model: pl.
         path (Path): The path to the checkpoint file.
         trainer (nl.Trainer): The trainer object.
         model (pl.LightningModule): The model object.
-
+        tokenizer (Any): The tokenizer object to override the tokenizer in the model.
     Returns:
         None
     """
     assert isinstance(trainer.strategy, MegatronStrategy), "Only MegatronStrategy is supported for trainer.strategy."
     assert trainer.strategy.context_parallel_size <= 1, "Context parallelism is not supported for inference."
+
+    # [ModelOpt]: If modelopt_state exists, overwrite transformer_layer_spec to modelopt spec
+    from nemo.collections.llm.modelopt import set_modelopt_spec_if_exists_in_ckpt
+
+    set_modelopt_spec_if_exists_in_ckpt(model, path)
+
     if (adapter_meta_path := ckpt_to_weights_subdir(path, is_saving=False) / ADAPTER_META_FILENAME).exists():
         with open(adapter_meta_path, "r") as f:
             metadata = json.load(f)
@@ -142,6 +154,10 @@ def _setup_trainer_and_restore_model(path: Path, trainer: nl.Trainer, model: pl.
             load_model_state=True,
             load_optim_state=False,
         )
+
+    if tokenizer is not None:
+        logging.info(f"Overriding model.tokenizer to: {tokenizer}")
+        model.tokenizer = tokenizer
 
     trainer.strategy.restore_config = restore_config
     trainer.strategy._setup_optimizers = False
@@ -176,7 +192,8 @@ def setup_model_and_tokenizer(
     trainer: nl.Trainer,
     params_dtype: torch.dtype = torch.bfloat16,
     inference_batch_times_seqlen_threshold: int = 1000,
-) -> tuple[MegatronModule, MCoreTokenizerWrappper]:
+    inference_max_seq_length: int = 2560,
+) -> tuple[AbstractModelInferenceWrapper, MCoreTokenizerWrappper]:
     """
     Sets up the model and tokenizer for inference.
 
@@ -190,16 +207,23 @@ def setup_model_and_tokenizer(
             Defaults to torch.bfloat16.
         inference_batch_times_seqlen_threshold (int, optional): If batch-size times sequence-length is smaller
            than this threshold then we will not use pipelining, otherwise we will.
+        inference_max_seq_length (int, optional): max_seq_length for inference. Required by MCoreEngine(>=0.12).
+        Necessary for CUDA graphs. Defaults to 2560.
 
     Returns:
-        tuple[MegatronModule, MCoreTokenizerWrappper]:
+        tuple[AbstractModelInferenceWrapper, MCoreTokenizerWrappper]:
             A tuple containing the inference-wrapped model and Mcore wrapped tokenizer.
     """
-    model: io.TrainerContext = io.load_context(path=ckpt_to_context_subdir(path), subpath="model")
+    model: GPTModel | T5Model = io.load_context(path=ckpt_to_context_subdir(path), subpath="model")
     _setup_trainer_and_restore_model(path=path, trainer=trainer, model=model)
 
-    inference_wrapped_model = model.get_inference_wrapper(params_dtype, inference_batch_times_seqlen_threshold)
-    return inference_wrapped_model, MCoreTokenizerWrappper(model.tokenizer)
+    inference_wrapped_model = model.get_inference_wrapper(
+        params_dtype, inference_batch_times_seqlen_threshold, inference_max_seq_length
+    )
+    return (
+        inference_wrapped_model,
+        MCoreTokenizerWrappper(model.tokenizer, getattr(model.config, "vocab_size", None)),
+    )
 
 
 def generate(

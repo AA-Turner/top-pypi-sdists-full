@@ -188,9 +188,9 @@ class OSQP:
         if P is None:
             P = spa.csc_matrix(
                 (
-                    np.zeros((0,), dtype=np.double),  # data
-                    np.zeros((0,), dtype=np.int),  # indices
-                    np.zeros((n + 1,), dtype=np.int),
+                    np.zeros((0,), dtype=self._dtype),  # data
+                    np.zeros((0,), dtype=self._itype),  # indices
+                    np.zeros((n + 1,), dtype=self._itype),
                 ),  # indptr
                 shape=(n, n),
             )
@@ -200,9 +200,9 @@ class OSQP:
         if A is None:
             A = spa.csc_matrix(
                 (
-                    np.zeros((0,), dtype=np.double),  # data
-                    np.zeros((0,), dtype=np.int),  # indices
-                    np.zeros((n + 1,), dtype=np.int),
+                    np.zeros((0,), dtype=self._dtype),  # data
+                    np.zeros((0,), dtype=self._itype),  # indices
+                    np.zeros((n + 1,), dtype=self._itype),
                 ),  # indptr
                 shape=(m, n),
             )
@@ -413,7 +413,6 @@ class OSQP:
         info = self._solver.info
         if info.status_val == SolverStatus.OSQP_NON_CVX:
             info.obj_val = np.nan
-        # TODO: Handle primal/dual infeasibility
 
         if info.status_val != SolverStatus.OSQP_SOLVED and raise_error:
             raise OSQPException(info.status_val)
@@ -423,7 +422,13 @@ class OSQP:
 
         # TODO: The following structure is only to maintain backward compatibility, where x/y are attributes
         # directly inside the returned object on solve(). This should be simplified!
-        results = SimpleNamespace(x=self._solver.solution.x, y=self._solver.solution.y, info=_info)
+        results = SimpleNamespace(
+            x=self._solver.solution.x,
+            y=self._solver.solution.y,
+            prim_inf_cert=self._solver.solution.prim_inf_cert,
+            dual_inf_cert=self._solver.solution.dual_inf_cert,
+            info=_info,
+        )
 
         self._derivative_cache['results'] = results
         return results

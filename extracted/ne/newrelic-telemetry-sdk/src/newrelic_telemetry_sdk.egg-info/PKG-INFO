@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: newrelic-telemetry-sdk
-Version: 0.6.0
+Version: 0.7.0
 Summary: New Relic Telemetry SDK
 Home-page: https://newrelic.github.io/newrelic-telemetry-sdk-python
 Author: New Relic
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.7
@@ -26,6 +27,8 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: THIRD_PARTY_NOTICES.rst
 Requires-Dist: urllib3<3,>=1.26
+Dynamic: license-file
+Dynamic: requires-dist
 
 |header|
 
@@ -35,7 +38,7 @@ Requires-Dist: urllib3<3,>=1.26
 New Relic Telemetry SDK
 =======================
 
-|ci| |coverage| |docs| |black|
+|ci| |coverage| |docs| |ruff|
 
 .. |ci| image:: https://github.com/newrelic/newrelic-telemetry-sdk-python/workflows/Tests/badge.svg
     :target: https://github.com/newrelic/newrelic-telemetry-sdk-python/actions?query=workflow%3ATests
@@ -46,8 +49,8 @@ New Relic Telemetry SDK
 .. |docs| image:: https://img.shields.io/badge/docs-available-brightgreen.svg
     :target: https://newrelic.github.io/newrelic-telemetry-sdk-python/
 
-.. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-    :target: https://github.com/psf/black
+.. |ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/charliermarsh/ruff/main/assets/badge/v0.json
+    :target: https://github.com/astral-sh/ruff
 
 `newrelic-telemetry-sdk-python <https://docs.newrelic.com/docs/data-ingest-apis/get-data-new-relic/new-relic-sdks/telemetry-sdks-send-custom-telemetry-data-new-relic>`_ provides a Python library for sending data into `New Relic <https://newrelic.com>`_ using the Python `urllib3 <https://urllib3.readthedocs.io>`_ library.
 

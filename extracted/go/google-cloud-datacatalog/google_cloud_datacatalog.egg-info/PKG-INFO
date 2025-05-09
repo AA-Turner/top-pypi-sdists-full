@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: google-cloud-datacatalog
-Version: 3.27.0
+Version: 3.27.1
 Summary: Google Cloud Datacatalog API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-datacatalog
 Author: Google LLC

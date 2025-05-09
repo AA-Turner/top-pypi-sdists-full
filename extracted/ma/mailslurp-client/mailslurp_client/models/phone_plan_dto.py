@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -130,7 +130,7 @@ class PhonePlanDto(object):
         """
         if self.local_vars_configuration.client_side_validation and phone_country is None:  # noqa: E501
             raise ValueError("Invalid value for `phone_country`, must not be `None`")  # noqa: E501
-        allowed_values = ["US", "GB", "AU"]  # noqa: E501
+        allowed_values = ["US", "GB", "AU", "CA", "EE", "HK", "PL", "CH", "PT", "NL", "IL", "SE"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and phone_country not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `phone_country` ({0}), must be one of {1}"  # noqa: E501

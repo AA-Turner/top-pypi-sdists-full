@@ -27,6 +27,7 @@ typedef struct {
 // using CYTHON_ATOMICS as a cdef extern bint in the Cython memoryview code
 // interacts badly with "import *". Therefore, define a helper function-like macro
 #define __PYX_CYTHON_ATOMICS_ENABLED() CYTHON_ATOMICS
+#define __PYX_GET_CYTHON_COMPILING_IN_CPYTHON_FREETHREADING() CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
 
 #define __pyx_atomic_int_type int
 #define __pyx_nonatomic_int_type int
@@ -50,8 +51,18 @@ typedef struct {
     // C11 atomics are available and  ATOMIC_INT_LOCK_FREE is definitely on
     #undef __pyx_atomic_int_type
     #define __pyx_atomic_int_type atomic_int
-    #define __pyx_atomic_incr_aligned(value) atomic_fetch_add_explicit(value, 1, memory_order_relaxed)
-    #define __pyx_atomic_decr_aligned(value) atomic_fetch_sub_explicit(value, 1, memory_order_acq_rel)
+    #define __pyx_atomic_ptr_type atomic_uintptr_t
+    #define __pyx_nonatomic_ptr_type uintptr_t
+    #define __pyx_atomic_incr_relaxed(value) atomic_fetch_add_explicit(value, 1, memory_order_relaxed)
+    #define __pyx_atomic_incr_acq_rel(value) atomic_fetch_add_explicit(value, 1, memory_order_acq_rel)
+    #define __pyx_atomic_decr_acq_rel(value) atomic_fetch_sub_explicit(value, 1, memory_order_acq_rel)
+    #define __pyx_atomic_sub(value, arg) atomic_fetch_sub(value, arg)
+    #define __pyx_atomic_int_cmp_exchange(value, expected, desired) atomic_compare_exchange_strong(value, expected, desired)
+    #define __pyx_atomic_load(value) atomic_load(value)
+    #define __pyx_atomic_store(value, new_value) atomic_store(value, new_value)
+    #define __pyx_atomic_pointer_load_relaxed(value) atomic_load_explicit(value, memory_order_relaxed)
+    #define __pyx_atomic_pointer_load_acquire(value) atomic_load_explicit(value, memory_order_acquire)
+    #define __pyx_atomic_pointer_exchange(value, new_value) atomic_exchange(value, (__pyx_nonatomic_ptr_type)new_value)
     #if defined(__PYX_DEBUG_ATOMICS) && defined(_MSC_VER)
         #pragma message ("Using standard C atomics")
     #elif defined(__PYX_DEBUG_ATOMICS)
@@ -65,8 +76,18 @@ typedef struct {
     // C++11 atomics are available and ATOMIC_INT_LOCK_FREE is definitely on
     #undef __pyx_atomic_int_type
     #define __pyx_atomic_int_type std::atomic_int
-    #define __pyx_atomic_incr_aligned(value) std::atomic_fetch_add_explicit(value, 1, std::memory_order_relaxed)
-    #define __pyx_atomic_decr_aligned(value) std::atomic_fetch_sub_explicit(value, 1, std::memory_order_acq_rel)
+    #define __pyx_atomic_ptr_type std::atomic_uintptr_t
+    #define __pyx_nonatomic_ptr_type uintptr_t
+    #define __pyx_atomic_incr_relaxed(value) std::atomic_fetch_add_explicit(value, 1, std::memory_order_relaxed)
+    #define __pyx_atomic_incr_acq_rel(value) std::atomic_fetch_add_explicit(value, 1, std::memory_order_acq_rel)
+    #define __pyx_atomic_decr_acq_rel(value) std::atomic_fetch_sub_explicit(value, 1, std::memory_order_acq_rel)
+    #define __pyx_atomic_sub(value, arg) std::atomic_fetch_sub(value, arg)
+    #define __pyx_atomic_int_cmp_exchange(value, expected, desired) std::atomic_compare_exchange_strong(value, expected, desired)
+    #define __pyx_atomic_load(value) std::atomic_load(value)
+    #define __pyx_atomic_store(value, new_value) std::atomic_store(value, new_value)
+    #define __pyx_atomic_pointer_load_relaxed(value) std::atomic_load_explicit(value, std::memory_order_relaxed)
+    #define __pyx_atomic_pointer_load_acquire(value) std::atomic_load_explicit(value, std::memory_order_acquire)
+    #define __pyx_atomic_pointer_exchange(value, new_value) std::atomic_exchange(value, (__pyx_nonatomic_ptr_type)new_value)
 
     #if defined(__PYX_DEBUG_ATOMICS) && defined(_MSC_VER)
         #pragma message ("Using standard C++ atomics")
@@ -77,8 +98,23 @@ typedef struct {
                     (__GNUC_MINOR__ > 1 ||  \
                     (__GNUC_MINOR__ == 1 && __GNUC_PATCHLEVEL__ >= 2))))
     /* gcc >= 4.1.2 */
-    #define __pyx_atomic_incr_aligned(value) __sync_fetch_and_add(value, 1)
-    #define __pyx_atomic_decr_aligned(value) __sync_fetch_and_sub(value, 1)
+    #define __pyx_atomic_ptr_type void*
+    #define __pyx_atomic_incr_relaxed(value) __sync_fetch_and_add(value, 1)
+    #define __pyx_atomic_incr_acq_rel(value) __sync_fetch_and_add(value, 1)
+    #define __pyx_atomic_decr_acq_rel(value) __sync_fetch_and_sub(value, 1)
+    #define __pyx_atomic_sub(value, arg) __sync_fetch_and_sub(value, arg)
+    static CYTHON_INLINE int __pyx_atomic_int_cmp_exchange(__pyx_atomic_int_type* value, __pyx_nonatomic_int_type* expected, __pyx_nonatomic_int_type desired) {
+        __pyx_nonatomic_int_type old = __sync_val_compare_and_swap(value, *expected, desired);
+        int result = old == *expected;
+        *expected = old;
+        return result;
+    }
+    // the legacy gcc sync builtins don't seem to have plain "load" or "store".
+    #define __pyx_atomic_load(value) __sync_fetch_and_add(value, 0)
+    #define __pyx_atomic_store(value, new_value) __sync_lock_test_and_set(value, new_value)
+    #define __pyx_atomic_pointer_load_relaxed(value) __sync_fetch_and_add(value, 0)
+    #define __pyx_atomic_pointer_load_acquire(value) __sync_fetch_and_add(value, 0)
+    #define __pyx_atomic_pointer_exchange(value, new_value) __sync_lock_test_and_set(value, (__pyx_atomic_ptr_type)new_value)
 
     #ifdef __PYX_DEBUG_ATOMICS
         #warning "Using GNU atomics"
@@ -88,11 +124,29 @@ typedef struct {
     #include <intrin.h>
     #undef __pyx_atomic_int_type
     #define __pyx_atomic_int_type long
+    #define __pyx_atomic_ptr_type void*
     #undef __pyx_nonatomic_int_type
     #define __pyx_nonatomic_int_type long
-    #pragma intrinsic (_InterlockedExchangeAdd)
-    #define __pyx_atomic_incr_aligned(value) _InterlockedExchangeAdd(value, 1)
-    #define __pyx_atomic_decr_aligned(value) _InterlockedExchangeAdd(value, -1)
+    #pragma intrinsic (_InterlockedExchangeAdd, _InterlockedExchange, _InterlockedCompareExchange, _InterlockedCompareExchangePointer, _InterlockedExchangePointer)
+    #define __pyx_atomic_incr_relaxed(value) _InterlockedExchangeAdd(value, 1)
+    #define __pyx_atomic_incr_acq_rel(value) _InterlockedExchangeAdd(value, 1)
+    #define __pyx_atomic_decr_acq_rel(value) _InterlockedExchangeAdd(value, -1)
+    #define __pyx_atomic_sub(value, arg) _InterlockedExchangeAdd(value, -arg)
+    static CYTHON_INLINE int __pyx_atomic_int_cmp_exchange(__pyx_atomic_int_type* value, __pyx_nonatomic_int_type* expected, __pyx_nonatomic_int_type desired) {
+        __pyx_nonatomic_int_type old = _InterlockedCompareExchange(value, desired, *expected);
+        int result = old == *expected;
+        *expected = old;
+        return result;
+    }
+    #define __pyx_atomic_load(value) _InterlockedExchangeAdd(value, 0)
+    #define __pyx_atomic_store(value, new_value) _InterlockedExchange(value, new_value)
+    // Microsoft says that simple reads are guaranteed to be atomic.
+    // https://learn.microsoft.com/en-gb/windows/win32/sync/interlocked-variable-access?redirectedfrom=MSDN
+    // The volatile cast is what CPython does.
+    #define __pyx_atomic_pointer_load_relaxed(value) *(void * volatile *)value
+    // compare/exchange is probably overkill nonsense, but plain "load" intrinsics are hard to get.
+    #define __pyx_atomic_pointer_load_acquire(value) _InterlockedCompareExchangePointer(value, 0, 0)
+    #define __pyx_atomic_pointer_exchange(value, new_value) _InterlockedExchangePointer(value, (__pyx_atomic_ptr_type)new_value)
 
     #ifdef __PYX_DEBUG_ATOMICS
         #pragma message ("Using MSVC atomics")
@@ -108,9 +162,9 @@ typedef struct {
 
 #if CYTHON_ATOMICS
     #define __pyx_add_acquisition_count(memview) \
-             __pyx_atomic_incr_aligned(__pyx_get_slice_count_pointer(memview))
+             __pyx_atomic_incr_relaxed(__pyx_get_slice_count_pointer(memview))
     #define __pyx_sub_acquisition_count(memview) \
-            __pyx_atomic_decr_aligned(__pyx_get_slice_count_pointer(memview))
+            __pyx_atomic_decr_acq_rel(__pyx_get_slice_count_pointer(memview))
 #else
     #define __pyx_add_acquisition_count(memview) \
             __pyx_add_acquisition_count_locked(__pyx_get_slice_count_pointer(memview), memview->lock)
@@ -125,6 +179,9 @@ static CYTHON_INLINE {{memviewslice_name}} {{funcname}}(PyObject *, int writable
 
 
 ////////// MemviewSliceInit.proto //////////
+
+// vsnprintf
+#include <stdio.h>
 
 #define __Pyx_BUF_MAX_NDIMS %(BUF_MAX_NDIMS)d
 
@@ -200,7 +257,7 @@ static int __Pyx_ValidateAndInit_memviewslice(
                 int c_or_f_flag,
                 int buf_flags,
                 int ndim,
-                __Pyx_TypeInfo *dtype,
+                const __Pyx_TypeInfo *dtype,
                 __Pyx_BufFmt_StackElem stack[],
                 __Pyx_memviewslice *memviewslice,
                 PyObject *original_obj);
@@ -333,7 +390,7 @@ static int __Pyx_ValidateAndInit_memviewslice(
                 int c_or_f_flag,
                 int buf_flags,
                 int ndim,
-                __Pyx_TypeInfo *dtype,
+                const __Pyx_TypeInfo *dtype,
                 __Pyx_BufFmt_StackElem stack[],
                 __Pyx_memviewslice *memviewslice,
                 PyObject *original_obj)
@@ -412,7 +469,7 @@ static int __Pyx_ValidateAndInit_memviewslice(
     goto no_fail;
 
 fail:
-    Py_XDECREF(new_memview);
+    Py_XDECREF((PyObject*)new_memview);
     retval = -1;
 
 no_fail:
@@ -464,7 +521,7 @@ __Pyx_init_memviewslice(struct __pyx_memoryview_obj *memview,
     memviewslice->memview = memview;
     memviewslice->data = (char *)buf->buf;
     if (__pyx_add_acquisition_count(memview) == 0 && !memview_is_new_reference) {
-        Py_INCREF(memview);
+        Py_INCREF((PyObject*)memview);
     }
     retval = 0;
     goto no_fail;
@@ -628,16 +685,22 @@ __pyx_memoryview_copy_new_contig(const __Pyx_memviewslice *from_mvs,
 
 
     for(i = 0; i < ndim; i++) {
-        temp_int = PyInt_FromSsize_t(from_mvs->shape[i]);
+        temp_int = PyLong_FromSsize_t(from_mvs->shape[i]);
         if(unlikely(!temp_int)) {
             goto fail;
         } else {
+#if CYTHON_ASSUME_SAFE_MACROS
             PyTuple_SET_ITEM(shape_tuple, i, temp_int);
+#else
+            if (PyTuple_SetItem(shape_tuple, i, temp_int) < 0) {
+                goto fail;
+            }
+#endif
             temp_int = NULL;
         }
     }
 
-    array_obj = __pyx_array_new(shape_tuple, sizeof_dtype, buf->format, (char *) mode, NULL);
+    array_obj = __pyx_array_new(shape_tuple, sizeof_dtype, buf->format, mode, NULL);
     if (unlikely(!array_obj)) {
         goto fail;
     }
@@ -661,13 +724,13 @@ __pyx_memoryview_copy_new_contig(const __Pyx_memviewslice *from_mvs,
     goto no_fail;
 
 fail:
-    __Pyx_XDECREF(new_mvs.memview);
+    __Pyx_XDECREF((PyObject *) new_mvs.memview);
     new_mvs.memview = NULL;
     new_mvs.data = NULL;
 no_fail:
     __Pyx_XDECREF(shape_tuple);
     __Pyx_XDECREF(temp_int);
-    __Pyx_XDECREF(array_obj);
+    __Pyx_XDECREF((PyObject *) array_obj);
     __Pyx_RefNannyFinishContext();
     return new_mvs;
 }
@@ -905,18 +968,14 @@ if (unlikely(__pyx_memoryview_slice_memviewslice(
     {{if boundscheck}}
         if (unlikely(!__Pyx_is_valid_index(__pyx_tmp_idx, __pyx_tmp_shape))) {
             {{if not have_gil}}
-                #ifdef WITH_THREAD
                 PyGILState_STATE __pyx_gilstate_save = PyGILState_Ensure();
-                #endif
             {{endif}}
 
             PyErr_SetString(PyExc_IndexError,
                             "Index out of bounds (axis {{dim}})");
 
             {{if not have_gil}}
-                #ifdef WITH_THREAD
                 PyGILState_Release(__pyx_gilstate_save);
-                #endif
             {{endif}}
 
             {{error_goto}}

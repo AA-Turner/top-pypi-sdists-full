@@ -7,8 +7,6 @@ Cython specific tests in addition to "test_coroutines_pep492.pyx"
 (which is copied from CPython).
 """
 
-import sys
-
 
 def run_async(coro, assert_type=True, send_value=None):
     if assert_type:
@@ -21,7 +19,7 @@ def run_async(coro, assert_type=True, send_value=None):
         try:
             buffer.append(coro.send(send_value))
         except StopIteration as ex:
-            result = ex.value if sys.version_info >= (3, 5) else ex.args[0] if ex.args else None
+            result = ex.value
             break
     return buffer, result
 
@@ -104,3 +102,34 @@ def yield_from_in_genexpr_iterator():
     """
     lst = list  # obfuscate from any optimizations cython might try
     return lst(x*2 for x in (yield from h_yield_from(2)))
+
+def test_is_running():
+    """
+    >>> co = test_is_running()
+    >>> co.cr_running
+    False
+    >>> _, result = run_async(co, assert_type=False)
+    >>> result
+    True
+    """
+    async def inner():
+        return inner_instance.cr_running
+
+    inner_instance = inner()
+    return inner_instance
+
+def test_gen_is_running():
+    """
+    Generator test, here for convenience
+    >>> gen = test_gen_is_running()
+    >>> gen.gi_running
+    False
+    >>> tuple(gen)
+    (True,)
+    """
+
+    def inner():
+        yield inner_instance.gi_running
+
+    inner_instance = inner()
+    return inner_instance

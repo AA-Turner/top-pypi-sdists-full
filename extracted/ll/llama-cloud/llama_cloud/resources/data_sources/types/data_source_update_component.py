@@ -2,6 +2,27 @@
 
 import typing
 
-from .data_source_update_component_one import DataSourceUpdateComponentOne
+from ....types.cloud_az_storage_blob_data_source import CloudAzStorageBlobDataSource
+from ....types.cloud_box_data_source import CloudBoxDataSource
+from ....types.cloud_confluence_data_source import CloudConfluenceDataSource
+from ....types.cloud_google_drive_data_source import CloudGoogleDriveDataSource
+from ....types.cloud_jira_data_source import CloudJiraDataSource
+from ....types.cloud_notion_page_data_source import CloudNotionPageDataSource
+from ....types.cloud_one_drive_data_source import CloudOneDriveDataSource
+from ....types.cloud_s_3_data_source import CloudS3DataSource
+from ....types.cloud_sharepoint_data_source import CloudSharepointDataSource
+from ....types.cloud_slack_data_source import CloudSlackDataSource
 
-DataSourceUpdateComponent = typing.Union[typing.Dict[str, typing.Any], DataSourceUpdateComponentOne]
+DataSourceUpdateComponent = typing.Union[
+    typing.Dict[str, typing.Any],
+    CloudS3DataSource,
+    CloudAzStorageBlobDataSource,
+    CloudGoogleDriveDataSource,
+    CloudOneDriveDataSource,
+    CloudSharepointDataSource,
+    CloudSlackDataSource,
+    CloudNotionPageDataSource,
+    CloudConfluenceDataSource,
+    CloudJiraDataSource,
+    CloudBoxDataSource,
+]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-duckdb
-Version: 0.26.13
+Version: 0.26.14
 Summary: Package for DuckDB-specific Dagster framework op and resource components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-duckb
 Author: Dagster Labs
@@ -13,7 +13,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
 License-File: LICENSE
 Requires-Dist: duckdb
-Requires-Dist: dagster==1.10.13
+Requires-Dist: dagster==1.10.14
 Provides-Extra: pandas
 Requires-Dist: pandas; extra == "pandas"
 Provides-Extra: pyspark

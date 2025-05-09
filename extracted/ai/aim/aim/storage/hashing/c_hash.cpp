@@ -18,7 +18,7 @@
         ],
         "include_dirs": [
             "aim/storage/hashing",
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include"
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include"
         ],
         "language": "c++",
         "language_level": "3",
@@ -26,7 +26,7 @@
             "rocksdb"
         ],
         "library_dirs": [
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks"
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks"
         ],
         "name": "aim.storage.hashing.c_hash",
         "sources": [

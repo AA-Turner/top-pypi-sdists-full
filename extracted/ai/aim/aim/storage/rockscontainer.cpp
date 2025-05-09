@@ -14,14 +14,14 @@
             "-fPIC"
         ],
         "include_dirs": [
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks/include"
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks/include"
         ],
         "language": "c++",
         "libraries": [
             "rocksdb"
         ],
         "library_dirs": [
-            "/var/folders/9z/lsg_2ts56rs2hppqmcbxn7t40000gr/T/build-env-kb46tghs/lib/python3.9/site-packages/aimrocks"
+            "/tmp/build-env-x9x2vior/lib/python3.10/site-packages/aimrocks"
         ],
         "name": "aim.storage.rockscontainer",
         "sources": [
@@ -1528,7 +1528,7 @@ struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_lo
 struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk;
 struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read;
 
-/* "aim/storage/rockscontainer.pyx":230
+/* "aim/storage/rockscontainer.pyx":228
  *         return value
  * 
  *     def _get_blob_loader(             # <<<<<<<<<<<<<<
@@ -1542,7 +1542,7 @@ struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_lo
 };
 
 
-/* "aim/storage/rockscontainer.pyx":416
+/* "aim/storage/rockscontainer.pyx":414
  *         return RocksContainerItemsIterator(container=self, prefix=prefix)
  * 
  *     def walk(             # <<<<<<<<<<<<<<
@@ -1566,7 +1566,7 @@ struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk {
 };
 
 
-/* "aim/storage/rockscontainer.pyx":537
+/* "aim/storage/rockscontainer.pyx":535
  * 
  * 
  * @exception_resistant(silent=True)             # <<<<<<<<<<<<<<
@@ -2495,16 +2495,16 @@ static PyObject *__pyx_builtin_StopIteration;
 static const char __pyx_k_k[] = "k";
 static const char __pyx_k_v[] = "v";
 static const char __pyx_k_DB[] = "DB";
-static const char __pyx_k__4[] = "";
-static const char __pyx_k__6[] = "\000";
-static const char __pyx_k__7[] = "\377";
+static const char __pyx_k__5[] = "";
+static const char __pyx_k__7[] = "\000";
+static const char __pyx_k__8[] = "\377";
 static const char __pyx_k_db[] = "_db";
 static const char __pyx_k_gc[] = "gc";
 static const char __pyx_k_it[] = "it";
 static const char __pyx_k_os[] = "os";
-static const char __pyx_k__12[] = "*";
-static const char __pyx_k__13[] = ".";
-static const char __pyx_k__81[] = "?";
+static const char __pyx_k__13[] = "*";
+static const char __pyx_k__14[] = ".";
+static const char __pyx_k__82[] = "?";
 static const char __pyx_k_doc[] = "__doc__";
 static const char __pyx_k_end[] = "end";
 static const char __pyx_k_get[] = "get";
@@ -2564,7 +2564,6 @@ static const char __pyx_k_commit[] = "commit";
 static const char __pyx_k_delete[] = "delete";
 static const char __pyx_k_dict_2[] = "dict";
 static const char __pyx_k_enable[] = "enable";
-static const char __pyx_k_exists[] = "exists";
 static const char __pyx_k_import[] = "__import__";
 static const char __pyx_k_loader[] = "loader";
 static const char __pyx_k_logger[] = "logger";
@@ -2636,6 +2635,7 @@ static const char __pyx_k_TreeView_2[] = "'TreeView'";
 static const char __pyx_k_WriteBatch[] = "WriteBatch";
 static const char __pyx_k_compaction[] = "compaction";
 static const char __pyx_k_extra_opts[] = "_extra_opts";
+static const char __pyx_k_missing_ok[] = "missing_ok";
 static const char __pyx_k_num_levels[] = "num_levels";
 static const char __pyx_k_startswith[] = "startswith";
 static const char __pyx_k_BLOB_DOMAIN[] = "BLOB_DOMAIN";
@@ -2714,6 +2714,7 @@ static const char __pyx_k_ContainerItemsIterator[] = "ContainerItemsIterator";
 static const char __pyx_k_RocksContainer__delete[] = "RocksContainer._delete";
 static const char __pyx_k_RocksContainer_preload[] = "RocksContainer.preload";
 static const char __pyx_k_aim_storage_prefixview[] = "aim.storage.prefixview";
+static const char __pyx_k_skip_read_optimization[] = "skip_read_optimization";
 static const char __pyx_k_RocksContainer_finalize[] = "RocksContainer.finalize";
 static const char __pyx_k_max_write_buffer_number[] = "max_write_buffer_number";
 static const char __pyx_k_RocksContainer___delitem[] = "RocksContainer.__delitem__";
@@ -2903,12 +2904,12 @@ typedef struct {
   PyObject *__pyx_n_s_Tuple;
   PyObject *__pyx_kp_s_Tuple_ContainerKey_ContainerValu;
   PyObject *__pyx_n_s_WriteBatch;
-  PyObject *__pyx_n_s__12;
-  PyObject *__pyx_kp_u__13;
-  PyObject *__pyx_kp_b__4;
-  PyObject *__pyx_kp_b__6;
+  PyObject *__pyx_n_s__13;
+  PyObject *__pyx_kp_u__14;
+  PyObject *__pyx_kp_b__5;
   PyObject *__pyx_kp_b__7;
-  PyObject *__pyx_n_s__81;
+  PyObject *__pyx_kp_b__8;
+  PyObject *__pyx_n_s__82;
   PyObject *__pyx_n_s_acquire;
   PyObject *__pyx_n_s_aim_ext_cleanup;
   PyObject *__pyx_n_s_aim_ext_exception_resistant;
@@ -2962,7 +2963,6 @@ typedef struct {
   PyObject *__pyx_n_s_enter;
   PyObject *__pyx_n_s_exception_resistant;
   PyObject *__pyx_n_s_exist_ok;
-  PyObject *__pyx_n_s_exists;
   PyObject *__pyx_n_s_exit;
   PyObject *__pyx_n_s_extra_options;
   PyObject *__pyx_n_s_extra_opts;
@@ -3015,6 +3015,7 @@ typedef struct {
   PyObject *__pyx_n_s_max_open_files;
   PyObject *__pyx_n_s_max_write_buffer_number;
   PyObject *__pyx_n_s_metaclass;
+  PyObject *__pyx_n_s_missing_ok;
   PyObject *__pyx_n_s_mkdir;
   PyObject *__pyx_n_s_module;
   PyObject *__pyx_n_s_mro_entries;
@@ -3063,6 +3064,7 @@ typedef struct {
   PyObject *__pyx_n_s_setter;
   PyObject *__pyx_n_s_silent;
   PyObject *__pyx_n_s_skip_checking_sst_file_sizes_on;
+  PyObject *__pyx_n_s_skip_read_optimization;
   PyObject *__pyx_n_s_skip_stats_update_on_db_open;
   PyObject *__pyx_n_s_spec;
   PyObject *__pyx_n_s_startswith;
@@ -3103,79 +3105,80 @@ typedef struct {
   PyObject *__pyx_int_neg_1;
   PyObject *__pyx_tuple_;
   PyObject *__pyx_tuple__2;
-  PyObject *__pyx_tuple__8;
+  PyObject *__pyx_tuple__3;
   PyObject *__pyx_tuple__9;
-  PyObject *__pyx_tuple__11;
-  PyObject *__pyx_tuple__14;
-  PyObject *__pyx_tuple__16;
-  PyObject *__pyx_tuple__18;
-  PyObject *__pyx_tuple__20;
-  PyObject *__pyx_tuple__23;
-  PyObject *__pyx_tuple__27;
-  PyObject *__pyx_tuple__29;
-  PyObject *__pyx_tuple__34;
-  PyObject *__pyx_tuple__36;
+  PyObject *__pyx_tuple__10;
+  PyObject *__pyx_tuple__12;
+  PyObject *__pyx_tuple__15;
+  PyObject *__pyx_tuple__17;
+  PyObject *__pyx_tuple__19;
+  PyObject *__pyx_tuple__21;
+  PyObject *__pyx_tuple__24;
+  PyObject *__pyx_tuple__28;
+  PyObject *__pyx_tuple__30;
+  PyObject *__pyx_tuple__35;
   PyObject *__pyx_tuple__37;
-  PyObject *__pyx_tuple__39;
-  PyObject *__pyx_tuple__41;
-  PyObject *__pyx_tuple__43;
-  PyObject *__pyx_tuple__46;
-  PyObject *__pyx_tuple__49;
-  PyObject *__pyx_tuple__52;
-  PyObject *__pyx_tuple__55;
-  PyObject *__pyx_tuple__58;
-  PyObject *__pyx_tuple__60;
-  PyObject *__pyx_tuple__62;
+  PyObject *__pyx_tuple__38;
+  PyObject *__pyx_tuple__40;
+  PyObject *__pyx_tuple__42;
+  PyObject *__pyx_tuple__44;
+  PyObject *__pyx_tuple__47;
+  PyObject *__pyx_tuple__50;
+  PyObject *__pyx_tuple__53;
+  PyObject *__pyx_tuple__56;
+  PyObject *__pyx_tuple__59;
+  PyObject *__pyx_tuple__61;
   PyObject *__pyx_tuple__63;
-  PyObject *__pyx_tuple__66;
-  PyObject *__pyx_tuple__68;
-  PyObject *__pyx_tuple__72;
-  PyObject *__pyx_tuple__74;
+  PyObject *__pyx_tuple__64;
+  PyObject *__pyx_tuple__67;
+  PyObject *__pyx_tuple__69;
+  PyObject *__pyx_tuple__73;
   PyObject *__pyx_tuple__75;
-  PyObject *__pyx_tuple__77;
-  PyObject *__pyx_tuple__79;
-  PyObject *__pyx_codeobj__3;
-  PyObject *__pyx_codeobj__5;
-  PyObject *__pyx_codeobj__10;
-  PyObject *__pyx_codeobj__15;
-  PyObject *__pyx_codeobj__17;
-  PyObject *__pyx_codeobj__19;
-  PyObject *__pyx_codeobj__21;
+  PyObject *__pyx_tuple__76;
+  PyObject *__pyx_tuple__78;
+  PyObject *__pyx_tuple__80;
+  PyObject *__pyx_codeobj__4;
+  PyObject *__pyx_codeobj__6;
+  PyObject *__pyx_codeobj__11;
+  PyObject *__pyx_codeobj__16;
+  PyObject *__pyx_codeobj__18;
+  PyObject *__pyx_codeobj__20;
   PyObject *__pyx_codeobj__22;
-  PyObject *__pyx_codeobj__24;
+  PyObject *__pyx_codeobj__23;
   PyObject *__pyx_codeobj__25;
   PyObject *__pyx_codeobj__26;
-  PyObject *__pyx_codeobj__28;
-  PyObject *__pyx_codeobj__30;
+  PyObject *__pyx_codeobj__27;
+  PyObject *__pyx_codeobj__29;
   PyObject *__pyx_codeobj__31;
   PyObject *__pyx_codeobj__32;
   PyObject *__pyx_codeobj__33;
-  PyObject *__pyx_codeobj__35;
-  PyObject *__pyx_codeobj__38;
-  PyObject *__pyx_codeobj__40;
-  PyObject *__pyx_codeobj__42;
-  PyObject *__pyx_codeobj__44;
+  PyObject *__pyx_codeobj__34;
+  PyObject *__pyx_codeobj__36;
+  PyObject *__pyx_codeobj__39;
+  PyObject *__pyx_codeobj__41;
+  PyObject *__pyx_codeobj__43;
   PyObject *__pyx_codeobj__45;
-  PyObject *__pyx_codeobj__47;
+  PyObject *__pyx_codeobj__46;
   PyObject *__pyx_codeobj__48;
-  PyObject *__pyx_codeobj__50;
+  PyObject *__pyx_codeobj__49;
   PyObject *__pyx_codeobj__51;
-  PyObject *__pyx_codeobj__53;
+  PyObject *__pyx_codeobj__52;
   PyObject *__pyx_codeobj__54;
-  PyObject *__pyx_codeobj__56;
+  PyObject *__pyx_codeobj__55;
   PyObject *__pyx_codeobj__57;
-  PyObject *__pyx_codeobj__59;
-  PyObject *__pyx_codeobj__61;
-  PyObject *__pyx_codeobj__64;
+  PyObject *__pyx_codeobj__58;
+  PyObject *__pyx_codeobj__60;
+  PyObject *__pyx_codeobj__62;
   PyObject *__pyx_codeobj__65;
-  PyObject *__pyx_codeobj__67;
-  PyObject *__pyx_codeobj__69;
+  PyObject *__pyx_codeobj__66;
+  PyObject *__pyx_codeobj__68;
   PyObject *__pyx_codeobj__70;
   PyObject *__pyx_codeobj__71;
-  PyObject *__pyx_codeobj__73;
-  PyObject *__pyx_codeobj__76;
-  PyObject *__pyx_codeobj__78;
-  PyObject *__pyx_codeobj__80;
+  PyObject *__pyx_codeobj__72;
+  PyObject *__pyx_codeobj__74;
+  PyObject *__pyx_codeobj__77;
+  PyObject *__pyx_codeobj__79;
+  PyObject *__pyx_codeobj__81;
 } __pyx_mstate;
 
 #if CYTHON_USE_MODULE_STATE
@@ -3296,12 +3299,12 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_Tuple);
   Py_CLEAR(clear_module_state->__pyx_kp_s_Tuple_ContainerKey_ContainerValu);
   Py_CLEAR(clear_module_state->__pyx_n_s_WriteBatch);
-  Py_CLEAR(clear_module_state->__pyx_n_s__12);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__13);
-  Py_CLEAR(clear_module_state->__pyx_kp_b__4);
-  Py_CLEAR(clear_module_state->__pyx_kp_b__6);
+  Py_CLEAR(clear_module_state->__pyx_n_s__13);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__14);
+  Py_CLEAR(clear_module_state->__pyx_kp_b__5);
   Py_CLEAR(clear_module_state->__pyx_kp_b__7);
-  Py_CLEAR(clear_module_state->__pyx_n_s__81);
+  Py_CLEAR(clear_module_state->__pyx_kp_b__8);
+  Py_CLEAR(clear_module_state->__pyx_n_s__82);
   Py_CLEAR(clear_module_state->__pyx_n_s_acquire);
   Py_CLEAR(clear_module_state->__pyx_n_s_aim_ext_cleanup);
   Py_CLEAR(clear_module_state->__pyx_n_s_aim_ext_exception_resistant);
@@ -3355,7 +3358,6 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_enter);
   Py_CLEAR(clear_module_state->__pyx_n_s_exception_resistant);
   Py_CLEAR(clear_module_state->__pyx_n_s_exist_ok);
-  Py_CLEAR(clear_module_state->__pyx_n_s_exists);
   Py_CLEAR(clear_module_state->__pyx_n_s_exit);
   Py_CLEAR(clear_module_state->__pyx_n_s_extra_options);
   Py_CLEAR(clear_module_state->__pyx_n_s_extra_opts);
@@ -3408,6 +3410,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_max_open_files);
   Py_CLEAR(clear_module_state->__pyx_n_s_max_write_buffer_number);
   Py_CLEAR(clear_module_state->__pyx_n_s_metaclass);
+  Py_CLEAR(clear_module_state->__pyx_n_s_missing_ok);
   Py_CLEAR(clear_module_state->__pyx_n_s_mkdir);
   Py_CLEAR(clear_module_state->__pyx_n_s_module);
   Py_CLEAR(clear_module_state->__pyx_n_s_mro_entries);
@@ -3456,6 +3459,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_setter);
   Py_CLEAR(clear_module_state->__pyx_n_s_silent);
   Py_CLEAR(clear_module_state->__pyx_n_s_skip_checking_sst_file_sizes_on);
+  Py_CLEAR(clear_module_state->__pyx_n_s_skip_read_optimization);
   Py_CLEAR(clear_module_state->__pyx_n_s_skip_stats_update_on_db_open);
   Py_CLEAR(clear_module_state->__pyx_n_s_spec);
   Py_CLEAR(clear_module_state->__pyx_n_s_startswith);
@@ -3496,79 +3500,80 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_int_neg_1);
   Py_CLEAR(clear_module_state->__pyx_tuple_);
   Py_CLEAR(clear_module_state->__pyx_tuple__2);
-  Py_CLEAR(clear_module_state->__pyx_tuple__8);
+  Py_CLEAR(clear_module_state->__pyx_tuple__3);
   Py_CLEAR(clear_module_state->__pyx_tuple__9);
-  Py_CLEAR(clear_module_state->__pyx_tuple__11);
-  Py_CLEAR(clear_module_state->__pyx_tuple__14);
-  Py_CLEAR(clear_module_state->__pyx_tuple__16);
-  Py_CLEAR(clear_module_state->__pyx_tuple__18);
-  Py_CLEAR(clear_module_state->__pyx_tuple__20);
-  Py_CLEAR(clear_module_state->__pyx_tuple__23);
-  Py_CLEAR(clear_module_state->__pyx_tuple__27);
-  Py_CLEAR(clear_module_state->__pyx_tuple__29);
-  Py_CLEAR(clear_module_state->__pyx_tuple__34);
-  Py_CLEAR(clear_module_state->__pyx_tuple__36);
+  Py_CLEAR(clear_module_state->__pyx_tuple__10);
+  Py_CLEAR(clear_module_state->__pyx_tuple__12);
+  Py_CLEAR(clear_module_state->__pyx_tuple__15);
+  Py_CLEAR(clear_module_state->__pyx_tuple__17);
+  Py_CLEAR(clear_module_state->__pyx_tuple__19);
+  Py_CLEAR(clear_module_state->__pyx_tuple__21);
+  Py_CLEAR(clear_module_state->__pyx_tuple__24);
+  Py_CLEAR(clear_module_state->__pyx_tuple__28);
+  Py_CLEAR(clear_module_state->__pyx_tuple__30);
+  Py_CLEAR(clear_module_state->__pyx_tuple__35);
   Py_CLEAR(clear_module_state->__pyx_tuple__37);
-  Py_CLEAR(clear_module_state->__pyx_tuple__39);
-  Py_CLEAR(clear_module_state->__pyx_tuple__41);
-  Py_CLEAR(clear_module_state->__pyx_tuple__43);
-  Py_CLEAR(clear_module_state->__pyx_tuple__46);
-  Py_CLEAR(clear_module_state->__pyx_tuple__49);
-  Py_CLEAR(clear_module_state->__pyx_tuple__52);
-  Py_CLEAR(clear_module_state->__pyx_tuple__55);
-  Py_CLEAR(clear_module_state->__pyx_tuple__58);
-  Py_CLEAR(clear_module_state->__pyx_tuple__60);
-  Py_CLEAR(clear_module_state->__pyx_tuple__62);
+  Py_CLEAR(clear_module_state->__pyx_tuple__38);
+  Py_CLEAR(clear_module_state->__pyx_tuple__40);
+  Py_CLEAR(clear_module_state->__pyx_tuple__42);
+  Py_CLEAR(clear_module_state->__pyx_tuple__44);
+  Py_CLEAR(clear_module_state->__pyx_tuple__47);
+  Py_CLEAR(clear_module_state->__pyx_tuple__50);
+  Py_CLEAR(clear_module_state->__pyx_tuple__53);
+  Py_CLEAR(clear_module_state->__pyx_tuple__56);
+  Py_CLEAR(clear_module_state->__pyx_tuple__59);
+  Py_CLEAR(clear_module_state->__pyx_tuple__61);
   Py_CLEAR(clear_module_state->__pyx_tuple__63);
-  Py_CLEAR(clear_module_state->__pyx_tuple__66);
-  Py_CLEAR(clear_module_state->__pyx_tuple__68);
-  Py_CLEAR(clear_module_state->__pyx_tuple__72);
-  Py_CLEAR(clear_module_state->__pyx_tuple__74);
+  Py_CLEAR(clear_module_state->__pyx_tuple__64);
+  Py_CLEAR(clear_module_state->__pyx_tuple__67);
+  Py_CLEAR(clear_module_state->__pyx_tuple__69);
+  Py_CLEAR(clear_module_state->__pyx_tuple__73);
   Py_CLEAR(clear_module_state->__pyx_tuple__75);
-  Py_CLEAR(clear_module_state->__pyx_tuple__77);
-  Py_CLEAR(clear_module_state->__pyx_tuple__79);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__3);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__5);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__10);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__15);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__17);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__19);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__21);
+  Py_CLEAR(clear_module_state->__pyx_tuple__76);
+  Py_CLEAR(clear_module_state->__pyx_tuple__78);
+  Py_CLEAR(clear_module_state->__pyx_tuple__80);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__4);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__6);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__11);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__16);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__18);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__20);
   Py_CLEAR(clear_module_state->__pyx_codeobj__22);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__24);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__23);
   Py_CLEAR(clear_module_state->__pyx_codeobj__25);
   Py_CLEAR(clear_module_state->__pyx_codeobj__26);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__28);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__30);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__27);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__29);
   Py_CLEAR(clear_module_state->__pyx_codeobj__31);
   Py_CLEAR(clear_module_state->__pyx_codeobj__32);
   Py_CLEAR(clear_module_state->__pyx_codeobj__33);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__35);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__38);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__40);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__42);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__44);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__34);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__36);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__39);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__41);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__43);
   Py_CLEAR(clear_module_state->__pyx_codeobj__45);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__47);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__46);
   Py_CLEAR(clear_module_state->__pyx_codeobj__48);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__50);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__49);
   Py_CLEAR(clear_module_state->__pyx_codeobj__51);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__53);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__52);
   Py_CLEAR(clear_module_state->__pyx_codeobj__54);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__56);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__55);
   Py_CLEAR(clear_module_state->__pyx_codeobj__57);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__59);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__61);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__64);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__58);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__60);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__62);
   Py_CLEAR(clear_module_state->__pyx_codeobj__65);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__67);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__69);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__66);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__68);
   Py_CLEAR(clear_module_state->__pyx_codeobj__70);
   Py_CLEAR(clear_module_state->__pyx_codeobj__71);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__73);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__76);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__78);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__80);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__72);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__74);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__77);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__79);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__81);
   return 0;
 }
 #endif
@@ -3667,12 +3672,12 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_Tuple);
   Py_VISIT(traverse_module_state->__pyx_kp_s_Tuple_ContainerKey_ContainerValu);
   Py_VISIT(traverse_module_state->__pyx_n_s_WriteBatch);
-  Py_VISIT(traverse_module_state->__pyx_n_s__12);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__13);
-  Py_VISIT(traverse_module_state->__pyx_kp_b__4);
-  Py_VISIT(traverse_module_state->__pyx_kp_b__6);
+  Py_VISIT(traverse_module_state->__pyx_n_s__13);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__14);
+  Py_VISIT(traverse_module_state->__pyx_kp_b__5);
   Py_VISIT(traverse_module_state->__pyx_kp_b__7);
-  Py_VISIT(traverse_module_state->__pyx_n_s__81);
+  Py_VISIT(traverse_module_state->__pyx_kp_b__8);
+  Py_VISIT(traverse_module_state->__pyx_n_s__82);
   Py_VISIT(traverse_module_state->__pyx_n_s_acquire);
   Py_VISIT(traverse_module_state->__pyx_n_s_aim_ext_cleanup);
   Py_VISIT(traverse_module_state->__pyx_n_s_aim_ext_exception_resistant);
@@ -3726,7 +3731,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_enter);
   Py_VISIT(traverse_module_state->__pyx_n_s_exception_resistant);
   Py_VISIT(traverse_module_state->__pyx_n_s_exist_ok);
-  Py_VISIT(traverse_module_state->__pyx_n_s_exists);
   Py_VISIT(traverse_module_state->__pyx_n_s_exit);
   Py_VISIT(traverse_module_state->__pyx_n_s_extra_options);
   Py_VISIT(traverse_module_state->__pyx_n_s_extra_opts);
@@ -3779,6 +3783,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_max_open_files);
   Py_VISIT(traverse_module_state->__pyx_n_s_max_write_buffer_number);
   Py_VISIT(traverse_module_state->__pyx_n_s_metaclass);
+  Py_VISIT(traverse_module_state->__pyx_n_s_missing_ok);
   Py_VISIT(traverse_module_state->__pyx_n_s_mkdir);
   Py_VISIT(traverse_module_state->__pyx_n_s_module);
   Py_VISIT(traverse_module_state->__pyx_n_s_mro_entries);
@@ -3827,6 +3832,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_setter);
   Py_VISIT(traverse_module_state->__pyx_n_s_silent);
   Py_VISIT(traverse_module_state->__pyx_n_s_skip_checking_sst_file_sizes_on);
+  Py_VISIT(traverse_module_state->__pyx_n_s_skip_read_optimization);
   Py_VISIT(traverse_module_state->__pyx_n_s_skip_stats_update_on_db_open);
   Py_VISIT(traverse_module_state->__pyx_n_s_spec);
   Py_VISIT(traverse_module_state->__pyx_n_s_startswith);
@@ -3867,79 +3873,80 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_int_neg_1);
   Py_VISIT(traverse_module_state->__pyx_tuple_);
   Py_VISIT(traverse_module_state->__pyx_tuple__2);
-  Py_VISIT(traverse_module_state->__pyx_tuple__8);
+  Py_VISIT(traverse_module_state->__pyx_tuple__3);
   Py_VISIT(traverse_module_state->__pyx_tuple__9);
-  Py_VISIT(traverse_module_state->__pyx_tuple__11);
-  Py_VISIT(traverse_module_state->__pyx_tuple__14);
-  Py_VISIT(traverse_module_state->__pyx_tuple__16);
-  Py_VISIT(traverse_module_state->__pyx_tuple__18);
-  Py_VISIT(traverse_module_state->__pyx_tuple__20);
-  Py_VISIT(traverse_module_state->__pyx_tuple__23);
-  Py_VISIT(traverse_module_state->__pyx_tuple__27);
-  Py_VISIT(traverse_module_state->__pyx_tuple__29);
-  Py_VISIT(traverse_module_state->__pyx_tuple__34);
-  Py_VISIT(traverse_module_state->__pyx_tuple__36);
+  Py_VISIT(traverse_module_state->__pyx_tuple__10);
+  Py_VISIT(traverse_module_state->__pyx_tuple__12);
+  Py_VISIT(traverse_module_state->__pyx_tuple__15);
+  Py_VISIT(traverse_module_state->__pyx_tuple__17);
+  Py_VISIT(traverse_module_state->__pyx_tuple__19);
+  Py_VISIT(traverse_module_state->__pyx_tuple__21);
+  Py_VISIT(traverse_module_state->__pyx_tuple__24);
+  Py_VISIT(traverse_module_state->__pyx_tuple__28);
+  Py_VISIT(traverse_module_state->__pyx_tuple__30);
+  Py_VISIT(traverse_module_state->__pyx_tuple__35);
   Py_VISIT(traverse_module_state->__pyx_tuple__37);
-  Py_VISIT(traverse_module_state->__pyx_tuple__39);
-  Py_VISIT(traverse_module_state->__pyx_tuple__41);
-  Py_VISIT(traverse_module_state->__pyx_tuple__43);
-  Py_VISIT(traverse_module_state->__pyx_tuple__46);
-  Py_VISIT(traverse_module_state->__pyx_tuple__49);
-  Py_VISIT(traverse_module_state->__pyx_tuple__52);
-  Py_VISIT(traverse_module_state->__pyx_tuple__55);
-  Py_VISIT(traverse_module_state->__pyx_tuple__58);
-  Py_VISIT(traverse_module_state->__pyx_tuple__60);
-  Py_VISIT(traverse_module_state->__pyx_tuple__62);
+  Py_VISIT(traverse_module_state->__pyx_tuple__38);
+  Py_VISIT(traverse_module_state->__pyx_tuple__40);
+  Py_VISIT(traverse_module_state->__pyx_tuple__42);
+  Py_VISIT(traverse_module_state->__pyx_tuple__44);
+  Py_VISIT(traverse_module_state->__pyx_tuple__47);
+  Py_VISIT(traverse_module_state->__pyx_tuple__50);
+  Py_VISIT(traverse_module_state->__pyx_tuple__53);
+  Py_VISIT(traverse_module_state->__pyx_tuple__56);
+  Py_VISIT(traverse_module_state->__pyx_tuple__59);
+  Py_VISIT(traverse_module_state->__pyx_tuple__61);
   Py_VISIT(traverse_module_state->__pyx_tuple__63);
-  Py_VISIT(traverse_module_state->__pyx_tuple__66);
-  Py_VISIT(traverse_module_state->__pyx_tuple__68);
-  Py_VISIT(traverse_module_state->__pyx_tuple__72);
-  Py_VISIT(traverse_module_state->__pyx_tuple__74);
+  Py_VISIT(traverse_module_state->__pyx_tuple__64);
+  Py_VISIT(traverse_module_state->__pyx_tuple__67);
+  Py_VISIT(traverse_module_state->__pyx_tuple__69);
+  Py_VISIT(traverse_module_state->__pyx_tuple__73);
   Py_VISIT(traverse_module_state->__pyx_tuple__75);
-  Py_VISIT(traverse_module_state->__pyx_tuple__77);
-  Py_VISIT(traverse_module_state->__pyx_tuple__79);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__3);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__5);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__10);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__15);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__17);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__19);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__21);
+  Py_VISIT(traverse_module_state->__pyx_tuple__76);
+  Py_VISIT(traverse_module_state->__pyx_tuple__78);
+  Py_VISIT(traverse_module_state->__pyx_tuple__80);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__4);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__6);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__11);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__16);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__18);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__20);
   Py_VISIT(traverse_module_state->__pyx_codeobj__22);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__24);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__23);
   Py_VISIT(traverse_module_state->__pyx_codeobj__25);
   Py_VISIT(traverse_module_state->__pyx_codeobj__26);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__28);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__30);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__27);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__29);
   Py_VISIT(traverse_module_state->__pyx_codeobj__31);
   Py_VISIT(traverse_module_state->__pyx_codeobj__32);
   Py_VISIT(traverse_module_state->__pyx_codeobj__33);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__35);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__38);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__40);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__42);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__44);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__34);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__36);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__39);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__41);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__43);
   Py_VISIT(traverse_module_state->__pyx_codeobj__45);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__47);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__46);
   Py_VISIT(traverse_module_state->__pyx_codeobj__48);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__50);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__49);
   Py_VISIT(traverse_module_state->__pyx_codeobj__51);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__53);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__52);
   Py_VISIT(traverse_module_state->__pyx_codeobj__54);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__56);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__55);
   Py_VISIT(traverse_module_state->__pyx_codeobj__57);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__59);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__61);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__64);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__58);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__60);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__62);
   Py_VISIT(traverse_module_state->__pyx_codeobj__65);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__67);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__69);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__66);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__68);
   Py_VISIT(traverse_module_state->__pyx_codeobj__70);
   Py_VISIT(traverse_module_state->__pyx_codeobj__71);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__73);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__76);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__78);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__80);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__72);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__74);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__77);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__79);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__81);
   return 0;
 }
 #endif
@@ -4048,12 +4055,12 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_Tuple __pyx_mstate_global->__pyx_n_s_Tuple
 #define __pyx_kp_s_Tuple_ContainerKey_ContainerValu __pyx_mstate_global->__pyx_kp_s_Tuple_ContainerKey_ContainerValu
 #define __pyx_n_s_WriteBatch __pyx_mstate_global->__pyx_n_s_WriteBatch
-#define __pyx_n_s__12 __pyx_mstate_global->__pyx_n_s__12
-#define __pyx_kp_u__13 __pyx_mstate_global->__pyx_kp_u__13
-#define __pyx_kp_b__4 __pyx_mstate_global->__pyx_kp_b__4
-#define __pyx_kp_b__6 __pyx_mstate_global->__pyx_kp_b__6
+#define __pyx_n_s__13 __pyx_mstate_global->__pyx_n_s__13
+#define __pyx_kp_u__14 __pyx_mstate_global->__pyx_kp_u__14
+#define __pyx_kp_b__5 __pyx_mstate_global->__pyx_kp_b__5
 #define __pyx_kp_b__7 __pyx_mstate_global->__pyx_kp_b__7
-#define __pyx_n_s__81 __pyx_mstate_global->__pyx_n_s__81
+#define __pyx_kp_b__8 __pyx_mstate_global->__pyx_kp_b__8
+#define __pyx_n_s__82 __pyx_mstate_global->__pyx_n_s__82
 #define __pyx_n_s_acquire __pyx_mstate_global->__pyx_n_s_acquire
 #define __pyx_n_s_aim_ext_cleanup __pyx_mstate_global->__pyx_n_s_aim_ext_cleanup
 #define __pyx_n_s_aim_ext_exception_resistant __pyx_mstate_global->__pyx_n_s_aim_ext_exception_resistant
@@ -4107,7 +4114,6 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_enter __pyx_mstate_global->__pyx_n_s_enter
 #define __pyx_n_s_exception_resistant __pyx_mstate_global->__pyx_n_s_exception_resistant
 #define __pyx_n_s_exist_ok __pyx_mstate_global->__pyx_n_s_exist_ok
-#define __pyx_n_s_exists __pyx_mstate_global->__pyx_n_s_exists
 #define __pyx_n_s_exit __pyx_mstate_global->__pyx_n_s_exit
 #define __pyx_n_s_extra_options __pyx_mstate_global->__pyx_n_s_extra_options
 #define __pyx_n_s_extra_opts __pyx_mstate_global->__pyx_n_s_extra_opts
@@ -4160,6 +4166,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_max_open_files __pyx_mstate_global->__pyx_n_s_max_open_files
 #define __pyx_n_s_max_write_buffer_number __pyx_mstate_global->__pyx_n_s_max_write_buffer_number
 #define __pyx_n_s_metaclass __pyx_mstate_global->__pyx_n_s_metaclass
+#define __pyx_n_s_missing_ok __pyx_mstate_global->__pyx_n_s_missing_ok
 #define __pyx_n_s_mkdir __pyx_mstate_global->__pyx_n_s_mkdir
 #define __pyx_n_s_module __pyx_mstate_global->__pyx_n_s_module
 #define __pyx_n_s_mro_entries __pyx_mstate_global->__pyx_n_s_mro_entries
@@ -4208,6 +4215,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_setter __pyx_mstate_global->__pyx_n_s_setter
 #define __pyx_n_s_silent __pyx_mstate_global->__pyx_n_s_silent
 #define __pyx_n_s_skip_checking_sst_file_sizes_on __pyx_mstate_global->__pyx_n_s_skip_checking_sst_file_sizes_on
+#define __pyx_n_s_skip_read_optimization __pyx_mstate_global->__pyx_n_s_skip_read_optimization
 #define __pyx_n_s_skip_stats_update_on_db_open __pyx_mstate_global->__pyx_n_s_skip_stats_update_on_db_open
 #define __pyx_n_s_spec __pyx_mstate_global->__pyx_n_s_spec
 #define __pyx_n_s_startswith __pyx_mstate_global->__pyx_n_s_startswith
@@ -4248,79 +4256,80 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_int_neg_1 __pyx_mstate_global->__pyx_int_neg_1
 #define __pyx_tuple_ __pyx_mstate_global->__pyx_tuple_
 #define __pyx_tuple__2 __pyx_mstate_global->__pyx_tuple__2
-#define __pyx_tuple__8 __pyx_mstate_global->__pyx_tuple__8
+#define __pyx_tuple__3 __pyx_mstate_global->__pyx_tuple__3
 #define __pyx_tuple__9 __pyx_mstate_global->__pyx_tuple__9
-#define __pyx_tuple__11 __pyx_mstate_global->__pyx_tuple__11
-#define __pyx_tuple__14 __pyx_mstate_global->__pyx_tuple__14
-#define __pyx_tuple__16 __pyx_mstate_global->__pyx_tuple__16
-#define __pyx_tuple__18 __pyx_mstate_global->__pyx_tuple__18
-#define __pyx_tuple__20 __pyx_mstate_global->__pyx_tuple__20
-#define __pyx_tuple__23 __pyx_mstate_global->__pyx_tuple__23
-#define __pyx_tuple__27 __pyx_mstate_global->__pyx_tuple__27
-#define __pyx_tuple__29 __pyx_mstate_global->__pyx_tuple__29
-#define __pyx_tuple__34 __pyx_mstate_global->__pyx_tuple__34
-#define __pyx_tuple__36 __pyx_mstate_global->__pyx_tuple__36
+#define __pyx_tuple__10 __pyx_mstate_global->__pyx_tuple__10
+#define __pyx_tuple__12 __pyx_mstate_global->__pyx_tuple__12
+#define __pyx_tuple__15 __pyx_mstate_global->__pyx_tuple__15
+#define __pyx_tuple__17 __pyx_mstate_global->__pyx_tuple__17
+#define __pyx_tuple__19 __pyx_mstate_global->__pyx_tuple__19
+#define __pyx_tuple__21 __pyx_mstate_global->__pyx_tuple__21
+#define __pyx_tuple__24 __pyx_mstate_global->__pyx_tuple__24
+#define __pyx_tuple__28 __pyx_mstate_global->__pyx_tuple__28
+#define __pyx_tuple__30 __pyx_mstate_global->__pyx_tuple__30
+#define __pyx_tuple__35 __pyx_mstate_global->__pyx_tuple__35
 #define __pyx_tuple__37 __pyx_mstate_global->__pyx_tuple__37
-#define __pyx_tuple__39 __pyx_mstate_global->__pyx_tuple__39
-#define __pyx_tuple__41 __pyx_mstate_global->__pyx_tuple__41
-#define __pyx_tuple__43 __pyx_mstate_global->__pyx_tuple__43
-#define __pyx_tuple__46 __pyx_mstate_global->__pyx_tuple__46
-#define __pyx_tuple__49 __pyx_mstate_global->__pyx_tuple__49
-#define __pyx_tuple__52 __pyx_mstate_global->__pyx_tuple__52
-#define __pyx_tuple__55 __pyx_mstate_global->__pyx_tuple__55
-#define __pyx_tuple__58 __pyx_mstate_global->__pyx_tuple__58
-#define __pyx_tuple__60 __pyx_mstate_global->__pyx_tuple__60
-#define __pyx_tuple__62 __pyx_mstate_global->__pyx_tuple__62
+#define __pyx_tuple__38 __pyx_mstate_global->__pyx_tuple__38
+#define __pyx_tuple__40 __pyx_mstate_global->__pyx_tuple__40
+#define __pyx_tuple__42 __pyx_mstate_global->__pyx_tuple__42
+#define __pyx_tuple__44 __pyx_mstate_global->__pyx_tuple__44
+#define __pyx_tuple__47 __pyx_mstate_global->__pyx_tuple__47
+#define __pyx_tuple__50 __pyx_mstate_global->__pyx_tuple__50
+#define __pyx_tuple__53 __pyx_mstate_global->__pyx_tuple__53
+#define __pyx_tuple__56 __pyx_mstate_global->__pyx_tuple__56
+#define __pyx_tuple__59 __pyx_mstate_global->__pyx_tuple__59
+#define __pyx_tuple__61 __pyx_mstate_global->__pyx_tuple__61
 #define __pyx_tuple__63 __pyx_mstate_global->__pyx_tuple__63
-#define __pyx_tuple__66 __pyx_mstate_global->__pyx_tuple__66
-#define __pyx_tuple__68 __pyx_mstate_global->__pyx_tuple__68
-#define __pyx_tuple__72 __pyx_mstate_global->__pyx_tuple__72
-#define __pyx_tuple__74 __pyx_mstate_global->__pyx_tuple__74
+#define __pyx_tuple__64 __pyx_mstate_global->__pyx_tuple__64
+#define __pyx_tuple__67 __pyx_mstate_global->__pyx_tuple__67
+#define __pyx_tuple__69 __pyx_mstate_global->__pyx_tuple__69
+#define __pyx_tuple__73 __pyx_mstate_global->__pyx_tuple__73
 #define __pyx_tuple__75 __pyx_mstate_global->__pyx_tuple__75
-#define __pyx_tuple__77 __pyx_mstate_global->__pyx_tuple__77
-#define __pyx_tuple__79 __pyx_mstate_global->__pyx_tuple__79
-#define __pyx_codeobj__3 __pyx_mstate_global->__pyx_codeobj__3
-#define __pyx_codeobj__5 __pyx_mstate_global->__pyx_codeobj__5
-#define __pyx_codeobj__10 __pyx_mstate_global->__pyx_codeobj__10
-#define __pyx_codeobj__15 __pyx_mstate_global->__pyx_codeobj__15
-#define __pyx_codeobj__17 __pyx_mstate_global->__pyx_codeobj__17
-#define __pyx_codeobj__19 __pyx_mstate_global->__pyx_codeobj__19
-#define __pyx_codeobj__21 __pyx_mstate_global->__pyx_codeobj__21
+#define __pyx_tuple__76 __pyx_mstate_global->__pyx_tuple__76
+#define __pyx_tuple__78 __pyx_mstate_global->__pyx_tuple__78
+#define __pyx_tuple__80 __pyx_mstate_global->__pyx_tuple__80
+#define __pyx_codeobj__4 __pyx_mstate_global->__pyx_codeobj__4
+#define __pyx_codeobj__6 __pyx_mstate_global->__pyx_codeobj__6
+#define __pyx_codeobj__11 __pyx_mstate_global->__pyx_codeobj__11
+#define __pyx_codeobj__16 __pyx_mstate_global->__pyx_codeobj__16
+#define __pyx_codeobj__18 __pyx_mstate_global->__pyx_codeobj__18
+#define __pyx_codeobj__20 __pyx_mstate_global->__pyx_codeobj__20
 #define __pyx_codeobj__22 __pyx_mstate_global->__pyx_codeobj__22
-#define __pyx_codeobj__24 __pyx_mstate_global->__pyx_codeobj__24
+#define __pyx_codeobj__23 __pyx_mstate_global->__pyx_codeobj__23
 #define __pyx_codeobj__25 __pyx_mstate_global->__pyx_codeobj__25
 #define __pyx_codeobj__26 __pyx_mstate_global->__pyx_codeobj__26
-#define __pyx_codeobj__28 __pyx_mstate_global->__pyx_codeobj__28
-#define __pyx_codeobj__30 __pyx_mstate_global->__pyx_codeobj__30
+#define __pyx_codeobj__27 __pyx_mstate_global->__pyx_codeobj__27
+#define __pyx_codeobj__29 __pyx_mstate_global->__pyx_codeobj__29
 #define __pyx_codeobj__31 __pyx_mstate_global->__pyx_codeobj__31
 #define __pyx_codeobj__32 __pyx_mstate_global->__pyx_codeobj__32
 #define __pyx_codeobj__33 __pyx_mstate_global->__pyx_codeobj__33
-#define __pyx_codeobj__35 __pyx_mstate_global->__pyx_codeobj__35
-#define __pyx_codeobj__38 __pyx_mstate_global->__pyx_codeobj__38
-#define __pyx_codeobj__40 __pyx_mstate_global->__pyx_codeobj__40
-#define __pyx_codeobj__42 __pyx_mstate_global->__pyx_codeobj__42
-#define __pyx_codeobj__44 __pyx_mstate_global->__pyx_codeobj__44
+#define __pyx_codeobj__34 __pyx_mstate_global->__pyx_codeobj__34
+#define __pyx_codeobj__36 __pyx_mstate_global->__pyx_codeobj__36
+#define __pyx_codeobj__39 __pyx_mstate_global->__pyx_codeobj__39
+#define __pyx_codeobj__41 __pyx_mstate_global->__pyx_codeobj__41
+#define __pyx_codeobj__43 __pyx_mstate_global->__pyx_codeobj__43
 #define __pyx_codeobj__45 __pyx_mstate_global->__pyx_codeobj__45
-#define __pyx_codeobj__47 __pyx_mstate_global->__pyx_codeobj__47
+#define __pyx_codeobj__46 __pyx_mstate_global->__pyx_codeobj__46
 #define __pyx_codeobj__48 __pyx_mstate_global->__pyx_codeobj__48
-#define __pyx_codeobj__50 __pyx_mstate_global->__pyx_codeobj__50
+#define __pyx_codeobj__49 __pyx_mstate_global->__pyx_codeobj__49
 #define __pyx_codeobj__51 __pyx_mstate_global->__pyx_codeobj__51
-#define __pyx_codeobj__53 __pyx_mstate_global->__pyx_codeobj__53
+#define __pyx_codeobj__52 __pyx_mstate_global->__pyx_codeobj__52
 #define __pyx_codeobj__54 __pyx_mstate_global->__pyx_codeobj__54
-#define __pyx_codeobj__56 __pyx_mstate_global->__pyx_codeobj__56
+#define __pyx_codeobj__55 __pyx_mstate_global->__pyx_codeobj__55
 #define __pyx_codeobj__57 __pyx_mstate_global->__pyx_codeobj__57
-#define __pyx_codeobj__59 __pyx_mstate_global->__pyx_codeobj__59
-#define __pyx_codeobj__61 __pyx_mstate_global->__pyx_codeobj__61
-#define __pyx_codeobj__64 __pyx_mstate_global->__pyx_codeobj__64
+#define __pyx_codeobj__58 __pyx_mstate_global->__pyx_codeobj__58
+#define __pyx_codeobj__60 __pyx_mstate_global->__pyx_codeobj__60
+#define __pyx_codeobj__62 __pyx_mstate_global->__pyx_codeobj__62
 #define __pyx_codeobj__65 __pyx_mstate_global->__pyx_codeobj__65
-#define __pyx_codeobj__67 __pyx_mstate_global->__pyx_codeobj__67
-#define __pyx_codeobj__69 __pyx_mstate_global->__pyx_codeobj__69
+#define __pyx_codeobj__66 __pyx_mstate_global->__pyx_codeobj__66
+#define __pyx_codeobj__68 __pyx_mstate_global->__pyx_codeobj__68
 #define __pyx_codeobj__70 __pyx_mstate_global->__pyx_codeobj__70
 #define __pyx_codeobj__71 __pyx_mstate_global->__pyx_codeobj__71
-#define __pyx_codeobj__73 __pyx_mstate_global->__pyx_codeobj__73
-#define __pyx_codeobj__76 __pyx_mstate_global->__pyx_codeobj__76
-#define __pyx_codeobj__78 __pyx_mstate_global->__pyx_codeobj__78
-#define __pyx_codeobj__80 __pyx_mstate_global->__pyx_codeobj__80
+#define __pyx_codeobj__72 __pyx_mstate_global->__pyx_codeobj__72
+#define __pyx_codeobj__74 __pyx_mstate_global->__pyx_codeobj__74
+#define __pyx_codeobj__77 __pyx_mstate_global->__pyx_codeobj__77
+#define __pyx_codeobj__79 __pyx_mstate_global->__pyx_codeobj__79
+#define __pyx_codeobj__81 __pyx_mstate_global->__pyx_codeobj__81
 /* #### Code section: module_code ### */
 
 /* "aim/storage/rockscontainer.pyx":28
@@ -4508,7 +4517,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean___init
  *         super().__init__(instance)
  *         self._lock = None             # <<<<<<<<<<<<<<
  *         self._db = None
- * 
+ *         self._progress_path = None
  */
   if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_lock, Py_None) < 0) __PYX_ERR(0, 36, __pyx_L1_error)
 
@@ -4516,10 +4525,19 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean___init
  *         super().__init__(instance)
  *         self._lock = None
  *         self._db = None             # <<<<<<<<<<<<<<
+ *         self._progress_path = None
+ * 
+ */
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db, Py_None) < 0) __PYX_ERR(0, 37, __pyx_L1_error)
+
+  /* "aim/storage/rockscontainer.pyx":38
+ *         self._lock = None
+ *         self._db = None
+ *         self._progress_path = None             # <<<<<<<<<<<<<<
  * 
  *     def _close(self):
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db, Py_None) < 0) __PYX_ERR(0, 37, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_progress_path, Py_None) < 0) __PYX_ERR(0, 38, __pyx_L1_error)
 
   /* "aim/storage/rockscontainer.pyx":28
  *     PRIORITY = 60
@@ -4544,8 +4562,8 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean___init
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":39
- *         self._db = None
+/* "aim/storage/rockscontainer.pyx":40
+ *         self._progress_path = None
  * 
  *     def _close(self):             # <<<<<<<<<<<<<<
  *         """
@@ -4606,12 +4624,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 39, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 40, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_close") < 0)) __PYX_ERR(0, 39, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_close") < 0)) __PYX_ERR(0, 40, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -4622,7 +4640,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_close", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 39, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_close", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 40, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4662,42 +4680,42 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean_2_clos
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_close", 1);
 
-  /* "aim/storage/rockscontainer.pyx":44
+  /* "aim/storage/rockscontainer.pyx":45
  *         Finally, release the lock.
  *         """
  *         if self._lock is not None:             # <<<<<<<<<<<<<<
  *             if self._db is not None:
  *                 self._db.flush()
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_lock); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_lock); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 != Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "aim/storage/rockscontainer.pyx":45
+    /* "aim/storage/rockscontainer.pyx":46
  *         """
  *         if self._lock is not None:
  *             if self._db is not None:             # <<<<<<<<<<<<<<
  *                 self._db.flush()
  *                 self._db.flush_wal()
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 45, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_2 = (__pyx_t_1 != Py_None);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_2) {
 
-      /* "aim/storage/rockscontainer.pyx":46
+      /* "aim/storage/rockscontainer.pyx":47
  *         if self._lock is not None:
  *             if self._db is not None:
  *                 self._db.flush()             # <<<<<<<<<<<<<<
  *                 self._db.flush_wal()
  *                 self._db = None
  */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 46, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 47, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_flush); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 46, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_flush); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_3 = NULL;
@@ -4718,22 +4736,22 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean_2_clos
         PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 47, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       }
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "aim/storage/rockscontainer.pyx":47
+      /* "aim/storage/rockscontainer.pyx":48
  *             if self._db is not None:
  *                 self._db.flush()
  *                 self._db.flush_wal()             # <<<<<<<<<<<<<<
  *                 self._db = None
  *             self._lock.release()
  */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_flush_wal); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 47, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_flush_wal); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_4 = NULL;
@@ -4754,22 +4772,22 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean_2_clos
         PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 47, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       }
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "aim/storage/rockscontainer.pyx":48
+      /* "aim/storage/rockscontainer.pyx":49
  *                 self._db.flush()
  *                 self._db.flush_wal()
  *                 self._db = None             # <<<<<<<<<<<<<<
  *             self._lock.release()
  *             self._lock = None
  */
-      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db, Py_None) < 0) __PYX_ERR(0, 48, __pyx_L1_error)
+      if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db, Py_None) < 0) __PYX_ERR(0, 49, __pyx_L1_error)
 
-      /* "aim/storage/rockscontainer.pyx":45
+      /* "aim/storage/rockscontainer.pyx":46
  *         """
  *         if self._lock is not None:
  *             if self._db is not None:             # <<<<<<<<<<<<<<
@@ -4778,16 +4796,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean_2_clos
  */
     }
 
-    /* "aim/storage/rockscontainer.pyx":49
+    /* "aim/storage/rockscontainer.pyx":50
  *                 self._db.flush_wal()
  *                 self._db = None
  *             self._lock.release()             # <<<<<<<<<<<<<<
  *             self._lock = None
- *         if self._db is not None:
+ *         if self._progress_path is not None:
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_lock); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 49, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_lock); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 50, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_release); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 49, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_release); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_3 = NULL;
@@ -4808,22 +4826,22 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean_2_clos
       PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":50
+    /* "aim/storage/rockscontainer.pyx":51
  *                 self._db = None
  *             self._lock.release()
  *             self._lock = None             # <<<<<<<<<<<<<<
- *         if self._db is not None:
- *             self._db = None
+ *         if self._progress_path is not None:
+ *             self._progress_path.unlink(missing_ok=True)
  */
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_lock, Py_None) < 0) __PYX_ERR(0, 50, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_lock, Py_None) < 0) __PYX_ERR(0, 51, __pyx_L1_error)
 
-    /* "aim/storage/rockscontainer.pyx":44
+    /* "aim/storage/rockscontainer.pyx":45
  *         Finally, release the lock.
  *         """
  *         if self._lock is not None:             # <<<<<<<<<<<<<<
@@ -4832,39 +4850,91 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean_2_clos
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":51
+  /* "aim/storage/rockscontainer.pyx":52
  *             self._lock.release()
  *             self._lock = None
- *         if self._db is not None:             # <<<<<<<<<<<<<<
- *             self._db = None
- * 
+ *         if self._progress_path is not None:             # <<<<<<<<<<<<<<
+ *             self._progress_path.unlink(missing_ok=True)
+ *             self._progress_path = None
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_progress_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 != Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "aim/storage/rockscontainer.pyx":52
+    /* "aim/storage/rockscontainer.pyx":53
  *             self._lock = None
+ *         if self._progress_path is not None:
+ *             self._progress_path.unlink(missing_ok=True)             # <<<<<<<<<<<<<<
+ *             self._progress_path = None
+ *         if self._db is not None:
+ */
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_progress_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_unlink); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 53, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_missing_ok, Py_True) < 0) __PYX_ERR(0, 53, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 53, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+    /* "aim/storage/rockscontainer.pyx":54
+ *         if self._progress_path is not None:
+ *             self._progress_path.unlink(missing_ok=True)
+ *             self._progress_path = None             # <<<<<<<<<<<<<<
+ *         if self._db is not None:
+ *             self._db = None
+ */
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_progress_path, Py_None) < 0) __PYX_ERR(0, 54, __pyx_L1_error)
+
+    /* "aim/storage/rockscontainer.pyx":52
+ *             self._lock.release()
+ *             self._lock = None
+ *         if self._progress_path is not None:             # <<<<<<<<<<<<<<
+ *             self._progress_path.unlink(missing_ok=True)
+ *             self._progress_path = None
+ */
+  }
+
+  /* "aim/storage/rockscontainer.pyx":55
+ *             self._progress_path.unlink(missing_ok=True)
+ *             self._progress_path = None
+ *         if self._db is not None:             # <<<<<<<<<<<<<<
+ *             self._db = None
+ * 
+ */
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = (__pyx_t_3 != Py_None);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__pyx_t_2) {
+
+    /* "aim/storage/rockscontainer.pyx":56
+ *             self._progress_path = None
  *         if self._db is not None:
  *             self._db = None             # <<<<<<<<<<<<<<
  * 
  * 
  */
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db, Py_None) < 0) __PYX_ERR(0, 52, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db, Py_None) < 0) __PYX_ERR(0, 56, __pyx_L1_error)
 
-    /* "aim/storage/rockscontainer.pyx":51
- *             self._lock.release()
- *             self._lock = None
+    /* "aim/storage/rockscontainer.pyx":55
+ *             self._progress_path.unlink(missing_ok=True)
+ *             self._progress_path = None
  *         if self._db is not None:             # <<<<<<<<<<<<<<
  *             self._db = None
  * 
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":39
- *         self._db = None
+  /* "aim/storage/rockscontainer.pyx":40
+ *         self._progress_path = None
  * 
  *     def _close(self):             # <<<<<<<<<<<<<<
  *         """
@@ -4886,7 +4956,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksAutoClean_2_clos
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":59
+/* "aim/storage/rockscontainer.pyx":63
  *     TODO Rocks-specific docs
  *     """
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -4939,7 +5009,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_path,&__pyx_n_s_read_only,&__pyx_n_s_wait_if_busy,0};
 
-    /* "aim/storage/rockscontainer.pyx":62
+    /* "aim/storage/rockscontainer.pyx":66
  *         self,
  *         path: str,
  *         read_only: bool = False,             # <<<<<<<<<<<<<<
@@ -4948,7 +5018,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
  */
     values[2] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject *)Py_False)));
 
-    /* "aim/storage/rockscontainer.pyx":63
+    /* "aim/storage/rockscontainer.pyx":67
  *         path: str,
  *         read_only: bool = False,
  *         wait_if_busy: bool = False,             # <<<<<<<<<<<<<<
@@ -4977,7 +5047,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 59, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 63, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -4985,28 +5055,28 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 59, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 63, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 4, 1); __PYX_ERR(0, 59, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 4, 1); __PYX_ERR(0, 63, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_read_only);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 59, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 63, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_wait_if_busy);
           if (value) { values[3] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 59, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 63, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_extra_options, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 59, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_extra_options, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 63, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -5027,7 +5097,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 4, __pyx_nargs); __PYX_ERR(0, 59, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 4, __pyx_nargs); __PYX_ERR(0, 63, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5042,10 +5112,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_path), (&PyString_Type), 0, "path", 1))) __PYX_ERR(0, 61, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_path), (&PyString_Type), 0, "path", 1))) __PYX_ERR(0, 65, __pyx_L1_error)
   __pyx_r = __pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer___init__(__pyx_self, __pyx_v_self, __pyx_v_path, __pyx_v_read_only, __pyx_v_wait_if_busy, __pyx_v_extra_options);
 
-  /* "aim/storage/rockscontainer.pyx":59
+  /* "aim/storage/rockscontainer.pyx":63
  *     TODO Rocks-specific docs
  *     """
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -5084,23 +5154,23 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer___init
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "aim/storage/rockscontainer.pyx":66
+  /* "aim/storage/rockscontainer.pyx":70
  *         **extra_options
  *     ) -> None:
  *         self._resources: RocksAutoClean = None             # <<<<<<<<<<<<<<
  * 
  *         self.path = Path(path)
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_resources, Py_None) < 0) __PYX_ERR(0, 66, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_resources, Py_None) < 0) __PYX_ERR(0, 70, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":68
+  /* "aim/storage/rockscontainer.pyx":72
  *         self._resources: RocksAutoClean = None
  * 
  *         self.path = Path(path)             # <<<<<<<<<<<<<<
  *         self.read_only = read_only
  *         self._db_opts = dict(
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_Path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_Path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -5120,118 +5190,118 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer___init
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_path};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_path, __pyx_t_1) < 0) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_path, __pyx_t_1) < 0) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":69
+  /* "aim/storage/rockscontainer.pyx":73
  * 
  *         self.path = Path(path)
  *         self.read_only = read_only             # <<<<<<<<<<<<<<
  *         self._db_opts = dict(
  *             create_if_missing=True,
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_read_only, __pyx_v_read_only) < 0) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_read_only, __pyx_v_read_only) < 0) __PYX_ERR(0, 73, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":71
+  /* "aim/storage/rockscontainer.pyx":75
  *         self.read_only = read_only
  *         self._db_opts = dict(
  *             create_if_missing=True,             # <<<<<<<<<<<<<<
  *             paranoid_checks=False,
  *             keep_log_file_num=10,
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(17); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_create_if_missing, Py_True) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_create_if_missing, Py_True) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":72
+  /* "aim/storage/rockscontainer.pyx":76
  *         self._db_opts = dict(
  *             create_if_missing=True,
  *             paranoid_checks=False,             # <<<<<<<<<<<<<<
  *             keep_log_file_num=10,
  *             skip_stats_update_on_db_open=True,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_paranoid_checks, Py_False) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_keep_log_file_num, __pyx_int_10) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_paranoid_checks, Py_False) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_keep_log_file_num, __pyx_int_10) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":74
+  /* "aim/storage/rockscontainer.pyx":78
  *             paranoid_checks=False,
  *             keep_log_file_num=10,
  *             skip_stats_update_on_db_open=True,             # <<<<<<<<<<<<<<
  *             skip_checking_sst_file_sizes_on_db_open=True,
  *             max_open_files=-1,
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_skip_stats_update_on_db_open, Py_True) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_skip_stats_update_on_db_open, Py_True) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":75
+  /* "aim/storage/rockscontainer.pyx":79
  *             keep_log_file_num=10,
  *             skip_stats_update_on_db_open=True,
  *             skip_checking_sst_file_sizes_on_db_open=True,             # <<<<<<<<<<<<<<
  *             max_open_files=-1,
  *             write_buffer_size=1024 * 1024,  # 1MB
  */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_skip_checking_sst_file_sizes_on, Py_True) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_open_files, __pyx_int_neg_1) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_write_buffer_size, __pyx_int_1048576) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_db_write_buffer_size, __pyx_int_1048576) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_write_buffer_number, __pyx_int_1) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_target_file_size_base, __pyx_int_67108864) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_background_compactions, __pyx_int_4) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_level0_file_num_compaction_trigg, __pyx_int_8) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_level0_slowdown_writes_trigger, __pyx_int_17) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_level0_stop_writes_trigger, __pyx_int_24) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_num_levels, __pyx_int_4) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_bytes_for_level_base, __pyx_int_536870912) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_bytes_for_level_multiplier, __pyx_int_8) < 0) __PYX_ERR(0, 71, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_skip_checking_sst_file_sizes_on, Py_True) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_open_files, __pyx_int_neg_1) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_write_buffer_size, __pyx_int_1048576) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_db_write_buffer_size, __pyx_int_1048576) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_write_buffer_number, __pyx_int_1) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_target_file_size_base, __pyx_int_67108864) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_background_compactions, __pyx_int_4) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_level0_file_num_compaction_trigg, __pyx_int_8) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_level0_slowdown_writes_trigger, __pyx_int_17) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_level0_stop_writes_trigger, __pyx_int_24) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_num_levels, __pyx_int_4) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_bytes_for_level_base, __pyx_int_536870912) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_max_bytes_for_level_multiplier, __pyx_int_8) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":70
+  /* "aim/storage/rockscontainer.pyx":74
  *         self.path = Path(path)
  *         self.read_only = read_only
  *         self._db_opts = dict(             # <<<<<<<<<<<<<<
  *             create_if_missing=True,
  *             paranoid_checks=False,
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db_opts, __pyx_t_1) < 0) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db_opts, __pyx_t_1) < 0) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":89
+  /* "aim/storage/rockscontainer.pyx":93
  *             max_bytes_for_level_multiplier=8,
  *         )
  *         self._extra_opts = extra_options             # <<<<<<<<<<<<<<
  *         # opts.allow_concurrent_memtable_write = False
  *         # opts.memtable_factory = aimrocks.VectorMemtableFactory()
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_extra_opts, __pyx_v_extra_options) < 0) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_extra_opts, __pyx_v_extra_options) < 0) __PYX_ERR(0, 93, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":97
+  /* "aim/storage/rockscontainer.pyx":101
  *         # opts.arena_block_size = 67108864
  * 
  *         self._wait_if_busy = wait_if_busy  # TODO implement             # <<<<<<<<<<<<<<
  *         self._lock_path: Optional[Path] = None
  * 
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_wait_if_busy_2, __pyx_v_wait_if_busy) < 0) __PYX_ERR(0, 97, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_wait_if_busy_2, __pyx_v_wait_if_busy) < 0) __PYX_ERR(0, 101, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":98
+  /* "aim/storage/rockscontainer.pyx":102
  * 
  *         self._wait_if_busy = wait_if_busy  # TODO implement
  *         self._lock_path: Optional[Path] = None             # <<<<<<<<<<<<<<
  * 
  *         self._resources = RocksAutoClean(self)
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_lock_path, Py_None) < 0) __PYX_ERR(0, 98, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_lock_path, Py_None) < 0) __PYX_ERR(0, 102, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":100
+  /* "aim/storage/rockscontainer.pyx":104
  *         self._lock_path: Optional[Path] = None
  * 
  *         self._resources = RocksAutoClean(self)             # <<<<<<<<<<<<<<
  * 
  *         progress_dir = self.path.parent.parent / 'progress'
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_RocksAutoClean); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_RocksAutoClean); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -5251,107 +5321,122 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer___init
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_self};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 104, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_resources, __pyx_t_1) < 0) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_resources, __pyx_t_1) < 0) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":102
+  /* "aim/storage/rockscontainer.pyx":106
  *         self._resources = RocksAutoClean(self)
  * 
  *         progress_dir = self.path.parent.parent / 'progress'             # <<<<<<<<<<<<<<
  *         self._progress_path = progress_dir / self.path.name
  *         if not self.read_only:
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_parent); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_parent); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_n_s_progress); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_n_s_progress); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_progress_dir = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":103
+  /* "aim/storage/rockscontainer.pyx":107
  * 
  *         progress_dir = self.path.parent.parent / 'progress'
  *         self._progress_path = progress_dir / self.path.name             # <<<<<<<<<<<<<<
  *         if not self.read_only:
  *             progress_dir.mkdir(parents=True, exist_ok=True)
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_progress_dir, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_progress_dir, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_progress_path, __pyx_t_2) < 0) __PYX_ERR(0, 103, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_progress_path, __pyx_t_2) < 0) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":104
+  /* "aim/storage/rockscontainer.pyx":108
  *         progress_dir = self.path.parent.parent / 'progress'
  *         self._progress_path = progress_dir / self.path.name
  *         if not self.read_only:             # <<<<<<<<<<<<<<
  *             progress_dir.mkdir(parents=True, exist_ok=True)
  *             self._progress_path.touch(exist_ok=True)
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_read_only); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_read_only); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 108, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 108, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_6 = (!__pyx_t_5);
   if (__pyx_t_6) {
 
-    /* "aim/storage/rockscontainer.pyx":105
+    /* "aim/storage/rockscontainer.pyx":109
  *         self._progress_path = progress_dir / self.path.name
  *         if not self.read_only:
  *             progress_dir.mkdir(parents=True, exist_ok=True)             # <<<<<<<<<<<<<<
  *             self._progress_path.touch(exist_ok=True)
- * 
+ *             self._resources._progress_path = self._progress_path
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_progress_dir, __pyx_n_s_mkdir); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_progress_dir, __pyx_n_s_mkdir); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_parents, Py_True) < 0) __PYX_ERR(0, 105, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_exist_ok, Py_True) < 0) __PYX_ERR(0, 105, __pyx_L1_error)
-    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 105, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_parents, Py_True) < 0) __PYX_ERR(0, 109, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_exist_ok, Py_True) < 0) __PYX_ERR(0, 109, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":106
+    /* "aim/storage/rockscontainer.pyx":110
  *         if not self.read_only:
  *             progress_dir.mkdir(parents=True, exist_ok=True)
  *             self._progress_path.touch(exist_ok=True)             # <<<<<<<<<<<<<<
+ *             self._resources._progress_path = self._progress_path
  * 
- *         self.db
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_progress_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_progress_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 110, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_touch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_touch); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 106, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 110, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_exist_ok, Py_True) < 0) __PYX_ERR(0, 106, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 106, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_exist_ok, Py_True) < 0) __PYX_ERR(0, 110, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 110, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":104
+    /* "aim/storage/rockscontainer.pyx":111
+ *             progress_dir.mkdir(parents=True, exist_ok=True)
+ *             self._progress_path.touch(exist_ok=True)
+ *             self._resources._progress_path = self._progress_path             # <<<<<<<<<<<<<<
+ * 
+ *         self.db
+ */
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_progress_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    if (__Pyx_PyObject_SetAttrStr(__pyx_t_3, __pyx_n_s_progress_path, __pyx_t_2) < 0) __PYX_ERR(0, 111, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+    /* "aim/storage/rockscontainer.pyx":108
  *         progress_dir = self.path.parent.parent / 'progress'
  *         self._progress_path = progress_dir / self.path.name
  *         if not self.read_only:             # <<<<<<<<<<<<<<
@@ -5360,18 +5445,18 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer___init
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":108
- *             self._progress_path.touch(exist_ok=True)
+  /* "aim/storage/rockscontainer.pyx":113
+ *             self._resources._progress_path = self._progress_path
  * 
  *         self.db             # <<<<<<<<<<<<<<
  *         # TODO check if Containers are reopenable
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 108, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 113, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":59
+  /* "aim/storage/rockscontainer.pyx":63
  *     TODO Rocks-specific docs
  *     """
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -5395,7 +5480,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer___init
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":114
+/* "aim/storage/rockscontainer.pyx":119
  *     # ensure that the resources are closed when the container gone.
  * 
  *     def get_lock_cls(self):             # <<<<<<<<<<<<<<
@@ -5457,12 +5542,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 114, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 119, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "get_lock_cls") < 0)) __PYX_ERR(0, 114, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "get_lock_cls") < 0)) __PYX_ERR(0, 119, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -5473,7 +5558,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get_lock_cls", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 114, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get_lock_cls", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 119, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5509,7 +5594,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_2get_l
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_lock_cls", 1);
 
-  /* "aim/storage/rockscontainer.pyx":116
+  /* "aim/storage/rockscontainer.pyx":121
  *     def get_lock_cls(self):
  *         """Default locking is no-op. Container locking to be handled externally."""
  *         return NoopLock             # <<<<<<<<<<<<<<
@@ -5517,13 +5602,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_2get_l
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_NoopLock); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 116, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_NoopLock); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":114
+  /* "aim/storage/rockscontainer.pyx":119
  *     # ensure that the resources are closed when the container gone.
  * 
  *     def get_lock_cls(self):             # <<<<<<<<<<<<<<
@@ -5542,7 +5627,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_2get_l
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":118
+/* "aim/storage/rockscontainer.pyx":123
  *         return NoopLock
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5603,12 +5688,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 118, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 123, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_db") < 0)) __PYX_ERR(0, 118, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_db") < 0)) __PYX_ERR(0, 123, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -5619,7 +5704,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_db", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 118, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_db", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 123, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5656,7 +5741,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_4_db(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_db", 1);
 
-  /* "aim/storage/rockscontainer.pyx":120
+  /* "aim/storage/rockscontainer.pyx":125
  *     @property
  *     def _db(self):
  *         return self._resources._db             # <<<<<<<<<<<<<<
@@ -5664,16 +5749,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_4_db(C
  *     @_db.setter
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_db); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_db); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":118
+  /* "aim/storage/rockscontainer.pyx":123
  *         return NoopLock
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5693,7 +5778,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_4_db(C
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":122
+/* "aim/storage/rockscontainer.pyx":127
  *         return self._resources._db
  * 
  *     @_db.setter             # <<<<<<<<<<<<<<
@@ -5757,7 +5842,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 127, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -5765,14 +5850,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 122, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 127, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_db", 1, 2, 2, 1); __PYX_ERR(0, 122, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_db", 1, 2, 2, 1); __PYX_ERR(0, 127, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_db") < 0)) __PYX_ERR(0, 122, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_db") < 0)) __PYX_ERR(0, 127, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -5785,7 +5870,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_db", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 122, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_db", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 127, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5821,19 +5906,19 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_6_db(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_db", 1);
 
-  /* "aim/storage/rockscontainer.pyx":124
+  /* "aim/storage/rockscontainer.pyx":129
  *     @_db.setter
  *     def _db(self, value):
  *         self._resources._db = value             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_t_1, __pyx_n_s_db, __pyx_v_value) < 0) __PYX_ERR(0, 124, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_t_1, __pyx_n_s_db, __pyx_v_value) < 0) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":122
+  /* "aim/storage/rockscontainer.pyx":127
  *         return self._resources._db
  * 
  *     @_db.setter             # <<<<<<<<<<<<<<
@@ -5854,7 +5939,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_6_db(C
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":126
+/* "aim/storage/rockscontainer.pyx":131
  *         self._resources._db = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5915,12 +6000,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 126, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 131, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_lock") < 0)) __PYX_ERR(0, 126, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_lock") < 0)) __PYX_ERR(0, 131, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -5931,7 +6016,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_lock", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 126, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_lock", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 131, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5968,7 +6053,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_8_lock
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_lock", 1);
 
-  /* "aim/storage/rockscontainer.pyx":128
+  /* "aim/storage/rockscontainer.pyx":133
  *     @property
  *     def _lock(self):
  *         return self._resources._lock             # <<<<<<<<<<<<<<
@@ -5976,16 +6061,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_8_lock
  *     @_lock.setter
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_lock); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_lock); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":126
+  /* "aim/storage/rockscontainer.pyx":131
  *         self._resources._db = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6005,7 +6090,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_8_lock
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":130
+/* "aim/storage/rockscontainer.pyx":135
  *         return self._resources._lock
  * 
  *     @_lock.setter             # <<<<<<<<<<<<<<
@@ -6069,7 +6154,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 130, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 135, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -6077,14 +6162,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 130, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 135, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_lock", 1, 2, 2, 1); __PYX_ERR(0, 130, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_lock", 1, 2, 2, 1); __PYX_ERR(0, 135, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_lock") < 0)) __PYX_ERR(0, 130, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_lock") < 0)) __PYX_ERR(0, 135, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -6097,7 +6182,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_lock", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 130, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_lock", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 135, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6133,19 +6218,19 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_10_loc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_lock", 1);
 
-  /* "aim/storage/rockscontainer.pyx":132
+  /* "aim/storage/rockscontainer.pyx":137
  *     @_lock.setter
  *     def _lock(self, value):
  *         self._resources._lock = value             # <<<<<<<<<<<<<<
  * 
  *     @property
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_t_1, __pyx_n_s_lock, __pyx_v_value) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_t_1, __pyx_n_s_lock, __pyx_v_value) < 0) __PYX_ERR(0, 137, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":130
+  /* "aim/storage/rockscontainer.pyx":135
  *         return self._resources._lock
  * 
  *     @_lock.setter             # <<<<<<<<<<<<<<
@@ -6166,7 +6251,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_10_loc
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":134
+/* "aim/storage/rockscontainer.pyx":139
  *         self._resources._lock = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6227,12 +6312,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 134, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 139, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "db") < 0)) __PYX_ERR(0, 134, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "db") < 0)) __PYX_ERR(0, 139, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -6243,7 +6328,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("db", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 134, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("db", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 139, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6291,20 +6376,20 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("db", 1);
 
-  /* "aim/storage/rockscontainer.pyx":136
+  /* "aim/storage/rockscontainer.pyx":141
  *     @property
  *     def db(self) -> aimrocks.DB:
  *         if self._db is not None:             # <<<<<<<<<<<<<<
  *             return self._db
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 141, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 != Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "aim/storage/rockscontainer.pyx":137
+    /* "aim/storage/rockscontainer.pyx":142
  *     def db(self) -> aimrocks.DB:
  *         if self._db is not None:
  *             return self._db             # <<<<<<<<<<<<<<
@@ -6312,13 +6397,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
  *         logger.debug(f'opening {self.path} as aimrocks db')
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "aim/storage/rockscontainer.pyx":136
+    /* "aim/storage/rockscontainer.pyx":141
  *     @property
  *     def db(self) -> aimrocks.DB:
  *         if self._db is not None:             # <<<<<<<<<<<<<<
@@ -6327,19 +6412,19 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":139
+  /* "aim/storage/rockscontainer.pyx":144
  *             return self._db
  * 
  *         logger.debug(f'opening {self.path} as aimrocks db')             # <<<<<<<<<<<<<<
  *         if not self.read_only:
  *             lock_path = prepare_lock_path(self.path)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_logger); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_logger); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_debug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_debug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyTuple_New(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_5 = 0;
   __pyx_t_6 = 127;
@@ -6347,9 +6432,9 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
   __pyx_t_5 += 8;
   __Pyx_GIVEREF(__pyx_kp_u_opening);
   PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_kp_u_opening);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_7, __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_7, __pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_6 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) > __pyx_t_6) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) : __pyx_t_6;
@@ -6361,7 +6446,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
   __pyx_t_5 += 15;
   __Pyx_GIVEREF(__pyx_kp_u_as_aimrocks_db);
   PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_kp_u_as_aimrocks_db);
-  __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_3, 3, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_3, 3, __pyx_t_5, __pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -6383,36 +6468,36 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 139, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":140
+  /* "aim/storage/rockscontainer.pyx":145
  * 
  *         logger.debug(f'opening {self.path} as aimrocks db')
  *         if not self.read_only:             # <<<<<<<<<<<<<<
  *             lock_path = prepare_lock_path(self.path)
  *             self._lock_path = lock_path
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_read_only); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_read_only); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 140, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 145, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_10 = (!__pyx_t_2);
   if (__pyx_t_10) {
 
-    /* "aim/storage/rockscontainer.pyx":141
+    /* "aim/storage/rockscontainer.pyx":146
  *         logger.debug(f'opening {self.path} as aimrocks db')
  *         if not self.read_only:
  *             lock_path = prepare_lock_path(self.path)             # <<<<<<<<<<<<<<
  *             self._lock_path = lock_path
  *             timeout = self._extra_opts.get('timeout', 10)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_prepare_lock_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 141, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_prepare_lock_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 141, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_3 = NULL;
     __pyx_t_9 = 0;
@@ -6433,48 +6518,48 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 141, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __pyx_v_lock_path = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":142
+    /* "aim/storage/rockscontainer.pyx":147
  *         if not self.read_only:
  *             lock_path = prepare_lock_path(self.path)
  *             self._lock_path = lock_path             # <<<<<<<<<<<<<<
  *             timeout = self._extra_opts.get('timeout', 10)
  *             lock_cls = self.get_lock_cls()
  */
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_lock_path, __pyx_v_lock_path) < 0) __PYX_ERR(0, 142, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_lock_path, __pyx_v_lock_path) < 0) __PYX_ERR(0, 147, __pyx_L1_error)
 
-    /* "aim/storage/rockscontainer.pyx":143
+    /* "aim/storage/rockscontainer.pyx":148
  *             lock_path = prepare_lock_path(self.path)
  *             self._lock_path = lock_path
  *             timeout = self._extra_opts.get('timeout', 10)             # <<<<<<<<<<<<<<
  *             lock_cls = self.get_lock_cls()
  *             self._lock = lock_cls(self._lock_path, timeout)
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_extra_opts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_extra_opts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 148, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple_, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple_, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_v_timeout = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":144
+    /* "aim/storage/rockscontainer.pyx":149
  *             self._lock_path = lock_path
  *             timeout = self._extra_opts.get('timeout', 10)
  *             lock_cls = self.get_lock_cls()             # <<<<<<<<<<<<<<
  *             self._lock = lock_cls(self._lock_path, timeout)
  *             self._lock.acquire()
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_lock_cls); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 144, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_lock_cls); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 149, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_8 = NULL;
     __pyx_t_9 = 0;
@@ -6494,21 +6579,21 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
       PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 0+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 149, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __pyx_v_lock_cls = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":145
+    /* "aim/storage/rockscontainer.pyx":150
  *             timeout = self._extra_opts.get('timeout', 10)
  *             lock_cls = self.get_lock_cls()
  *             self._lock = lock_cls(self._lock_path, timeout)             # <<<<<<<<<<<<<<
  *             self._lock.acquire()
- *         else:
+ *         elif not self._extra_opts.get('skip_read_optimization', False):
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_lock_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 145, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_lock_path); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 150, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_v_lock_cls);
     __pyx_t_8 = __pyx_v_lock_cls; __pyx_t_3 = NULL;
@@ -6530,23 +6615,23 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_9, 2+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     }
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_lock, __pyx_t_1) < 0) __PYX_ERR(0, 145, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_lock, __pyx_t_1) < 0) __PYX_ERR(0, 150, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":146
+    /* "aim/storage/rockscontainer.pyx":151
  *             lock_cls = self.get_lock_cls()
  *             self._lock = lock_cls(self._lock_path, timeout)
  *             self._lock.acquire()             # <<<<<<<<<<<<<<
- *         else:
+ *         elif not self._extra_opts.get('skip_read_optimization', False):
  *             self.optimize_for_read()
  */
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_lock); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 146, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_lock); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 151, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_acquire); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 146, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_acquire); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 151, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_8 = NULL;
@@ -6567,13 +6652,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
       PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 0+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":140
+    /* "aim/storage/rockscontainer.pyx":145
  * 
  *         logger.debug(f'opening {self.path} as aimrocks db')
  *         if not self.read_only:             # <<<<<<<<<<<<<<
@@ -6583,15 +6668,34 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
     goto __pyx_L4;
   }
 
-  /* "aim/storage/rockscontainer.pyx":148
+  /* "aim/storage/rockscontainer.pyx":152
+ *             self._lock = lock_cls(self._lock_path, timeout)
  *             self._lock.acquire()
- *         else:
+ *         elif not self._extra_opts.get('skip_read_optimization', False):             # <<<<<<<<<<<<<<
+ *             self.optimize_for_read()
+ * 
+ */
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_extra_opts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__2, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_2 = (!__pyx_t_10);
+  if (__pyx_t_2) {
+
+    /* "aim/storage/rockscontainer.pyx":153
+ *             self._lock.acquire()
+ *         elif not self._extra_opts.get('skip_read_optimization', False):
  *             self.optimize_for_read()             # <<<<<<<<<<<<<<
  * 
  *         self._db = aimrocks.DB(str(self.path),
  */
-  /*else*/ {
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_optimize_for_read); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 148, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_optimize_for_read); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 153, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_8 = NULL;
     __pyx_t_9 = 0;
@@ -6611,110 +6715,118 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
       PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 0+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+    /* "aim/storage/rockscontainer.pyx":152
+ *             self._lock = lock_cls(self._lock_path, timeout)
+ *             self._lock.acquire()
+ *         elif not self._extra_opts.get('skip_read_optimization', False):             # <<<<<<<<<<<<<<
+ *             self.optimize_for_read()
+ * 
+ */
   }
   __pyx_L4:;
 
-  /* "aim/storage/rockscontainer.pyx":150
+  /* "aim/storage/rockscontainer.pyx":155
  *             self.optimize_for_read()
  * 
  *         self._db = aimrocks.DB(str(self.path),             # <<<<<<<<<<<<<<
  *                                aimrocks.Options(**self._db_opts),
  *                                read_only=self.read_only)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_DB); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_DB); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_8 = __Pyx_PyObject_Str(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_Str(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":151
+  /* "aim/storage/rockscontainer.pyx":156
  * 
  *         self._db = aimrocks.DB(str(self.path),
  *                                aimrocks.Options(**self._db_opts),             # <<<<<<<<<<<<<<
  *                                read_only=self.read_only)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_Options); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_Options); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_opts); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_opts); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   if (unlikely(__pyx_t_7 == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-    __PYX_ERR(0, 151, __pyx_L1_error)
+    __PYX_ERR(0, 156, __pyx_L1_error)
   }
   if (likely(PyDict_CheckExact(__pyx_t_7))) {
-    __pyx_t_1 = PyDict_Copy(__pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
+    __pyx_t_1 = PyDict_Copy(__pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 156, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   } else {
-    __pyx_t_1 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 156, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   }
-  __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 156, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":150
+  /* "aim/storage/rockscontainer.pyx":155
  *             self.optimize_for_read()
  * 
  *         self._db = aimrocks.DB(str(self.path),             # <<<<<<<<<<<<<<
  *                                aimrocks.Options(**self._db_opts),
  *                                read_only=self.read_only)
  */
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_8)) __PYX_ERR(0, 150, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_8)) __PYX_ERR(0, 155, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_7)) __PYX_ERR(0, 150, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_7)) __PYX_ERR(0, 155, __pyx_L1_error);
   __pyx_t_8 = 0;
   __pyx_t_7 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":152
+  /* "aim/storage/rockscontainer.pyx":157
  *         self._db = aimrocks.DB(str(self.path),
  *                                aimrocks.Options(**self._db_opts),
  *                                read_only=self.read_only)             # <<<<<<<<<<<<<<
  * 
  *         return self._db
  */
-  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_read_only); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_read_only); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_read_only, __pyx_t_8) < 0) __PYX_ERR(0, 152, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_n_s_read_only, __pyx_t_8) < 0) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":150
+  /* "aim/storage/rockscontainer.pyx":155
  *             self.optimize_for_read()
  * 
  *         self._db = aimrocks.DB(str(self.path),             # <<<<<<<<<<<<<<
  *                                aimrocks.Options(**self._db_opts),
  *                                read_only=self.read_only)
  */
-  __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_1, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_1, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db, __pyx_t_8) < 0) __PYX_ERR(0, 150, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_db, __pyx_t_8) < 0) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":154
+  /* "aim/storage/rockscontainer.pyx":159
  *                                read_only=self.read_only)
  * 
  *         return self._db             # <<<<<<<<<<<<<<
@@ -6722,13 +6834,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
  *     def finalize(self, index: Container):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 159, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_r = __pyx_t_8;
   __pyx_t_8 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":134
+  /* "aim/storage/rockscontainer.pyx":139
  *         self._resources._lock = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -6754,7 +6866,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_12db(C
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":156
+/* "aim/storage/rockscontainer.pyx":161
  *         return self._db
  * 
  *     def finalize(self, index: Container):             # <<<<<<<<<<<<<<
@@ -6819,7 +6931,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 156, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 161, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -6827,14 +6939,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 156, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 161, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("finalize", 1, 2, 2, 1); __PYX_ERR(0, 156, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("finalize", 1, 2, 2, 1); __PYX_ERR(0, 161, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "finalize") < 0)) __PYX_ERR(0, 156, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "finalize") < 0)) __PYX_ERR(0, 161, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -6847,7 +6959,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("finalize", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 156, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("finalize", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 161, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6880,185 +6992,57 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_14fina
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  int __pyx_t_2;
-  int __pyx_t_3;
-  Py_ssize_t __pyx_t_4;
-  Py_ssize_t __pyx_t_5;
-  int __pyx_t_6;
-  PyObject *__pyx_t_7 = NULL;
-  PyObject *__pyx_t_8 = NULL;
-  int __pyx_t_9;
+  Py_ssize_t __pyx_t_2;
+  Py_ssize_t __pyx_t_3;
+  int __pyx_t_4;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  int __pyx_t_7;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("finalize", 1);
 
-  /* "aim/storage/rockscontainer.pyx":162
+  /* "aim/storage/rockscontainer.pyx":167
  *         `index` for fast reads.
  *         """
- *         if not self._progress_path:             # <<<<<<<<<<<<<<
- *             return
- * 
- */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_progress_path); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 162, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = (!__pyx_t_2);
-  if (__pyx_t_3) {
-
-    /* "aim/storage/rockscontainer.pyx":163
- *         """
- *         if not self._progress_path:
- *             return             # <<<<<<<<<<<<<<
- * 
- *         for k, v in self.items():
- */
-    __Pyx_XDECREF(__pyx_r);
-    __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-    goto __pyx_L0;
-
-    /* "aim/storage/rockscontainer.pyx":162
- *         `index` for fast reads.
- *         """
- *         if not self._progress_path:             # <<<<<<<<<<<<<<
- *             return
- * 
- */
-  }
-
-  /* "aim/storage/rockscontainer.pyx":165
- *             return
- * 
  *         for k, v in self.items():             # <<<<<<<<<<<<<<
  *             index[k] = v
  * 
  */
-  __pyx_t_4 = 0;
+  __pyx_t_2 = 0;
   if (unlikely(__pyx_v_self == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 165, __pyx_L1_error)
+    __PYX_ERR(0, 167, __pyx_L1_error)
   }
-  __pyx_t_7 = __Pyx_dict_iterator(__pyx_v_self, 0, __pyx_n_s_items, (&__pyx_t_5), (&__pyx_t_6)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 165, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_self, 0, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
-  __pyx_t_1 = __pyx_t_7;
-  __pyx_t_7 = 0;
+  __pyx_t_1 = __pyx_t_5;
+  __pyx_t_5 = 0;
   while (1) {
-    __pyx_t_9 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_5, &__pyx_t_4, &__pyx_t_7, &__pyx_t_8, NULL, __pyx_t_6);
-    if (unlikely(__pyx_t_9 == 0)) break;
-    if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(0, 165, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_7);
-    __pyx_t_7 = 0;
-    __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_8);
-    __pyx_t_8 = 0;
+    __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
+    if (unlikely(__pyx_t_7 == 0)) break;
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 167, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_5);
+    __pyx_t_5 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_6);
+    __pyx_t_6 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":166
- * 
+    /* "aim/storage/rockscontainer.pyx":168
+ *         """
  *         for k, v in self.items():
  *             index[k] = v             # <<<<<<<<<<<<<<
  * 
- *         if self._progress_path.exists():
- */
-    if (unlikely((PyObject_SetItem(__pyx_v_index, __pyx_v_k, __pyx_v_v) < 0))) __PYX_ERR(0, 166, __pyx_L1_error)
-  }
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "aim/storage/rockscontainer.pyx":168
- *             index[k] = v
- * 
- *         if self._progress_path.exists():             # <<<<<<<<<<<<<<
- *             self._progress_path.unlink()
- *         self._progress_path = None
- */
-  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_progress_path); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 168, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_exists); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 168, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_8 = NULL;
-  __pyx_t_6 = 0;
-  #if CYTHON_UNPACK_METHODS
-  if (likely(PyMethod_Check(__pyx_t_7))) {
-    __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_7);
-    if (likely(__pyx_t_8)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_7);
-      __Pyx_INCREF(__pyx_t_8);
-      __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_7, function);
-      __pyx_t_6 = 1;
-    }
-  }
-  #endif
-  {
-    PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
-    __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_6, 0+__pyx_t_6);
-    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  }
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__pyx_t_3) {
-
-    /* "aim/storage/rockscontainer.pyx":169
- * 
- *         if self._progress_path.exists():
- *             self._progress_path.unlink()             # <<<<<<<<<<<<<<
- *         self._progress_path = None
- * 
- */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_progress_path); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 169, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_unlink); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 169, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __pyx_t_7 = NULL;
-    __pyx_t_6 = 0;
-    #if CYTHON_UNPACK_METHODS
-    if (likely(PyMethod_Check(__pyx_t_8))) {
-      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_8);
-      if (likely(__pyx_t_7)) {
-        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_8);
-        __Pyx_INCREF(__pyx_t_7);
-        __Pyx_INCREF(function);
-        __Pyx_DECREF_SET(__pyx_t_8, function);
-        __pyx_t_6 = 1;
-      }
-    }
-    #endif
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_7, NULL};
-      __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_6, 0+__pyx_t_6);
-      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_1);
-      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    }
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-    /* "aim/storage/rockscontainer.pyx":168
- *             index[k] = v
- * 
- *         if self._progress_path.exists():             # <<<<<<<<<<<<<<
- *             self._progress_path.unlink()
- *         self._progress_path = None
- */
-  }
-
-  /* "aim/storage/rockscontainer.pyx":170
- *         if self._progress_path.exists():
- *             self._progress_path.unlink()
- *         self._progress_path = None             # <<<<<<<<<<<<<<
- * 
  *     def close(self):
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_progress_path, Py_None) < 0) __PYX_ERR(0, 170, __pyx_L1_error)
+    if (unlikely((PyObject_SetItem(__pyx_v_index, __pyx_v_k, __pyx_v_v) < 0))) __PYX_ERR(0, 168, __pyx_L1_error)
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":156
+  /* "aim/storage/rockscontainer.pyx":161
  *         return self._db
  * 
  *     def finalize(self, index: Container):             # <<<<<<<<<<<<<<
@@ -7071,8 +7055,8 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_14fina
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_7);
-  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
   __Pyx_AddTraceback("aim.storage.rockscontainer.RocksContainer.finalize", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -7083,8 +7067,8 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_14fina
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":172
- *         self._progress_path = None
+/* "aim/storage/rockscontainer.pyx":170
+ *             index[k] = v
  * 
  *     def close(self):             # <<<<<<<<<<<<<<
  *         """Close all the resources."""
@@ -7145,12 +7129,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 172, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 170, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "close") < 0)) __PYX_ERR(0, 172, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "close") < 0)) __PYX_ERR(0, 170, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -7161,7 +7145,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("close", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 172, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("close", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 170, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7201,20 +7185,20 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_16clos
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("close", 1);
 
-  /* "aim/storage/rockscontainer.pyx":174
+  /* "aim/storage/rockscontainer.pyx":172
  *     def close(self):
  *         """Close all the resources."""
  *         if self._resources is None:             # <<<<<<<<<<<<<<
  *             return
  *         self._resources.close()
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 == Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "aim/storage/rockscontainer.pyx":175
+    /* "aim/storage/rockscontainer.pyx":173
  *         """Close all the resources."""
  *         if self._resources is None:
  *             return             # <<<<<<<<<<<<<<
@@ -7225,7 +7209,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_16clos
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "aim/storage/rockscontainer.pyx":174
+    /* "aim/storage/rockscontainer.pyx":172
  *     def close(self):
  *         """Close all the resources."""
  *         if self._resources is None:             # <<<<<<<<<<<<<<
@@ -7234,16 +7218,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_16clos
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":176
+  /* "aim/storage/rockscontainer.pyx":174
  *         if self._resources is None:
  *             return
  *         self._resources.close()             # <<<<<<<<<<<<<<
  * 
  *     def preload(self):
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 176, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_resources); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_close); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 176, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_close); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -7264,14 +7248,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_16clos
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 176, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":172
- *         self._progress_path = None
+  /* "aim/storage/rockscontainer.pyx":170
+ *             index[k] = v
  * 
  *     def close(self):             # <<<<<<<<<<<<<<
  *         """Close all the resources."""
@@ -7293,7 +7277,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_16clos
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":178
+/* "aim/storage/rockscontainer.pyx":176
  *         self._resources.close()
  * 
  *     def preload(self):             # <<<<<<<<<<<<<<
@@ -7355,12 +7339,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 178, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 176, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "preload") < 0)) __PYX_ERR(0, 178, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "preload") < 0)) __PYX_ERR(0, 176, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -7371,7 +7355,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("preload", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 178, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("preload", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 176, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7407,18 +7391,18 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_18prel
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("preload", 1);
 
-  /* "aim/storage/rockscontainer.pyx":180
+  /* "aim/storage/rockscontainer.pyx":178
  *     def preload(self):
  *         """Preload the Container in the read mode."""
  *         self.db             # <<<<<<<<<<<<<<
  * 
  *     def tree(self) -> 'TreeView':
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":178
+  /* "aim/storage/rockscontainer.pyx":176
  *         self._resources.close()
  * 
  *     def preload(self):             # <<<<<<<<<<<<<<
@@ -7439,7 +7423,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_18prel
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":182
+/* "aim/storage/rockscontainer.pyx":180
  *         self.db
  * 
  *     def tree(self) -> 'TreeView':             # <<<<<<<<<<<<<<
@@ -7501,12 +7485,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 182, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 180, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "tree") < 0)) __PYX_ERR(0, 182, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "tree") < 0)) __PYX_ERR(0, 180, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -7517,7 +7501,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("tree", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 182, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("tree", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 180, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7556,7 +7540,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_20tree
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("tree", 1);
 
-  /* "aim/storage/rockscontainer.pyx":199
+  /* "aim/storage/rockscontainer.pyx":197
  *             `tree[b'meta'][b'x'] == b'123'`
  *         """
  *         return ContainerTreeView(self)             # <<<<<<<<<<<<<<
@@ -7564,7 +7548,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_20tree
  *     def get(
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_ContainerTreeView); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_ContainerTreeView); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 197, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -7584,7 +7568,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_20tree
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_self};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 199, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 197, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -7592,7 +7576,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_20tree
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":182
+  /* "aim/storage/rockscontainer.pyx":180
  *         self.db
  * 
  *     def tree(self) -> 'TreeView':             # <<<<<<<<<<<<<<
@@ -7613,7 +7597,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_20tree
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":201
+/* "aim/storage/rockscontainer.pyx":199
  *         return ContainerTreeView(self)
  * 
  *     def get(             # <<<<<<<<<<<<<<
@@ -7663,7 +7647,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_key,&__pyx_n_s_default,0};
 
-    /* "aim/storage/rockscontainer.pyx":204
+    /* "aim/storage/rockscontainer.pyx":202
  *         self,
  *         key: ContainerKey,
  *         default=None             # <<<<<<<<<<<<<<
@@ -7690,7 +7674,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 201, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 199, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -7698,21 +7682,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 201, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 199, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("get", 0, 2, 3, 1); __PYX_ERR(0, 201, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("get", 0, 2, 3, 1); __PYX_ERR(0, 199, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_default);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 201, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 199, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "get") < 0)) __PYX_ERR(0, 201, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "get") < 0)) __PYX_ERR(0, 199, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -7730,7 +7714,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("get", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 201, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("get", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 199, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7746,7 +7730,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_22get(__pyx_self, __pyx_v_self, __pyx_v_key, __pyx_v_default);
 
-  /* "aim/storage/rockscontainer.pyx":201
+  /* "aim/storage/rockscontainer.pyx":199
  *         return ContainerTreeView(self)
  * 
  *     def get(             # <<<<<<<<<<<<<<
@@ -7780,7 +7764,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_22get(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get", 1);
 
-  /* "aim/storage/rockscontainer.pyx":210
+  /* "aim/storage/rockscontainer.pyx":208
  *         The `default` is :obj:`None` by default.
  *         """
  *         try:             # <<<<<<<<<<<<<<
@@ -7796,7 +7780,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_22get(
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "aim/storage/rockscontainer.pyx":211
+      /* "aim/storage/rockscontainer.pyx":209
  *         """
  *         try:
  *             return self[key]             # <<<<<<<<<<<<<<
@@ -7804,13 +7788,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_22get(
  *             return default
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_4 = __Pyx_PyObject_GetItem(__pyx_v_self, __pyx_v_key); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 211, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_GetItem(__pyx_v_self, __pyx_v_key); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 209, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_r = __pyx_t_4;
       __pyx_t_4 = 0;
       goto __pyx_L7_try_return;
 
-      /* "aim/storage/rockscontainer.pyx":210
+      /* "aim/storage/rockscontainer.pyx":208
  *         The `default` is :obj:`None` by default.
  *         """
  *         try:             # <<<<<<<<<<<<<<
@@ -7821,7 +7805,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_22get(
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":212
+    /* "aim/storage/rockscontainer.pyx":210
  *         try:
  *             return self[key]
  *         except KeyError:             # <<<<<<<<<<<<<<
@@ -7831,12 +7815,12 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_22get(
     __pyx_t_5 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
     if (__pyx_t_5) {
       __Pyx_AddTraceback("aim.storage.rockscontainer.RocksContainer.get", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 212, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 210, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "aim/storage/rockscontainer.pyx":213
+      /* "aim/storage/rockscontainer.pyx":211
  *             return self[key]
  *         except KeyError:
  *             return default             # <<<<<<<<<<<<<<
@@ -7853,7 +7837,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_22get(
     }
     goto __pyx_L5_except_error;
 
-    /* "aim/storage/rockscontainer.pyx":210
+    /* "aim/storage/rockscontainer.pyx":208
  *         The `default` is :obj:`None` by default.
  *         """
  *         try:             # <<<<<<<<<<<<<<
@@ -7880,7 +7864,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_22get(
     goto __pyx_L0;
   }
 
-  /* "aim/storage/rockscontainer.pyx":201
+  /* "aim/storage/rockscontainer.pyx":199
  *         return ContainerTreeView(self)
  * 
  *     def get(             # <<<<<<<<<<<<<<
@@ -7901,7 +7885,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_22get(
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":215
+/* "aim/storage/rockscontainer.pyx":213
  *             return default
  * 
  *     def __getitem__(             # <<<<<<<<<<<<<<
@@ -7966,7 +7950,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 213, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -7974,14 +7958,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 213, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, 1); __PYX_ERR(0, 215, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, 1); __PYX_ERR(0, 213, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__getitem__") < 0)) __PYX_ERR(0, 215, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__getitem__") < 0)) __PYX_ERR(0, 213, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -7994,7 +7978,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 215, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__getitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 213, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8035,29 +8019,29 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_24__ge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 1);
 
-  /* "aim/storage/rockscontainer.pyx":223
+  /* "aim/storage/rockscontainer.pyx":221
  *         Raises :obj:`KeyError` if the `key` is not found.
  *         """
  *         value = self.db.get(key=key)             # <<<<<<<<<<<<<<
  *         if value is None:
  *             raise KeyError(key)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 221, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_get); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_get); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 221, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 221, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 223, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 223, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 221, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_value = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":224
+  /* "aim/storage/rockscontainer.pyx":222
  *         """
  *         value = self.db.get(key=key)
  *         if value is None:             # <<<<<<<<<<<<<<
@@ -8067,20 +8051,20 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_24__ge
   __pyx_t_4 = (__pyx_v_value == Py_None);
   if (unlikely(__pyx_t_4)) {
 
-    /* "aim/storage/rockscontainer.pyx":225
+    /* "aim/storage/rockscontainer.pyx":223
  *         value = self.db.get(key=key)
  *         if value is None:
  *             raise KeyError(key)             # <<<<<<<<<<<<<<
  *         if value == BLOB_SENTINEL:
  *             return self._get_blob(key)
  */
-    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_KeyError, __pyx_v_key); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 225, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_KeyError, __pyx_v_key); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 223, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 225, __pyx_L1_error)
+    __PYX_ERR(0, 223, __pyx_L1_error)
 
-    /* "aim/storage/rockscontainer.pyx":224
+    /* "aim/storage/rockscontainer.pyx":222
  *         """
  *         value = self.db.get(key=key)
  *         if value is None:             # <<<<<<<<<<<<<<
@@ -8089,22 +8073,22 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_24__ge
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":226
+  /* "aim/storage/rockscontainer.pyx":224
  *         if value is None:
  *             raise KeyError(key)
  *         if value == BLOB_SENTINEL:             # <<<<<<<<<<<<<<
  *             return self._get_blob(key)
  *         return value
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_v_value, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_4) {
 
-    /* "aim/storage/rockscontainer.pyx":227
+    /* "aim/storage/rockscontainer.pyx":225
  *             raise KeyError(key)
  *         if value == BLOB_SENTINEL:
  *             return self._get_blob(key)             # <<<<<<<<<<<<<<
@@ -8112,7 +8096,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_24__ge
  * 
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_blob); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_blob); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 225, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_2 = NULL;
     __pyx_t_5 = 0;
@@ -8132,7 +8116,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_24__ge
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_key};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 225, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
@@ -8140,7 +8124,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_24__ge
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "aim/storage/rockscontainer.pyx":226
+    /* "aim/storage/rockscontainer.pyx":224
  *         if value is None:
  *             raise KeyError(key)
  *         if value == BLOB_SENTINEL:             # <<<<<<<<<<<<<<
@@ -8149,7 +8133,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_24__ge
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":228
+  /* "aim/storage/rockscontainer.pyx":226
  *         if value == BLOB_SENTINEL:
  *             return self._get_blob(key)
  *         return value             # <<<<<<<<<<<<<<
@@ -8161,7 +8145,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_24__ge
   __pyx_r = __pyx_v_value;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":215
+  /* "aim/storage/rockscontainer.pyx":213
  *             return default
  * 
  *     def __getitem__(             # <<<<<<<<<<<<<<
@@ -8183,7 +8167,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_24__ge
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":230
+/* "aim/storage/rockscontainer.pyx":228
  *         return value
  * 
  *     def _get_blob_loader(             # <<<<<<<<<<<<<<
@@ -8247,7 +8231,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 230, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 228, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -8255,14 +8239,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 230, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 228, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_get_blob_loader", 1, 2, 2, 1); __PYX_ERR(0, 230, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_get_blob_loader", 1, 2, 2, 1); __PYX_ERR(0, 228, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_get_blob_loader") < 0)) __PYX_ERR(0, 230, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_get_blob_loader") < 0)) __PYX_ERR(0, 228, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -8275,7 +8259,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_get_blob_loader", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 230, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_get_blob_loader", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 228, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8302,7 +8286,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":234
+/* "aim/storage/rockscontainer.pyx":232
  *         key: ContainerKey
  *     ):
  *         def loader() -> bytes:             # <<<<<<<<<<<<<<
@@ -8342,27 +8326,27 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_16_get
   __pyx_outer_scope = (struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader *) __Pyx_CyFunction_GetClosure(__pyx_self);
   __pyx_cur_scope = __pyx_outer_scope;
 
-  /* "aim/storage/rockscontainer.pyx":235
+  /* "aim/storage/rockscontainer.pyx":233
  *     ):
  *         def loader() -> bytes:
  *             data = self[BLOB_DOMAIN + key]             # <<<<<<<<<<<<<<
  *             assert isinstance(data, bytes)
  *             return data
  */
-  if (unlikely(!__pyx_cur_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 235, __pyx_L1_error) }
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 235, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_v_self)) { __Pyx_RaiseClosureNameError("self"); __PYX_ERR(0, 233, __pyx_L1_error) }
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (unlikely(!__pyx_cur_scope->__pyx_v_key)) { __Pyx_RaiseClosureNameError("key"); __PYX_ERR(0, 235, __pyx_L1_error) }
-  __pyx_t_2 = PyNumber_Add(__pyx_t_1, __pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 235, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_v_key)) { __Pyx_RaiseClosureNameError("key"); __PYX_ERR(0, 233, __pyx_L1_error) }
+  __pyx_t_2 = PyNumber_Add(__pyx_t_1, __pyx_cur_scope->__pyx_v_key); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 233, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_cur_scope->__pyx_v_self, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 235, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetItem(__pyx_cur_scope->__pyx_v_self, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_data = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":236
+  /* "aim/storage/rockscontainer.pyx":234
  *         def loader() -> bytes:
  *             data = self[BLOB_DOMAIN + key]
  *             assert isinstance(data, bytes)             # <<<<<<<<<<<<<<
@@ -8374,14 +8358,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_16_get
     __pyx_t_3 = PyBytes_Check(__pyx_v_data); 
     if (unlikely(!__pyx_t_3)) {
       __Pyx_Raise(__pyx_builtin_AssertionError, 0, 0, 0);
-      __PYX_ERR(0, 236, __pyx_L1_error)
+      __PYX_ERR(0, 234, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(0, 236, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(0, 234, __pyx_L1_error)
   #endif
 
-  /* "aim/storage/rockscontainer.pyx":237
+  /* "aim/storage/rockscontainer.pyx":235
  *             data = self[BLOB_DOMAIN + key]
  *             assert isinstance(data, bytes)
  *             return data             # <<<<<<<<<<<<<<
@@ -8389,12 +8373,12 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_16_get
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  if (!(likely(PyBytes_CheckExact(__pyx_v_data))||((__pyx_v_data) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_v_data))) __PYX_ERR(0, 237, __pyx_L1_error)
+  if (!(likely(PyBytes_CheckExact(__pyx_v_data))||((__pyx_v_data) == Py_None) || __Pyx_RaiseUnexpectedTypeError("bytes", __pyx_v_data))) __PYX_ERR(0, 235, __pyx_L1_error)
   __Pyx_INCREF(__pyx_v_data);
   __pyx_r = ((PyObject*)__pyx_v_data);
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":234
+  /* "aim/storage/rockscontainer.pyx":232
  *         key: ContainerKey
  *     ):
  *         def loader() -> bytes:             # <<<<<<<<<<<<<<
@@ -8415,7 +8399,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_16_get
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":230
+/* "aim/storage/rockscontainer.pyx":228
  *         return value
  * 
  *     def _get_blob_loader(             # <<<<<<<<<<<<<<
@@ -8438,7 +8422,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_26_get
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 230, __pyx_L1_error)
+    __PYX_ERR(0, 228, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -8449,24 +8433,24 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_26_get
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_key);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_key);
 
-  /* "aim/storage/rockscontainer.pyx":234
+  /* "aim/storage/rockscontainer.pyx":232
  *         key: ContainerKey
  *     ):
  *         def loader() -> bytes:             # <<<<<<<<<<<<<<
  *             data = self[BLOB_DOMAIN + key]
  *             assert isinstance(data, bytes)
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 234, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 232, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_return, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 234, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_16_get_blob_loader_1loader, 0, __pyx_n_s_RocksContainer__get_blob_loader, ((PyObject*)__pyx_cur_scope), __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__3)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 234, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_return, __pyx_n_s_bytes) < 0) __PYX_ERR(0, 232, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_16_get_blob_loader_1loader, 0, __pyx_n_s_RocksContainer__get_blob_loader, ((PyObject*)__pyx_cur_scope), __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__4)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 232, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_loader = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":238
+  /* "aim/storage/rockscontainer.pyx":236
  *             assert isinstance(data, bytes)
  *             return data
  *         return loader             # <<<<<<<<<<<<<<
@@ -8478,7 +8462,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_26_get
   __pyx_r = __pyx_v_loader;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":230
+  /* "aim/storage/rockscontainer.pyx":228
  *         return value
  * 
  *     def _get_blob_loader(             # <<<<<<<<<<<<<<
@@ -8500,7 +8484,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_26_get
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":240
+/* "aim/storage/rockscontainer.pyx":238
  *         return loader
  * 
  *     def _get_blob(             # <<<<<<<<<<<<<<
@@ -8564,7 +8548,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 240, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 238, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -8572,14 +8556,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 240, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 238, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_get_blob", 1, 2, 2, 1); __PYX_ERR(0, 240, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_get_blob", 1, 2, 2, 1); __PYX_ERR(0, 238, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_get_blob") < 0)) __PYX_ERR(0, 240, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_get_blob") < 0)) __PYX_ERR(0, 238, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -8592,7 +8576,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_get_blob", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 240, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_get_blob", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 238, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8633,7 +8617,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_28_get
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_get_blob", 1);
 
-  /* "aim/storage/rockscontainer.pyx":244
+  /* "aim/storage/rockscontainer.pyx":242
  *         key: ContainerKey
  *     ) -> BLOB:
  *         return BLOB(loader_fn=self._get_blob_loader(key))             # <<<<<<<<<<<<<<
@@ -8641,11 +8625,11 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_28_get
  *     def _put(
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 242, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 242, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_blob_loader); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_blob_loader); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 242, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = NULL;
   __pyx_t_6 = 0;
@@ -8665,13 +8649,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_28_get
     PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_key};
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 244, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 242, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_loader_fn, __pyx_t_3) < 0) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_loader_fn, __pyx_t_3) < 0) __PYX_ERR(0, 242, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 242, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -8679,7 +8663,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_28_get
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":240
+  /* "aim/storage/rockscontainer.pyx":238
  *         return loader
  * 
  *     def _get_blob(             # <<<<<<<<<<<<<<
@@ -8702,7 +8686,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_28_get
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":246
+/* "aim/storage/rockscontainer.pyx":244
  *         return BLOB(loader_fn=self._get_blob_loader(key))
  * 
  *     def _put(             # <<<<<<<<<<<<<<
@@ -8770,7 +8754,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 246, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 244, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -8778,9 +8762,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 246, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 244, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_put", 1, 3, 3, 1); __PYX_ERR(0, 246, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_put", 1, 3, 3, 1); __PYX_ERR(0, 244, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -8788,9 +8772,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 246, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 244, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_put", 1, 3, 3, 2); __PYX_ERR(0, 246, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_put", 1, 3, 3, 2); __PYX_ERR(0, 244, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
@@ -8798,19 +8782,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[3]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 246, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 244, __pyx_L3_error)
         else {
-          __Pyx_RaiseKeywordRequired("_put", __pyx_n_s_target); __PYX_ERR(0, 246, __pyx_L3_error)
+          __Pyx_RaiseKeywordRequired("_put", __pyx_n_s_target); __PYX_ERR(0, 244, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_put") < 0)) __PYX_ERR(0, 246, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_put") < 0)) __PYX_ERR(0, 244, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("_put", __pyx_n_s_target); __PYX_ERR(0, 246, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("_put", __pyx_n_s_target); __PYX_ERR(0, 244, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_key = values[1];
@@ -8819,7 +8803,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_put", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 246, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_put", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 244, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8858,14 +8842,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_30_put
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_put", 1);
 
-  /* "aim/storage/rockscontainer.pyx":253
+  /* "aim/storage/rockscontainer.pyx":251
  *         target: aimrocks.WriteBatch
  *     ):
  *         target.put(key, value)             # <<<<<<<<<<<<<<
  * 
  *     def _put_blob(
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_target, __pyx_n_s_put); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_target, __pyx_n_s_put); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 251, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -8885,13 +8869,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_30_put
     PyObject *__pyx_callargs[3] = {__pyx_t_3, __pyx_v_key, __pyx_v_value};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 2+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 251, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":246
+  /* "aim/storage/rockscontainer.pyx":244
  *         return BLOB(loader_fn=self._get_blob_loader(key))
  * 
  *     def _put(             # <<<<<<<<<<<<<<
@@ -8914,7 +8898,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_30_put
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":255
+/* "aim/storage/rockscontainer.pyx":253
  *         target.put(key, value)
  * 
  *     def _put_blob(             # <<<<<<<<<<<<<<
@@ -8982,7 +8966,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 255, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 253, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -8990,9 +8974,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 255, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 253, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_put_blob", 1, 3, 3, 1); __PYX_ERR(0, 255, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_put_blob", 1, 3, 3, 1); __PYX_ERR(0, 253, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -9000,9 +8984,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 255, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 253, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_put_blob", 1, 3, 3, 2); __PYX_ERR(0, 255, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_put_blob", 1, 3, 3, 2); __PYX_ERR(0, 253, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
@@ -9010,19 +8994,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[3]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 255, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 253, __pyx_L3_error)
         else {
-          __Pyx_RaiseKeywordRequired("_put_blob", __pyx_n_s_target); __PYX_ERR(0, 255, __pyx_L3_error)
+          __Pyx_RaiseKeywordRequired("_put_blob", __pyx_n_s_target); __PYX_ERR(0, 253, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_put_blob") < 0)) __PYX_ERR(0, 255, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_put_blob") < 0)) __PYX_ERR(0, 253, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("_put_blob", __pyx_n_s_target); __PYX_ERR(0, 255, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("_put_blob", __pyx_n_s_target); __PYX_ERR(0, 253, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_key = values[1];
@@ -9031,7 +9015,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_put_blob", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 255, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_put_blob", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 253, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9070,60 +9054,60 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_32_put
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_put_blob", 1);
 
-  /* "aim/storage/rockscontainer.pyx":262
+  /* "aim/storage/rockscontainer.pyx":260
  *         target: aimrocks.WriteBatch
  *     ):
  *         self._put(key=BLOB_DOMAIN + key,             # <<<<<<<<<<<<<<
  *                   value=bytes(value),
  *                   target=target)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_put_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_put_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_v_key); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_v_key); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_t_4) < 0) __PYX_ERR(0, 262, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_t_4) < 0) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":263
+  /* "aim/storage/rockscontainer.pyx":261
  *     ):
  *         self._put(key=BLOB_DOMAIN + key,
  *                   value=bytes(value),             # <<<<<<<<<<<<<<
  *                   target=target)
  * 
  */
-  __pyx_t_4 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyBytes_Type)), __pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 263, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyBytes_Type)), __pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_t_4) < 0) __PYX_ERR(0, 262, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_t_4) < 0) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":264
+  /* "aim/storage/rockscontainer.pyx":262
  *         self._put(key=BLOB_DOMAIN + key,
  *                   value=bytes(value),
  *                   target=target)             # <<<<<<<<<<<<<<
  * 
  *     def _delete(
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 262, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 260, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":262
+  /* "aim/storage/rockscontainer.pyx":260
  *         target: aimrocks.WriteBatch
  *     ):
  *         self._put(key=BLOB_DOMAIN + key,             # <<<<<<<<<<<<<<
  *                   value=bytes(value),
  *                   target=target)
  */
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":255
+  /* "aim/storage/rockscontainer.pyx":253
  *         target.put(key, value)
  * 
  *     def _put_blob(             # <<<<<<<<<<<<<<
@@ -9147,7 +9131,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_32_put
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":266
+/* "aim/storage/rockscontainer.pyx":264
  *                   target=target)
  * 
  *     def _delete(             # <<<<<<<<<<<<<<
@@ -9212,7 +9196,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 266, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 264, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -9220,9 +9204,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 266, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 264, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_delete", 1, 2, 2, 1); __PYX_ERR(0, 266, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_delete", 1, 2, 2, 1); __PYX_ERR(0, 264, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -9230,19 +9214,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 266, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 264, __pyx_L3_error)
         else {
-          __Pyx_RaiseKeywordRequired("_delete", __pyx_n_s_target); __PYX_ERR(0, 266, __pyx_L3_error)
+          __Pyx_RaiseKeywordRequired("_delete", __pyx_n_s_target); __PYX_ERR(0, 264, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_delete") < 0)) __PYX_ERR(0, 266, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_delete") < 0)) __PYX_ERR(0, 264, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("_delete", __pyx_n_s_target); __PYX_ERR(0, 266, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("_delete", __pyx_n_s_target); __PYX_ERR(0, 264, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_key = values[1];
@@ -9250,7 +9234,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_delete", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 266, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_delete", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 264, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9289,14 +9273,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_34_del
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_delete", 1);
 
-  /* "aim/storage/rockscontainer.pyx":272
+  /* "aim/storage/rockscontainer.pyx":270
  *         target: aimrocks.WriteBatch
  *     ):
  *         target.delete(key)             # <<<<<<<<<<<<<<
  * 
  *     def _delete_blob(
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_target, __pyx_n_s_delete); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_target, __pyx_n_s_delete); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -9316,13 +9300,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_34_del
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_key};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 272, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 270, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":266
+  /* "aim/storage/rockscontainer.pyx":264
  *                   target=target)
  * 
  *     def _delete(             # <<<<<<<<<<<<<<
@@ -9345,7 +9329,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_34_del
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":274
+/* "aim/storage/rockscontainer.pyx":272
  *         target.delete(key)
  * 
  *     def _delete_blob(             # <<<<<<<<<<<<<<
@@ -9410,7 +9394,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 274, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 272, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -9418,9 +9402,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 274, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 272, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_delete_blob", 1, 2, 2, 1); __PYX_ERR(0, 274, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_delete_blob", 1, 2, 2, 1); __PYX_ERR(0, 272, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -9428,19 +9412,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 274, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 272, __pyx_L3_error)
         else {
-          __Pyx_RaiseKeywordRequired("_delete_blob", __pyx_n_s_target); __PYX_ERR(0, 274, __pyx_L3_error)
+          __Pyx_RaiseKeywordRequired("_delete_blob", __pyx_n_s_target); __PYX_ERR(0, 272, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_delete_blob") < 0)) __PYX_ERR(0, 274, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_delete_blob") < 0)) __PYX_ERR(0, 272, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("_delete_blob", __pyx_n_s_target); __PYX_ERR(0, 274, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("_delete_blob", __pyx_n_s_target); __PYX_ERR(0, 272, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_key = values[1];
@@ -9448,7 +9432,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_delete_blob", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 274, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_delete_blob", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 272, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9487,48 +9471,48 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_36_del
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_delete_blob", 1);
 
-  /* "aim/storage/rockscontainer.pyx":280
+  /* "aim/storage/rockscontainer.pyx":278
  *         target: aimrocks.WriteBatch
  *     ):
  *         self._delete(key=BLOB_DOMAIN + key,             # <<<<<<<<<<<<<<
  *                      target=target)
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_v_key); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __pyx_t_4 = PyNumber_Add(__pyx_t_3, __pyx_v_key); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_t_4) < 0) __PYX_ERR(0, 280, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_t_4) < 0) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":281
+  /* "aim/storage/rockscontainer.pyx":279
  *     ):
  *         self._delete(key=BLOB_DOMAIN + key,
  *                      target=target)             # <<<<<<<<<<<<<<
  * 
  *     def _delete_range(
  */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 280, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 278, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":280
+  /* "aim/storage/rockscontainer.pyx":278
  *         target: aimrocks.WriteBatch
  *     ):
  *         self._delete(key=BLOB_DOMAIN + key,             # <<<<<<<<<<<<<<
  *                      target=target)
  * 
  */
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 280, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":274
+  /* "aim/storage/rockscontainer.pyx":272
  *         target.delete(key)
  * 
  *     def _delete_blob(             # <<<<<<<<<<<<<<
@@ -9552,7 +9536,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_36_del
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":283
+/* "aim/storage/rockscontainer.pyx":281
  *                      target=target)
  * 
  *     def _delete_range(             # <<<<<<<<<<<<<<
@@ -9620,7 +9604,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 283, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 281, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -9628,9 +9612,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 283, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 281, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_delete_range", 1, 3, 3, 1); __PYX_ERR(0, 283, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_delete_range", 1, 3, 3, 1); __PYX_ERR(0, 281, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -9638,9 +9622,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 283, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 281, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_delete_range", 1, 3, 3, 2); __PYX_ERR(0, 283, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_delete_range", 1, 3, 3, 2); __PYX_ERR(0, 281, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
@@ -9648,19 +9632,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[3]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 283, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 281, __pyx_L3_error)
         else {
-          __Pyx_RaiseKeywordRequired("_delete_range", __pyx_n_s_target); __PYX_ERR(0, 283, __pyx_L3_error)
+          __Pyx_RaiseKeywordRequired("_delete_range", __pyx_n_s_target); __PYX_ERR(0, 281, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_delete_range") < 0)) __PYX_ERR(0, 283, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_delete_range") < 0)) __PYX_ERR(0, 281, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("_delete_range", __pyx_n_s_target); __PYX_ERR(0, 283, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("_delete_range", __pyx_n_s_target); __PYX_ERR(0, 281, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_begin = values[1];
@@ -9669,7 +9653,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_delete_range", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 283, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_delete_range", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 281, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9708,14 +9692,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_38_del
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_delete_range", 1);
 
-  /* "aim/storage/rockscontainer.pyx":290
+  /* "aim/storage/rockscontainer.pyx":288
  *         target: aimrocks.WriteBatch
  *     ):
  *         target.delete_range(begin, end)             # <<<<<<<<<<<<<<
  * 
  *     def _delete_blob_range(
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_target, __pyx_n_s_delete_range); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 290, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_target, __pyx_n_s_delete_range); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 288, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -9735,13 +9719,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_38_del
     PyObject *__pyx_callargs[3] = {__pyx_t_3, __pyx_v_begin, __pyx_v_end};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 2+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 290, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 288, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":283
+  /* "aim/storage/rockscontainer.pyx":281
  *                      target=target)
  * 
  *     def _delete_range(             # <<<<<<<<<<<<<<
@@ -9764,7 +9748,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_38_del
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":292
+/* "aim/storage/rockscontainer.pyx":290
  *         target.delete_range(begin, end)
  * 
  *     def _delete_blob_range(             # <<<<<<<<<<<<<<
@@ -9832,7 +9816,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 292, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 290, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -9840,9 +9824,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 292, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 290, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_delete_blob_range", 1, 3, 3, 1); __PYX_ERR(0, 292, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_delete_blob_range", 1, 3, 3, 1); __PYX_ERR(0, 290, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -9850,9 +9834,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 292, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 290, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_delete_blob_range", 1, 3, 3, 2); __PYX_ERR(0, 292, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_delete_blob_range", 1, 3, 3, 2); __PYX_ERR(0, 290, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
@@ -9860,19 +9844,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[3]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 292, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 290, __pyx_L3_error)
         else {
-          __Pyx_RaiseKeywordRequired("_delete_blob_range", __pyx_n_s_target); __PYX_ERR(0, 292, __pyx_L3_error)
+          __Pyx_RaiseKeywordRequired("_delete_blob_range", __pyx_n_s_target); __PYX_ERR(0, 290, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_delete_blob_range") < 0)) __PYX_ERR(0, 292, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_delete_blob_range") < 0)) __PYX_ERR(0, 290, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("_delete_blob_range", __pyx_n_s_target); __PYX_ERR(0, 292, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("_delete_blob_range", __pyx_n_s_target); __PYX_ERR(0, 290, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_begin = values[1];
@@ -9881,7 +9865,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_delete_blob_range", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 292, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_delete_blob_range", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 290, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9920,76 +9904,76 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_40_del
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_delete_blob_range", 1);
 
-  /* "aim/storage/rockscontainer.pyx":299
+  /* "aim/storage/rockscontainer.pyx":297
  *         target: aimrocks.WriteBatch
  *     ):
  *         self._delete_range(BLOB_DOMAIN + begin,             # <<<<<<<<<<<<<<
  *                            BLOB_DOMAIN + end,
  *                            target=target)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_range_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_range_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 297, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 297, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyNumber_Add(__pyx_t_2, __pyx_v_begin); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __pyx_t_3 = PyNumber_Add(__pyx_t_2, __pyx_v_begin); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 297, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":300
+  /* "aim/storage/rockscontainer.pyx":298
  *     ):
  *         self._delete_range(BLOB_DOMAIN + begin,
  *                            BLOB_DOMAIN + end,             # <<<<<<<<<<<<<<
  *                            target=target)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_BLOB_DOMAIN); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 298, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = PyNumber_Add(__pyx_t_2, __pyx_v_end); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __pyx_t_4 = PyNumber_Add(__pyx_t_2, __pyx_v_end); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 298, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":299
+  /* "aim/storage/rockscontainer.pyx":297
  *         target: aimrocks.WriteBatch
  *     ):
  *         self._delete_range(BLOB_DOMAIN + begin,             # <<<<<<<<<<<<<<
  *                            BLOB_DOMAIN + end,
  *                            target=target)
  */
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 297, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3)) __PYX_ERR(0, 299, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3)) __PYX_ERR(0, 297, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_4)) __PYX_ERR(0, 299, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_4)) __PYX_ERR(0, 297, __pyx_L1_error);
   __pyx_t_3 = 0;
   __pyx_t_4 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":301
+  /* "aim/storage/rockscontainer.pyx":299
  *         self._delete_range(BLOB_DOMAIN + begin,
  *                            BLOB_DOMAIN + end,
  *                            target=target)             # <<<<<<<<<<<<<<
  * 
  *     def set(
  */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 299, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 301, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 299, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":299
+  /* "aim/storage/rockscontainer.pyx":297
  *         target: aimrocks.WriteBatch
  *     ):
  *         self._delete_range(BLOB_DOMAIN + begin,             # <<<<<<<<<<<<<<
  *                            BLOB_DOMAIN + end,
  *                            target=target)
  */
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_2, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_2, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 297, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":292
+  /* "aim/storage/rockscontainer.pyx":290
  *         target.delete_range(begin, end)
  * 
  *     def _delete_blob_range(             # <<<<<<<<<<<<<<
@@ -10013,7 +9997,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_40_del
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":303
+/* "aim/storage/rockscontainer.pyx":301
  *                            target=target)
  * 
  *     def set(             # <<<<<<<<<<<<<<
@@ -10064,7 +10048,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_key,&__pyx_n_s_value,&__pyx_n_s_store_batch,0};
 
-    /* "aim/storage/rockscontainer.pyx":307
+    /* "aim/storage/rockscontainer.pyx":305
  *         key: ContainerKey,
  *         value: ContainerValue,
  *         store_batch: aimrocks.WriteBatch = None             # <<<<<<<<<<<<<<
@@ -10093,7 +10077,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 303, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 301, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -10101,9 +10085,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 303, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 301, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("set", 0, 3, 4, 1); __PYX_ERR(0, 303, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("set", 0, 3, 4, 1); __PYX_ERR(0, 301, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -10111,21 +10095,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 303, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 301, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("set", 0, 3, 4, 2); __PYX_ERR(0, 303, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("set", 0, 3, 4, 2); __PYX_ERR(0, 301, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_store_batch);
           if (value) { values[3] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 303, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 301, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "set") < 0)) __PYX_ERR(0, 303, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "set") < 0)) __PYX_ERR(0, 301, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -10145,7 +10129,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("set", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 303, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("set", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 301, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10161,7 +10145,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(__pyx_self, __pyx_v_self, __pyx_v_key, __pyx_v_value, __pyx_v_store_batch);
 
-  /* "aim/storage/rockscontainer.pyx":303
+  /* "aim/storage/rockscontainer.pyx":301
  *                            target=target)
  * 
  *     def set(             # <<<<<<<<<<<<<<
@@ -10195,7 +10179,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("set", 1);
 
-  /* "aim/storage/rockscontainer.pyx":318
+  /* "aim/storage/rockscontainer.pyx":316
  *         more details.
  *         """
  *         target = self.batch() if store_batch is None else store_batch             # <<<<<<<<<<<<<<
@@ -10204,7 +10188,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
  */
   __pyx_t_2 = (__pyx_v_store_batch == Py_None);
   if (__pyx_t_2) {
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_batch); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 318, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_batch); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 316, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -10224,7 +10208,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 0+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 318, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 316, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -10237,63 +10221,63 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
   __pyx_v_target = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":320
+  /* "aim/storage/rockscontainer.pyx":318
  *         target = self.batch() if store_batch is None else store_batch
  * 
  *         if isinstance(value, BLOB):             # <<<<<<<<<<<<<<
  *             self._put(key=key, value=BLOB_SENTINEL, target=target)
  *             self._put_blob(key=key, value=value, target=target)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 318, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 320, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_value, __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 318, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "aim/storage/rockscontainer.pyx":321
+    /* "aim/storage/rockscontainer.pyx":319
  * 
  *         if isinstance(value, BLOB):
  *             self._put(key=key, value=BLOB_SENTINEL, target=target)             # <<<<<<<<<<<<<<
  *             self._put_blob(key=key, value=value, target=target)
  *         else:
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_put_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 321, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_put_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 319, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 321, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 319, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 321, __pyx_L1_error)
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 321, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 319, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 319, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_value, __pyx_t_4) < 0) __PYX_ERR(0, 321, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_value, __pyx_t_4) < 0) __PYX_ERR(0, 319, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 321, __pyx_L1_error)
-    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 321, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 319, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 319, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":322
+    /* "aim/storage/rockscontainer.pyx":320
  *         if isinstance(value, BLOB):
  *             self._put(key=key, value=BLOB_SENTINEL, target=target)
  *             self._put_blob(key=key, value=value, target=target)             # <<<<<<<<<<<<<<
  *         else:
  *             self._put(key=key, value=value, target=target)
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_put_blob); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 322, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_put_blob); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 320, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 322, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 320, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 322, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_value, __pyx_v_value) < 0) __PYX_ERR(0, 322, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 322, __pyx_L1_error)
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 322, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 320, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_value, __pyx_v_value) < 0) __PYX_ERR(0, 320, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 320, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 320, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":320
+    /* "aim/storage/rockscontainer.pyx":318
  *         target = self.batch() if store_batch is None else store_batch
  * 
  *         if isinstance(value, BLOB):             # <<<<<<<<<<<<<<
@@ -10303,7 +10287,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
     goto __pyx_L3;
   }
 
-  /* "aim/storage/rockscontainer.pyx":324
+  /* "aim/storage/rockscontainer.pyx":322
  *             self._put_blob(key=key, value=value, target=target)
  *         else:
  *             self._put(key=key, value=value, target=target)             # <<<<<<<<<<<<<<
@@ -10311,33 +10295,33 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
  * 
  */
   /*else*/ {
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_put_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 324, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_put_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 322, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 324, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 322, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 324, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_value, __pyx_v_value) < 0) __PYX_ERR(0, 324, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 324, __pyx_L1_error)
-    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 324, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 322, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_value, __pyx_v_value) < 0) __PYX_ERR(0, 322, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 322, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 322, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":325
+    /* "aim/storage/rockscontainer.pyx":323
  *         else:
  *             self._put(key=key, value=value, target=target)
  *             self._delete_blob(key=key, target=target)             # <<<<<<<<<<<<<<
  * 
  *         if store_batch is None:
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_blob); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 325, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_blob); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 325, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 325, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 325, __pyx_L1_error)
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 325, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 323, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 323, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -10345,7 +10329,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
   }
   __pyx_L3:;
 
-  /* "aim/storage/rockscontainer.pyx":327
+  /* "aim/storage/rockscontainer.pyx":325
  *             self._delete_blob(key=key, target=target)
  * 
  *         if store_batch is None:             # <<<<<<<<<<<<<<
@@ -10355,14 +10339,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
   __pyx_t_2 = (__pyx_v_store_batch == Py_None);
   if (__pyx_t_2) {
 
-    /* "aim/storage/rockscontainer.pyx":328
+    /* "aim/storage/rockscontainer.pyx":326
  * 
  *         if store_batch is None:
  *             self.commit(target)             # <<<<<<<<<<<<<<
  * 
  *     def __setitem__(
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_commit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 328, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_commit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 326, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     __pyx_t_6 = 0;
@@ -10382,13 +10366,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_target};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 328, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 326, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":327
+    /* "aim/storage/rockscontainer.pyx":325
  *             self._delete_blob(key=key, target=target)
  * 
  *         if store_batch is None:             # <<<<<<<<<<<<<<
@@ -10397,7 +10381,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":303
+  /* "aim/storage/rockscontainer.pyx":301
  *                            target=target)
  * 
  *     def set(             # <<<<<<<<<<<<<<
@@ -10422,7 +10406,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_42set(
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":330
+/* "aim/storage/rockscontainer.pyx":328
  *             self.commit(target)
  * 
  *     def __setitem__(             # <<<<<<<<<<<<<<
@@ -10490,7 +10474,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 330, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 328, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -10498,9 +10482,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 330, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 328, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, 1); __PYX_ERR(0, 330, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, 1); __PYX_ERR(0, 328, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -10508,14 +10492,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 330, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 328, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, 2); __PYX_ERR(0, 330, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, 2); __PYX_ERR(0, 328, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__setitem__") < 0)) __PYX_ERR(0, 330, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__setitem__") < 0)) __PYX_ERR(0, 328, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -10530,7 +10514,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 330, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__setitem__", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 328, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10568,26 +10552,26 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_44__se
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__setitem__", 1);
 
-  /* "aim/storage/rockscontainer.pyx":336
+  /* "aim/storage/rockscontainer.pyx":334
  *     ):
  *         """Set a value for given key."""
  *         self.set(key=key, value=value)             # <<<<<<<<<<<<<<
  * 
  *     def delete(
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_set); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 336, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_set); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 334, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 336, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 334, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_v_value) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 336, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_v_key) < 0) __PYX_ERR(0, 334, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_v_value) < 0) __PYX_ERR(0, 334, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 334, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":330
+  /* "aim/storage/rockscontainer.pyx":328
  *             self.commit(target)
  * 
  *     def __setitem__(             # <<<<<<<<<<<<<<
@@ -10610,7 +10594,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_44__se
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":338
+/* "aim/storage/rockscontainer.pyx":336
  *         self.set(key=key, value=value)
  * 
  *     def delete(             # <<<<<<<<<<<<<<
@@ -10660,7 +10644,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_key,&__pyx_n_s_store_batch,0};
 
-    /* "aim/storage/rockscontainer.pyx":342
+    /* "aim/storage/rockscontainer.pyx":340
  *         key: ContainerKey,
  *         *,
  *         store_batch: aimrocks.WriteBatch = None             # <<<<<<<<<<<<<<
@@ -10685,7 +10669,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 338, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 336, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -10693,20 +10677,20 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 338, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 336, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("delete", 1, 2, 2, 1); __PYX_ERR(0, 338, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("delete", 1, 2, 2, 1); __PYX_ERR(0, 336, __pyx_L3_error)
         }
       }
       if (kw_args == 1) {
         const Py_ssize_t index = 2;
         PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, *__pyx_pyargnames[index]);
         if (value) { values[index] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 338, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 336, __pyx_L3_error)
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "delete") < 0)) __PYX_ERR(0, 338, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "delete") < 0)) __PYX_ERR(0, 336, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -10720,7 +10704,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("delete", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 338, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("delete", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 336, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10736,7 +10720,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_46delete(__pyx_self, __pyx_v_self, __pyx_v_key, __pyx_v_store_batch);
 
-  /* "aim/storage/rockscontainer.pyx":338
+  /* "aim/storage/rockscontainer.pyx":336
  *         self.set(key=key, value=value)
  * 
  *     def delete(             # <<<<<<<<<<<<<<
@@ -10770,7 +10754,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_46dele
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("delete", 1);
 
-  /* "aim/storage/rockscontainer.pyx":354
+  /* "aim/storage/rockscontainer.pyx":352
  *         more details.
  *         """
  *         target = self.batch() if store_batch is None else store_batch             # <<<<<<<<<<<<<<
@@ -10779,7 +10763,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_46dele
  */
   __pyx_t_2 = (__pyx_v_store_batch == Py_None);
   if (__pyx_t_2) {
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_batch); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 354, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_batch); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 352, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -10799,7 +10783,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_46dele
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 0+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 354, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 352, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -10812,55 +10796,55 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_46dele
   __pyx_v_target = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":356
+  /* "aim/storage/rockscontainer.pyx":354
  *         target = self.batch() if store_batch is None else store_batch
  * 
  *         self._delete(key, target=target)             # <<<<<<<<<<<<<<
  *         self._delete_blob(key, target=target)
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 356, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 356, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_v_key);
   __Pyx_GIVEREF(__pyx_v_key);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_key)) __PYX_ERR(0, 356, __pyx_L1_error);
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 356, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_key)) __PYX_ERR(0, 354, __pyx_L1_error);
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 356, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 356, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 354, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":357
+  /* "aim/storage/rockscontainer.pyx":355
  * 
  *         self._delete(key, target=target)
  *         self._delete_blob(key, target=target)             # <<<<<<<<<<<<<<
  * 
  *         if store_batch is None:
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_blob); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_blob); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = PyTuple_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_INCREF(__pyx_v_key);
   __Pyx_GIVEREF(__pyx_v_key);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_v_key)) __PYX_ERR(0, 357, __pyx_L1_error);
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 357, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_v_key)) __PYX_ERR(0, 355, __pyx_L1_error);
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 357, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 357, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 355, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 355, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":359
+  /* "aim/storage/rockscontainer.pyx":357
  *         self._delete_blob(key, target=target)
  * 
  *         if store_batch is None:             # <<<<<<<<<<<<<<
@@ -10870,14 +10854,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_46dele
   __pyx_t_2 = (__pyx_v_store_batch == Py_None);
   if (__pyx_t_2) {
 
-    /* "aim/storage/rockscontainer.pyx":360
+    /* "aim/storage/rockscontainer.pyx":358
  * 
  *         if store_batch is None:
  *             self.commit(target)             # <<<<<<<<<<<<<<
  * 
  *     def __delitem__(
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_commit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 360, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_commit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 358, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     __pyx_t_6 = 0;
@@ -10897,13 +10881,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_46dele
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_target};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 360, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 358, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":359
+    /* "aim/storage/rockscontainer.pyx":357
  *         self._delete_blob(key, target=target)
  * 
  *         if store_batch is None:             # <<<<<<<<<<<<<<
@@ -10912,7 +10896,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_46dele
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":338
+  /* "aim/storage/rockscontainer.pyx":336
  *         self.set(key=key, value=value)
  * 
  *     def delete(             # <<<<<<<<<<<<<<
@@ -10937,7 +10921,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_46dele
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":362
+/* "aim/storage/rockscontainer.pyx":360
  *             self.commit(target)
  * 
  *     def __delitem__(             # <<<<<<<<<<<<<<
@@ -11002,7 +10986,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 362, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 360, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -11010,14 +10994,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 362, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 360, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__delitem__", 1, 2, 2, 1); __PYX_ERR(0, 362, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__delitem__", 1, 2, 2, 1); __PYX_ERR(0, 360, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__delitem__") < 0)) __PYX_ERR(0, 362, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__delitem__") < 0)) __PYX_ERR(0, 360, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -11030,7 +11014,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__delitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 362, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__delitem__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 360, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11069,14 +11053,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_48__de
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__delitem__", 1);
 
-  /* "aim/storage/rockscontainer.pyx":367
+  /* "aim/storage/rockscontainer.pyx":365
  *     ) -> None:
  *         """Delete a key-value record by the given key."""
  *         self.delete(key)             # <<<<<<<<<<<<<<
  * 
  *     def delete_range(
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 367, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 365, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -11096,13 +11080,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_48__de
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_key};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 367, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 365, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":362
+  /* "aim/storage/rockscontainer.pyx":360
  *             self.commit(target)
  * 
  *     def __delitem__(             # <<<<<<<<<<<<<<
@@ -11125,7 +11109,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_48__de
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":369
+/* "aim/storage/rockscontainer.pyx":367
  *         self.delete(key)
  * 
  *     def delete_range(             # <<<<<<<<<<<<<<
@@ -11176,7 +11160,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_begin,&__pyx_n_s_end,&__pyx_n_s_store_batch,0};
 
-    /* "aim/storage/rockscontainer.pyx":373
+    /* "aim/storage/rockscontainer.pyx":371
  *         begin: ContainerKey,
  *         end: ContainerKey,
  *         store_batch: aimrocks.WriteBatch = None             # <<<<<<<<<<<<<<
@@ -11205,7 +11189,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 369, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 367, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -11213,9 +11197,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 369, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 367, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("delete_range", 0, 3, 4, 1); __PYX_ERR(0, 369, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("delete_range", 0, 3, 4, 1); __PYX_ERR(0, 367, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -11223,21 +11207,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 369, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 367, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("delete_range", 0, 3, 4, 2); __PYX_ERR(0, 369, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("delete_range", 0, 3, 4, 2); __PYX_ERR(0, 367, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  3:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_store_batch);
           if (value) { values[3] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 369, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 367, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "delete_range") < 0)) __PYX_ERR(0, 369, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "delete_range") < 0)) __PYX_ERR(0, 367, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -11257,7 +11241,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("delete_range", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 369, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("delete_range", 0, 3, 4, __pyx_nargs); __PYX_ERR(0, 367, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11273,7 +11257,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_L4_argument_unpacking_done:;
   __pyx_r = __pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_50delete_range(__pyx_self, __pyx_v_self, __pyx_v_begin, __pyx_v_end, __pyx_v_store_batch);
 
-  /* "aim/storage/rockscontainer.pyx":369
+  /* "aim/storage/rockscontainer.pyx":367
  *         self.delete(key)
  * 
  *     def delete_range(             # <<<<<<<<<<<<<<
@@ -11307,7 +11291,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_50dele
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("delete_range", 1);
 
-  /* "aim/storage/rockscontainer.pyx":385
+  /* "aim/storage/rockscontainer.pyx":383
  *         more details.
  *         """
  *         target = self.batch() if store_batch is None else store_batch             # <<<<<<<<<<<<<<
@@ -11316,7 +11300,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_50dele
  */
   __pyx_t_2 = (__pyx_v_store_batch == Py_None);
   if (__pyx_t_2) {
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_batch); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 385, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_batch); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 383, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     __pyx_t_6 = 0;
@@ -11336,7 +11320,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_50dele
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 0+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 385, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 383, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
@@ -11349,61 +11333,61 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_50dele
   __pyx_v_target = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":387
+  /* "aim/storage/rockscontainer.pyx":385
  *         target = self.batch() if store_batch is None else store_batch
  * 
  *         self._delete_range(begin, end, target=target)             # <<<<<<<<<<<<<<
  *         self._delete_blob_range(begin, end, target=target)
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_range_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_range_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 385, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 385, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_v_begin);
   __Pyx_GIVEREF(__pyx_v_begin);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_begin)) __PYX_ERR(0, 387, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_begin)) __PYX_ERR(0, 385, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_end);
   __Pyx_GIVEREF(__pyx_v_end);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_v_end)) __PYX_ERR(0, 387, __pyx_L1_error);
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 387, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_v_end)) __PYX_ERR(0, 385, __pyx_L1_error);
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 385, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 387, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 387, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 385, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 385, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":388
+  /* "aim/storage/rockscontainer.pyx":386
  * 
  *         self._delete_range(begin, end, target=target)
  *         self._delete_blob_range(begin, end, target=target)             # <<<<<<<<<<<<<<
  * 
  *         if store_batch is None:
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_blob_range); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_delete_blob_range); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 386, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 386, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_INCREF(__pyx_v_begin);
   __Pyx_GIVEREF(__pyx_v_begin);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_v_begin)) __PYX_ERR(0, 388, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_v_begin)) __PYX_ERR(0, 386, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_end);
   __Pyx_GIVEREF(__pyx_v_end);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_v_end)) __PYX_ERR(0, 388, __pyx_L1_error);
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 388, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_v_end)) __PYX_ERR(0, 386, __pyx_L1_error);
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 386, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 388, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 388, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_target, __pyx_v_target) < 0) __PYX_ERR(0, 386, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 386, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":390
+  /* "aim/storage/rockscontainer.pyx":388
  *         self._delete_blob_range(begin, end, target=target)
  * 
  *         if store_batch is None:             # <<<<<<<<<<<<<<
@@ -11413,14 +11397,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_50dele
   __pyx_t_2 = (__pyx_v_store_batch == Py_None);
   if (__pyx_t_2) {
 
-    /* "aim/storage/rockscontainer.pyx":391
+    /* "aim/storage/rockscontainer.pyx":389
  * 
  *         if store_batch is None:
  *             self.commit(target)             # <<<<<<<<<<<<<<
  * 
  *     def items(
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_commit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 391, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_commit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 389, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     __pyx_t_6 = 0;
@@ -11440,13 +11424,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_50dele
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_target};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 391, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 389, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":390
+    /* "aim/storage/rockscontainer.pyx":388
  *         self._delete_blob_range(begin, end, target=target)
  * 
  *         if store_batch is None:             # <<<<<<<<<<<<<<
@@ -11455,7 +11439,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_50dele
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":369
+  /* "aim/storage/rockscontainer.pyx":367
  *         self.delete(key)
  * 
  *     def delete_range(             # <<<<<<<<<<<<<<
@@ -11480,7 +11464,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_50dele
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":393
+/* "aim/storage/rockscontainer.pyx":391
  *             self.commit(target)
  * 
  *     def items(             # <<<<<<<<<<<<<<
@@ -11528,7 +11512,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_prefix,0};
-    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__4)));
+    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__5)));
     if (__pyx_kwds) {
       Py_ssize_t kw_args;
       switch (__pyx_nargs) {
@@ -11546,19 +11530,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 393, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 391, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_prefix);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 393, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 391, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "items") < 0)) __PYX_ERR(0, 393, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "items") < 0)) __PYX_ERR(0, 391, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -11574,7 +11558,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("items", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 393, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("items", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 391, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11612,7 +11596,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_52item
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("items", 1);
 
-  /* "aim/storage/rockscontainer.pyx":414
+  /* "aim/storage/rockscontainer.pyx":412
  *             prefix (:obj:`bytes`): the prefix that defines the key range
  *         """
  *         return RocksContainerItemsIterator(container=self, prefix=prefix)             # <<<<<<<<<<<<<<
@@ -11620,13 +11604,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_52item
  *     def walk(
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_RocksContainerItemsIterator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 414, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_RocksContainerItemsIterator); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 412, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 414, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 412, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_container, __pyx_v_self) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_prefix, __pyx_v_prefix) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 414, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_container, __pyx_v_self) < 0) __PYX_ERR(0, 412, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_prefix, __pyx_v_prefix) < 0) __PYX_ERR(0, 412, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 412, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -11634,7 +11618,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_52item
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":393
+  /* "aim/storage/rockscontainer.pyx":391
  *             self.commit(target)
  * 
  *     def items(             # <<<<<<<<<<<<<<
@@ -11656,7 +11640,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_52item
 }
 static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "aim/storage/rockscontainer.pyx":416
+/* "aim/storage/rockscontainer.pyx":414
  *         return RocksContainerItemsIterator(container=self, prefix=prefix)
  * 
  *     def walk(             # <<<<<<<<<<<<<<
@@ -11704,7 +11688,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_prefix,0};
-    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__4)));
+    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__5)));
     if (__pyx_kwds) {
       Py_ssize_t kw_args;
       switch (__pyx_nargs) {
@@ -11722,19 +11706,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 416, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 414, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_prefix);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 416, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 414, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "walk") < 0)) __PYX_ERR(0, 416, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "walk") < 0)) __PYX_ERR(0, 414, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -11750,7 +11734,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("walk", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 416, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("walk", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 414, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11789,7 +11773,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_54walk
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 416, __pyx_L1_error)
+    __PYX_ERR(0, 414, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -11800,7 +11784,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_54walk
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_prefix);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_prefix);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56generator, __pyx_codeobj__5, (PyObject *) __pyx_cur_scope, __pyx_n_s_walk, __pyx_n_s_RocksContainer_walk, __pyx_n_s_aim_storage_rockscontainer); if (unlikely(!gen)) __PYX_ERR(0, 416, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56generator, __pyx_codeobj__6, (PyObject *) __pyx_cur_scope, __pyx_n_s_walk, __pyx_n_s_RocksContainer_walk, __pyx_n_s_aim_storage_rockscontainer); if (unlikely(!gen)) __PYX_ERR(0, 414, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -11843,18 +11827,18 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 416, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 414, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":433
+  /* "aim/storage/rockscontainer.pyx":431
  *         `walker.send(b'meta') == b'meta.x'`, `walker.send(b'e.y') == b'e.y'`
  *         """
  *         it = self.db.iteritems()             # <<<<<<<<<<<<<<
  *         it.seek(prefix)
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 433, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 431, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_iteritems); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 433, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_iteritems); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 431, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -11875,7 +11859,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 433, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 431, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -11883,14 +11867,14 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
   __pyx_cur_scope->__pyx_v_it = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":434
+  /* "aim/storage/rockscontainer.pyx":432
  *         """
  *         it = self.db.iteritems()
  *         it.seek(prefix)             # <<<<<<<<<<<<<<
  * 
  *         while True:
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_it, __pyx_n_s_seek); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 434, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_it, __pyx_n_s_seek); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 432, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = NULL;
   __pyx_t_4 = 0;
@@ -11910,13 +11894,13 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_cur_scope->__pyx_v_prefix};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 434, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 432, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":436
+  /* "aim/storage/rockscontainer.pyx":434
  *         it.seek(prefix)
  * 
  *         while True:             # <<<<<<<<<<<<<<
@@ -11925,7 +11909,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
  */
   while (1) {
 
-    /* "aim/storage/rockscontainer.pyx":437
+    /* "aim/storage/rockscontainer.pyx":435
  * 
  *         while True:
  *             try:             # <<<<<<<<<<<<<<
@@ -11939,14 +11923,14 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
       __Pyx_XGOTREF(__pyx_t_7);
       /*try:*/ {
 
-        /* "aim/storage/rockscontainer.pyx":438
+        /* "aim/storage/rockscontainer.pyx":436
  *         while True:
  *             try:
  *                 key, val = next(it)             # <<<<<<<<<<<<<<
  *             except StopIteration:
  *                 yield None
  */
-        __pyx_t_1 = __Pyx_PyIter_Next(__pyx_cur_scope->__pyx_v_it); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 438, __pyx_L6_error)
+        __pyx_t_1 = __Pyx_PyIter_Next(__pyx_cur_scope->__pyx_v_it); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 436, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_1);
         if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
           PyObject* sequence = __pyx_t_1;
@@ -11954,7 +11938,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
           if (unlikely(size != 2)) {
             if (size > 2) __Pyx_RaiseTooManyValuesError(2);
             else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-            __PYX_ERR(0, 438, __pyx_L6_error)
+            __PYX_ERR(0, 436, __pyx_L6_error)
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
           if (likely(PyTuple_CheckExact(sequence))) {
@@ -11967,15 +11951,15 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
           __Pyx_INCREF(__pyx_t_3);
           __Pyx_INCREF(__pyx_t_2);
           #else
-          __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 438, __pyx_L6_error)
+          __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 436, __pyx_L6_error)
           __Pyx_GOTREF(__pyx_t_3);
-          __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 438, __pyx_L6_error)
+          __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 436, __pyx_L6_error)
           __Pyx_GOTREF(__pyx_t_2);
           #endif
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         } else {
           Py_ssize_t index = -1;
-          __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 438, __pyx_L6_error)
+          __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 436, __pyx_L6_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __pyx_t_9 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_8);
@@ -11983,7 +11967,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
           __Pyx_GOTREF(__pyx_t_3);
           index = 1; __pyx_t_2 = __pyx_t_9(__pyx_t_8); if (unlikely(!__pyx_t_2)) goto __pyx_L14_unpacking_failed;
           __Pyx_GOTREF(__pyx_t_2);
-          if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 2) < 0) __PYX_ERR(0, 438, __pyx_L6_error)
+          if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 2) < 0) __PYX_ERR(0, 436, __pyx_L6_error)
           __pyx_t_9 = NULL;
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
           goto __pyx_L15_unpacking_done;
@@ -11991,7 +11975,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
           __pyx_t_9 = NULL;
           if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-          __PYX_ERR(0, 438, __pyx_L6_error)
+          __PYX_ERR(0, 436, __pyx_L6_error)
           __pyx_L15_unpacking_done:;
         }
         __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_key);
@@ -12003,7 +11987,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
         __Pyx_GIVEREF(__pyx_t_2);
         __pyx_t_2 = 0;
 
-        /* "aim/storage/rockscontainer.pyx":437
+        /* "aim/storage/rockscontainer.pyx":435
  * 
  *         while True:
  *             try:             # <<<<<<<<<<<<<<
@@ -12021,7 +12005,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "aim/storage/rockscontainer.pyx":439
+      /* "aim/storage/rockscontainer.pyx":437
  *             try:
  *                 key, val = next(it)
  *             except StopIteration:             # <<<<<<<<<<<<<<
@@ -12031,12 +12015,12 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
       __pyx_t_4 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_StopIteration);
       if (__pyx_t_4) {
         __Pyx_AddTraceback("aim.storage.rockscontainer.RocksContainer.walk", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_2, &__pyx_t_3) < 0) __PYX_ERR(0, 439, __pyx_L8_except_error)
+        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_2, &__pyx_t_3) < 0) __PYX_ERR(0, 437, __pyx_L8_except_error)
         __Pyx_XGOTREF(__pyx_t_1);
         __Pyx_XGOTREF(__pyx_t_2);
         __Pyx_XGOTREF(__pyx_t_3);
 
-        /* "aim/storage/rockscontainer.pyx":440
+        /* "aim/storage/rockscontainer.pyx":438
  *                 key, val = next(it)
  *             except StopIteration:
  *                 yield None             # <<<<<<<<<<<<<<
@@ -12082,9 +12066,9 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
         __pyx_t_7 = __pyx_cur_scope->__pyx_t_5;
         __pyx_cur_scope->__pyx_t_5 = 0;
         __Pyx_XGOTREF(__pyx_t_7);
-        if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 440, __pyx_L8_except_error)
+        if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 438, __pyx_L8_except_error)
 
-        /* "aim/storage/rockscontainer.pyx":441
+        /* "aim/storage/rockscontainer.pyx":439
  *             except StopIteration:
  *                 yield None
  *                 break             # <<<<<<<<<<<<<<
@@ -12100,7 +12084,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
       }
       goto __pyx_L8_except_error;
 
-      /* "aim/storage/rockscontainer.pyx":437
+      /* "aim/storage/rockscontainer.pyx":435
  * 
  *         while True:
  *             try:             # <<<<<<<<<<<<<<
@@ -12122,7 +12106,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
       __pyx_L13_try_end:;
     }
 
-    /* "aim/storage/rockscontainer.pyx":442
+    /* "aim/storage/rockscontainer.pyx":440
  *                 yield None
  *                 break
  *             jump = yield key             # <<<<<<<<<<<<<<
@@ -12138,21 +12122,21 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
     __pyx_generator->resume_label = 2;
     return __pyx_r;
     __pyx_L19_resume_from_yield:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 442, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 440, __pyx_L1_error)
     __pyx_t_3 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_3);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_jump);
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_jump, __pyx_t_3);
     __Pyx_GIVEREF(__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":443
+    /* "aim/storage/rockscontainer.pyx":441
  *                 break
  *             jump = yield key
  *             it.seek(jump)             # <<<<<<<<<<<<<<
  * 
  *     def view(
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_it, __pyx_n_s_seek); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 443, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_it, __pyx_n_s_seek); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 441, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_1 = NULL;
     __pyx_t_4 = 0;
@@ -12172,7 +12156,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
       PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_cur_scope->__pyx_v_jump};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 443, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 441, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
@@ -12181,7 +12165,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
   __pyx_L5_break:;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "aim/storage/rockscontainer.pyx":416
+  /* "aim/storage/rockscontainer.pyx":414
  *         return RocksContainerItemsIterator(container=self, prefix=prefix)
  * 
  *     def walk(             # <<<<<<<<<<<<<<
@@ -12210,7 +12194,7 @@ static PyObject *__pyx_gb_3aim_7storage_14rockscontainer_14RocksContainer_56gene
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":445
+/* "aim/storage/rockscontainer.pyx":443
  *             it.seek(jump)
  * 
  *     def view(             # <<<<<<<<<<<<<<
@@ -12258,7 +12242,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_prefix,0};
-    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__4)));
+    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__5)));
     if (__pyx_kwds) {
       Py_ssize_t kw_args;
       switch (__pyx_nargs) {
@@ -12276,19 +12260,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 445, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 443, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_prefix);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 445, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 443, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "view") < 0)) __PYX_ERR(0, 445, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "view") < 0)) __PYX_ERR(0, 443, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -12304,7 +12288,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("view", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 445, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("view", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 443, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12342,7 +12326,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_57view
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("view", 1);
 
-  /* "aim/storage/rockscontainer.pyx":471
+  /* "aim/storage/rockscontainer.pyx":469
  *                 }`
  *         """
  *         return PrefixView(prefix=prefix, container=self)             # <<<<<<<<<<<<<<
@@ -12350,13 +12334,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_57view
  *     def batch(
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_PrefixView); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 471, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_PrefixView); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 471, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_prefix, __pyx_v_prefix) < 0) __PYX_ERR(0, 471, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_container, __pyx_v_self) < 0) __PYX_ERR(0, 471, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 471, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_prefix, __pyx_v_prefix) < 0) __PYX_ERR(0, 469, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_container, __pyx_v_self) < 0) __PYX_ERR(0, 469, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 469, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -12364,7 +12348,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_57view
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":445
+  /* "aim/storage/rockscontainer.pyx":443
  *             it.seek(jump)
  * 
  *     def view(             # <<<<<<<<<<<<<<
@@ -12385,7 +12369,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_57view
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":473
+/* "aim/storage/rockscontainer.pyx":471
  *         return PrefixView(prefix=prefix, container=self)
  * 
  *     def batch(             # <<<<<<<<<<<<<<
@@ -12447,12 +12431,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 473, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 471, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "batch") < 0)) __PYX_ERR(0, 473, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "batch") < 0)) __PYX_ERR(0, 471, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -12463,7 +12447,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("batch", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 473, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("batch", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 471, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12502,7 +12486,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_59batc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("batch", 1);
 
-  /* "aim/storage/rockscontainer.pyx":484
+  /* "aim/storage/rockscontainer.pyx":482
  *         See more at :obj:`RocksContainer.commit`
  *         """
  *         return aimrocks.WriteBatch()             # <<<<<<<<<<<<<<
@@ -12510,9 +12494,9 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_59batc
  *     def commit(
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 484, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_WriteBatch); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 484, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_WriteBatch); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 482, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -12533,7 +12517,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_59batc
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 484, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 482, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -12541,7 +12525,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_59batc
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":473
+  /* "aim/storage/rockscontainer.pyx":471
  *         return PrefixView(prefix=prefix, container=self)
  * 
  *     def batch(             # <<<<<<<<<<<<<<
@@ -12562,7 +12546,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_59batc
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":486
+/* "aim/storage/rockscontainer.pyx":484
  *         return aimrocks.WriteBatch()
  * 
  *     def commit(             # <<<<<<<<<<<<<<
@@ -12627,7 +12611,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 486, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 484, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -12635,14 +12619,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 486, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 484, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("commit", 1, 2, 2, 1); __PYX_ERR(0, 486, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("commit", 1, 2, 2, 1); __PYX_ERR(0, 484, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "commit") < 0)) __PYX_ERR(0, 486, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "commit") < 0)) __PYX_ERR(0, 484, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -12655,7 +12639,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("commit", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 486, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("commit", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 484, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12694,16 +12678,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_61comm
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("commit", 1);
 
-  /* "aim/storage/rockscontainer.pyx":494
+  /* "aim/storage/rockscontainer.pyx":492
  *         The `RocksContainer` features atomic writes for batches.
  *         """
  *         self.db.write(batch)             # <<<<<<<<<<<<<<
  * 
  *     def next_item(
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 492, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_write); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_write); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 492, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -12724,13 +12708,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_61comm
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_batch};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 494, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 492, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":486
+  /* "aim/storage/rockscontainer.pyx":484
  *         return aimrocks.WriteBatch()
  * 
  *     def commit(             # <<<<<<<<<<<<<<
@@ -12753,7 +12737,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_61comm
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":496
+/* "aim/storage/rockscontainer.pyx":494
  *         self.db.write(batch)
  * 
  *     def next_item(             # <<<<<<<<<<<<<<
@@ -12801,7 +12785,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_prefix,0};
-    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__4)));
+    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__5)));
     if (__pyx_kwds) {
       Py_ssize_t kw_args;
       switch (__pyx_nargs) {
@@ -12819,19 +12803,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 496, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 494, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_prefix);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 496, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 494, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "next_item") < 0)) __PYX_ERR(0, 496, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "next_item") < 0)) __PYX_ERR(0, 494, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -12847,7 +12831,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("next_item", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 496, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("next_item", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 494, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12893,16 +12877,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("next_item", 1);
 
-  /* "aim/storage/rockscontainer.pyx":503
+  /* "aim/storage/rockscontainer.pyx":501
  *         right after the provided `key`.
  *         """
  *         it = self.db.iteritems()             # <<<<<<<<<<<<<<
  *         it.seek(prefix + b'\x00')
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 503, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 501, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_iteritems); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 503, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_iteritems); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 501, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -12923,23 +12907,23 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 503, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 501, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __pyx_v_it = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":504
+  /* "aim/storage/rockscontainer.pyx":502
  *         """
  *         it = self.db.iteritems()
  *         it.seek(prefix + b'\x00')             # <<<<<<<<<<<<<<
  * 
  *         key, value = next(it)
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_it, __pyx_n_s_seek); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 504, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_it, __pyx_n_s_seek); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 502, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyNumber_Add(__pyx_v_prefix, __pyx_kp_b__6); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 504, __pyx_L1_error)
+  __pyx_t_2 = PyNumber_Add(__pyx_v_prefix, __pyx_kp_b__7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 502, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_5 = NULL;
   __pyx_t_4 = 0;
@@ -12960,20 +12944,20 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 504, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 502, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":506
+  /* "aim/storage/rockscontainer.pyx":504
  *         it.seek(prefix + b'\x00')
  * 
  *         key, value = next(it)             # <<<<<<<<<<<<<<
  * 
  *         if not key.startswith(prefix):
  */
-  __pyx_t_1 = __Pyx_PyIter_Next(__pyx_v_it); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 506, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyIter_Next(__pyx_v_it); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 504, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
     PyObject* sequence = __pyx_t_1;
@@ -12981,7 +12965,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
     if (unlikely(size != 2)) {
       if (size > 2) __Pyx_RaiseTooManyValuesError(2);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 506, __pyx_L1_error)
+      __PYX_ERR(0, 504, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -12994,15 +12978,15 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
     __Pyx_INCREF(__pyx_t_3);
     __Pyx_INCREF(__pyx_t_2);
     #else
-    __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 506, __pyx_L1_error)
+    __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 504, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 506, __pyx_L1_error)
+    __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 504, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_5 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 506, __pyx_L1_error)
+    __pyx_t_5 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 504, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_6 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_5);
@@ -13010,7 +12994,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
     __Pyx_GOTREF(__pyx_t_3);
     index = 1; __pyx_t_2 = __pyx_t_6(__pyx_t_5); if (unlikely(!__pyx_t_2)) goto __pyx_L3_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_2);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_6(__pyx_t_5), 2) < 0) __PYX_ERR(0, 506, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_6(__pyx_t_5), 2) < 0) __PYX_ERR(0, 504, __pyx_L1_error)
     __pyx_t_6 = NULL;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     goto __pyx_L4_unpacking_done;
@@ -13018,7 +13002,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 506, __pyx_L1_error)
+    __PYX_ERR(0, 504, __pyx_L1_error)
     __pyx_L4_unpacking_done:;
   }
   __pyx_v_key = __pyx_t_3;
@@ -13026,14 +13010,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
   __pyx_v_value = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":508
+  /* "aim/storage/rockscontainer.pyx":506
  *         key, value = next(it)
  * 
  *         if not key.startswith(prefix):             # <<<<<<<<<<<<<<
  *             raise KeyError
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_key, __pyx_n_s_startswith); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 508, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_key, __pyx_n_s_startswith); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 506, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -13053,16 +13037,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_prefix};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 508, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 506, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 508, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 506, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_8 = (!__pyx_t_7);
   if (unlikely(__pyx_t_8)) {
 
-    /* "aim/storage/rockscontainer.pyx":509
+    /* "aim/storage/rockscontainer.pyx":507
  * 
  *         if not key.startswith(prefix):
  *             raise KeyError             # <<<<<<<<<<<<<<
@@ -13070,9 +13054,9 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
  *         if value == BLOB_SENTINEL:
  */
     __Pyx_Raise(__pyx_builtin_KeyError, 0, 0, 0);
-    __PYX_ERR(0, 509, __pyx_L1_error)
+    __PYX_ERR(0, 507, __pyx_L1_error)
 
-    /* "aim/storage/rockscontainer.pyx":508
+    /* "aim/storage/rockscontainer.pyx":506
  *         key, value = next(it)
  * 
  *         if not key.startswith(prefix):             # <<<<<<<<<<<<<<
@@ -13081,29 +13065,29 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":511
+  /* "aim/storage/rockscontainer.pyx":509
  *             raise KeyError
  * 
  *         if value == BLOB_SENTINEL:             # <<<<<<<<<<<<<<
  *             value = self._get_blob(key)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 511, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 509, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_RichCompare(__pyx_v_value, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 511, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_v_value, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 509, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 511, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 509, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_8) {
 
-    /* "aim/storage/rockscontainer.pyx":512
+    /* "aim/storage/rockscontainer.pyx":510
  * 
  *         if value == BLOB_SENTINEL:
  *             value = self._get_blob(key)             # <<<<<<<<<<<<<<
  * 
  *         return key, value
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_blob); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 512, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_blob); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 510, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
     __pyx_t_4 = 0;
@@ -13123,14 +13107,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_key};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 512, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 510, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     }
     __Pyx_DECREF_SET(__pyx_v_value, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":511
+    /* "aim/storage/rockscontainer.pyx":509
  *             raise KeyError
  * 
  *         if value == BLOB_SENTINEL:             # <<<<<<<<<<<<<<
@@ -13139,7 +13123,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":514
+  /* "aim/storage/rockscontainer.pyx":512
  *             value = self._get_blob(key)
  * 
  *         return key, value             # <<<<<<<<<<<<<<
@@ -13147,19 +13131,19 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
  *     def prev_item(
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 514, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 512, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_v_key);
   __Pyx_GIVEREF(__pyx_v_key);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_key)) __PYX_ERR(0, 514, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_key)) __PYX_ERR(0, 512, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_value);
   __Pyx_GIVEREF(__pyx_v_value);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_value)) __PYX_ERR(0, 514, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_value)) __PYX_ERR(0, 512, __pyx_L1_error);
   __pyx_r = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":496
+  /* "aim/storage/rockscontainer.pyx":494
  *         self.db.write(batch)
  * 
  *     def next_item(             # <<<<<<<<<<<<<<
@@ -13184,7 +13168,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_63next
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":516
+/* "aim/storage/rockscontainer.pyx":514
  *         return key, value
  * 
  *     def prev_item(             # <<<<<<<<<<<<<<
@@ -13232,7 +13216,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_prefix,0};
-    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__4)));
+    values[1] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__5)));
     if (__pyx_kwds) {
       Py_ssize_t kw_args;
       switch (__pyx_nargs) {
@@ -13250,19 +13234,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 516, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 514, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_prefix);
           if (value) { values[1] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 516, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 514, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "prev_item") < 0)) __PYX_ERR(0, 516, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "prev_item") < 0)) __PYX_ERR(0, 514, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -13278,7 +13262,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("prev_item", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 516, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("prev_item", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 514, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13323,16 +13307,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("prev_item", 1);
 
-  /* "aim/storage/rockscontainer.pyx":523
+  /* "aim/storage/rockscontainer.pyx":521
  *         right before the provided `key`.
  *         """
  *         it = self.db.iteritems()             # <<<<<<<<<<<<<<
  *         it.seek_for_prev(prefix + b'\xff')
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 523, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 521, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_iteritems); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 523, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_iteritems); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 521, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -13353,23 +13337,23 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 523, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 521, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __pyx_v_it = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":524
+  /* "aim/storage/rockscontainer.pyx":522
  *         """
  *         it = self.db.iteritems()
  *         it.seek_for_prev(prefix + b'\xff')             # <<<<<<<<<<<<<<
  * 
  *         key, value = it.get()
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_it, __pyx_n_s_seek_for_prev); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 524, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_it, __pyx_n_s_seek_for_prev); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 522, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyNumber_Add(__pyx_v_prefix, __pyx_kp_b__7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 524, __pyx_L1_error)
+  __pyx_t_2 = PyNumber_Add(__pyx_v_prefix, __pyx_kp_b__8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 522, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_5 = NULL;
   __pyx_t_4 = 0;
@@ -13390,20 +13374,20 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 524, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 522, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":526
+  /* "aim/storage/rockscontainer.pyx":524
  *         it.seek_for_prev(prefix + b'\xff')
  * 
  *         key, value = it.get()             # <<<<<<<<<<<<<<
  * 
  *         if value == BLOB_SENTINEL:
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_it, __pyx_n_s_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 526, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_it, __pyx_n_s_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 524, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = NULL;
   __pyx_t_4 = 0;
@@ -13423,7 +13407,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 526, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 524, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
@@ -13433,7 +13417,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
     if (unlikely(size != 2)) {
       if (size > 2) __Pyx_RaiseTooManyValuesError(2);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 526, __pyx_L1_error)
+      __PYX_ERR(0, 524, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -13446,15 +13430,15 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
     __Pyx_INCREF(__pyx_t_3);
     __Pyx_INCREF(__pyx_t_2);
     #else
-    __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 526, __pyx_L1_error)
+    __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 524, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 526, __pyx_L1_error)
+    __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 524, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_5 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 526, __pyx_L1_error)
+    __pyx_t_5 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 524, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_6 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_5);
@@ -13462,7 +13446,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
     __Pyx_GOTREF(__pyx_t_3);
     index = 1; __pyx_t_2 = __pyx_t_6(__pyx_t_5); if (unlikely(!__pyx_t_2)) goto __pyx_L3_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_2);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_6(__pyx_t_5), 2) < 0) __PYX_ERR(0, 526, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_6(__pyx_t_5), 2) < 0) __PYX_ERR(0, 524, __pyx_L1_error)
     __pyx_t_6 = NULL;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     goto __pyx_L4_unpacking_done;
@@ -13470,7 +13454,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 526, __pyx_L1_error)
+    __PYX_ERR(0, 524, __pyx_L1_error)
     __pyx_L4_unpacking_done:;
   }
   __pyx_v_key = __pyx_t_3;
@@ -13478,29 +13462,29 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
   __pyx_v_value = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":528
+  /* "aim/storage/rockscontainer.pyx":526
  *         key, value = it.get()
  * 
  *         if value == BLOB_SENTINEL:             # <<<<<<<<<<<<<<
  *             value = self._get_blob(key)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 528, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 526, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_RichCompare(__pyx_v_value, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 528, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_v_value, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 526, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 528, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 526, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_7) {
 
-    /* "aim/storage/rockscontainer.pyx":529
+    /* "aim/storage/rockscontainer.pyx":527
  * 
  *         if value == BLOB_SENTINEL:
  *             value = self._get_blob(key)             # <<<<<<<<<<<<<<
  * 
  *         return key, value
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_blob); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 529, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_get_blob); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 527, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
     __pyx_t_4 = 0;
@@ -13520,14 +13504,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_key};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 529, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 527, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     }
     __Pyx_DECREF_SET(__pyx_v_value, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":528
+    /* "aim/storage/rockscontainer.pyx":526
  *         key, value = it.get()
  * 
  *         if value == BLOB_SENTINEL:             # <<<<<<<<<<<<<<
@@ -13536,7 +13520,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":531
+  /* "aim/storage/rockscontainer.pyx":529
  *             value = self._get_blob(key)
  * 
  *         return key, value             # <<<<<<<<<<<<<<
@@ -13544,19 +13528,19 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
  *     def optimize_for_read(self):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 531, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 529, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_v_key);
   __Pyx_GIVEREF(__pyx_v_key);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_key)) __PYX_ERR(0, 531, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_key)) __PYX_ERR(0, 529, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_value);
   __Pyx_GIVEREF(__pyx_v_value);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_value)) __PYX_ERR(0, 531, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_value)) __PYX_ERR(0, 529, __pyx_L1_error);
   __pyx_r = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":516
+  /* "aim/storage/rockscontainer.pyx":514
  *         return key, value
  * 
  *     def prev_item(             # <<<<<<<<<<<<<<
@@ -13581,7 +13565,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_65prev
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":533
+/* "aim/storage/rockscontainer.pyx":531
  *         return key, value
  * 
  *     def optimize_for_read(self):             # <<<<<<<<<<<<<<
@@ -13642,12 +13626,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 533, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 531, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "optimize_for_read") < 0)) __PYX_ERR(0, 533, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "optimize_for_read") < 0)) __PYX_ERR(0, 531, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -13658,7 +13642,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("optimize_for_read", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 533, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("optimize_for_read", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 531, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13698,47 +13682,47 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_67opti
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("optimize_for_read", 1);
 
-  /* "aim/storage/rockscontainer.pyx":534
+  /* "aim/storage/rockscontainer.pyx":532
  * 
  *     def optimize_for_read(self):
  *         optimize_db_for_read(self.path, self._db_opts, run_compactions=self._extra_opts.get('compaction', False))             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_optimize_db_for_read); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_optimize_db_for_read); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_opts); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_db_opts); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_2)) __PYX_ERR(0, 534, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_2)) __PYX_ERR(0, 532, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 534, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 532, __pyx_L1_error);
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_extra_opts); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_extra_opts); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_tuple__8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_tuple__9, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_run_compactions, __pyx_t_2) < 0) __PYX_ERR(0, 534, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_run_compactions, __pyx_t_2) < 0) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 534, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":533
+  /* "aim/storage/rockscontainer.pyx":531
  *         return key, value
  * 
  *     def optimize_for_read(self):             # <<<<<<<<<<<<<<
@@ -13763,7 +13747,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_14RocksContainer_67opti
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":537
+/* "aim/storage/rockscontainer.pyx":535
  * 
  * 
  * @exception_resistant(silent=True)             # <<<<<<<<<<<<<<
@@ -13813,7 +13797,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_path,&__pyx_n_s_options,&__pyx_n_s_run_compactions,0};
 
-    /* "aim/storage/rockscontainer.pyx":538
+    /* "aim/storage/rockscontainer.pyx":536
  * 
  * @exception_resistant(silent=True)
  * def optimize_db_for_read(path: Path, options: dict, run_compactions: bool = False):             # <<<<<<<<<<<<<<
@@ -13840,7 +13824,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 537, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 535, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -13848,21 +13832,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 537, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 535, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("optimize_db_for_read", 0, 2, 3, 1); __PYX_ERR(0, 537, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("optimize_db_for_read", 0, 2, 3, 1); __PYX_ERR(0, 535, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_run_compactions);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 537, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 535, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "optimize_db_for_read") < 0)) __PYX_ERR(0, 537, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "optimize_db_for_read") < 0)) __PYX_ERR(0, 535, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -13880,7 +13864,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("optimize_db_for_read", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 537, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("optimize_db_for_read", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 535, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13894,10 +13878,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_options), (&PyDict_Type), 0, "options", 1))) __PYX_ERR(0, 538, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_options), (&PyDict_Type), 0, "options", 1))) __PYX_ERR(0, 536, __pyx_L1_error)
   __pyx_r = __pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(__pyx_self, __pyx_v_path, __pyx_v_options, __pyx_v_run_compactions);
 
-  /* "aim/storage/rockscontainer.pyx":537
+  /* "aim/storage/rockscontainer.pyx":535
  * 
  * 
  * @exception_resistant(silent=True)             # <<<<<<<<<<<<<<
@@ -13920,7 +13904,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":551
+/* "aim/storage/rockscontainer.pyx":549
  *     """
  * 
  *     def non_empty_wal():             # <<<<<<<<<<<<<<
@@ -13965,15 +13949,15 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
   __pyx_outer_scope = (struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read *) __Pyx_CyFunction_GetClosure(__pyx_self);
   __pyx_cur_scope = __pyx_outer_scope;
 
-  /* "aim/storage/rockscontainer.pyx":552
+  /* "aim/storage/rockscontainer.pyx":550
  * 
  *     def non_empty_wal():
  *         for wal_path in path.glob('*.log'):             # <<<<<<<<<<<<<<
  *             if os.path.getsize(wal_path) > 0:
  *                 return True
  */
-  if (unlikely(!__pyx_cur_scope->__pyx_v_path)) { __Pyx_RaiseClosureNameError("path"); __PYX_ERR(0, 552, __pyx_L1_error) }
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_path, __pyx_n_s_glob); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 552, __pyx_L1_error)
+  if (unlikely(!__pyx_cur_scope->__pyx_v_path)) { __Pyx_RaiseClosureNameError("path"); __PYX_ERR(0, 550, __pyx_L1_error) }
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_path, __pyx_n_s_glob); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 550, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -13993,7 +13977,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_kp_s_log};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 552, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 550, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -14002,9 +13986,9 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
     __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
   } else {
-    __pyx_t_5 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 552, __pyx_L1_error)
+    __pyx_t_5 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 550, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_6 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 552, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 550, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -14013,28 +13997,28 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 552, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 550, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_1 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_5); __Pyx_INCREF(__pyx_t_1); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(0, 552, __pyx_L1_error)
+        __pyx_t_1 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_5); __Pyx_INCREF(__pyx_t_1); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(0, 550, __pyx_L1_error)
         #else
-        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 552, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 550, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         #endif
       } else {
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_2);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 552, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 550, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_5); __Pyx_INCREF(__pyx_t_1); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(0, 552, __pyx_L1_error)
+        __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_5); __Pyx_INCREF(__pyx_t_1); __pyx_t_5++; if (unlikely((0 < 0))) __PYX_ERR(0, 550, __pyx_L1_error)
         #else
-        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 552, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_5); __pyx_t_5++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 550, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         #endif
       }
@@ -14044,7 +14028,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(0, 552, __pyx_L1_error)
+          else __PYX_ERR(0, 550, __pyx_L1_error)
         }
         break;
       }
@@ -14053,19 +14037,19 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
     __Pyx_XDECREF_SET(__pyx_v_wal_path, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":553
+    /* "aim/storage/rockscontainer.pyx":551
  *     def non_empty_wal():
  *         for wal_path in path.glob('*.log'):
  *             if os.path.getsize(wal_path) > 0:             # <<<<<<<<<<<<<<
  *                 return True
  *         return False
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_os); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 553, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_os); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 551, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_path); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 553, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_path); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 551, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_getsize); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 553, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_getsize); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 551, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __pyx_t_7 = NULL;
@@ -14086,17 +14070,17 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_wal_path};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 553, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 551, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
-    __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 553, __pyx_L1_error)
+    __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, __pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 551, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 553, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 551, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     if (__pyx_t_8) {
 
-      /* "aim/storage/rockscontainer.pyx":554
+      /* "aim/storage/rockscontainer.pyx":552
  *         for wal_path in path.glob('*.log'):
  *             if os.path.getsize(wal_path) > 0:
  *                 return True             # <<<<<<<<<<<<<<
@@ -14109,7 +14093,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       goto __pyx_L0;
 
-      /* "aim/storage/rockscontainer.pyx":553
+      /* "aim/storage/rockscontainer.pyx":551
  *     def non_empty_wal():
  *         for wal_path in path.glob('*.log'):
  *             if os.path.getsize(wal_path) > 0:             # <<<<<<<<<<<<<<
@@ -14118,7 +14102,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
  */
     }
 
-    /* "aim/storage/rockscontainer.pyx":552
+    /* "aim/storage/rockscontainer.pyx":550
  * 
  *     def non_empty_wal():
  *         for wal_path in path.glob('*.log'):             # <<<<<<<<<<<<<<
@@ -14128,7 +14112,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":555
+  /* "aim/storage/rockscontainer.pyx":553
  *             if os.path.getsize(wal_path) > 0:
  *                 return True
  *         return False             # <<<<<<<<<<<<<<
@@ -14140,7 +14124,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
   __pyx_r = Py_False;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":551
+  /* "aim/storage/rockscontainer.pyx":549
  *     """
  * 
  *     def non_empty_wal():             # <<<<<<<<<<<<<<
@@ -14163,7 +14147,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":537
+/* "aim/storage/rockscontainer.pyx":535
  * 
  * 
  * @exception_resistant(silent=True)             # <<<<<<<<<<<<<<
@@ -14199,7 +14183,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 537, __pyx_L1_error)
+    __PYX_ERR(0, 535, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -14207,39 +14191,39 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_path);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_path);
 
-  /* "aim/storage/rockscontainer.pyx":551
+  /* "aim/storage/rockscontainer.pyx":549
  *     """
  * 
  *     def non_empty_wal():             # <<<<<<<<<<<<<<
  *         for wal_path in path.glob('*.log'):
  *             if os.path.getsize(wal_path) > 0:
  */
-  __pyx_t_1 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_20optimize_db_for_read_1non_empty_wal, 0, __pyx_n_s_optimize_db_for_read_locals_non, ((PyObject*)__pyx_cur_scope), __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__10)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 551, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_20optimize_db_for_read_1non_empty_wal, 0, __pyx_n_s_optimize_db_for_read_locals_non, ((PyObject*)__pyx_cur_scope), __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__11)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 549, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_non_empty_wal = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":557
+  /* "aim/storage/rockscontainer.pyx":555
  *         return False
  * 
  *     if non_empty_wal():             # <<<<<<<<<<<<<<
  *         lock_path = prepare_lock_path(path)
  * 
  */
-  __pyx_t_1 = __pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_non_empty_wal(__pyx_v_non_empty_wal); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 557, __pyx_L1_error)
+  __pyx_t_1 = __pyx_pf_3aim_7storage_14rockscontainer_20optimize_db_for_read_non_empty_wal(__pyx_v_non_empty_wal); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 555, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 557, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 555, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "aim/storage/rockscontainer.pyx":558
+    /* "aim/storage/rockscontainer.pyx":556
  * 
  *     if non_empty_wal():
  *         lock_path = prepare_lock_path(path)             # <<<<<<<<<<<<<<
  * 
  *         with SoftFileLock(lock_path, timeout=0):
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_prepare_lock_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 558, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_prepare_lock_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 556, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     __pyx_t_5 = 0;
@@ -14259,14 +14243,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_cur_scope->__pyx_v_path};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 558, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 556, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
     __pyx_v_lock_path = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "aim/storage/rockscontainer.pyx":560
+    /* "aim/storage/rockscontainer.pyx":558
  *         lock_path = prepare_lock_path(path)
  * 
  *         with SoftFileLock(lock_path, timeout=0):             # <<<<<<<<<<<<<<
@@ -14274,24 +14258,24 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
  *             wdb.flush()
  */
     /*with:*/ {
-      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_SoftFileLock); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 560, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_SoftFileLock); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 558, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 560, __pyx_L1_error)
+      __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 558, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_INCREF(__pyx_v_lock_path);
       __Pyx_GIVEREF(__pyx_v_lock_path);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_lock_path)) __PYX_ERR(0, 560, __pyx_L1_error);
-      __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 560, __pyx_L1_error)
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_lock_path)) __PYX_ERR(0, 558, __pyx_L1_error);
+      __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 558, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_timeout, __pyx_int_0) < 0) __PYX_ERR(0, 560, __pyx_L1_error)
-      __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 560, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_timeout, __pyx_int_0) < 0) __PYX_ERR(0, 558, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 558, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_7 = __Pyx_PyObject_LookupSpecial(__pyx_t_6, __pyx_n_s_exit); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 560, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_LookupSpecial(__pyx_t_6, __pyx_n_s_exit); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 558, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_t_6, __pyx_n_s_enter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 560, __pyx_L4_error)
+      __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_t_6, __pyx_n_s_enter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 558, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_1 = NULL;
       __pyx_t_5 = 0;
@@ -14311,7 +14295,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
         PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 560, __pyx_L4_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 558, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       }
@@ -14327,43 +14311,43 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
           __Pyx_XGOTREF(__pyx_t_10);
           /*try:*/ {
 
-            /* "aim/storage/rockscontainer.pyx":561
+            /* "aim/storage/rockscontainer.pyx":559
  * 
  *         with SoftFileLock(lock_path, timeout=0):
  *             wdb = aimrocks.DB(str(path), aimrocks.Options(**options), read_only=False)             # <<<<<<<<<<<<<<
  *             wdb.flush()
  *             wdb.flush_wal()
  */
-            __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 561, __pyx_L8_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_6);
-            __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_DB); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 561, __pyx_L8_error)
+            __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_n_s_DB); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-            __pyx_t_6 = __Pyx_PyObject_Str(__pyx_cur_scope->__pyx_v_path); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 561, __pyx_L8_error)
+            __pyx_t_6 = __Pyx_PyObject_Str(__pyx_cur_scope->__pyx_v_path); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_6);
-            __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 561, __pyx_L8_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_aimrocks); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_3);
-            __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_Options); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 561, __pyx_L8_error)
+            __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_Options); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_1);
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            __pyx_t_3 = PyDict_Copy(__pyx_v_options); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 561, __pyx_L8_error)
+            __pyx_t_3 = PyDict_Copy(__pyx_v_options); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_3);
-            __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 561, __pyx_L8_error)
+            __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_empty_tuple, __pyx_t_3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_11);
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-            __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 561, __pyx_L8_error)
+            __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_3);
             __Pyx_GIVEREF(__pyx_t_6);
-            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_6)) __PYX_ERR(0, 561, __pyx_L8_error);
+            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_6)) __PYX_ERR(0, 559, __pyx_L8_error);
             __Pyx_GIVEREF(__pyx_t_11);
-            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_11)) __PYX_ERR(0, 561, __pyx_L8_error);
+            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_11)) __PYX_ERR(0, 559, __pyx_L8_error);
             __pyx_t_6 = 0;
             __pyx_t_11 = 0;
-            __pyx_t_11 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 561, __pyx_L8_error)
+            __pyx_t_11 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_11);
-            if (PyDict_SetItem(__pyx_t_11, __pyx_n_s_read_only, Py_False) < 0) __PYX_ERR(0, 561, __pyx_L8_error)
-            __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_3, __pyx_t_11); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 561, __pyx_L8_error)
+            if (PyDict_SetItem(__pyx_t_11, __pyx_n_s_read_only, Py_False) < 0) __PYX_ERR(0, 559, __pyx_L8_error)
+            __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_3, __pyx_t_11); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 559, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_6);
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -14371,14 +14355,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
             __pyx_v_wdb = __pyx_t_6;
             __pyx_t_6 = 0;
 
-            /* "aim/storage/rockscontainer.pyx":562
+            /* "aim/storage/rockscontainer.pyx":560
  *         with SoftFileLock(lock_path, timeout=0):
  *             wdb = aimrocks.DB(str(path), aimrocks.Options(**options), read_only=False)
  *             wdb.flush()             # <<<<<<<<<<<<<<
  *             wdb.flush_wal()
  *             if run_compactions:
  */
-            __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_wdb, __pyx_n_s_flush); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 562, __pyx_L8_error)
+            __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_wdb, __pyx_n_s_flush); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 560, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_11);
             __pyx_t_3 = NULL;
             __pyx_t_5 = 0;
@@ -14398,20 +14382,20 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
               PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
               __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
               __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-              if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 562, __pyx_L8_error)
+              if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 560, __pyx_L8_error)
               __Pyx_GOTREF(__pyx_t_6);
               __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
             }
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-            /* "aim/storage/rockscontainer.pyx":563
+            /* "aim/storage/rockscontainer.pyx":561
  *             wdb = aimrocks.DB(str(path), aimrocks.Options(**options), read_only=False)
  *             wdb.flush()
  *             wdb.flush_wal()             # <<<<<<<<<<<<<<
  *             if run_compactions:
  *                 wdb.compact_range()
  */
-            __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_wdb, __pyx_n_s_flush_wal); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 563, __pyx_L8_error)
+            __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_wdb, __pyx_n_s_flush_wal); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 561, __pyx_L8_error)
             __Pyx_GOTREF(__pyx_t_11);
             __pyx_t_3 = NULL;
             __pyx_t_5 = 0;
@@ -14431,30 +14415,30 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
               PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
               __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
               __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-              if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 563, __pyx_L8_error)
+              if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 561, __pyx_L8_error)
               __Pyx_GOTREF(__pyx_t_6);
               __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
             }
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-            /* "aim/storage/rockscontainer.pyx":564
+            /* "aim/storage/rockscontainer.pyx":562
  *             wdb.flush()
  *             wdb.flush_wal()
  *             if run_compactions:             # <<<<<<<<<<<<<<
  *                 wdb.compact_range()
  *             del wdb
  */
-            __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_run_compactions); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 564, __pyx_L8_error)
+            __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_run_compactions); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 562, __pyx_L8_error)
             if (__pyx_t_2) {
 
-              /* "aim/storage/rockscontainer.pyx":565
+              /* "aim/storage/rockscontainer.pyx":563
  *             wdb.flush_wal()
  *             if run_compactions:
  *                 wdb.compact_range()             # <<<<<<<<<<<<<<
  *             del wdb
  * 
  */
-              __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_wdb, __pyx_n_s_compact_range); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 565, __pyx_L8_error)
+              __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_wdb, __pyx_n_s_compact_range); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 563, __pyx_L8_error)
               __Pyx_GOTREF(__pyx_t_11);
               __pyx_t_3 = NULL;
               __pyx_t_5 = 0;
@@ -14474,13 +14458,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
                 PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
                 __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
                 __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-                if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 565, __pyx_L8_error)
+                if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 563, __pyx_L8_error)
                 __Pyx_GOTREF(__pyx_t_6);
                 __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
               }
               __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-              /* "aim/storage/rockscontainer.pyx":564
+              /* "aim/storage/rockscontainer.pyx":562
  *             wdb.flush()
  *             wdb.flush_wal()
  *             if run_compactions:             # <<<<<<<<<<<<<<
@@ -14489,7 +14473,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
  */
             }
 
-            /* "aim/storage/rockscontainer.pyx":566
+            /* "aim/storage/rockscontainer.pyx":564
  *             if run_compactions:
  *                 wdb.compact_range()
  *             del wdb             # <<<<<<<<<<<<<<
@@ -14498,7 +14482,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
  */
             __Pyx_DECREF(__pyx_v_wdb); __pyx_v_wdb = 0;
 
-            /* "aim/storage/rockscontainer.pyx":560
+            /* "aim/storage/rockscontainer.pyx":558
  *         lock_path = prepare_lock_path(path)
  * 
  *         with SoftFileLock(lock_path, timeout=0):             # <<<<<<<<<<<<<<
@@ -14518,20 +14502,20 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
           __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
           /*except:*/ {
             __Pyx_AddTraceback("aim.storage.rockscontainer.optimize_db_for_read", __pyx_clineno, __pyx_lineno, __pyx_filename);
-            if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_11, &__pyx_t_3) < 0) __PYX_ERR(0, 560, __pyx_L10_except_error)
+            if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_11, &__pyx_t_3) < 0) __PYX_ERR(0, 558, __pyx_L10_except_error)
             __Pyx_XGOTREF(__pyx_t_6);
             __Pyx_XGOTREF(__pyx_t_11);
             __Pyx_XGOTREF(__pyx_t_3);
-            __pyx_t_4 = PyTuple_Pack(3, __pyx_t_6, __pyx_t_11, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 560, __pyx_L10_except_error)
+            __pyx_t_4 = PyTuple_Pack(3, __pyx_t_6, __pyx_t_11, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 558, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_4);
             __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_4, NULL);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-            if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 560, __pyx_L10_except_error)
+            if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 558, __pyx_L10_except_error)
             __Pyx_GOTREF(__pyx_t_12);
             __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_12);
             __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-            if (__pyx_t_2 < 0) __PYX_ERR(0, 560, __pyx_L10_except_error)
+            if (__pyx_t_2 < 0) __PYX_ERR(0, 558, __pyx_L10_except_error)
             __pyx_t_13 = (!__pyx_t_2);
             if (unlikely(__pyx_t_13)) {
               __Pyx_GIVEREF(__pyx_t_6);
@@ -14539,7 +14523,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
               __Pyx_XGIVEREF(__pyx_t_3);
               __Pyx_ErrRestoreWithState(__pyx_t_6, __pyx_t_11, __pyx_t_3);
               __pyx_t_6 = 0; __pyx_t_11 = 0; __pyx_t_3 = 0; 
-              __PYX_ERR(0, 560, __pyx_L10_except_error)
+              __PYX_ERR(0, 558, __pyx_L10_except_error)
             }
             __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
             __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
@@ -14563,9 +14547,9 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
       /*finally:*/ {
         /*normal exit:*/{
           if (__pyx_t_7) {
-            __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_tuple__11, NULL);
+            __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_tuple__12, NULL);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 560, __pyx_L1_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 558, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_10);
             __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
           }
@@ -14580,7 +14564,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
       __pyx_L18:;
     }
 
-    /* "aim/storage/rockscontainer.pyx":557
+    /* "aim/storage/rockscontainer.pyx":555
  *         return False
  * 
  *     if non_empty_wal():             # <<<<<<<<<<<<<<
@@ -14589,7 +14573,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":537
+  /* "aim/storage/rockscontainer.pyx":535
  * 
  * 
  * @exception_resistant(silent=True)             # <<<<<<<<<<<<<<
@@ -14618,7 +14602,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_optimize_db_for_read(CY
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":569
+/* "aim/storage/rockscontainer.pyx":567
  * 
  * 
  * def prepare_lock_path(path: Path):             # <<<<<<<<<<<<<<
@@ -14680,12 +14664,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 569, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 567, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "prepare_lock_path") < 0)) __PYX_ERR(0, 569, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "prepare_lock_path") < 0)) __PYX_ERR(0, 567, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -14696,7 +14680,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("prepare_lock_path", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 569, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("prepare_lock_path", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 567, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14735,66 +14719,66 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_2prepare_lock_path(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("prepare_lock_path", 1);
 
-  /* "aim/storage/rockscontainer.pyx":579
+  /* "aim/storage/rockscontainer.pyx":577
  *         path (:obj:`Path`) to lock file for given rocksdb.
  *     """
  *     path.parent.mkdir(parents=True, exist_ok=True)             # <<<<<<<<<<<<<<
  *     locks_dir = path.parent.parent / 'locks'
  *     locks_dir.mkdir(parents=True, exist_ok=True)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_path, __pyx_n_s_parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 579, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_path, __pyx_n_s_parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 577, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_mkdir); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 579, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_mkdir); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 577, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 579, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 577, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_parents, Py_True) < 0) __PYX_ERR(0, 579, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_exist_ok, Py_True) < 0) __PYX_ERR(0, 579, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 579, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_parents, Py_True) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_exist_ok, Py_True) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 577, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":580
+  /* "aim/storage/rockscontainer.pyx":578
  *     """
  *     path.parent.mkdir(parents=True, exist_ok=True)
  *     locks_dir = path.parent.parent / 'locks'             # <<<<<<<<<<<<<<
  *     locks_dir.mkdir(parents=True, exist_ok=True)
  *     return locks_dir / path.name
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_path, __pyx_n_s_parent); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 580, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_path, __pyx_n_s_parent); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 578, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 580, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 578, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_n_s_locks); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 580, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_n_s_locks); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 578, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_locks_dir = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":581
+  /* "aim/storage/rockscontainer.pyx":579
  *     path.parent.mkdir(parents=True, exist_ok=True)
  *     locks_dir = path.parent.parent / 'locks'
  *     locks_dir.mkdir(parents=True, exist_ok=True)             # <<<<<<<<<<<<<<
  *     return locks_dir / path.name
  * 
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_locks_dir, __pyx_n_s_mkdir); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 581, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_locks_dir, __pyx_n_s_mkdir); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 579, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 581, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 579, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_parents, Py_True) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_exist_ok, Py_True) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 581, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_parents, Py_True) < 0) __PYX_ERR(0, 579, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_exist_ok, Py_True) < 0) __PYX_ERR(0, 579, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 579, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":582
+  /* "aim/storage/rockscontainer.pyx":580
  *     locks_dir = path.parent.parent / 'locks'
  *     locks_dir.mkdir(parents=True, exist_ok=True)
  *     return locks_dir / path.name             # <<<<<<<<<<<<<<
@@ -14802,16 +14786,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_2prepare_lock_path(CYTH
  * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_path, __pyx_n_s_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 582, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_path, __pyx_n_s_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 580, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_locks_dir, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 582, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_locks_dir, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 580, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":569
+  /* "aim/storage/rockscontainer.pyx":567
  * 
  * 
  * def prepare_lock_path(path: Path):             # <<<<<<<<<<<<<<
@@ -14833,7 +14817,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_2prepare_lock_path(CYTH
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":586
+/* "aim/storage/rockscontainer.pyx":584
  * 
  * class RocksContainerItemsIterator(ContainerItemsIterator):
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -14881,7 +14865,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
     PyObject **__pyx_pyargnames[] = {&__pyx_n_s_self,&__pyx_n_s_container,&__pyx_n_s_prefix,0};
-    values[2] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__4)));
+    values[2] = __Pyx_Arg_NewRef_FASTCALL(((PyObject *)((PyObject*)__pyx_kp_b__5)));
     if (__pyx_kwds) {
       Py_ssize_t kw_args;
       switch (__pyx_nargs) {
@@ -14901,7 +14885,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 586, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 584, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -14909,21 +14893,21 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 586, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 584, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 3, 1); __PYX_ERR(0, 586, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 3, 1); __PYX_ERR(0, 584, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
         if (kw_args > 0) {
           PyObject* value = __Pyx_GetKwValue_FASTCALL(__pyx_kwds, __pyx_kwvalues, __pyx_n_s_prefix);
           if (value) { values[2] = __Pyx_Arg_NewRef_FASTCALL(value); kw_args--; }
-          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 586, __pyx_L3_error)
+          else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 584, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 586, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "__init__") < 0)) __PYX_ERR(0, 584, __pyx_L3_error)
       }
     } else {
       switch (__pyx_nargs) {
@@ -14941,7 +14925,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 586, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 2, 3, __pyx_nargs); __PYX_ERR(0, 584, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14980,37 +14964,37 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 1);
 
-  /* "aim/storage/rockscontainer.pyx":591
+  /* "aim/storage/rockscontainer.pyx":589
  *         prefix: ContainerKey = b''
  *     ):
  *         self.container = container             # <<<<<<<<<<<<<<
  *         self.prefix = prefix
  *         self.it = self.container.db.iteritems()
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_container, __pyx_v_container) < 0) __PYX_ERR(0, 591, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_container, __pyx_v_container) < 0) __PYX_ERR(0, 589, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":592
+  /* "aim/storage/rockscontainer.pyx":590
  *     ):
  *         self.container = container
  *         self.prefix = prefix             # <<<<<<<<<<<<<<
  *         self.it = self.container.db.iteritems()
  *         self.it.seek(prefix)
  */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_prefix, __pyx_v_prefix) < 0) __PYX_ERR(0, 592, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_prefix, __pyx_v_prefix) < 0) __PYX_ERR(0, 590, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":593
+  /* "aim/storage/rockscontainer.pyx":591
  *         self.container = container
  *         self.prefix = prefix
  *         self.it = self.container.db.iteritems()             # <<<<<<<<<<<<<<
  *         self.it.seek(prefix)
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_container); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_container); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 591, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_db_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_db_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 591, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_iteritems); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 593, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_iteritems); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 591, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = NULL;
@@ -15031,23 +15015,23 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 593, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 591, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_it, __pyx_t_1) < 0) __PYX_ERR(0, 593, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_n_s_it, __pyx_t_1) < 0) __PYX_ERR(0, 591, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":594
+  /* "aim/storage/rockscontainer.pyx":592
  *         self.prefix = prefix
  *         self.it = self.container.db.iteritems()
  *         self.it.seek(prefix)             # <<<<<<<<<<<<<<
  * 
  *     def next(self):
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_it); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 594, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_it); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 592, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_seek); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 594, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_seek); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 592, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -15068,13 +15052,13 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_prefix};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 594, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 592, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":586
+  /* "aim/storage/rockscontainer.pyx":584
  * 
  * class RocksContainerItemsIterator(ContainerItemsIterator):
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -15097,7 +15081,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
   return __pyx_r;
 }
 
-/* "aim/storage/rockscontainer.pyx":596
+/* "aim/storage/rockscontainer.pyx":594
  *         self.it.seek(prefix)
  * 
  *     def next(self):             # <<<<<<<<<<<<<<
@@ -15158,12 +15142,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 596, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 594, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "next") < 0)) __PYX_ERR(0, 596, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "next") < 0)) __PYX_ERR(0, 594, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -15174,7 +15158,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("next", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 596, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("next", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 594, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15219,16 +15203,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("next", 1);
 
-  /* "aim/storage/rockscontainer.pyx":597
+  /* "aim/storage/rockscontainer.pyx":595
  * 
  *     def next(self):
  *         item = self.it.next()             # <<<<<<<<<<<<<<
  * 
  *         if item is None:
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_it); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 597, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_it); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 595, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_next); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 597, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_next); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 595, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -15249,14 +15233,14 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 597, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 595, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __pyx_v_item = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":599
+  /* "aim/storage/rockscontainer.pyx":597
  *         item = self.it.next()
  * 
  *         if item is None:             # <<<<<<<<<<<<<<
@@ -15266,7 +15250,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
   __pyx_t_5 = (__pyx_v_item == Py_None);
   if (__pyx_t_5) {
 
-    /* "aim/storage/rockscontainer.pyx":600
+    /* "aim/storage/rockscontainer.pyx":598
  * 
  *         if item is None:
  *             return None             # <<<<<<<<<<<<<<
@@ -15277,7 +15261,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "aim/storage/rockscontainer.pyx":599
+    /* "aim/storage/rockscontainer.pyx":597
  *         item = self.it.next()
  * 
  *         if item is None:             # <<<<<<<<<<<<<<
@@ -15286,40 +15270,40 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":602
+  /* "aim/storage/rockscontainer.pyx":600
  *             return None
  * 
  *         key = item[0]             # <<<<<<<<<<<<<<
  *         value = item[1]
  * 
  */
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_item, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 602, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_item, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 600, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_key = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":603
+  /* "aim/storage/rockscontainer.pyx":601
  * 
  *         key = item[0]
  *         value = item[1]             # <<<<<<<<<<<<<<
  * 
  *         if not key.startswith(self.prefix):
  */
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_item, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 603, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_item, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 601, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_value = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":605
+  /* "aim/storage/rockscontainer.pyx":603
  *         value = item[1]
  * 
  *         if not key.startswith(self.prefix):             # <<<<<<<<<<<<<<
  *             return None
  * 
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_key, __pyx_n_s_startswith); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 605, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_key, __pyx_n_s_startswith); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 603, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_prefix); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 605, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_prefix); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 603, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_6 = NULL;
   __pyx_t_4 = 0;
@@ -15340,16 +15324,16 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 605, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 603, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 605, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 603, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_7 = (!__pyx_t_5);
   if (__pyx_t_7) {
 
-    /* "aim/storage/rockscontainer.pyx":606
+    /* "aim/storage/rockscontainer.pyx":604
  * 
  *         if not key.startswith(self.prefix):
  *             return None             # <<<<<<<<<<<<<<
@@ -15360,7 +15344,7 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
     __pyx_r = Py_None; __Pyx_INCREF(Py_None);
     goto __pyx_L0;
 
-    /* "aim/storage/rockscontainer.pyx":605
+    /* "aim/storage/rockscontainer.pyx":603
  *         value = item[1]
  * 
  *         if not key.startswith(self.prefix):             # <<<<<<<<<<<<<<
@@ -15369,22 +15353,22 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":608
+  /* "aim/storage/rockscontainer.pyx":606
  *             return None
  * 
  *         if value == BLOB_SENTINEL:             # <<<<<<<<<<<<<<
  *             return key, self.container._get_blob(key)
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 608, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_BLOB_SENTINEL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 606, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyObject_RichCompare(__pyx_v_value, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 608, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_v_value, __pyx_t_1, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 606, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 608, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 606, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_7) {
 
-    /* "aim/storage/rockscontainer.pyx":609
+    /* "aim/storage/rockscontainer.pyx":607
  * 
  *         if value == BLOB_SENTINEL:
  *             return key, self.container._get_blob(key)             # <<<<<<<<<<<<<<
@@ -15392,9 +15376,9 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
  *         return key, value
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_container); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 609, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_n_s_container); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 607, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_get_blob); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 609, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_get_blob); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 607, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_1 = NULL;
@@ -15415,23 +15399,23 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
       PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_key};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 609, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 607, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
-    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 609, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 607, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_INCREF(__pyx_v_key);
     __Pyx_GIVEREF(__pyx_v_key);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_key)) __PYX_ERR(0, 609, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_key)) __PYX_ERR(0, 607, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_3);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_3)) __PYX_ERR(0, 609, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_3)) __PYX_ERR(0, 607, __pyx_L1_error);
     __pyx_t_3 = 0;
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "aim/storage/rockscontainer.pyx":608
+    /* "aim/storage/rockscontainer.pyx":606
  *             return None
  * 
  *         if value == BLOB_SENTINEL:             # <<<<<<<<<<<<<<
@@ -15440,25 +15424,25 @@ static PyObject *__pyx_pf_3aim_7storage_14rockscontainer_27RocksContainerItemsIt
  */
   }
 
-  /* "aim/storage/rockscontainer.pyx":611
+  /* "aim/storage/rockscontainer.pyx":609
  *             return key, self.container._get_blob(key)
  * 
  *         return key, value             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 611, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 609, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_v_key);
   __Pyx_GIVEREF(__pyx_v_key);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_key)) __PYX_ERR(0, 611, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_v_key)) __PYX_ERR(0, 609, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_value);
   __Pyx_GIVEREF(__pyx_v_value);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_value)) __PYX_ERR(0, 611, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_value)) __PYX_ERR(0, 609, __pyx_L1_error);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "aim/storage/rockscontainer.pyx":596
+  /* "aim/storage/rockscontainer.pyx":594
  *         self.it.seek(prefix)
  * 
  *     def next(self):             # <<<<<<<<<<<<<<
@@ -16125,12 +16109,12 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_Tuple, __pyx_k_Tuple, sizeof(__pyx_k_Tuple), 0, 0, 1, 1},
     {&__pyx_kp_s_Tuple_ContainerKey_ContainerValu, __pyx_k_Tuple_ContainerKey_ContainerValu, sizeof(__pyx_k_Tuple_ContainerKey_ContainerValu), 0, 0, 1, 0},
     {&__pyx_n_s_WriteBatch, __pyx_k_WriteBatch, sizeof(__pyx_k_WriteBatch), 0, 0, 1, 1},
-    {&__pyx_n_s__12, __pyx_k__12, sizeof(__pyx_k__12), 0, 0, 1, 1},
-    {&__pyx_kp_u__13, __pyx_k__13, sizeof(__pyx_k__13), 0, 1, 0, 0},
-    {&__pyx_kp_b__4, __pyx_k__4, sizeof(__pyx_k__4), 0, 0, 0, 0},
-    {&__pyx_kp_b__6, __pyx_k__6, sizeof(__pyx_k__6), 0, 0, 0, 0},
+    {&__pyx_n_s__13, __pyx_k__13, sizeof(__pyx_k__13), 0, 0, 1, 1},
+    {&__pyx_kp_u__14, __pyx_k__14, sizeof(__pyx_k__14), 0, 1, 0, 0},
+    {&__pyx_kp_b__5, __pyx_k__5, sizeof(__pyx_k__5), 0, 0, 0, 0},
     {&__pyx_kp_b__7, __pyx_k__7, sizeof(__pyx_k__7), 0, 0, 0, 0},
-    {&__pyx_n_s__81, __pyx_k__81, sizeof(__pyx_k__81), 0, 0, 1, 1},
+    {&__pyx_kp_b__8, __pyx_k__8, sizeof(__pyx_k__8), 0, 0, 0, 0},
+    {&__pyx_n_s__82, __pyx_k__82, sizeof(__pyx_k__82), 0, 0, 1, 1},
     {&__pyx_n_s_acquire, __pyx_k_acquire, sizeof(__pyx_k_acquire), 0, 0, 1, 1},
     {&__pyx_n_s_aim_ext_cleanup, __pyx_k_aim_ext_cleanup, sizeof(__pyx_k_aim_ext_cleanup), 0, 0, 1, 1},
     {&__pyx_n_s_aim_ext_exception_resistant, __pyx_k_aim_ext_exception_resistant, sizeof(__pyx_k_aim_ext_exception_resistant), 0, 0, 1, 1},
@@ -16184,7 +16168,6 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_enter, __pyx_k_enter, sizeof(__pyx_k_enter), 0, 0, 1, 1},
     {&__pyx_n_s_exception_resistant, __pyx_k_exception_resistant, sizeof(__pyx_k_exception_resistant), 0, 0, 1, 1},
     {&__pyx_n_s_exist_ok, __pyx_k_exist_ok, sizeof(__pyx_k_exist_ok), 0, 0, 1, 1},
-    {&__pyx_n_s_exists, __pyx_k_exists, sizeof(__pyx_k_exists), 0, 0, 1, 1},
     {&__pyx_n_s_exit, __pyx_k_exit, sizeof(__pyx_k_exit), 0, 0, 1, 1},
     {&__pyx_n_s_extra_options, __pyx_k_extra_options, sizeof(__pyx_k_extra_options), 0, 0, 1, 1},
     {&__pyx_n_s_extra_opts, __pyx_k_extra_opts, sizeof(__pyx_k_extra_opts), 0, 0, 1, 1},
@@ -16237,6 +16220,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_max_open_files, __pyx_k_max_open_files, sizeof(__pyx_k_max_open_files), 0, 0, 1, 1},
     {&__pyx_n_s_max_write_buffer_number, __pyx_k_max_write_buffer_number, sizeof(__pyx_k_max_write_buffer_number), 0, 0, 1, 1},
     {&__pyx_n_s_metaclass, __pyx_k_metaclass, sizeof(__pyx_k_metaclass), 0, 0, 1, 1},
+    {&__pyx_n_s_missing_ok, __pyx_k_missing_ok, sizeof(__pyx_k_missing_ok), 0, 0, 1, 1},
     {&__pyx_n_s_mkdir, __pyx_k_mkdir, sizeof(__pyx_k_mkdir), 0, 0, 1, 1},
     {&__pyx_n_s_module, __pyx_k_module, sizeof(__pyx_k_module), 0, 0, 1, 1},
     {&__pyx_n_s_mro_entries, __pyx_k_mro_entries, sizeof(__pyx_k_mro_entries), 0, 0, 1, 1},
@@ -16285,6 +16269,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_setter, __pyx_k_setter, sizeof(__pyx_k_setter), 0, 0, 1, 1},
     {&__pyx_n_s_silent, __pyx_k_silent, sizeof(__pyx_k_silent), 0, 0, 1, 1},
     {&__pyx_n_s_skip_checking_sst_file_sizes_on, __pyx_k_skip_checking_sst_file_sizes_on, sizeof(__pyx_k_skip_checking_sst_file_sizes_on), 0, 0, 1, 1},
+    {&__pyx_n_s_skip_read_optimization, __pyx_k_skip_read_optimization, sizeof(__pyx_k_skip_read_optimization), 0, 0, 1, 1},
     {&__pyx_n_s_skip_stats_update_on_db_open, __pyx_k_skip_stats_update_on_db_open, sizeof(__pyx_k_skip_stats_update_on_db_open), 0, 0, 1, 1},
     {&__pyx_n_s_spec, __pyx_k_spec, sizeof(__pyx_k_spec), 0, 0, 1, 1},
     {&__pyx_n_s_startswith, __pyx_k_startswith, sizeof(__pyx_k_startswith), 0, 0, 1, 1},
@@ -16317,11 +16302,11 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
 }
 /* #### Code section: cached_builtins ### */
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
-  __pyx_builtin_property = __Pyx_GetBuiltinName(__pyx_n_s_property); if (!__pyx_builtin_property) __PYX_ERR(0, 118, __pyx_L1_error)
+  __pyx_builtin_property = __Pyx_GetBuiltinName(__pyx_n_s_property); if (!__pyx_builtin_property) __PYX_ERR(0, 123, __pyx_L1_error)
   __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_n_s_super); if (!__pyx_builtin_super) __PYX_ERR(0, 35, __pyx_L1_error)
-  __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 212, __pyx_L1_error)
-  __pyx_builtin_AssertionError = __Pyx_GetBuiltinName(__pyx_n_s_AssertionError); if (!__pyx_builtin_AssertionError) __PYX_ERR(0, 236, __pyx_L1_error)
-  __pyx_builtin_StopIteration = __Pyx_GetBuiltinName(__pyx_n_s_StopIteration); if (!__pyx_builtin_StopIteration) __PYX_ERR(0, 439, __pyx_L1_error)
+  __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 210, __pyx_L1_error)
+  __pyx_builtin_AssertionError = __Pyx_GetBuiltinName(__pyx_n_s_AssertionError); if (!__pyx_builtin_AssertionError) __PYX_ERR(0, 234, __pyx_L1_error)
+  __pyx_builtin_StopIteration = __Pyx_GetBuiltinName(__pyx_n_s_StopIteration); if (!__pyx_builtin_StopIteration) __PYX_ERR(0, 437, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -16332,62 +16317,73 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "aim/storage/rockscontainer.pyx":143
+  /* "aim/storage/rockscontainer.pyx":148
  *             lock_path = prepare_lock_path(self.path)
  *             self._lock_path = lock_path
  *             timeout = self._extra_opts.get('timeout', 10)             # <<<<<<<<<<<<<<
  *             lock_cls = self.get_lock_cls()
  *             self._lock = lock_cls(self._lock_path, timeout)
  */
-  __pyx_tuple_ = PyTuple_Pack(2, __pyx_n_s_timeout, __pyx_int_10); if (unlikely(!__pyx_tuple_)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_tuple_ = PyTuple_Pack(2, __pyx_n_s_timeout, __pyx_int_10); if (unlikely(!__pyx_tuple_)) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple_);
   __Pyx_GIVEREF(__pyx_tuple_);
 
-  /* "aim/storage/rockscontainer.pyx":234
+  /* "aim/storage/rockscontainer.pyx":152
+ *             self._lock = lock_cls(self._lock_path, timeout)
+ *             self._lock.acquire()
+ *         elif not self._extra_opts.get('skip_read_optimization', False):             # <<<<<<<<<<<<<<
+ *             self.optimize_for_read()
+ * 
+ */
+  __pyx_tuple__2 = PyTuple_Pack(2, __pyx_n_s_skip_read_optimization, Py_False); if (unlikely(!__pyx_tuple__2)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__2);
+  __Pyx_GIVEREF(__pyx_tuple__2);
+
+  /* "aim/storage/rockscontainer.pyx":232
  *         key: ContainerKey
  *     ):
  *         def loader() -> bytes:             # <<<<<<<<<<<<<<
  *             data = self[BLOB_DOMAIN + key]
  *             assert isinstance(data, bytes)
  */
-  __pyx_tuple__2 = PyTuple_Pack(1, __pyx_n_s_data); if (unlikely(!__pyx_tuple__2)) __PYX_ERR(0, 234, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__2);
-  __Pyx_GIVEREF(__pyx_tuple__2);
-  __pyx_codeobj__3 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__2, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_loader, 234, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__3)) __PYX_ERR(0, 234, __pyx_L1_error)
+  __pyx_tuple__3 = PyTuple_Pack(1, __pyx_n_s_data); if (unlikely(!__pyx_tuple__3)) __PYX_ERR(0, 232, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__3);
+  __Pyx_GIVEREF(__pyx_tuple__3);
+  __pyx_codeobj__4 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__3, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_loader, 232, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__4)) __PYX_ERR(0, 232, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":534
+  /* "aim/storage/rockscontainer.pyx":532
  * 
  *     def optimize_for_read(self):
  *         optimize_db_for_read(self.path, self._db_opts, run_compactions=self._extra_opts.get('compaction', False))             # <<<<<<<<<<<<<<
  * 
  * 
  */
-  __pyx_tuple__8 = PyTuple_Pack(2, __pyx_n_s_compaction, Py_False); if (unlikely(!__pyx_tuple__8)) __PYX_ERR(0, 534, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__8);
-  __Pyx_GIVEREF(__pyx_tuple__8);
+  __pyx_tuple__9 = PyTuple_Pack(2, __pyx_n_s_compaction, Py_False); if (unlikely(!__pyx_tuple__9)) __PYX_ERR(0, 532, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__9);
+  __Pyx_GIVEREF(__pyx_tuple__9);
 
-  /* "aim/storage/rockscontainer.pyx":551
+  /* "aim/storage/rockscontainer.pyx":549
  *     """
  * 
  *     def non_empty_wal():             # <<<<<<<<<<<<<<
  *         for wal_path in path.glob('*.log'):
  *             if os.path.getsize(wal_path) > 0:
  */
-  __pyx_tuple__9 = PyTuple_Pack(1, __pyx_n_s_wal_path); if (unlikely(!__pyx_tuple__9)) __PYX_ERR(0, 551, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__9);
-  __Pyx_GIVEREF(__pyx_tuple__9);
-  __pyx_codeobj__10 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__9, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_non_empty_wal, 551, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__10)) __PYX_ERR(0, 551, __pyx_L1_error)
+  __pyx_tuple__10 = PyTuple_Pack(1, __pyx_n_s_wal_path); if (unlikely(!__pyx_tuple__10)) __PYX_ERR(0, 549, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__10);
+  __Pyx_GIVEREF(__pyx_tuple__10);
+  __pyx_codeobj__11 = (PyObject*)__Pyx_PyCode_New(0, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__10, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_non_empty_wal, 549, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__11)) __PYX_ERR(0, 549, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":560
+  /* "aim/storage/rockscontainer.pyx":558
  *         lock_path = prepare_lock_path(path)
  * 
  *         with SoftFileLock(lock_path, timeout=0):             # <<<<<<<<<<<<<<
  *             wdb = aimrocks.DB(str(path), aimrocks.Options(**options), read_only=False)
  *             wdb.flush()
  */
-  __pyx_tuple__11 = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_tuple__11)) __PYX_ERR(0, 560, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__11);
-  __Pyx_GIVEREF(__pyx_tuple__11);
+  __pyx_tuple__12 = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(0, 558, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__12);
+  __Pyx_GIVEREF(__pyx_tuple__12);
 
   /* "aim/storage/rockscontainer.pyx":28
  *     PRIORITY = 60
@@ -16396,442 +16392,442 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         """
  *         Prepare the `RocksContainer` for automatic cleanup.
  */
-  __pyx_tuple__14 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_instance); if (unlikely(!__pyx_tuple__14)) __PYX_ERR(0, 28, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__14);
-  __Pyx_GIVEREF(__pyx_tuple__14);
-  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__14, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_init, 28, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_tuple__15 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_instance); if (unlikely(!__pyx_tuple__15)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__15);
+  __Pyx_GIVEREF(__pyx_tuple__15);
+  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__15, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_init, 28, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(0, 28, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":39
- *         self._db = None
+  /* "aim/storage/rockscontainer.pyx":40
+ *         self._progress_path = None
  * 
  *     def _close(self):             # <<<<<<<<<<<<<<
  *         """
  *         Close the RocksDB instances, flush memtables and WAL.
  */
-  __pyx_tuple__16 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__16)) __PYX_ERR(0, 39, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__16);
-  __Pyx_GIVEREF(__pyx_tuple__16);
-  __pyx_codeobj__17 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_close_2, 39, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__17)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_tuple__17 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__17)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__17);
+  __Pyx_GIVEREF(__pyx_tuple__17);
+  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_close_2, 40, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(0, 40, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":59
+  /* "aim/storage/rockscontainer.pyx":63
  *     TODO Rocks-specific docs
  *     """
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
  *         path: str,
  */
-  __pyx_tuple__18 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_path, __pyx_n_s_read_only, __pyx_n_s_wait_if_busy, __pyx_n_s_extra_options, __pyx_n_s_progress_dir); if (unlikely(!__pyx_tuple__18)) __PYX_ERR(0, 59, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__18);
-  __Pyx_GIVEREF(__pyx_tuple__18);
-  __pyx_codeobj__19 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__18, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_init, 59, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__19)) __PYX_ERR(0, 59, __pyx_L1_error)
-  __pyx_tuple__20 = PyTuple_Pack(2, ((PyObject *)Py_False), ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__20)) __PYX_ERR(0, 59, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__20);
-  __Pyx_GIVEREF(__pyx_tuple__20);
+  __pyx_tuple__19 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_path, __pyx_n_s_read_only, __pyx_n_s_wait_if_busy, __pyx_n_s_extra_options, __pyx_n_s_progress_dir); if (unlikely(!__pyx_tuple__19)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__19);
+  __Pyx_GIVEREF(__pyx_tuple__19);
+  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__19, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_init, 63, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_tuple__21 = PyTuple_Pack(2, ((PyObject *)Py_False), ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__21)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__21);
+  __Pyx_GIVEREF(__pyx_tuple__21);
 
-  /* "aim/storage/rockscontainer.pyx":114
+  /* "aim/storage/rockscontainer.pyx":119
  *     # ensure that the resources are closed when the container gone.
  * 
  *     def get_lock_cls(self):             # <<<<<<<<<<<<<<
  *         """Default locking is no-op. Container locking to be handled externally."""
  *         return NoopLock
  */
-  __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_get_lock_cls, 114, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_get_lock_cls, 119, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 119, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":118
+  /* "aim/storage/rockscontainer.pyx":123
  *         return NoopLock
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def _db(self):
  *         return self._resources._db
  */
-  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_db, 118, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 118, __pyx_L1_error)
+  __pyx_codeobj__23 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_db, 123, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__23)) __PYX_ERR(0, 123, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":122
+  /* "aim/storage/rockscontainer.pyx":127
  *         return self._resources._db
  * 
  *     @_db.setter             # <<<<<<<<<<<<<<
  *     def _db(self, value):
  *         self._resources._db = value
  */
-  __pyx_tuple__23 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_value); if (unlikely(!__pyx_tuple__23)) __PYX_ERR(0, 122, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__23);
-  __Pyx_GIVEREF(__pyx_tuple__23);
-  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_db, 122, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_tuple__24 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_value); if (unlikely(!__pyx_tuple__24)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__24);
+  __Pyx_GIVEREF(__pyx_tuple__24);
+  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_db, 127, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 127, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":126
+  /* "aim/storage/rockscontainer.pyx":131
  *         self._resources._db = value
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def _lock(self):
  *         return self._resources._lock
  */
-  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_lock, 126, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_lock, 131, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 131, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":130
+  /* "aim/storage/rockscontainer.pyx":135
  *         return self._resources._lock
  * 
  *     @_lock.setter             # <<<<<<<<<<<<<<
  *     def _lock(self, value):
  *         self._resources._lock = value
  */
-  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__23, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_lock, 130, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__24, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_lock, 135, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 135, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":134
+  /* "aim/storage/rockscontainer.pyx":139
  *         self._resources._lock = value
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def db(self) -> aimrocks.DB:
  *         if self._db is not None:
  */
-  __pyx_tuple__27 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_lock_path_2, __pyx_n_s_timeout, __pyx_n_s_lock_cls); if (unlikely(!__pyx_tuple__27)) __PYX_ERR(0, 134, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__27);
-  __Pyx_GIVEREF(__pyx_tuple__27);
-  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__27, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_db_2, 134, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_tuple__28 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_lock_path_2, __pyx_n_s_timeout, __pyx_n_s_lock_cls); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__28);
+  __Pyx_GIVEREF(__pyx_tuple__28);
+  __pyx_codeobj__29 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__28, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_db_2, 139, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__29)) __PYX_ERR(0, 139, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":156
+  /* "aim/storage/rockscontainer.pyx":161
  *         return self._db
  * 
  *     def finalize(self, index: Container):             # <<<<<<<<<<<<<<
  *         """Finalize the Container.
  * 
  */
-  __pyx_tuple__29 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_index, __pyx_n_s_k, __pyx_n_s_v); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 156, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__29);
-  __Pyx_GIVEREF(__pyx_tuple__29);
-  __pyx_codeobj__30 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__29, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_finalize, 156, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__30)) __PYX_ERR(0, 156, __pyx_L1_error)
+  __pyx_tuple__30 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_index, __pyx_n_s_k, __pyx_n_s_v); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(0, 161, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__30);
+  __Pyx_GIVEREF(__pyx_tuple__30);
+  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__30, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_finalize, 161, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 161, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":172
- *         self._progress_path = None
+  /* "aim/storage/rockscontainer.pyx":170
+ *             index[k] = v
  * 
  *     def close(self):             # <<<<<<<<<<<<<<
  *         """Close all the resources."""
  *         if self._resources is None:
  */
-  __pyx_codeobj__31 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_close, 172, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__31)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_codeobj__32 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_close, 170, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__32)) __PYX_ERR(0, 170, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":178
+  /* "aim/storage/rockscontainer.pyx":176
  *         self._resources.close()
  * 
  *     def preload(self):             # <<<<<<<<<<<<<<
  *         """Preload the Container in the read mode."""
  *         self.db
  */
-  __pyx_codeobj__32 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_preload, 178, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__32)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_codeobj__33 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_preload, 176, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__33)) __PYX_ERR(0, 176, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":182
+  /* "aim/storage/rockscontainer.pyx":180
  *         self.db
  * 
  *     def tree(self) -> 'TreeView':             # <<<<<<<<<<<<<<
  *         """Return a :obj:`ContainerTreeView` which enables hierarchical view and access
  *         to the container records.
  */
-  __pyx_codeobj__33 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_tree, 182, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__33)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_codeobj__34 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_tree, 180, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__34)) __PYX_ERR(0, 180, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":201
+  /* "aim/storage/rockscontainer.pyx":199
  *         return ContainerTreeView(self)
  * 
  *     def get(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_tuple__34 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_default); if (unlikely(!__pyx_tuple__34)) __PYX_ERR(0, 201, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__34);
-  __Pyx_GIVEREF(__pyx_tuple__34);
-  __pyx_codeobj__35 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__34, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_get, 201, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__35)) __PYX_ERR(0, 201, __pyx_L1_error)
-  __pyx_tuple__36 = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(0, 201, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__36);
-  __Pyx_GIVEREF(__pyx_tuple__36);
+  __pyx_tuple__35 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_default); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__35);
+  __Pyx_GIVEREF(__pyx_tuple__35);
+  __pyx_codeobj__36 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__35, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_get, 199, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__36)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __pyx_tuple__37 = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__37);
+  __Pyx_GIVEREF(__pyx_tuple__37);
 
-  /* "aim/storage/rockscontainer.pyx":215
+  /* "aim/storage/rockscontainer.pyx":213
  *             return default
  * 
  *     def __getitem__(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey
  */
-  __pyx_tuple__37 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__37)) __PYX_ERR(0, 215, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__37);
-  __Pyx_GIVEREF(__pyx_tuple__37);
-  __pyx_codeobj__38 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__37, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_getitem, 215, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__38)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_tuple__38 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__38)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__38);
+  __Pyx_GIVEREF(__pyx_tuple__38);
+  __pyx_codeobj__39 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__38, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_getitem, 213, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__39)) __PYX_ERR(0, 213, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":230
+  /* "aim/storage/rockscontainer.pyx":228
  *         return value
  * 
  *     def _get_blob_loader(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey
  */
-  __pyx_tuple__39 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_loader, __pyx_n_s_loader); if (unlikely(!__pyx_tuple__39)) __PYX_ERR(0, 230, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__39);
-  __Pyx_GIVEREF(__pyx_tuple__39);
-  __pyx_codeobj__40 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__39, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_get_blob_loader, 230, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__40)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_tuple__40 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_loader, __pyx_n_s_loader); if (unlikely(!__pyx_tuple__40)) __PYX_ERR(0, 228, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__40);
+  __Pyx_GIVEREF(__pyx_tuple__40);
+  __pyx_codeobj__41 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__40, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_get_blob_loader, 228, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__41)) __PYX_ERR(0, 228, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":240
+  /* "aim/storage/rockscontainer.pyx":238
  *         return loader
  * 
  *     def _get_blob(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey
  */
-  __pyx_tuple__41 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_key); if (unlikely(!__pyx_tuple__41)) __PYX_ERR(0, 240, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__41);
-  __Pyx_GIVEREF(__pyx_tuple__41);
-  __pyx_codeobj__42 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__41, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_get_blob, 240, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__42)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_tuple__42 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_key); if (unlikely(!__pyx_tuple__42)) __PYX_ERR(0, 238, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__42);
+  __Pyx_GIVEREF(__pyx_tuple__42);
+  __pyx_codeobj__43 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__42, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_get_blob, 238, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__43)) __PYX_ERR(0, 238, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":246
+  /* "aim/storage/rockscontainer.pyx":244
  *         return BLOB(loader_fn=self._get_blob_loader(key))
  * 
  *     def _put(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_tuple__43 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_target); if (unlikely(!__pyx_tuple__43)) __PYX_ERR(0, 246, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__43);
-  __Pyx_GIVEREF(__pyx_tuple__43);
-  __pyx_codeobj__44 = (PyObject*)__Pyx_PyCode_New(3, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__43, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_put_2, 246, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__44)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_tuple__44 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_target); if (unlikely(!__pyx_tuple__44)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__44);
+  __Pyx_GIVEREF(__pyx_tuple__44);
+  __pyx_codeobj__45 = (PyObject*)__Pyx_PyCode_New(3, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__44, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_put_2, 244, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__45)) __PYX_ERR(0, 244, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":255
+  /* "aim/storage/rockscontainer.pyx":253
  *         target.put(key, value)
  * 
  *     def _put_blob(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_codeobj__45 = (PyObject*)__Pyx_PyCode_New(3, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__43, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_put_blob, 255, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__45)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_codeobj__46 = (PyObject*)__Pyx_PyCode_New(3, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__44, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_put_blob, 253, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__46)) __PYX_ERR(0, 253, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":266
+  /* "aim/storage/rockscontainer.pyx":264
  *                   target=target)
  * 
  *     def _delete(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_tuple__46 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_target); if (unlikely(!__pyx_tuple__46)) __PYX_ERR(0, 266, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__46);
-  __Pyx_GIVEREF(__pyx_tuple__46);
-  __pyx_codeobj__47 = (PyObject*)__Pyx_PyCode_New(2, 0, 1, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__46, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_2, 266, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__47)) __PYX_ERR(0, 266, __pyx_L1_error)
+  __pyx_tuple__47 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_target); if (unlikely(!__pyx_tuple__47)) __PYX_ERR(0, 264, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__47);
+  __Pyx_GIVEREF(__pyx_tuple__47);
+  __pyx_codeobj__48 = (PyObject*)__Pyx_PyCode_New(2, 0, 1, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__47, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_2, 264, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__48)) __PYX_ERR(0, 264, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":274
+  /* "aim/storage/rockscontainer.pyx":272
  *         target.delete(key)
  * 
  *     def _delete_blob(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_codeobj__48 = (PyObject*)__Pyx_PyCode_New(2, 0, 1, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__46, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_blob, 274, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__48)) __PYX_ERR(0, 274, __pyx_L1_error)
+  __pyx_codeobj__49 = (PyObject*)__Pyx_PyCode_New(2, 0, 1, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__47, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_blob, 272, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__49)) __PYX_ERR(0, 272, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":283
+  /* "aim/storage/rockscontainer.pyx":281
  *                      target=target)
  * 
  *     def _delete_range(             # <<<<<<<<<<<<<<
  *         self,
  *         begin: ContainerKey,
  */
-  __pyx_tuple__49 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_begin, __pyx_n_s_end, __pyx_n_s_target); if (unlikely(!__pyx_tuple__49)) __PYX_ERR(0, 283, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__49);
-  __Pyx_GIVEREF(__pyx_tuple__49);
-  __pyx_codeobj__50 = (PyObject*)__Pyx_PyCode_New(3, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__49, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_range_2, 283, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__50)) __PYX_ERR(0, 283, __pyx_L1_error)
+  __pyx_tuple__50 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_begin, __pyx_n_s_end, __pyx_n_s_target); if (unlikely(!__pyx_tuple__50)) __PYX_ERR(0, 281, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__50);
+  __Pyx_GIVEREF(__pyx_tuple__50);
+  __pyx_codeobj__51 = (PyObject*)__Pyx_PyCode_New(3, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__50, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_range_2, 281, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__51)) __PYX_ERR(0, 281, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":292
+  /* "aim/storage/rockscontainer.pyx":290
  *         target.delete_range(begin, end)
  * 
  *     def _delete_blob_range(             # <<<<<<<<<<<<<<
  *         self,
  *         begin: ContainerKey,
  */
-  __pyx_codeobj__51 = (PyObject*)__Pyx_PyCode_New(3, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__49, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_blob_range, 292, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__51)) __PYX_ERR(0, 292, __pyx_L1_error)
+  __pyx_codeobj__52 = (PyObject*)__Pyx_PyCode_New(3, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__50, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_blob_range, 290, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__52)) __PYX_ERR(0, 290, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":303
+  /* "aim/storage/rockscontainer.pyx":301
  *                            target=target)
  * 
  *     def set(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_tuple__52 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_store_batch, __pyx_n_s_target); if (unlikely(!__pyx_tuple__52)) __PYX_ERR(0, 303, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__52);
-  __Pyx_GIVEREF(__pyx_tuple__52);
-  __pyx_codeobj__53 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__52, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_set, 303, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__53)) __PYX_ERR(0, 303, __pyx_L1_error)
+  __pyx_tuple__53 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_store_batch, __pyx_n_s_target); if (unlikely(!__pyx_tuple__53)) __PYX_ERR(0, 301, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__53);
+  __Pyx_GIVEREF(__pyx_tuple__53);
+  __pyx_codeobj__54 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__53, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_set, 301, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__54)) __PYX_ERR(0, 301, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":330
+  /* "aim/storage/rockscontainer.pyx":328
  *             self.commit(target)
  * 
  *     def __setitem__(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_codeobj__54 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__37, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_setitem, 330, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__54)) __PYX_ERR(0, 330, __pyx_L1_error)
+  __pyx_codeobj__55 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__38, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_setitem, 328, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__55)) __PYX_ERR(0, 328, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":338
+  /* "aim/storage/rockscontainer.pyx":336
  *         self.set(key=key, value=value)
  * 
  *     def delete(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_tuple__55 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_store_batch, __pyx_n_s_target); if (unlikely(!__pyx_tuple__55)) __PYX_ERR(0, 338, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__55);
-  __Pyx_GIVEREF(__pyx_tuple__55);
-  __pyx_codeobj__56 = (PyObject*)__Pyx_PyCode_New(2, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__55, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete, 338, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__56)) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_tuple__56 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_store_batch, __pyx_n_s_target); if (unlikely(!__pyx_tuple__56)) __PYX_ERR(0, 336, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__56);
+  __Pyx_GIVEREF(__pyx_tuple__56);
+  __pyx_codeobj__57 = (PyObject*)__Pyx_PyCode_New(2, 0, 1, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__56, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete, 336, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__57)) __PYX_ERR(0, 336, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":362
+  /* "aim/storage/rockscontainer.pyx":360
  *             self.commit(target)
  * 
  *     def __delitem__(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey
  */
-  __pyx_codeobj__57 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__41, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delitem, 362, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__57)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_codeobj__58 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__42, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delitem, 360, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__58)) __PYX_ERR(0, 360, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":369
+  /* "aim/storage/rockscontainer.pyx":367
  *         self.delete(key)
  * 
  *     def delete_range(             # <<<<<<<<<<<<<<
  *         self,
  *         begin: ContainerKey,
  */
-  __pyx_tuple__58 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_begin, __pyx_n_s_end, __pyx_n_s_store_batch, __pyx_n_s_target); if (unlikely(!__pyx_tuple__58)) __PYX_ERR(0, 369, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__58);
-  __Pyx_GIVEREF(__pyx_tuple__58);
-  __pyx_codeobj__59 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__58, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_range, 369, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__59)) __PYX_ERR(0, 369, __pyx_L1_error)
+  __pyx_tuple__59 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_begin, __pyx_n_s_end, __pyx_n_s_store_batch, __pyx_n_s_target); if (unlikely(!__pyx_tuple__59)) __PYX_ERR(0, 367, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__59);
+  __Pyx_GIVEREF(__pyx_tuple__59);
+  __pyx_codeobj__60 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__59, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_delete_range, 367, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__60)) __PYX_ERR(0, 367, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":393
+  /* "aim/storage/rockscontainer.pyx":391
  *             self.commit(target)
  * 
  *     def items(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_tuple__60 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_prefix); if (unlikely(!__pyx_tuple__60)) __PYX_ERR(0, 393, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__60);
-  __Pyx_GIVEREF(__pyx_tuple__60);
-  __pyx_codeobj__61 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__60, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_items, 393, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__61)) __PYX_ERR(0, 393, __pyx_L1_error)
-  __pyx_tuple__62 = PyTuple_Pack(1, ((PyObject*)__pyx_kp_b__4)); if (unlikely(!__pyx_tuple__62)) __PYX_ERR(0, 393, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__62);
-  __Pyx_GIVEREF(__pyx_tuple__62);
+  __pyx_tuple__61 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_prefix); if (unlikely(!__pyx_tuple__61)) __PYX_ERR(0, 391, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__61);
+  __Pyx_GIVEREF(__pyx_tuple__61);
+  __pyx_codeobj__62 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_items, 391, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__62)) __PYX_ERR(0, 391, __pyx_L1_error)
+  __pyx_tuple__63 = PyTuple_Pack(1, ((PyObject*)__pyx_kp_b__5)); if (unlikely(!__pyx_tuple__63)) __PYX_ERR(0, 391, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__63);
+  __Pyx_GIVEREF(__pyx_tuple__63);
 
-  /* "aim/storage/rockscontainer.pyx":416
+  /* "aim/storage/rockscontainer.pyx":414
  *         return RocksContainerItemsIterator(container=self, prefix=prefix)
  * 
  *     def walk(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_tuple__63 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_prefix, __pyx_n_s_it, __pyx_n_s_key, __pyx_n_s_val, __pyx_n_s_jump); if (unlikely(!__pyx_tuple__63)) __PYX_ERR(0, 416, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__63);
-  __Pyx_GIVEREF(__pyx_tuple__63);
-  __pyx_codeobj__5 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__63, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_walk, 416, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__5)) __PYX_ERR(0, 416, __pyx_L1_error)
+  __pyx_tuple__64 = PyTuple_Pack(6, __pyx_n_s_self, __pyx_n_s_prefix, __pyx_n_s_it, __pyx_n_s_key, __pyx_n_s_val, __pyx_n_s_jump); if (unlikely(!__pyx_tuple__64)) __PYX_ERR(0, 414, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__64);
+  __Pyx_GIVEREF(__pyx_tuple__64);
+  __pyx_codeobj__6 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 6, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__64, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_walk, 414, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__6)) __PYX_ERR(0, 414, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":445
+  /* "aim/storage/rockscontainer.pyx":443
  *             it.seek(jump)
  * 
  *     def view(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_codeobj__64 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__60, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_view, 445, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__64)) __PYX_ERR(0, 445, __pyx_L1_error)
+  __pyx_codeobj__65 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__61, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_view, 443, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__65)) __PYX_ERR(0, 443, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":473
+  /* "aim/storage/rockscontainer.pyx":471
  *         return PrefixView(prefix=prefix, container=self)
  * 
  *     def batch(             # <<<<<<<<<<<<<<
  *         self
  *     ) -> aimrocks.WriteBatch:
  */
-  __pyx_codeobj__65 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_batch, 473, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__65)) __PYX_ERR(0, 473, __pyx_L1_error)
+  __pyx_codeobj__66 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_batch, 471, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__66)) __PYX_ERR(0, 471, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":486
+  /* "aim/storage/rockscontainer.pyx":484
  *         return aimrocks.WriteBatch()
  * 
  *     def commit(             # <<<<<<<<<<<<<<
  *         self,
  *         batch: aimrocks.WriteBatch
  */
-  __pyx_tuple__66 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_batch); if (unlikely(!__pyx_tuple__66)) __PYX_ERR(0, 486, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__66);
-  __Pyx_GIVEREF(__pyx_tuple__66);
-  __pyx_codeobj__67 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_commit, 486, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__67)) __PYX_ERR(0, 486, __pyx_L1_error)
+  __pyx_tuple__67 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_batch); if (unlikely(!__pyx_tuple__67)) __PYX_ERR(0, 484, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__67);
+  __Pyx_GIVEREF(__pyx_tuple__67);
+  __pyx_codeobj__68 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__67, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_commit, 484, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__68)) __PYX_ERR(0, 484, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":496
+  /* "aim/storage/rockscontainer.pyx":494
  *         self.db.write(batch)
  * 
  *     def next_item(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_tuple__68 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_prefix, __pyx_n_s_it, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__68)) __PYX_ERR(0, 496, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__68);
-  __Pyx_GIVEREF(__pyx_tuple__68);
-  __pyx_codeobj__69 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_next_item, 496, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__69)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_tuple__69 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_prefix, __pyx_n_s_it, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__69)) __PYX_ERR(0, 494, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__69);
+  __Pyx_GIVEREF(__pyx_tuple__69);
+  __pyx_codeobj__70 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__69, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_next_item, 494, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__70)) __PYX_ERR(0, 494, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":516
+  /* "aim/storage/rockscontainer.pyx":514
  *         return key, value
  * 
  *     def prev_item(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_codeobj__70 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__68, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_prev_item, 516, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__70)) __PYX_ERR(0, 516, __pyx_L1_error)
+  __pyx_codeobj__71 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__69, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_prev_item, 514, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__71)) __PYX_ERR(0, 514, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":533
+  /* "aim/storage/rockscontainer.pyx":531
  *         return key, value
  * 
  *     def optimize_for_read(self):             # <<<<<<<<<<<<<<
  *         optimize_db_for_read(self.path, self._db_opts, run_compactions=self._extra_opts.get('compaction', False))
  * 
  */
-  __pyx_codeobj__71 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__16, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_optimize_for_read, 533, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__71)) __PYX_ERR(0, 533, __pyx_L1_error)
+  __pyx_codeobj__72 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__17, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_optimize_for_read, 531, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__72)) __PYX_ERR(0, 531, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":537
+  /* "aim/storage/rockscontainer.pyx":535
  * 
  * 
  * @exception_resistant(silent=True)             # <<<<<<<<<<<<<<
  * def optimize_db_for_read(path: Path, options: dict, run_compactions: bool = False):
  *     """
  */
-  __pyx_tuple__72 = PyTuple_Pack(7, __pyx_n_s_path, __pyx_n_s_options, __pyx_n_s_run_compactions, __pyx_n_s_non_empty_wal, __pyx_n_s_non_empty_wal, __pyx_n_s_lock_path_2, __pyx_n_s_wdb); if (unlikely(!__pyx_tuple__72)) __PYX_ERR(0, 537, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__72);
-  __Pyx_GIVEREF(__pyx_tuple__72);
-  __pyx_codeobj__73 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__72, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_optimize_db_for_read, 537, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__73)) __PYX_ERR(0, 537, __pyx_L1_error)
-  __pyx_tuple__74 = PyTuple_Pack(1, ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__74)) __PYX_ERR(0, 537, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__74);
-  __Pyx_GIVEREF(__pyx_tuple__74);
+  __pyx_tuple__73 = PyTuple_Pack(7, __pyx_n_s_path, __pyx_n_s_options, __pyx_n_s_run_compactions, __pyx_n_s_non_empty_wal, __pyx_n_s_non_empty_wal, __pyx_n_s_lock_path_2, __pyx_n_s_wdb); if (unlikely(!__pyx_tuple__73)) __PYX_ERR(0, 535, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__73);
+  __Pyx_GIVEREF(__pyx_tuple__73);
+  __pyx_codeobj__74 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 7, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__73, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_optimize_db_for_read, 535, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__74)) __PYX_ERR(0, 535, __pyx_L1_error)
+  __pyx_tuple__75 = PyTuple_Pack(1, ((PyObject *)Py_False)); if (unlikely(!__pyx_tuple__75)) __PYX_ERR(0, 535, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__75);
+  __Pyx_GIVEREF(__pyx_tuple__75);
 
-  /* "aim/storage/rockscontainer.pyx":569
+  /* "aim/storage/rockscontainer.pyx":567
  * 
  * 
  * def prepare_lock_path(path: Path):             # <<<<<<<<<<<<<<
  *     """
  *     This function creates the locks directory (if needed) and returns a LOCK file path for given rocksdb `path`.
  */
-  __pyx_tuple__75 = PyTuple_Pack(2, __pyx_n_s_path, __pyx_n_s_locks_dir); if (unlikely(!__pyx_tuple__75)) __PYX_ERR(0, 569, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__75);
-  __Pyx_GIVEREF(__pyx_tuple__75);
-  __pyx_codeobj__76 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__75, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_prepare_lock_path, 569, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__76)) __PYX_ERR(0, 569, __pyx_L1_error)
+  __pyx_tuple__76 = PyTuple_Pack(2, __pyx_n_s_path, __pyx_n_s_locks_dir); if (unlikely(!__pyx_tuple__76)) __PYX_ERR(0, 567, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__76);
+  __Pyx_GIVEREF(__pyx_tuple__76);
+  __pyx_codeobj__77 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__76, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_prepare_lock_path, 567, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__77)) __PYX_ERR(0, 567, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":586
+  /* "aim/storage/rockscontainer.pyx":584
  * 
  * class RocksContainerItemsIterator(ContainerItemsIterator):
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
  *         container: RocksContainer,
  */
-  __pyx_tuple__77 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_container, __pyx_n_s_prefix); if (unlikely(!__pyx_tuple__77)) __PYX_ERR(0, 586, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__77);
-  __Pyx_GIVEREF(__pyx_tuple__77);
-  __pyx_codeobj__78 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__77, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_init, 586, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__78)) __PYX_ERR(0, 586, __pyx_L1_error)
+  __pyx_tuple__78 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_container, __pyx_n_s_prefix); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(0, 584, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__78);
+  __Pyx_GIVEREF(__pyx_tuple__78);
+  __pyx_codeobj__79 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_init, 584, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__79)) __PYX_ERR(0, 584, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":596
+  /* "aim/storage/rockscontainer.pyx":594
  *         self.it.seek(prefix)
  * 
  *     def next(self):             # <<<<<<<<<<<<<<
  *         item = self.it.next()
  * 
  */
-  __pyx_tuple__79 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_item, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__79)) __PYX_ERR(0, 596, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__79);
-  __Pyx_GIVEREF(__pyx_tuple__79);
-  __pyx_codeobj__80 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__79, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_next, 596, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__80)) __PYX_ERR(0, 596, __pyx_L1_error)
+  __pyx_tuple__80 = PyTuple_Pack(4, __pyx_n_s_self, __pyx_n_s_item, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__80)) __PYX_ERR(0, 594, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__80);
+  __Pyx_GIVEREF(__pyx_tuple__80);
+  __pyx_codeobj__81 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 4, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_aim_storage_rockscontainer_pyx, __pyx_n_s_next, 594, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__81)) __PYX_ERR(0, 594, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -16912,15 +16908,15 @@ static int __Pyx_modinit_type_init_code(void) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader_spec, NULL); if (unlikely(!__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader)) __PYX_ERR(0, 230, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader_spec, __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader) < 0) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader_spec, NULL); if (unlikely(!__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader)) __PYX_ERR(0, 228, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader_spec, __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
   #else
   __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader = &__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader) < 0) __PYX_ERR(0, 230, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct___get_blob_loader->tp_print = 0;
@@ -16931,15 +16927,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk_spec, NULL); if (unlikely(!__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk)) __PYX_ERR(0, 416, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk_spec, __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk) < 0) __PYX_ERR(0, 416, __pyx_L1_error)
+  __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk_spec, NULL); if (unlikely(!__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk)) __PYX_ERR(0, 414, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk_spec, __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
   #else
   __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk = &__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk) < 0) __PYX_ERR(0, 416, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_1_walk->tp_print = 0;
@@ -16950,15 +16946,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read_spec, NULL); if (unlikely(!__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read)) __PYX_ERR(0, 537, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read_spec, __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read) < 0) __PYX_ERR(0, 537, __pyx_L1_error)
+  __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read_spec, NULL); if (unlikely(!__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read)) __PYX_ERR(0, 535, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read_spec, __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
   #else
   __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read = &__pyx_type_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read) < 0) __PYX_ERR(0, 537, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_3aim_7storage_14rockscontainer___pyx_scope_struct_2_optimize_db_for_read->tp_print = 0;
@@ -17597,7 +17593,7 @@ if (!__Pyx_RefNanny) {
  * BLOB_DOMAIN = b'BLOBS\xfe'
  * 
  */
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_BLOB_SENTINEL, __pyx_kp_b__4) < 0) __PYX_ERR(0, 21, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_BLOB_SENTINEL, __pyx_kp_b__5) < 0) __PYX_ERR(0, 21, __pyx_L1_error)
 
   /* "aim/storage/rockscontainer.pyx":22
  * 
@@ -17655,7 +17651,7 @@ if (!__Pyx_RefNanny) {
   __Pyx_GOTREF(__pyx_t_6);
   if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_instance, __pyx_kp_s_RocksContainer) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksAutoClean_1__init__, 0, __pyx_n_s_RocksAutoClean___init, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__15)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksAutoClean_1__init__, 0, __pyx_n_s_RocksAutoClean___init, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_INCREF(__pyx_t_7);
   PyList_Append(__pyx_t_2, __pyx_t_7);
@@ -17665,16 +17661,16 @@ if (!__Pyx_RefNanny) {
   if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_init, __pyx_t_7) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":39
- *         self._db = None
+  /* "aim/storage/rockscontainer.pyx":40
+ *         self._progress_path = None
  * 
  *     def _close(self):             # <<<<<<<<<<<<<<
  *         """
  *         Close the RocksDB instances, flush memtables and WAL.
  */
-  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksAutoClean_3_close, 0, __pyx_n_s_RocksAutoClean__close, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__17)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksAutoClean_3_close, 0, __pyx_n_s_RocksAutoClean__close, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_close_2, __pyx_t_7) < 0) __PYX_ERR(0, 39, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_5, __pyx_n_s_close_2, __pyx_t_7) < 0) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
   /* "aim/storage/rockscontainer.pyx":25
@@ -17694,80 +17690,80 @@ if (!__Pyx_RefNanny) {
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":55
+  /* "aim/storage/rockscontainer.pyx":59
  * 
  * 
  * class RocksContainer(Container):             # <<<<<<<<<<<<<<
  *     """
  *     TODO Rocks-specific docs
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_Container); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_Container); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error);
   __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_4, __pyx_n_s_RocksContainer_2, __pyx_n_s_RocksContainer_2, (PyObject *) NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_kp_s_TODO_Rocks_specific_docs); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_Py3MetaclassPrepare(__pyx_t_5, __pyx_t_4, __pyx_n_s_RocksContainer_2, __pyx_n_s_RocksContainer_2, (PyObject *) NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_kp_s_TODO_Rocks_specific_docs); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   if (__pyx_t_4 != __pyx_t_3) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_t_3) < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_7, "__orig_bases__", __pyx_t_3) < 0))) __PYX_ERR(0, 59, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":59
+  /* "aim/storage/rockscontainer.pyx":63
  *     TODO Rocks-specific docs
  *     """
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
  *         path: str,
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_path, __pyx_n_s_str) < 0) __PYX_ERR(0, 59, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_read_only, __pyx_n_s_bool) < 0) __PYX_ERR(0, 59, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_wait_if_busy, __pyx_n_s_bool) < 0) __PYX_ERR(0, 59, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(0, 59, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_1__init__, 0, __pyx_n_s_RocksContainer___init, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__19)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_path, __pyx_n_s_str) < 0) __PYX_ERR(0, 63, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_read_only, __pyx_n_s_bool) < 0) __PYX_ERR(0, 63, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_wait_if_busy, __pyx_n_s_bool) < 0) __PYX_ERR(0, 63, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_1__init__, 0, __pyx_n_s_RocksContainer___init, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__20);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__21);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_init, __pyx_t_2) < 0) __PYX_ERR(0, 59, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_init, __pyx_t_2) < 0) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":114
+  /* "aim/storage/rockscontainer.pyx":119
  *     # ensure that the resources are closed when the container gone.
  * 
  *     def get_lock_cls(self):             # <<<<<<<<<<<<<<
  *         """Default locking is no-op. Container locking to be handled externally."""
  *         return NoopLock
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_3get_lock_cls, 0, __pyx_n_s_RocksContainer_get_lock_cls, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__21)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_3get_lock_cls, 0, __pyx_n_s_RocksContainer_get_lock_cls, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_get_lock_cls, __pyx_t_2) < 0) __PYX_ERR(0, 114, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_get_lock_cls, __pyx_t_2) < 0) __PYX_ERR(0, 119, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":118
+  /* "aim/storage/rockscontainer.pyx":123
  *         return NoopLock
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def _db(self):
  *         return self._resources._db
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_5_db, 0, __pyx_n_s_RocksContainer__db, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 118, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_5_db, 0, __pyx_n_s_RocksContainer__db, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__23)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_property, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 118, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_CallOneArg(__pyx_builtin_property, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_db, __pyx_t_3) < 0) __PYX_ERR(0, 118, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_db, __pyx_t_3) < 0) __PYX_ERR(0, 123, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":122
+  /* "aim/storage/rockscontainer.pyx":127
  *         return self._resources._db
  * 
  *     @_db.setter             # <<<<<<<<<<<<<<
@@ -17779,12 +17775,12 @@ if (!__Pyx_RefNanny) {
     PyErr_Clear();
     __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_db);
   }
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_setter); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_setter); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_7_db, 0, __pyx_n_s_RocksContainer__db, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_7_db, 0, __pyx_n_s_RocksContainer__db, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_8 = NULL;
   __pyx_t_9 = 0;
@@ -17805,29 +17801,29 @@ if (!__Pyx_RefNanny) {
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_db, __pyx_t_3) < 0) __PYX_ERR(0, 122, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_db, __pyx_t_3) < 0) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":126
+  /* "aim/storage/rockscontainer.pyx":131
  *         self._resources._db = value
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def _lock(self):
  *         return self._resources._lock
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_9_lock, 0, __pyx_n_s_RocksContainer__lock, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_9_lock, 0, __pyx_n_s_RocksContainer__lock, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_property, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_property, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_lock, __pyx_t_6) < 0) __PYX_ERR(0, 126, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_lock, __pyx_t_6) < 0) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":130
+  /* "aim/storage/rockscontainer.pyx":135
  *         return self._resources._lock
  * 
  *     @_lock.setter             # <<<<<<<<<<<<<<
@@ -17839,12 +17835,12 @@ if (!__Pyx_RefNanny) {
     PyErr_Clear();
     __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_lock);
   }
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_setter); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_setter); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_11_lock, 0, __pyx_n_s_RocksContainer__lock, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_11_lock, 0, __pyx_n_s_RocksContainer__lock, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_8 = NULL;
   __pyx_t_9 = 0;
@@ -17865,661 +17861,661 @@ if (!__Pyx_RefNanny) {
     __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 130, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 135, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_lock, __pyx_t_6) < 0) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_lock, __pyx_t_6) < 0) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":134
+  /* "aim/storage/rockscontainer.pyx":139
  *         self._resources._lock = value
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def db(self) -> aimrocks.DB:
  *         if self._db is not None:
  */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_return, __pyx_kp_s_aimrocks_DB) < 0) __PYX_ERR(0, 134, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_13db, 0, __pyx_n_s_RocksContainer_db, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 134, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_return, __pyx_kp_s_aimrocks_DB) < 0) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_13db, 0, __pyx_n_s_RocksContainer_db, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__29)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_property, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_CallOneArg(__pyx_builtin_property, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_db_2, __pyx_t_6) < 0) __PYX_ERR(0, 134, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_db_2, __pyx_t_6) < 0) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":156
+  /* "aim/storage/rockscontainer.pyx":161
  *         return self._db
  * 
  *     def finalize(self, index: Container):             # <<<<<<<<<<<<<<
  *         """Finalize the Container.
  * 
  */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 156, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 161, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_index, __pyx_n_s_Container) < 0) __PYX_ERR(0, 156, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_15finalize, 0, __pyx_n_s_RocksContainer_finalize, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__30)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 156, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_index, __pyx_n_s_Container) < 0) __PYX_ERR(0, 161, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_15finalize, 0, __pyx_n_s_RocksContainer_finalize, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__31)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 161, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_finalize, __pyx_t_2) < 0) __PYX_ERR(0, 156, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_finalize, __pyx_t_2) < 0) __PYX_ERR(0, 161, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":172
- *         self._progress_path = None
+  /* "aim/storage/rockscontainer.pyx":170
+ *             index[k] = v
  * 
  *     def close(self):             # <<<<<<<<<<<<<<
  *         """Close all the resources."""
  *         if self._resources is None:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_17close, 0, __pyx_n_s_RocksContainer_close, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__31)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_17close, 0, __pyx_n_s_RocksContainer_close, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__32)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 170, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_close, __pyx_t_2) < 0) __PYX_ERR(0, 172, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_close, __pyx_t_2) < 0) __PYX_ERR(0, 170, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":178
+  /* "aim/storage/rockscontainer.pyx":176
  *         self._resources.close()
  * 
  *     def preload(self):             # <<<<<<<<<<<<<<
  *         """Preload the Container in the read mode."""
  *         self.db
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_19preload, 0, __pyx_n_s_RocksContainer_preload, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__32)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_19preload, 0, __pyx_n_s_RocksContainer_preload, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 176, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_preload, __pyx_t_2) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_preload, __pyx_t_2) < 0) __PYX_ERR(0, 176, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":182
+  /* "aim/storage/rockscontainer.pyx":180
  *         self.db
  * 
  *     def tree(self) -> 'TreeView':             # <<<<<<<<<<<<<<
  *         """Return a :obj:`ContainerTreeView` which enables hierarchical view and access
  *         to the container records.
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_TreeView_2) < 0) __PYX_ERR(0, 182, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_21tree, 0, __pyx_n_s_RocksContainer_tree, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_TreeView_2) < 0) __PYX_ERR(0, 180, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_21tree, 0, __pyx_n_s_RocksContainer_tree, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__34)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_tree, __pyx_t_6) < 0) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_tree, __pyx_t_6) < 0) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":201
+  /* "aim/storage/rockscontainer.pyx":199
  *         return ContainerTreeView(self)
  * 
  *     def get(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 199, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 201, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_return, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 201, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_23get, 0, __pyx_n_s_RocksContainer_get, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__35)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 199, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_return, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 199, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_23get, 0, __pyx_n_s_RocksContainer_get, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__36)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 199, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__36);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__37);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_get, __pyx_t_2) < 0) __PYX_ERR(0, 201, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_get, __pyx_t_2) < 0) __PYX_ERR(0, 199, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":215
+  /* "aim/storage/rockscontainer.pyx":213
  *             return default
  * 
  *     def __getitem__(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_25__getitem__, 0, __pyx_n_s_RocksContainer___getitem, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__38)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 215, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_25__getitem__, 0, __pyx_n_s_RocksContainer___getitem, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__39)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_getitem, __pyx_t_6) < 0) __PYX_ERR(0, 215, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_getitem, __pyx_t_6) < 0) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":230
+  /* "aim/storage/rockscontainer.pyx":228
  *         return value
  * 
  *     def _get_blob_loader(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey
  */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 230, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_27_get_blob_loader, 0, __pyx_n_s_RocksContainer__get_blob_loader_2, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__40)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_27_get_blob_loader, 0, __pyx_n_s_RocksContainer__get_blob_loader_2, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__41)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_get_blob_loader, __pyx_t_2) < 0) __PYX_ERR(0, 230, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_get_blob_loader, __pyx_t_2) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":240
+  /* "aim/storage/rockscontainer.pyx":238
  *         return loader
  * 
  *     def _get_blob(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 238, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 240, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_n_s_BLOB) < 0) __PYX_ERR(0, 240, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_29_get_blob, 0, __pyx_n_s_RocksContainer__get_blob, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__42)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 240, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_n_s_BLOB) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_29_get_blob, 0, __pyx_n_s_RocksContainer__get_blob, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__43)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 238, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_get_blob, __pyx_t_6) < 0) __PYX_ERR(0, 240, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_get_blob, __pyx_t_6) < 0) __PYX_ERR(0, 238, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":246
+  /* "aim/storage/rockscontainer.pyx":244
  *         return BLOB(loader_fn=self._get_blob_loader(key))
  * 
  *     def _put(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 246, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_value, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 246, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 246, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_31_put, 0, __pyx_n_s_RocksContainer__put, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__44)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 246, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_value, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_31_put, 0, __pyx_n_s_RocksContainer__put, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__45)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_put_2, __pyx_t_2) < 0) __PYX_ERR(0, 246, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_put_2, __pyx_t_2) < 0) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":255
+  /* "aim/storage/rockscontainer.pyx":253
  *         target.put(key, value)
  * 
  *     def _put_blob(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 255, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_n_s_BLOB) < 0) __PYX_ERR(0, 255, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 255, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_33_put_blob, 0, __pyx_n_s_RocksContainer__put_blob, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__45)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 255, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 253, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_n_s_BLOB) < 0) __PYX_ERR(0, 253, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_33_put_blob, 0, __pyx_n_s_RocksContainer__put_blob, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__46)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_put_blob, __pyx_t_6) < 0) __PYX_ERR(0, 255, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_put_blob, __pyx_t_6) < 0) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":266
+  /* "aim/storage/rockscontainer.pyx":264
  *                   target=target)
  * 
  *     def _delete(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 266, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 266, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 266, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_35_delete, 0, __pyx_n_s_RocksContainer__delete, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__47)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 266, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 264, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 264, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_35_delete, 0, __pyx_n_s_RocksContainer__delete, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__48)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_2, __pyx_t_2) < 0) __PYX_ERR(0, 266, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_2, __pyx_t_2) < 0) __PYX_ERR(0, 264, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":274
+  /* "aim/storage/rockscontainer.pyx":272
  *         target.delete(key)
  * 
  *     def _delete_blob(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 274, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 274, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 274, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_37_delete_blob, 0, __pyx_n_s_RocksContainer__delete_blob, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__48)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 274, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 272, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_37_delete_blob, 0, __pyx_n_s_RocksContainer__delete_blob, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__49)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_blob, __pyx_t_6) < 0) __PYX_ERR(0, 274, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_blob, __pyx_t_6) < 0) __PYX_ERR(0, 272, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":283
+  /* "aim/storage/rockscontainer.pyx":281
  *                      target=target)
  * 
  *     def _delete_range(             # <<<<<<<<<<<<<<
  *         self,
  *         begin: ContainerKey,
  */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 283, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 281, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_begin, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_end, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_39_delete_range, 0, __pyx_n_s_RocksContainer__delete_range, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__50)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 283, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_begin, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 281, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_end, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 281, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 281, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_39_delete_range, 0, __pyx_n_s_RocksContainer__delete_range, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__51)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 281, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_range_2, __pyx_t_2) < 0) __PYX_ERR(0, 283, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_range_2, __pyx_t_2) < 0) __PYX_ERR(0, 281, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":292
+  /* "aim/storage/rockscontainer.pyx":290
  *         target.delete_range(begin, end)
  * 
  *     def _delete_blob_range(             # <<<<<<<<<<<<<<
  *         self,
  *         begin: ContainerKey,
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 292, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_begin, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 292, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_end, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 292, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 292, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_41_delete_blob_range, 0, __pyx_n_s_RocksContainer__delete_blob_rang, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__51)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 292, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_begin, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 290, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_end, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 290, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_target, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 290, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_41_delete_blob_range, 0, __pyx_n_s_RocksContainer__delete_blob_rang, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__52)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_blob_range, __pyx_t_6) < 0) __PYX_ERR(0, 292, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_blob_range, __pyx_t_6) < 0) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":303
+  /* "aim/storage/rockscontainer.pyx":301
  *                            target=target)
  * 
  *     def set(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 303, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 301, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 303, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_value, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 303, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_store_batch, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 303, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_43set, 0, __pyx_n_s_RocksContainer_set, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__53)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 303, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 301, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_value, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 301, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_store_batch, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 301, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_43set, 0, __pyx_n_s_RocksContainer_set, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__54)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 301, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__36);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__37);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_set, __pyx_t_2) < 0) __PYX_ERR(0, 303, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_set, __pyx_t_2) < 0) __PYX_ERR(0, 301, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":330
+  /* "aim/storage/rockscontainer.pyx":328
  *             self.commit(target)
  * 
  *     def __setitem__(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 330, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 328, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 330, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 330, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_45__setitem__, 0, __pyx_n_s_RocksContainer___setitem, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__54)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 330, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 328, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_n_s_ContainerValue) < 0) __PYX_ERR(0, 328, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_45__setitem__, 0, __pyx_n_s_RocksContainer___setitem, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__55)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 328, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_setitem, __pyx_t_6) < 0) __PYX_ERR(0, 330, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_setitem, __pyx_t_6) < 0) __PYX_ERR(0, 328, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":338
+  /* "aim/storage/rockscontainer.pyx":336
  *         self.set(key=key, value=value)
  * 
  *     def delete(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
 
-  /* "aim/storage/rockscontainer.pyx":342
+  /* "aim/storage/rockscontainer.pyx":340
  *         key: ContainerKey,
  *         *,
  *         store_batch: aimrocks.WriteBatch = None             # <<<<<<<<<<<<<<
  *     ):
  *         """Delete a key-value record by the given key,
  */
-  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_store_batch, Py_None) < 0) __PYX_ERR(0, 338, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_n_s_store_batch, Py_None) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
 
-  /* "aim/storage/rockscontainer.pyx":338
+  /* "aim/storage/rockscontainer.pyx":336
  *         self.set(key=key, value=value)
  * 
  *     def delete(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey,
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 338, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 338, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_store_batch, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 338, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_47delete, 0, __pyx_n_s_RocksContainer_delete, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__56)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 338, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_store_batch, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_47delete, 0, __pyx_n_s_RocksContainer_delete, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__57)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_3, __pyx_t_6);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete, __pyx_t_3) < 0) __PYX_ERR(0, 338, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete, __pyx_t_3) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":362
+  /* "aim/storage/rockscontainer.pyx":360
  *             self.commit(target)
  * 
  *     def __delitem__(             # <<<<<<<<<<<<<<
  *         self,
  *         key: ContainerKey
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 362, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_49__delitem__, 0, __pyx_n_s_RocksContainer___delitem, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__57)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 362, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_key, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_None) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_49__delitem__, 0, __pyx_n_s_RocksContainer___delitem, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__58)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delitem, __pyx_t_2) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delitem, __pyx_t_2) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":369
+  /* "aim/storage/rockscontainer.pyx":367
  *         self.delete(key)
  * 
  *     def delete_range(             # <<<<<<<<<<<<<<
  *         self,
  *         begin: ContainerKey,
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 369, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 367, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_begin, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_end, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_store_batch, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_51delete_range, 0, __pyx_n_s_RocksContainer_delete_range, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__59)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 369, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_begin, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 367, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_end, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 367, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_store_batch, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 367, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_51delete_range, 0, __pyx_n_s_RocksContainer_delete_range, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__60)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 367, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__36);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__37);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_range, __pyx_t_3) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_delete_range, __pyx_t_3) < 0) __PYX_ERR(0, 367, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":393
+  /* "aim/storage/rockscontainer.pyx":391
  *             self.commit(target)
  * 
  *     def items(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 393, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 391, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 393, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_Iterator_Tuple_ContainerKey_Cont) < 0) __PYX_ERR(0, 393, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_53items, 0, __pyx_n_s_RocksContainer_items, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__61)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 391, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_Iterator_Tuple_ContainerKey_Cont) < 0) __PYX_ERR(0, 391, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_53items, 0, __pyx_n_s_RocksContainer_items, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__62)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 391, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__62);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__63);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_items, __pyx_t_2) < 0) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_items, __pyx_t_2) < 0) __PYX_ERR(0, 391, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":416
+  /* "aim/storage/rockscontainer.pyx":414
  *         return RocksContainerItemsIterator(container=self, prefix=prefix)
  * 
  *     def walk(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 416, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 414, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 416, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_55walk, 0, __pyx_n_s_RocksContainer_walk, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__5)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 416, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_55walk, 0, __pyx_n_s_RocksContainer_walk, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__6)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 414, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__62);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__63);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_walk, __pyx_t_3) < 0) __PYX_ERR(0, 416, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_walk, __pyx_t_3) < 0) __PYX_ERR(0, 414, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":445
+  /* "aim/storage/rockscontainer.pyx":443
  *             it.seek(jump)
  * 
  *     def view(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 445, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 445, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_Container_2) < 0) __PYX_ERR(0, 445, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_58view, 0, __pyx_n_s_RocksContainer_view, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__64)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 445, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 443, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_Container_2) < 0) __PYX_ERR(0, 443, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_58view, 0, __pyx_n_s_RocksContainer_view, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__65)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__62);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__63);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_view, __pyx_t_2) < 0) __PYX_ERR(0, 445, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_view, __pyx_t_2) < 0) __PYX_ERR(0, 443, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":473
+  /* "aim/storage/rockscontainer.pyx":471
  *         return PrefixView(prefix=prefix, container=self)
  * 
  *     def batch(             # <<<<<<<<<<<<<<
  *         self
  *     ) -> aimrocks.WriteBatch:
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 473, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 471, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 473, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_60batch, 0, __pyx_n_s_RocksContainer_batch, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__65)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 473, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 471, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_60batch, 0, __pyx_n_s_RocksContainer_batch, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__66)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 471, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_batch, __pyx_t_3) < 0) __PYX_ERR(0, 473, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_batch, __pyx_t_3) < 0) __PYX_ERR(0, 471, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":486
+  /* "aim/storage/rockscontainer.pyx":484
  *         return aimrocks.WriteBatch()
  * 
  *     def commit(             # <<<<<<<<<<<<<<
  *         self,
  *         batch: aimrocks.WriteBatch
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 486, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_batch, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 486, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_62commit, 0, __pyx_n_s_RocksContainer_commit, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__67)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 486, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_batch, __pyx_kp_s_aimrocks_WriteBatch) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_62commit, 0, __pyx_n_s_RocksContainer_commit, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__68)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_commit, __pyx_t_2) < 0) __PYX_ERR(0, 486, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_commit, __pyx_t_2) < 0) __PYX_ERR(0, 484, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":496
+  /* "aim/storage/rockscontainer.pyx":494
  *         self.db.write(batch)
  * 
  *     def next_item(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 496, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 494, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 496, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_Tuple_ContainerKey_ContainerValu) < 0) __PYX_ERR(0, 496, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_64next_item, 0, __pyx_n_s_RocksContainer_next_item, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__69)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 496, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 494, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_kp_s_Tuple_ContainerKey_ContainerValu) < 0) __PYX_ERR(0, 494, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_64next_item, 0, __pyx_n_s_RocksContainer_next_item, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__70)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 494, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__62);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__63);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_next_item, __pyx_t_3) < 0) __PYX_ERR(0, 496, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_next_item, __pyx_t_3) < 0) __PYX_ERR(0, 494, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":516
+  /* "aim/storage/rockscontainer.pyx":514
  *         return key, value
  * 
  *     def prev_item(             # <<<<<<<<<<<<<<
  *         self,
  *         prefix: ContainerKey = b''
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 516, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 514, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 516, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_Tuple_ContainerKey_ContainerValu) < 0) __PYX_ERR(0, 516, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_66prev_item, 0, __pyx_n_s_RocksContainer_prev_item, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__70)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 516, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 514, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_kp_s_Tuple_ContainerKey_ContainerValu) < 0) __PYX_ERR(0, 514, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_66prev_item, 0, __pyx_n_s_RocksContainer_prev_item, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__71)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 514, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__62);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_2, __pyx_tuple__63);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_prev_item, __pyx_t_2) < 0) __PYX_ERR(0, 516, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_prev_item, __pyx_t_2) < 0) __PYX_ERR(0, 514, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":533
+  /* "aim/storage/rockscontainer.pyx":531
  *         return key, value
  * 
  *     def optimize_for_read(self):             # <<<<<<<<<<<<<<
  *         optimize_db_for_read(self.path, self._db_opts, run_compactions=self._extra_opts.get('compaction', False))
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_68optimize_for_read, 0, __pyx_n_s_RocksContainer_optimize_for_read, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__71)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 533, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_14RocksContainer_68optimize_for_read, 0, __pyx_n_s_RocksContainer_optimize_for_read, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__72)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 531, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_optimize_for_read, __pyx_t_2) < 0) __PYX_ERR(0, 533, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_7, __pyx_n_s_optimize_for_read, __pyx_t_2) < 0) __PYX_ERR(0, 531, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":55
+  /* "aim/storage/rockscontainer.pyx":59
  * 
  * 
  * class RocksContainer(Container):             # <<<<<<<<<<<<<<
  *     """
  *     TODO Rocks-specific docs
  */
-  __pyx_t_2 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_n_s_RocksContainer_2, __pyx_t_4, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3ClassCreate(__pyx_t_5, __pyx_n_s_RocksContainer_2, __pyx_t_4, __pyx_t_7, NULL, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_RocksContainer_2, __pyx_t_2) < 0) __PYX_ERR(0, 55, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_RocksContainer_2, __pyx_t_2) < 0) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":537
+  /* "aim/storage/rockscontainer.pyx":535
  * 
  * 
  * @exception_resistant(silent=True)             # <<<<<<<<<<<<<<
  * def optimize_db_for_read(path: Path, options: dict, run_compactions: bool = False):
  *     """
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_exception_resistant); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 537, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_exception_resistant); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 535, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 537, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 535, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_silent, Py_True) < 0) __PYX_ERR(0, 537, __pyx_L1_error)
-  __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_5); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 537, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_silent, Py_True) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_empty_tuple, __pyx_t_5); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 535, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 537, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 535, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_path, __pyx_n_s_Path) < 0) __PYX_ERR(0, 537, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_options, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 537, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_run_compactions, __pyx_n_s_bool) < 0) __PYX_ERR(0, 537, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_1optimize_db_for_read, 0, __pyx_n_s_optimize_db_for_read, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__73)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 537, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_path, __pyx_n_s_Path) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_options, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_run_compactions, __pyx_n_s_bool) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_1optimize_db_for_read, 0, __pyx_n_s_optimize_db_for_read, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__74)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 535, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__74);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_tuple__75);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 537, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_t_7, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 535, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_optimize_db_for_read, __pyx_t_5) < 0) __PYX_ERR(0, 537, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_optimize_db_for_read, __pyx_t_5) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":569
+  /* "aim/storage/rockscontainer.pyx":567
  * 
  * 
  * def prepare_lock_path(path: Path):             # <<<<<<<<<<<<<<
  *     """
  *     This function creates the locks directory (if needed) and returns a LOCK file path for given rocksdb `path`.
  */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 569, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_path, __pyx_n_s_Path) < 0) __PYX_ERR(0, 569, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_3prepare_lock_path, 0, __pyx_n_s_prepare_lock_path, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__76)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 569, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_path, __pyx_n_s_Path) < 0) __PYX_ERR(0, 567, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_3prepare_lock_path, 0, __pyx_n_s_prepare_lock_path, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__77)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_prepare_lock_path, __pyx_t_4) < 0) __PYX_ERR(0, 569, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_prepare_lock_path, __pyx_t_4) < 0) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":585
+  /* "aim/storage/rockscontainer.pyx":583
  * 
  * 
  * class RocksContainerItemsIterator(ContainerItemsIterator):             # <<<<<<<<<<<<<<
  *     def __init__(
  *         self,
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_ContainerItemsIterator); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 585, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_ContainerItemsIterator); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 583, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 585, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 583, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_GIVEREF(__pyx_t_4);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 585, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_4)) __PYX_ERR(0, 583, __pyx_L1_error);
   __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 585, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PEP560_update_bases(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 583, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_7 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 585, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CalculateMetaclass(NULL, __pyx_t_4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 583, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_2 = __Pyx_Py3MetaclassPrepare(__pyx_t_7, __pyx_t_4, __pyx_n_s_RocksContainerItemsIterator, __pyx_n_s_RocksContainerItemsIterator, (PyObject *) NULL, __pyx_n_s_aim_storage_rockscontainer, (PyObject *) NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 585, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3MetaclassPrepare(__pyx_t_7, __pyx_t_4, __pyx_n_s_RocksContainerItemsIterator, __pyx_n_s_RocksContainerItemsIterator, (PyObject *) NULL, __pyx_n_s_aim_storage_rockscontainer, (PyObject *) NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 583, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (__pyx_t_4 != __pyx_t_5) {
-    if (unlikely((PyDict_SetItemString(__pyx_t_2, "__orig_bases__", __pyx_t_5) < 0))) __PYX_ERR(0, 585, __pyx_L1_error)
+    if (unlikely((PyDict_SetItemString(__pyx_t_2, "__orig_bases__", __pyx_t_5) < 0))) __PYX_ERR(0, 583, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":586
+  /* "aim/storage/rockscontainer.pyx":584
  * 
  * class RocksContainerItemsIterator(ContainerItemsIterator):
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
  *         container: RocksContainer,
  */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 586, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_container, __pyx_n_s_RocksContainer_2) < 0) __PYX_ERR(0, 586, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 586, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_27RocksContainerItemsIterator_1__init__, 0, __pyx_n_s_RocksContainerItemsIterator___in, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__78)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 586, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_container, __pyx_n_s_RocksContainer_2) < 0) __PYX_ERR(0, 584, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_n_s_prefix, __pyx_n_s_ContainerKey) < 0) __PYX_ERR(0, 584, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_27RocksContainerItemsIterator_1__init__, 0, __pyx_n_s_RocksContainerItemsIterator___in, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__79)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__62);
+  __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_3, __pyx_tuple__63);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_init, __pyx_t_3) < 0) __PYX_ERR(0, 586, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_init, __pyx_t_3) < 0) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":596
+  /* "aim/storage/rockscontainer.pyx":594
  *         self.it.seek(prefix)
  * 
  *     def next(self):             # <<<<<<<<<<<<<<
  *         item = self.it.next()
  * 
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_27RocksContainerItemsIterator_3next, 0, __pyx_n_s_RocksContainerItemsIterator_next, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__80)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 596, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_3aim_7storage_14rockscontainer_27RocksContainerItemsIterator_3next, 0, __pyx_n_s_RocksContainerItemsIterator_next, NULL, __pyx_n_s_aim_storage_rockscontainer, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 594, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_next, __pyx_t_3) < 0) __PYX_ERR(0, 596, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_n_s_next, __pyx_t_3) < 0) __PYX_ERR(0, 594, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "aim/storage/rockscontainer.pyx":585
+  /* "aim/storage/rockscontainer.pyx":583
  * 
  * 
  * class RocksContainerItemsIterator(ContainerItemsIterator):             # <<<<<<<<<<<<<<
  *     def __init__(
  *         self,
  */
-  __pyx_t_3 = __Pyx_Py3ClassCreate(__pyx_t_7, __pyx_n_s_RocksContainerItemsIterator, __pyx_t_4, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 585, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_Py3ClassCreate(__pyx_t_7, __pyx_n_s_RocksContainerItemsIterator, __pyx_t_4, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 583, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_RocksContainerItemsIterator, __pyx_t_3) < 0) __PYX_ERR(0, 585, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_RocksContainerItemsIterator, __pyx_t_3) < 0) __PYX_ERR(0, 583, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -22186,7 +22182,7 @@ static PyObject *__Pyx_ImportDottedModule_WalkParts(PyObject *module, PyObject *
 #endif
 static PyObject *__Pyx__ImportDottedModule(PyObject *name, PyObject *parts_tuple) {
 #if PY_MAJOR_VERSION < 3
-    PyObject *module, *from_list, *star = __pyx_n_s__12;
+    PyObject *module, *from_list, *star = __pyx_n_s__13;
     CYTHON_UNUSED_VAR(parts_tuple);
     from_list = PyList_New(1);
     if (unlikely(!from_list))
@@ -22249,7 +22245,7 @@ static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
         if (unlikely(!module_name_str)) { goto modbad; }
         module_name = PyUnicode_FromString(module_name_str);
         if (unlikely(!module_name)) { goto modbad; }
-        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__13);
+        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__14);
         if (unlikely(!module_dot)) { goto modbad; }
         full_name = PyUnicode_Concat(module_dot, name);
         if (unlikely(!full_name)) { goto modbad; }
@@ -23021,7 +23017,7 @@ __Pyx_PyType_GetName(PyTypeObject* tp)
     if (unlikely(name == NULL) || unlikely(!PyUnicode_Check(name))) {
         PyErr_Clear();
         Py_XDECREF(name);
-        name = __Pyx_NewRef(__pyx_n_s__81);
+        name = __Pyx_NewRef(__pyx_n_s__82);
     }
     return name;
 }

@@ -310,6 +310,7 @@ class ServiceDeploymentStatus(StrEnum):
     STOPPED = "STOPPED"
     STOP_REQUESTED = "STOP_REQUESTED"
     IN_PROGRESS = "IN_PROGRESS"
+    ROLLBACK_REQUESTED = "ROLLBACK_REQUESTED"
     ROLLBACK_IN_PROGRESS = "ROLLBACK_IN_PROGRESS"
     ROLLBACK_SUCCESSFUL = "ROLLBACK_SUCCESSFUL"
     ROLLBACK_FAILED = "ROLLBACK_FAILED"
@@ -329,6 +330,7 @@ class SettingName(StrEnum):
     tagResourceAuthorization = "tagResourceAuthorization"
     fargateTaskRetirementWaitPeriod = "fargateTaskRetirementWaitPeriod"
     guardDutyActivate = "guardDutyActivate"
+    defaultLogDriverMode = "defaultLogDriverMode"
 
 
 class SettingType(StrEnum):
@@ -344,6 +346,11 @@ class SortOrder(StrEnum):
 class StabilityStatus(StrEnum):
     STEADY_STATE = "STEADY_STATE"
     STABILIZING = "STABILIZING"
+
+
+class StopServiceDeploymentStopType(StrEnum):
+    ABORT = "ABORT"
+    ROLLBACK = "ROLLBACK"
 
 
 class TargetType(StrEnum):
@@ -524,17 +531,8 @@ ResourceIds = List[String]
 
 
 class ConflictException(ServiceException):
-    """The ``RunTask`` request could not be processed due to conflicts. The
-    provided ``clientToken`` is already in use with a different ``RunTask``
-    request. The ``resourceIds`` are the existing task ARNs which are
-    already associated with the ``clientToken``.
-
-    To fix this issue:
-
-    -  Run ``RunTask`` with a unique ``clientToken``.
-
-    -  Run ``RunTask`` with the ``clientToken`` and the original set of
-       parameters
+    """The request could not be processed because of conflict in the current
+    state of the resource.
     """
 
     code: str = "ConflictException"
@@ -635,6 +633,17 @@ class ServerException(ServiceException):
     """These errors are usually caused by a server issue."""
 
     code: str = "ServerException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class ServiceDeploymentNotFoundException(ServiceException):
+    """The service deploy ARN that you specified in the
+    ``StopServiceDeployment`` doesn't exist. You can use
+    ``ListServiceDeployments`` to retrieve the service deployment ARNs.
+    """
+
+    code: str = "ServiceDeploymentNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -3421,6 +3430,15 @@ class StartTaskResponse(TypedDict, total=False):
     failures: Optional[Failures]
 
 
+class StopServiceDeploymentRequest(ServiceRequest):
+    serviceDeploymentArn: String
+    stopType: Optional[StopServiceDeploymentStopType]
+
+
+class StopServiceDeploymentResponse(TypedDict, total=False):
+    serviceDeploymentArn: Optional[String]
+
+
 class StopTaskRequest(ServiceRequest):
     cluster: Optional[String]
     task: String
@@ -4344,8 +4362,9 @@ class EcsApi:
         """Describes one or more of your service deployments.
 
         A service deployment happens when you release a software update for the
-        service. For more information, see `Amazon ECS service
-        deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-deployments.html>`__.
+        service. For more information, see `View service history using Amazon
+        ECS service
+        deployments <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-deployment.html>`__.
 
         :param service_deployment_arns: The ARN of the service deployment.
         :returns: DescribeServiceDeploymentsResponse
@@ -5251,6 +5270,19 @@ class EcsApi:
            algorithm starting with a couple of seconds of wait time, and
            increase gradually up to about five minutes of wait time.
 
+        If you get a ``ConflictException`` error, the ``RunTask`` request could
+        not be processed due to conflicts. The provided ``clientToken`` is
+        already in use with a different ``RunTask`` request. The ``resourceIds``
+        are the existing task ARNs which are already associated with the
+        ``clientToken``.
+
+        To fix this issue:
+
+        -  Run ``RunTask`` with a unique ``clientToken``.
+
+        -  Run ``RunTask`` with the ``clientToken`` and the original set of
+           parameters
+
         :param task_definition: The ``family`` and ``revision`` (``family:revision``) or full ARN of the
         task definition to run.
         :param capacity_provider_strategy: The capacity provider strategy to use for the task.
@@ -5360,6 +5392,31 @@ class EcsApi:
         :raises ClientException:
         :raises InvalidParameterException:
         :raises ClusterNotFoundException:
+        :raises UnsupportedFeatureException:
+        """
+        raise NotImplementedError
+
+    @handler("StopServiceDeployment")
+    def stop_service_deployment(
+        self,
+        context: RequestContext,
+        service_deployment_arn: String,
+        stop_type: StopServiceDeploymentStopType = None,
+        **kwargs,
+    ) -> StopServiceDeploymentResponse:
+        """Stops an ongoing service deployment.
+
+        StopServiceDeployment isn't currently supported.
+
+        :param service_deployment_arn: The ARN of the service deployment that you want to stop.
+        :param stop_type: How you want Amazon ECS to stop the service.
+        :returns: StopServiceDeploymentResponse
+        :raises AccessDeniedException:
+        :raises ClientException:
+        :raises ConflictException:
+        :raises InvalidParameterException:
+        :raises ServerException:
+        :raises ServiceDeploymentNotFoundException:
         :raises UnsupportedFeatureException:
         """
         raise NotImplementedError

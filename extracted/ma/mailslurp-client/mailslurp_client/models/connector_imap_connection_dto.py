@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -42,6 +42,14 @@ class ConnectorImapConnectionDto(object):
         'imap_ssl': 'bool',
         'select_folder': 'str',
         'search_terms': 'str',
+        'start_tls': 'bool',
+        'proxy_host': 'str',
+        'proxy_port': 'int',
+        'proxy_enabled': 'bool',
+        'local_host_name': 'str',
+        'mechanisms': 'list[str]',
+        'ssl_protocols': 'list[str]',
+        'ssl_trust': 'str',
         'enabled': 'bool',
         'created_at': 'datetime',
         'id': 'str'
@@ -56,12 +64,20 @@ class ConnectorImapConnectionDto(object):
         'imap_ssl': 'imapSsl',
         'select_folder': 'selectFolder',
         'search_terms': 'searchTerms',
+        'start_tls': 'startTls',
+        'proxy_host': 'proxyHost',
+        'proxy_port': 'proxyPort',
+        'proxy_enabled': 'proxyEnabled',
+        'local_host_name': 'localHostName',
+        'mechanisms': 'mechanisms',
+        'ssl_protocols': 'sslProtocols',
+        'ssl_trust': 'sslTrust',
         'enabled': 'enabled',
         'created_at': 'createdAt',
         'id': 'id'
     }
 
-    def __init__(self, connector_id=None, imap_host=None, imap_port=None, imap_username=None, imap_password=None, imap_ssl=None, select_folder=None, search_terms=None, enabled=None, created_at=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, connector_id=None, imap_host=None, imap_port=None, imap_username=None, imap_password=None, imap_ssl=None, select_folder=None, search_terms=None, start_tls=None, proxy_host=None, proxy_port=None, proxy_enabled=None, local_host_name=None, mechanisms=None, ssl_protocols=None, ssl_trust=None, enabled=None, created_at=None, id=None, local_vars_configuration=None):  # noqa: E501
         """ConnectorImapConnectionDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -75,14 +91,21 @@ class ConnectorImapConnectionDto(object):
         self._imap_ssl = None
         self._select_folder = None
         self._search_terms = None
+        self._start_tls = None
+        self._proxy_host = None
+        self._proxy_port = None
+        self._proxy_enabled = None
+        self._local_host_name = None
+        self._mechanisms = None
+        self._ssl_protocols = None
+        self._ssl_trust = None
         self._enabled = None
         self._created_at = None
         self._id = None
         self.discriminator = None
 
         self.connector_id = connector_id
-        if imap_host is not None:
-            self.imap_host = imap_host
+        self.imap_host = imap_host
         if imap_port is not None:
             self.imap_port = imap_port
         if imap_username is not None:
@@ -95,6 +118,22 @@ class ConnectorImapConnectionDto(object):
             self.select_folder = select_folder
         if search_terms is not None:
             self.search_terms = search_terms
+        if start_tls is not None:
+            self.start_tls = start_tls
+        if proxy_host is not None:
+            self.proxy_host = proxy_host
+        if proxy_port is not None:
+            self.proxy_port = proxy_port
+        if proxy_enabled is not None:
+            self.proxy_enabled = proxy_enabled
+        if local_host_name is not None:
+            self.local_host_name = local_host_name
+        if mechanisms is not None:
+            self.mechanisms = mechanisms
+        if ssl_protocols is not None:
+            self.ssl_protocols = ssl_protocols
+        if ssl_trust is not None:
+            self.ssl_trust = ssl_trust
         if enabled is not None:
             self.enabled = enabled
         self.created_at = created_at
@@ -141,6 +180,8 @@ class ConnectorImapConnectionDto(object):
         :param imap_host: The imap_host of this ConnectorImapConnectionDto.  # noqa: E501
         :type: str
         """
+        if self.local_vars_configuration.client_side_validation and imap_host is None:  # noqa: E501
+            raise ValueError("Invalid value for `imap_host`, must not be `None`")  # noqa: E501
 
         self._imap_host = imap_host
 
@@ -269,6 +310,174 @@ class ConnectorImapConnectionDto(object):
         """
 
         self._search_terms = search_terms
+
+    @property
+    def start_tls(self):
+        """Gets the start_tls of this ConnectorImapConnectionDto.  # noqa: E501
+
+
+        :return: The start_tls of this ConnectorImapConnectionDto.  # noqa: E501
+        :rtype: bool
+        """
+        return self._start_tls
+
+    @start_tls.setter
+    def start_tls(self, start_tls):
+        """Sets the start_tls of this ConnectorImapConnectionDto.
+
+
+        :param start_tls: The start_tls of this ConnectorImapConnectionDto.  # noqa: E501
+        :type: bool
+        """
+
+        self._start_tls = start_tls
+
+    @property
+    def proxy_host(self):
+        """Gets the proxy_host of this ConnectorImapConnectionDto.  # noqa: E501
+
+
+        :return: The proxy_host of this ConnectorImapConnectionDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._proxy_host
+
+    @proxy_host.setter
+    def proxy_host(self, proxy_host):
+        """Sets the proxy_host of this ConnectorImapConnectionDto.
+
+
+        :param proxy_host: The proxy_host of this ConnectorImapConnectionDto.  # noqa: E501
+        :type: str
+        """
+
+        self._proxy_host = proxy_host
+
+    @property
+    def proxy_port(self):
+        """Gets the proxy_port of this ConnectorImapConnectionDto.  # noqa: E501
+
+
+        :return: The proxy_port of this ConnectorImapConnectionDto.  # noqa: E501
+        :rtype: int
+        """
+        return self._proxy_port
+
+    @proxy_port.setter
+    def proxy_port(self, proxy_port):
+        """Sets the proxy_port of this ConnectorImapConnectionDto.
+
+
+        :param proxy_port: The proxy_port of this ConnectorImapConnectionDto.  # noqa: E501
+        :type: int
+        """
+
+        self._proxy_port = proxy_port
+
+    @property
+    def proxy_enabled(self):
+        """Gets the proxy_enabled of this ConnectorImapConnectionDto.  # noqa: E501
+
+
+        :return: The proxy_enabled of this ConnectorImapConnectionDto.  # noqa: E501
+        :rtype: bool
+        """
+        return self._proxy_enabled
+
+    @proxy_enabled.setter
+    def proxy_enabled(self, proxy_enabled):
+        """Sets the proxy_enabled of this ConnectorImapConnectionDto.
+
+
+        :param proxy_enabled: The proxy_enabled of this ConnectorImapConnectionDto.  # noqa: E501
+        :type: bool
+        """
+
+        self._proxy_enabled = proxy_enabled
+
+    @property
+    def local_host_name(self):
+        """Gets the local_host_name of this ConnectorImapConnectionDto.  # noqa: E501
+
+
+        :return: The local_host_name of this ConnectorImapConnectionDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_host_name
+
+    @local_host_name.setter
+    def local_host_name(self, local_host_name):
+        """Sets the local_host_name of this ConnectorImapConnectionDto.
+
+
+        :param local_host_name: The local_host_name of this ConnectorImapConnectionDto.  # noqa: E501
+        :type: str
+        """
+
+        self._local_host_name = local_host_name
+
+    @property
+    def mechanisms(self):
+        """Gets the mechanisms of this ConnectorImapConnectionDto.  # noqa: E501
+
+
+        :return: The mechanisms of this ConnectorImapConnectionDto.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._mechanisms
+
+    @mechanisms.setter
+    def mechanisms(self, mechanisms):
+        """Sets the mechanisms of this ConnectorImapConnectionDto.
+
+
+        :param mechanisms: The mechanisms of this ConnectorImapConnectionDto.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._mechanisms = mechanisms
+
+    @property
+    def ssl_protocols(self):
+        """Gets the ssl_protocols of this ConnectorImapConnectionDto.  # noqa: E501
+
+
+        :return: The ssl_protocols of this ConnectorImapConnectionDto.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._ssl_protocols
+
+    @ssl_protocols.setter
+    def ssl_protocols(self, ssl_protocols):
+        """Sets the ssl_protocols of this ConnectorImapConnectionDto.
+
+
+        :param ssl_protocols: The ssl_protocols of this ConnectorImapConnectionDto.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._ssl_protocols = ssl_protocols
+
+    @property
+    def ssl_trust(self):
+        """Gets the ssl_trust of this ConnectorImapConnectionDto.  # noqa: E501
+
+
+        :return: The ssl_trust of this ConnectorImapConnectionDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._ssl_trust
+
+    @ssl_trust.setter
+    def ssl_trust(self, ssl_trust):
+        """Sets the ssl_trust of this ConnectorImapConnectionDto.
+
+
+        :param ssl_trust: The ssl_trust of this ConnectorImapConnectionDto.  # noqa: E501
+        :type: str
+        """
+
+        self._ssl_trust = ssl_trust
 
     @property
     def enabled(self):

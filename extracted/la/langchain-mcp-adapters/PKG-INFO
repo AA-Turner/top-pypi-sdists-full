@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-mcp-adapters
-Version: 0.0.10
+Version: 0.0.11
 Summary: Make Anthropic Model Context Protocol (MCP) tools compatible with LangChain and LangGraph agents.
 Author-Email: Vadym Barda <19161700+vbarda@users.noreply.github.com>
 License-Expression: MIT

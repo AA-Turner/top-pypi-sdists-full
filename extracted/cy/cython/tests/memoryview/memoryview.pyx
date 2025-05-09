@@ -14,7 +14,7 @@ from cython.view cimport memoryview, array
 from cython cimport view
 
 from cpython.object cimport PyObject
-from cpython.ref cimport Py_INCREF, Py_DECREF
+from cpython.ref cimport Py_INCREF, Py_DECREF, Py_REFCNT
 cimport cython
 
 import array as pyarray
@@ -672,7 +672,7 @@ def decref(*args):
 @cython.binding(False)
 @cython.always_allow_keywords(False)
 def get_refcount(x):
-    return (<PyObject*>x).ob_refcnt
+    return Py_REFCNT(x)
 
 def printbuf_object(object[:] mslice, shape):
     """
@@ -698,7 +698,7 @@ def printbuf_object(object[:] mslice, shape):
     cdef object buf = mslice
     cdef int i
     for i in range(shape[0]):
-        print repr(buf[i]), (<PyObject*>buf[i]).ob_refcnt
+        print repr(buf[i]), Py_REFCNT(buf[i])
 
 def assign_to_object(object[:] mslice, int idx, obj):
     """
@@ -1084,18 +1084,17 @@ def test_dtype_object_scalar_assignment():
 def test_assign_to_slice(obj, start, end):
     """
     >>> test_assign_to_slice(b'abc', 0, 3)
-    'abc'
+    b'abc'
     >>> test_assign_to_slice(b'a', 0, 1)
-    'a'
+    b'a'
     >>> test_assign_to_slice(b'', 0, 0)
-    ''
+    b''
     >>> test_assign_to_slice(b'', 5, 5)
-    ''
+    b''
     """
-    out = bytearray(len(obj))
-    view = memoryview(out, PyBUF_C_CONTIGUOUS)
+    view = memoryview(bytearray(len(obj)), PyBUF_C_CONTIGUOUS)
     view[start:end] = obj[start:end]
-    return bytes(out).decode() if sys.version_info >= (3,) else bytes(out)
+    return bytes(view)
 
 
 def test_assignment_in_conditional_expression(bint left):
@@ -1213,15 +1212,11 @@ def test_assign_from_byteslike(byteslike):
     hello
     >>> print(test_assign_from_byteslike(bytearray(b'howdy')).decode())
     howdy
+    >>> print(test_assign_from_byteslike(pyarray.array('B', b'aloha')).decode())
+    aloha
+    >>> print(test_assign_from_byteslike(memoryview(b'bye!!')).decode())
+    bye!!
     """
-    # fails on Python 2.7- with
-    #   TypeError: an integer is required
-    # >>> print(test_assign_from_byteslike(pyarray.array('B', b'aloha')).decode())
-    # aloha
-    # fails on Python 2.6- with
-    #   NameError: name 'memoryview' is not defined
-    # >>> print(test_assign_from_byteslike(memoryview(b'bye!!')).decode())
-    # bye!!
 
     def assign(m):
         m[:] = byteslike
@@ -1276,16 +1271,14 @@ def test_is_Sequence(double[:] a):
     1
     True
     """
-    if sys.version_info < (3, 3):
-        from collections import Sequence
-    else:
-        from collections.abc import Sequence
+    from collections.abc import Sequence
 
     for i in range(a.shape[0]):
         a[i] = i
     print(a.count(1.0))  # test for presence of added collection method
     print(a.index(1.0))  # test for presence of added collection method
 
+    import sys
     if sys.version_info >= (3, 10):
         # test structural pattern match in Python
         # (because Cython hasn't implemented it yet, and because the details
@@ -1332,5 +1325,6 @@ def test_untyped_index(i):
     return mview_arr[i]  # should generate a performance hint
 
 _PERFORMANCE_HINTS = """
-1332:21: Index should be typed for more efficient access
+243:9: Use boundscheck(False) for faster access
+1325:21: Index should be typed for more efficient access
 """

@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -44,7 +44,7 @@ class TestInboxDto(unittest.TestCase):
                 domain_id = '0', 
                 description = '0', 
                 email_address = '0', 
-                expires_at = '0', 
+                expires_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                 favourite = True, 
                 tags = [
                     '0'
@@ -52,11 +52,15 @@ class TestInboxDto(unittest.TestCase):
                 inbox_type = 'HTTP_INBOX', 
                 read_only = True, 
                 virtual_inbox = True, 
-                functions_as = 'ALIAS'
+                functions_as = 'ALIAS', 
+                local_part = '0', 
+                domain = '0', 
+                account_region = 'US_WEST_2'
             )
         else :
             return InboxDto(
                 id = '0',
+                user_id = '0',
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 email_address = '0',
                 favourite = True,

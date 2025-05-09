@@ -59,9 +59,12 @@ struct EvictionCandidate {
 class EvictionQueue {
 public:
     static constexpr auto EMPTY = EvictionCandidate{UINT32_MAX, common::INVALID_PAGE_IDX};
+    static constexpr size_t BATCH_SIZE = 64;
     explicit EvictionQueue(uint64_t capacity)
-        : insertCursor{0}, evictionCursor{0}, size{0}, capacity{capacity},
-          data{std::make_unique<std::atomic<EvictionCandidate>[]>(capacity)} {}
+        // Capacity needs to be a multiple of the batch size
+        : insertCursor{0}, evictionCursor{0}, size{0},
+          capacity{capacity + (BATCH_SIZE - capacity % BATCH_SIZE)},
+          data{std::make_unique<std::atomic<EvictionCandidate>[]>(this->capacity)} {}
 
     bool insert(uint32_t fileIndex, common::page_idx_t pageIndex);
 
@@ -70,11 +73,12 @@ public:
     // to evict this candidate, so it is not guaranteed to be empty
     // The PageState should be locked, and then the atomic checked against the version used
     // when locking the pagestate to make sure there wasn't a data race
-    std::atomic<EvictionCandidate>* next();
+    std::span<std::atomic<EvictionCandidate>, BATCH_SIZE> next();
     void removeCandidatesForFile(uint32_t fileIndex);
     void clear(std::atomic<EvictionCandidate>& candidate);
 
     uint64_t getSize() const { return size; }
+    uint64_t getEvictionCursor() const { return evictionCursor; }
     uint64_t getCapacity() const { return capacity; }
 
 private:
@@ -215,6 +219,11 @@ public:
     }
 
     void resetSpiller(std::string spillPath);
+
+    // This function only works when run in a single-threaded context
+    // Iterates through the eviction queue and removes any elements that have already been evicted
+    // (due to some external intervention)
+    void removeEvictedCandidates();
 
 protected:
     // Reclaims used memory until the given size to reserve is available

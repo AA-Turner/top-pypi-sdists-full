@@ -1,36 +1,54 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Mapping, Optional
+from typing import Any, Mapping, Optional
 
 import yaml
 
-if TYPE_CHECKING:
-    from pydantic import BaseModel
-else:
-    try:
-        from pydantic.v1 import BaseModel
-    except ImportError:
-        from pydantic import BaseModel
-
+from chalk.config._validator import Validator
 from chalk.config.project_config import load_project_config
 from chalk.utils.log_with_context import get_logger
 
 _logger = get_logger(__name__)
 
 
-class TokenConfig(BaseModel):
-    name: Optional[str] = None
+@dataclass
+class TokenConfig:
     clientId: str
     clientSecret: str
+    name: Optional[str] = None
     apiServer: Optional[str] = None
     activeEnvironment: Optional[str] = None
 
+    @staticmethod
+    def from_py(raw: Any, path: str) -> "TokenConfig":
+        raw = Validator.dict_with_str_keys(raw, name=path)
+        prefix = f"tokens.{path}"
+        return TokenConfig(
+            clientId=Validator.string(raw.get("clientId"), f"{prefix}.clientId"),
+            clientSecret=Validator.string(raw.get("clientSecret"), f"{prefix}.clientSecret"),
+            name=Validator.optional_string(raw.get("name"), f"{prefix}.name"),
+            apiServer=Validator.optional_string(raw.get("apiServer"), f"{prefix}.apiServer"),
+            activeEnvironment=Validator.optional_string(raw.get("activeEnvironment"), f"{prefix}.activeEnvironment"),
+        )
 
-class AuthConfig(BaseModel):
+
+@dataclass
+class AuthConfig:
     tokens: Optional[Mapping[str, TokenConfig]]
+
+    @staticmethod
+    def from_py(raw: Any) -> "AuthConfig":
+        value = Validator.dict_with_str_keys_or_none(raw, name="auth config")
+        if value is None:
+            return AuthConfig(tokens=None)
+        tokens = Validator.dict_with_str_keys_or_none(value.get("tokens", None), "tokens")
+        if tokens is None:
+            return AuthConfig(tokens=None)
+        return AuthConfig(tokens={k: TokenConfig.from_py(v, path=k) for k, v in tokens.items()})
 
 
 def _load_global_config_uncached() -> AuthConfig | None:
@@ -44,7 +62,7 @@ def _load_global_config_uncached() -> AuthConfig | None:
 
     with open(path, "r") as f:
         parsed = yaml.safe_load(f)
-        return AuthConfig(**parsed)
+    return AuthConfig.from_py(parsed)
 
 
 # using lru_cache for 3.8 compat

@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -37,43 +37,68 @@ class TestSentEmailProjection(unittest.TestCase):
         # model = mailslurp_client.models.sent_email_projection.SentEmailProjection()  # noqa: E501
         if include_optional :
             return SentEmailProjection(
-                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                 id = '0', 
                 _from = '0', 
+                sender = mailslurp_client.models.sender.Sender(
+                    raw_value = '0', 
+                    email_address = '0', 
+                    name = '0', ), 
+                recipients = mailslurp_client.models.email_recipients.EmailRecipients(
+                    to = [
+                        mailslurp_client.models.recipient.Recipient(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', )
+                        ], 
+                    cc = [
+                        mailslurp_client.models.recipient.Recipient(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', )
+                        ], 
+                    bcc = [
+                        mailslurp_client.models.recipient.Recipient(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', )
+                        ], ), 
                 subject = '0', 
+                user_id = '0', 
                 attachments = [
                     '0'
                     ], 
                 inbox_id = '0', 
-                user_id = '0', 
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                 to = [
-                    '0'
-                    ], 
-                bcc = [
                     '0'
                     ], 
                 cc = [
                     '0'
                     ], 
+                bcc = [
+                    '0'
+                    ], 
+                message_id = '0', 
+                in_reply_to = '0', 
+                body_excerpt = '0', 
+                text_excerpt = '0', 
                 body_md5_hash = '0', 
-                virtual_send = True
+                virtual_send = True, 
+                thread_id = '0'
             )
         else :
             return SentEmailProjection(
-                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 id = '0',
-                attachments = [
-                    '0'
-                    ],
-                inbox_id = '0',
                 user_id = '0',
+                inbox_id = '0',
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 to = [
                     '0'
                     ],
-                bcc = [
+                cc = [
                     '0'
                     ],
-                cc = [
+                bcc = [
                     '0'
                     ],
                 virtual_send = True,

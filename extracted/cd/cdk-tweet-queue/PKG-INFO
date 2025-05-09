@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-tweet-queue
-Version: 2.0.809
+Version: 2.0.810
 Summary: Defines an SQS queue with tweet stream from a search
 Home-page: https://github.com/cdklabs/cdk-tweet-queue
 Author: Elad Ben-Israel<elad.benisrael@gmail.com>

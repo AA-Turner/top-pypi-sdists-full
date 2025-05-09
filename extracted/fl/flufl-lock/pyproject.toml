@@ -5,7 +5,7 @@ authors = [
 ]
 description = 'NFS-safe file locking with timeouts for POSIX and Windows'
 readme = 'README.rst'
-requires-python = '>=3.8'
+requires-python = '>=3.9'
 license = {text = 'Apache-2.0'}
 keywords = [
     'locking',
@@ -49,7 +49,7 @@ packages = [
 include = [
     'src/flufl/',
     'docs/',
-    'test/',
+    'tests/',
     'conftest.py',
 ]
 excludes = [
@@ -58,29 +58,32 @@ excludes = [
 
 [tool.hatch.envs.default.scripts]
 all = [
-    'hatch run test:test',
+    'hatch test --all',
     'hatch run qa:qa',
     'hatch run docs:docs',
 ]
 
-[[tool.hatch.envs.test.matrix]]
-python = ['3.8', '3.9', '3.10', '3.11', '3.12']
-
-[tool.hatch.envs.test]
-dependencies = [
-    'coverage[toml]',
+[tool.hatch.envs.hatch-test]
+default-args = ['tests', 'docs']
+extra-dependencies = [
     'diff-cover',
-    'pytest',
-    'pytest-cov',
     'sybil',
 ]
 
-[tool.hatch.envs.test.scripts]
-test = [
-    'pytest {args}',
-    # The following is only useful in a git branch of main.
+[tool.hatch.envs.hatch-test.scripts]
+run = [
+    'coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}',
+    'coverage combine',
+    'coverage report',
+    'coverage xml',
     '- diff-cover coverage.xml',
 ]
+run-cov = 'hatch test'
+cov-combine = ''
+cov-report = ''
+
+[[tool.hatch.envs.test.matrix]]
+python = ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
 [tool.hatch.envs.qa]
 dependencies = [
@@ -94,14 +97,14 @@ MODULE_PATH = '{env:MODULE_PATH:src/flufl/lock}'
 
 [tool.hatch.envs.qa.scripts]
 qa = [
-    'ruff check {env:MODULE_PATH}',
+    'hatch fmt --check src',
     'mypy -p {env:MODULE_NAME}',
 ]
 fix = [
-    'ruff check --fix {env:MODULE_PATH}',
+    'hatch fmt src',
 ]
 preview = [
-    'ruff check --fix --diff {env:MODULE_PATH}',
+    'hatch fmt --diff src',
 ]
 
 [tool.hatch.envs.docs]
@@ -115,42 +118,55 @@ docs = [
     'sphinx-build docs build/html',
 ]
 
-[tool.pytest.ini_options]
-addopts = '--cov=flufl --cov-report=term --cov-report=xml -p no:doctest'
-testpaths = 'test docs'
-
-[tool.coverage.paths]
-source = ['flufl/lock']
+[tool.coverage.run]
+source = ['flufl.lock']
+branch = true
+parallel = true
 
 [tool.coverage.report]
 fail_under = 100
 show_missing = true
-
-[tool.coverage.run]
-branch = true
-parallel = true
+exclude_also = [
+    'if TYPE_CHECKING:',
+]
 
 [tool.ruff]
-line-length = 79
+line-length = 100
 src = ['src']
 
-[tool.ruff.lint]
-select = [
-    'B',                        # flake8-bugbear
-    'D',                        # pydocstyle
-    'E',                        # pycodestyle
-    'F',                        # pyflakes
-    'I',                        # isort
-    'RUF100',                   # check for valid noqa directives
-    'UP',                       # pyupgrade
-    'W',                        # pycodestyle
+[tool.ruff.lint.extend-per-file-ignores]
+# Essentially, ignore all lint warnings in these configuration files.
+'conftest.py' = [
+    'ARG002',
+    'I001',
+    'S101',
+]
+'docs/conf.py' = [
+    'A',
+    'DTZ',
+    'E',
+    'I',
+    'UP',
+]
+'src/flufl/lock/_lockfile.py' = [
+    # Naive datetimes are fine for our purposes.
+    'DTZ005',       # `datetime.datetime.now()` called without a `tz` argument
+    'DTZ006',       # `datetime.datetime.fromtimestamp()` called without a `tz` argument
+    'EM101',        # Exception must not use a string literal, assign to variable first
+    # We use constant `2` for linkcount checks in places.
+    'PLR2004',      # Magic value used in comparison
+    # Lock.__enter__() is annotated to reutrn `Lock` rather than `Self`.  I don't want to add a
+    # conditional runtime dependency on typing_extensions just for this type.  Once Python 3.11 is
+    # our minimim version, we can change the return annotation of this function to Self.
+    'PYI034',       # `__enter__` methods in classes like `Lock` usually return `self` at runtime
+    # We use random.randint() for non-cryptographic purposes.
+    'S311',         # Standard pseudo-random generators are not suitable for cryptographic purposes
+    'TRY003',       # Avoid specifying long messages outside the exception class
+    'TRY400',       # Use `logging.exception` instead of `logging.error`
 ]
 
-ignore = [
-    'D100',                     # Missing docstring in public module
-    'D104',                     # Missing docstring in public package
-    'D105',                     # Missing docstring in magic method
-]
+[tool.ruff.format]
+quote-style = 'single'
 
 [tool.ruff.lint.pydocstyle]
 convention = 'pep257'
@@ -158,6 +174,7 @@ convention = 'pep257'
 [tool.ruff.lint.isort]
 case-sensitive = true
 classes = ['SEP']
+forced-separate = ['docutils', 'sphinx']
 known-first-party = ['flufl.lock']
 length-sort-straight = true
 lines-after-imports = 2

@@ -120,6 +120,7 @@ ContextArn = str
 ContextName = str
 ContextNameOrArn = str
 CountryCode = str
+CronScheduleExpression = str
 CsvContentType = str
 CurrencyCode = str
 CustomerMetadataKey = str
@@ -364,6 +365,7 @@ NeoVpcSecurityGroupId = str
 NeoVpcSubnetId = str
 NetworkInterfaceId = str
 NextToken = str
+NodeUnavailabilityValue = int
 NonEmptyString256 = str
 NonEmptyString64 = str
 NotebookInstanceArn = str
@@ -558,6 +560,7 @@ TrainingPlanOfferingId = str
 TrainingPlanStatusMessage = str
 TrainingRepositoryCredentialsProviderArn = str
 TrainingTimeInSeconds = int
+TransformAmiVersion = str
 TransformEnvironmentKey = str
 TransformEnvironmentValue = str
 TransformInstanceCount = int
@@ -591,6 +594,7 @@ VisibilityConditionsValue = str
 VolumeSizeInGB = int
 VpcId = str
 WaitIntervalInSeconds = int
+WaitTimeIntervalInSeconds = int
 WeeklyMaintenanceWindowStart = str
 WeeklyScheduleTimeFormat = str
 WorkforceArn = str
@@ -731,6 +735,7 @@ class AppInstanceType(StrEnum):
     ml_trn1_32xlarge = "ml.trn1.32xlarge"
     ml_trn1n_32xlarge = "ml.trn1n.32xlarge"
     ml_p5_48xlarge = "ml.p5.48xlarge"
+    ml_p5en_48xlarge = "ml.p5en.48xlarge"
     ml_m6i_large = "ml.m6i.large"
     ml_m6i_xlarge = "ml.m6i.xlarge"
     ml_m6i_2xlarge = "ml.m6i.2xlarge"
@@ -1275,6 +1280,31 @@ class ClusterInstanceType(StrEnum):
     ml_r6i_16xlarge = "ml.r6i.16xlarge"
     ml_r6i_24xlarge = "ml.r6i.24xlarge"
     ml_r6i_32xlarge = "ml.r6i.32xlarge"
+    ml_i3en_large = "ml.i3en.large"
+    ml_i3en_xlarge = "ml.i3en.xlarge"
+    ml_i3en_2xlarge = "ml.i3en.2xlarge"
+    ml_i3en_3xlarge = "ml.i3en.3xlarge"
+    ml_i3en_6xlarge = "ml.i3en.6xlarge"
+    ml_i3en_12xlarge = "ml.i3en.12xlarge"
+    ml_i3en_24xlarge = "ml.i3en.24xlarge"
+    ml_m7i_large = "ml.m7i.large"
+    ml_m7i_xlarge = "ml.m7i.xlarge"
+    ml_m7i_2xlarge = "ml.m7i.2xlarge"
+    ml_m7i_4xlarge = "ml.m7i.4xlarge"
+    ml_m7i_8xlarge = "ml.m7i.8xlarge"
+    ml_m7i_12xlarge = "ml.m7i.12xlarge"
+    ml_m7i_16xlarge = "ml.m7i.16xlarge"
+    ml_m7i_24xlarge = "ml.m7i.24xlarge"
+    ml_m7i_48xlarge = "ml.m7i.48xlarge"
+    ml_r7i_large = "ml.r7i.large"
+    ml_r7i_xlarge = "ml.r7i.xlarge"
+    ml_r7i_2xlarge = "ml.r7i.2xlarge"
+    ml_r7i_4xlarge = "ml.r7i.4xlarge"
+    ml_r7i_8xlarge = "ml.r7i.8xlarge"
+    ml_r7i_12xlarge = "ml.r7i.12xlarge"
+    ml_r7i_16xlarge = "ml.r7i.16xlarge"
+    ml_r7i_24xlarge = "ml.r7i.24xlarge"
+    ml_r7i_48xlarge = "ml.r7i.48xlarge"
 
 
 class ClusterNodeRecovery(StrEnum):
@@ -2227,6 +2257,11 @@ class MonitoringType(StrEnum):
     ModelExplainability = "ModelExplainability"
 
 
+class NodeUnavailabilityType(StrEnum):
+    INSTANCE_COUNT = "INSTANCE_COUNT"
+    CAPACITY_PERCENTAGE = "CAPACITY_PERCENTAGE"
+
+
 class NotebookInstanceAcceleratorType(StrEnum):
     ml_eia1_medium = "ml.eia1.medium"
     ml_eia1_large = "ml.eia1.large"
@@ -2553,6 +2588,7 @@ class ProductionVariantInferenceAmiVersion(StrEnum):
     al2_ami_sagemaker_inference_gpu_2 = "al2-ami-sagemaker-inference-gpu-2"
     al2_ami_sagemaker_inference_gpu_2_1 = "al2-ami-sagemaker-inference-gpu-2-1"
     al2_ami_sagemaker_inference_gpu_3_1 = "al2-ami-sagemaker-inference-gpu-3-1"
+    al2_ami_sagemaker_inference_neuron_2 = "al2-ami-sagemaker-inference-neuron-2"
 
 
 class ProductionVariantInstanceType(StrEnum):
@@ -2868,6 +2904,11 @@ class RedshiftResultCompressionType(StrEnum):
 class RedshiftResultFormat(StrEnum):
     PARQUET = "PARQUET"
     CSV = "CSV"
+
+
+class Relation(StrEnum):
+    EqualTo = "EqualTo"
+    GreaterThanOrEqualTo = "GreaterThanOrEqualTo"
 
 
 class RepositoryAccessMode(StrEnum):
@@ -3912,6 +3953,12 @@ class Alarm(TypedDict, total=False):
     AlarmName: Optional[AlarmName]
 
 
+class AlarmDetails(TypedDict, total=False):
+    """The details of the alarm to monitor during the AMI update."""
+
+    AlarmName: AlarmName
+
+
 AlarmList = List[Alarm]
 
 
@@ -4025,6 +4072,7 @@ class TransformResources(TypedDict, total=False):
     InstanceType: TransformInstanceType
     InstanceCount: TransformInstanceCount
     VolumeKmsKeyId: Optional[KmsKeyId]
+    TransformAmiVersion: Optional[TransformAmiVersion]
 
 
 class TransformOutput(TypedDict, total=False):
@@ -5034,6 +5082,7 @@ class AutoParameter(TypedDict, total=False):
 
 
 AutoParameters = List[AutoParameter]
+AutoRollbackAlarms = List[AlarmDetails]
 
 
 class AutoRollbackConfig(TypedDict, total=False):
@@ -5379,6 +5428,16 @@ class CanvasAppSettings(TypedDict, total=False):
     EmrServerlessSettings: Optional[EmrServerlessSettings]
 
 
+class CapacitySizeConfig(TypedDict, total=False):
+    """The configuration of the size measurements of the AMI update. Using this
+    configuration, you can specify whether SageMaker should update your
+    instance group by an amount or percentage of instances.
+    """
+
+    Type: NodeUnavailabilityType
+    Value: NodeUnavailabilityValue
+
+
 JsonContentTypes = List[JsonContentType]
 CsvContentTypes = List[CsvContentType]
 
@@ -5560,6 +5619,30 @@ class ClusterEbsVolumeConfig(TypedDict, total=False):
     VolumeSizeInGB: ClusterEbsVolumeSizeInGB
 
 
+class RollingDeploymentPolicy(TypedDict, total=False):
+    """The configurations that SageMaker uses when updating the AMI versions."""
+
+    MaximumBatchSize: CapacitySizeConfig
+    RollbackMaximumBatchSize: Optional[CapacitySizeConfig]
+
+
+class DeploymentConfiguration(TypedDict, total=False):
+    """The configuration to use when updating the AMI versions."""
+
+    RollingUpdatePolicy: Optional[RollingDeploymentPolicy]
+    WaitIntervalInSeconds: Optional[WaitTimeIntervalInSeconds]
+    AutoRollbackConfiguration: Optional[AutoRollbackAlarms]
+
+
+class ScheduledUpdateConfig(TypedDict, total=False):
+    """The configuration object of the schedule that SageMaker follows when
+    updating the AMI.
+    """
+
+    ScheduleExpression: CronScheduleExpression
+    DeploymentConfig: Optional[DeploymentConfiguration]
+
+
 OnStartDeepHealthChecks = List[DeepHealthCheckType]
 
 
@@ -5599,6 +5682,7 @@ class ClusterInstanceGroupDetails(TypedDict, total=False):
     TrainingPlanArn: Optional[TrainingPlanArn]
     TrainingPlanStatus: Optional[InstanceGroupTrainingPlanStatus]
     OverrideVpcConfig: Optional[VpcConfig]
+    ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
 
 
 ClusterInstanceGroupDetailsList = List[ClusterInstanceGroupDetails]
@@ -5617,6 +5701,7 @@ class ClusterInstanceGroupSpecification(TypedDict, total=False):
     OnStartDeepHealthChecks: Optional[OnStartDeepHealthChecks]
     TrainingPlanArn: Optional[TrainingPlanArn]
     OverrideVpcConfig: Optional[VpcConfig]
+    ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
 
 
 ClusterInstanceGroupSpecifications = List[ClusterInstanceGroupSpecification]
@@ -5650,6 +5735,7 @@ class ClusterNodeDetails(TypedDict, total=False):
     InstanceStatus: Optional[ClusterInstanceStatusDetails]
     InstanceType: Optional[ClusterInstanceType]
     LaunchTime: Optional[Timestamp]
+    LastSoftwareUpdateTime: Optional[Timestamp]
     LifeCycleConfig: Optional[ClusterLifeCycleConfig]
     OverrideVpcConfig: Optional[VpcConfig]
     ThreadsPerCore: Optional[ClusterThreadsPerCore]
@@ -5669,6 +5755,7 @@ class ClusterNodeSummary(TypedDict, total=False):
     InstanceId: String
     InstanceType: ClusterInstanceType
     LaunchTime: Timestamp
+    LastSoftwareUpdateTime: Optional[Timestamp]
     InstanceStatus: ClusterInstanceStatusDetails
 
 
@@ -6139,6 +6226,7 @@ class CreateAppRequest(ServiceRequest):
     AppName: AppName
     Tags: Optional[TagList]
     ResourceSpec: Optional[ResourceSpec]
+    RecoveryMode: Optional[Boolean]
 
 
 class CreateAppResponse(TypedDict, total=False):
@@ -8766,6 +8854,7 @@ class CreateNotebookInstanceLifecycleConfigInput(ServiceRequest):
     NotebookInstanceLifecycleConfigName: NotebookInstanceLifecycleConfigName
     OnCreate: Optional[NotebookInstanceLifecycleConfigList]
     OnStart: Optional[NotebookInstanceLifecycleConfigList]
+    Tags: Optional[TagList]
 
 
 class CreateNotebookInstanceLifecycleConfigOutput(TypedDict, total=False):
@@ -8916,6 +9005,7 @@ class CreatePartnerAppRequest(ServiceRequest):
     Name: PartnerAppName
     Type: PartnerAppType
     ExecutionRoleArn: RoleArn
+    KmsKeyId: Optional[KmsKeyId]
     MaintenanceConfig: Optional[PartnerAppMaintenanceConfig]
     Tier: NonEmptyString64
     ApplicationConfig: Optional[PartnerAppConfig]
@@ -9182,7 +9272,7 @@ class ServiceCatalogProvisioningDetails(TypedDict, total=False):
 class CreateProjectInput(ServiceRequest):
     ProjectName: ProjectEntityName
     ProjectDescription: Optional[EntityDescription]
-    ServiceCatalogProvisioningDetails: ServiceCatalogProvisioningDetails
+    ServiceCatalogProvisioningDetails: Optional[ServiceCatalogProvisioningDetails]
     Tags: Optional[TagList]
 
 
@@ -10236,6 +10326,7 @@ class DescribeAppResponse(TypedDict, total=False):
     UserProfileName: Optional[UserProfileName]
     SpaceName: Optional[SpaceName]
     Status: Optional[AppStatus]
+    RecoveryMode: Optional[Boolean]
     LastHealthCheckTimestamp: Optional[Timestamp]
     LastUserActivityTimestamp: Optional[Timestamp]
     CreationTime: Optional[Timestamp]
@@ -11710,7 +11801,9 @@ class DescribePartnerAppResponse(TypedDict, total=False):
     Type: Optional[PartnerAppType]
     Status: Optional[PartnerAppStatus]
     CreationTime: Optional[Timestamp]
+    LastModifiedTime: Optional[Timestamp]
     ExecutionRoleArn: Optional[RoleArn]
+    KmsKeyId: Optional[KmsKeyId]
     BaseUrl: Optional[String2048]
     MaintenanceConfig: Optional[PartnerAppMaintenanceConfig]
     Tier: Optional[NonEmptyString64]
@@ -11840,7 +11933,7 @@ class DescribeProjectOutput(TypedDict, total=False):
     ProjectName: ProjectEntityName
     ProjectId: ProjectId
     ProjectDescription: Optional[EntityDescription]
-    ServiceCatalogProvisioningDetails: ServiceCatalogProvisioningDetails
+    ServiceCatalogProvisioningDetails: Optional[ServiceCatalogProvisioningDetails]
     ServiceCatalogProvisionedProductDetails: Optional[ServiceCatalogProvisionedProductDetails]
     ProjectStatus: ProjectStatus
     CreatedBy: Optional[UserContext]
@@ -14141,6 +14234,7 @@ class ModelPackageSummary(TypedDict, total=False):
     CreationTime: CreationTime
     ModelPackageStatus: ModelPackageStatus
     ModelApprovalStatus: Optional[ModelApprovalStatus]
+    ModelLifeCycle: Optional[ModelLifeCycle]
 
 
 ModelPackageSummaryList = List[ModelPackageSummary]
@@ -15828,12 +15922,27 @@ class SearchRequest(ServiceRequest):
     VisibilityConditions: Optional[VisibilityConditionsList]
 
 
+class TotalHits(TypedDict, total=False):
+    """Represents the total number of matching results and indicates how
+    accurate that count is.
+
+    The ``Value`` field provides the count, which may be exact or estimated.
+    The ``Relation`` field indicates whether it's an exact figure or a lower
+    bound. This helps understand the full scope of search results,
+    especially when dealing with large result sets.
+    """
+
+    Value: Optional[Long]
+    Relation: Optional[Relation]
+
+
 SearchResultsList = List[SearchRecord]
 
 
 class SearchResponse(TypedDict, total=False):
     Results: Optional[SearchResultsList]
     NextToken: Optional[NextToken]
+    TotalHits: Optional[TotalHits]
 
 
 TrainingPlanDurationHoursInput = int
@@ -16099,8 +16208,21 @@ class UpdateClusterSchedulerConfigResponse(TypedDict, total=False):
     ClusterSchedulerConfigVersion: Integer
 
 
+class UpdateClusterSoftwareInstanceGroupSpecification(TypedDict, total=False):
+    """The configuration that describes specifications of the instance groups
+    to update.
+    """
+
+    InstanceGroupName: ClusterInstanceGroupName
+
+
+UpdateClusterSoftwareInstanceGroups = List[UpdateClusterSoftwareInstanceGroupSpecification]
+
+
 class UpdateClusterSoftwareRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
+    InstanceGroups: Optional[UpdateClusterSoftwareInstanceGroups]
+    DeploymentConfig: Optional[DeploymentConfiguration]
 
 
 class UpdateClusterSoftwareResponse(TypedDict, total=False):
@@ -16787,6 +16909,7 @@ class SagemakerApi:
         space_name: SpaceName = None,
         tags: TagList = None,
         resource_spec: ResourceSpec = None,
+        recovery_mode: Boolean = None,
         **kwargs,
     ) -> CreateAppResponse:
         """Creates a running app for the specified UserProfile. This operation is
@@ -16802,6 +16925,7 @@ class SagemakerApi:
         :param tags: Each tag consists of a key and an optional value.
         :param resource_spec: The instance type and the Amazon Resource Name (ARN) of the SageMaker AI
         image created on the instance.
+        :param recovery_mode: Indicates whether the application is launched in recovery mode.
         :returns: CreateAppResponse
         :raises ResourceLimitExceeded:
         :raises ResourceInUse:
@@ -17913,9 +18037,11 @@ class SagemakerApi:
         Components <https://docs.aws.amazon.com/sagemaker/latest/dg/experiments-view-compare.html#experiments-view>`__.
 
         Do not include any security-sensitive information including account
-        access IDs, secrets or tokens in any hyperparameter field. If the use of
-        security-sensitive credentials are detected, SageMaker will reject your
-        training job request and return an exception error.
+        access IDs, secrets, or tokens in any hyperparameter fields. As part of
+        the shared responsibility model, you are responsible for any potential
+        exposure, unauthorized access, or compromise of your sensitive data if
+        caused by any security-sensitive information included in the request
+        hyperparameter variable or plain text fields..
 
         :param hyper_parameter_tuning_job_name: The name of the tuning job.
         :param hyper_parameter_tuning_job_config: The
@@ -18697,6 +18823,7 @@ class SagemakerApi:
         notebook_instance_lifecycle_config_name: NotebookInstanceLifecycleConfigName,
         on_create: NotebookInstanceLifecycleConfigList = None,
         on_start: NotebookInstanceLifecycleConfigList = None,
+        tags: TagList = None,
         **kwargs,
     ) -> CreateNotebookInstanceLifecycleConfigOutput:
         """Creates a lifecycle configuration that you can associate with a notebook
@@ -18724,6 +18851,7 @@ class SagemakerApi:
         :param on_create: A shell script that runs only once, when you create a notebook instance.
         :param on_start: A shell script that runs every time you start a notebook instance,
         including when you create the notebook instance.
+        :param tags: An array of key-value pairs.
         :returns: CreateNotebookInstanceLifecycleConfigOutput
         :raises ResourceLimitExceeded:
         """
@@ -18788,6 +18916,8 @@ class SagemakerApi:
         SageMaker Partner AI App.
         :param auth_type: The authorization type that users use to access the SageMaker Partner AI
         App.
+        :param kms_key_id: SageMaker Partner AI Apps uses Amazon Web Services KMS to encrypt data
+        at rest using an Amazon Web Services managed key by default.
         :param maintenance_config: Maintenance configuration settings for the SageMaker Partner AI App.
         :param application_config: Configuration settings for the SageMaker Partner AI App.
         :param enable_iam_session_based_identity: When set to ``TRUE``, the SageMaker Partner AI App sets the Amazon Web
@@ -19020,8 +19150,8 @@ class SagemakerApi:
         self,
         context: RequestContext,
         project_name: ProjectEntityName,
-        service_catalog_provisioning_details: ServiceCatalogProvisioningDetails,
         project_description: EntityDescription = None,
+        service_catalog_provisioning_details: ServiceCatalogProvisioningDetails = None,
         tags: TagList = None,
         **kwargs,
     ) -> CreateProjectOutput:
@@ -19030,9 +19160,9 @@ class SagemakerApi:
         approved model.
 
         :param project_name: The name of the project.
+        :param project_description: A description for the project.
         :param service_catalog_provisioning_details: The product ID and provisioning artifact ID to provision a service
         catalog.
-        :param project_description: A description for the project.
         :param tags: An array of key-value pairs that you want to use to organize and track
         your Amazon Web Services resource costs.
         :returns: CreateProjectOutput
@@ -19144,9 +19274,11 @@ class SagemakerApi:
            `Algorithms <https://docs.aws.amazon.com/sagemaker/latest/dg/algos.html>`__.
 
            Do not include any security-sensitive information including account
-           access IDs, secrets or tokens in any hyperparameter field. If the use
-           of security-sensitive credentials are detected, SageMaker will reject
-           your training job request and return an exception error.
+           access IDs, secrets, or tokens in any hyperparameter fields. As part
+           of the shared responsibility model, you are responsible for any
+           potential exposure, unauthorized access, or compromise of your
+           sensitive data if caused by security-sensitive information included
+           in the request hyperparameter variable or plain text fields.
 
         -  ``InputDataConfig`` - Describes the input required by the training
            job and the Amazon S3, EFS, or FSx location where it is stored.
@@ -19175,6 +19307,13 @@ class SagemakerApi:
 
         -  ``Environment`` - The environment variables to set in the Docker
            container.
+
+           Do not include any security-sensitive information including account
+           access IDs, secrets, or tokens in any environment fields. As part of
+           the shared responsibility model, you are responsible for any
+           potential exposure, unauthorized access, or compromise of your
+           sensitive data if caused by security-sensitive information included
+           in the request environment variable or plain text fields.
 
         -  ``RetryStrategy`` - The number of times to retry the job when the job
            fails due to an ``InternalServerError``.
@@ -19342,8 +19481,8 @@ class SagemakerApi:
         -  ``TransformOutput`` - Identifies the Amazon S3 location where you
            want Amazon SageMaker to save the results from the transform job.
 
-        -  ``TransformResources`` - Identifies the ML compute instances for the
-           transform job.
+        -  ``TransformResources`` - Identifies the ML compute instances and AMI
+           image versions for the transform job.
 
         For more information about how batch transformation works, see `Batch
         Transform <https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html>`__.
@@ -24910,7 +25049,12 @@ class SagemakerApi:
 
     @handler("UpdateClusterSoftware")
     def update_cluster_software(
-        self, context: RequestContext, cluster_name: ClusterNameOrArn, **kwargs
+        self,
+        context: RequestContext,
+        cluster_name: ClusterNameOrArn,
+        instance_groups: UpdateClusterSoftwareInstanceGroups = None,
+        deployment_config: DeploymentConfiguration = None,
+        **kwargs,
     ) -> UpdateClusterSoftwareResponse:
         """Updates the platform software of a SageMaker HyperPod cluster for
         security patching. To learn how to use this API, see `Update the
@@ -24923,6 +25067,8 @@ class SagemakerApi:
 
         :param cluster_name: Specify the name or the Amazon Resource Name (ARN) of the SageMaker
         HyperPod cluster you want to update for security patching.
+        :param instance_groups: The array of instance groups for which to update AMI versions.
+        :param deployment_config: The configuration to use when updating the AMI versions.
         :returns: UpdateClusterSoftwareResponse
         :raises ResourceNotFound:
         :raises ConflictException:

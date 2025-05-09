@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.10.13
+Version: 1.10.14
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
 Author: Dagster Labs
 Author-email: hello@dagsterlabs.com
@@ -59,8 +59,8 @@ Requires-Dist: universal_pathlib; python_version < "3.12"
 Requires-Dist: universal_pathlib>=0.2.0; python_version >= "3.12"
 Requires-Dist: rich
 Requires-Dist: filelock
-Requires-Dist: dagster-pipes==1.10.13
-Requires-Dist: dagster-shared==0.26.13
+Requires-Dist: dagster-pipes==1.10.14
+Requires-Dist: dagster-shared==0.26.14
 Requires-Dist: antlr4-python3-runtime
 Provides-Extra: docker
 Requires-Dist: docker; extra == "docker"

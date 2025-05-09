@@ -298,7 +298,7 @@ void RelTable::detachDelete(Transaction* transaction, RelDataDirection direction
     auto relReadState = std::make_unique<RelTableScanState>(
         *transaction->getClientContext()->getMemoryManager(), &deleteState->srcNodeIDVector,
         std::vector{&deleteState->dstNodeIDVector, &deleteState->relIDVector},
-        deleteState->dstNodeIDVector.state);
+        deleteState->dstNodeIDVector.state, true /*randomLookup*/);
     relReadState->setToTable(transaction, this, {NBR_ID_COLUMN_ID, REL_ID_COLUMN_ID}, {},
         direction);
     initScanState(transaction, *relReadState);
@@ -451,6 +451,12 @@ void RelTable::commit(Transaction* transaction, TableCatalogEntry* tableEntry,
     }
 
     localRelTable.clear();
+}
+
+void RelTable::reclaimStorage(FileHandle& dataFH) {
+    for (auto& relData : directedRelData) {
+        relData->reclaimStorage(dataFH);
+    }
 }
 
 void RelTable::updateRelOffsets(const LocalRelTable& localRelTable) {

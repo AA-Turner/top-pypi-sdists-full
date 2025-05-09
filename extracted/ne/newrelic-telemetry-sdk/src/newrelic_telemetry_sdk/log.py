@@ -67,18 +67,13 @@ class Log(dict):
             for key in record.__dict__:
                 if key not in default_keys:
                     value = getattr(record, key)
-                    if (
-                        not isinstance(value, (str, int, float, bool))
-                        and value is not None
-                    ):
+                    if not isinstance(value, (str, int, float, bool)) and value is not None:
                         value = str(value)
                     output[key] = value
 
         if record.exc_info:
             error_cls, error_value, error_tb = record.exc_info
-            output["error.class"] = (
-                getattr(error_cls, "__module__", "builtins") + "." + error_cls.__name__
-            )
+            output["error.class"] = getattr(error_cls, "__module__", "builtins") + "." + error_cls.__name__
             output["error.message"] = str(error_value)
             s = StringIO()
             traceback.print_exception(error_cls, error_value, error_tb, None, s)
@@ -130,8 +125,8 @@ class NewRelicLogFormatter(logging.Formatter):
         True
     """
 
-    def __init__(self, *args, **kwargs):
-        super(NewRelicLogFormatter, self).__init__()
+    def __init__(self, *args, **kwargs):  # noqa: ARG002
+        super().__init__()
 
     def format(self, record):
         """Format the specified record as text

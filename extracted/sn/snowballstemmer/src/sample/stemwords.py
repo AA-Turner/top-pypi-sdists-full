@@ -16,7 +16,7 @@ and output files.  If it is omitted, the UTF-8 encoding is used.
 If -p is given the output file consists of each word of the input
 file followed by \"->\" followed by its stemmed equivalent.
 If -p2 is given the output file is a two column layout containing
-the input words in the first column and the stemmed eqivalents in
+the input words in the first column and the stemmed equivalents in
 the second column.
 
 Otherwise, the output file consists of the stemmed words, one per
@@ -36,8 +36,7 @@ def main():
         language = 'English'
         show_help = False
         while len(argv):
-            arg = argv[0]
-            argv = argv[1:]
+            arg = argv.pop(0)
             if arg == '-h':
                 show_help = True
                 break
@@ -49,25 +48,22 @@ def main():
                 if len(argv) == 0:
                     show_help = True
                     break
-                language = argv[0]
-                argv = argv[1:]
+                language = argv.pop(0)
             elif arg == "-i":
                 if len(argv) == 0:
                     show_help = True
                     break
-                input = argv[0]
-                argv = argv[1:]
+                input = argv.pop(0)
             elif arg == "-o":
                 if len(argv) == 0:
                     show_help = True
                     break
-                output = argv[0]
-                argv = argv[1:]
+                output = argv.pop(0)
             elif arg == "-c":
                 if len(argv) == 0:
                     show_help = True
                     break
-                encoding = argv[0]
+                encoding = argv.pop(0)
         if show_help or input == '' or output == '':
             usage()
         else:
@@ -76,8 +72,8 @@ def main():
 
 def stemming(lang, input, output, encoding, pretty):
     stemmer = snowballstemmer.stemmer(lang)
-    with codecs.open(output, "w", encoding) as outfile:
-        with codecs.open(input, "r", encoding) as infile:
+    with codecs.open(input, "r", encoding) as infile:
+        with codecs.open(output, "w", encoding) as outfile:
             for original in infile.readlines():
                 original = original.strip()
                 # Convert only ASCII-letters to lowercase, to match C behavior

@@ -1024,6 +1024,8 @@ class PipelinesClient:
         self,
         pipeline_id: str,
         *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
         dense_similarity_top_k: typing.Optional[int] = OMIT,
         dense_similarity_cutoff: typing.Optional[float] = OMIT,
         sparse_similarity_top_k: typing.Optional[int] = OMIT,
@@ -1042,6 +1044,10 @@ class PipelinesClient:
 
         Parameters:
             - pipeline_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
 
             - dense_similarity_top_k: typing.Optional[int].
 
@@ -1109,6 +1115,7 @@ class PipelinesClient:
         _response = self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/pipelines/{pipeline_id}/retrieve"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,
@@ -2633,6 +2640,8 @@ class AsyncPipelinesClient:
         self,
         pipeline_id: str,
         *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
         dense_similarity_top_k: typing.Optional[int] = OMIT,
         dense_similarity_cutoff: typing.Optional[float] = OMIT,
         sparse_similarity_top_k: typing.Optional[int] = OMIT,
@@ -2651,6 +2660,10 @@ class AsyncPipelinesClient:
 
         Parameters:
             - pipeline_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
 
             - dense_similarity_top_k: typing.Optional[int].
 
@@ -2718,6 +2731,7 @@ class AsyncPipelinesClient:
         _response = await self._client_wrapper.httpx_client.request(
             "POST",
             urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/pipelines/{pipeline_id}/retrieve"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
             json=jsonable_encoder(_request),
             headers=self._client_wrapper.get_headers(),
             timeout=60,

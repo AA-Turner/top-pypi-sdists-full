@@ -9,10 +9,12 @@ AsyncInvokeArn = str
 AsyncInvokeIdempotencyToken = str
 AsyncInvokeIdentifier = str
 AsyncInvokeMessage = str
+Boolean = bool
 ConversationalModelId = str
 ConverseRequestAdditionalModelResponseFieldPathsListMemberString = str
 ConverseStreamRequestAdditionalModelResponseFieldPathsListMemberString = str
 DocumentBlockNameString = str
+GuardrailContentPolicyImageUnitsProcessed = int
 GuardrailContentPolicyUnitsProcessed = int
 GuardrailContextualGroundingFilterScoreDouble = float
 GuardrailContextualGroundingFilterThresholdDouble = float
@@ -48,6 +50,8 @@ TagKey = str
 TagValue = str
 TextCharactersGuarded = int
 TextCharactersTotal = int
+TokenUsageCacheReadInputTokensInteger = int
+TokenUsageCacheWriteInputTokensInteger = int
 TokenUsageInputTokensInteger = int
 TokenUsageOutputTokensInteger = int
 TokenUsageTotalTokensInteger = int
@@ -59,6 +63,10 @@ class AsyncInvokeStatus(StrEnum):
     InProgress = "InProgress"
     Completed = "Completed"
     Failed = "Failed"
+
+
+class CachePointType(StrEnum):
+    default = "default"
 
 
 class ConversationRole(StrEnum):
@@ -108,6 +116,7 @@ class GuardrailContentFilterType(StrEnum):
 
 class GuardrailContentPolicyAction(StrEnum):
     BLOCKED = "BLOCKED"
+    NONE = "NONE"
 
 
 class GuardrailContentQualifier(StrEnum):
@@ -151,6 +160,11 @@ class GuardrailManagedWordType(StrEnum):
     PROFANITY = "PROFANITY"
 
 
+class GuardrailOutputScope(StrEnum):
+    INTERVENTIONS = "INTERVENTIONS"
+    FULL = "FULL"
+
+
 class GuardrailPiiEntityType(StrEnum):
     ADDRESS = "ADDRESS"
     AGE = "AGE"
@@ -188,6 +202,7 @@ class GuardrailPiiEntityType(StrEnum):
 class GuardrailSensitiveInformationPolicyAction(StrEnum):
     ANONYMIZED = "ANONYMIZED"
     BLOCKED = "BLOCKED"
+    NONE = "NONE"
 
 
 class GuardrailStreamProcessingMode(StrEnum):
@@ -197,6 +212,7 @@ class GuardrailStreamProcessingMode(StrEnum):
 
 class GuardrailTopicPolicyAction(StrEnum):
     BLOCKED = "BLOCKED"
+    NONE = "NONE"
 
 
 class GuardrailTopicType(StrEnum):
@@ -206,10 +222,12 @@ class GuardrailTopicType(StrEnum):
 class GuardrailTrace(StrEnum):
     enabled = "enabled"
     disabled = "disabled"
+    enabled_full = "enabled_full"
 
 
 class GuardrailWordPolicyAction(StrEnum):
     BLOCKED = "BLOCKED"
+    NONE = "NONE"
 
 
 class ImageFormat(StrEnum):
@@ -250,6 +268,7 @@ class ToolResultStatus(StrEnum):
 class Trace(StrEnum):
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
+    ENABLED_FULL = "ENABLED_FULL"
 
 
 class VideoFormat(StrEnum):
@@ -451,6 +470,7 @@ class ApplyGuardrailRequest(ServiceRequest):
     guardrailVersion: GuardrailVersion
     source: GuardrailContentSource
     content: GuardrailContentBlockList
+    outputScope: Optional[GuardrailOutputScope]
 
 
 class GuardrailImageCoverage(TypedDict, total=False):
@@ -483,6 +503,7 @@ class GuardrailUsage(TypedDict, total=False):
     sensitiveInformationPolicyUnits: GuardrailSensitiveInformationPolicyUnitsProcessed
     sensitiveInformationPolicyFreeUnits: GuardrailSensitiveInformationPolicyFreeUnitsProcessed
     contextualGroundingPolicyUnits: GuardrailContextualGroundingPolicyUnitsProcessed
+    contentPolicyImageUnits: Optional[GuardrailContentPolicyImageUnitsProcessed]
 
 
 GuardrailProcessingLatency = int
@@ -503,6 +524,7 @@ GuardrailContextualGroundingFilter = TypedDict(
         "threshold": GuardrailContextualGroundingFilterThresholdDouble,
         "score": GuardrailContextualGroundingFilterScoreDouble,
         "action": GuardrailContextualGroundingPolicyAction,
+        "detected": Optional[Boolean],
     },
     total=False,
 )
@@ -524,6 +546,7 @@ class GuardrailRegexFilter(TypedDict, total=False):
     match: Optional[String]
     regex: Optional[String]
     action: GuardrailSensitiveInformationPolicyAction
+    detected: Optional[Boolean]
 
 
 GuardrailRegexFilterList = List[GuardrailRegexFilter]
@@ -533,6 +556,7 @@ GuardrailPiiEntityFilter = TypedDict(
         "match": String,
         "type": GuardrailPiiEntityType,
         "action": GuardrailSensitiveInformationPolicyAction,
+        "detected": Optional[Boolean],
     },
     total=False,
 )
@@ -552,6 +576,7 @@ GuardrailManagedWord = TypedDict(
         "match": String,
         "type": GuardrailManagedWordType,
         "action": GuardrailWordPolicyAction,
+        "detected": Optional[Boolean],
     },
     total=False,
 )
@@ -563,6 +588,7 @@ class GuardrailCustomWord(TypedDict, total=False):
 
     match: String
     action: GuardrailWordPolicyAction
+    detected: Optional[Boolean]
 
 
 GuardrailCustomWordList = List[GuardrailCustomWord]
@@ -582,6 +608,7 @@ GuardrailContentFilter = TypedDict(
         "confidence": GuardrailContentFilterConfidence,
         "filterStrength": Optional[GuardrailContentFilterStrength],
         "action": GuardrailContentPolicyAction,
+        "detected": Optional[Boolean],
     },
     total=False,
 )
@@ -600,6 +627,7 @@ GuardrailTopic = TypedDict(
         "name": String,
         "type": GuardrailTopicType,
         "action": GuardrailTopicPolicyAction,
+        "detected": Optional[Boolean],
     },
     total=False,
 )
@@ -640,6 +668,7 @@ GuardrailOutputContentList = List[GuardrailOutputContent]
 class ApplyGuardrailResponse(TypedDict, total=False):
     usage: GuardrailUsage
     action: GuardrailAction
+    actionReason: Optional[String]
     outputs: GuardrailOutputContentList
     assessments: GuardrailAssessmentList
     guardrailCoverage: Optional[GuardrailCoverage]
@@ -687,8 +716,34 @@ class AutoToolChoice(TypedDict, total=False):
     pass
 
 
+PartBody = bytes
+
+
+class BidirectionalInputPayloadPart(TypedDict, total=False):
+    """Payload content for the bidirectional input. The input is an audio
+    stream.
+    """
+
+    bytes: Optional[PartBody]
+
+
+class BidirectionalOutputPayloadPart(TypedDict, total=False):
+    """Output from the bidirectional stream. The output is speech and a text
+    transcription.
+    """
+
+    bytes: Optional[PartBody]
+
+
 Blob = bytes
 Body = bytes
+CachePointBlock = TypedDict(
+    "CachePointBlock",
+    {
+        "type": CachePointType,
+    },
+    total=False,
+)
 
 
 class ReasoningTextBlock(TypedDict, total=False):
@@ -752,7 +807,7 @@ class GuardrailConverseContentBlock(TypedDict, total=False):
 
 
 class S3Location(TypedDict, total=False):
-    """A storage location in an S3 bucket."""
+    """A storage location in an Amazon S3 bucket."""
 
     uri: S3Uri
     bucketOwner: Optional[AccountId]
@@ -785,6 +840,7 @@ class DocumentSource(TypedDict, total=False):
     """Contains the content of a document."""
 
     bytes: Optional[DocumentSourceBytesBlob]
+    s3Location: Optional[S3Location]
 
 
 class DocumentBlock(TypedDict, total=False):
@@ -802,6 +858,7 @@ class ImageSource(TypedDict, total=False):
     """The source for an image."""
 
     bytes: Optional[ImageSourceBytesBlob]
+    s3Location: Optional[S3Location]
 
 
 class ImageBlock(TypedDict, total=False):
@@ -865,6 +922,7 @@ class ContentBlock(TypedDict, total=False):
     toolUse: Optional[ToolUseBlock]
     toolResult: Optional[ToolResultBlock]
     guardContent: Optional[GuardrailConverseContentBlock]
+    cachePoint: Optional[CachePointBlock]
     reasoningContent: Optional[ReasoningContentBlock]
 
 
@@ -1037,6 +1095,7 @@ class Tool(TypedDict, total=False):
     """
 
     toolSpec: Optional[ToolSpecification]
+    cachePoint: Optional[CachePointBlock]
 
 
 ToolConfigurationToolsList = List[Tool]
@@ -1081,6 +1140,7 @@ class SystemContentBlock(TypedDict, total=False):
 
     text: Optional[NonEmptyString]
     guardContent: Optional[GuardrailConverseContentBlock]
+    cachePoint: Optional[CachePointBlock]
 
 
 SystemContentBlocks = List[SystemContentBlock]
@@ -1122,6 +1182,7 @@ class GuardrailTraceAssessment(TypedDict, total=False):
     modelOutput: Optional[ModelOutputs]
     inputAssessment: Optional[GuardrailAssessmentMap]
     outputAssessments: Optional[GuardrailAssessmentListMap]
+    actionReason: Optional[String]
 
 
 class ConverseTrace(TypedDict, total=False):
@@ -1140,6 +1201,8 @@ class TokenUsage(TypedDict, total=False):
     inputTokens: TokenUsageInputTokensInteger
     outputTokens: TokenUsageOutputTokensInteger
     totalTokens: TokenUsageTotalTokensInteger
+    cacheReadInputTokens: Optional[TokenUsageCacheReadInputTokensInteger]
+    cacheWriteInputTokens: Optional[TokenUsageCacheWriteInputTokensInteger]
 
 
 class ConverseResponse(TypedDict, total=False):
@@ -1275,6 +1338,35 @@ class InvokeModelResponse(TypedDict, total=False):
     performanceConfigLatency: Optional[PerformanceConfigLatency]
 
 
+class InvokeModelWithBidirectionalStreamInput(TypedDict, total=False):
+    """Payload content, the speech chunk, for the bidirectional input of the
+    invocation step.
+    """
+
+    chunk: Optional[BidirectionalInputPayloadPart]
+
+
+class InvokeModelWithBidirectionalStreamOutput(TypedDict, total=False):
+    """Output from the bidirectional stream that was used for model invocation."""
+
+    chunk: Optional[BidirectionalOutputPayloadPart]
+    internalServerException: Optional[InternalServerException]
+    modelStreamErrorException: Optional[ModelStreamErrorException]
+    validationException: Optional[ValidationException]
+    throttlingException: Optional[ThrottlingException]
+    modelTimeoutException: Optional[ModelTimeoutException]
+    serviceUnavailableException: Optional[ServiceUnavailableException]
+
+
+class InvokeModelWithBidirectionalStreamRequest(ServiceRequest):
+    modelId: InvokeModelIdentifier
+    body: Iterator[InvokeModelWithBidirectionalStreamInput]
+
+
+class InvokeModelWithBidirectionalStreamResponse(TypedDict, total=False):
+    body: Iterator[InvokeModelWithBidirectionalStreamOutput]
+
+
 class InvokeModelWithResponseStreamRequest(ServiceRequest):
     body: Optional[IO[Body]]
     contentType: Optional[MimeType]
@@ -1284,9 +1376,6 @@ class InvokeModelWithResponseStreamRequest(ServiceRequest):
     guardrailIdentifier: Optional[GuardrailIdentifier]
     guardrailVersion: Optional[GuardrailVersion]
     performanceConfigLatency: Optional[PerformanceConfigLatency]
-
-
-PartBody = bytes
 
 
 class PayloadPart(TypedDict, total=False):
@@ -1366,6 +1455,7 @@ class BedrockRuntimeApi:
         guardrail_version: GuardrailVersion,
         source: GuardrailContentSource,
         content: GuardrailContentBlockList,
+        output_scope: GuardrailOutputScope = None,
         **kwargs,
     ) -> ApplyGuardrailResponse:
         """The action to apply a guardrail.
@@ -1380,6 +1470,7 @@ class BedrockRuntimeApi:
         :param guardrail_version: The guardrail version used in the request to apply the guardrail.
         :param source: The source of data used in the request to apply the guardrail.
         :param content: The content details used in the request to apply the guardrail.
+        :param output_scope: Specifies the scope of the output that you get in the response.
         :returns: ApplyGuardrailResponse
         :raises AccessDeniedException:
         :raises ResourceNotFoundException:
@@ -1481,8 +1572,8 @@ class BedrockRuntimeApi:
         :param performance_config: Model performance settings for the request.
         :returns: ConverseResponse
         :raises AccessDeniedException:
-        :raises ResourceNotFoundException:
         :raises ThrottlingException:
+        :raises ResourceNotFoundException:
         :raises ModelTimeoutException:
         :raises InternalServerException:
         :raises ServiceUnavailableException:
@@ -1591,8 +1682,8 @@ class BedrockRuntimeApi:
         :param performance_config: Model performance settings for the request.
         :returns: ConverseStreamResponse
         :raises AccessDeniedException:
-        :raises ResourceNotFoundException:
         :raises ThrottlingException:
+        :raises ResourceNotFoundException:
         :raises ModelTimeoutException:
         :raises InternalServerException:
         :raises ServiceUnavailableException:
@@ -1674,8 +1765,46 @@ class BedrockRuntimeApi:
         :raises InternalServerException:
         :raises ServiceUnavailableException:
         :raises ValidationException:
-        :raises ModelNotReadyException:
         :raises ServiceQuotaExceededException:
+        :raises ModelNotReadyException:
+        :raises ModelErrorException:
+        """
+        raise NotImplementedError
+
+    @handler("InvokeModelWithBidirectionalStream")
+    def invoke_model_with_bidirectional_stream(
+        self,
+        context: RequestContext,
+        model_id: InvokeModelIdentifier,
+        body: InvokeModelWithBidirectionalStreamInput,
+        **kwargs,
+    ) -> InvokeModelWithBidirectionalStreamResponse:
+        """Invoke the specified Amazon Bedrock model to run inference using the
+        bidirectional stream. The response is returned in a stream that remains
+        open for 8 minutes. A single session can contain multiple prompts and
+        responses from the model. The prompts to the model are provided as audio
+        files and the model's responses are spoken back to the user and
+        transcribed.
+
+        It is possible for users to interrupt the model's response with a new
+        prompt, which will halt the response speech. The model will retain
+        contextual awareness of the conversation while pivoting to respond to
+        the new prompt.
+
+        :param model_id: The model ID or ARN of the model ID to use.
+        :param body: The prompt and inference parameters in the format specified in the
+        ``BidirectionalInputPayloadPart`` in the header.
+        :returns: InvokeModelWithBidirectionalStreamResponse
+        :raises AccessDeniedException:
+        :raises ResourceNotFoundException:
+        :raises ThrottlingException:
+        :raises ModelTimeoutException:
+        :raises InternalServerException:
+        :raises ServiceUnavailableException:
+        :raises ModelStreamErrorException:
+        :raises ValidationException:
+        :raises ServiceQuotaExceededException:
+        :raises ModelNotReadyException:
         :raises ModelErrorException:
         """
         raise NotImplementedError
@@ -1745,8 +1874,8 @@ class BedrockRuntimeApi:
         :raises ServiceUnavailableException:
         :raises ModelStreamErrorException:
         :raises ValidationException:
-        :raises ModelNotReadyException:
         :raises ServiceQuotaExceededException:
+        :raises ModelNotReadyException:
         :raises ModelErrorException:
         """
         raise NotImplementedError
@@ -1815,8 +1944,8 @@ class BedrockRuntimeApi:
         :param tags: Tags to apply to the invocation.
         :returns: StartAsyncInvokeResponse
         :raises AccessDeniedException:
-        :raises ResourceNotFoundException:
         :raises ThrottlingException:
+        :raises ResourceNotFoundException:
         :raises InternalServerException:
         :raises ServiceUnavailableException:
         :raises ValidationException:

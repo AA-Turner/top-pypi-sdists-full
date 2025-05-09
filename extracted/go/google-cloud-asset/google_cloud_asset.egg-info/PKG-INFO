@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: google-cloud-asset
-Version: 3.30.0
+Version: 3.30.1
 Summary: Google Cloud Asset API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-asset
 Author: Google LLC

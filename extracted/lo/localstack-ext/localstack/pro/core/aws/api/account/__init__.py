@@ -1,9 +1,11 @@
+from datetime import datetime
 from enum import StrEnum
 from typing import List, Optional, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
 AccountId = str
+AccountName = str
 AddressLine = str
 City = str
 CompanyName = str
@@ -59,17 +61,21 @@ class AccessDeniedException(ServiceException):
     code: str = "AccessDeniedException"
     sender_fault: bool = True
     status_code: int = 403
+    errorType: Optional[String]
 
 
 class ConflictException(ServiceException):
     """The request could not be processed because of a conflict in the current
     status of the resource. For example, this happens if you try to enable a
-    Region that is currently being disabled (in a status of DISABLING).
+    Region that is currently being disabled (in a status of DISABLING) or if
+    you try to change an account’s root user email to an email address which
+    is already in use.
     """
 
     code: str = "ConflictException"
     sender_fault: bool = True
     status_code: int = 409
+    errorType: Optional[String]
 
 
 class InternalServerException(ServiceException):
@@ -80,6 +86,7 @@ class InternalServerException(ServiceException):
     code: str = "InternalServerException"
     sender_fault: bool = False
     status_code: int = 500
+    errorType: Optional[String]
 
 
 class ResourceNotFoundException(ServiceException):
@@ -90,6 +97,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = True
     status_code: int = 404
+    errorType: Optional[String]
 
 
 class TooManyRequestsException(ServiceException):
@@ -100,6 +108,7 @@ class TooManyRequestsException(ServiceException):
     code: str = "TooManyRequestsException"
     sender_fault: bool = True
     status_code: int = 429
+    errorType: Optional[String]
 
 
 class ValidationExceptionField(TypedDict, total=False):
@@ -132,6 +141,9 @@ class AcceptPrimaryEmailUpdateRequest(ServiceRequest):
 
 class AcceptPrimaryEmailUpdateResponse(TypedDict, total=False):
     Status: Optional[PrimaryEmailUpdateStatus]
+
+
+AccountCreatedDate = datetime
 
 
 class AlternateContact(TypedDict, total=False):
@@ -178,6 +190,16 @@ class DisableRegionRequest(ServiceRequest):
 class EnableRegionRequest(ServiceRequest):
     AccountId: Optional[AccountId]
     RegionName: RegionName
+
+
+class GetAccountInformationRequest(ServiceRequest):
+    AccountId: Optional[AccountId]
+
+
+class GetAccountInformationResponse(TypedDict, total=False):
+    AccountCreatedDate: Optional[AccountCreatedDate]
+    AccountId: Optional[AccountId]
+    AccountName: Optional[AccountName]
 
 
 class GetAlternateContactRequest(ServiceRequest):
@@ -242,6 +264,11 @@ class ListRegionsResponse(TypedDict, total=False):
     Regions: Optional[RegionOptList]
 
 
+class PutAccountNameRequest(ServiceRequest):
+    AccountId: Optional[AccountId]
+    AccountName: AccountName
+
+
 class PutAlternateContactRequest(ServiceRequest):
     AccountId: Optional[AccountId]
     AlternateContactType: AlternateContactType
@@ -289,9 +316,9 @@ class AccountApi:
         :param primary_email: The new primary email address for use with the specified account.
         :returns: AcceptPrimaryEmailUpdateResponse
         :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
         :raises ValidationException:
         :raises ConflictException:
-        :raises AccessDeniedException:
         :raises TooManyRequestsException:
         :raises InternalServerException:
         """
@@ -347,9 +374,9 @@ class AccountApi:
         ``af-south-1``).
         :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
         account that you want to access or modify with this operation.
+        :raises AccessDeniedException:
         :raises ValidationException:
         :raises ConflictException:
-        :raises AccessDeniedException:
         :raises TooManyRequestsException:
         :raises InternalServerException:
         """
@@ -369,9 +396,28 @@ class AccountApi:
         ``af-south-1``).
         :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
         account that you want to access or modify with this operation.
+        :raises AccessDeniedException:
         :raises ValidationException:
         :raises ConflictException:
+        :raises TooManyRequestsException:
+        :raises InternalServerException:
+        """
+        raise NotImplementedError
+
+    @handler("GetAccountInformation")
+    def get_account_information(
+        self, context: RequestContext, account_id: AccountId = None, **kwargs
+    ) -> GetAccountInformationResponse:
+        """Retrieves information about the specified account including its account
+        name, account ID, and account creation date and time. To use this API,
+        an IAM user or role must have the ``account:GetAccountInformation`` IAM
+        permission.
+
+        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services
+        account that you want to access or modify with this operation.
+        :returns: GetAccountInformationResponse
         :raises AccessDeniedException:
+        :raises ValidationException:
         :raises TooManyRequestsException:
         :raises InternalServerException:
         """
@@ -443,8 +489,8 @@ class AccountApi:
         account that you want to access or modify with this operation.
         :returns: GetPrimaryEmailResponse
         :raises ResourceNotFoundException:
-        :raises ValidationException:
         :raises AccessDeniedException:
+        :raises ValidationException:
         :raises TooManyRequestsException:
         :raises InternalServerException:
         """
@@ -465,8 +511,8 @@ class AccountApi:
         :param account_id: Specifies the 12-digit account ID number of the Amazon Web Services
         account that you want to access or modify with this operation.
         :returns: GetRegionOptStatusResponse
-        :raises ValidationException:
         :raises AccessDeniedException:
+        :raises ValidationException:
         :raises TooManyRequestsException:
         :raises InternalServerException:
         """
@@ -494,8 +540,29 @@ class AccountApi:
         Enabled_by_default) to use to filter the list of Regions for a given
         account.
         :returns: ListRegionsResponse
-        :raises ValidationException:
         :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises TooManyRequestsException:
+        :raises InternalServerException:
+        """
+        raise NotImplementedError
+
+    @handler("PutAccountName")
+    def put_account_name(
+        self,
+        context: RequestContext,
+        account_name: AccountName,
+        account_id: AccountId = None,
+        **kwargs,
+    ) -> None:
+        """Updates the account name of the specified account. To use this API, IAM
+        principals must have the ``account:PutAccountName`` IAM permission.
+
+        :param account_name: The name of the account.
+        :param account_id: Specifies the 12 digit account ID number of the Amazon Web Services
+        account that you want to access or modify with this operation.
+        :raises AccessDeniedException:
+        :raises ValidationException:
         :raises TooManyRequestsException:
         :raises InternalServerException:
         """
@@ -584,9 +651,9 @@ class AccountApi:
         address) to use in the specified account.
         :returns: StartPrimaryEmailUpdateResponse
         :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
         :raises ValidationException:
         :raises ConflictException:
-        :raises AccessDeniedException:
         :raises TooManyRequestsException:
         :raises InternalServerException:
         """

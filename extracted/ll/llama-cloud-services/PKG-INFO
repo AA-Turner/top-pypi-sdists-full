@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: llama-cloud-services
-Version: 0.6.21
+Version: 0.6.22
 Summary: Tailored SDK clients for LlamaCloud services.
 License: MIT
 Author: Logan Markewich
@@ -16,9 +16,9 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: click (>=8.1.7,<9.0.0)
 Requires-Dist: eval-type-backport (>=0.2.0,<0.3.0) ; python_version < "3.10"
 Requires-Dist: llama-cloud (==0.1.19)
-Requires-Dist: llama-index-core (>=0.11.0)
+Requires-Dist: llama-index-core (>=0.12.0)
 Requires-Dist: platformdirs (>=4.3.7,<5.0.0)
-Requires-Dist: pydantic (!=2.10)
+Requires-Dist: pydantic (>=2.8,!=2.10)
 Requires-Dist: python-dotenv (>=1.0.1,<2.0.0)
 Description-Content-Type: text/markdown
 

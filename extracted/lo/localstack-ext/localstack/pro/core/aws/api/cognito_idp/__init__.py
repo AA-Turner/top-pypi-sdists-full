@@ -74,6 +74,7 @@ ResourceServerIdentifierType = str
 ResourceServerNameType = str
 ResourceServerScopeDescriptionType = str
 ResourceServerScopeNameType = str
+RetryGracePeriodSecondsType = int
 S3ArnType = str
 S3BucketType = str
 SESConfigurationSet = str
@@ -294,6 +295,11 @@ class ExplicitAuthFlowsType(StrEnum):
     ALLOW_USER_SRP_AUTH = "ALLOW_USER_SRP_AUTH"
     ALLOW_REFRESH_TOKEN_AUTH = "ALLOW_REFRESH_TOKEN_AUTH"
     ALLOW_USER_AUTH = "ALLOW_USER_AUTH"
+
+
+class FeatureType(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
 
 
 class FeedbackValueType(StrEnum):
@@ -684,6 +690,17 @@ class PreconditionNotMetException(ServiceException):
     """This exception is thrown when a precondition is not met."""
 
     code: str = "PreconditionNotMetException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class RefreshTokenReuseException(ServiceException):
+    """This exception is throw when your application requests token refresh
+    with a refresh token that has been invalidated by refresh-token
+    rotation.
+    """
+
+    code: str = "RefreshTokenReuseException"
     sender_fault: bool = False
     status_code: int = 400
 
@@ -2198,6 +2215,17 @@ class CreateUserImportJobResponse(TypedDict, total=False):
     UserImportJob: Optional[UserImportJobType]
 
 
+class RefreshTokenRotationType(TypedDict, total=False):
+    """The configuration of your app client for refresh token rotation. When
+    enabled, your app client issues new ID, access, and refresh tokens when
+    users renew their sessions with refresh tokens. When disabled, token
+    refresh issues only ID and access tokens.
+    """
+
+    Feature: FeatureType
+    RetryGracePeriodSeconds: Optional[RetryGracePeriodSecondsType]
+
+
 ScopeListType = List[ScopeType]
 OAuthFlowsType = List[OAuthFlowType]
 LogoutURLsListType = List[RedirectUrlType]
@@ -2242,6 +2270,7 @@ class CreateUserPoolClientRequest(ServiceRequest):
     EnableTokenRevocation: Optional[WrappedBooleanType]
     EnablePropagateAdditionalUserContextData: Optional[WrappedBooleanType]
     AuthSessionValidity: Optional[AuthSessionValidityType]
+    RefreshTokenRotation: Optional[RefreshTokenRotationType]
 
 
 class UserPoolClientType(TypedDict, total=False):
@@ -2272,6 +2301,7 @@ class UserPoolClientType(TypedDict, total=False):
     EnableTokenRevocation: Optional[WrappedBooleanType]
     EnablePropagateAdditionalUserContextData: Optional[WrappedBooleanType]
     AuthSessionValidity: Optional[AuthSessionValidityType]
+    RefreshTokenRotation: Optional[RefreshTokenRotationType]
 
 
 class CreateUserPoolClientResponse(TypedDict, total=False):
@@ -2905,6 +2935,18 @@ class GetSigningCertificateResponse(TypedDict, total=False):
     """Response from Amazon Cognito for a signing certificate request."""
 
     Certificate: Optional[StringType]
+
+
+class GetTokensFromRefreshTokenRequest(ServiceRequest):
+    RefreshToken: TokenModelType
+    ClientId: ClientIdType
+    ClientSecret: Optional[ClientSecretType]
+    DeviceKey: Optional[DeviceKeyType]
+    ClientMetadata: Optional[ClientMetadataType]
+
+
+class GetTokensFromRefreshTokenResponse(TypedDict, total=False):
+    AuthenticationResult: Optional[AuthenticationResultType]
 
 
 class GetUICustomizationRequest(ServiceRequest):
@@ -3591,6 +3633,7 @@ class UpdateUserPoolClientRequest(ServiceRequest):
     EnableTokenRevocation: Optional[WrappedBooleanType]
     EnablePropagateAdditionalUserContextData: Optional[WrappedBooleanType]
     AuthSessionValidity: Optional[AuthSessionValidityType]
+    RefreshTokenRotation: Optional[RefreshTokenRotationType]
 
 
 class UpdateUserPoolClientResponse(TypedDict, total=False):
@@ -4319,6 +4362,7 @@ class CognitoIdpApi:
         :param session: The optional session ID from a ``ConfirmSignUp`` API request.
         :returns: AdminInitiateAuthResponse
         :raises ResourceNotFoundException:
+        :raises UnsupportedOperationException:
         :raises InvalidParameterException:
         :raises NotAuthorizedException:
         :raises TooManyRequestsException:
@@ -5818,6 +5862,7 @@ class CognitoIdpApi:
         enable_token_revocation: WrappedBooleanType = None,
         enable_propagate_additional_user_context_data: WrappedBooleanType = None,
         auth_session_validity: AuthSessionValidityType = None,
+        refresh_token_rotation: RefreshTokenRotationType = None,
         **kwargs,
     ) -> CreateUserPoolClientResponse:
         """Creates an app client in a user pool. This operation sets basic and
@@ -5878,6 +5923,7 @@ class CognitoIdpApi:
         ``UserContextData`` in authentication requests.
         :param auth_session_validity: Amazon Cognito creates a session token for each API request in an
         authentication flow.
+        :param refresh_token_rotation: The configuration of your app client for refresh token rotation.
         :returns: CreateUserPoolClientResponse
         :raises InvalidParameterException:
         :raises ResourceNotFoundException:
@@ -5887,6 +5933,7 @@ class CognitoIdpApi:
         :raises ScopeDoesNotExistException:
         :raises InvalidOAuthFlowException:
         :raises InternalErrorException:
+        :raises FeatureUnavailableInTierException:
         """
         raise NotImplementedError
 
@@ -5937,6 +5984,7 @@ class CognitoIdpApi:
         :returns: CreateUserPoolDomainResponse
         :raises InvalidParameterException:
         :raises NotAuthorizedException:
+        :raises ConcurrentModificationException:
         :raises ResourceNotFoundException:
         :raises LimitExceededException:
         :raises InternalErrorException:
@@ -6233,6 +6281,7 @@ class CognitoIdpApi:
         :returns: DeleteUserPoolDomainResponse
         :raises NotAuthorizedException:
         :raises InvalidParameterException:
+        :raises ConcurrentModificationException:
         :raises ResourceNotFoundException:
         :raises InternalErrorException:
         """
@@ -6856,6 +6905,48 @@ class CognitoIdpApi:
         """
         raise NotImplementedError
 
+    @handler("GetTokensFromRefreshToken")
+    def get_tokens_from_refresh_token(
+        self,
+        context: RequestContext,
+        refresh_token: TokenModelType,
+        client_id: ClientIdType,
+        client_secret: ClientSecretType = None,
+        device_key: DeviceKeyType = None,
+        client_metadata: ClientMetadataType = None,
+        **kwargs,
+    ) -> GetTokensFromRefreshTokenResponse:
+        """Given a refresh token, issues new ID, access, and optionally refresh
+        tokens for the user who owns the submitted token. This operation issues
+        a new refresh token and invalidates the original refresh token after an
+        optional grace period when refresh token rotation is enabled. If refresh
+        token rotation is disabled, issues new ID and access tokens only.
+
+        :param refresh_token: A valid refresh token that can authorize the request for new tokens.
+        :param client_id: The app client that issued the refresh token to the user who wants to
+        request new tokens.
+        :param client_secret: The client secret of the requested app client, if the client has a
+        secret.
+        :param device_key: When you enable device remembering, Amazon Cognito issues a device key
+        that you can use for device authentication that bypasses multi-factor
+        authentication (MFA).
+        :param client_metadata: A map of custom key-value pairs that you can provide as input for
+        certain custom workflows that this action triggers.
+        :returns: GetTokensFromRefreshTokenResponse
+        :raises ResourceNotFoundException:
+        :raises InvalidParameterException:
+        :raises NotAuthorizedException:
+        :raises TooManyRequestsException:
+        :raises UserNotFoundException:
+        :raises UnexpectedLambdaException:
+        :raises UserLambdaValidationException:
+        :raises InvalidLambdaResponseException:
+        :raises ForbiddenException:
+        :raises RefreshTokenReuseException:
+        :raises InternalErrorException:
+        """
+        raise NotImplementedError
+
     @handler("GetUICustomization")
     def get_ui_customization(
         self,
@@ -7186,6 +7277,7 @@ class CognitoIdpApi:
         address, or location.
         :param session: The optional session ID from a ``ConfirmSignUp`` API request.
         :returns: InitiateAuthResponse
+        :raises UnsupportedOperationException:
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
         :raises NotAuthorizedException:
@@ -8833,6 +8925,7 @@ class CognitoIdpApi:
         enable_token_revocation: WrappedBooleanType = None,
         enable_propagate_additional_user_context_data: WrappedBooleanType = None,
         auth_session_validity: AuthSessionValidityType = None,
+        refresh_token_rotation: RefreshTokenRotationType = None,
         **kwargs,
     ) -> UpdateUserPoolClientResponse:
         """Given a user pool app client ID, updates the configuration. To avoid
@@ -8894,6 +8987,7 @@ class CognitoIdpApi:
         ``UserContextData`` in authentication requests.
         :param auth_session_validity: Amazon Cognito creates a session token for each API request in an
         authentication flow.
+        :param refresh_token_rotation: The configuration of your app client for refresh token rotation.
         :returns: UpdateUserPoolClientResponse
         :raises ResourceNotFoundException:
         :raises InvalidParameterException:
@@ -8903,6 +8997,7 @@ class CognitoIdpApi:
         :raises ScopeDoesNotExistException:
         :raises InvalidOAuthFlowException:
         :raises InternalErrorException:
+        :raises FeatureUnavailableInTierException:
         """
         raise NotImplementedError
 
@@ -8967,6 +9062,7 @@ class CognitoIdpApi:
         :returns: UpdateUserPoolDomainResponse
         :raises InvalidParameterException:
         :raises NotAuthorizedException:
+        :raises ConcurrentModificationException:
         :raises ResourceNotFoundException:
         :raises TooManyRequestsException:
         :raises InternalErrorException:

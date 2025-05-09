@@ -11,7 +11,7 @@ from flufl.lock._lockfile import (
 )
 
 
-__version__ = '8.1.0'
+__version__ = '8.2.0'
 
 
 _public(

@@ -357,7 +357,7 @@ def get_licensed_environment():
 	if A and A.to_bytes()==b'test':return DevLocalstackEnvironment(client=B)
 	return LicensedLocalstackEnvironment(client=B)
 def configure_container_licensing(cfg):
-	B=cfg;from localstack.utils.container_utils.container_client import VolumeBind as D;A=get_credentials_from_environment()
+	B=cfg;from localstack.utils.container_utils.container_client import BindMount as D;A=get_credentials_from_environment()
 	if isinstance(A,AuthToken):B.env_vars[ENV_LOCALSTACK_AUTH_TOKEN]=A.encoded()
 	elif isinstance(A,ApiKeyCredentials):B.env_vars[ENV_LOCALSTACK_API_KEY]=A.encoded()
 	C=os.path.join(config.dirs.cache,LICENSE_FILE_NAME)

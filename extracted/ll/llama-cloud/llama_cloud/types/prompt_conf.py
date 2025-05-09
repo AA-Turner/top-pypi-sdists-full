@@ -22,6 +22,7 @@ class PromptConf(pydantic.BaseModel):
     cite_sources_prompt: typing.Optional[typing.Dict[str, str]] = pydantic.Field(
         description="The prompt to use for citing sources."
     )
+    scratchpad_prompt: typing.Optional[str] = pydantic.Field(description="The prompt to use for scratchpad.")
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

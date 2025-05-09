@@ -1,3 +1,8 @@
+# ruff: noqa: E402
+import truststore  # noqa: F401
+
+truststore.inject_into_ssl()  # noqa: F401
+
 import asyncio
 import http.server
 import json

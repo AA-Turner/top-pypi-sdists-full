@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -45,6 +45,18 @@ class TestConnectorImapConnectionDto(unittest.TestCase):
                 imap_ssl = True, 
                 select_folder = '0', 
                 search_terms = '0', 
+                start_tls = True, 
+                proxy_host = '0', 
+                proxy_port = 56, 
+                proxy_enabled = True, 
+                local_host_name = '0', 
+                mechanisms = [
+                    '0'
+                    ], 
+                ssl_protocols = [
+                    '0'
+                    ], 
+                ssl_trust = '0', 
                 enabled = True, 
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                 id = '0'
@@ -52,6 +64,7 @@ class TestConnectorImapConnectionDto(unittest.TestCase):
         else :
             return ConnectorImapConnectionDto(
                 connector_id = '0',
+                imap_host = '0',
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 id = '0',
         )

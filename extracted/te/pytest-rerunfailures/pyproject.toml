@@ -9,7 +9,7 @@ ignore = [".pre-commit-config.yaml"]
 
 [project]
 name = "pytest-rerunfailures"
-version = "15.0"
+version = "15.1"
 description = "pytest plugin to re-run tests to eliminate flaky failures"
 dynamic = [
   "readme",
@@ -18,17 +18,15 @@ keywords = [
   "failures",
   "flaky",
   "pytest",
-  "pytest",
   "rerun",
 ]
-license = {text = "Mozilla Public License 2.0 (MPL 2.0)"}
+license.text = "MPL-2.0"
 authors = [{name = "Leah Klearman", email = "lklrmn@gmail.com"}]
 requires-python = ">=3.9"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: Pytest",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX",

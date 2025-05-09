@@ -41,6 +41,7 @@ from .. import (
     IgnoreFileOptions as _IgnoreFileOptions_86c48b91,
     JsonFile as _JsonFile_fa8164db,
     LoggerOptions as _LoggerOptions_eb0f6309,
+    ObjectFile as _ObjectFile_a34b4727,
     Project as _Project_57d89203,
     ProjectType as _ProjectType_fd80c725,
     ProjenrcFile as _ProjenrcFile_50432c7e,
@@ -129,6 +130,7 @@ class AutoRelease(enum.Enum):
     jsii_type="projen.javascript.BuildWorkflowOptions",
     jsii_struct_bases=[_BuildWorkflowCommonOptions_7e3d5c39],
     name_mapping={
+        "env": "env",
         "name": "name",
         "permissions": "permissions",
         "pre_build_steps": "preBuildSteps",
@@ -140,6 +142,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
     def __init__(
         self,
         *,
+        env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
         pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -148,6 +151,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
     ) -> None:
         '''(experimental) Build workflow options for NodeProject.
 
+        :param env: (experimental) Build environment variables. Default: {}
         :param name: (experimental) Name of the buildfile (e.g. "build" becomes "build.yml"). Default: "build"
         :param permissions: (experimental) Permissions granted to the build job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``. Default: ``{ contents: JobPermission.WRITE }``
         :param pre_build_steps: (experimental) Steps to execute before the build. Default: []
@@ -162,12 +166,15 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
             workflow_triggers = _Triggers_e9ae7617(**workflow_triggers)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb5731b72372)
+            check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument pre_build_steps", value=pre_build_steps, expected_type=type_hints["pre_build_steps"])
             check_type(argname="argument workflow_triggers", value=workflow_triggers, expected_type=type_hints["workflow_triggers"])
             check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if env is not None:
+            self._values["env"] = env
         if name is not None:
             self._values["name"] = name
         if permissions is not None:
@@ -178,6 +185,17 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
             self._values["workflow_triggers"] = workflow_triggers
         if mutable_build is not None:
             self._values["mutable_build"] = mutable_build
+
+    @builtins.property
+    def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) Build environment variables.
+
+        :default: {}
+
+        :stability: experimental
+        '''
+        result = self._values.get("env")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -1292,6 +1310,15 @@ class Eslint(
         :stability: experimental
         '''
         return typing.cast(_Task_9fa875b6, jsii.get(self, "eslintTask"))
+
+    @builtins.property
+    @jsii.member(jsii_name="file")
+    def file(self) -> _ObjectFile_a34b4727:
+        '''(experimental) The underlying config file.
+
+        :stability: experimental
+        '''
+        return typing.cast(_ObjectFile_a34b4727, jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="ignorePatterns")
@@ -15820,6 +15847,7 @@ publication.publish()
 
 def _typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb5731b72372(
     *,
+    env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
     pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,

@@ -805,7 +805,7 @@ class LteNmrObj(TypedDict, total=False):
 
     Pci: PCI
     Earfcn: EARFCN
-    EutranCid: EutranCid
+    EutranCid: Optional[EutranCid]
     Rsrp: Optional[RSRP]
     Rsrq: Optional[RSRQ]
 
@@ -1096,7 +1096,8 @@ GatewayListMulticast = List[WirelessGatewayId]
 class ParticipatingGatewaysMulticast(TypedDict, total=False):
     """Specify the list of gateways to which you want to send the multicast
     downlink messages. The multicast message will be sent to each gateway in
-    the sequence provided in the list.
+    the list, with the transmission interval as the time interval between
+    each message.
     """
 
     GatewayList: Optional[GatewayListMulticast]
@@ -1684,9 +1685,9 @@ class FuotaTask(TypedDict, total=False):
 
 class FuotaTaskEventLogOption(TypedDict, total=False):
     """The log options for a FUOTA task event and can be used to set log levels
-    for a specific fuota task event.
+    for a specific FUOTA task event.
 
-    For a LoRaWAN FuotaTask type, possible event for a log message is
+    For a LoRaWAN FUOTA task, the only possible event for a log message is
     ``Fuota``.
     """
 
@@ -1699,8 +1700,8 @@ FuotaTaskList = List[FuotaTask]
 
 
 class FuotaTaskLogOption(TypedDict, total=False):
-    """The log options for fuota tasks and can be used to set log levels for a
-    specific type of fuota task.
+    """The log options for FUOTA tasks and can be used to set log levels for a
+    specific type of FUOTA task.
     """
 
     Type: FuotaTaskType
@@ -3423,8 +3424,8 @@ class IotwirelessApi:
         :param fragment_size_bytes: The size of each fragment in bytes.
         :param fragment_interval_ms: The interval for sending fragments in milliseconds, rounded to the
         nearest second.
-        :param descriptor: The Descriptor specifies some metadata about the File being transferred
-        using FUOTA e.
+        :param descriptor: The descriptor is the metadata about the file that is transferred to the
+        device using FUOTA, such as the software version.
         :returns: CreateFuotaTaskResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -3694,7 +3695,7 @@ class IotwirelessApi:
     def delete_multicast_group(
         self, context: RequestContext, id: MulticastGroupId, **kwargs
     ) -> DeleteMulticastGroupResponse:
-        """Deletes a multicast group if it is not in use by a fuota task.
+        """Deletes a multicast group if it is not in use by a FUOTA task.
 
         :param id: The ID of the multicast group.
         :returns: DeleteMulticastGroupResponse
@@ -3914,7 +3915,7 @@ class IotwirelessApi:
         multicast_group_id: MulticastGroupId,
         **kwargs,
     ) -> DisassociateMulticastGroupFromFuotaTaskResponse:
-        """Disassociates a multicast group from a fuota task.
+        """Disassociates a multicast group from a FUOTA task.
 
         :param id: The ID of a FUOTA task.
         :param multicast_group_id: The ID of the multicast group.
@@ -4087,8 +4088,8 @@ class IotwirelessApi:
         self, context: RequestContext, **kwargs
     ) -> GetLogLevelsByResourceTypesResponse:
         """Returns current default log levels or log levels by resource types.
-        Based on resource types, log levels can be for wireless device log
-        options or wireless gateway log options.
+        Based on the resource type, log levels can be returned for wireless
+        device, wireless gateway, or FUOTA task log options.
 
         :returns: GetLogLevelsByResourceTypesResponse
         :raises AccessDeniedException:
@@ -4325,13 +4326,13 @@ class IotwirelessApi:
         resource_type: ResourceType,
         **kwargs,
     ) -> GetResourceLogLevelResponse:
-        """Fetches the log-level override, if any, for a given resource-ID and
-        resource-type. It can be used for a wireless device, wireless gateway or
-        fuota task.
+        """Fetches the log-level override, if any, for a given resource ID and
+        resource type..
 
-        :param resource_identifier: The identifier of the resource.
-        :param resource_type: The type of the resource, which can be ``WirelessDevice``,
-        ``WirelessGateway`` or ``FuotaTask``.
+        :param resource_identifier: The unique identifier of the resource, which can be the wireless gateway
+        ID, the wireless device ID, or the FUOTA task ID.
+        :param resource_type: The type of resource, which can be ``WirelessDevice``,
+        ``WirelessGateway``, or ``FuotaTask``.
         :returns: GetResourceLogLevelResponse
         :raises AccessDeniedException:
         :raises InternalServerException:
@@ -4710,7 +4711,7 @@ class IotwirelessApi:
         max_results: MaxResults = None,
         **kwargs,
     ) -> ListMulticastGroupsByFuotaTaskResponse:
-        """List all multicast groups associated with a fuota task.
+        """List all multicast groups associated with a FUOTA task.
 
         :param id: The ID of a FUOTA task.
         :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
@@ -5017,12 +5018,12 @@ class IotwirelessApi:
         log_level: LogLevel,
         **kwargs,
     ) -> PutResourceLogLevelResponse:
-        """Sets the log-level override for a resource-ID and resource-type. This
-        option can be specified for a wireless gateway or a wireless device. A
-        limit of 200 log level override can be set per account.
+        """Sets the log-level override for a resource ID and resource type. A limit
+        of 200 log level override can be set per account.
 
-        :param resource_identifier: The identifier of the resource.
-        :param resource_type: The type of the resource, which can be ``WirelessDevice``,
+        :param resource_identifier: The unique identifier of the resource, which can be the wireless gateway
+        ID, the wireless device ID, or the FUOTA task ID.
+        :param resource_type: The type of resource, which can be ``WirelessDevice``,
         ``WirelessGateway``, or ``FuotaTask``.
         :param log_level: The log level for a log message.
         :returns: PutResourceLogLevelResponse
@@ -5039,7 +5040,7 @@ class IotwirelessApi:
         self, context: RequestContext, **kwargs
     ) -> ResetAllResourceLogLevelsResponse:
         """Removes the log-level overrides for all resources; wireless devices,
-        wireless gateways, and fuota tasks.
+        wireless gateways, and FUOTA tasks.
 
         :returns: ResetAllResourceLogLevelsResponse
         :raises AccessDeniedException:
@@ -5058,12 +5059,13 @@ class IotwirelessApi:
         resource_type: ResourceType,
         **kwargs,
     ) -> ResetResourceLogLevelResponse:
-        """Removes the log-level override, if any, for a specific resource-ID and
-        resource-type. It can be used for a wireless device, a wireless gateway,
-        or a fuota task.
+        """Removes the log-level override, if any, for a specific resource ID and
+        resource type. It can be used for a wireless device, a wireless gateway,
+        or a FUOTA task.
 
-        :param resource_identifier: The identifier of the resource.
-        :param resource_type: The type of the resource, which can be ``WirelessDevice``,
+        :param resource_identifier: The unique identifier of the resource, which can be the wireless gateway
+        ID, the wireless device ID, or the FUOTA task ID.
+        :param resource_type: The type of resource, which can be ``WirelessDevice``,
         ``WirelessGateway``, or ``FuotaTask``.
         :returns: ResetResourceLogLevelResponse
         :raises AccessDeniedException:
@@ -5419,8 +5421,8 @@ class IotwirelessApi:
         :param fragment_size_bytes: The size of each fragment in bytes.
         :param fragment_interval_ms: The interval for sending fragments in milliseconds, rounded to the
         nearest second.
-        :param descriptor: The Descriptor specifies some metadata about the File being transferred
-        using FUOTA e.
+        :param descriptor: The descriptor is the metadata about the file that is transferred to the
+        device using FUOTA, such as the software version.
         :returns: UpdateFuotaTaskResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:
@@ -5442,11 +5444,11 @@ class IotwirelessApi:
         **kwargs,
     ) -> UpdateLogLevelsByResourceTypesResponse:
         """Set default log level, or log levels by resource types. This can be for
-        wireless device log options or wireless gateways log options and is used
-        to control the log messages that'll be displayed in CloudWatch.
+        wireless device, wireless gateway, or FUOTA task log options, and is
+        used to control the log messages that'll be displayed in CloudWatch.
 
         :param default_log_level: The log level for a log message.
-        :param fuota_task_log_options: The list of fuota task log options.
+        :param fuota_task_log_options: The list of FUOTA task log options.
         :param wireless_device_log_options: The list of wireless device log options.
         :param wireless_gateway_log_options: The list of wireless gateway log options.
         :returns: UpdateLogLevelsByResourceTypesResponse

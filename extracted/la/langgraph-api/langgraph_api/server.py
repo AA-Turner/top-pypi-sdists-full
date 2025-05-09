@@ -1,4 +1,5 @@
 # MONKEY PATCH: Patch Starlette to fix an error in the library
+# ruff: noqa: E402
 import langgraph_api.patch  # noqa: F401,I001
 import sys
 
@@ -6,34 +7,37 @@ import sys
 # patches an error in the Starlette library.
 import logging
 import typing
+import truststore  # noqa: F401
+
+truststore.inject_into_ssl()  # noqa: F401
+
+from contextlib import asynccontextmanager
 
 import jsonschema_rs
 import structlog
-from contextlib import asynccontextmanager
 from langgraph.errors import EmptyInputError, InvalidUpdateError
+from langgraph_sdk.client import configure_loopback_transports
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
-
-from langgraph_api.api.openapi import set_custom_spec
+from starlette.routing import Mount
 from starlette.types import Receive, Scope, Send
 
 import langgraph_api.config as config
-from langgraph_api.api import routes, meta_routes, user_router
-from starlette.routing import Mount
+from langgraph_api.api import meta_routes, routes, user_router
+from langgraph_api.api.openapi import set_custom_spec
 from langgraph_api.errors import (
     overloaded_error_handler,
     validation_error_handler,
     value_error_handler,
 )
-from langgraph_runtime.lifespan import lifespan
+from langgraph_api.js.base import is_js_path
 from langgraph_api.middleware.http_logger import AccessLoggerMiddleware
 from langgraph_api.middleware.private_network import PrivateNetworkMiddleware
 from langgraph_api.middleware.request_id import RequestIdMiddleware
 from langgraph_api.utils import SchemaGenerator
+from langgraph_runtime.lifespan import lifespan
 from langgraph_runtime.retry import OVERLOADED_EXCEPTIONS
-from langgraph_api.js.base import is_js_path
-from langgraph_sdk.client import configure_loopback_transports
 
 logging.captureWarnings(True)
 logger = structlog.stdlib.get_logger(__name__)

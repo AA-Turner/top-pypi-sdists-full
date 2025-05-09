@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -40,6 +40,7 @@ class EmailVerificationControllerApi(object):
     def delete_all_validation_requests(self, **kwargs):  # noqa: E501
         """Delete all validation requests  # noqa: E501
 
+        Remove validation requests  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_all_validation_requests(async_req=True)
@@ -63,6 +64,7 @@ class EmailVerificationControllerApi(object):
     def delete_all_validation_requests_with_http_info(self, **kwargs):  # noqa: E501
         """Delete all validation requests  # noqa: E501
 
+        Remove validation requests  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_all_validation_requests_with_http_info(async_req=True)
@@ -139,6 +141,7 @@ class EmailVerificationControllerApi(object):
     def delete_validation_request(self, id, **kwargs):  # noqa: E501
         """Delete a validation record  # noqa: E501
 
+        Delete a validation record  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_validation_request(id, async_req=True)
@@ -163,6 +166,7 @@ class EmailVerificationControllerApi(object):
     def delete_validation_request_with_http_info(self, id, **kwargs):  # noqa: E501
         """Delete a validation record  # noqa: E501
 
+        Delete a validation record  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_validation_request_with_http_info(id, async_req=True)
@@ -247,6 +251,7 @@ class EmailVerificationControllerApi(object):
     def get_validation_requests(self, **kwargs):  # noqa: E501
         """Validate a list of email addresses. Per unit billing. See your plan for pricing.  # noqa: E501
 
+        List email verification requests  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_validation_requests(async_req=True)
@@ -277,6 +282,7 @@ class EmailVerificationControllerApi(object):
     def get_validation_requests_with_http_info(self, **kwargs):  # noqa: E501
         """Validate a list of email addresses. Per unit billing. See your plan for pricing.  # noqa: E501
 
+        List email verification requests  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_validation_requests_with_http_info(async_req=True)
@@ -393,6 +399,7 @@ class EmailVerificationControllerApi(object):
     def validate_email_address_list(self, validate_email_address_list_options, **kwargs):  # noqa: E501
         """Validate a list of email addresses. Per unit billing. See your plan for pricing.  # noqa: E501
 
+        Verify a list of email addresses is valid and can be contacted.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.validate_email_address_list(validate_email_address_list_options, async_req=True)
@@ -417,6 +424,7 @@ class EmailVerificationControllerApi(object):
     def validate_email_address_list_with_http_info(self, validate_email_address_list_options, **kwargs):  # noqa: E501
         """Validate a list of email addresses. Per unit billing. See your plan for pricing.  # noqa: E501
 
+        Verify a list of email addresses is valid and can be contacted.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.validate_email_address_list_with_http_info(validate_email_address_list_options, async_req=True)

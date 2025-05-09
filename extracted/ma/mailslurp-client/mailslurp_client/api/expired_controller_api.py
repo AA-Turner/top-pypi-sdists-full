@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -385,6 +385,7 @@ class ExpiredControllerApi(object):
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str inbox_id: Optionally filter by inbox ID
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -414,6 +415,7 @@ class ExpiredControllerApi(object):
         :param str sort: Optional createdAt sort direction ASC or DESC
         :param datetime since: Filter by created at after the given timestamp
         :param datetime before: Filter by created at before the given timestamp
+        :param str inbox_id: Optionally filter by inbox ID
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -435,7 +437,8 @@ class ExpiredControllerApi(object):
             'size',
             'sort',
             'since',
-            'before'
+            'before',
+            'inbox_id'
         ]
         all_params.extend(
             [
@@ -470,6 +473,8 @@ class ExpiredControllerApi(object):
             query_params.append(('since', local_var_params['since']))  # noqa: E501
         if 'before' in local_var_params and local_var_params['before'] is not None:  # noqa: E501
             query_params.append(('before', local_var_params['before']))  # noqa: E501
+        if 'inbox_id' in local_var_params and local_var_params['inbox_id'] is not None:  # noqa: E501
+            query_params.append(('inboxId', local_var_params['inbox_id']))  # noqa: E501
 
         header_params = {}
 

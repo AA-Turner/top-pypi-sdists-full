@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,88 +34,50 @@ class ConnectorProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
         'enabled': 'bool',
-        'inbox_id': 'str',
-        'email_address': 'str',
         'user_id': 'str',
-        'sync_enabled': 'bool',
-        'sync_schedule_type': 'str',
-        'sync_interval': 'int',
+        'email_address': 'str',
+        'inbox_id': 'str',
+        'created_at': 'datetime',
         'name': 'str',
         'id': 'str'
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
         'enabled': 'enabled',
-        'inbox_id': 'inboxId',
-        'email_address': 'emailAddress',
         'user_id': 'userId',
-        'sync_enabled': 'syncEnabled',
-        'sync_schedule_type': 'syncScheduleType',
-        'sync_interval': 'syncInterval',
+        'email_address': 'emailAddress',
+        'inbox_id': 'inboxId',
+        'created_at': 'createdAt',
         'name': 'name',
         'id': 'id'
     }
 
-    def __init__(self, created_at=None, enabled=None, inbox_id=None, email_address=None, user_id=None, sync_enabled=None, sync_schedule_type=None, sync_interval=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, enabled=None, user_id=None, email_address=None, inbox_id=None, created_at=None, name=None, id=None, local_vars_configuration=None):  # noqa: E501
         """ConnectorProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
         self._enabled = None
-        self._inbox_id = None
-        self._email_address = None
         self._user_id = None
-        self._sync_enabled = None
-        self._sync_schedule_type = None
-        self._sync_interval = None
+        self._email_address = None
+        self._inbox_id = None
+        self._created_at = None
         self._name = None
         self._id = None
         self.discriminator = None
 
-        self.created_at = created_at
         if enabled is not None:
             self.enabled = enabled
-        self.inbox_id = inbox_id
+        self.user_id = user_id
         if email_address is not None:
             self.email_address = email_address
-        self.user_id = user_id
-        if sync_enabled is not None:
-            self.sync_enabled = sync_enabled
-        self.sync_schedule_type = sync_schedule_type
-        if sync_interval is not None:
-            self.sync_interval = sync_interval
+        self.inbox_id = inbox_id
+        self.created_at = created_at
         if name is not None:
             self.name = name
-        if id is not None:
-            self.id = id
-
-    @property
-    def created_at(self):
-        """Gets the created_at of this ConnectorProjection.  # noqa: E501
-
-
-        :return: The created_at of this ConnectorProjection.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._created_at
-
-    @created_at.setter
-    def created_at(self, created_at):
-        """Sets the created_at of this ConnectorProjection.
-
-
-        :param created_at: The created_at of this ConnectorProjection.  # noqa: E501
-        :type: datetime
-        """
-        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
-
-        self._created_at = created_at
+        self.id = id
 
     @property
     def enabled(self):
@@ -137,50 +99,6 @@ class ConnectorProjection(object):
         """
 
         self._enabled = enabled
-
-    @property
-    def inbox_id(self):
-        """Gets the inbox_id of this ConnectorProjection.  # noqa: E501
-
-
-        :return: The inbox_id of this ConnectorProjection.  # noqa: E501
-        :rtype: str
-        """
-        return self._inbox_id
-
-    @inbox_id.setter
-    def inbox_id(self, inbox_id):
-        """Sets the inbox_id of this ConnectorProjection.
-
-
-        :param inbox_id: The inbox_id of this ConnectorProjection.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and inbox_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `inbox_id`, must not be `None`")  # noqa: E501
-
-        self._inbox_id = inbox_id
-
-    @property
-    def email_address(self):
-        """Gets the email_address of this ConnectorProjection.  # noqa: E501
-
-
-        :return: The email_address of this ConnectorProjection.  # noqa: E501
-        :rtype: str
-        """
-        return self._email_address
-
-    @email_address.setter
-    def email_address(self, email_address):
-        """Sets the email_address of this ConnectorProjection.
-
-
-        :param email_address: The email_address of this ConnectorProjection.  # noqa: E501
-        :type: str
-        """
-
-        self._email_address = email_address
 
     @property
     def user_id(self):
@@ -206,75 +124,71 @@ class ConnectorProjection(object):
         self._user_id = user_id
 
     @property
-    def sync_enabled(self):
-        """Gets the sync_enabled of this ConnectorProjection.  # noqa: E501
+    def email_address(self):
+        """Gets the email_address of this ConnectorProjection.  # noqa: E501
 
 
-        :return: The sync_enabled of this ConnectorProjection.  # noqa: E501
-        :rtype: bool
-        """
-        return self._sync_enabled
-
-    @sync_enabled.setter
-    def sync_enabled(self, sync_enabled):
-        """Sets the sync_enabled of this ConnectorProjection.
-
-
-        :param sync_enabled: The sync_enabled of this ConnectorProjection.  # noqa: E501
-        :type: bool
-        """
-
-        self._sync_enabled = sync_enabled
-
-    @property
-    def sync_schedule_type(self):
-        """Gets the sync_schedule_type of this ConnectorProjection.  # noqa: E501
-
-
-        :return: The sync_schedule_type of this ConnectorProjection.  # noqa: E501
+        :return: The email_address of this ConnectorProjection.  # noqa: E501
         :rtype: str
         """
-        return self._sync_schedule_type
+        return self._email_address
 
-    @sync_schedule_type.setter
-    def sync_schedule_type(self, sync_schedule_type):
-        """Sets the sync_schedule_type of this ConnectorProjection.
+    @email_address.setter
+    def email_address(self, email_address):
+        """Sets the email_address of this ConnectorProjection.
 
 
-        :param sync_schedule_type: The sync_schedule_type of this ConnectorProjection.  # noqa: E501
+        :param email_address: The email_address of this ConnectorProjection.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and sync_schedule_type is None:  # noqa: E501
-            raise ValueError("Invalid value for `sync_schedule_type`, must not be `None`")  # noqa: E501
-        allowed_values = ["INTERVAL"]  # noqa: E501
-        if self.local_vars_configuration.client_side_validation and sync_schedule_type not in allowed_values:  # noqa: E501
-            raise ValueError(
-                "Invalid value for `sync_schedule_type` ({0}), must be one of {1}"  # noqa: E501
-                .format(sync_schedule_type, allowed_values)
-            )
 
-        self._sync_schedule_type = sync_schedule_type
+        self._email_address = email_address
 
     @property
-    def sync_interval(self):
-        """Gets the sync_interval of this ConnectorProjection.  # noqa: E501
+    def inbox_id(self):
+        """Gets the inbox_id of this ConnectorProjection.  # noqa: E501
 
 
-        :return: The sync_interval of this ConnectorProjection.  # noqa: E501
-        :rtype: int
+        :return: The inbox_id of this ConnectorProjection.  # noqa: E501
+        :rtype: str
         """
-        return self._sync_interval
+        return self._inbox_id
 
-    @sync_interval.setter
-    def sync_interval(self, sync_interval):
-        """Sets the sync_interval of this ConnectorProjection.
+    @inbox_id.setter
+    def inbox_id(self, inbox_id):
+        """Sets the inbox_id of this ConnectorProjection.
 
 
-        :param sync_interval: The sync_interval of this ConnectorProjection.  # noqa: E501
-        :type: int
+        :param inbox_id: The inbox_id of this ConnectorProjection.  # noqa: E501
+        :type: str
         """
+        if self.local_vars_configuration.client_side_validation and inbox_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `inbox_id`, must not be `None`")  # noqa: E501
 
-        self._sync_interval = sync_interval
+        self._inbox_id = inbox_id
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this ConnectorProjection.  # noqa: E501
+
+
+        :return: The created_at of this ConnectorProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this ConnectorProjection.
+
+
+        :param created_at: The created_at of this ConnectorProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
 
     @property
     def name(self):
@@ -315,6 +229,8 @@ class ConnectorProjection(object):
         :param id: The id of this ConnectorProjection.  # noqa: E501
         :type: str
         """
+        if self.local_vars_configuration.client_side_validation and id is None:  # noqa: E501
+            raise ValueError("Invalid value for `id`, must not be `None`")  # noqa: E501
 
         self._id = id
 

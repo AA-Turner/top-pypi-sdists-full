@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -75,6 +75,13 @@ class TestWebhookControllerApi(unittest.TestCase):
         """Test case for get_all_account_webhooks
 
         List account webhooks Paginated  # noqa: E501
+        """
+        pass
+
+    def test_get_all_webhook_endpoints(self):
+        """Test case for get_all_webhook_endpoints
+
+        List Webhooks endpoints Paginated  # noqa: E501
         """
         pass
 
@@ -249,6 +256,13 @@ class TestWebhookControllerApi(unittest.TestCase):
         """Test case for send_test_data
 
         Send webhook test data  # noqa: E501
+        """
+        pass
+
+    def test_update_webhook(self):
+        """Test case for update_webhook
+
+        Update a webhook  # noqa: E501
         """
         pass
 

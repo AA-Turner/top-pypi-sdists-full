@@ -2,14 +2,14 @@ _A='latest'
 import logging,os.path,platform
 from typing import List
 from localstack.constants import ARTIFACTS_REPO
-from localstack.packages import InstallTarget,Package,PackageInstaller
+from localstack.packages import InstallTarget,Package
 from localstack.packages.core import ArchiveDownloadAndExtractInstaller
 from localstack.utils.platform import get_arch
 ARTIFACTS_FALLBACK_URL='https://cdn.jsdelivr.net/gh/localstack/localstack-artifacts'
-REGISTRY_ZIP_URL_DOCKER=f"{ARTIFACTS_REPO}/raw/f84f76a1c27241ff086603d5af61d4be8c77e90d/docker-registry/registry.<arch>.zip"
+REGISTRY_ZIP_URL_DOCKER=f"{ARTIFACTS_REPO}/raw/e18640aa7926d50515d3f7744333620cf1e4908f/docker-registry/registry.<arch>.zip"
 REGISTRY_ZIP_URL_FALLBACK=f"{ARTIFACTS_FALLBACK_URL}/docker-registry/registry.<arch>.zip"
 LOG=logging.getLogger(__name__)
-class RegistryPackage(Package):
+class RegistryPackage(Package[ArchiveDownloadAndExtractInstaller]):
 	def __init__(A):super().__init__('DockerRegistry',_A)
 	def get_versions(A):return[_A]
 	def _get_installer(A,version):return RegistryPackageInstaller('docker-registry',version)

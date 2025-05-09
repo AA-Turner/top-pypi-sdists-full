@@ -37,8 +37,8 @@ import sqlparse
 from deprecated import deprecated
 from methodtools import lru_cache
 from more_itertools import chunked
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Inspector, make_url
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError, NoSuchModuleError
 from typing_extensions import Literal
 
@@ -56,7 +56,7 @@ from airflow.utils.module_loading import import_string
 if TYPE_CHECKING:
     from pandas import DataFrame
     from polars import DataFrame as PolarsDataFrame
-    from sqlalchemy.engine import URL
+    from sqlalchemy.engine import URL, Engine, Inspector
 
     from airflow.models import Connection
     from airflow.providers.openlineage.extractors import OperatorLineage
@@ -307,7 +307,7 @@ class DbApiHook(BaseHook):
             msg = "`sqlalchemy_url` property should be implemented in the provider subclass."
         raise NotImplementedError(msg)
 
-    def get_sqlalchemy_engine(self, engine_kwargs=None):
+    def get_sqlalchemy_engine(self, engine_kwargs=None) -> Engine:
         """
         Get an sqlalchemy_engine object.
 
@@ -328,7 +328,7 @@ class DbApiHook(BaseHook):
 
     @property
     def inspector(self) -> Inspector:
-        return Inspector.from_engine(self.get_sqlalchemy_engine())
+        return inspect(self.get_sqlalchemy_engine())
 
     @cached_property
     def dialect_name(self) -> str:
@@ -890,7 +890,14 @@ class DbApiHook(BaseHook):
                         )
                         sql = self._generate_insert_sql(table, values[0], target_fields, replace, **kwargs)
                         self.log.debug("Generated sql: %s", sql)
-                        cur.executemany(sql, values)
+
+                        try:
+                            cur.executemany(sql, values)
+                        except Exception as e:
+                            self.log.error("Generated sql: %s", sql)
+                            self.log.error("Parameters: %s", values)
+                            raise e
+
                         conn.commit()
                         nb_rows += len(chunked_rows)
                         self.log.info("Loaded %s rows into %s so far", nb_rows, table)
@@ -899,7 +906,14 @@ class DbApiHook(BaseHook):
                         values = self._serialize_cells(row, conn)
                         sql = self._generate_insert_sql(table, values, target_fields, replace, **kwargs)
                         self.log.debug("Generated sql: %s", sql)
-                        cur.execute(sql, values)
+
+                        try:
+                            cur.execute(sql, values)
+                        except Exception as e:
+                            self.log.error("Generated sql: %s", sql)
+                            self.log.error("Parameters: %s", values)
+                            raise e
+
                         if commit_every and i % commit_every == 0:
                             conn.commit()
                             self.log.info("Loaded %s rows into %s so far", i, table)

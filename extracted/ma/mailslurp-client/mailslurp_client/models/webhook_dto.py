@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -49,7 +49,8 @@ class WebhookDto(object):
         'event_name': 'str',
         'request_headers': 'WebhookHeaders',
         'ignore_insecure_ssl_certificates': 'bool',
-        'use_static_ip_range': 'bool'
+        'use_static_ip_range': 'bool',
+        'health_status': 'str'
     }
 
     attribute_map = {
@@ -68,10 +69,11 @@ class WebhookDto(object):
         'event_name': 'eventName',
         'request_headers': 'requestHeaders',
         'ignore_insecure_ssl_certificates': 'ignoreInsecureSslCertificates',
-        'use_static_ip_range': 'useStaticIpRange'
+        'use_static_ip_range': 'useStaticIpRange',
+        'health_status': 'healthStatus'
     }
 
-    def __init__(self, id=None, user_id=None, basic_auth=None, name=None, phone_id=None, inbox_id=None, request_body_template=None, url=None, method=None, payload_json_schema=None, created_at=None, updated_at=None, event_name=None, request_headers=None, ignore_insecure_ssl_certificates=None, use_static_ip_range=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, user_id=None, basic_auth=None, name=None, phone_id=None, inbox_id=None, request_body_template=None, url=None, method=None, payload_json_schema=None, created_at=None, updated_at=None, event_name=None, request_headers=None, ignore_insecure_ssl_certificates=None, use_static_ip_range=None, health_status=None, local_vars_configuration=None):  # noqa: E501
         """WebhookDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -93,6 +95,7 @@ class WebhookDto(object):
         self._request_headers = None
         self._ignore_insecure_ssl_certificates = None
         self._use_static_ip_range = None
+        self._health_status = None
         self.discriminator = None
 
         self.id = id
@@ -112,6 +115,7 @@ class WebhookDto(object):
             self.request_headers = request_headers
         self.ignore_insecure_ssl_certificates = ignore_insecure_ssl_certificates
         self.use_static_ip_range = use_static_ip_range
+        self.health_status = health_status
 
     @property
     def id(self):
@@ -427,7 +431,7 @@ class WebhookDto(object):
         :param event_name: The event_name of this WebhookDto.  # noqa: E501
         :type: str
         """
-        allowed_values = [None,"EMAIL_RECEIVED", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS"]  # noqa: E501
+        allowed_values = [None,"EMAIL_RECEIVED", "NEW_EMAIL", "NEW_CONTACT", "NEW_ATTACHMENT", "EMAIL_OPENED", "EMAIL_READ", "DELIVERY_STATUS", "BOUNCE", "BOUNCE_RECIPIENT", "NEW_SMS", "NEW_GUEST_USER"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and event_name not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `event_name` ({0}), must be one of {1}"  # noqa: E501
@@ -502,6 +506,35 @@ class WebhookDto(object):
         """
 
         self._use_static_ip_range = use_static_ip_range
+
+    @property
+    def health_status(self):
+        """Gets the health_status of this WebhookDto.  # noqa: E501
+
+        Webhook health  # noqa: E501
+
+        :return: The health_status of this WebhookDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._health_status
+
+    @health_status.setter
+    def health_status(self, health_status):
+        """Sets the health_status of this WebhookDto.
+
+        Webhook health  # noqa: E501
+
+        :param health_status: The health_status of this WebhookDto.  # noqa: E501
+        :type: str
+        """
+        allowed_values = [None,"HEALTHY", "UNHEALTHY"]  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and health_status not in allowed_values:  # noqa: E501
+            raise ValueError(
+                "Invalid value for `health_status` ({0}), must be one of {1}"  # noqa: E501
+                .format(health_status, allowed_values)
+            )
+
+        self._health_status = health_status
 
     def to_dict(self):
         """Returns the model properties as a dict"""

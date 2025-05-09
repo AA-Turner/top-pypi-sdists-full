@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,58 +34,58 @@ class ExpiredInboxRecordProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
-        'email_address': 'str',
         'user_id': 'str',
+        'email_address': 'str',
+        'created_at': 'datetime',
         'id': 'str'
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
-        'email_address': 'emailAddress',
         'user_id': 'userId',
+        'email_address': 'emailAddress',
+        'created_at': 'createdAt',
         'id': 'id'
     }
 
-    def __init__(self, created_at=None, email_address=None, user_id=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, user_id=None, email_address=None, created_at=None, id=None, local_vars_configuration=None):  # noqa: E501
         """ExpiredInboxRecordProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
-        self._email_address = None
         self._user_id = None
+        self._email_address = None
+        self._created_at = None
         self._id = None
         self.discriminator = None
 
-        self.created_at = created_at
-        self.email_address = email_address
         self.user_id = user_id
+        self.email_address = email_address
+        self.created_at = created_at
         self.id = id
 
     @property
-    def created_at(self):
-        """Gets the created_at of this ExpiredInboxRecordProjection.  # noqa: E501
+    def user_id(self):
+        """Gets the user_id of this ExpiredInboxRecordProjection.  # noqa: E501
 
 
-        :return: The created_at of this ExpiredInboxRecordProjection.  # noqa: E501
-        :rtype: datetime
+        :return: The user_id of this ExpiredInboxRecordProjection.  # noqa: E501
+        :rtype: str
         """
-        return self._created_at
+        return self._user_id
 
-    @created_at.setter
-    def created_at(self, created_at):
-        """Sets the created_at of this ExpiredInboxRecordProjection.
+    @user_id.setter
+    def user_id(self, user_id):
+        """Sets the user_id of this ExpiredInboxRecordProjection.
 
 
-        :param created_at: The created_at of this ExpiredInboxRecordProjection.  # noqa: E501
-        :type: datetime
+        :param user_id: The user_id of this ExpiredInboxRecordProjection.  # noqa: E501
+        :type: str
         """
-        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and user_id is None:  # noqa: E501
+            raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
 
-        self._created_at = created_at
+        self._user_id = user_id
 
     @property
     def email_address(self):
@@ -111,27 +111,27 @@ class ExpiredInboxRecordProjection(object):
         self._email_address = email_address
 
     @property
-    def user_id(self):
-        """Gets the user_id of this ExpiredInboxRecordProjection.  # noqa: E501
+    def created_at(self):
+        """Gets the created_at of this ExpiredInboxRecordProjection.  # noqa: E501
 
 
-        :return: The user_id of this ExpiredInboxRecordProjection.  # noqa: E501
-        :rtype: str
+        :return: The created_at of this ExpiredInboxRecordProjection.  # noqa: E501
+        :rtype: datetime
         """
-        return self._user_id
+        return self._created_at
 
-    @user_id.setter
-    def user_id(self, user_id):
-        """Sets the user_id of this ExpiredInboxRecordProjection.
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this ExpiredInboxRecordProjection.
 
 
-        :param user_id: The user_id of this ExpiredInboxRecordProjection.  # noqa: E501
-        :type: str
+        :param created_at: The created_at of this ExpiredInboxRecordProjection.  # noqa: E501
+        :type: datetime
         """
-        if self.local_vars_configuration.client_side_validation and user_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
 
-        self._user_id = user_id
+        self._created_at = created_at
 
     @property
     def id(self):

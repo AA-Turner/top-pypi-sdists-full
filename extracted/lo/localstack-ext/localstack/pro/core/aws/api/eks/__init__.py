@@ -47,6 +47,8 @@ class AMITypes(StrEnum):
     CUSTOM = "CUSTOM"
     BOTTLEROCKET_ARM_64 = "BOTTLEROCKET_ARM_64"
     BOTTLEROCKET_x86_64 = "BOTTLEROCKET_x86_64"
+    BOTTLEROCKET_ARM_64_FIPS = "BOTTLEROCKET_ARM_64_FIPS"
+    BOTTLEROCKET_x86_64_FIPS = "BOTTLEROCKET_x86_64_FIPS"
     BOTTLEROCKET_ARM_64_NVIDIA = "BOTTLEROCKET_ARM_64_NVIDIA"
     BOTTLEROCKET_x86_64_NVIDIA = "BOTTLEROCKET_x86_64_NVIDIA"
     WINDOWS_CORE_2019_x86_64 = "WINDOWS_CORE_2019_x86_64"
@@ -57,6 +59,7 @@ class AMITypes(StrEnum):
     AL2023_ARM_64_STANDARD = "AL2023_ARM_64_STANDARD"
     AL2023_x86_64_NEURON = "AL2023_x86_64_NEURON"
     AL2023_x86_64_NVIDIA = "AL2023_x86_64_NVIDIA"
+    AL2023_ARM_64_NVIDIA = "AL2023_ARM_64_NVIDIA"
 
 
 class AccessScopeType(StrEnum):
@@ -332,6 +335,7 @@ class UpdateParamType(StrEnum):
     ComputeConfig = "ComputeConfig"
     StorageConfig = "StorageConfig"
     KubernetesNetworkConfig = "KubernetesNetworkConfig"
+    RemoteNetworkConfig = "RemoteNetworkConfig"
 
 
 class UpdateStatus(StrEnum):
@@ -355,6 +359,7 @@ class UpdateType(StrEnum):
     UpgradePolicyUpdate = "UpgradePolicyUpdate"
     ZonalShiftConfigUpdate = "ZonalShiftConfigUpdate"
     AutoModeUpdate = "AutoModeUpdate"
+    RemoteNetworkConfigUpdate = "RemoteNetworkConfigUpdate"
 
 
 class VersionStatus(StrEnum):
@@ -441,6 +446,20 @@ class InvalidRequestException(ServiceException):
     subscriptionId: Optional[String]
 
 
+class InvalidStateException(ServiceException):
+    """Amazon EKS detected upgrade readiness issues. Call the
+    ```ListInsights`` <https://docs.aws.amazon.com/eks/latest/APIReference/API_ListInsights.html>`__
+    API to view detected upgrade blocking issues. Pass the
+    ```force`` <https://docs.aws.amazon.com/eks/latest/APIReference/API_UpdateClusterVersion.html#API_UpdateClusterVersion_RequestBody>`__
+    flag when updating to override upgrade readiness errors.
+    """
+
+    code: str = "InvalidStateException"
+    sender_fault: bool = False
+    status_code: int = 400
+    clusterName: Optional[String]
+
+
 class NotFoundException(ServiceException):
     """A service resource associated with the request could not be found.
     Clients should not retry such requests.
@@ -518,6 +537,17 @@ class ServiceUnavailableException(ServiceException):
     code: str = "ServiceUnavailableException"
     sender_fault: bool = False
     status_code: int = 503
+
+
+class ThrottlingException(ServiceException):
+    """The request or operation couldn't be performed because a service is
+    throttling requests.
+    """
+
+    code: str = "ThrottlingException"
+    sender_fault: bool = False
+    status_code: int = 429
+    clusterName: Optional[String]
 
 
 StringList = List[String]
@@ -975,8 +1005,8 @@ RemoteNodeNetworkList = List[RemoteNodeNetwork]
 
 
 class RemoteNetworkConfigResponse(TypedDict, total=False):
-    """The configuration in the cluster for EKS Hybrid Nodes. You can't change
-    or update this configuration after the cluster is created.
+    """The configuration in the cluster for EKS Hybrid Nodes. You can add,
+    change, or remove this configuration after the cluster is created.
     """
 
     remoteNodeNetworks: Optional[RemoteNodeNetworkList]
@@ -1253,8 +1283,8 @@ class StorageConfigRequest(TypedDict, total=False):
 
 
 class RemoteNetworkConfigRequest(TypedDict, total=False):
-    """The configuration in the cluster for EKS Hybrid Nodes. You can't change
-    or update this configuration after the cluster is created.
+    """The configuration in the cluster for EKS Hybrid Nodes. You can add,
+    change, or remove this configuration after the cluster is created.
     """
 
     remoteNodeNetworks: Optional[RemoteNodeNetworkList]
@@ -2255,6 +2285,7 @@ class UpdateClusterConfigRequest(ServiceRequest):
     computeConfig: Optional[ComputeConfigRequest]
     kubernetesNetworkConfig: Optional[KubernetesNetworkConfigRequest]
     storageConfig: Optional[StorageConfigRequest]
+    remoteNetworkConfig: Optional[RemoteNetworkConfigRequest]
 
 
 class UpdateClusterConfigResponse(TypedDict, total=False):
@@ -2265,6 +2296,7 @@ class UpdateClusterVersionRequest(ServiceRequest):
     name: String
     version: String
     clientRequestToken: Optional[String]
+    force: Optional[Boolean]
 
 
 class UpdateClusterVersionResponse(TypedDict, total=False):
@@ -2404,6 +2436,7 @@ class EksApi:
         :raises ResourceInUseException:
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
+        :raises ThrottlingException:
         """
         raise NotImplementedError
 
@@ -2442,6 +2475,7 @@ class EksApi:
         :raises ResourceInUseException:
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
+        :raises ThrottlingException:
         """
         raise NotImplementedError
 
@@ -3383,6 +3417,7 @@ class EksApi:
         :raises ResourceInUseException:
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
+        :raises ThrottlingException:
         """
         raise NotImplementedError
 
@@ -3874,43 +3909,53 @@ class EksApi:
         compute_config: ComputeConfigRequest = None,
         kubernetes_network_config: KubernetesNetworkConfigRequest = None,
         storage_config: StorageConfigRequest = None,
+        remote_network_config: RemoteNetworkConfigRequest = None,
         **kwargs,
     ) -> UpdateClusterConfigResponse:
         """Updates an Amazon EKS cluster configuration. Your cluster continues to
         function during the update. The response output includes an update ID
         that you can use to track the status of your cluster update with
-        ``DescribeUpdate``"/>.
+        ``DescribeUpdate``.
 
-        You can use this API operation to enable or disable exporting the
-        Kubernetes control plane logs for your cluster to CloudWatch Logs. By
-        default, cluster control plane logs aren't exported to CloudWatch Logs.
-        For more information, see `Amazon EKS Cluster control plane
-        logs <https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html>`__
-        in the *Amazon EKS User Guide* .
+        You can use this operation to do the following actions:
 
-        CloudWatch Logs ingestion, archive storage, and data scanning rates
-        apply to exported control plane logs. For more information, see
-        `CloudWatch Pricing <http://aws.amazon.com/cloudwatch/pricing/>`__.
+        -  You can use this API operation to enable or disable exporting the
+           Kubernetes control plane logs for your cluster to CloudWatch Logs. By
+           default, cluster control plane logs aren't exported to CloudWatch
+           Logs. For more information, see `Amazon EKS Cluster control plane
+           logs <https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html>`__
+           in the *Amazon EKS User Guide* .
 
-        You can also use this API operation to enable or disable public and
-        private access to your cluster's Kubernetes API server endpoint. By
-        default, public access is enabled, and private access is disabled. For
-        more information, see `Amazon EKS cluster endpoint access
-        control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`__
-        in the *Amazon EKS User Guide* .
+           CloudWatch Logs ingestion, archive storage, and data scanning rates
+           apply to exported control plane logs. For more information, see
+           `CloudWatch Pricing <http://aws.amazon.com/cloudwatch/pricing/>`__.
 
-        You can also use this API operation to choose different subnets and
-        security groups for the cluster. You must specify at least two subnets
-        that are in different Availability Zones. You can't change which VPC the
-        subnets are from, the subnets must be in the same VPC as the subnets
-        that the cluster was created with. For more information about the VPC
-        requirements, see
-        https://docs.aws.amazon.com/eks/latest/userguide/network_reqs.html in
-        the *Amazon EKS User Guide* .
+        -  You can also use this API operation to enable or disable public and
+           private access to your cluster's Kubernetes API server endpoint. By
+           default, public access is enabled, and private access is disabled.
+           For more information, see `Amazon EKS cluster endpoint access
+           control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`__
+           in the *Amazon EKS User Guide* .
 
-        You can also use this API operation to enable or disable ARC zonal
-        shift. If zonal shift is enabled, Amazon Web Services configures zonal
-        autoshift for the cluster.
+        -  You can also use this API operation to choose different subnets and
+           security groups for the cluster. You must specify at least two
+           subnets that are in different Availability Zones. You can't change
+           which VPC the subnets are from, the subnets must be in the same VPC
+           as the subnets that the cluster was created with. For more
+           information about the VPC requirements, see
+           https://docs.aws.amazon.com/eks/latest/userguide/network_reqs.html in
+           the *Amazon EKS User Guide* .
+
+        -  You can also use this API operation to enable or disable ARC zonal
+           shift. If zonal shift is enabled, Amazon Web Services configures
+           zonal autoshift for the cluster.
+
+        -  You can also use this API operation to add, change, or remove the
+           configuration in the cluster for EKS Hybrid Nodes. To remove the
+           configuration, use the ``remoteNetworkConfig`` key with an object
+           containing both subkeys with empty arrays for each. Here is an inline
+           example:
+           ``"remoteNetworkConfig": { "remoteNodeNetworks": [], "remotePodNetworks": [] }``.
 
         Cluster updates are asynchronous, and they should finish within a few
         minutes. During an update, the cluster status moves to ``UPDATING``
@@ -3934,6 +3979,7 @@ class EksApi:
         :param kubernetes_network_config: The Kubernetes network configuration for the cluster.
         :param storage_config: Update the configuration of the block storage capability of your EKS
         Auto Mode cluster.
+        :param remote_network_config: The configuration in the cluster for EKS Hybrid Nodes.
         :returns: UpdateClusterConfigResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -3941,6 +3987,7 @@ class EksApi:
         :raises ResourceInUseException:
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
+        :raises ThrottlingException:
         """
         raise NotImplementedError
 
@@ -3951,6 +3998,7 @@ class EksApi:
         name: String,
         version: String,
         client_request_token: String = None,
+        force: Boolean = None,
         **kwargs,
     ) -> UpdateClusterVersionResponse:
         """Updates an Amazon EKS cluster to the specified Kubernetes version. Your
@@ -3974,6 +4022,8 @@ class EksApi:
         :param version: The desired Kubernetes version following a successful update.
         :param client_request_token: A unique, case-sensitive identifier that you provide to ensure the
         idempotency of the request.
+        :param force: Set this value to ``true`` to override upgrade-blocking readiness checks
+        when updating a cluster.
         :returns: UpdateClusterVersionResponse
         :raises InvalidParameterException:
         :raises ClientException:
@@ -3981,6 +4031,8 @@ class EksApi:
         :raises ResourceInUseException:
         :raises ResourceNotFoundException:
         :raises InvalidRequestException:
+        :raises ThrottlingException:
+        :raises InvalidStateException:
         """
         raise NotImplementedError
 

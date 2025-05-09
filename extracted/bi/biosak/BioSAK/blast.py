@@ -12,6 +12,7 @@ On the top of the blast result page (the RID row), click "Download All",
 then choose "Text" from the top of the pop-up.
 
 # Use "BioSAK taxdump" module to generate the "-tax" file.
+-tax /Users/songweizhi/DB/taxdump_20250321/ncbi_taxonomy.txt
 
 ======================================================================================
 '''

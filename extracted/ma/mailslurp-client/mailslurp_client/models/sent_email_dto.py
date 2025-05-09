@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -40,6 +40,8 @@ class SentEmailDto(object):
         'domain_id': 'str',
         'to': 'list[str]',
         '_from': 'str',
+        'sender': 'Sender',
+        'recipients': 'EmailRecipients',
         'reply_to': 'str',
         'cc': 'list[str]',
         'bcc': 'list[str]',
@@ -52,6 +54,7 @@ class SentEmailDto(object):
         'charset': 'str',
         'is_html': 'bool',
         'sent_at': 'datetime',
+        'created_at': 'datetime',
         'pixel_ids': 'list[str]',
         'message_id': 'str',
         'message_ids': 'list[str]',
@@ -59,6 +62,12 @@ class SentEmailDto(object):
         'template_id': 'str',
         'template_variables': 'dict(str, object)',
         'headers': 'dict(str, str)',
+        'thread_id': 'str',
+        'body_excerpt': 'str',
+        'text_excerpt': 'str',
+        'in_reply_to': 'str',
+        'favourite': 'bool',
+        'size_bytes': 'int',
         'html': 'bool'
     }
 
@@ -69,6 +78,8 @@ class SentEmailDto(object):
         'domain_id': 'domainId',
         'to': 'to',
         '_from': 'from',
+        'sender': 'sender',
+        'recipients': 'recipients',
         'reply_to': 'replyTo',
         'cc': 'cc',
         'bcc': 'bcc',
@@ -81,6 +92,7 @@ class SentEmailDto(object):
         'charset': 'charset',
         'is_html': 'isHTML',
         'sent_at': 'sentAt',
+        'created_at': 'createdAt',
         'pixel_ids': 'pixelIds',
         'message_id': 'messageId',
         'message_ids': 'messageIds',
@@ -88,10 +100,16 @@ class SentEmailDto(object):
         'template_id': 'templateId',
         'template_variables': 'templateVariables',
         'headers': 'headers',
+        'thread_id': 'threadId',
+        'body_excerpt': 'bodyExcerpt',
+        'text_excerpt': 'textExcerpt',
+        'in_reply_to': 'inReplyTo',
+        'favourite': 'favourite',
+        'size_bytes': 'sizeBytes',
         'html': 'html'
     }
 
-    def __init__(self, id=None, user_id=None, inbox_id=None, domain_id=None, to=None, _from=None, reply_to=None, cc=None, bcc=None, attachments=None, subject=None, body_md5_hash=None, body=None, to_contacts=None, to_group=None, charset=None, is_html=None, sent_at=None, pixel_ids=None, message_id=None, message_ids=None, virtual_send=None, template_id=None, template_variables=None, headers=None, html=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, user_id=None, inbox_id=None, domain_id=None, to=None, _from=None, sender=None, recipients=None, reply_to=None, cc=None, bcc=None, attachments=None, subject=None, body_md5_hash=None, body=None, to_contacts=None, to_group=None, charset=None, is_html=None, sent_at=None, created_at=None, pixel_ids=None, message_id=None, message_ids=None, virtual_send=None, template_id=None, template_variables=None, headers=None, thread_id=None, body_excerpt=None, text_excerpt=None, in_reply_to=None, favourite=None, size_bytes=None, html=None, local_vars_configuration=None):  # noqa: E501
         """SentEmailDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -103,6 +121,8 @@ class SentEmailDto(object):
         self._domain_id = None
         self._to = None
         self.__from = None
+        self._sender = None
+        self._recipients = None
         self._reply_to = None
         self._cc = None
         self._bcc = None
@@ -115,6 +135,7 @@ class SentEmailDto(object):
         self._charset = None
         self._is_html = None
         self._sent_at = None
+        self._created_at = None
         self._pixel_ids = None
         self._message_id = None
         self._message_ids = None
@@ -122,6 +143,12 @@ class SentEmailDto(object):
         self._template_id = None
         self._template_variables = None
         self._headers = None
+        self._thread_id = None
+        self._body_excerpt = None
+        self._text_excerpt = None
+        self._in_reply_to = None
+        self._favourite = None
+        self._size_bytes = None
         self._html = None
         self.discriminator = None
 
@@ -131,6 +158,8 @@ class SentEmailDto(object):
         self.domain_id = domain_id
         self.to = to
         self._from = _from
+        self.sender = sender
+        self.recipients = recipients
         self.reply_to = reply_to
         self.cc = cc
         self.bcc = bcc
@@ -143,6 +172,7 @@ class SentEmailDto(object):
         self.charset = charset
         self.is_html = is_html
         self.sent_at = sent_at
+        self.created_at = created_at
         self.pixel_ids = pixel_ids
         self.message_id = message_id
         self.message_ids = message_ids
@@ -150,6 +180,12 @@ class SentEmailDto(object):
         self.template_id = template_id
         self.template_variables = template_variables
         self.headers = headers
+        self.thread_id = thread_id
+        self.body_excerpt = body_excerpt
+        self.text_excerpt = text_excerpt
+        self.in_reply_to = in_reply_to
+        self.favourite = favourite
+        self.size_bytes = size_bytes
         if html is not None:
             self.html = html
 
@@ -296,6 +332,48 @@ class SentEmailDto(object):
         """
 
         self.__from = _from
+
+    @property
+    def sender(self):
+        """Gets the sender of this SentEmailDto.  # noqa: E501
+
+
+        :return: The sender of this SentEmailDto.  # noqa: E501
+        :rtype: Sender
+        """
+        return self._sender
+
+    @sender.setter
+    def sender(self, sender):
+        """Sets the sender of this SentEmailDto.
+
+
+        :param sender: The sender of this SentEmailDto.  # noqa: E501
+        :type: Sender
+        """
+
+        self._sender = sender
+
+    @property
+    def recipients(self):
+        """Gets the recipients of this SentEmailDto.  # noqa: E501
+
+
+        :return: The recipients of this SentEmailDto.  # noqa: E501
+        :rtype: EmailRecipients
+        """
+        return self._recipients
+
+    @recipients.setter
+    def recipients(self, recipients):
+        """Sets the recipients of this SentEmailDto.
+
+
+        :param recipients: The recipients of this SentEmailDto.  # noqa: E501
+        :type: EmailRecipients
+        """
+
+        self._recipients = recipients
 
     @property
     def reply_to(self):
@@ -558,6 +636,29 @@ class SentEmailDto(object):
         self._sent_at = sent_at
 
     @property
+    def created_at(self):
+        """Gets the created_at of this SentEmailDto.  # noqa: E501
+
+
+        :return: The created_at of this SentEmailDto.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this SentEmailDto.
+
+
+        :param created_at: The created_at of this SentEmailDto.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
+
+    @property
     def pixel_ids(self):
         """Gets the pixel_ids of this SentEmailDto.  # noqa: E501
 
@@ -582,6 +683,7 @@ class SentEmailDto(object):
     def message_id(self):
         """Gets the message_id of this SentEmailDto.  # noqa: E501
 
+        RFC 5322 Message-ID header value without angle brackets.  # noqa: E501
 
         :return: The message_id of this SentEmailDto.  # noqa: E501
         :rtype: str
@@ -592,6 +694,7 @@ class SentEmailDto(object):
     def message_id(self, message_id):
         """Sets the message_id of this SentEmailDto.
 
+        RFC 5322 Message-ID header value without angle brackets.  # noqa: E501
 
         :param message_id: The message_id of this SentEmailDto.  # noqa: E501
         :type: str
@@ -703,6 +806,144 @@ class SentEmailDto(object):
         """
 
         self._headers = headers
+
+    @property
+    def thread_id(self):
+        """Gets the thread_id of this SentEmailDto.  # noqa: E501
+
+        MailSlurp thread ID for email chain that enables lookup for In-Reply-To and References fields.  # noqa: E501
+
+        :return: The thread_id of this SentEmailDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._thread_id
+
+    @thread_id.setter
+    def thread_id(self, thread_id):
+        """Sets the thread_id of this SentEmailDto.
+
+        MailSlurp thread ID for email chain that enables lookup for In-Reply-To and References fields.  # noqa: E501
+
+        :param thread_id: The thread_id of this SentEmailDto.  # noqa: E501
+        :type: str
+        """
+
+        self._thread_id = thread_id
+
+    @property
+    def body_excerpt(self):
+        """Gets the body_excerpt of this SentEmailDto.  # noqa: E501
+
+        An excerpt of the body of the email message for quick preview. Takes HTML content part if exists falls back to TEXT content part if not  # noqa: E501
+
+        :return: The body_excerpt of this SentEmailDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._body_excerpt
+
+    @body_excerpt.setter
+    def body_excerpt(self, body_excerpt):
+        """Sets the body_excerpt of this SentEmailDto.
+
+        An excerpt of the body of the email message for quick preview. Takes HTML content part if exists falls back to TEXT content part if not  # noqa: E501
+
+        :param body_excerpt: The body_excerpt of this SentEmailDto.  # noqa: E501
+        :type: str
+        """
+
+        self._body_excerpt = body_excerpt
+
+    @property
+    def text_excerpt(self):
+        """Gets the text_excerpt of this SentEmailDto.  # noqa: E501
+
+        An excerpt of the body of the email message for quick preview. Takes TEXT content part if exists  # noqa: E501
+
+        :return: The text_excerpt of this SentEmailDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._text_excerpt
+
+    @text_excerpt.setter
+    def text_excerpt(self, text_excerpt):
+        """Sets the text_excerpt of this SentEmailDto.
+
+        An excerpt of the body of the email message for quick preview. Takes TEXT content part if exists  # noqa: E501
+
+        :param text_excerpt: The text_excerpt of this SentEmailDto.  # noqa: E501
+        :type: str
+        """
+
+        self._text_excerpt = text_excerpt
+
+    @property
+    def in_reply_to(self):
+        """Gets the in_reply_to of this SentEmailDto.  # noqa: E501
+
+        Parsed value of In-Reply-To header. A Message-ID in a thread.  # noqa: E501
+
+        :return: The in_reply_to of this SentEmailDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._in_reply_to
+
+    @in_reply_to.setter
+    def in_reply_to(self, in_reply_to):
+        """Sets the in_reply_to of this SentEmailDto.
+
+        Parsed value of In-Reply-To header. A Message-ID in a thread.  # noqa: E501
+
+        :param in_reply_to: The in_reply_to of this SentEmailDto.  # noqa: E501
+        :type: str
+        """
+
+        self._in_reply_to = in_reply_to
+
+    @property
+    def favourite(self):
+        """Gets the favourite of this SentEmailDto.  # noqa: E501
+
+        Is email favourited  # noqa: E501
+
+        :return: The favourite of this SentEmailDto.  # noqa: E501
+        :rtype: bool
+        """
+        return self._favourite
+
+    @favourite.setter
+    def favourite(self, favourite):
+        """Sets the favourite of this SentEmailDto.
+
+        Is email favourited  # noqa: E501
+
+        :param favourite: The favourite of this SentEmailDto.  # noqa: E501
+        :type: bool
+        """
+
+        self._favourite = favourite
+
+    @property
+    def size_bytes(self):
+        """Gets the size_bytes of this SentEmailDto.  # noqa: E501
+
+        Size of raw email message in bytes  # noqa: E501
+
+        :return: The size_bytes of this SentEmailDto.  # noqa: E501
+        :rtype: int
+        """
+        return self._size_bytes
+
+    @size_bytes.setter
+    def size_bytes(self, size_bytes):
+        """Sets the size_bytes of this SentEmailDto.
+
+        Size of raw email message in bytes  # noqa: E501
+
+        :param size_bytes: The size_bytes of this SentEmailDto.  # noqa: E501
+        :type: int
+        """
+
+        self._size_bytes = size_bytes
 
     @property
     def html(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: duplocloud-client
-Version: 0.2.49
+Version: 0.2.50
 Summary: Command line Client for interacting with Duplocloud portals.
 Author-email: Kelly <kelly@duplocloud.net>
 Maintainer-email: Kelly <kelly@duplocloud.net>

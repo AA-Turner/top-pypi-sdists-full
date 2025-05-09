@@ -57,11 +57,6 @@ def test_in_with(x):
     >>> test_in_with(b"abc")
     98
     """
-    if sys.version_info[0] < 3:
-        # Python 2 doesn't support memoryviews as context-managers
-        # so just skip the test
-        print(98)
-        return
     with memoryview(x) as xv:
         print(xv[1])
 
@@ -77,9 +72,4 @@ def test_returned_type():
         rv = memoryview(b"abc")[:]
         return rv
 
-    # Python 2 prints 'n' instead of 98. We're only really testing the
-    # type check for the return type, so skip the test.
-    if sys.version_info[0] < 3:
-        print(98)
-    else:
-        print(foo()[1])
+    print(foo()[1])

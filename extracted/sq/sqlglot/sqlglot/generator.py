@@ -139,6 +139,7 @@ class Generator(metaclass=_Generator):
         exp.DynamicProperty: lambda *_: "DYNAMIC",
         exp.EmptyProperty: lambda *_: "EMPTY",
         exp.EncodeColumnConstraint: lambda self, e: f"ENCODE {self.sql(e, 'this')}",
+        exp.EnviromentProperty: lambda self, e: f"ENVIRONMENT ({self.expressions(e, flat=True)})",
         exp.EphemeralColumnConstraint: lambda self,
         e: f"EPHEMERAL{(' ' + self.sql(e, 'this')) if e.this else ''}",
         exp.ExcludeColumnConstraint: lambda self, e: f"EXCLUDE {self.sql(e, 'this').lstrip()}",
@@ -543,6 +544,7 @@ class Generator(metaclass=_Generator):
         exp.EmptyProperty: exp.Properties.Location.POST_SCHEMA,
         exp.EncodeProperty: exp.Properties.Location.POST_EXPRESSION,
         exp.EngineProperty: exp.Properties.Location.POST_SCHEMA,
+        exp.EnviromentProperty: exp.Properties.Location.POST_SCHEMA,
         exp.ExecuteAsProperty: exp.Properties.Location.POST_SCHEMA,
         exp.ExternalProperty: exp.Properties.Location.POST_CREATE,
         exp.FallbackProperty: exp.Properties.Location.POST_NAME,
@@ -1349,7 +1351,11 @@ class Generator(metaclass=_Generator):
         return f"{left_quote}{this}{right_quote}{escape_sql}"
 
     def rawstring_sql(self, expression: exp.RawString) -> str:
-        string = self.escape_str(expression.this.replace("\\", "\\\\"), escape_backslash=False)
+        string = expression.this
+        if "\\" in self.dialect.tokenizer_class.STRING_ESCAPES:
+            string = string.replace("\\", "\\\\")
+
+        string = self.escape_str(string, escape_backslash=False)
         return f"{self.dialect.QUOTE_START}{string}{self.dialect.QUOTE_END}"
 
     def datatypeparam_sql(self, expression: exp.DataTypeParam) -> str:
@@ -3340,7 +3346,8 @@ class Generator(metaclass=_Generator):
             collate = f" COLLATE {collate}" if collate else ""
             using = self.sql(expression, "using")
             using = f" USING {using}" if using else ""
-            return f"ALTER COLUMN {this} {self.ALTER_SET_TYPE} {dtype}{collate}{using}"
+            alter_set_type = self.ALTER_SET_TYPE + " " if self.ALTER_SET_TYPE else ""
+            return f"ALTER COLUMN {this} {alter_set_type}{dtype}{collate}{using}"
 
         default = self.sql(expression, "default")
         if default:

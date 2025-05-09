@@ -10,6 +10,7 @@ from .llama_parse_parameters import LlamaParseParameters
 from .pipeline_configuration_hashes import PipelineConfigurationHashes
 from .pipeline_embedding_config import PipelineEmbeddingConfig
 from .pipeline_metadata_config import PipelineMetadataConfig
+from .pipeline_status import PipelineStatus
 from .pipeline_transform_config import PipelineTransformConfig
 from .pipeline_type import PipelineType
 from .preset_retrieval_params import PresetRetrievalParams
@@ -51,6 +52,7 @@ class Pipeline(pydantic.BaseModel):
     )
     llama_parse_parameters: typing.Optional[LlamaParseParameters]
     data_sink: typing.Optional[DataSink]
+    status: typing.Optional[PipelineStatus]
     metadata_config: typing.Optional[PipelineMetadataConfig]
 
     def json(self, **kwargs: typing.Any) -> str:

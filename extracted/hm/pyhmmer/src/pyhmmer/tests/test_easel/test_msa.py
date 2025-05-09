@@ -8,7 +8,8 @@ import tempfile
 
 from pyhmmer import easel
 
-from ..utils import EASEL_FOLDER
+from .. import __name__ as __package__
+from .utils import EASEL_FOLDER, resource_files
 
 
 class TestMSA(object):
@@ -69,6 +70,16 @@ class TestMSA(object):
         msa = self.MSA(accession=acc)
         self.assertEqual(msa.accession, acc)
 
+    def test_indexed_key_error(self):
+        msa = self.MSA()
+        with self.assertRaises(KeyError):
+            msa.indexed[b"xxx"]
+
+    def test_indexed_type_error(self):
+        msa = self.MSA()
+        with self.assertRaises(TypeError):
+            msa.indexed[1]
+
 
 class TestTextMSA(TestMSA, unittest.TestCase):
 
@@ -78,6 +89,24 @@ class TestTextMSA(TestMSA, unittest.TestCase):
     def read_msa(sto):
         with easel.MSAFile(sto, "stockholm") as msa_file:
             return msa_file.read()
+
+    def test_indexed(self):
+        s1 = easel.TextSequence(name=b"seq1", sequence="ATGC")
+        s2 = easel.TextSequence(name=b"seq2", sequence="ATGG")
+        msa = easel.TextMSA(sequences=[s1, s2])
+        self.assertEqual(len(msa.indexed), 2)
+        self.assertEqual(msa.indexed[b"seq1"], s1)
+        self.assertEqual(msa.indexed[b"seq2"], s2)
+
+    def test_rf(self):
+        s1 = easel.TextSequence(name=b"seq1", sequence="ATGC")
+        s2 = easel.TextSequence(name=b"seq2", sequence="ATGG")
+        msa = easel.TextMSA(sequences=[s1, s2])
+        self.assertIsNone(msa.reference)
+        msa.reference = b"xxxx"
+        self.assertEqual(msa.reference, b"xxxx")
+        with self.assertRaises(ValueError):
+            msa.reference = b"x"
 
     def test_eq(self):
         s1 = easel.TextSequence(name=b"seq1", sequence="ATGC")
@@ -184,12 +213,28 @@ class TestTextMSA(TestMSA, unittest.TestCase):
 class TestDigitalMSA(TestMSA, unittest.TestCase):
 
     alphabet = easel.Alphabet.dna()
-    MSA = functools.partial(easel.DigitalMSA, alphabet)
+    MSA = staticmethod(functools.partial(easel.DigitalMSA, alphabet))
 
     @staticmethod
     def read_msa(sto):
         with easel.MSAFile(sto, "stockholm", digital=True) as msa_file:
             return msa_file.read()
+
+    def test_sample(self):
+        rng = easel.Randomness(42)
+        msa = easel.DigitalMSA.sample(self.alphabet, 10, 50, rng)
+        self.assertLessEqual(len(msa.sequences), 10)
+        self.assertLessEqual(len(msa), 50)
+
+    def test_sample_seed(self):
+        msa1 = easel.DigitalMSA.sample(self.alphabet, 10, 50, randomness=easel.Randomness(42))
+        msa2 = easel.DigitalMSA.sample(self.alphabet, 10, 50, randomness=42)
+        self.assertEqual(msa1, msa2)
+        msa3 = easel.DigitalMSA.sample(self.alphabet, 10, 50, randomness=100)
+        self.assertNotEqual(msa3, msa2)
+
+        with self.assertRaises(TypeError):
+            msa4 = easel.DigitalMSA.sample(self.alphabet, 10, 50, randomness="xxx")
 
     def test_eq(self):
         s1 = easel.DigitalSequence(self.alphabet, name=b"seq1", sequence=bytearray([1, 2, 3, 4]))
@@ -284,3 +329,47 @@ class TestDigitalMSA(TestMSA, unittest.TestCase):
         self.assertTrue(msa_t)
         self.assertEqual(msa_t.sequences[0].name, b"seq1")
         self.assertEqual(msa_t.sequences[0].sequence, "ACGT")
+
+
+    def test_identity_filter(self):
+        # adapted from `utest_idfilter` in `esl_msaweight.c`
+        dna = easel.Alphabet.dna()
+        s1 = easel.DigitalSequence
+
+        buffer = io.BytesIO(
+            b"# STOCKHOLM 1.0\n\n"
+            b"seq1  ..AAAAAAAA\n"
+            b"seq2  AAAAAAAAAA\n"
+            b"seq3  CCCCCCCCCC\n"
+            b"seq4  GGGGGGGGGG\n"
+            b"//\n"
+        )
+
+        with easel.MSAFile(buffer, format="stockholm", digital=True, alphabet=dna) as msa_file:
+            msa = msa_file.read()
+
+        msa2 = msa.identity_filter(1.0)
+        self.assertEqual(len(msa2.sequences), 3)
+        self.assertEqual(msa2.names[0], b"seq2")
+
+        msa3 = msa.identity_filter(1.0, preference="origorder")
+        self.assertEqual(len(msa3.sequences), 3)
+        self.assertEqual(msa3.names[0], b"seq1")
+
+        msa3 = msa.identity_filter(1.0, preference="random")
+        self.assertEqual(len(msa3.sequences), 3)
+        self.assertIn(msa3.names[0], [b"seq1", b"seq2"])
+
+    @unittest.skipUnless(resource_files, "importlib.resources.files not available")
+    def test_identity_filter_luxc(self):
+        luxc = resource_files(__package__).joinpath("data", "msa", "LuxC.sto")
+        msa = self.read_msa(luxc)
+        filtered = msa.identity_filter()
+
+        weighted = resource_files(__package__).joinpath("data", "msa", "LuxC.weighted.sto")
+        expected = self.read_msa(weighted)
+
+        self.assertEqual(len(filtered.sequences), len(expected.sequences))
+        self.assertEqual(len(filtered.names), len(expected.names))
+        for s1, s2 in zip(filtered.sequences, expected.sequences):
+            self.assertEqual(s1, s2)

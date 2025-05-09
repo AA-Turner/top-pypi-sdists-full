@@ -264,8 +264,8 @@ class SSOAdminClient(BaseClient):
         self, **kwargs: Unpack[CreateApplicationRequestTypeDef]
     ) -> CreateApplicationResponseTypeDef:
         """
-        Creates an application in IAM Identity Center for the given application
-        provider.
+        Creates an OAuth 2.0 customer managed application in IAM Identity Center for
+        the given application provider.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/create_application.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sso_admin/client/#create_application)
@@ -895,7 +895,7 @@ class SSOAdminClient(BaseClient):
         self, **kwargs: Unpack[PutApplicationGrantRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Adds a grant to an application.
+        Creates a configuration for an application to use grants.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/put_application_grant.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sso_admin/client/#put_application_grant)

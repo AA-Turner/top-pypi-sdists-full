@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -35,6 +35,8 @@ class PhoneNumberDto(object):
     """
     openapi_types = {
         'id': 'str',
+        'name': 'str',
+        'description': 'str',
         'user_id': 'str',
         'compliance_address': 'str',
         'emergency_address': 'str',
@@ -42,11 +44,14 @@ class PhoneNumberDto(object):
         'phone_country': 'str',
         'phone_plan': 'str',
         'created_at': 'datetime',
-        'updated_at': 'datetime'
+        'updated_at': 'datetime',
+        'favourite': 'bool'
     }
 
     attribute_map = {
         'id': 'id',
+        'name': 'name',
+        'description': 'description',
         'user_id': 'userId',
         'compliance_address': 'complianceAddress',
         'emergency_address': 'emergencyAddress',
@@ -54,16 +59,19 @@ class PhoneNumberDto(object):
         'phone_country': 'phoneCountry',
         'phone_plan': 'phonePlan',
         'created_at': 'createdAt',
-        'updated_at': 'updatedAt'
+        'updated_at': 'updatedAt',
+        'favourite': 'favourite'
     }
 
-    def __init__(self, id=None, user_id=None, compliance_address=None, emergency_address=None, phone_number=None, phone_country=None, phone_plan=None, created_at=None, updated_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, user_id=None, compliance_address=None, emergency_address=None, phone_number=None, phone_country=None, phone_plan=None, created_at=None, updated_at=None, favourite=None, local_vars_configuration=None):  # noqa: E501
         """PhoneNumberDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._id = None
+        self._name = None
+        self._description = None
         self._user_id = None
         self._compliance_address = None
         self._emergency_address = None
@@ -72,9 +80,14 @@ class PhoneNumberDto(object):
         self._phone_plan = None
         self._created_at = None
         self._updated_at = None
+        self._favourite = None
         self.discriminator = None
 
         self.id = id
+        if name is not None:
+            self.name = name
+        if description is not None:
+            self.description = description
         self.user_id = user_id
         if compliance_address is not None:
             self.compliance_address = compliance_address
@@ -85,6 +98,7 @@ class PhoneNumberDto(object):
         self.phone_plan = phone_plan
         self.created_at = created_at
         self.updated_at = updated_at
+        self.favourite = favourite
 
     @property
     def id(self):
@@ -108,6 +122,48 @@ class PhoneNumberDto(object):
             raise ValueError("Invalid value for `id`, must not be `None`")  # noqa: E501
 
         self._id = id
+
+    @property
+    def name(self):
+        """Gets the name of this PhoneNumberDto.  # noqa: E501
+
+
+        :return: The name of this PhoneNumberDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        """Sets the name of this PhoneNumberDto.
+
+
+        :param name: The name of this PhoneNumberDto.  # noqa: E501
+        :type: str
+        """
+
+        self._name = name
+
+    @property
+    def description(self):
+        """Gets the description of this PhoneNumberDto.  # noqa: E501
+
+
+        :return: The description of this PhoneNumberDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._description
+
+    @description.setter
+    def description(self, description):
+        """Sets the description of this PhoneNumberDto.
+
+
+        :param description: The description of this PhoneNumberDto.  # noqa: E501
+        :type: str
+        """
+
+        self._description = description
 
     @property
     def user_id(self):
@@ -217,7 +273,7 @@ class PhoneNumberDto(object):
         """
         if self.local_vars_configuration.client_side_validation and phone_country is None:  # noqa: E501
             raise ValueError("Invalid value for `phone_country`, must not be `None`")  # noqa: E501
-        allowed_values = ["US", "GB", "AU"]  # noqa: E501
+        allowed_values = ["US", "GB", "AU", "CA", "EE", "HK", "PL", "CH", "PT", "NL", "IL", "SE"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and phone_country not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `phone_country` ({0}), must be one of {1}"  # noqa: E501
@@ -294,6 +350,29 @@ class PhoneNumberDto(object):
             raise ValueError("Invalid value for `updated_at`, must not be `None`")  # noqa: E501
 
         self._updated_at = updated_at
+
+    @property
+    def favourite(self):
+        """Gets the favourite of this PhoneNumberDto.  # noqa: E501
+
+
+        :return: The favourite of this PhoneNumberDto.  # noqa: E501
+        :rtype: bool
+        """
+        return self._favourite
+
+    @favourite.setter
+    def favourite(self, favourite):
+        """Sets the favourite of this PhoneNumberDto.
+
+
+        :param favourite: The favourite of this PhoneNumberDto.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and favourite is None:  # noqa: E501
+            raise ValueError("Invalid value for `favourite`, must not be `None`")  # noqa: E501
+
+        self._favourite = favourite
 
     def to_dict(self):
         """Returns the model properties as a dict"""

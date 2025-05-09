@@ -7,7 +7,7 @@ enable this middleware and enable the ROBOTSTXT_OBEY setting.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 from twisted.internet.defer import Deferred, maybeDeferred
 
@@ -30,8 +30,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-_T = TypeVar("_T")
 
 
 class RobotsTxtMiddleware:
@@ -65,7 +63,9 @@ class RobotsTxtMiddleware:
         if request.url.startswith("data:") or request.url.startswith("file:"):
             return None
         d: Deferred[RobotParser | None] = maybeDeferred(
-            self.robot_parser, request, spider  # type: ignore[call-overload]
+            self.robot_parser,
+            request,
+            spider,  # type: ignore[call-overload]
         )
         d2: Deferred[None] = d.addCallback(self.process_request_2, request, spider)
         return d2

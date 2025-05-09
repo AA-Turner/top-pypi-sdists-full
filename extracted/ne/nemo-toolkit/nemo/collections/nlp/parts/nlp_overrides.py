@@ -163,6 +163,7 @@ def init_model_parallel(
                 pipeline_model_parallel_size=app_state.pipeline_model_parallel_size,
                 virtual_pipeline_model_parallel_size=app_state.virtual_pipeline_model_parallel_size,
                 pipeline_model_parallel_split_rank=app_state.pipeline_model_parallel_split_rank,
+                pipeline_model_parallel_comm_backend=app_state.pipeline_model_parallel_comm_backend,
                 context_parallel_size=app_state.context_parallel_size,
                 nccl_communicator_config_path=nccl_communicator_config_path,
                 use_sharp=sharp,
@@ -1408,7 +1409,8 @@ class NLPSaveRestoreConnector(SaveRestoreConnector):
                 checkpoint['state_dict'] = sharded_state_dict
                 if replace_sharded_tensor_key:
                     for v in checkpoint["state_dict"].values():
-                        v.key = v.key.replace("model", replace_sharded_tensor_key)
+                        if hasattr(v, "key"):
+                            v.key = v.key.replace("model", replace_sharded_tensor_key)
 
                 checkpoint_io = DistributedCheckpointIO.from_config(conf)
                 checkpoint = checkpoint_io.load_checkpoint(

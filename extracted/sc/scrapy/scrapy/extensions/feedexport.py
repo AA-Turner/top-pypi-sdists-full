@@ -6,6 +6,7 @@ See documentation in docs/topics/feed-exports.rst
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import re
 import sys
@@ -25,7 +26,6 @@ from zope.interface import Interface, implementer
 from scrapy import Spider, signals
 from scrapy.exceptions import NotConfigured, ScrapyDeprecationWarning
 from scrapy.extensions.postprocessing import PostProcessingManager
-from scrapy.settings import Settings
 from scrapy.utils.conf import feed_complete_default_values_from_settings
 from scrapy.utils.defer import maybe_deferred_to_future
 from scrapy.utils.ftp import ftp_store_file
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
     from scrapy.crawler import Crawler
     from scrapy.exporters import BaseItemExporter
-    from scrapy.settings import BaseSettings
+    from scrapy.settings import BaseSettings, Settings
 
 
 logger = logging.getLogger(__name__)
@@ -109,6 +109,8 @@ class ItemFilter:
 
 class IFeedStorage(Interface):
     """Interface that all Feed Storages must implement"""
+
+    # pylint: disable=no-self-argument
 
     def __init__(uri, *, feed_options=None):  # pylint: disable=super-init-not-called
         """Initialize the storage with the parameters given in the URI and the
@@ -274,7 +276,14 @@ class S3FeedStorage(BlockingFeedStorage):
 
 
 class GCSFeedStorage(BlockingFeedStorage):
-    def __init__(self, uri: str, project_id: str | None, acl: str | None):
+    def __init__(
+        self,
+        uri: str,
+        project_id: str | None,
+        acl: str | None,
+        *,
+        feed_options: dict[str, Any] | None = None,
+    ):
         self.project_id: str | None = project_id
         self.acl: str | None = acl
         u = urlparse(uri)
@@ -282,12 +291,26 @@ class GCSFeedStorage(BlockingFeedStorage):
         self.bucket_name: str = u.hostname
         self.blob_name: str = u.path[1:]  # remove first "/"
 
+        if feed_options and feed_options.get("overwrite", True) is False:
+            logger.warning(
+                "GCS does not support appending to files. To "
+                "suppress this warning, remove the overwrite "
+                "option from your FEEDS setting or set it to True."
+            )
+
     @classmethod
-    def from_crawler(cls, crawler: Crawler, uri: str) -> Self:
+    def from_crawler(
+        cls,
+        crawler: Crawler,
+        uri: str,
+        *,
+        feed_options: dict[str, Any] | None = None,
+    ) -> Self:
         return cls(
             uri,
             crawler.settings["GCS_PROJECT_ID"],
             crawler.settings["FEED_STORAGE_GCS_ACL"] or None,
+            feed_options=feed_options,
         )
 
     def _store_in_thread(self, file: IO[bytes]) -> None:
@@ -587,7 +610,7 @@ class FeedExporter:
         :param uri_template: template of uri which contains %(batch_time)s or %(batch_id)d to create new uri
         """
         storage = self._get_storage(uri, feed_options)
-        slot = FeedSlot(
+        return FeedSlot(
             storage=storage,
             uri=uri,
             format=feed_options["format"],
@@ -601,7 +624,6 @@ class FeedExporter:
             settings=self.settings,
             crawler=self.crawler,
         )
-        return slot
 
     def item_scraped(self, item: Any, spider: Spider) -> None:
         slots = []
@@ -644,10 +666,8 @@ class FeedExporter:
         )
         d = {}
         for k, v in conf.items():
-            try:
+            with contextlib.suppress(NotConfigured):
                 d[k] = load_object(v)
-            except NotConfigured:
-                pass
         return d
 
     def _exporter_supported(self, format: str) -> bool:
@@ -682,7 +702,7 @@ class FeedExporter:
                 return True
             except NotConfigured as e:
                 logger.error(
-                    "Disabled feed storage scheme: %(scheme)s. " "Reason: %(reason)s",
+                    "Disabled feed storage scheme: %(scheme)s. Reason: %(reason)s",
                     {"scheme": scheme, "reason": str(e)},
                 )
         else:

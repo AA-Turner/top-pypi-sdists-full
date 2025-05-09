@@ -16,6 +16,7 @@ cdef struct Grail:
 
 
 cdef struct ReservedNames:
+    int new
     int case
     int do
 
@@ -97,9 +98,10 @@ def assign_fields_in_loop():
 def reserved_names():
     """
     >>> reserved_names()
-    (5, 9)
+    (2, 5, 9)
     """
-    cdef ReservedNames s1 = ReservedNames(case=5, do=9)
+    cdef ReservedNames s1 = ReservedNames(new=2, case=5, do=9)
     cdef ReservedNames s2
+    s2.new = s1.new
     s2.case, s2.do = s1.case, s1.do
-    return (s2.case, s2.do)
+    return (s2.new, s2.case, s2.do)

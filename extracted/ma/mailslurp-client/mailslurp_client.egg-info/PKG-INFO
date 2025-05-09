@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mailslurp-client
-Version: 15.19.22
+Version: 15.21.0
 Summary: Official MailSlurp Python SDK Email API
 Home-page: https://www.mailslurp.com/python
 Author: MailSlurp

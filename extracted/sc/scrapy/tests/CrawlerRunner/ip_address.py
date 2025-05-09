@@ -1,9 +1,14 @@
+# ruff: noqa: E402
+
+from scrapy.utils.reactor import install_reactor
+
+install_reactor("twisted.internet.asyncioreactor.AsyncioSelectorReactor")
+
 from urllib.parse import urlparse
 
 from twisted.internet import reactor
-from twisted.names import cache
+from twisted.names import cache, resolve
 from twisted.names import hosts as hostsModule
-from twisted.names import resolve
 from twisted.names.client import Resolver
 from twisted.python.runtime import platform
 
@@ -27,7 +32,7 @@ def createResolver(servers=None, resolvconf=None, hosts=None):
 class LocalhostSpider(Spider):
     name = "localhost_spider"
 
-    def start_requests(self):
+    async def start(self):
         yield Request(self.url)
 
     def parse(self, response):

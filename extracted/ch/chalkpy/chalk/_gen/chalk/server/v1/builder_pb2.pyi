@@ -806,6 +806,7 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
         "storage_cache_prefix",
         "usage_store_uri",
         "results_writer_skip_producing_feature_metrics",
+        "query_table_write_drop_ratio",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     IMAGE_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
@@ -828,6 +829,7 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
     STORAGE_CACHE_PREFIX_FIELD_NUMBER: _ClassVar[int]
     USAGE_STORE_URI_FIELD_NUMBER: _ClassVar[int]
     RESULTS_WRITER_SKIP_PRODUCING_FEATURE_METRICS_FIELD_NUMBER: _ClassVar[int]
+    QUERY_TABLE_WRITE_DROP_RATIO_FIELD_NUMBER: _ClassVar[int]
     name: str
     image_override: str
     hpa_specs: BackgroundPersistenceWriterHpaSpecs
@@ -849,6 +851,7 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
     storage_cache_prefix: str
     usage_store_uri: str
     results_writer_skip_producing_feature_metrics: bool
+    query_table_write_drop_ratio: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -872,6 +875,7 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
         storage_cache_prefix: _Optional[str] = ...,
         usage_store_uri: _Optional[str] = ...,
         results_writer_skip_producing_feature_metrics: bool = ...,
+        query_table_write_drop_ratio: _Optional[str] = ...,
     ) -> None: ...
 
 class BackgroundPersistenceDeploymentSpecs(_message.Message):

@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,6 +34,7 @@ class AccountBounceBlockDto(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'is_frozen': 'bool',
         'is_sending_blocked': 'bool',
         'bounce_count': 'int',
         'bounce_count_today': 'int',
@@ -42,6 +43,7 @@ class AccountBounceBlockDto(object):
     }
 
     attribute_map = {
+        'is_frozen': 'isFrozen',
         'is_sending_blocked': 'isSendingBlocked',
         'bounce_count': 'bounceCount',
         'bounce_count_today': 'bounceCountToday',
@@ -49,12 +51,13 @@ class AccountBounceBlockDto(object):
         'maximum_account_bounces': 'maximumAccountBounces'
     }
 
-    def __init__(self, is_sending_blocked=None, bounce_count=None, bounce_count_today=None, maximum_daily_bounces=None, maximum_account_bounces=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, is_frozen=None, is_sending_blocked=None, bounce_count=None, bounce_count_today=None, maximum_daily_bounces=None, maximum_account_bounces=None, local_vars_configuration=None):  # noqa: E501
         """AccountBounceBlockDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._is_frozen = None
         self._is_sending_blocked = None
         self._bounce_count = None
         self._bounce_count_today = None
@@ -62,11 +65,35 @@ class AccountBounceBlockDto(object):
         self._maximum_account_bounces = None
         self.discriminator = None
 
+        self.is_frozen = is_frozen
         self.is_sending_blocked = is_sending_blocked
         self.bounce_count = bounce_count
         self.bounce_count_today = bounce_count_today
         self.maximum_daily_bounces = maximum_daily_bounces
         self.maximum_account_bounces = maximum_account_bounces
+
+    @property
+    def is_frozen(self):
+        """Gets the is_frozen of this AccountBounceBlockDto.  # noqa: E501
+
+
+        :return: The is_frozen of this AccountBounceBlockDto.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_frozen
+
+    @is_frozen.setter
+    def is_frozen(self, is_frozen):
+        """Sets the is_frozen of this AccountBounceBlockDto.
+
+
+        :param is_frozen: The is_frozen of this AccountBounceBlockDto.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and is_frozen is None:  # noqa: E501
+            raise ValueError("Invalid value for `is_frozen`, must not be `None`")  # noqa: E501
+
+        self._is_frozen = is_frozen
 
     @property
     def is_sending_blocked(self):

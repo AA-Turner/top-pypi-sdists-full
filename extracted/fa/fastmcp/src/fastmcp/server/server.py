@@ -16,17 +16,10 @@ import anyio
 import httpx
 import pydantic
 import uvicorn
-from mcp.server.auth.middleware.auth_context import AuthContextMiddleware
-from mcp.server.auth.middleware.bearer_auth import (
-    BearerAuthBackend,
-    RequireAuthMiddleware,
-)
 from mcp.server.auth.provider import OAuthAuthorizationServerProvider
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.server.lowlevel.server import LifespanResultT
 from mcp.server.lowlevel.server import Server as MCPServer
-from mcp.server.session import ServerSession
-from mcp.server.sse import SseServerTransport
 from mcp.server.stdio import stdio_server
 from mcp.types import (
     AnyFunction,
@@ -42,126 +35,30 @@ from mcp.types import ResourceTemplate as MCPResourceTemplate
 from mcp.types import Tool as MCPTool
 from pydantic import AnyUrl
 from starlette.applications import Starlette
-from starlette.middleware import Middleware
-from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.routing import Mount, Route
-from starlette.types import Receive, Scope, Send
+from starlette.routing import Route
 
-import fastmcp
+import fastmcp.server
 import fastmcp.settings
 from fastmcp.exceptions import NotFoundError, ResourceError
 from fastmcp.prompts import Prompt, PromptManager
 from fastmcp.prompts.prompt import PromptResult
 from fastmcp.resources import Resource, ResourceManager
 from fastmcp.resources.template import ResourceTemplate
+from fastmcp.server.http import create_sse_app
 from fastmcp.tools import ToolManager
 from fastmcp.tools.tool import Tool
+from fastmcp.utilities.cache import TimedCache
 from fastmcp.utilities.decorators import DecoratedFunction
-from fastmcp.utilities.http import RequestMiddleware
 from fastmcp.utilities.logging import configure_logging, get_logger
 
 if TYPE_CHECKING:
     from fastmcp.client import Client
-    from fastmcp.server.context import Context
     from fastmcp.server.openapi import FastMCPOpenAPI
     from fastmcp.server.proxy import FastMCPProxy
 
 logger = get_logger(__name__)
-
-NOT_FOUND = object()
-
-
-class MountedServer:
-    def __init__(
-        self,
-        prefix: str,
-        server: FastMCP,
-        tool_separator: str | None = None,
-        resource_separator: str | None = None,
-        prompt_separator: str | None = None,
-    ):
-        if tool_separator is None:
-            tool_separator = "_"
-        if resource_separator is None:
-            resource_separator = "+"
-        if prompt_separator is None:
-            prompt_separator = "_"
-
-        _validate_resource_prefix(f"{prefix}{resource_separator}")
-
-        self.server = server
-        self.prefix = prefix
-        self.tool_separator = tool_separator
-        self.resource_separator = resource_separator
-        self.prompt_separator = prompt_separator
-
-    async def get_tools(self) -> dict[str, Tool]:
-        tools = await self.server.get_tools()
-        return {
-            f"{self.prefix}{self.tool_separator}{key}": tool
-            for key, tool in tools.items()
-        }
-
-    async def get_resources(self) -> dict[str, Resource]:
-        resources = await self.server.get_resources()
-        return {
-            f"{self.prefix}{self.resource_separator}{key}": resource
-            for key, resource in resources.items()
-        }
-
-    async def get_resource_templates(self) -> dict[str, ResourceTemplate]:
-        templates = await self.server.get_resource_templates()
-        return {
-            f"{self.prefix}{self.resource_separator}{key}": template
-            for key, template in templates.items()
-        }
-
-    async def get_prompts(self) -> dict[str, Prompt]:
-        prompts = await self.server.get_prompts()
-        return {
-            f"{self.prefix}{self.prompt_separator}{key}": prompt
-            for key, prompt in prompts.items()
-        }
-
-    def match_tool(self, key: str) -> bool:
-        return key.startswith(f"{self.prefix}{self.tool_separator}")
-
-    def strip_tool_prefix(self, key: str) -> str:
-        return key.removeprefix(f"{self.prefix}{self.tool_separator}")
-
-    def match_resource(self, key: str) -> bool:
-        return key.startswith(f"{self.prefix}{self.resource_separator}")
-
-    def strip_resource_prefix(self, key: str) -> str:
-        return key.removeprefix(f"{self.prefix}{self.resource_separator}")
-
-    def match_prompt(self, key: str) -> bool:
-        return key.startswith(f"{self.prefix}{self.prompt_separator}")
-
-    def strip_prompt_prefix(self, key: str) -> str:
-        return key.removeprefix(f"{self.prefix}{self.prompt_separator}")
-
-
-class TimedCache:
-    def __init__(self, expiration: datetime.timedelta):
-        self.expiration = expiration
-        self.cache: dict[Any, tuple[Any, datetime.datetime]] = {}
-
-    def set(self, key: Any, value: Any) -> None:
-        expires = datetime.datetime.now() + self.expiration
-        self.cache[key] = (value, expires)
-
-    def get(self, key: Any) -> Any:
-        value = self.cache.get(key)
-        if value is not None and value[1] > datetime.datetime.now():
-            return value[0]
-        else:
-            return NOT_FOUND
-
-    def clear(self) -> None:
-        self.cache.clear()
 
 
 @asynccontextmanager
@@ -249,7 +146,8 @@ class FastMCP(Generic[LifespanResultT]):
                 "is specified"
             )
         self._auth_server_provider = auth_server_provider
-        self._custom_starlette_routes: list[Route] = []
+
+        self._additional_http_routes: list[Route] = []
         self.dependencies = self.settings.dependencies
 
         # Set up MCP protocol handlers
@@ -270,30 +168,36 @@ class FastMCP(Generic[LifespanResultT]):
         return self._mcp_server.instructions
 
     async def run_async(
-        self, transport: Literal["stdio", "sse"] | None = None, **transport_kwargs: Any
+        self,
+        transport: Literal["stdio", "sse", "streamable-http"] | None = None,
+        **transport_kwargs: Any,
     ) -> None:
         """Run the FastMCP server asynchronously.
 
         Args:
-            transport: Transport protocol to use ("stdio" or "sse")
+            transport: Transport protocol to use ("stdio", "sse", or "streamable-http")
         """
         if transport is None:
             transport = "stdio"
-        if transport not in ["stdio", "sse"]:
+        if transport not in ["stdio", "sse", "streamable-http"]:
             raise ValueError(f"Unknown transport: {transport}")
 
         if transport == "stdio":
             await self.run_stdio_async(**transport_kwargs)
-        else:  # transport == "sse"
+        elif transport == "sse":
             await self.run_sse_async(**transport_kwargs)
+        else:  # transport == "streamable-http"
+            await self.run_streamable_http_async(**transport_kwargs)
 
     def run(
-        self, transport: Literal["stdio", "sse"] | None = None, **transport_kwargs: Any
+        self,
+        transport: Literal["stdio", "sse", "streamable-http"] | None = None,
+        **transport_kwargs: Any,
     ) -> None:
         """Run the FastMCP server. Note this is a synchronous function.
 
         Args:
-            transport: Transport protocol to use ("stdio" or "sse")
+            transport: Transport protocol to use ("stdio", "sse", or "streamable-http")
         """
         logger.info(f'Starting server "{self.name}"...')
 
@@ -309,23 +213,9 @@ class FastMCP(Generic[LifespanResultT]):
         self._mcp_server.get_prompt()(self._mcp_get_prompt)
         self._mcp_server.list_resource_templates()(self._mcp_list_resource_templates)
 
-    def get_context(self) -> Context[ServerSession, LifespanResultT]:
-        """
-        Returns a Context object. Note that the context will only be valid
-        during a request; outside a request, most methods will error.
-        """
-
-        try:
-            request_context = self._mcp_server.request_context
-        except LookupError:
-            request_context = None
-        from fastmcp.server.context import Context
-
-        return Context(request_context=request_context, fastmcp=self)
-
     async def get_tools(self) -> dict[str, Tool]:
         """Get all registered tools, indexed by registered key."""
-        if (tools := self._cache.get("tools")) is NOT_FOUND:
+        if (tools := self._cache.get("tools")) is self._cache.NOT_FOUND:
             tools = {}
             for server in self._mounted_servers.values():
                 server_tools = await server.get_tools()
@@ -336,7 +226,7 @@ class FastMCP(Generic[LifespanResultT]):
 
     async def get_resources(self) -> dict[str, Resource]:
         """Get all registered resources, indexed by registered key."""
-        if (resources := self._cache.get("resources")) is NOT_FOUND:
+        if (resources := self._cache.get("resources")) is self._cache.NOT_FOUND:
             resources = {}
             for server in self._mounted_servers.values():
                 server_resources = await server.get_resources()
@@ -347,7 +237,9 @@ class FastMCP(Generic[LifespanResultT]):
 
     async def get_resource_templates(self) -> dict[str, ResourceTemplate]:
         """Get all registered resource templates, indexed by registered key."""
-        if (templates := self._cache.get("resource_templates")) is NOT_FOUND:
+        if (
+            templates := self._cache.get("resource_templates")
+        ) is self._cache.NOT_FOUND:
             templates = {}
             for server in self._mounted_servers.values():
                 server_templates = await server.get_resource_templates()
@@ -360,7 +252,7 @@ class FastMCP(Generic[LifespanResultT]):
         """
         List all available prompts.
         """
-        if (prompts := self._cache.get("prompts")) is NOT_FOUND:
+        if (prompts := self._cache.get("prompts")) is self._cache.NOT_FOUND:
             prompts = {}
             for server in self._mounted_servers.values():
                 server_prompts = await server.get_prompts()
@@ -400,7 +292,7 @@ class FastMCP(Generic[LifespanResultT]):
         def decorator(
             func: Callable[[Request], Awaitable[Response]],
         ) -> Callable[[Request], Awaitable[Response]]:
-            self._custom_starlette_routes.append(
+            self._additional_http_routes.append(
                 Route(
                     path,
                     endpoint=func,
@@ -458,43 +350,46 @@ class FastMCP(Generic[LifespanResultT]):
         self, key: str, arguments: dict[str, Any]
     ) -> list[TextContent | ImageContent | EmbeddedResource]:
         """Call a tool by name with arguments."""
-        if self._tool_manager.has_tool(key):
-            context = self.get_context()
-            result = await self._tool_manager.call_tool(key, arguments, context=context)
 
-        else:
-            for server in self._mounted_servers.values():
-                if server.match_tool(key):
-                    new_key = server.strip_tool_prefix(key)
-                    result = await server.server._mcp_call_tool(new_key, arguments)
-                    break
+        with fastmcp.server.context.Context(fastmcp=self):
+            if self._tool_manager.has_tool(key):
+                result = await self._tool_manager.call_tool(key, arguments)
+
             else:
-                raise NotFoundError(f"Unknown tool: {key}")
-        return result
+                for server in self._mounted_servers.values():
+                    if server.match_tool(key):
+                        new_key = server.strip_tool_prefix(key)
+                        result = await server.server._mcp_call_tool(new_key, arguments)
+                        break
+                else:
+                    raise NotFoundError(f"Unknown tool: {key}")
+            return result
 
     async def _mcp_read_resource(self, uri: AnyUrl | str) -> list[ReadResourceContents]:
         """
         Read a resource by URI, in the format expected by the low-level MCP
         server.
         """
-        if self._resource_manager.has_resource(uri):
-            context = self.get_context()
-            resource = await self._resource_manager.get_resource(uri, context=context)
-            try:
-                content = await resource.read(context=context)
-                return [
-                    ReadResourceContents(content=content, mime_type=resource.mime_type)
-                ]
-            except Exception as e:
-                logger.error(f"Error reading resource {uri}: {e}")
-                raise ResourceError(str(e))
-        else:
-            for server in self._mounted_servers.values():
-                if server.match_resource(str(uri)):
-                    new_uri = server.strip_resource_prefix(str(uri))
-                    return await server.server._mcp_read_resource(new_uri)
+        with fastmcp.server.context.Context(fastmcp=self):
+            if self._resource_manager.has_resource(uri):
+                resource = await self._resource_manager.get_resource(uri)
+                try:
+                    content = await resource.read()
+                    return [
+                        ReadResourceContents(
+                            content=content, mime_type=resource.mime_type
+                        )
+                    ]
+                except Exception as e:
+                    logger.error(f"Error reading resource {uri}: {e}")
+                    raise ResourceError(str(e))
             else:
-                raise NotFoundError(f"Unknown resource: {uri}")
+                for server in self._mounted_servers.values():
+                    if server.match_resource(str(uri)):
+                        new_uri = server.strip_resource_prefix(str(uri))
+                        return await server.server._mcp_read_resource(new_uri)
+                else:
+                    raise NotFoundError(f"Unknown resource: {uri}")
 
     async def _mcp_get_prompt(
         self, name: str, arguments: dict[str, Any] | None = None
@@ -504,19 +399,19 @@ class FastMCP(Generic[LifespanResultT]):
         MCP server.
 
         """
-        if self._prompt_manager.has_prompt(name):
-            context = self.get_context()
-            prompt_result = await self._prompt_manager.render_prompt(
-                name, arguments=arguments or {}, context=context
-            )
-            return prompt_result
-        else:
-            for server in self._mounted_servers.values():
-                if server.match_prompt(name):
-                    new_key = server.strip_prompt_prefix(name)
-                    return await server.server._mcp_get_prompt(new_key, arguments)
+        with fastmcp.server.context.Context(fastmcp=self):
+            if self._prompt_manager.has_prompt(name):
+                prompt_result = await self._prompt_manager.render_prompt(
+                    name, arguments=arguments or {}
+                )
+                return prompt_result
             else:
-                raise NotFoundError(f"Unknown prompt: {name}")
+                for server in self._mounted_servers.values():
+                    if server.match_prompt(name):
+                        new_key = server.strip_prompt_prefix(name)
+                    return await server.server._mcp_get_prompt(new_key, arguments)
+                else:
+                    raise NotFoundError(f"Unknown prompt: {name}")
 
     def add_tool(
         self,
@@ -823,14 +718,17 @@ class FastMCP(Generic[LifespanResultT]):
         host: str | None = None,
         port: int | None = None,
         log_level: str | None = None,
+        path: str | None = None,
+        message_path: str | None = None,
         uvicorn_config: dict | None = None,
     ) -> None:
         """Run the server using SSE transport."""
         uvicorn_config = uvicorn_config or {}
-        # the SSE app hangs even when a signal is sent, so we disable the timeout to make it possible to close immediately.
-        # see https://github.com/jlowin/fastmcp/issues/296
+        # the SSE app hangs even when a signal is sent, so we disable the
+        # timeout to make it possible to close immediately. see
+        # https://github.com/jlowin/fastmcp/issues/296
         uvicorn_config.setdefault("timeout_graceful_shutdown", 0)
-        app = RequestMiddleware(self.sse_app())
+        app = self.sse_app(path=path, message_path=message_path)
 
         config = uvicorn.Config(
             app,
@@ -842,107 +740,63 @@ class FastMCP(Generic[LifespanResultT]):
         server = uvicorn.Server(config)
         await server.serve()
 
-    def sse_app(self) -> Starlette:
+    def sse_app(
+        self,
+        path: str | None = None,
+        message_path: str | None = None,
+    ) -> Starlette:
         """Return an instance of the SSE server app."""
-        from starlette.middleware import Middleware
-        from starlette.routing import Mount, Route
-
-        # Set up auth context and dependencies
-
-        sse = SseServerTransport(self.settings.message_path)
-
-        async def handle_sse(scope: Scope, receive: Receive, send: Send):
-            # Add client ID from auth context into request context if available
-
-            async with sse.connect_sse(
-                scope,
-                receive,
-                send,
-            ) as streams:
-                await self._mcp_server.run(
-                    streams[0],
-                    streams[1],
-                    self._mcp_server.create_initialization_options(),
-                )
-            return Response()
-
-        # Create routes
-        routes: list[Route | Mount] = []
-        middleware: list[Middleware] = []
-        required_scopes = []
-
-        # Add auth endpoints if auth provider is configured
-        if self._auth_server_provider:
-            assert self.settings.auth
-            from mcp.server.auth.routes import create_auth_routes
-
-            required_scopes = self.settings.auth.required_scopes or []
-
-            middleware = [
-                # extract auth info from request (but do not require it)
-                Middleware(
-                    AuthenticationMiddleware,
-                    backend=BearerAuthBackend(
-                        provider=self._auth_server_provider,
-                    ),
-                ),
-                # Add the auth context middleware to store
-                # authenticated user in a contextvar
-                Middleware(AuthContextMiddleware),
-            ]
-            routes.extend(
-                create_auth_routes(
-                    provider=self._auth_server_provider,
-                    issuer_url=self.settings.auth.issuer_url,
-                    service_documentation_url=self.settings.auth.service_documentation_url,
-                    client_registration_options=self.settings.auth.client_registration_options,
-                    revocation_options=self.settings.auth.revocation_options,
-                )
-            )
-
-        # When auth is not configured, we shouldn't require auth
-        if self._auth_server_provider:
-            # Auth is enabled, wrap the endpoints with RequireAuthMiddleware
-            routes.append(
-                Route(
-                    self.settings.sse_path,
-                    endpoint=RequireAuthMiddleware(handle_sse, required_scopes),
-                    methods=["GET"],
-                )
-            )
-            routes.append(
-                Mount(
-                    self.settings.message_path,
-                    app=RequireAuthMiddleware(sse.handle_post_message, required_scopes),
-                )
-            )
-        else:
-            # Auth is disabled, no need for RequireAuthMiddleware
-            # Since handle_sse is an ASGI app, we need to create a compatible endpoint
-            async def sse_endpoint(request: Request) -> None:
-                # Convert the Starlette request to ASGI parameters
-                await handle_sse(request.scope, request.receive, request._send)  # type: ignore[reportPrivateUsage]
-
-            routes.append(
-                Route(
-                    self.settings.sse_path,
-                    endpoint=sse_endpoint,
-                    methods=["GET"],
-                )
-            )
-            routes.append(
-                Mount(
-                    self.settings.message_path,
-                    app=sse.handle_post_message,
-                )
-            )
-        # mount these routes last, so they have the lowest route matching precedence
-        routes.extend(self._custom_starlette_routes)
-
-        # Create Starlette app with routes and middleware
-        return Starlette(
-            debug=self.settings.debug, routes=routes, middleware=middleware
+        return create_sse_app(
+            server=self,
+            message_path=message_path or self.settings.message_path,
+            sse_path=path or self.settings.sse_path,
+            auth_server_provider=self._auth_server_provider,
+            auth_settings=self.settings.auth,
+            debug=self.settings.debug,
+            additional_routes=self._additional_http_routes,
         )
+
+    def streamable_http_app(self, path: str | None = None) -> Starlette:
+        """Return an instance of the StreamableHTTP server app."""
+        from fastmcp.server.http import create_streamable_http_app
+
+        return create_streamable_http_app(
+            server=self,
+            streamable_http_path=path or self.settings.streamable_http_path,
+            event_store=None,
+            auth_server_provider=self._auth_server_provider,
+            auth_settings=self.settings.auth,
+            json_response=self.settings.json_response,
+            stateless_http=self.settings.stateless_http,
+            debug=self.settings.debug,
+            additional_routes=self._additional_http_routes,
+        )
+
+    async def run_streamable_http_async(
+        self,
+        host: str | None = None,
+        port: int | None = None,
+        log_level: str | None = None,
+        path: str | None = None,
+        uvicorn_config: dict | None = None,
+    ) -> None:
+        """Run the server using StreamableHTTP transport."""
+        uvicorn_config = uvicorn_config or {}
+        uvicorn_config.setdefault("timeout_graceful_shutdown", 0)
+
+        app = self.streamable_http_app(path=path)
+
+        config = uvicorn.Config(
+            app,
+            host=host or self.settings.host,
+            port=port or self.settings.port,
+            log_level=log_level or self.settings.log_level.lower(),
+            # lifespan is required for streamable http
+            lifespan="on",
+            **uvicorn_config,
+        )
+        server = uvicorn.Server(config)
+        await server.serve()
 
     def mount(
         self,
@@ -1145,3 +999,74 @@ def _validate_resource_prefix(prefix: str) -> None:
         raise ValueError(
             f"Resource prefix or separator would result in an invalid resource URI: {e}"
         )
+
+
+class MountedServer:
+    def __init__(
+        self,
+        prefix: str,
+        server: FastMCP,
+        tool_separator: str | None = None,
+        resource_separator: str | None = None,
+        prompt_separator: str | None = None,
+    ):
+        if tool_separator is None:
+            tool_separator = "_"
+        if resource_separator is None:
+            resource_separator = "+"
+        if prompt_separator is None:
+            prompt_separator = "_"
+
+        _validate_resource_prefix(f"{prefix}{resource_separator}")
+
+        self.server = server
+        self.prefix = prefix
+        self.tool_separator = tool_separator
+        self.resource_separator = resource_separator
+        self.prompt_separator = prompt_separator
+
+    async def get_tools(self) -> dict[str, Tool]:
+        tools = await self.server.get_tools()
+        return {
+            f"{self.prefix}{self.tool_separator}{key}": tool
+            for key, tool in tools.items()
+        }
+
+    async def get_resources(self) -> dict[str, Resource]:
+        resources = await self.server.get_resources()
+        return {
+            f"{self.prefix}{self.resource_separator}{key}": resource
+            for key, resource in resources.items()
+        }
+
+    async def get_resource_templates(self) -> dict[str, ResourceTemplate]:
+        templates = await self.server.get_resource_templates()
+        return {
+            f"{self.prefix}{self.resource_separator}{key}": template
+            for key, template in templates.items()
+        }
+
+    async def get_prompts(self) -> dict[str, Prompt]:
+        prompts = await self.server.get_prompts()
+        return {
+            f"{self.prefix}{self.prompt_separator}{key}": prompt
+            for key, prompt in prompts.items()
+        }
+
+    def match_tool(self, key: str) -> bool:
+        return key.startswith(f"{self.prefix}{self.tool_separator}")
+
+    def strip_tool_prefix(self, key: str) -> str:
+        return key.removeprefix(f"{self.prefix}{self.tool_separator}")
+
+    def match_resource(self, key: str) -> bool:
+        return key.startswith(f"{self.prefix}{self.resource_separator}")
+
+    def strip_resource_prefix(self, key: str) -> str:
+        return key.removeprefix(f"{self.prefix}{self.resource_separator}")
+
+    def match_prompt(self, key: str) -> bool:
+        return key.startswith(f"{self.prefix}{self.prompt_separator}")
+
+    def strip_prompt_prefix(self, key: str) -> str:
+        return key.removeprefix(f"{self.prefix}{self.prompt_separator}")

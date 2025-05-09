@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinxcontrib-apidoc
-Version: 0.5.0
+Version: 0.6.0
 Summary: A Sphinx extension for running 'sphinx-apidoc' on each build
 Home-page: https://github.com/sphinx-contrib/apidoc
 Author: Stephen Finucane
@@ -22,11 +22,23 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
+License-File: AUTHORS
 Requires-Dist: pbr
 Requires-Dist: Sphinx>=5.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ====================
 sphinxcontrib-apidoc
@@ -37,6 +49,13 @@ sphinxcontrib-apidoc
     :alt: Build Status
 
 A Sphinx extension for running `sphinx-apidoc`_ on each build.
+
+.. important::
+
+    Sphinx includes a built-in extension adding this functionality, with many
+    of the same options. New users should opt for this extension instead, while
+    existing users should seek to migrate as this project will eventually be
+    retired.
 
 Overview
 --------

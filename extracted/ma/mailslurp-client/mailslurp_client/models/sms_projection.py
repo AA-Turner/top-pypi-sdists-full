@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -35,8 +35,8 @@ class SmsProjection(object):
     """
     openapi_types = {
         'body': 'str',
-        'created_at': 'datetime',
         'user_id': 'str',
+        'created_at': 'datetime',
         'phone_number': 'str',
         'from_number': 'str',
         'read': 'bool',
@@ -45,23 +45,23 @@ class SmsProjection(object):
 
     attribute_map = {
         'body': 'body',
-        'created_at': 'createdAt',
         'user_id': 'userId',
+        'created_at': 'createdAt',
         'phone_number': 'phoneNumber',
         'from_number': 'fromNumber',
         'read': 'read',
         'id': 'id'
     }
 
-    def __init__(self, body=None, created_at=None, user_id=None, phone_number=None, from_number=None, read=None, id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, body=None, user_id=None, created_at=None, phone_number=None, from_number=None, read=None, id=None, local_vars_configuration=None):  # noqa: E501
         """SmsProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._body = None
-        self._created_at = None
         self._user_id = None
+        self._created_at = None
         self._phone_number = None
         self._from_number = None
         self._read = None
@@ -69,8 +69,8 @@ class SmsProjection(object):
         self.discriminator = None
 
         self.body = body
-        self.created_at = created_at
         self.user_id = user_id
+        self.created_at = created_at
         self.phone_number = phone_number
         self.from_number = from_number
         self.read = read
@@ -100,29 +100,6 @@ class SmsProjection(object):
         self._body = body
 
     @property
-    def created_at(self):
-        """Gets the created_at of this SmsProjection.  # noqa: E501
-
-
-        :return: The created_at of this SmsProjection.  # noqa: E501
-        :rtype: datetime
-        """
-        return self._created_at
-
-    @created_at.setter
-    def created_at(self, created_at):
-        """Sets the created_at of this SmsProjection.
-
-
-        :param created_at: The created_at of this SmsProjection.  # noqa: E501
-        :type: datetime
-        """
-        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
-            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
-
-        self._created_at = created_at
-
-    @property
     def user_id(self):
         """Gets the user_id of this SmsProjection.  # noqa: E501
 
@@ -144,6 +121,29 @@ class SmsProjection(object):
             raise ValueError("Invalid value for `user_id`, must not be `None`")  # noqa: E501
 
         self._user_id = user_id
+
+    @property
+    def created_at(self):
+        """Gets the created_at of this SmsProjection.  # noqa: E501
+
+
+        :return: The created_at of this SmsProjection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at):
+        """Sets the created_at of this SmsProjection.
+
+
+        :param created_at: The created_at of this SmsProjection.  # noqa: E501
+        :type: datetime
+        """
+        if self.local_vars_configuration.client_side_validation and created_at is None:  # noqa: E501
+            raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
+
+        self._created_at = created_at
 
     @property
     def phone_number(self):

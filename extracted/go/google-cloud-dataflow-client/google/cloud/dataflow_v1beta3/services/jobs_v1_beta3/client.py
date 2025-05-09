@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ from google.auth.exceptions import MutualTLSChannelError  # type: ignore
 from google.auth.transport import mtls  # type: ignore
 from google.auth.transport.grpc import SslCredentials  # type: ignore
 from google.oauth2 import service_account  # type: ignore
+import google.protobuf
 
 from google.cloud.dataflow_v1beta3 import gapic_version as package_version
 
@@ -704,6 +705,9 @@ class JobsV1Beta3Client(metaclass=JobsV1Beta3ClientMeta):
         Using ``projects.jobs.create`` is not recommended, as your job
         will always start in ``us-central1``.
 
+        Do not enter confidential information when you supply string
+        values using the API.
+
         .. code-block:: python
 
             # This snippet has been automatically generated and should be regarded as a
@@ -744,7 +748,9 @@ class JobsV1Beta3Client(metaclass=JobsV1Beta3ClientMeta):
         Returns:
             google.cloud.dataflow_v1beta3.types.Job:
                 Defines a job to be run by the Cloud
-                Dataflow service.
+                Dataflow service. Do not enter
+                confidential information when you supply
+                string values using the API.
 
         """
         # Create or coerce a protobuf request object.
@@ -838,7 +844,9 @@ class JobsV1Beta3Client(metaclass=JobsV1Beta3ClientMeta):
         Returns:
             google.cloud.dataflow_v1beta3.types.Job:
                 Defines a job to be run by the Cloud
-                Dataflow service.
+                Dataflow service. Do not enter
+                confidential information when you supply
+                string values using the API.
 
         """
         # Create or coerce a protobuf request object.
@@ -934,7 +942,9 @@ class JobsV1Beta3Client(metaclass=JobsV1Beta3ClientMeta):
         Returns:
             google.cloud.dataflow_v1beta3.types.Job:
                 Defines a job to be run by the Cloud
-                Dataflow service.
+                Dataflow service. Do not enter
+                confidential information when you supply
+                string values using the API.
 
         """
         # Create or coerce a protobuf request object.
@@ -988,8 +998,12 @@ class JobsV1Beta3Client(metaclass=JobsV1Beta3ClientMeta):
         (https://cloud.google.com/dataflow/docs/concepts/regional-endpoints).
         To list the all jobs across all regions, use
         ``projects.jobs.aggregated``. Using ``projects.jobs.list`` is
-        not recommended, as you can only get the list of jobs that are
-        running in ``us-central1``.
+        not recommended, because you can only get the list of jobs that
+        are running in ``us-central1``.
+
+        ``projects.locations.jobs.list`` and ``projects.jobs.list``
+        support filtering the list of jobs by name. Filtering by name
+        isn't supported by ``projects.jobs.aggregated``.
 
         .. code-block:: python
 
@@ -1099,6 +1113,9 @@ class JobsV1Beta3Client(metaclass=JobsV1Beta3ClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.AggregatedListJobsPager:
         r"""List the jobs of a project across all regions.
+
+        **Note:** This method doesn't support filtering the list of jobs
+        by name.
 
         .. code-block:: python
 
@@ -1377,5 +1394,7 @@ DEFAULT_CLIENT_INFO = gapic_v1.client_info.ClientInfo(
     gapic_version=package_version.__version__
 )
 
+if hasattr(DEFAULT_CLIENT_INFO, "protobuf_runtime_version"):  # pragma: NO COVER
+    DEFAULT_CLIENT_INFO.protobuf_runtime_version = google.protobuf.__version__
 
 __all__ = ("JobsV1Beta3Client",)

@@ -44,12 +44,12 @@ def setup_pro_infra():
 	modify_gateway_listen_config(localstack_config);from localstack.pro.core.aws.protocol import service_router as C;from localstack.pro.core.utils.aws import aws_utils as D;C.patch_service_router();D.patch_aws_utils();configure_licensing_for_service_plugins();set_default_providers_to_pro();A.patch_setup_ssl_cert()
 def configure_licensing_for_service_plugins():from localstack.services.plugins import SERVICE_PLUGINS as A;A.plugin_manager.add_listener(licensingv2.LicensedPluginLoaderGuard())
 def set_default_providers_to_pro():
-	D='pro';from localstack.services.plugins import SERVICE_PLUGINS as A
+	F='pro';from localstack.services.plugins import PLUGIN_NAMESPACE as D,SERVICE_PLUGINS as A;E=licensingv2.get_licensed_environment()
 	if not config_ext.PROVIDER_FORCE_EXPLICIT_LOADING:
-		for(B,E)in localstack_config.SERVICE_PROVIDER_CONFIG._provider_config.items():
-			F=A.api_provider_specs[B];C=[A for A in F if A==f"{E}_pro"]
-			if C:localstack_config.SERVICE_PROVIDER_CONFIG.set_provider(B,C[0])
-	G=A.apis_with_provider(D);localstack_config.SERVICE_PROVIDER_CONFIG.bulk_set_provider_if_not_exists(G,D)
+		for(B,G)in localstack_config.SERVICE_PROVIDER_CONFIG._provider_config.items():
+			H=A.api_provider_specs[B];C=next((A for A in H if A==f"{G}_pro"),None)
+			if C and E.has_product_license(f"{D}/{B}:{C}"):localstack_config.SERVICE_PROVIDER_CONFIG.set_provider(B,C)
+	I=[B for B in A.apis_with_provider(F)if localstack_config.SERVICE_PROVIDER_CONFIG.default_value not in A.api_provider_specs[B]or E.has_product_license(f"{D}/{B}:pro")];localstack_config.SERVICE_PROVIDER_CONFIG.bulk_set_provider_if_not_exists(I,F)
 @hooks.on_infra_ready(should_load=config_ext.ACTIVATE_PRO)
 def initialize_health_info():from localstack.pro.core.utils.persistence import update_persistence_health_info as A;A()
 @hooks.on_infra_start(priority=100)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,12 +69,11 @@ class _LoggingClientInterceptor(grpc.UnaryUnaryClientInterceptor):  # pragma: NO
                 f"Sending request for {client_call_details.method}",
                 extra={
                     "serviceName": "google.dataflow.v1beta3.TemplatesService",
-                    "rpcName": client_call_details.method,
+                    "rpcName": str(client_call_details.method),
                     "request": grpc_request,
                     "metadata": grpc_request["metadata"],
                 },
             )
-
         response = continuation(client_call_details, request)
         if logging_enabled:  # pragma: NO COVER
             response_metadata = response.trailing_metadata()
@@ -327,7 +326,16 @@ class TemplatesServiceGrpcTransport(TemplatesServiceTransport):
     ) -> Callable[[templates.CreateJobFromTemplateRequest], jobs.Job]:
         r"""Return a callable for the create job from template method over gRPC.
 
-        Creates a Cloud Dataflow job from a template.
+        Creates a Cloud Dataflow job from a template. Do not enter
+        confidential information when you supply string values using the
+        API.
+
+        To create a job, we recommend using
+        ``projects.locations.templates.create`` with a [regional
+        endpoint]
+        (https://cloud.google.com/dataflow/docs/concepts/regional-endpoints).
+        Using ``projects.templates.create`` is not recommended, because
+        your job will always start in ``us-central1``.
 
         Returns:
             Callable[[~.CreateJobFromTemplateRequest],
@@ -353,7 +361,15 @@ class TemplatesServiceGrpcTransport(TemplatesServiceTransport):
     ) -> Callable[[templates.LaunchTemplateRequest], templates.LaunchTemplateResponse]:
         r"""Return a callable for the launch template method over gRPC.
 
-        Launch a template.
+        Launches a template.
+
+        To launch a template, we recommend using
+        ``projects.locations.templates.launch`` with a [regional
+        endpoint]
+        (https://cloud.google.com/dataflow/docs/concepts/regional-endpoints).
+        Using ``projects.templates.launch`` is not recommended, because
+        jobs launched from the template will always start in
+        ``us-central1``.
 
         Returns:
             Callable[[~.LaunchTemplateRequest],
@@ -380,6 +396,13 @@ class TemplatesServiceGrpcTransport(TemplatesServiceTransport):
         r"""Return a callable for the get template method over gRPC.
 
         Get the template associated with a template.
+
+        To get the template, we recommend using
+        ``projects.locations.templates.get`` with a [regional endpoint]
+        (https://cloud.google.com/dataflow/docs/concepts/regional-endpoints).
+        Using ``projects.templates.get`` is not recommended, because
+        only templates that are running in ``us-central1`` are
+        retrieved.
 
         Returns:
             Callable[[~.GetTemplateRequest],

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import pprint
 import sys
 from collections.abc import MutableMapping
 from logging.config import dictConfig
@@ -12,10 +13,9 @@ from twisted.python.failure import Failure
 
 import scrapy
 from scrapy.settings import Settings, _SettingsKeyT
-from scrapy.utils.versions import scrapy_components_versions
+from scrapy.utils.versions import get_versions
 
 if TYPE_CHECKING:
-
     from scrapy.crawler import Crawler
     from scrapy.logformatter import LogFormatterResult
 
@@ -130,7 +130,7 @@ _scrapy_root_handler: logging.Handler | None = None
 
 
 def install_scrapy_root_handler(settings: Settings) -> None:
-    global _scrapy_root_handler
+    global _scrapy_root_handler  # noqa: PLW0603  # pylint: disable=global-statement
 
     if (
         _scrapy_root_handler is not None
@@ -174,20 +174,17 @@ def log_scrapy_info(settings: Settings) -> None:
         "Scrapy %(version)s started (bot: %(bot)s)",
         {"version": scrapy.__version__, "bot": settings["BOT_NAME"]},
     )
-    versions = [
-        f"{name} {version}"
-        for name, version in scrapy_components_versions()
-        if name != "Scrapy"
-    ]
-    logger.info("Versions: %(versions)s", {"versions": ", ".join(versions)})
+    software = settings.getlist("LOG_VERSIONS")
+    if not software:
+        return
+    versions = pprint.pformat(dict(get_versions(software)), sort_dicts=False)
+    logger.info(f"Versions:\n{versions}")
 
 
 def log_reactor_info() -> None:
-    from twisted.internet import reactor
+    from twisted.internet import asyncioreactor, reactor
 
     logger.debug("Using reactor: %s.%s", reactor.__module__, reactor.__class__.__name__)
-    from twisted.internet import asyncioreactor
-
     if isinstance(reactor, asyncioreactor.AsyncioSelectorReactor):
         logger.debug(
             "Using asyncio event loop: %s.%s",

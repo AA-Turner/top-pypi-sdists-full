@@ -6742,6 +6742,7 @@ data = {
  '491531':{'en': 'Mtel'},
  '4915510':{'en': 'LEBARA'},
  '4915511':{'en': 'LEBARA'},
+ '491555':{'en': '1&1 Mobilfunk'},
  '491556':{'en': '1&1 Mobilfunk'},
  '4915630':{'en': 'Multiconnect'},
  '4915678':{'en': 'Argon Networks'},
@@ -10018,5 +10019,4 @@ data = {
  '55329845':{'en': 'Claro'},
  '55329846':{'en': 'Claro'},
  '55329847':{'en': 'Claro'},
- '553298480':{'en': 'Claro'},
 }

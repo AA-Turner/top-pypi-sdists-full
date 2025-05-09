@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import os
 import sys
+import warnings
 from typing import TYPE_CHECKING, cast
 
 from twisted.internet.defer import Deferred
 from twisted.internet.error import ProcessTerminated
 from twisted.internet.protocol import ProcessProtocol
+
+from scrapy.exceptions import ScrapyDeprecationWarning
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -14,10 +17,16 @@ if TYPE_CHECKING:
     from twisted.python.failure import Failure
 
 
+warnings.warn(
+    "The scrapy.utils.testproc module is deprecated.",
+    ScrapyDeprecationWarning,
+)
+
+
 class ProcessTest:
     command: str | None = None
     prefix = [sys.executable, "-m", "scrapy.cmdline"]
-    cwd = os.getcwd()  # trial chdirs to temp dir
+    cwd = os.getcwd()  # trial chdirs to temp dir  # noqa: PTH109
 
     def execute(
         self,
@@ -31,7 +40,7 @@ class ProcessTest:
         if settings is not None:
             env["SCRAPY_SETTINGS_MODULE"] = settings
         assert self.command
-        cmd = self.prefix + [self.command] + list(args)
+        cmd = [*self.prefix, self.command, *args]
         pp = TestProcessProtocol()
         pp.deferred.addCallback(self._process_finished, cmd, check_code)
         reactor.spawnProcess(pp, cmd[0], cmd, env=env, path=self.cwd)

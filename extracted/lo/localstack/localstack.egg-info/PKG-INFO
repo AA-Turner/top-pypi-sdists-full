@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: localstack
-Version: 4.3.0
+Version: 4.4.0
 Summary: LocalStack - A fully functional local Cloud stack
 Home-page: https://github.com/localstack/localstack
 Author: LocalStack Contributors
@@ -13,10 +13,10 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Emulators
 Description-Content-Type: text/markdown
 Requires-Dist: localstack-core
-Requires-Dist: localstack-ext==4.3.0
+Requires-Dist: localstack-ext==4.4.0
 Provides-Extra: runtime
 Requires-Dist: localstack-core[runtime]; extra == "runtime"
-Requires-Dist: localstack-ext[runtime]==4.3.0; extra == "runtime"
+Requires-Dist: localstack-ext[runtime]==4.4.0; extra == "runtime"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -29,7 +29,7 @@ Dynamic: requires-dist
 Dynamic: summary
 
 <p align="center">
-:zap: We are thrilled to announce the release of <a href="https://blog.localstack.cloud/localstack-release-v-4-1-0/">LocalStack 4.1</a> :zap:
+:zap: We are thrilled to announce the release of <a href="https://blog.localstack.cloud/localstack-release-v-4-3-0/">LocalStack 4.3</a> :zap:
 </p>
 
 <p align="center">
@@ -123,7 +123,7 @@ Start LocalStack inside a Docker container by running:
   / /___/ /_/ / /__/ /_/ / /___/ / /_/ /_/ / /__/ ,<
  /_____/\____/\___/\__,_/_//____/\__/\__,_/\___/_/|_|
 
-- LocalStack CLI: 4.1.0
+- LocalStack CLI: 4.3.0
 - Profile: default
 - App: https://app.localstack.cloud
 

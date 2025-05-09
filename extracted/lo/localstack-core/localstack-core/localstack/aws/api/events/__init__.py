@@ -36,6 +36,7 @@ EndpointStateReason = str
 EndpointUrl = str
 ErrorCode = str
 ErrorMessage = str
+EventBusArn = str
 EventBusDescription = str
 EventBusName = str
 EventBusNameOrArn = str
@@ -329,7 +330,7 @@ Long = int
 
 class Archive(TypedDict, total=False):
     ArchiveName: Optional[ArchiveName]
-    EventSourceArn: Optional[Arn]
+    EventSourceArn: Optional[EventBusArn]
     State: Optional[ArchiveState]
     StateReason: Optional[ArchiveStateReason]
     RetentionDays: Optional[RetentionDays]
@@ -497,10 +498,11 @@ class CreateApiDestinationResponse(TypedDict, total=False):
 
 class CreateArchiveRequest(ServiceRequest):
     ArchiveName: ArchiveName
-    EventSourceArn: Arn
+    EventSourceArn: EventBusArn
     Description: Optional[ArchiveDescription]
     EventPattern: Optional[EventPattern]
     RetentionDays: Optional[RetentionDays]
+    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
 
 
 class CreateArchiveResponse(TypedDict, total=False):
@@ -546,6 +548,7 @@ class CreateConnectionRequest(ServiceRequest):
     AuthorizationType: ConnectionAuthorizationType
     AuthParameters: CreateConnectionAuthRequestParameters
     InvocationConnectivityParameters: Optional[ConnectivityResourceParameters]
+    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
 
 
 class CreateConnectionResponse(TypedDict, total=False):
@@ -730,11 +733,12 @@ class DescribeArchiveRequest(ServiceRequest):
 class DescribeArchiveResponse(TypedDict, total=False):
     ArchiveArn: Optional[ArchiveArn]
     ArchiveName: Optional[ArchiveName]
-    EventSourceArn: Optional[Arn]
+    EventSourceArn: Optional[EventBusArn]
     Description: Optional[ArchiveDescription]
     EventPattern: Optional[EventPattern]
     State: Optional[ArchiveState]
     StateReason: Optional[ArchiveStateReason]
+    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
     RetentionDays: Optional[RetentionDays]
     SizeBytes: Optional[Long]
     EventCount: Optional[Long]
@@ -754,6 +758,7 @@ class DescribeConnectionResponse(TypedDict, total=False):
     StateReason: Optional[ConnectionStateReason]
     AuthorizationType: Optional[ConnectionAuthorizationType]
     SecretArn: Optional[SecretsManagerSecretArn]
+    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
     AuthParameters: Optional[ConnectionAuthResponseParameters]
     CreationTime: Optional[Timestamp]
     LastModifiedTime: Optional[Timestamp]
@@ -836,7 +841,7 @@ class DescribeReplayResponse(TypedDict, total=False):
     Description: Optional[ReplayDescription]
     State: Optional[ReplayState]
     StateReason: Optional[ReplayStateReason]
-    EventSourceArn: Optional[Arn]
+    EventSourceArn: Optional[ArchiveArn]
     Destination: Optional[ReplayDestination]
     EventStartTime: Optional[Timestamp]
     EventEndTime: Optional[Timestamp]
@@ -994,7 +999,7 @@ class ListApiDestinationsResponse(TypedDict, total=False):
 
 class ListArchivesRequest(ServiceRequest):
     NamePrefix: Optional[ArchiveName]
-    EventSourceArn: Optional[Arn]
+    EventSourceArn: Optional[EventBusArn]
     State: Optional[ArchiveState]
     NextToken: Optional[NextToken]
     Limit: Optional[LimitMax100]
@@ -1094,14 +1099,14 @@ class ListPartnerEventSourcesResponse(TypedDict, total=False):
 class ListReplaysRequest(ServiceRequest):
     NamePrefix: Optional[ReplayName]
     State: Optional[ReplayState]
-    EventSourceArn: Optional[Arn]
+    EventSourceArn: Optional[ArchiveArn]
     NextToken: Optional[NextToken]
     Limit: Optional[LimitMax100]
 
 
 class Replay(TypedDict, total=False):
     ReplayName: Optional[ReplayName]
-    EventSourceArn: Optional[Arn]
+    EventSourceArn: Optional[ArchiveArn]
     State: Optional[ReplayState]
     StateReason: Optional[ReplayStateReason]
     EventStartTime: Optional[Timestamp]
@@ -1391,7 +1396,7 @@ class RemoveTargetsResponse(TypedDict, total=False):
 class StartReplayRequest(ServiceRequest):
     ReplayName: ReplayName
     Description: Optional[ReplayDescription]
-    EventSourceArn: Arn
+    EventSourceArn: ArchiveArn
     EventStartTime: Timestamp
     EventEndTime: Timestamp
     Destination: ReplayDestination
@@ -1455,6 +1460,7 @@ class UpdateArchiveRequest(ServiceRequest):
     Description: Optional[ArchiveDescription]
     EventPattern: Optional[EventPattern]
     RetentionDays: Optional[RetentionDays]
+    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
 
 
 class UpdateArchiveResponse(TypedDict, total=False):
@@ -1500,6 +1506,7 @@ class UpdateConnectionRequest(ServiceRequest):
     AuthorizationType: Optional[ConnectionAuthorizationType]
     AuthParameters: Optional[UpdateConnectionAuthRequestParameters]
     InvocationConnectivityParameters: Optional[ConnectivityResourceParameters]
+    KmsKeyIdentifier: Optional[KmsKeyIdentifier]
 
 
 class UpdateConnectionResponse(TypedDict, total=False):
@@ -1581,10 +1588,11 @@ class EventsApi:
         self,
         context: RequestContext,
         archive_name: ArchiveName,
-        event_source_arn: Arn,
+        event_source_arn: EventBusArn,
         description: ArchiveDescription = None,
         event_pattern: EventPattern = None,
         retention_days: RetentionDays = None,
+        kms_key_identifier: KmsKeyIdentifier = None,
         **kwargs,
     ) -> CreateArchiveResponse:
         raise NotImplementedError
@@ -1598,6 +1606,7 @@ class EventsApi:
         auth_parameters: CreateConnectionAuthRequestParameters,
         description: ConnectionDescription = None,
         invocation_connectivity_parameters: ConnectivityResourceParameters = None,
+        kms_key_identifier: KmsKeyIdentifier = None,
         **kwargs,
     ) -> CreateConnectionResponse:
         raise NotImplementedError
@@ -1788,7 +1797,7 @@ class EventsApi:
         self,
         context: RequestContext,
         name_prefix: ArchiveName = None,
-        event_source_arn: Arn = None,
+        event_source_arn: EventBusArn = None,
         state: ArchiveState = None,
         next_token: NextToken = None,
         limit: LimitMax100 = None,
@@ -1870,7 +1879,7 @@ class EventsApi:
         context: RequestContext,
         name_prefix: ReplayName = None,
         state: ReplayState = None,
-        event_source_arn: Arn = None,
+        event_source_arn: ArchiveArn = None,
         next_token: NextToken = None,
         limit: LimitMax100 = None,
         **kwargs,
@@ -2004,7 +2013,7 @@ class EventsApi:
         self,
         context: RequestContext,
         replay_name: ReplayName,
-        event_source_arn: Arn,
+        event_source_arn: ArchiveArn,
         event_start_time: Timestamp,
         event_end_time: Timestamp,
         destination: ReplayDestination,
@@ -2053,6 +2062,7 @@ class EventsApi:
         description: ArchiveDescription = None,
         event_pattern: EventPattern = None,
         retention_days: RetentionDays = None,
+        kms_key_identifier: KmsKeyIdentifier = None,
         **kwargs,
     ) -> UpdateArchiveResponse:
         raise NotImplementedError
@@ -2066,6 +2076,7 @@ class EventsApi:
         authorization_type: ConnectionAuthorizationType = None,
         auth_parameters: UpdateConnectionAuthRequestParameters = None,
         invocation_connectivity_parameters: ConnectivityResourceParameters = None,
+        kms_key_identifier: KmsKeyIdentifier = None,
         **kwargs,
     ) -> UpdateConnectionResponse:
         raise NotImplementedError

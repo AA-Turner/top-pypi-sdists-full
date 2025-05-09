@@ -41,7 +41,7 @@ from chalk.utils.duration import timedelta_to_duration
 
 def project_settings_to_proto(config: ProjectSettings) -> export_pb.ProjectSettings:
     def read_packages(filename: str) -> Optional[List[str]]:
-        reqs = list()
+        reqs: List[str] = []
         try:
             with open(filename) as f:
                 for r in f.readlines():
@@ -254,7 +254,7 @@ def export_from_registry() -> export_pb.Export:
     lsp, exc = get_lsp_proto_or_error(failed_protos)
     errors: List[chalk_error_pb2.ChalkError] = []
     if exc is not None:
-        err = ChalkError(
+        err = ChalkError.create(
             code=ErrorCode.INTERNAL_SERVER_ERROR,
             category=ErrorCodeCategory.NETWORK,
             message=f"Failed to export features: {exc.message}",

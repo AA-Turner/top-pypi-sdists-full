@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-celery-k8s
-Version: 0.26.13
+Version: 0.26.14
 Summary: A Dagster integration for celery-k8s-executor
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-celery-k8s
 Author: Dagster Labs
@@ -11,9 +11,9 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.13
 License-File: LICENSE
-Requires-Dist: dagster==1.10.13
-Requires-Dist: dagster-k8s==0.26.13
-Requires-Dist: dagster-celery==0.26.13
+Requires-Dist: dagster==1.10.14
+Requires-Dist: dagster-k8s==0.26.14
+Requires-Dist: dagster-celery==0.26.14
 Dynamic: author
 Dynamic: classifier
 Dynamic: home-page

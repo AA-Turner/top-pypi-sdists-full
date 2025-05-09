@@ -1199,6 +1199,15 @@ class NotificationConfiguration(TypedDict, total=False):
     TopicStatus: Optional[String]
 
 
+class ScaleConfig(TypedDict, total=False):
+    """Configuration settings for horizontal or vertical scaling operations on
+    Memcached clusters.
+    """
+
+    ScalePercentage: Optional[IntegerOptional]
+    ScaleIntervalMinutes: Optional[IntegerOptional]
+
+
 class PendingLogDeliveryConfiguration(TypedDict, total=False):
     """The log delivery configurations being modified"""
 
@@ -1224,6 +1233,7 @@ class PendingModifiedValues(TypedDict, total=False):
     LogDeliveryConfigurations: Optional[PendingLogDeliveryConfigurationList]
     TransitEncryptionEnabled: Optional[BooleanOptional]
     TransitEncryptionMode: Optional[TransitEncryptionMode]
+    ScaleConfig: Optional[ScaleConfig]
 
 
 class CacheCluster(TypedDict, total=False):
@@ -2620,6 +2630,7 @@ class ModifyCacheClusterMessage(ServiceRequest):
     AuthTokenUpdateStrategy: Optional[AuthTokenUpdateStrategyType]
     LogDeliveryConfigurations: Optional[LogDeliveryConfigurationRequestList]
     IpDiscovery: Optional[IpDiscovery]
+    ScaleConfig: Optional[ScaleConfig]
 
 
 class ModifyCacheClusterResult(TypedDict, total=False):
@@ -5033,6 +5044,7 @@ class ElasticacheApi:
         auth_token_update_strategy: AuthTokenUpdateStrategyType = None,
         log_delivery_configurations: LogDeliveryConfigurationRequestList = None,
         ip_discovery: IpDiscovery = None,
+        scale_config: ScaleConfig = None,
         **kwargs,
     ) -> ModifyCacheClusterResult:
         """Modifies the settings for a cluster. You can use this operation to
@@ -5058,7 +5070,7 @@ class ElasticacheApi:
         any pending modifications to be applied, asynchronously and as soon as
         possible, regardless of the ``PreferredMaintenanceWindow`` setting for
         the cluster.
-        :param engine: Modifies the engine listed in a cluster message.
+        :param engine: The engine type used by the cache cluster.
         :param engine_version: The upgraded version of the cache engine to be run on the cache nodes.
         :param auto_minor_version_upgrade: If you are running Valkey 7.
         :param snapshot_retention_limit: The number of days for which ElastiCache retains automatic cluster
@@ -5071,6 +5083,8 @@ class ElasticacheApi:
         :param log_delivery_configurations: Specifies the destination, format and type of the logs.
         :param ip_discovery: The network type you choose when modifying a cluster, either ``ipv4`` |
         ``ipv6``.
+        :param scale_config: Configures horizontal or vertical scaling for Memcached clusters,
+        specifying the scaling percentage and interval.
         :returns: ModifyCacheClusterResult
         :raises InvalidCacheClusterStateFault:
         :raises InvalidCacheSecurityGroupStateFault:

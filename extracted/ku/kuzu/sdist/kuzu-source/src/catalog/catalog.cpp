@@ -75,8 +75,15 @@ bool Catalog::containsTable(const Transaction* transaction, const std::string& t
     return false;
 }
 
-bool Catalog::containsTable(const Transaction* transaction, table_id_t tableID) const {
-    return tables->getEntryOfOID(transaction, tableID) != nullptr;
+bool Catalog::containsTable(const Transaction* transaction, table_id_t tableID,
+    bool useInternal) const {
+    if (tables->getEntryOfOID(transaction, tableID) != nullptr) {
+        return true;
+    }
+    if (useInternal) {
+        return internalTables->getEntryOfOID(transaction, tableID) != nullptr;
+    }
+    return false;
 }
 
 TableCatalogEntry* Catalog::getTableCatalogEntry(const Transaction* transaction,
@@ -517,7 +524,7 @@ void Catalog::saveToFile(const std::string& directory, VirtualFileSystem* fs,
     KU_ASSERT(!directory.empty());
     const auto catalogPath = StorageUtils::getCatalogFilePath(fs, directory, versionType);
     const auto catalogFile = fs->openFile(catalogPath,
-        FileFlags::CREATE_IF_NOT_EXISTS | FileFlags::READ_ONLY | FileFlags::WRITE);
+        FileOpenFlags{FileFlags::CREATE_IF_NOT_EXISTS | FileFlags::READ_ONLY | FileFlags::WRITE});
     Serializer serializer(std::make_unique<BufferedFileWriter>(*catalogFile));
     writeMagicBytes(serializer);
     serializer.serializeValue(StorageVersionInfo::getStorageVersion());
@@ -537,7 +544,7 @@ void Catalog::readFromFile(const std::string& directory, VirtualFileSystem* fs,
     KU_ASSERT(!directory.empty());
     const auto catalogPath = StorageUtils::getCatalogFilePath(fs, directory, versionType);
     Deserializer deserializer(std::make_unique<BufferedFileReader>(
-        fs->openFile(catalogPath, FileFlags::READ_ONLY, context)));
+        fs->openFile(catalogPath, FileOpenFlags{FileFlags::READ_ONLY}, context)));
     validateMagicBytes(deserializer);
     storage_version_t savedStorageVersion = 0;
     deserializer.deserializeValue(savedStorageVersion);

@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -34,8 +34,8 @@ class ContactProjection(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'created_at': 'datetime',
         'email_address': 'str',
+        'created_at': 'datetime',
         'email_addresses': 'list[str]',
         'first_name': 'str',
         'last_name': 'str',
@@ -46,8 +46,8 @@ class ContactProjection(object):
     }
 
     attribute_map = {
-        'created_at': 'createdAt',
         'email_address': 'emailAddress',
+        'created_at': 'createdAt',
         'email_addresses': 'emailAddresses',
         'first_name': 'firstName',
         'last_name': 'lastName',
@@ -57,14 +57,14 @@ class ContactProjection(object):
         'group_id': 'groupId'
     }
 
-    def __init__(self, created_at=None, email_address=None, email_addresses=None, first_name=None, last_name=None, company=None, opt_out=None, id=None, group_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, email_address=None, created_at=None, email_addresses=None, first_name=None, last_name=None, company=None, opt_out=None, id=None, group_id=None, local_vars_configuration=None):  # noqa: E501
         """ContactProjection - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._created_at = None
         self._email_address = None
+        self._created_at = None
         self._email_addresses = None
         self._first_name = None
         self._last_name = None
@@ -74,8 +74,8 @@ class ContactProjection(object):
         self._group_id = None
         self.discriminator = None
 
-        self.created_at = created_at
         self.email_address = email_address
+        self.created_at = created_at
         self.email_addresses = email_addresses
         self.first_name = first_name
         self.last_name = last_name
@@ -83,6 +83,27 @@ class ContactProjection(object):
         self.opt_out = opt_out
         self.id = id
         self.group_id = group_id
+
+    @property
+    def email_address(self):
+        """Gets the email_address of this ContactProjection.  # noqa: E501
+
+
+        :return: The email_address of this ContactProjection.  # noqa: E501
+        :rtype: str
+        """
+        return self._email_address
+
+    @email_address.setter
+    def email_address(self, email_address):
+        """Sets the email_address of this ContactProjection.
+
+
+        :param email_address: The email_address of this ContactProjection.  # noqa: E501
+        :type: str
+        """
+
+        self._email_address = email_address
 
     @property
     def created_at(self):
@@ -106,27 +127,6 @@ class ContactProjection(object):
             raise ValueError("Invalid value for `created_at`, must not be `None`")  # noqa: E501
 
         self._created_at = created_at
-
-    @property
-    def email_address(self):
-        """Gets the email_address of this ContactProjection.  # noqa: E501
-
-
-        :return: The email_address of this ContactProjection.  # noqa: E501
-        :rtype: str
-        """
-        return self._email_address
-
-    @email_address.setter
-    def email_address(self, email_address):
-        """Sets the email_address of this ContactProjection.
-
-
-        :param email_address: The email_address of this ContactProjection.  # noqa: E501
-        :type: str
-        """
-
-        self._email_address = email_address
 
     @property
     def email_addresses(self):

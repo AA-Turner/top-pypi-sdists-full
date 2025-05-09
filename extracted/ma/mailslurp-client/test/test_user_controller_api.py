@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -27,6 +27,24 @@ class TestUserControllerApi(unittest.TestCase):
         self.api = mailslurp_client.api.user_controller_api.UserControllerApi()  # noqa: E501
 
     def tearDown(self):
+        pass
+
+    def test_get_entity_automations(self):
+        """Test case for get_entity_automations
+
+        """
+        pass
+
+    def test_get_entity_events(self):
+        """Test case for get_entity_events
+
+        """
+        pass
+
+    def test_get_entity_favorites(self):
+        """Test case for get_entity_favorites
+
+        """
         pass
 
     def test_get_json_property_as_string(self):

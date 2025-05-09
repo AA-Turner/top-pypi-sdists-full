@@ -98,6 +98,10 @@ class CacheType(StrEnum):
     LOCAL = "LOCAL"
 
 
+class CommandType(StrEnum):
+    SHELL = "SHELL"
+
+
 class ComputeType(StrEnum):
     BUILD_GENERAL1_SMALL = "BUILD_GENERAL1_SMALL"
     BUILD_GENERAL1_MEDIUM = "BUILD_GENERAL1_MEDIUM"
@@ -110,6 +114,7 @@ class ComputeType(StrEnum):
     BUILD_LAMBDA_8GB = "BUILD_LAMBDA_8GB"
     BUILD_LAMBDA_10GB = "BUILD_LAMBDA_10GB"
     ATTRIBUTE_BASED_COMPUTE = "ATTRIBUTE_BASED_COMPUTE"
+    CUSTOM_INSTANCE_TYPE = "CUSTOM_INSTANCE_TYPE"
 
 
 class CredentialProviderType(StrEnum):
@@ -122,6 +127,7 @@ class EnvironmentType(StrEnum):
     LINUX_GPU_CONTAINER = "LINUX_GPU_CONTAINER"
     ARM_CONTAINER = "ARM_CONTAINER"
     WINDOWS_SERVER_2019_CONTAINER = "WINDOWS_SERVER_2019_CONTAINER"
+    WINDOWS_SERVER_2022_CONTAINER = "WINDOWS_SERVER_2022_CONTAINER"
     LINUX_LAMBDA_CONTAINER = "LINUX_LAMBDA_CONTAINER"
     ARM_LAMBDA_CONTAINER = "ARM_LAMBDA_CONTAINER"
     LINUX_EC2 = "LINUX_EC2"
@@ -383,6 +389,16 @@ class AccountLimitExceededException(ServiceException):
     status_code: int = 400
 
 
+class AccountSuspendedException(ServiceException):
+    """The CodeBuild access has been suspended for the calling Amazon Web
+    Services account.
+    """
+
+    code: str = "AccountSuspendedException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
 class InvalidInputException(ServiceException):
     """The input value that was provided is not valid."""
 
@@ -611,13 +627,14 @@ class ProjectFleet(TypedDict, total=False):
 class ComputeConfiguration(TypedDict, total=False):
     """Contains compute attributes. These attributes only need be specified
     when your project's or fleet's ``computeType`` is set to
-    ``ATTRIBUTE_BASED_COMPUTE``.
+    ``ATTRIBUTE_BASED_COMPUTE`` or ``CUSTOM_INSTANCE_TYPE``.
     """
 
     vCpu: Optional[WrapperLong]
     memory: Optional[WrapperLong]
     disk: Optional[WrapperLong]
     machineType: Optional[MachineType]
+    instanceType: Optional[NonEmptyString]
 
 
 ProjectEnvironment = TypedDict(
@@ -643,6 +660,7 @@ ProjectCache = TypedDict(
         "type": CacheType,
         "location": Optional[String],
         "modes": Optional[ProjectCacheModes],
+        "cacheNamespace": Optional[String],
     },
     total=False,
 )
@@ -905,6 +923,41 @@ Builds = List[Build]
 class BatchGetBuildsOutput(TypedDict, total=False):
     builds: Optional[Builds]
     buildsNotFound: Optional[BuildIds]
+
+
+CommandExecutionIds = List[NonEmptyString]
+
+
+class BatchGetCommandExecutionsInput(ServiceRequest):
+    sandboxId: NonEmptyString
+    commandExecutionIds: CommandExecutionIds
+
+
+CommandExecution = TypedDict(
+    "CommandExecution",
+    {
+        "id": Optional[NonEmptyString],
+        "sandboxId": Optional[NonEmptyString],
+        "submitTime": Optional[Timestamp],
+        "startTime": Optional[Timestamp],
+        "endTime": Optional[Timestamp],
+        "status": Optional[NonEmptyString],
+        "command": Optional[SensitiveNonEmptyString],
+        "type": Optional[CommandType],
+        "exitCode": Optional[NonEmptyString],
+        "standardOutputContent": Optional[SensitiveNonEmptyString],
+        "standardErrContent": Optional[SensitiveNonEmptyString],
+        "logs": Optional[LogsLocation],
+        "sandboxArn": Optional[NonEmptyString],
+    },
+    total=False,
+)
+CommandExecutions = List[CommandExecution]
+
+
+class BatchGetCommandExecutionsOutput(TypedDict, total=False):
+    commandExecutions: Optional[CommandExecutions]
+    commandExecutionsNotFound: Optional[CommandExecutionIds]
 
 
 FleetNames = List[NonEmptyString]
@@ -1228,6 +1281,74 @@ Reports = List[Report]
 class BatchGetReportsOutput(TypedDict, total=False):
     reports: Optional[Reports]
     reportsNotFound: Optional[ReportArns]
+
+
+SandboxIds = List[NonEmptyString]
+
+
+class BatchGetSandboxesInput(ServiceRequest):
+    ids: SandboxIds
+
+
+class SandboxSessionPhase(TypedDict, total=False):
+    """Contains information about the sandbox phase."""
+
+    phaseType: Optional[String]
+    phaseStatus: Optional[StatusType]
+    startTime: Optional[Timestamp]
+    endTime: Optional[Timestamp]
+    durationInSeconds: Optional[WrapperLong]
+    contexts: Optional[PhaseContexts]
+
+
+SandboxSessionPhases = List[SandboxSessionPhase]
+
+
+class SandboxSession(TypedDict, total=False):
+    """Contains information about the sandbox session."""
+
+    id: Optional[NonEmptyString]
+    status: Optional[String]
+    startTime: Optional[Timestamp]
+    endTime: Optional[Timestamp]
+    currentPhase: Optional[String]
+    phases: Optional[SandboxSessionPhases]
+    resolvedSourceVersion: Optional[NonEmptyString]
+    logs: Optional[LogsLocation]
+    networkInterface: Optional[NetworkInterface]
+
+
+class Sandbox(TypedDict, total=False):
+    """Contains sandbox information."""
+
+    id: Optional[NonEmptyString]
+    arn: Optional[NonEmptyString]
+    projectName: Optional[NonEmptyString]
+    requestTime: Optional[Timestamp]
+    startTime: Optional[Timestamp]
+    endTime: Optional[Timestamp]
+    status: Optional[String]
+    source: Optional[ProjectSource]
+    sourceVersion: Optional[NonEmptyString]
+    secondarySources: Optional[ProjectSources]
+    secondarySourceVersions: Optional[ProjectSecondarySourceVersions]
+    environment: Optional[ProjectEnvironment]
+    fileSystemLocations: Optional[ProjectFileSystemLocations]
+    timeoutInMinutes: Optional[WrapperInt]
+    queuedTimeoutInMinutes: Optional[WrapperInt]
+    vpcConfig: Optional[VpcConfig]
+    logConfig: Optional[LogsConfig]
+    encryptionKey: Optional[NonEmptyString]
+    serviceRole: Optional[NonEmptyString]
+    currentSession: Optional[SandboxSession]
+
+
+Sandboxes = List[Sandbox]
+
+
+class BatchGetSandboxesOutput(TypedDict, total=False):
+    sandboxes: Optional[Sandboxes]
+    sandboxesNotFound: Optional[SandboxIds]
 
 
 class BuildBatchFilter(TypedDict, total=False):
@@ -1612,6 +1733,18 @@ class ListBuildsOutput(TypedDict, total=False):
     nextToken: Optional[String]
 
 
+class ListCommandExecutionsForSandboxInput(ServiceRequest):
+    sandboxId: NonEmptyString
+    maxResults: Optional[PageSize]
+    sortOrder: Optional[SortOrderType]
+    nextToken: Optional[SensitiveString]
+
+
+class ListCommandExecutionsForSandboxOutput(TypedDict, total=False):
+    commandExecutions: Optional[CommandExecutions]
+    nextToken: Optional[String]
+
+
 class ListCuratedEnvironmentImagesInput(ServiceRequest):
     pass
 
@@ -1686,6 +1819,29 @@ class ListReportsInput(ServiceRequest):
 class ListReportsOutput(TypedDict, total=False):
     nextToken: Optional[String]
     reports: Optional[ReportArns]
+
+
+class ListSandboxesForProjectInput(ServiceRequest):
+    projectName: NonEmptyString
+    maxResults: Optional[PageSize]
+    sortOrder: Optional[SortOrderType]
+    nextToken: Optional[SensitiveString]
+
+
+class ListSandboxesForProjectOutput(TypedDict, total=False):
+    ids: Optional[SandboxIds]
+    nextToken: Optional[String]
+
+
+class ListSandboxesInput(ServiceRequest):
+    maxResults: Optional[PageSize]
+    sortOrder: Optional[SortOrderType]
+    nextToken: Optional[String]
+
+
+class ListSandboxesOutput(TypedDict, total=False):
+    ids: Optional[SandboxIds]
+    nextToken: Optional[String]
 
 
 class ListSharedProjectsInput(ServiceRequest):
@@ -1763,6 +1919,14 @@ class RetryBuildInput(ServiceRequest):
 
 class RetryBuildOutput(TypedDict, total=False):
     build: Optional[Build]
+
+
+class SSMSession(TypedDict, total=False):
+    """Contains information about the Session Manager session."""
+
+    sessionId: Optional[String]
+    tokenValue: Optional[String]
+    streamUrl: Optional[String]
 
 
 class StartBuildBatchInput(ServiceRequest):
@@ -1843,6 +2007,38 @@ class StartBuildOutput(TypedDict, total=False):
     build: Optional[Build]
 
 
+StartCommandExecutionInput = TypedDict(
+    "StartCommandExecutionInput",
+    {
+        "sandboxId": NonEmptyString,
+        "command": SensitiveNonEmptyString,
+        "type": Optional[CommandType],
+    },
+    total=False,
+)
+
+
+class StartCommandExecutionOutput(TypedDict, total=False):
+    commandExecution: Optional[CommandExecution]
+
+
+class StartSandboxConnectionInput(ServiceRequest):
+    sandboxId: NonEmptyString
+
+
+class StartSandboxConnectionOutput(TypedDict, total=False):
+    ssmSession: Optional[SSMSession]
+
+
+class StartSandboxInput(ServiceRequest):
+    projectName: Optional[NonEmptyString]
+    idempotencyToken: Optional[SensitiveString]
+
+
+class StartSandboxOutput(TypedDict, total=False):
+    sandbox: Optional[Sandbox]
+
+
 class StopBuildBatchInput(ServiceRequest):
     id: NonEmptyString
 
@@ -1857,6 +2053,14 @@ class StopBuildInput(ServiceRequest):
 
 class StopBuildOutput(TypedDict, total=False):
     build: Optional[Build]
+
+
+class StopSandboxInput(ServiceRequest):
+    id: NonEmptyString
+
+
+class StopSandboxOutput(TypedDict, total=False):
+    sandbox: Optional[Sandbox]
 
 
 class UpdateFleetInput(ServiceRequest):
@@ -1981,6 +2185,23 @@ class CodebuildApi:
         """
         raise NotImplementedError
 
+    @handler("BatchGetCommandExecutions")
+    def batch_get_command_executions(
+        self,
+        context: RequestContext,
+        sandbox_id: NonEmptyString,
+        command_execution_ids: CommandExecutionIds,
+        **kwargs,
+    ) -> BatchGetCommandExecutionsOutput:
+        """Gets information about the command executions.
+
+        :param sandbox_id: A ``sandboxId`` or ``sandboxArn``.
+        :param command_execution_ids: A comma separated list of ``commandExecutionIds``.
+        :returns: BatchGetCommandExecutionsOutput
+        :raises InvalidInputException:
+        """
+        raise NotImplementedError
+
     @handler("BatchGetFleets")
     def batch_get_fleets(
         self, context: RequestContext, names: FleetNames, **kwargs
@@ -2025,6 +2246,18 @@ class CodebuildApi:
 
         :param report_arns: An array of ARNs that identify the ``Report`` objects to return.
         :returns: BatchGetReportsOutput
+        :raises InvalidInputException:
+        """
+        raise NotImplementedError
+
+    @handler("BatchGetSandboxes")
+    def batch_get_sandboxes(
+        self, context: RequestContext, ids: SandboxIds, **kwargs
+    ) -> BatchGetSandboxesOutput:
+        """Gets information about the sandbox status.
+
+        :param ids: A comma separated list of ``sandboxIds`` or ``sandboxArns``.
+        :returns: BatchGetSandboxesOutput
         :raises InvalidInputException:
         """
         raise NotImplementedError
@@ -2525,6 +2758,28 @@ class CodebuildApi:
         """
         raise NotImplementedError
 
+    @handler("ListCommandExecutionsForSandbox")
+    def list_command_executions_for_sandbox(
+        self,
+        context: RequestContext,
+        sandbox_id: NonEmptyString,
+        max_results: PageSize = None,
+        sort_order: SortOrderType = None,
+        next_token: SensitiveString = None,
+        **kwargs,
+    ) -> ListCommandExecutionsForSandboxOutput:
+        """Gets a list of command executions for a sandbox.
+
+        :param sandbox_id: A ``sandboxId`` or ``sandboxArn``.
+        :param max_results: The maximum number of sandbox records to be retrieved.
+        :param sort_order: The order in which sandbox records should be retrieved.
+        :param next_token: The next token, if any, to get paginated results.
+        :returns: ListCommandExecutionsForSandboxOutput
+        :raises InvalidInputException:
+        :raises ResourceNotFoundException:
+        """
+        raise NotImplementedError
+
     @handler("ListCuratedEnvironmentImages")
     def list_curated_environment_images(
         self, context: RequestContext, **kwargs
@@ -2649,6 +2904,47 @@ class CodebuildApi:
         per response.
         :param filter: A ``ReportFilter`` object used to filter the returned reports.
         :returns: ListReportsForReportGroupOutput
+        :raises InvalidInputException:
+        :raises ResourceNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("ListSandboxes")
+    def list_sandboxes(
+        self,
+        context: RequestContext,
+        max_results: PageSize = None,
+        sort_order: SortOrderType = None,
+        next_token: String = None,
+        **kwargs,
+    ) -> ListSandboxesOutput:
+        """Gets a list of sandboxes.
+
+        :param max_results: The maximum number of sandbox records to be retrieved.
+        :param sort_order: The order in which sandbox records should be retrieved.
+        :param next_token: The next token, if any, to get paginated results.
+        :returns: ListSandboxesOutput
+        :raises InvalidInputException:
+        """
+        raise NotImplementedError
+
+    @handler("ListSandboxesForProject")
+    def list_sandboxes_for_project(
+        self,
+        context: RequestContext,
+        project_name: NonEmptyString,
+        max_results: PageSize = None,
+        sort_order: SortOrderType = None,
+        next_token: SensitiveString = None,
+        **kwargs,
+    ) -> ListSandboxesForProjectOutput:
+        """Gets a list of sandboxes for a given project.
+
+        :param project_name: The CodeBuild project name.
+        :param max_results: The maximum number of sandbox records to be retrieved.
+        :param sort_order: The order in which sandbox records should be retrieved.
+        :param next_token: The next token, if any, to get paginated results.
+        :returns: ListSandboxesForProjectOutput
         :raises InvalidInputException:
         :raises ResourceNotFoundException:
         """
@@ -2993,6 +3289,53 @@ class CodebuildApi:
         """
         raise NotImplementedError
 
+    @handler("StartCommandExecution", expand=False)
+    def start_command_execution(
+        self, context: RequestContext, request: StartCommandExecutionInput, **kwargs
+    ) -> StartCommandExecutionOutput:
+        """Starts a command execution.
+
+        :param sandbox_id: A ``sandboxId`` or ``sandboxArn``.
+        :param command: The command that needs to be executed.
+        :param type: The command type.
+        :returns: StartCommandExecutionOutput
+        :raises InvalidInputException:
+        :raises ResourceNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("StartSandbox")
+    def start_sandbox(
+        self,
+        context: RequestContext,
+        project_name: NonEmptyString = None,
+        idempotency_token: SensitiveString = None,
+        **kwargs,
+    ) -> StartSandboxOutput:
+        """Starts a sandbox.
+
+        :param project_name: The CodeBuild project name.
+        :param idempotency_token: A unique client token.
+        :returns: StartSandboxOutput
+        :raises InvalidInputException:
+        :raises ResourceNotFoundException:
+        :raises AccountSuspendedException:
+        """
+        raise NotImplementedError
+
+    @handler("StartSandboxConnection")
+    def start_sandbox_connection(
+        self, context: RequestContext, sandbox_id: NonEmptyString, **kwargs
+    ) -> StartSandboxConnectionOutput:
+        """Starts a sandbox connection.
+
+        :param sandbox_id: A ``sandboxId`` or ``sandboxArn``.
+        :returns: StartSandboxConnectionOutput
+        :raises InvalidInputException:
+        :raises ResourceNotFoundException:
+        """
+        raise NotImplementedError
+
     @handler("StopBuild")
     def stop_build(self, context: RequestContext, id: NonEmptyString, **kwargs) -> StopBuildOutput:
         """Attempts to stop running a build.
@@ -3012,6 +3355,19 @@ class CodebuildApi:
 
         :param id: The identifier of the batch build to stop.
         :returns: StopBuildBatchOutput
+        :raises InvalidInputException:
+        :raises ResourceNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("StopSandbox")
+    def stop_sandbox(
+        self, context: RequestContext, id: NonEmptyString, **kwargs
+    ) -> StopSandboxOutput:
+        """Stops a sandbox.
+
+        :param id: Information about the requested sandbox ID.
+        :returns: StopSandboxOutput
         :raises InvalidInputException:
         :raises ResourceNotFoundException:
         """

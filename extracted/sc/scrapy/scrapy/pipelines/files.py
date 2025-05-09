@@ -66,7 +66,7 @@ def _md5sum(file: IO[bytes]) -> str:
     >>> _md5sum(BytesIO(b'file content to hash'))
     '784406af91dd5a54fbb9c84c2236595a'
     """
-    m = hashlib.md5()  # nosec
+    m = hashlib.md5()  # noqa: S324
     while True:
         d = file.read(8096)
         if not d:
@@ -202,7 +202,9 @@ class S3FilesStore:
         return cast(
             "Deferred[dict[str, Any]]",
             deferToThread(
-                self.s3_client.head_object, Bucket=self.bucket, Key=key_name  # type: ignore[attr-defined]
+                self.s3_client.head_object,  # type: ignore[attr-defined]
+                Bucket=self.bucket,
+                Key=key_name,
             ),
         )
 
@@ -399,7 +401,7 @@ class FTPFilesStore:
                     ftp.set_pasv(False)
                 file_path = f"{self.basedir}/{path}"
                 last_modified = float(ftp.voidcmd(f"MDTM {file_path}")[4:].strip())
-                m = hashlib.md5()  # nosec
+                m = hashlib.md5()  # noqa: S324
                 ftp.retrbinary(f"RETR {file_path}", m.update)
                 return {"last_modified": last_modified, "checksum": m.hexdigest()}
             # The file doesn't exist
@@ -553,10 +555,8 @@ class FilesPipeline(MediaPipeline):
         ftp_store.USE_ACTIVE_MODE = settings.getbool("FEED_STORAGE_FTP_ACTIVE")
 
     def _get_store(self, uri: str) -> FilesStoreProtocol:
-        if Path(uri).is_absolute():  # to support win32 paths like: C:\\some\dir
-            scheme = "file"
-        else:
-            scheme = urlparse(uri).scheme
+        # to support win32 paths like: C:\\some\dir
+        scheme = "file" if Path(uri).is_absolute() else urlparse(uri).scheme
         store_cls = self.STORE_SCHEMES[scheme]
         return store_cls(uri)
 
@@ -734,7 +734,7 @@ class FilesPipeline(MediaPipeline):
         *,
         item: Any = None,
     ) -> str:
-        media_guid = hashlib.sha1(to_bytes(request.url)).hexdigest()  # nosec
+        media_guid = hashlib.sha1(to_bytes(request.url)).hexdigest()  # noqa: S324
         media_ext = Path(request.url).suffix
         # Handles empty and wild extensions by trying to guess the
         # mime type then extension or default to empty string otherwise

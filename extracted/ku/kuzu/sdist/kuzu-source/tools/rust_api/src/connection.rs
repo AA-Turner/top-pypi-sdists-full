@@ -21,7 +21,7 @@ pub struct PreparedStatement {
 /// instance in a multithreaded environment.
 ///
 /// Note that since connections require a reference to the Database, creating or using connections
-/// in multiple threads cannot be done from a regular std::thread since the threads (and
+/// in multiple threads cannot be done from a regular `std::thread` since the threads (and
 /// connections) could outlive the database. This can be worked around by using a
 /// [scoped thread](std::thread::scope) (Note: Introduced in rust 1.63. For compatibility with
 /// older versions of rust, [crosssbeam_utils::thread::scope](https://docs.rs/crossbeam-utils/latest/crossbeam_utils/thread/index.html) can be used instead).
@@ -106,8 +106,8 @@ impl<'a> Connection<'a> {
     /// using [`Connection::execute`]
     ///
     /// # Arguments
-    /// * `query`: The query to prepare.
-    ///            See <https://kuzudb.com/docs/cypher> for details on the query format
+    /// * `query`: The query to prepare. See <https://kuzudb.com/docs/cypher> for details on the
+    ///   query format.
     pub fn prepare(&self, query: &str) -> Result<PreparedStatement, Error> {
         let statement =
             unsafe { (*self.conn.get()).pin_mut() }.prepare(ffi::StringView::new(query))?;
@@ -123,8 +123,8 @@ impl<'a> Connection<'a> {
     /// Executes the given query and returns the result.
     ///
     /// # Arguments
-    /// * `query`: The query to execute.
-    ///            See <https://kuzudb.com/docs/cypher> for details on the query format
+    /// * `query`: The query to execute. See <https://kuzudb.com/docs/cypher> for details on the
+    ///   query format.
     // TODO(bmwinger): Instead of having a Value enum in the results, perhaps QueryResult, and thus query
     // should be generic.
     //
@@ -136,12 +136,12 @@ impl<'a> Connection<'a> {
     pub fn query(&self, query: &str) -> Result<QueryResult<'a>, Error> {
         let conn = unsafe { (*self.conn.get()).pin_mut() };
         let result = ffi::connection_query(conn, ffi::StringView::new(query))?;
-        if !result.isSuccess() {
+        if result.isSuccess() {
+            Ok(QueryResult { result })
+        } else {
             Err(Error::FailedQuery(ffi::query_result_get_error_message(
                 &result,
             )))
-        } else {
-            Ok(QueryResult { result })
         }
     }
 
@@ -172,7 +172,7 @@ impl<'a> Connection<'a> {
         &self,
         prepared_statement: &mut PreparedStatement,
         params: Vec<(&str, Value)>,
-    ) -> Result<QueryResult, Error> {
+    ) -> Result<QueryResult<'a>, Error> {
         // Passing and converting Values in a collection across the ffi boundary is difficult
         // (std::vector cannot be constructed from rust, Vec cannot contain opaque C++ types)
         // So we create an opaque parameter pack and copy the parameters into it one by one
@@ -184,12 +184,12 @@ impl<'a> Connection<'a> {
         let conn = unsafe { (*self.conn.get()).pin_mut() };
         let result =
             ffi::connection_execute(conn, prepared_statement.statement.pin_mut(), cxx_params)?;
-        if !result.isSuccess() {
+        if result.isSuccess() {
+            Ok(QueryResult { result })
+        } else {
             Err(Error::FailedQuery(ffi::query_result_get_error_message(
                 &result,
             )))
-        } else {
-            Ok(QueryResult { result })
         }
     }
 
@@ -210,13 +210,14 @@ impl<'a> Connection<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Connection, Database, SystemConfig, Value};
+    use crate::database::SYSTEM_CONFIG_FOR_TESTS;
+    use crate::{Connection, Database, Value};
     use anyhow::{Error, Result};
 
     #[test]
     fn test_connection_threads() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let db = Database::new(temp_dir.path(), SystemConfig::default())?;
+        let db = Database::new(temp_dir.path(), SYSTEM_CONFIG_FOR_TESTS)?;
         let mut conn = Connection::new(&db)?;
         conn.set_max_num_threads_for_exec(5);
         assert_eq!(conn.get_max_num_threads_for_exec(), 5);
@@ -227,7 +228,7 @@ mod tests {
     #[test]
     fn test_invalid_query() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let db = Database::new(temp_dir.path(), SystemConfig::default())?;
+        let db = Database::new(temp_dir.path(), SYSTEM_CONFIG_FOR_TESTS)?;
         let conn = Connection::new(&db)?;
         conn.query("CREATE NODE TABLE Person(name STRING, age INT64, PRIMARY KEY(name));")?;
         conn.query("CREATE (:Person {name: 'Alice', age: 25});")?;
@@ -250,7 +251,7 @@ Invalid input <MATCH (a:Person RETURN>: expected rule oC_SingleQuery (line: 1, o
     #[test]
     fn test_multiple_statement_query() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let db = Database::new(temp_dir.path(), SystemConfig::default())?;
+        let db = Database::new(temp_dir.path(), SYSTEM_CONFIG_FOR_TESTS)?;
         let conn = Connection::new(&db)?;
         conn.query("CREATE NODE TABLE Person(name STRING, age INT64, PRIMARY KEY(name));")?;
         conn.query(
@@ -263,7 +264,7 @@ Invalid input <MATCH (a:Person RETURN>: expected rule oC_SingleQuery (line: 1, o
     #[test]
     fn test_query_result() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let db = Database::new(temp_dir.path(), SystemConfig::default())?;
+        let db = Database::new(temp_dir.path(), SYSTEM_CONFIG_FOR_TESTS)?;
         let conn = Connection::new(&db)?;
         conn.query("CREATE NODE TABLE Person(name STRING, age INT16, PRIMARY KEY(name));")?;
         conn.query("CREATE (:Person {name: 'Alice', age: 25});")?;
@@ -280,7 +281,7 @@ Invalid input <MATCH (a:Person RETURN>: expected rule oC_SingleQuery (line: 1, o
     #[test]
     fn test_params() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let db = Database::new(temp_dir.path(), SystemConfig::default())?;
+        let db = Database::new(temp_dir.path(), SYSTEM_CONFIG_FOR_TESTS)?;
         let conn = Connection::new(&db)?;
         conn.query("CREATE NODE TABLE Person(name STRING, age INT16, PRIMARY KEY(name));")?;
         conn.query("CREATE (:Person {name: 'Alice', age: 25});")?;
@@ -298,7 +299,7 @@ Invalid input <MATCH (a:Person RETURN>: expected rule oC_SingleQuery (line: 1, o
     #[test]
     fn test_multithreaded_single_conn() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let db = Database::new(temp_dir.path(), SystemConfig::default())?;
+        let db = Database::new(temp_dir.path(), SYSTEM_CONFIG_FOR_TESTS)?;
 
         let conn = Connection::new(&db)?;
         conn.query("CREATE NODE TABLE Person(name STRING, age INT32, PRIMARY KEY(name));")?;
@@ -330,7 +331,7 @@ Invalid input <MATCH (a:Person RETURN>: expected rule oC_SingleQuery (line: 1, o
     #[test]
     fn test_multithreaded_multiple_conn() -> Result<()> {
         let temp_dir = tempfile::tempdir()?;
-        let db = Database::new(temp_dir.path(), SystemConfig::default())?;
+        let db = Database::new(temp_dir.path(), SYSTEM_CONFIG_FOR_TESTS)?;
 
         let conn = Connection::new(&db)?;
         conn.query("CREATE NODE TABLE Person(name STRING, age INT32, PRIMARY KEY(name));")?;
@@ -368,7 +369,7 @@ Invalid input <MATCH (a:Person RETURN>: expected rule oC_SingleQuery (line: 1, o
             #[cfg(feature = "extension_tests")]
             fn $name() -> Result<()> {
                 let temp_dir = tempfile::tempdir()?;
-                let db = Database::new(temp_dir.path(), SystemConfig::default())?;
+                let db = Database::new(temp_dir.path(), SYSTEM_CONFIG_FOR_TESTS)?;
                 let conn = Connection::new(&db)?;
                 let directory: String = if cfg!(windows) {
                     std::env::var("KUZU_LOCAL_EXTENSIONS")?.replace("\\", "/")

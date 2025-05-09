@@ -12,7 +12,7 @@ from collections import namedtuple
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
-from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
+from cryptography.exceptions import InvalidSignature, InvalidTag, UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, hmac
 from cryptography.hazmat.primitives import serialization as crypto_serialization
@@ -29,6 +29,7 @@ from localstack.aws.api.kms import (
     CreateGrantRequest,
     CreateKeyRequest,
     EncryptionContextType,
+    InvalidCiphertextException,
     InvalidKeyUsageException,
     KeyMetadata,
     KeySpec,
@@ -36,6 +37,7 @@ from localstack.aws.api.kms import (
     KeyUsageType,
     KMSInvalidMacException,
     KMSInvalidSignatureException,
+    LimitExceededException,
     MacAlgorithmSpec,
     MessageType,
     MultiRegionConfiguration,
@@ -84,6 +86,7 @@ HMAC_RANGE_KEY_LENGTHS = {
     "HMAC_512": (64, 128),
 }
 
+ON_DEMAND_ROTATION_LIMIT = 10
 KEY_ID_LEN = 36
 # Moto uses IV_LEN of 12, as it is fine for GCM encryption mode, but we use CBC, so have to set it to 16.
 IV_LEN = 16
@@ -175,6 +178,45 @@ class KmsCryptoKey:
     key_material: bytes
     key_spec: str
 
+    @staticmethod
+    def assert_valid(key_spec: str):
+        """
+        Validates that the given ``key_spec`` is supported in the current context.
+
+        :param key_spec: The key specification to validate.
+        :type key_spec: str
+        :raises ValidationException: If ``key_spec`` is not a known valid spec.
+        :raises UnsupportedOperationException: If ``key_spec`` is entirely unsupported.
+        """
+
+        def raise_validation():
+            raise ValidationException(
+                f"1 validation error detected: Value '{key_spec}' at 'keySpec' "
+                f"failed to satisfy constraint: Member must satisfy enum value set: "
+                f"[RSA_2048, ECC_NIST_P384, ECC_NIST_P256, ECC_NIST_P521, HMAC_384, RSA_3072, "
+                f"ECC_SECG_P256K1, RSA_4096, SYMMETRIC_DEFAULT, HMAC_256, HMAC_224, HMAC_512]"
+            )
+
+        if key_spec == "SYMMETRIC_DEFAULT":
+            return
+
+        if key_spec.startswith("RSA"):
+            if key_spec not in RSA_CRYPTO_KEY_LENGTHS:
+                raise_validation()
+            return
+
+        if key_spec.startswith("ECC"):
+            if key_spec not in ECC_CURVES:
+                raise_validation()
+            return
+
+        if key_spec.startswith("HMAC"):
+            if key_spec not in HMAC_RANGE_KEY_LENGTHS:
+                raise_validation()
+            return
+
+        raise UnsupportedOperationException(f"KeySpec {key_spec} is not supported")
+
     def __init__(self, key_spec: str, key_material: Optional[bytes] = None):
         self.private_key = None
         self.public_key = None
@@ -185,6 +227,8 @@ class KmsCryptoKey:
         self.key_material = key_material or os.urandom(SYMMETRIC_DEFAULT_MATERIAL_LENGTH)
         self.key_spec = key_spec
 
+        KmsCryptoKey.assert_valid(key_spec)
+
         if key_spec == "SYMMETRIC_DEFAULT":
             return
 
@@ -193,24 +237,16 @@ class KmsCryptoKey:
             key = rsa.generate_private_key(public_exponent=65537, key_size=key_size)
         elif key_spec.startswith("ECC"):
             curve = ECC_CURVES.get(key_spec)
-            key = ec.generate_private_key(curve)
+            if key_material:
+                key = crypto_serialization.load_der_private_key(key_material, password=None)
+            else:
+                key = ec.generate_private_key(curve)
         elif key_spec.startswith("HMAC"):
-            if key_spec not in HMAC_RANGE_KEY_LENGTHS:
-                raise ValidationException(
-                    f"1 validation error detected: Value '{key_spec}' at 'keySpec' "
-                    f"failed to satisfy constraint: Member must satisfy enum value set: "
-                    f"[RSA_2048, ECC_NIST_P384, ECC_NIST_P256, ECC_NIST_P521, HMAC_384, RSA_3072, "
-                    f"ECC_SECG_P256K1, RSA_4096, SYMMETRIC_DEFAULT, HMAC_256, HMAC_224, HMAC_512]"
-                )
             minimum_length, maximum_length = HMAC_RANGE_KEY_LENGTHS.get(key_spec)
             self.key_material = key_material or os.urandom(
                 random.randint(minimum_length, maximum_length)
             )
             return
-        else:
-            # We do not support SM2 - asymmetric keys both suitable for ENCRYPT_DECRYPT and SIGN_VERIFY,
-            # but only used in China AWS regions.
-            raise UnsupportedOperationException(f"KeySpec {key_spec} is not supported")
 
         self._serialize_key(key)
 
@@ -249,6 +285,7 @@ class KmsKey:
     is_key_rotation_enabled: bool
     rotation_period_in_days: int
     next_rotation_date: datetime.datetime
+    previous_keys = [str]
 
     def __init__(
         self,
@@ -257,6 +294,7 @@ class KmsKey:
         region: str = None,
     ):
         create_key_request = create_key_request or CreateKeyRequest()
+        self.previous_keys = []
 
         # Please keep in mind that tags of a key could be present in the request, they are not a part of metadata. At
         # least in the sense of DescribeKey not returning them with the rest of the metadata. Instead, tags are more
@@ -319,9 +357,15 @@ class KmsKey:
         self, ciphertext: Ciphertext, encryption_context: EncryptionContextType = None
     ) -> bytes:
         aad = _serialize_encryption_context(encryption_context=encryption_context)
-        return decrypt(
-            self.crypto_key.key_material, ciphertext.ciphertext, ciphertext.iv, ciphertext.tag, aad
-        )
+        keys_to_try = [self.crypto_key.key_material] + self.previous_keys
+
+        for key in keys_to_try:
+            try:
+                return decrypt(key, ciphertext.ciphertext, ciphertext.iv, ciphertext.tag, aad)
+            except (InvalidTag, InvalidSignature):
+                continue
+
+        raise InvalidCiphertextException()
 
     def decrypt_rsa(self, encrypted: bytes) -> bytes:
         private_key = crypto_serialization.load_der_private_key(
@@ -476,7 +520,7 @@ class KmsKey:
             if "PKCS" in signing_algorithm:
                 return padding.PKCS1v15()
             elif "PSS" in signing_algorithm:
-                return padding.PSS(mgf=padding.MGF1(hasher), salt_length=padding.PSS.MAX_LENGTH)
+                return padding.PSS(mgf=padding.MGF1(hasher), salt_length=padding.PSS.DIGEST_LENGTH)
             else:
                 LOG.warning("Unsupported padding in SigningAlgorithm '%s'", signing_algorithm)
 
@@ -694,6 +738,12 @@ class KmsKey:
             return request_key_usage or "ENCRYPT_DECRYPT"
 
     def rotate_key_on_demand(self):
+        if len(self.previous_keys) >= ON_DEMAND_ROTATION_LIMIT:
+            raise LimitExceededException(
+                f"The on-demand rotations limit has been reached for the given keyId. "
+                f"No more on-demand rotations can be performed for this key: {self.metadata['Arn']}"
+            )
+        self.previous_keys.append(self.crypto_key.key_material)
         self.crypto_key = KmsCryptoKey(KeySpec.SYMMETRIC_DEFAULT)
 
 

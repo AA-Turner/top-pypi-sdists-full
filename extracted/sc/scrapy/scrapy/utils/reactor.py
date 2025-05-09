@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar
 from warnings import catch_warnings, filterwarnings
 
 from twisted.internet import asyncioreactor, error
-from twisted.internet.base import DelayedCall
+from twisted.internet.defer import Deferred
 
 from scrapy.utils.misc import load_object
 
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from asyncio import AbstractEventLoop, AbstractEventLoopPolicy
     from collections.abc import Callable
 
+    from twisted.internet.base import DelayedCall
     from twisted.internet.protocol import ServerFactory
     from twisted.internet.tcp import Port
 
@@ -36,7 +37,7 @@ def listen_tcp(portrange: list[int], host: str, factory: ServerFactory) -> Port:
         return reactor.listenTCP(0, factory, interface=host)
     if len(portrange) == 1:
         return reactor.listenTCP(portrange[0], factory, interface=host)
-    for x in range(portrange[0], portrange[1] + 1):
+    for x in range(portrange[0], portrange[1] + 1):  # noqa: RET503
         try:
             return reactor.listenTCP(x, factory, interface=host)
         except error.CannotListenError:
@@ -54,6 +55,7 @@ class CallLaterOnce(Generic[_T]):
         self._a: tuple[Any, ...] = a
         self._kw: dict[str, Any] = kw
         self._call: DelayedCall | None = None
+        self._deferreds: list[Deferred] = []
 
     def schedule(self, delay: float = 0) -> None:
         from twisted.internet import reactor
@@ -66,8 +68,23 @@ class CallLaterOnce(Generic[_T]):
             self._call.cancel()
 
     def __call__(self) -> _T:
+        from twisted.internet import reactor
+
         self._call = None
-        return self._func(*self._a, **self._kw)
+        result = self._func(*self._a, **self._kw)
+
+        for d in self._deferreds:
+            reactor.callLater(0, d.callback, None)
+        self._deferreds = []
+
+        return result
+
+    async def wait(self):
+        from scrapy.utils.defer import maybe_deferred_to_future
+
+        d = Deferred()
+        self._deferreds.append(d)
+        await maybe_deferred_to_future(d)
 
 
 def set_asyncio_event_loop_policy() -> None:
@@ -100,7 +117,7 @@ def install_reactor(reactor_path: str, event_loop_path: str | None = None) -> No
             asyncioreactor.install(eventloop=event_loop)
     else:
         *module, _ = reactor_path.split(".")
-        installer_path = module + ["install"]
+        installer_path = [*module, "install"]
         installer = load_object(".".join(installer_path))
         with suppress(error.ReactorAlreadyInstalledError):
             installer()
@@ -114,8 +131,10 @@ def set_asyncio_event_loop(event_loop_path: str | None) -> AbstractEventLoop:
     """Sets and returns the event loop with specified import path."""
     if event_loop_path is not None:
         event_loop_class: type[AbstractEventLoop] = load_object(event_loop_path)
-        event_loop = event_loop_class()
-        asyncio.set_event_loop(event_loop)
+        event_loop = _get_asyncio_event_loop()
+        if not isinstance(event_loop, event_loop_class):
+            event_loop = event_loop_class()
+            asyncio.set_event_loop(event_loop)
     else:
         try:
             with catch_warnings():
@@ -149,12 +168,11 @@ def verify_installed_reactor(reactor_path: str) -> None:
 
     reactor_class = load_object(reactor_path)
     if not reactor.__class__ == reactor_class:
-        msg = (
+        raise RuntimeError(
             "The installed reactor "
             f"({reactor.__module__}.{reactor.__class__.__name__}) does not "
             f"match the requested one ({reactor_path})"
         )
-        raise Exception(msg)
 
 
 def verify_installed_asyncio_event_loop(loop_path: str) -> None:
@@ -168,7 +186,7 @@ def verify_installed_asyncio_event_loop(loop_path: str) -> None:
         f".{reactor._asyncioEventloop.__class__.__qualname__}"
     )
     specified = f"{loop_class.__module__}.{loop_class.__qualname__}"
-    raise Exception(
+    raise RuntimeError(
         "Scrapy found an asyncio Twisted reactor already "
         f"installed, and its event loop class ({installed}) does "
         "not match the one specified in the ASYNCIO_EVENT_LOOP "
@@ -176,7 +194,20 @@ def verify_installed_asyncio_event_loop(loop_path: str) -> None:
     )
 
 
+def is_reactor_installed() -> bool:
+    return "twisted.internet.reactor" in sys.modules
+
+
 def is_asyncio_reactor_installed() -> bool:
+    """Check whether the installed reactor is :class:`~twisted.internet.asyncioreactor.AsyncioSelectorReactor`.
+
+    Raise a :exc:`RuntimeError` if no reactor is installed.
+    """
+    if not is_reactor_installed():
+        raise RuntimeError(
+            "is_asyncio_reactor_installed() called without an installed reactor."
+        )
+
     from twisted.internet import reactor
 
     return isinstance(reactor, asyncioreactor.AsyncioSelectorReactor)

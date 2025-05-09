@@ -163,6 +163,7 @@ async def astream_state(
                         ns, mode, chunk = event["data"]["chunk"]
                     else:
                         mode, chunk = event["data"]["chunk"]
+                        ns = None
                     # --- begin shared logic with astream ---
                     if mode == "debug":
                         if chunk["type"] == "checkpoint":
@@ -172,7 +173,10 @@ async def astream_state(
                             on_task_result(chunk["payload"])
                     if mode == "messages":
                         if "messages-tuple" in stream_mode:
-                            yield "messages", chunk
+                            if subgraphs and ns:
+                                yield f"messages|{'|'.join(ns)}", chunk
+                            else:
+                                yield "messages", chunk
                         else:
                             msg, meta = cast(tuple[BaseMessage, dict[str, Any]], chunk)
                             if msg.id in messages:
@@ -214,6 +218,7 @@ async def astream_state(
                     ns, mode, chunk = event
                 else:
                     mode, chunk = event
+                    ns = None
                 # --- begin shared logic with astream_events ---
                 if mode == "debug":
                     if chunk["type"] == "checkpoint":
@@ -223,7 +228,10 @@ async def astream_state(
                         on_task_result(chunk["payload"])
                 if mode == "messages":
                     if "messages-tuple" in stream_mode:
-                        yield "messages", chunk
+                        if subgraphs and ns:
+                            yield f"messages|{'|'.join(ns)}", chunk
+                        else:
+                            yield "messages", chunk
                     else:
                         msg, meta = cast(tuple[BaseMessage, dict[str, Any]], chunk)
                         if msg.id in messages:

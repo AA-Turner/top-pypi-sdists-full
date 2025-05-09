@@ -22,7 +22,12 @@ from dagster._core.storage.dagster_run import (
     RunsFilter,
 )
 from dagster._core.storage.event_log.base import AssetRecord
-from dagster._core.storage.tags import REPOSITORY_LABEL_TAG, RUN_METRIC_TAGS, TagType, get_tag_type
+from dagster._core.storage.tags import (
+    REPOSITORY_LABEL_TAG,
+    RUN_METRIC_TAGS,
+    TagType,
+    get_tag_type,
+)
 from dagster._core.workspace.permissions import Permissions
 from dagster._utils.tags import get_boolean_tag_value
 from dagster_shared.yaml_utils import dump_run_config_yaml
@@ -503,6 +508,7 @@ class GrapheneRun(graphene.ObjectType):
     allPools = graphene.List(graphene.NonNull(graphene.String))
     hasUnconstrainedRootNodes = graphene.NonNull(graphene.Boolean)
     hasRunMetricsEnabled = graphene.NonNull(graphene.Boolean)
+    externalJobSource = graphene.String()
 
     class Meta:
         interfaces = (GraphenePipelineRun, GrapheneRunsFeedEntry)
@@ -640,6 +646,9 @@ class GrapheneRun(graphene.ObjectType):
             for key, value in self.dagster_run.tags.items()
             if get_tag_type(key) != TagType.HIDDEN
         ]
+
+    def resolve_externalJobSource(self, _graphene_info: ResolveInfo):
+        return None # IMPROVEME: BCOR-169
 
     def resolve_rootRunId(self, _graphene_info: ResolveInfo):
         return self.dagster_run.root_run_id
@@ -799,6 +808,7 @@ class GrapheneIPipelineSnapshotMixin:
     sensors = non_null_list(GrapheneSensor)
     parent_snapshot_id = graphene.String()
     graph_name = graphene.NonNull(graphene.String)
+    externalJobSource = graphene.String()
 
     class Meta:
         name = "IPipelineSnapshotMixin"
@@ -897,7 +907,11 @@ class GrapheneIPipelineSnapshotMixin:
         return [
             GraphenePipelineTag(key=key, value=value)
             for key, value in represented_pipeline.job_snapshot.tags.items()
+            if get_tag_type(key) != TagType.HIDDEN
         ]
+
+    def resolve_externalJobSource(self, graphene_info: ResolveInfo):
+        return None  # IMPROVEME: BCOR-169
 
     def resolve_run_tags(self, _graphene_info: ResolveInfo):
         represented_pipeline = self.get_represented_job()
@@ -1030,7 +1044,6 @@ class GraphenePipelinePreset(graphene.ObjectType):
         return [
             GraphenePipelineTag(key=key, value=value)
             for key, value in self._active_preset_data.tags.items()
-            if get_tag_type(key) != TagType.HIDDEN
         ]
 
 

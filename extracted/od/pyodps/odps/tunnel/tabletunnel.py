@@ -116,6 +116,16 @@ class BaseTableTunnelSession(serializers.JSONSerializableModel):
             e = TunnelError.parse(resp)
             raise e
 
+    @classmethod
+    def _get_default_compress_option(cls):
+        if not options.tunnel.compress.enabled:
+            return None
+        return CompressOption(
+            compress_algo=options.tunnel.compress.algo,
+            level=options.tunnel.compress.level,
+            strategy=options.tunnel.compress.strategy,
+        )
+
     def new_record(self, values=None):
         """
         Generate a record of the current upload session.
@@ -207,14 +217,14 @@ class TableDownloadSession(BaseTableTunnelSession):
         else:
             self.id = download_id
             self.reload()
-        self._compress_option = compress_option
+        self._compress_option = compress_option or self._get_default_compress_option()
 
         logger.info("Tunnel session created: %r", self)
         if options.tunnel_session_create_callback:
             options.tunnel_session_create_callback(self)
 
     def __repr__(self):
-        return "<TableDownloadSession id=%s project=%s table=%s partition_spec=%s>" % (
+        return "<TableDownloadSession id=%s project=%s table=%s partition_spec=%r>" % (
             self.id,
             self._table.project.name,
             self._table.name,
@@ -317,7 +327,7 @@ class TableDownloadSession(BaseTableTunnelSession):
         self,
         start,
         count,
-        compress=False,
+        compress=None,
         columns=None,
         arrow=False,
         reader_cls=None,
@@ -329,6 +339,10 @@ class TableDownloadSession(BaseTableTunnelSession):
             else set()
         )
         reader_cols = [c for c in columns if c not in pt_cols] if columns else columns
+
+        if compress is None:
+            compress = self._compress_option is not None
+
         stream_kw = dict(compress=compress, columns=reader_cols, arrow=arrow)
 
         def stream_creator(cursor):
@@ -399,6 +413,7 @@ class TableUploadSession(BaseTableTunnelSession):
         "_table",
         "_partition_spec",
         "_compress_option",
+        "_create_partition",
         "_overwrite",
         "_quota_name",
         "_tags",
@@ -429,6 +444,7 @@ class TableUploadSession(BaseTableTunnelSession):
         partition_spec,
         upload_id=None,
         compress_option=None,
+        create_partition=None,
         overwrite=False,
         quota_name=None,
         tags=None,
@@ -438,6 +454,7 @@ class TableUploadSession(BaseTableTunnelSession):
         self._client = client
         self._table = table
         self._partition_spec = self.normalize_partition_spec(partition_spec)
+        self._create_partition = create_partition
 
         self._quota_name = quota_name
         self._overwrite = overwrite
@@ -451,23 +468,28 @@ class TableUploadSession(BaseTableTunnelSession):
         else:
             self.id = upload_id
             self.reload()
-        self._compress_option = compress_option
+        self._compress_option = compress_option or self._get_default_compress_option()
 
         logger.info("Tunnel session created: %r", self)
         if options.tunnel_session_create_callback:
             options.tunnel_session_create_callback(self)
 
     def __repr__(self):
-        return "<TableUploadSession id=%s project=%s table=%s partition_spec=%s>" % (
+        repr_args = "id=%s project=%s table=%s partition_spec=%r" % (
             self.id,
             self._table.project.name,
             self._table.name,
             self._partition_spec,
         )
+        if self._overwrite:
+            repr_args += " overwrite=True"
+        return "<TableUploadSession %s>" % repr_args
 
     def _create_or_reload_session(self, reload=False):
         headers = self.get_common_headers(content_length=0, tags=self._tags)
         params = self.get_common_params(reload=reload)
+        if self._create_partition:
+            params["create_partition"] = "true"
         if not reload and self._overwrite:
             params["overwrite"] = "true"
 
@@ -512,7 +534,7 @@ class TableUploadSession(BaseTableTunnelSession):
     def _open_writer(
         self,
         block_id=None,
-        compress=False,
+        compress=None,
         buffer_size=None,
         writer_cls=None,
         initial_block_id=None,
@@ -522,6 +544,10 @@ class TableUploadSession(BaseTableTunnelSession):
 
         params = self.get_common_params(uploadid=self.id)
         headers = self.get_common_headers(chunked=True, tags=self._tags)
+
+        if compress is None:
+            compress = self._compress_option is not None
+
         if compress:
             # special: rewrite LZ4 to ARROW_LZ4 for arrow tunnels
             if (
@@ -830,7 +856,7 @@ class TableStreamUploadSession(BaseTableTunnelSession):
         else:
             self.id = upload_id
             self.reload()
-        self._compress_option = compress_option
+        self._compress_option = compress_option or self._get_default_compress_option()
 
         logger.info("Tunnel session created: %r", self)
         if options.tunnel_session_create_callback:
@@ -852,7 +878,7 @@ class TableStreamUploadSession(BaseTableTunnelSession):
         headers = self.get_common_headers(content_length=0, tags=self._tags)
 
         if self._create_partition:
-            params["create_partition"] = ""
+            params["create_partition"] = "true"
         if self.schema_version is not None:
             params["schema_version"] = str(self.schema_version)
         if self._zorder_columns:
@@ -1058,7 +1084,7 @@ class TableUpsertSession(BaseTableTunnelSession):
         else:
             self.id = upsert_id
             self.reload()
-        self._compress_option = compress_option
+        self._compress_option = compress_option or self._get_default_compress_option()
 
         logger.info("Upsert session created: %r", self)
         if options.tunnel_session_create_callback:
@@ -1329,6 +1355,7 @@ class TableTunnel(BaseTunnel):
         compress_strategy=None,
         schema=None,
         overwrite=False,
+        create_partition=False,
         tags=None,
     ):
         """
@@ -1345,13 +1372,13 @@ class TableTunnel(BaseTunnel):
         :param int compress_level: compress level
         :param str schema: name of schema of the table
         :param bool overwrite: whether to overwrite the table
+        :param bool create_partition: whether to create partitition if not exist
         :param tags: tags of the upload session
         :type tags: str | list
 
         :return: :class:`TableUploadSession`
         """
         table = self._get_tunnel_table(table, schema)
-        compress_option = compress_option
         compress_option = compress_option or self._build_compress_option(
             compress_algo=compress_algo,
             level=compress_level,
@@ -1365,6 +1392,7 @@ class TableTunnel(BaseTunnel):
             compress_option=compress_option,
             overwrite=overwrite,
             quota_name=self._quota_name,
+            create_partition=create_partition,
             tags=tags,
         )
 
@@ -1378,9 +1406,11 @@ class TableTunnel(BaseTunnel):
         compress_strategy=None,
         schema=None,
         schema_version=None,
+        zorder_columns=None,
         upload_id=None,
         tags=None,
         allow_schema_mismatch=True,
+        create_partition=False,
     ):
         """
         Create a stream upload session for table.
@@ -1398,7 +1428,8 @@ class TableTunnel(BaseTunnel):
         :param str schema_version: schema version of the upload
         :param tags: tags of the upload session
         :type tags: str | list
-        :param allow_schema_mismatch: whether to allow table schema to be mismatched
+        :param bool allow_schema_mismatch: whether to allow table schema to be mismatched
+        :param bool create_partition: whether to create partition if not exist
 
         :return: :class:`TableStreamUploadSession`
         """
@@ -1428,6 +1459,8 @@ class TableTunnel(BaseTunnel):
             tags=tags,
             allow_schema_mismatch=allow_schema_mismatch,
             schema_version_reloader=schema_version_reloader,
+            create_partition=create_partition,
+            zorder_columns=zorder_columns,
         )
 
     def create_upsert_session(

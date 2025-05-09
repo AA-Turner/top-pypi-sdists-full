@@ -1,9 +1,11 @@
 #include "storage/buffer_manager/buffer_manager.h"
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <thread>
 
 #include "common/assert.h"
 #include "common/constants.h"
@@ -15,6 +17,7 @@
 #include "storage/buffer_manager/spiller.h"
 #include "storage/file_handle.h"
 #include "storage/store/column_chunk_data.h"
+#include <span>
 
 #if defined(_WIN32)
 #include <exception>
@@ -46,14 +49,9 @@ bool EvictionQueue::insert(uint32_t fileIndex, page_idx_t pageIndex) {
     return false;
 }
 
-std::atomic<EvictionCandidate>* EvictionQueue::next() {
-    std::atomic<EvictionCandidate>* candidate = nullptr;
-    do {
-        // Since the buffer pool size is a power of two (as is the page size), (UINT64_MAX + 1) %
-        // size == 0, which means no entries will be skipped when the cursor overflows
-        candidate = &data[evictionCursor.fetch_add(1, std::memory_order_relaxed) % capacity];
-    } while (candidate->load() == EMPTY && size > 0);
-    return candidate;
+std::span<std::atomic<EvictionCandidate>, EvictionQueue::BATCH_SIZE> EvictionQueue::next() {
+    return std::span<std::atomic<EvictionCandidate>, BATCH_SIZE>(
+        data.get() + ((evictionCursor += BATCH_SIZE) % capacity), BATCH_SIZE);
 }
 
 void EvictionQueue::removeCandidatesForFile(uint32_t fileIndex) {
@@ -269,40 +267,61 @@ void BufferManager::unpin(FileHandle& fileHandle, page_idx_t pageIdx) {
 
 // evicts up to 64 pages and returns the space reclaimed
 uint64_t BufferManager::evictPages() {
-    constexpr size_t BATCH_SIZE = 64;
-    std::array<std::atomic<EvictionCandidate>*, BATCH_SIZE> evictionCandidates{};
+    std::array<std::atomic<EvictionCandidate>*, EvictionQueue::BATCH_SIZE> evictionCandidates{};
     size_t evictablePages = 0;
-    size_t pagesTried = 0;
     uint64_t claimedMemory = 0;
 
     // Try each page at least twice.
     // E.g. if the vast majority of pages are unmarked and unlocked,
     // the first pass will mark them and the second pass, if insufficient marked pages
     // are found, will evict the first batch.
-    auto failureLimit = evictionQueue.getSize() * 2;
-    while (evictablePages < BATCH_SIZE && pagesTried < failureLimit) {
-        evictionCandidates[evictablePages] = evictionQueue.next();
-        pagesTried++;
-        auto evictionCandidate = evictionCandidates[evictablePages]->load();
-        if (evictionCandidate == EvictionQueue::EMPTY) {
-            continue;
-        }
-        auto* pageState =
-            fileHandles[evictionCandidate.fileIdx]->getPageState(evictionCandidate.pageIdx);
-        auto pageStateAndVersion = pageState->getStateAndVersion();
-        if (!evictionCandidate.isEvictable(pageStateAndVersion)) {
-            if (evictionCandidate.isSecondChanceEvictable(pageStateAndVersion)) {
-                pageState->tryMark(pageStateAndVersion);
+    // Using the eviction queue's cursor means that we fail after the same number of total attempts,
+    // regardless of how many threads are trying to evict.
+    auto startCursor = evictionQueue.getEvictionCursor();
+    auto failureLimit = evictionQueue.getCapacity() * 2;
+    while (evictablePages == 0 && evictionQueue.getEvictionCursor() - startCursor < failureLimit) {
+        for (auto& candidate : evictionQueue.next()) {
+            auto evictionCandidate = candidate.load();
+            if (evictionCandidate == EvictionQueue::EMPTY) {
+                continue;
             }
-            continue;
+            KU_ASSERT(evictionCandidate.fileIdx < fileHandles.size());
+            auto* pageState =
+                fileHandles[evictionCandidate.fileIdx]->getPageState(evictionCandidate.pageIdx);
+            auto pageStateAndVersion = pageState->getStateAndVersion();
+            if (!evictionCandidate.isEvictable(pageStateAndVersion)) {
+                if (evictionCandidate.isSecondChanceEvictable(pageStateAndVersion)) {
+                    pageState->tryMark(pageStateAndVersion);
+                }
+                continue;
+            }
+            evictionCandidates[evictablePages++] = &candidate;
         }
-        evictablePages++;
     }
 
     for (size_t i = 0; i < evictablePages; i++) {
         claimedMemory += tryEvictPage(*evictionCandidates[i]);
     }
     return claimedMemory;
+}
+
+void BufferManager::removeEvictedCandidates() {
+    auto startCursor = evictionQueue.getEvictionCursor();
+    while (evictionQueue.getEvictionCursor() - startCursor < evictionQueue.getCapacity()) {
+        for (auto& candidate : evictionQueue.next()) {
+            auto evictionCandidate = candidate.load();
+            if (evictionCandidate == EvictionQueue::EMPTY) {
+                continue;
+            }
+            KU_ASSERT(evictionCandidate.fileIdx < fileHandles.size());
+            auto* pageState =
+                fileHandles[evictionCandidate.fileIdx]->getPageState(evictionCandidate.pageIdx);
+            auto pageStateAndVersion = pageState->getStateAndVersion();
+            if (PageState::getState(pageStateAndVersion) == PageState::EVICTED) {
+                evictionQueue.clear(candidate);
+            }
+        }
+    }
 }
 
 // This function tries to load the given page into a frame. Due to our design of mmap, each page is
@@ -348,6 +367,7 @@ bool BufferManager::reserve(uint64_t sizeToReserve) {
                // usedMemory - totalClaimedMemory could underflow
                usedMemory > bufferPoolSize.load() - totalClaimedMemory;
     };
+    uint8_t failedCount = 0;
     // Evict pages if necessary until we have enough memory.
     while (needMoreMemory()) {
         uint64_t memoryClaimed = 0;
@@ -364,10 +384,17 @@ bool BufferManager::reserve(uint64_t sizeToReserve) {
             }
         }
         if (memoryClaimed == 0 && needMoreMemory()) {
-            // Cannot find more pages to be evicted. Free the memory we reserved and return false.
-            freeUsedMemory(sizeToReserve + totalClaimedMemory);
-            nonEvictableMemory -= nonEvictableClaimedMemory;
-            return false;
+            if (failedCount++ < 2) {
+                // If we failed to find any memory to free, try waiting briefly for other threads to
+                // stop using memory
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            } else {
+                // Cannot find more pages to be evicted. Free the memory we reserved and return
+                // false.
+                freeUsedMemory(sizeToReserve + totalClaimedMemory);
+                nonEvictableMemory -= nonEvictableClaimedMemory;
+                return false;
+            }
         }
         totalClaimedMemory += memoryClaimed;
     }

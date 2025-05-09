@@ -4,7 +4,7 @@ from localstack.pro.core import config as config_ext
 from localstack.pro.core.runtime.plugin import ProPlatformPlugin
 LOG=logging.getLogger(__name__)
 class EcsK8sPlatformPlugin(ProPlatformPlugin):
-	name='ecs-k8s-task-executor';requires_license=True
+	name='ecs-k8s-task-executor'
 	def on_service_load(B,service,provider):
 		if service!='ecs':return
 		from localstack.pro.core.services.ecs.task_executors.kubernetes import ECSTaskExecutorKubernetes as A;provider.task_executor=A();LOG.info('Configured ECS service to use kubernetes task executor')

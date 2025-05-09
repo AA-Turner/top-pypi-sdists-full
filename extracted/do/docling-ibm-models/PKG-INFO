@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: docling-ibm-models
-Version: 3.4.2
+Version: 3.4.3
 Summary: This package contains the AI models used by the Docling PDF conversion package
 License: MIT
 Keywords: docling,convert,document,pdf,layout model,segmentation,table structure,table former
@@ -32,8 +32,9 @@ Requires-Dist: safetensors[torch] (>=0.4.3,<1)
 Requires-Dist: torch (>=2.2.2,<3.0.0)
 Requires-Dist: torchvision (>=0,<1)
 Requires-Dist: tqdm (>=4.64.0,<5.0.0)
-Requires-Dist: transformers (>=4.42.0,<4.43.0) ; sys_platform == "darwin" and platform_machine == "x86_64"
+Requires-Dist: transformers (>=4.42.0,<4.43.0) ; python_version < "3.13" and sys_platform == "darwin" and platform_machine == "x86_64"
 Requires-Dist: transformers (>=4.42.0,<5.0.0) ; sys_platform != "darwin" or platform_machine != "x86_64"
+Requires-Dist: transformers (>=4.47.0,<5.0.0) ; python_version >= "3.13" and (sys_platform != "darwin" or platform_machine != "x86_64")
 Description-Content-Type: text/markdown
 
 [![PyPI version](https://img.shields.io/pypi/v/docling-ibm-models)](https://pypi.org/project/docling-ibm-models/)

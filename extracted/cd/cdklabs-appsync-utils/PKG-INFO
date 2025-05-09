@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdklabs.appsync-utils
-Version: 0.0.730
+Version: 0.0.731
 Summary: Utilities for creating appsync apis using aws-cdk
 Home-page: https://github.com/cdklabs/awscdk-appsync-utils.git
 Author: Mitchell Valine<mitchellvaline@yahoo.com>

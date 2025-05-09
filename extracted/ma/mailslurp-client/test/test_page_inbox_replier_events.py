@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -39,31 +39,31 @@ class TestPageInboxReplierEvents(unittest.TestCase):
             return PageInboxReplierEvents(
                 content = [
                     mailslurp_client.models.inbox_replier_event_projection.InboxReplierEventProjection(
-                        created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        replier_id = '0', 
                         recipients = [
                             '0'
                             ], 
+                        user_id = '0', 
                         email_id = '0', 
                         inbox_id = '0', 
-                        user_id = '0', 
+                        created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         sent_id = '0', 
+                        replier_id = '0', 
                         message = '0', 
                         id = '0', 
                         status = 'SUCCESS', )
                     ], 
                 pageable = mailslurp_client.models.pageable_object.PageableObject(
-                    page_number = 56, 
                     page_size = 56, 
-                    unpaged = True, 
                     paged = True, 
+                    page_number = 56, 
+                    unpaged = True, 
                     offset = 56, 
                     sort = mailslurp_client.models.sort_object.SortObject(
                         sorted = True, 
                         unsorted = True, 
                         empty = True, ), ), 
-                total_pages = 56, 
                 total_elements = 56, 
+                total_pages = 56, 
                 last = True, 
                 number_of_elements = 56, 
                 first = True, 
@@ -77,8 +77,8 @@ class TestPageInboxReplierEvents(unittest.TestCase):
             )
         else :
             return PageInboxReplierEvents(
-                total_pages = 56,
                 total_elements = 56,
+                total_pages = 56,
         )
 
     def testPageInboxReplierEvents(self):

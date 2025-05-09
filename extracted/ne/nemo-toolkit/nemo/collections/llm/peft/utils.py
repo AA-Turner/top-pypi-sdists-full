@@ -47,6 +47,8 @@ TERowParallelLinear, HAVE_TE_ROW_LINEAR = safe_import_from(
 TELinear, HAVE_TE_LINEAR = safe_import_from("megatron.core.extensions.transformer_engine", "TELinear")
 HAVE_TE = all((HAVE_TE_COL_LINEAR, HAVE_TE_LN_COL_LINEAR, HAVE_TE_ROW_LINEAR, HAVE_TE_LINEAR))
 
+MixedFusedLayerNorm, HAVE_APEX = safe_import_from("apex.normalization.fused_layer_norm", "MixedFusedLayerNorm")
+
 
 def get_adapter_attributes_from_linear(m: nn.Module):
     """
@@ -66,7 +68,13 @@ def get_adapter_attributes_from_linear(m: nn.Module):
             # LoRA is applied after layernorm, so layernorm output must be returned
             m.return_layernorm_output = True
             # perf optimization for LoRA + SP
-            if m.config.sequence_parallel and not m.ub_overlap_ag:
+            if hasattr(m, "ub_overlap_ag"):
+                ub_overlap_ag = m.ub_overlap_ag
+            elif hasattr(m, "ub_overlap_ag_fprop"):
+                ub_overlap_ag = m.ub_overlap_ag_fprop
+            else:
+                ub_overlap_ag = False
+            if m.config.sequence_parallel and not ub_overlap_ag:
                 m.return_layernorm_output_gathered = True
                 te_version = packaging.version.Version(version("transformer-engine"))
                 if te_version >= packaging.version.Version("1.5.0dev") and (

@@ -5,6 +5,7 @@ import contextlib
 import itertools
 import multiprocessing.synchronize
 import multiprocessing.connection
+import multiprocessing.resource_sharer
 import operator
 import queue
 import sys
@@ -44,6 +45,7 @@ if typing.TYPE_CHECKING:
     from .easel import Alphabet
 
     BACKEND = Literal["threading", "multiprocessing"]
+    PARALLEL = Literal["queries", "targets"]
 
     class PipelineOptions(TypedDict, total=False):
         alphabet: Alphabet
@@ -103,7 +105,7 @@ class _BaseChore(typing.Generic[_Q, _R], abc.ABC):
     @abc.abstractmethod
     def complete(self, result: _R) -> None:
         """Mark the chore as done and record ``result`` as the results."""
-       
+
     @abc.abstractmethod
     def fail(self, exception: BaseException) -> None:
         """Mark the chore as done and record ``exception`` as the error."""
@@ -160,9 +162,9 @@ class _ProcessChore(typing.Generic[_Q, _R], _BaseChore[_Q, _R]):
     Attributes:
         query (`object`): The query object to be processed by the worker
             thread. Exact type depends on the pipeline type.
-        conns (`multiprocessing.Connection`): The pipe end where the 
+        conns (`multiprocessing.Connection`): The pipe end where the
             worker should send the result.
-        connr (`multiprocessing.Connection`): The pipe end where the 
+        connr (`multiprocessing.Connection`): The pipe end where the
             dispatcher should receive the result.
 
     """
@@ -213,9 +215,9 @@ class _BaseWorker(typing.Generic[_Q, _T, _R]):
         targets (`DigitalSequenceBlock` or `OptimizedProfileBlock`): The
             target to search for hits, either a digital sequence block while
             in search mode, or an optimized profile block while in scan mode.
-        query_queue (`queue.Queue`): The queue used to pass queries between 
-            the dispatcher and the workers. It contains the query, its index 
-            so that the results can be returned in the same order, and 
+        query_queue (`queue.Queue`): The queue used to pass queries between
+            the dispatcher and the workers. It contains the query, its index
+            so that the results can be returned in the same order, and
             a way to pass back the results corresponding to that query
             back to the dispatcher.
         query_count (`multiprocessing.Value`): An atomic counter storing
@@ -278,7 +280,7 @@ class _BaseWorker(typing.Generic[_Q, _T, _R]):
             except BrokenPipeError:
                 self.kill()
                 break
-            except ConnectionResetError:
+            except ConnectionError:
                 self.kill()
                 break
             # check if arguments from the queue are a poison-pill (`None`),
@@ -304,7 +306,7 @@ class _BaseWorker(typing.Generic[_Q, _T, _R]):
             return self.kill_switch.is_set()
         except BrokenPipeError:  # the connection was closed already
             return True
-        except ConnectionResetError:  # the connection was closed already
+        except ConnectionError:  # the connection was closed already
             return True
         except FileNotFoundError:  # the Event manager has been closed already
             return True
@@ -407,13 +409,12 @@ class _BaseDispatcher(typing.Generic[_Q, _T, _R], abc.ABC):
 
     def _multi_threaded(self) -> typing.Iterator[_R]:
         with contextlib.ExitStack() as ctx:
-
             # create the queues to pass the query objects around, as well as
             # atomic values that we use to synchronize the threads
             results: typing.Deque[_BaseChore[_Q, _R]] = collections.deque()
             if self.backend == "multiprocessing":
                 manager = ctx.enter_context(multiprocessing.Manager())
-                query_queue = manager.Queue(maxsize=2*self.cpus)
+                query_queue = ctx.enter_context(contextlib.closing(multiprocessing.Queue(maxsize=2*self.cpus)))
                 query_count = manager.Value(ctypes.c_ulong, 0)
                 kill_switch = manager.Event()
             elif self.backend == "threading":
@@ -457,18 +458,29 @@ class _BaseDispatcher(typing.Generic[_Q, _T, _R], abc.ABC):
                 # threads so they stop on their own gracefully
                 for _ in workers:
                     query_queue.put(None)
+                # wait for final workers
+                for worker in workers:
+                    worker.join()
+                if self.backend == "multiprocessing":
+                    worker.query_queue.close()
+                    worker.query_queue.join_thread()
                 # yield all remaining results, in order
                 while results:
-                    yield results[0].get()  # <-- blocks until result is available
+                    result = results[0].get()  # <-- blocks until result is available
                     results.popleft()
-            except BaseException:
+                    yield result
+            except BaseException as e:
                 # make sure threads are killed to avoid being stuck,
                 # e.g. after a KeyboardInterrupt, then re-raise
                 try:
                     kill_switch.set()
                 except queue.Full:
                     pass
-                raise
+                for worker in workers:
+                    worker.join()
+                    if self.backend == "multiprocessing":
+                        worker.query_queue.close()
+                raise e
 
     def run(self) -> typing.Iterator[_R]:
         if self.cpus == 1:

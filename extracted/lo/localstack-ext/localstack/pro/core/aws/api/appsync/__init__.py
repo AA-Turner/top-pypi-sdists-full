@@ -176,6 +176,16 @@ class GraphQLApiVisibility(StrEnum):
     PRIVATE = "PRIVATE"
 
 
+class HandlerBehavior(StrEnum):
+    CODE = "CODE"
+    DIRECT = "DIRECT"
+
+
+class InvokeType(StrEnum):
+    REQUEST_RESPONSE = "REQUEST_RESPONSE"
+    EVENT = "EVENT"
+
+
 class MergeType(StrEnum):
     MANUAL_MERGE = "MANUAL_MERGE"
     AUTO_MERGE = "AUTO_MERGE"
@@ -698,6 +708,33 @@ class CachingConfig(TypedDict, total=False):
     cachingKeys: Optional[CachingKeys]
 
 
+class LambdaConfig(TypedDict, total=False):
+    """The configuration for a Lambda data source."""
+
+    invokeType: Optional[InvokeType]
+
+
+class Integration(TypedDict, total=False):
+    """The integration data source configuration for the handler."""
+
+    dataSourceName: String
+    lambdaConfig: Optional[LambdaConfig]
+
+
+class HandlerConfig(TypedDict, total=False):
+    """The configuration for a handler."""
+
+    behavior: HandlerBehavior
+    integration: Integration
+
+
+class HandlerConfigs(TypedDict, total=False):
+    """The configuration for the ``OnPublish`` and ``OnSubscribe`` handlers."""
+
+    onPublish: Optional[HandlerConfig]
+    onSubscribe: Optional[HandlerConfig]
+
+
 class ChannelNamespace(TypedDict, total=False):
     """Describes a channel namespace associated with an ``Api``. The
     ``ChannelNamespace`` contains the definitions for code handlers for the
@@ -713,6 +750,7 @@ class ChannelNamespace(TypedDict, total=False):
     channelNamespaceArn: Optional[String]
     created: Optional[Timestamp]
     lastModified: Optional[Timestamp]
+    handlerConfigs: Optional[HandlerConfigs]
 
 
 ChannelNamespaces = List[ChannelNamespace]
@@ -765,6 +803,7 @@ class CreateChannelNamespaceRequest(ServiceRequest):
     publishAuthModes: Optional[AuthModes]
     codeHandlers: Optional[Code]
     tags: Optional[TagMap]
+    handlerConfigs: Optional[HandlerConfigs]
 
 
 class CreateChannelNamespaceResponse(TypedDict, total=False):
@@ -1856,6 +1895,7 @@ class UpdateChannelNamespaceRequest(ServiceRequest):
     subscribeAuthModes: Optional[AuthModes]
     publishAuthModes: Optional[AuthModes]
     codeHandlers: Optional[Code]
+    handlerConfigs: Optional[HandlerConfigs]
 
 
 class UpdateChannelNamespaceResponse(TypedDict, total=False):
@@ -2146,6 +2186,7 @@ class AppsyncApi:
         publish_auth_modes: AuthModes = None,
         code_handlers: Code = None,
         tags: TagMap = None,
+        handler_configs: HandlerConfigs = None,
         **kwargs,
     ) -> CreateChannelNamespaceResponse:
         """Creates a ``ChannelNamespace`` for an ``Api``.
@@ -2160,6 +2201,7 @@ class AppsyncApi:
         published events and subscribe requests.
         :param tags: A map with keys of ``TagKey`` objects and values of ``TagValue``
         objects.
+        :param handler_configs: The configuration for the ``OnPublish`` and ``OnSubscribe`` handlers.
         :returns: CreateChannelNamespaceResponse
         :raises BadRequestException:
         :raises ConcurrentModificationException:
@@ -3529,6 +3571,7 @@ class AppsyncApi:
         subscribe_auth_modes: AuthModes = None,
         publish_auth_modes: AuthModes = None,
         code_handlers: Code = None,
+        handler_configs: HandlerConfigs = None,
         **kwargs,
     ) -> UpdateChannelNamespaceResponse:
         """Updates a ``ChannelNamespace`` associated with an ``Api``.
@@ -3541,6 +3584,7 @@ class AppsyncApi:
         namespace.
         :param code_handlers: The event handler functions that run custom business logic to process
         published events and subscribe requests.
+        :param handler_configs: The configuration for the ``OnPublish`` and ``OnSubscribe`` handlers.
         :returns: UpdateChannelNamespaceResponse
         :raises BadRequestException:
         :raises ConcurrentModificationException:

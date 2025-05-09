@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -38,6 +38,7 @@ class SendEmailOptions(object):
         'to_group': 'str',
         'to': 'list[str]',
         '_from': 'str',
+        'from_name': 'str',
         'cc': 'list[str]',
         'bcc': 'list[str]',
         'subject': 'str',
@@ -65,6 +66,7 @@ class SendEmailOptions(object):
         'to_group': 'toGroup',
         'to': 'to',
         '_from': 'from',
+        'from_name': 'fromName',
         'cc': 'cc',
         'bcc': 'bcc',
         'subject': 'subject',
@@ -87,7 +89,7 @@ class SendEmailOptions(object):
         'body_parts': 'bodyParts'
     }
 
-    def __init__(self, to_contacts=None, to_group=None, to=None, _from=None, cc=None, bcc=None, subject=None, reply_to=None, custom_headers=None, body=None, html=None, is_html=None, charset=None, attachments=None, template_variables=None, template=None, send_strategy=None, use_inbox_name=None, add_tracking_pixel=None, filter_bounced_recipients=None, validate_email_addresses=None, ignore_empty_recipients=None, is_x_amp_html=None, body_parts=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, to_contacts=None, to_group=None, to=None, _from=None, from_name=None, cc=None, bcc=None, subject=None, reply_to=None, custom_headers=None, body=None, html=None, is_html=None, charset=None, attachments=None, template_variables=None, template=None, send_strategy=None, use_inbox_name=None, add_tracking_pixel=None, filter_bounced_recipients=None, validate_email_addresses=None, ignore_empty_recipients=None, is_x_amp_html=None, body_parts=None, local_vars_configuration=None):  # noqa: E501
         """SendEmailOptions - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -97,6 +99,7 @@ class SendEmailOptions(object):
         self._to_group = None
         self._to = None
         self.__from = None
+        self._from_name = None
         self._cc = None
         self._bcc = None
         self._subject = None
@@ -123,6 +126,7 @@ class SendEmailOptions(object):
         self.to_group = to_group
         self.to = to
         self._from = _from
+        self.from_name = from_name
         self.cc = cc
         self.bcc = bcc
         self.subject = subject
@@ -235,6 +239,29 @@ class SendEmailOptions(object):
         """
 
         self.__from = _from
+
+    @property
+    def from_name(self):
+        """Gets the from_name of this SendEmailOptions.  # noqa: E501
+
+        Optional from name if not passed with address. If you set `useInboxName` to `true` the from field will include the inbox name as a display name  # noqa: E501
+
+        :return: The from_name of this SendEmailOptions.  # noqa: E501
+        :rtype: str
+        """
+        return self._from_name
+
+    @from_name.setter
+    def from_name(self, from_name):
+        """Sets the from_name of this SendEmailOptions.
+
+        Optional from name if not passed with address. If you set `useInboxName` to `true` the from field will include the inbox name as a display name  # noqa: E501
+
+        :param from_name: The from_name of this SendEmailOptions.  # noqa: E501
+        :type: str
+        """
+
+        self._from_name = from_name
 
     @property
     def cc(self):

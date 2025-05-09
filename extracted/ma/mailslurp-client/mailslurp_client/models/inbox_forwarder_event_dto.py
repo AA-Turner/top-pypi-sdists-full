@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -37,6 +37,7 @@ class InboxForwarderEventDto(object):
         'id': 'str',
         'inbox_id': 'str',
         'email_id': 'str',
+        'sent_id': 'str',
         'user_id': 'str',
         'forwarder_id': 'str',
         'message': 'str',
@@ -48,6 +49,7 @@ class InboxForwarderEventDto(object):
         'id': 'id',
         'inbox_id': 'inboxId',
         'email_id': 'emailId',
+        'sent_id': 'sentId',
         'user_id': 'userId',
         'forwarder_id': 'forwarderId',
         'message': 'message',
@@ -55,7 +57,7 @@ class InboxForwarderEventDto(object):
         'created_at': 'createdAt'
     }
 
-    def __init__(self, id=None, inbox_id=None, email_id=None, user_id=None, forwarder_id=None, message=None, status=None, created_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, inbox_id=None, email_id=None, sent_id=None, user_id=None, forwarder_id=None, message=None, status=None, created_at=None, local_vars_configuration=None):  # noqa: E501
         """InboxForwarderEventDto - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -64,6 +66,7 @@ class InboxForwarderEventDto(object):
         self._id = None
         self._inbox_id = None
         self._email_id = None
+        self._sent_id = None
         self._user_id = None
         self._forwarder_id = None
         self._message = None
@@ -74,6 +77,7 @@ class InboxForwarderEventDto(object):
         self.id = id
         self.inbox_id = inbox_id
         self.email_id = email_id
+        self.sent_id = sent_id
         self.user_id = user_id
         self.forwarder_id = forwarder_id
         self.message = message
@@ -142,6 +146,27 @@ class InboxForwarderEventDto(object):
         """
 
         self._email_id = email_id
+
+    @property
+    def sent_id(self):
+        """Gets the sent_id of this InboxForwarderEventDto.  # noqa: E501
+
+
+        :return: The sent_id of this InboxForwarderEventDto.  # noqa: E501
+        :rtype: str
+        """
+        return self._sent_id
+
+    @sent_id.setter
+    def sent_id(self, sent_id):
+        """Sets the sent_id of this InboxForwarderEventDto.
+
+
+        :param sent_id: The sent_id of this InboxForwarderEventDto.  # noqa: E501
+        :type: str
+        """
+
+        self._sent_id = sent_id
 
     @property
     def user_id(self):

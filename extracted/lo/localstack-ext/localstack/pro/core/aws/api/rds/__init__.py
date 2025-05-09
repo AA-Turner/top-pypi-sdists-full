@@ -3483,9 +3483,11 @@ class CreateTenantDatabaseMessage(ServiceRequest):
     DBInstanceIdentifier: String
     TenantDBName: String
     MasterUsername: String
-    MasterUserPassword: SensitiveString
+    MasterUserPassword: Optional[SensitiveString]
     CharacterSetName: Optional[String]
     NcharCharacterSetName: Optional[String]
+    ManageMasterUserPassword: Optional[BooleanOptional]
+    MasterUserSecretKmsKeyId: Optional[String]
     Tags: Optional[TagList]
 
 
@@ -3516,6 +3518,7 @@ class TenantDatabase(TypedDict, total=False):
     NcharCharacterSetName: Optional[String]
     DeletionProtection: Optional[Boolean]
     PendingModifiedValues: Optional[TenantDatabasePendingModifiedValues]
+    MasterUserSecret: Optional[MasterUserSecret]
     TagList: Optional[TagList]
 
 
@@ -5533,6 +5536,9 @@ class ModifyTenantDatabaseMessage(ServiceRequest):
     TenantDBName: String
     MasterUserPassword: Optional[SensitiveString]
     NewTenantDBName: Optional[String]
+    ManageMasterUserPassword: Optional[BooleanOptional]
+    RotateMasterUserPassword: Optional[BooleanOptional]
+    MasterUserSecretKmsKeyId: Optional[String]
 
 
 class ModifyTenantDatabaseResult(TypedDict, total=False):
@@ -6036,6 +6042,8 @@ class RestoreDBInstanceFromDBSnapshotMessage(ServiceRequest):
     DedicatedLogVolume: Optional[BooleanOptional]
     CACertificateIdentifier: Optional[String]
     EngineLifecycleSupport: Optional[String]
+    ManageMasterUserPassword: Optional[BooleanOptional]
+    MasterUserSecretKmsKeyId: Optional[String]
 
 
 class RestoreDBInstanceFromDBSnapshotResult(TypedDict, total=False):
@@ -6148,6 +6156,8 @@ class RestoreDBInstanceToPointInTimeMessage(ServiceRequest):
     DedicatedLogVolume: Optional[BooleanOptional]
     CACertificateIdentifier: Optional[String]
     EngineLifecycleSupport: Optional[String]
+    ManageMasterUserPassword: Optional[BooleanOptional]
+    MasterUserSecretKmsKeyId: Optional[String]
 
 
 class RestoreDBInstanceToPointInTimeResult(TypedDict, total=False):
@@ -8023,9 +8033,11 @@ class RdsApi:
         db_instance_identifier: String,
         tenant_db_name: String,
         master_username: String,
-        master_user_password: SensitiveString,
+        master_user_password: SensitiveString = None,
         character_set_name: String = None,
         nchar_character_set_name: String = None,
+        manage_master_user_password: BooleanOptional = None,
+        master_user_secret_kms_key_id: String = None,
         tags: TagList = None,
         **kwargs,
     ) -> CreateTenantDatabaseResult:
@@ -8040,12 +8052,18 @@ class RdsApi:
         :param master_user_password: The password for the master user in your tenant database.
         :param character_set_name: The character set for your tenant database.
         :param nchar_character_set_name: The ``NCHAR`` value for the tenant database.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
+        Services Secrets Manager.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
+        automatically generated and managed in Amazon Web Services Secrets
+        Manager.
         :param tags: A list of tags.
         :returns: CreateTenantDatabaseResult
         :raises DBInstanceNotFoundFault:
         :raises InvalidDBInstanceStateFault:
         :raises TenantDatabaseAlreadyExistsFault:
         :raises TenantDatabaseQuotaExceededFault:
+        :raises KMSKeyNotAccessibleFault:
         """
         raise NotImplementedError
 
@@ -11128,6 +11146,9 @@ class RdsApi:
         tenant_db_name: String,
         master_user_password: SensitiveString = None,
         new_tenant_db_name: String = None,
+        manage_master_user_password: BooleanOptional = None,
+        rotate_master_user_password: BooleanOptional = None,
+        master_user_secret_kms_key_id: String = None,
         **kwargs,
     ) -> ModifyTenantDatabaseResult:
         """Modifies an existing tenant database in a DB instance. You can change
@@ -11141,11 +11162,19 @@ class RdsApi:
         :param master_user_password: The new password for the master user of the specified tenant database in
         your DB instance.
         :param new_tenant_db_name: The new name of the tenant database when renaming a tenant database.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
+        Services Secrets Manager.
+        :param rotate_master_user_password: Specifies whether to rotate the secret managed by Amazon Web Services
+        Secrets Manager for the master user password.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
+        automatically generated and managed in Amazon Web Services Secrets
+        Manager.
         :returns: ModifyTenantDatabaseResult
         :raises DBInstanceNotFoundFault:
         :raises TenantDatabaseNotFoundFault:
         :raises TenantDatabaseAlreadyExistsFault:
         :raises InvalidDBInstanceStateFault:
+        :raises KMSKeyNotAccessibleFault:
         """
         raise NotImplementedError
 
@@ -11858,7 +11887,10 @@ class RdsApi:
         ``BackupRetentionPeriod`` days. The target DB cluster is created from
         the source DB cluster with the same configuration as the original DB
         cluster, except that the new DB cluster is created with the default DB
-        security group.
+        security group. Unless the ``RestoreType`` is set to ``copy-on-write``,
+        the restore may occur in a different Availability Zone (AZ) from the
+        original DB cluster. The AZ where RDS restores the DB cluster depends on
+        the AZs in the specified subnet group.
 
         For Aurora, this operation only restores the DB cluster, not the DB
         instances for that DB cluster. You must invoke the ``CreateDBInstance``
@@ -11995,6 +12027,8 @@ class RdsApi:
         dedicated_log_volume: BooleanOptional = None,
         ca_certificate_identifier: String = None,
         engine_lifecycle_support: String = None,
+        manage_master_user_password: BooleanOptional = None,
+        master_user_secret_kms_key_id: String = None,
         **kwargs,
     ) -> RestoreDBInstanceFromDBSnapshotResult:
         """Creates a new DB instance from a DB snapshot. The target database is
@@ -12091,6 +12125,11 @@ class RdsApi:
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
         certificate.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
+        Services Secrets Manager in the restored DB instance.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
+        automatically generated and managed in Amazon Web Services Secrets
+        Manager.
         :returns: RestoreDBInstanceFromDBSnapshotResult
         :raises DBInstanceAlreadyExistsFault:
         :raises DBSnapshotNotFoundFault:
@@ -12336,6 +12375,8 @@ class RdsApi:
         dedicated_log_volume: BooleanOptional = None,
         ca_certificate_identifier: String = None,
         engine_lifecycle_support: String = None,
+        manage_master_user_password: BooleanOptional = None,
+        master_user_secret_kms_key_id: String = None,
         **kwargs,
     ) -> RestoreDBInstanceToPointInTimeResult:
         """Restores a DB instance to an arbitrary point in time. You can restore to
@@ -12423,6 +12464,11 @@ class RdsApi:
         :param ca_certificate_identifier: The CA certificate identifier to use for the DB instance's server
         certificate.
         :param engine_lifecycle_support: The life cycle type for this DB instance.
+        :param manage_master_user_password: Specifies whether to manage the master user password with Amazon Web
+        Services Secrets Manager in the restored DB instance.
+        :param master_user_secret_kms_key_id: The Amazon Web Services KMS key identifier to encrypt a secret that is
+        automatically generated and managed in Amazon Web Services Secrets
+        Manager.
         :returns: RestoreDBInstanceToPointInTimeResult
         :raises DBInstanceAlreadyExistsFault:
         :raises DBInstanceNotFoundFault:

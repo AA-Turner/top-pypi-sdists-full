@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-test-groups
-Version: 1.2.0
+Version: 1.2.1
 Summary: A Pytest plugin for running a subset of your tests by splitting them in to equally sized groups.
 Author-email: Mark Adams <mark@markadams.me>
 Maintainer-email: Mark Adams <mark@markadams.me>

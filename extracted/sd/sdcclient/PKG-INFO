@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sdcclient
-Version: 0.18.0
+Version: 0.19.0
 Summary: Python client for Sysdig Platform
 License: MIT
 Author: Sysdig Inc.

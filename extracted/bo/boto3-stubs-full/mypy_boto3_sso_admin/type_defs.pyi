@@ -255,26 +255,26 @@ class AccountAssignmentForPrincipalTypeDef(TypedDict):
     PrincipalType: NotRequired[PrincipalTypeType]
 
 class AccountAssignmentOperationStatusMetadataTypeDef(TypedDict):
-    CreatedDate: NotRequired[datetime]
-    RequestId: NotRequired[str]
     Status: NotRequired[StatusValuesType]
+    RequestId: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
 
 class AccountAssignmentOperationStatusTypeDef(TypedDict):
-    CreatedDate: NotRequired[datetime]
-    FailureReason: NotRequired[str]
-    PermissionSetArn: NotRequired[str]
-    PrincipalId: NotRequired[str]
-    PrincipalType: NotRequired[PrincipalTypeType]
-    RequestId: NotRequired[str]
     Status: NotRequired[StatusValuesType]
+    RequestId: NotRequired[str]
+    FailureReason: NotRequired[str]
     TargetId: NotRequired[str]
     TargetType: NotRequired[Literal["AWS_ACCOUNT"]]
+    PermissionSetArn: NotRequired[str]
+    PrincipalType: NotRequired[PrincipalTypeType]
+    PrincipalId: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
 
 class AccountAssignmentTypeDef(TypedDict):
     AccountId: NotRequired[str]
     PermissionSetArn: NotRequired[str]
-    PrincipalId: NotRequired[str]
     PrincipalType: NotRequired[PrincipalTypeType]
+    PrincipalId: NotRequired[str]
 
 class ApplicationAssignmentForPrincipalTypeDef(TypedDict):
     ApplicationArn: NotRequired[str]
@@ -287,9 +287,9 @@ class ApplicationAssignmentTypeDef(TypedDict):
     PrincipalType: PrincipalTypeType
 
 class DisplayDataTypeDef(TypedDict):
-    Description: NotRequired[str]
     DisplayName: NotRequired[str]
     IconUrl: NotRequired[str]
+    Description: NotRequired[str]
 
 class CustomerManagedPolicyReferenceTypeDef(TypedDict):
     Name: str
@@ -297,12 +297,12 @@ class CustomerManagedPolicyReferenceTypeDef(TypedDict):
 
 class AttachManagedPolicyToPermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
-    ManagedPolicyArn: str
     PermissionSetArn: str
+    ManagedPolicyArn: str
 
 class AttachedManagedPolicyTypeDef(TypedDict):
-    Arn: NotRequired[str]
     Name: NotRequired[str]
+    Arn: NotRequired[str]
 
 class IamAuthenticationMethodOutputTypeDef(TypedDict):
     ActorPolicy: Dict[str, Any]
@@ -317,20 +317,20 @@ class AuthorizationCodeGrantTypeDef(TypedDict):
     RedirectUris: NotRequired[Sequence[str]]
 
 class AuthorizedTokenIssuerOutputTypeDef(TypedDict):
-    AuthorizedAudiences: NotRequired[List[str]]
     TrustedTokenIssuerArn: NotRequired[str]
+    AuthorizedAudiences: NotRequired[List[str]]
 
 class AuthorizedTokenIssuerTypeDef(TypedDict):
-    AuthorizedAudiences: NotRequired[Sequence[str]]
     TrustedTokenIssuerArn: NotRequired[str]
+    AuthorizedAudiences: NotRequired[Sequence[str]]
 
 class CreateAccountAssignmentRequestTypeDef(TypedDict):
     InstanceArn: str
-    PermissionSetArn: str
-    PrincipalId: str
-    PrincipalType: PrincipalTypeType
     TargetId: str
     TargetType: Literal["AWS_ACCOUNT"]
+    PermissionSetArn: str
+    PrincipalType: PrincipalTypeType
+    PrincipalId: str
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -349,20 +349,20 @@ class TagTypeDef(TypedDict):
     Value: str
 
 class PermissionSetTypeDef(TypedDict):
-    CreatedDate: NotRequired[datetime]
-    Description: NotRequired[str]
     Name: NotRequired[str]
     PermissionSetArn: NotRequired[str]
-    RelayState: NotRequired[str]
+    Description: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
     SessionDuration: NotRequired[str]
+    RelayState: NotRequired[str]
 
 class DeleteAccountAssignmentRequestTypeDef(TypedDict):
     InstanceArn: str
-    PermissionSetArn: str
-    PrincipalId: str
-    PrincipalType: PrincipalTypeType
     TargetId: str
     TargetType: Literal["AWS_ACCOUNT"]
+    PermissionSetArn: str
+    PrincipalType: PrincipalTypeType
+    PrincipalId: str
 
 class DeleteApplicationAccessScopeRequestTypeDef(TypedDict):
     ApplicationArn: str
@@ -406,12 +406,12 @@ class DeleteTrustedTokenIssuerRequestTypeDef(TypedDict):
     TrustedTokenIssuerArn: str
 
 class DescribeAccountAssignmentCreationStatusRequestTypeDef(TypedDict):
-    AccountAssignmentCreationRequestId: str
     InstanceArn: str
+    AccountAssignmentCreationRequestId: str
 
 class DescribeAccountAssignmentDeletionStatusRequestTypeDef(TypedDict):
-    AccountAssignmentDeletionRequestId: str
     InstanceArn: str
+    AccountAssignmentDeletionRequestId: str
 
 class DescribeApplicationAssignmentRequestTypeDef(TypedDict):
     ApplicationArn: str
@@ -435,12 +435,12 @@ class DescribePermissionSetProvisioningStatusRequestTypeDef(TypedDict):
     ProvisionPermissionSetRequestId: str
 
 class PermissionSetProvisioningStatusTypeDef(TypedDict):
-    AccountId: NotRequired[str]
-    CreatedDate: NotRequired[datetime]
-    FailureReason: NotRequired[str]
-    PermissionSetArn: NotRequired[str]
-    RequestId: NotRequired[str]
     Status: NotRequired[StatusValuesType]
+    RequestId: NotRequired[str]
+    AccountId: NotRequired[str]
+    PermissionSetArn: NotRequired[str]
+    FailureReason: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
 
 class DescribePermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
@@ -451,8 +451,8 @@ class DescribeTrustedTokenIssuerRequestTypeDef(TypedDict):
 
 class DetachManagedPolicyFromPermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
-    ManagedPolicyArn: str
     PermissionSetArn: str
+    ManagedPolicyArn: str
 
 class GetApplicationAccessScopeRequestTypeDef(TypedDict):
     ApplicationArn: str
@@ -478,11 +478,11 @@ class GetPermissionsBoundaryForPermissionSetRequestTypeDef(TypedDict):
     PermissionSetArn: str
 
 class InstanceMetadataTypeDef(TypedDict):
-    CreatedDate: NotRequired[datetime]
-    IdentityStoreId: NotRequired[str]
     InstanceArn: NotRequired[str]
-    Name: NotRequired[str]
+    IdentityStoreId: NotRequired[str]
     OwnerAccountId: NotRequired[str]
+    Name: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
     Status: NotRequired[InstanceStatusType]
 
 class OperationStatusFilterTypeDef(TypedDict):
@@ -497,8 +497,8 @@ class ListAccountAssignmentsFilterTypeDef(TypedDict):
     AccountId: NotRequired[str]
 
 class ListAccountAssignmentsRequestTypeDef(TypedDict):
-    AccountId: str
     InstanceArn: str
+    AccountId: str
     PermissionSetArn: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
@@ -506,9 +506,9 @@ class ListAccountAssignmentsRequestTypeDef(TypedDict):
 class ListAccountsForProvisionedPermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
     PermissionSetArn: str
+    ProvisioningStatus: NotRequired[ProvisioningStatusType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    ProvisioningStatus: NotRequired[ProvisioningStatusType]
 
 class ListApplicationAccessScopesRequestTypeDef(TypedDict):
     ApplicationArn: str
@@ -560,21 +560,21 @@ class ListManagedPoliciesInPermissionSetRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class PermissionSetProvisioningStatusMetadataTypeDef(TypedDict):
-    CreatedDate: NotRequired[datetime]
-    RequestId: NotRequired[str]
     Status: NotRequired[StatusValuesType]
+    RequestId: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
 
 class ListPermissionSetsProvisionedToAccountRequestTypeDef(TypedDict):
-    AccountId: str
     InstanceArn: str
+    AccountId: str
+    ProvisioningStatus: NotRequired[ProvisioningStatusType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-    ProvisioningStatus: NotRequired[ProvisioningStatusType]
 
 class ListPermissionSetsRequestTypeDef(TypedDict):
     InstanceArn: str
-    MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -587,14 +587,14 @@ class ListTrustedTokenIssuersRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class TrustedTokenIssuerMetadataTypeDef(TypedDict):
-    Name: NotRequired[str]
     TrustedTokenIssuerArn: NotRequired[str]
+    Name: NotRequired[str]
     TrustedTokenIssuerType: NotRequired[Literal["OIDC_JWT"]]
 
 class OidcJwtConfigurationTypeDef(TypedDict):
+    IssuerUrl: str
     ClaimAttributePath: str
     IdentityStoreAttributePath: str
-    IssuerUrl: str
     JwksRetrievalOption: Literal["OPEN_ID_DISCOVERY"]
 
 class OidcJwtUpdateConfigurationTypeDef(TypedDict):
@@ -613,8 +613,8 @@ class ProvisionPermissionSetRequestTypeDef(TypedDict):
     TargetId: NotRequired[str]
 
 class PutApplicationAccessScopeRequestTypeDef(TypedDict):
-    ApplicationArn: str
     Scope: str
+    ApplicationArn: str
     AuthorizedTargets: NotRequired[Sequence[str]]
 
 class PutApplicationAssignmentConfigurationRequestTypeDef(TypedDict):
@@ -622,13 +622,13 @@ class PutApplicationAssignmentConfigurationRequestTypeDef(TypedDict):
     AssignmentRequired: bool
 
 class PutInlinePolicyToPermissionSetRequestTypeDef(TypedDict):
-    InlinePolicy: str
     InstanceArn: str
     PermissionSetArn: str
+    InlinePolicy: str
 
 class ResourceServerScopeDetailsTypeDef(TypedDict):
-    DetailedTitle: NotRequired[str]
     LongDescription: NotRequired[str]
+    DetailedTitle: NotRequired[str]
 
 class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -636,15 +636,15 @@ class UntagResourceRequestTypeDef(TypedDict):
     InstanceArn: NotRequired[str]
 
 class UpdateInstanceRequestTypeDef(TypedDict):
-    InstanceArn: str
     Name: str
+    InstanceArn: str
 
 class UpdatePermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
     PermissionSetArn: str
     Description: NotRequired[str]
-    RelayState: NotRequired[str]
     SessionDuration: NotRequired[str]
+    RelayState: NotRequired[str]
 
 class AccessControlAttributeOutputTypeDef(TypedDict):
     Key: str
@@ -655,14 +655,14 @@ class AccessControlAttributeTypeDef(TypedDict):
     Value: AccessControlAttributeValueTypeDef
 
 class AttachCustomerManagedPolicyReferenceToPermissionSetRequestTypeDef(TypedDict):
-    CustomerManagedPolicyReference: CustomerManagedPolicyReferenceTypeDef
     InstanceArn: str
     PermissionSetArn: str
+    CustomerManagedPolicyReference: CustomerManagedPolicyReferenceTypeDef
 
 class DetachCustomerManagedPolicyReferenceFromPermissionSetRequestTypeDef(TypedDict):
-    CustomerManagedPolicyReference: CustomerManagedPolicyReferenceTypeDef
     InstanceArn: str
     PermissionSetArn: str
+    CustomerManagedPolicyReference: CustomerManagedPolicyReferenceTypeDef
 
 class PermissionsBoundaryTypeDef(TypedDict):
     CustomerManagedPolicyReference: NotRequired[CustomerManagedPolicyReferenceTypeDef]
@@ -709,17 +709,17 @@ class DescribeAccountAssignmentDeletionStatusResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeApplicationAssignmentResponseTypeDef(TypedDict):
-    ApplicationArn: str
-    PrincipalId: str
     PrincipalType: PrincipalTypeType
+    PrincipalId: str
+    ApplicationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeInstanceResponseTypeDef(TypedDict):
-    CreatedDate: datetime
-    IdentityStoreId: str
     InstanceArn: str
-    Name: str
+    IdentityStoreId: str
     OwnerAccountId: str
+    Name: str
+    CreatedDate: datetime
     Status: InstanceStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -727,8 +727,8 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetApplicationAccessScopeResponseTypeDef(TypedDict):
-    AuthorizedTargets: List[str]
     Scope: str
+    AuthorizedTargets: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetApplicationAssignmentConfigurationResponseTypeDef(TypedDict):
@@ -795,16 +795,16 @@ class ListPermissionSetsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class CreateInstanceRequestTypeDef(TypedDict):
-    ClientToken: NotRequired[str]
     Name: NotRequired[str]
+    ClientToken: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class CreatePermissionSetRequestTypeDef(TypedDict):
-    InstanceArn: str
     Name: str
+    InstanceArn: str
     Description: NotRequired[str]
-    RelayState: NotRequired[str]
     SessionDuration: NotRequired[str]
+    RelayState: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
@@ -840,21 +840,21 @@ class ListInstancesResponseTypeDef(TypedDict):
 
 class ListAccountAssignmentCreationStatusRequestTypeDef(TypedDict):
     InstanceArn: str
-    Filter: NotRequired[OperationStatusFilterTypeDef]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    Filter: NotRequired[OperationStatusFilterTypeDef]
 
 class ListAccountAssignmentDeletionStatusRequestTypeDef(TypedDict):
     InstanceArn: str
-    Filter: NotRequired[OperationStatusFilterTypeDef]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    Filter: NotRequired[OperationStatusFilterTypeDef]
 
 class ListPermissionSetProvisioningStatusRequestTypeDef(TypedDict):
     InstanceArn: str
-    Filter: NotRequired[OperationStatusFilterTypeDef]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    Filter: NotRequired[OperationStatusFilterTypeDef]
 
 class ListAccountAssignmentCreationStatusRequestPaginateTypeDef(TypedDict):
     InstanceArn: str
@@ -867,8 +867,8 @@ class ListAccountAssignmentDeletionStatusRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAccountAssignmentsRequestPaginateTypeDef(TypedDict):
-    AccountId: str
     InstanceArn: str
+    AccountId: str
     PermissionSetArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -916,8 +916,8 @@ class ListPermissionSetProvisioningStatusRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPermissionSetsProvisionedToAccountRequestPaginateTypeDef(TypedDict):
-    AccountId: str
     InstanceArn: str
+    AccountId: str
     ProvisioningStatus: NotRequired[ProvisioningStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -946,8 +946,8 @@ class ListAccountAssignmentsForPrincipalRequestTypeDef(TypedDict):
     PrincipalId: str
     PrincipalType: PrincipalTypeType
     Filter: NotRequired[ListAccountAssignmentsFilterTypeDef]
-    MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class ListApplicationAccessScopesResponseTypeDef(TypedDict):
     Scopes: List[ScopeDetailsTypeDef]
@@ -966,8 +966,8 @@ class ListApplicationAssignmentsForPrincipalRequestTypeDef(TypedDict):
     PrincipalId: str
     PrincipalType: PrincipalTypeType
     Filter: NotRequired[ListApplicationAssignmentsFilterTypeDef]
-    MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class ListApplicationsRequestPaginateTypeDef(TypedDict):
     InstanceArn: str
@@ -976,9 +976,9 @@ class ListApplicationsRequestPaginateTypeDef(TypedDict):
 
 class ListApplicationsRequestTypeDef(TypedDict):
     InstanceArn: str
-    Filter: NotRequired[ListApplicationsFilterTypeDef]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    Filter: NotRequired[ListApplicationsFilterTypeDef]
 
 class ListPermissionSetProvisioningStatusResponseTypeDef(TypedDict):
     PermissionSetsProvisioningStatus: List[PermissionSetProvisioningStatusMetadataTypeDef]
@@ -1022,8 +1022,8 @@ class PutPermissionsBoundaryToPermissionSetRequestTypeDef(TypedDict):
     PermissionsBoundary: PermissionsBoundaryTypeDef
 
 class AuthenticationMethodItemTypeDef(TypedDict):
-    AuthenticationMethod: NotRequired[AuthenticationMethodOutputTypeDef]
     AuthenticationMethodType: NotRequired[Literal["IAM"]]
+    AuthenticationMethod: NotRequired[AuthenticationMethodOutputTypeDef]
 
 class GetApplicationAuthenticationMethodResponseTypeDef(TypedDict):
     AuthenticationMethod: AuthenticationMethodOutputTypeDef
@@ -1048,16 +1048,16 @@ class GrantTypeDef(TypedDict):
 class CreateTrustedTokenIssuerRequestTypeDef(TypedDict):
     InstanceArn: str
     Name: str
-    TrustedTokenIssuerConfiguration: TrustedTokenIssuerConfigurationTypeDef
     TrustedTokenIssuerType: Literal["OIDC_JWT"]
+    TrustedTokenIssuerConfiguration: TrustedTokenIssuerConfigurationTypeDef
     ClientToken: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class DescribeTrustedTokenIssuerResponseTypeDef(TypedDict):
-    Name: str
     TrustedTokenIssuerArn: str
-    TrustedTokenIssuerConfiguration: TrustedTokenIssuerConfigurationTypeDef
+    Name: str
     TrustedTokenIssuerType: Literal["OIDC_JWT"]
+    TrustedTokenIssuerConfiguration: TrustedTokenIssuerConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateTrustedTokenIssuerRequestTypeDef(TypedDict):
@@ -1066,64 +1066,64 @@ class UpdateTrustedTokenIssuerRequestTypeDef(TypedDict):
     TrustedTokenIssuerConfiguration: NotRequired[TrustedTokenIssuerUpdateConfigurationTypeDef]
 
 class ApplicationTypeDef(TypedDict):
-    ApplicationAccount: NotRequired[str]
     ApplicationArn: NotRequired[str]
     ApplicationProviderArn: NotRequired[str]
-    CreatedDate: NotRequired[datetime]
-    Description: NotRequired[str]
-    InstanceArn: NotRequired[str]
     Name: NotRequired[str]
-    PortalOptions: NotRequired[PortalOptionsTypeDef]
+    ApplicationAccount: NotRequired[str]
+    InstanceArn: NotRequired[str]
     Status: NotRequired[ApplicationStatusType]
+    PortalOptions: NotRequired[PortalOptionsTypeDef]
+    Description: NotRequired[str]
+    CreatedDate: NotRequired[datetime]
 
 class CreateApplicationRequestTypeDef(TypedDict):
-    ApplicationProviderArn: str
     InstanceArn: str
+    ApplicationProviderArn: str
     Name: str
-    ClientToken: NotRequired[str]
     Description: NotRequired[str]
     PortalOptions: NotRequired[PortalOptionsTypeDef]
-    Status: NotRequired[ApplicationStatusType]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    Status: NotRequired[ApplicationStatusType]
+    ClientToken: NotRequired[str]
 
 class DescribeApplicationResponseTypeDef(TypedDict):
-    ApplicationAccount: str
     ApplicationArn: str
     ApplicationProviderArn: str
-    CreatedDate: datetime
-    Description: str
-    InstanceArn: str
     Name: str
-    PortalOptions: PortalOptionsTypeDef
+    ApplicationAccount: str
+    InstanceArn: str
     Status: ApplicationStatusType
+    PortalOptions: PortalOptionsTypeDef
+    Description: str
+    CreatedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateApplicationRequestTypeDef(TypedDict):
     ApplicationArn: str
-    Description: NotRequired[str]
     Name: NotRequired[str]
-    PortalOptions: NotRequired[UpdateApplicationPortalOptionsTypeDef]
+    Description: NotRequired[str]
     Status: NotRequired[ApplicationStatusType]
+    PortalOptions: NotRequired[UpdateApplicationPortalOptionsTypeDef]
 
 class ApplicationProviderTypeDef(TypedDict):
     ApplicationProviderArn: str
-    DisplayData: NotRequired[DisplayDataTypeDef]
     FederationProtocol: NotRequired[FederationProtocolType]
+    DisplayData: NotRequired[DisplayDataTypeDef]
     ResourceServerConfig: NotRequired[ResourceServerConfigTypeDef]
 
 class DescribeApplicationProviderResponseTypeDef(TypedDict):
     ApplicationProviderArn: str
-    DisplayData: DisplayDataTypeDef
     FederationProtocol: FederationProtocolType
+    DisplayData: DisplayDataTypeDef
     ResourceServerConfig: ResourceServerConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeInstanceAccessControlAttributeConfigurationResponseTypeDef(TypedDict):
+    Status: InstanceAccessControlAttributeConfigurationStatusType
+    StatusReason: str
     InstanceAccessControlAttributeConfiguration: (
         InstanceAccessControlAttributeConfigurationOutputTypeDef
     )
-    Status: InstanceAccessControlAttributeConfigurationStatusType
-    StatusReason: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 InstanceAccessControlAttributeConfigurationUnionTypeDef = Union[
@@ -1138,16 +1138,16 @@ class ListApplicationAuthenticationMethodsResponseTypeDef(TypedDict):
 
 class PutApplicationAuthenticationMethodRequestTypeDef(TypedDict):
     ApplicationArn: str
-    AuthenticationMethod: AuthenticationMethodUnionTypeDef
     AuthenticationMethodType: Literal["IAM"]
+    AuthenticationMethod: AuthenticationMethodUnionTypeDef
 
 class GetApplicationGrantResponseTypeDef(TypedDict):
     Grant: GrantOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GrantItemTypeDef(TypedDict):
-    Grant: GrantOutputTypeDef
     GrantType: GrantTypeType
+    Grant: GrantOutputTypeDef
 
 GrantUnionTypeDef = Union[GrantTypeDef, GrantOutputTypeDef]
 
@@ -1162,16 +1162,16 @@ class ListApplicationProvidersResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class CreateInstanceAccessControlAttributeConfigurationRequestTypeDef(TypedDict):
+    InstanceArn: str
     InstanceAccessControlAttributeConfiguration: (
         InstanceAccessControlAttributeConfigurationUnionTypeDef
     )
-    InstanceArn: str
 
 class UpdateInstanceAccessControlAttributeConfigurationRequestTypeDef(TypedDict):
+    InstanceArn: str
     InstanceAccessControlAttributeConfiguration: (
         InstanceAccessControlAttributeConfigurationUnionTypeDef
     )
-    InstanceArn: str
 
 class ListApplicationGrantsResponseTypeDef(TypedDict):
     Grants: List[GrantItemTypeDef]
@@ -1180,5 +1180,5 @@ class ListApplicationGrantsResponseTypeDef(TypedDict):
 
 class PutApplicationGrantRequestTypeDef(TypedDict):
     ApplicationArn: str
-    Grant: GrantUnionTypeDef
     GrantType: GrantTypeType
+    Grant: GrantUnionTypeDef

@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -331,7 +331,7 @@ class SearchInboxesOptions(object):
         :param inbox_function: The inbox_function of this SearchInboxesOptions.  # noqa: E501
         :type: str
         """
-        allowed_values = [None,"ALIAS", "THREAD", "CATCH_ALL", "CONNECTOR"]  # noqa: E501
+        allowed_values = [None,"ALIAS", "THREAD", "CATCH_ALL", "CONNECTOR", "ACCOUNT", "GUEST", "OAUTH_CONNECTION_GMAIL"]  # noqa: E501
         if self.local_vars_configuration.client_side_validation and inbox_function not in allowed_values:  # noqa: E501
             raise ValueError(
                 "Invalid value for `inbox_function` ({0}), must be one of {1}"  # noqa: E501

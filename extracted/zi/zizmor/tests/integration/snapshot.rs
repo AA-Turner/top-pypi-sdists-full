@@ -3,30 +3,17 @@
 //! TODO: This file is too big; break it into multiple
 //! modules, one per audit/conceptual group.
 
-use crate::common::{OutputMode, input_under_test, zizmor};
+use crate::common::{input_under_test, zizmor};
 use anyhow::Result;
 
 #[test]
 fn test_cant_retrieve() -> Result<()> {
     insta::assert_snapshot!(
         zizmor()
-            .output(OutputMode::Stderr)
+            .expects_failure(true)
             .offline(true)
             .unsetenv("GH_TOKEN")
             .args(["pypa/sampleproject"])
-            .run()?
-    );
-
-    Ok(())
-}
-
-#[test]
-fn test_invalid_inputs() -> Result<()> {
-    insta::assert_snapshot!(
-        zizmor()
-            .output(OutputMode::Stderr)
-            .offline(true)
-            .input(input_under_test("invalid/invalid-workflow.yml"))
             .run()?
     );
 
@@ -239,10 +226,11 @@ fn unpinned_uses() -> Result<()> {
         "invalid-policy-syntax-3",
         "invalid-policy-syntax-4",
         "invalid-policy-syntax-5",
+        "invalid-policy-syntax-6",
     ] {
         insta::assert_snapshot!(
             zizmor()
-                .output(OutputMode::Stderr)
+                .expects_failure(true)
                 .config(input_under_test(
                     &format!("unpinned-uses/configs/{tc}.yml",)
                 ))
@@ -597,6 +585,17 @@ fn secrets_inherit() -> Result<()> {
 }
 
 #[test]
+fn unsound_contains() -> Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("unsound-contains.yml"))
+            .run()?
+    );
+
+    Ok(())
+}
+
+#[test]
 fn bot_conditions() -> Result<()> {
     insta::assert_snapshot!(
         zizmor()
@@ -651,7 +650,14 @@ fn unredacted_secrets() -> Result<()> {
 
 #[test]
 fn forbidden_uses() -> Result<()> {
-    for config in ["allow-all", "deny-all", "allow-some", "deny-some"] {
+    for config in [
+        "allow-all",
+        "deny-all",
+        "allow-some",
+        "deny-some",
+        "deny-some-refs",
+        "allow-some-refs",
+    ] {
         insta::assert_snapshot!(
             zizmor()
                 .config(input_under_test(&format!(
@@ -663,6 +669,39 @@ fn forbidden_uses() -> Result<()> {
                 .run()?
         );
     }
+
+    Ok(())
+}
+
+#[test]
+fn obfuscation() -> Result<()> {
+    insta::assert_snapshot!(zizmor().input(input_under_test("obfuscation.yml")).run()?);
+
+    Ok(())
+}
+
+#[cfg_attr(not(feature = "gh-token-tests"), ignore)]
+#[test]
+fn stale_action_refs() -> Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("stale-action-refs.yml"))
+            .offline(false)
+            .args(["--persona=pedantic"])
+            .run()?
+    );
+
+    Ok(())
+}
+
+#[test]
+fn unpinned_images() -> Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("unpinned-images.yml"))
+            .args(["--persona=pedantic"])
+            .run()?
+    );
 
     Ok(())
 }

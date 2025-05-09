@@ -102,7 +102,7 @@ def replace_file_template(
             for param in parameters or []
         ]
     if default_arguments:
-        spec.default_arguments = (_args_from_list(default_arguments),)
+        spec.default_arguments = _args_from_list(default_arguments)
     if rendered_file_name:
         spec.rendered_file_name = rendered_file_name
     if associated_objects:

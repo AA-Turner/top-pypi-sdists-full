@@ -7312,11 +7312,6 @@ class Avx10v2(System.Runtime.Intrinsics.X86.Avx10v1, metaclass=abc.ABCMeta):
     """Gets a value that indicates whether the APIs in this class are supported."""
 
     @staticmethod
-    def add(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
-        """VADDPD ymm1{k1}{z}, ymm2, ymm3/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
     @overload
     def convert_to_byte_with_saturation_and_zero_extend_to_int_32(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """VCVTPS2IUBS xmm1{k1}{z}, xmm2/m128/m32bcst"""
@@ -7325,12 +7320,6 @@ class Avx10v2(System.Runtime.Intrinsics.X86.Avx10v1, metaclass=abc.ABCMeta):
     @staticmethod
     @overload
     def convert_to_byte_with_saturation_and_zero_extend_to_int_32(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
-        """VCVTPS2IUBS ymm1{k1}{z}, ymm2/m256/m32bcst {er}"""
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_byte_with_saturation_and_zero_extend_to_int_32(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[int]:
         """VCVTPS2IUBS ymm1{k1}{z}, ymm2/m256/m32bcst {er}"""
         ...
 
@@ -7360,12 +7349,6 @@ class Avx10v2(System.Runtime.Intrinsics.X86.Avx10v1, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def convert_to_s_byte_with_saturation_and_zero_extend_to_int_32(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[int]:
-        """VCVTPS2IBS ymm1{k1}{z}, ymm2/m256/m32bcst {er}"""
-        ...
-
-    @staticmethod
-    @overload
     def convert_to_s_byte_with_truncated_saturation_and_zero_extend_to_int_32(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """VCVTTPS2IBS xmm1{k1}{z}, xmm2/m128/m32bcst"""
         ...
@@ -7374,77 +7357,6 @@ class Avx10v2(System.Runtime.Intrinsics.X86.Avx10v1, metaclass=abc.ABCMeta):
     @overload
     def convert_to_s_byte_with_truncated_saturation_and_zero_extend_to_int_32(value: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector256[int]:
         """VCVTTPS2IBS ymm1{k1}{z}, ymm2/m256/m32bcst {sae}"""
-        ...
-
-    @staticmethod
-    def convert_to_vector_128_int_32(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[int]:
-        """VCVTPD2DQ xmm1{k1}{z}, ymm2/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_128_single(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[float]:
-        """VCVTPD2PS xmm1{k1}{z}, ymm2/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_128_single(value: System.Runtime.Intrinsics.Vector256[int], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[float]:
-        """VCVTQQ2PS xmm1{k1}{z}, ymm2/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
-    def convert_to_vector_128_u_int_32(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[int]:
-        """VCVTPD2UDQ xmm1{k1}{z}, ymm2/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
-    def convert_to_vector_256_double(value: System.Runtime.Intrinsics.Vector256[int], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
-        """VCVTQQ2PD ymm1{k1}{z}, ymm2/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
-    def convert_to_vector_256_int_32(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[int]:
-        """VCVTPS2DQ ymm1{k1}{z}, ymm2/m256/m32bcst {er}"""
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_256_int_64(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[int]:
-        """VCVTPD2QQ ymm1{k1}{z}, ymm2/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_256_int_64(value: System.Runtime.Intrinsics.Vector128[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[int]:
-        """VCVTPS2QQ ymm1{k1}{z}, xmm2/m128/m32bcst {er}"""
-        ...
-
-    @staticmethod
-    def convert_to_vector_256_single(value: System.Runtime.Intrinsics.Vector256[int], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
-        """VCVTDQ2PS ymm1{k1}{z}, ymm2/m256/m32bcst {er}"""
-        ...
-
-    @staticmethod
-    def convert_to_vector_256_u_int_32(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[int]:
-        """VCVTPS2UDQ ymm1{k1}{z}, ymm2/m256/m32bcst {er}"""
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_256_u_int_64(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[int]:
-        """VCVTPD2UQQ ymm1{k1}{z}, ymm2/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_256_u_int_64(value: System.Runtime.Intrinsics.Vector128[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[int]:
-        """VCVTPS2UQQ ymm1{k1}{z}, xmm2/m128/m32bcst {er}"""
-        ...
-
-    @staticmethod
-    def divide(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
-        """VDIVPD ymm1{k1}{z}, ymm2, ymm3/m256/m64bcst {er}"""
         ...
 
     @staticmethod
@@ -7470,28 +7382,8 @@ class Avx10v2(System.Runtime.Intrinsics.X86.Avx10v1, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def multiply(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
-        """VMULPD ymm1{k1}{z}, ymm2, ymm3/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
-    def scale(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
-        """VSCALEFPD ymm1{k1}{z}, ymm2, ymm3/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
-    def sqrt(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
-        """VSQRTPD ymm1{k1}{z}, ymm2/m256/m64bcst {er}"""
-        ...
-
-    @staticmethod
     def store_scalar(address: typing.Any, source: System.Runtime.Intrinsics.Vector128[int]) -> None:
         """VMOVW xmm1/m16, xmm2"""
-        ...
-
-    @staticmethod
-    def subtract(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
-        """VSUBPD ymm1{k1}{z}, ymm2, ymm3/m256/m64bcst {er}"""
         ...
 
 

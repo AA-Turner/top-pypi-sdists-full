@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: langgraph-runtime-inmem
-Version: 0.0.9
+Version: 0.0.10
 Summary: Inmem implementation for the LangGraph API server.
 License: Elastic-2.0
 Author: Will Fu-Hinthorn

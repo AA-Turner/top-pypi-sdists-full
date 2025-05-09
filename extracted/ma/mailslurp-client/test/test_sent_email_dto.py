@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -45,6 +45,29 @@ class TestSentEmailDto(unittest.TestCase):
                     '0'
                     ], 
                 _from = '0', 
+                sender = mailslurp_client.models.sender.Sender(
+                    raw_value = '0', 
+                    email_address = '0', 
+                    name = '0', ), 
+                recipients = mailslurp_client.models.email_recipients.EmailRecipients(
+                    to = [
+                        mailslurp_client.models.recipient.Recipient(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', )
+                        ], 
+                    cc = [
+                        mailslurp_client.models.recipient.Recipient(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', )
+                        ], 
+                    bcc = [
+                        mailslurp_client.models.recipient.Recipient(
+                            raw_value = '0', 
+                            email_address = '0', 
+                            name = '0', )
+                        ], ), 
                 reply_to = '0', 
                 cc = [
                     '0'
@@ -65,6 +88,7 @@ class TestSentEmailDto(unittest.TestCase):
                 charset = '0', 
                 is_html = True, 
                 sent_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                 pixel_ids = [
                     '0'
                     ], 
@@ -80,6 +104,12 @@ class TestSentEmailDto(unittest.TestCase):
                 headers = {
                     'key' : '0'
                     }, 
+                thread_id = '0', 
+                body_excerpt = '0', 
+                text_excerpt = '0', 
+                in_reply_to = '0', 
+                favourite = True, 
+                size_bytes = 56, 
                 html = True
             )
         else :
@@ -88,6 +118,7 @@ class TestSentEmailDto(unittest.TestCase):
                 user_id = '0',
                 inbox_id = '0',
                 sent_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
         )
 
     def testSentEmailDto(self):

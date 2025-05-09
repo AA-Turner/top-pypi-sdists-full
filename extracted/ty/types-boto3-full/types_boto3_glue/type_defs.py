@@ -732,6 +732,7 @@ __all__ = (
     "ImportCatalogToGlueRequestTypeDef",
     "ImportLabelsTaskRunPropertiesTypeDef",
     "InboundIntegrationTypeDef",
+    "IntegrationConfigTypeDef",
     "IntegrationErrorTypeDef",
     "IntegrationFilterTypeDef",
     "IntegrationPartitionTypeDef",
@@ -2245,6 +2246,10 @@ class CreateDevEndpointRequestTypeDef(TypedDict):
     SecurityConfiguration: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
     Arguments: NotRequired[Mapping[str, str]]
+
+
+class IntegrationConfigTypeDef(TypedDict):
+    RefreshInterval: NotRequired[str]
 
 
 class TagTypeDef(TypedDict):
@@ -5152,6 +5157,7 @@ class CreateIntegrationRequestTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     AdditionalEncryptionContext: NotRequired[Mapping[str, str]]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    IntegrationConfig: NotRequired[IntegrationConfigTypeDef]
 
 
 class CreateIntegrationResourcePropertyRequestTypeDef(TypedDict):
@@ -5200,6 +5206,7 @@ class CreateIntegrationResponseTypeDef(TypedDict):
     CreateTime: datetime
     Errors: List[IntegrationErrorTypeDef]
     DataFilter: str
+    IntegrationConfig: IntegrationConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -5225,6 +5232,7 @@ class InboundIntegrationTypeDef(TypedDict):
     IntegrationArn: str
     Status: IntegrationStatusType
     CreateTime: datetime
+    IntegrationConfig: NotRequired[IntegrationConfigTypeDef]
     Errors: NotRequired[List[IntegrationErrorTypeDef]]
 
 
@@ -5239,6 +5247,7 @@ class IntegrationTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     AdditionalEncryptionContext: NotRequired[Dict[str, str]]
     Tags: NotRequired[List[TagTypeDef]]
+    IntegrationConfig: NotRequired[IntegrationConfigTypeDef]
     Errors: NotRequired[List[IntegrationErrorTypeDef]]
     DataFilter: NotRequired[str]
 

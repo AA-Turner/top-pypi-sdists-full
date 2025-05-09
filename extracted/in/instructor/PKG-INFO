@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: instructor
-Version: 1.8.0
+Version: 1.8.1
 Summary: structured outputs for llm
 Project-URL: repository, https://github.com/instructor-ai/instructor
-Author-email: Jason Liu <jason@jxnl.co>
+Author-email: Jason Liu <jason@jxnl.co>, Ivan Leo <ivan@jxnl.co>
 License: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9

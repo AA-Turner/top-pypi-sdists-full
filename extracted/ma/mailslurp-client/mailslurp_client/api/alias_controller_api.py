@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -539,7 +539,7 @@ class AliasControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: PageThreadProjection
+        :return: PageAliasThreadProjection
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -571,7 +571,7 @@ class AliasControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(PageThreadProjection, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(PageAliasThreadProjection, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -647,7 +647,7 @@ class AliasControllerApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='PageThreadProjection',  # noqa: E501
+            response_type='PageAliasThreadProjection',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -808,7 +808,7 @@ class AliasControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: ThreadProjection
+        :return: AliasThreadProjection
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -835,7 +835,7 @@ class AliasControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(ThreadProjection, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(AliasThreadProjection, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -896,7 +896,7 @@ class AliasControllerApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='ThreadProjection',  # noqa: E501
+            response_type='AliasThreadProjection',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -926,7 +926,7 @@ class AliasControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: PageThreadProjection
+        :return: PageAliasThreadProjection
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -957,7 +957,7 @@ class AliasControllerApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(PageThreadProjection, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(PageAliasThreadProjection, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -1026,7 +1026,7 @@ class AliasControllerApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='PageThreadProjection',  # noqa: E501
+            response_type='PageAliasThreadProjection',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

@@ -26,6 +26,9 @@ class ExtractConfig(pydantic.BaseModel):
     system_prompt: typing.Optional[str]
     use_reasoning: typing.Optional[bool] = pydantic.Field(description="Whether to use reasoning for the extraction.")
     cite_sources: typing.Optional[bool] = pydantic.Field(description="Whether to cite sources for the extraction.")
+    invalidate_cache: typing.Optional[bool] = pydantic.Field(
+        description="Whether to invalidate the cache for the extraction."
+    )
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

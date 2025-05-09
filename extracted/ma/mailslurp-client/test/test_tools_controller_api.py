@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -43,6 +43,13 @@ class TestToolsControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_delete_new_fake_email_address(self):
+        """Test case for delete_new_fake_email_address
+
+        Delete a fake email address using the fake email domains  # noqa: E501
+        """
+        pass
+
     def test_generate_bimi_record(self):
         """Test case for generate_bimi_record
 
@@ -71,15 +78,30 @@ class TestToolsControllerApi(unittest.TestCase):
         """
         pass
 
+    def test_get_fake_email_by_email_address(self):
+        """Test case for get_fake_email_by_email_address
+
+        """
+        pass
+
     def test_get_fake_email_by_id(self):
         """Test case for get_fake_email_by_id
 
+        Get a fake email by its ID  # noqa: E501
+        """
+        pass
+
+    def test_get_fake_email_raw(self):
+        """Test case for get_fake_email_raw
+
+        Get raw fake email content  # noqa: E501
         """
         pass
 
     def test_get_fake_emails_for_address(self):
         """Test case for get_fake_emails_for_address
 
+        Get fake emails for an address  # noqa: E501
         """
         pass
 

@@ -43,7 +43,7 @@ class TextResponse(Response):
     _DEFAULT_ENCODING = "ascii"
     _cached_decoded_json = _NONE
 
-    attributes: tuple[str, ...] = Response.attributes + ("encoding",)
+    attributes: tuple[str, ...] = (*Response.attributes, "encoding")
 
     def __init__(self, *args: Any, **kwargs: Any):
         self._encoding: str | None = kwargs.pop("encoding", None)
@@ -185,15 +185,15 @@ class TextResponse(Response):
     ) -> Request:
         """
         Return a :class:`~.Request` instance to follow a link ``url``.
-        It accepts the same arguments as ``Request.__init__`` method,
+        It accepts the same arguments as ``Request.__init__()`` method,
         but ``url`` can be not only an absolute URL, but also
 
         * a relative URL
         * a :class:`~scrapy.link.Link` object, e.g. the result of
           :ref:`topics-link-extractors`
-        * a :class:`~scrapy.selector.Selector` object for a ``<link>`` or ``<a>`` element, e.g.
+        * a :class:`~scrapy.Selector` object for a ``<link>`` or ``<a>`` element, e.g.
           ``response.css('a.my_link')[0]``
-        * an attribute :class:`~scrapy.selector.Selector` (not SelectorList), e.g.
+        * an attribute :class:`~scrapy.Selector` (not SelectorList), e.g.
           ``response.css('a::attr(href)')[0]`` or
           ``response.xpath('//img/@src')[0]``
 
@@ -241,20 +241,20 @@ class TextResponse(Response):
         """
         A generator that produces :class:`~.Request` instances to follow all
         links in ``urls``. It accepts the same arguments as the :class:`~.Request`'s
-        ``__init__`` method, except that each ``urls`` element does not need to be
+        ``__init__()`` method, except that each ``urls`` element does not need to be
         an absolute URL, it can be any of the following:
 
         * a relative URL
         * a :class:`~scrapy.link.Link` object, e.g. the result of
           :ref:`topics-link-extractors`
-        * a :class:`~scrapy.selector.Selector` object for a ``<link>`` or ``<a>`` element, e.g.
+        * a :class:`~scrapy.Selector` object for a ``<link>`` or ``<a>`` element, e.g.
           ``response.css('a.my_link')[0]``
-        * an attribute :class:`~scrapy.selector.Selector` (not SelectorList), e.g.
+        * an attribute :class:`~scrapy.Selector` (not SelectorList), e.g.
           ``response.css('a::attr(href)')[0]`` or
           ``response.xpath('//img/@src')[0]``
 
         In addition, ``css`` and ``xpath`` arguments are accepted to perform the link extraction
-        within the ``follow_all`` method (only one of ``urls``, ``css`` and ``xpath`` is accepted).
+        within the ``follow_all()`` method (only one of ``urls``, ``css`` and ``xpath`` is accepted).
 
         Note that when passing a ``SelectorList`` as argument for the ``urls`` parameter or
         using the ``css`` or ``xpath`` parameters, this method will not produce requests for
@@ -308,7 +308,7 @@ def _url_from_selector(sel: parsel.Selector) -> str:
         raise _InvalidSelector(f"Unsupported selector: {sel}")
     if sel.root.tag not in ("a", "link"):
         raise _InvalidSelector(
-            "Only <a> and <link> elements are supported; " f"got <{sel.root.tag}>"
+            f"Only <a> and <link> elements are supported; got <{sel.root.tag}>"
         )
     href = sel.root.get("href")
     if href is None:

@@ -259,7 +259,7 @@ class FunctionCapturedGlobalStruct(FunctionCapturedGlobal):
 class FunctionCapturedGlobalProto(FunctionCapturedGlobal):
     module: str
     name: str
-    fd: Descriptor
+    fd: Descriptor | None
     serialized_fd: bytes
     pa_dtype: pa.DataType
 
@@ -1560,7 +1560,8 @@ def capture_global(
                 return FunctionCapturedGlobalProto(
                     name=global_value.__name__,
                     module=global_value.__module__,
-                    fd=global_value.DESCRIPTOR,
+                    # fd=global_value.DESCRIPTOR,
+                    fd=None,
                     serialized_fd=serialize_message_file_descriptor(global_value.DESCRIPTOR.file),
                     pa_dtype=convert_proto_message_type_to_pyarrow_type(global_value.DESCRIPTOR),
                 )

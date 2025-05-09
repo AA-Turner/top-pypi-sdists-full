@@ -41,6 +41,7 @@ cimport libeasel.keyhash
 cimport libeasel.matrixops
 cimport libeasel.msa
 cimport libeasel.msafile
+cimport libeasel.msaweight
 cimport libeasel.random
 cimport libeasel.sq
 cimport libeasel.sqio
@@ -50,6 +51,7 @@ cimport libeasel.vec
 from libeasel cimport ESL_DSQ, esl_pos_t, eslERRBUFSIZE
 from libeasel.buffer cimport ESL_BUFFER
 from libeasel.gencode cimport ESL_GENCODE
+from libeasel.msaweight cimport ESL_MSAWEIGHT_CFG
 from libeasel.sq cimport ESL_SQ
 from libeasel.sqio cimport ESL_SQFILE, ESL_SQASCII_DATA
 from libeasel.random cimport ESL_RANDOMNESS
@@ -147,6 +149,12 @@ cdef dict SEQUENCE_FILE_FORMATS = {
 
 cdef dict SEQUENCE_FILE_FORMATS_INDEX = {
     v:k for k,v in SEQUENCE_FILE_FORMATS.items()
+}
+
+cdef dict MSA_WEIGHT_PREFERENCES = {
+    "conscover": libeasel.msaweight.eslMSAWEIGHT_FILT_CONSCOVER,
+    "origorder": libeasel.msaweight.eslMSAWEIGHT_FILT_ORIGORDER,
+    "random": libeasel.msaweight.eslMSAWEIGHT_FILT_RANDOM,
 }
 
 # --- Alphabet ---------------------------------------------------------------
@@ -315,6 +323,26 @@ cdef class Alphabet:
         assert self._abc != NULL
         return libeasel.alphabet.esl_abc_DecodeType(self._abc.type).decode('ascii')
 
+    @property
+    def gap_symbol(self):
+        """`str`: The alphabet gap symbol.
+
+        .. versionadded:: 0.11.1
+
+        """
+        assert self._abc != NULL
+        return chr(libeasel.alphabet.esl_abc_CGetGap(self._abc))
+
+    @property
+    def gap_index(self):
+        """`int`: The alphabet gap index.
+
+        .. versionadded:: 0.11.1
+
+        """
+        assert self._abc != NULL
+        return libeasel.alphabet.esl_abc_XGetGap(self._abc)
+
     # --- Utils --------------------------------------------------------------
 
     cdef inline bint _eq(self, Alphabet other) nogil:
@@ -471,7 +499,7 @@ cdef class GeneticCode:
         Alphabet amino_alphabet not None = Alphabet.amino(),
     ):
         """__init__(self, translation_table=1, *, nucleotide_alphabet=None, amino_alphabet=None)\n--\n
-        
+
         Create a new genetic code for translating nucleotide sequences.
 
         Arguments:
@@ -710,7 +738,7 @@ cdef class Bitfield:
 
     def __init__(self, object iterable):
         """__init__(self, iterable)\n--\n
-        
+
         Create a new bitfield from an iterable of objects.
 
         Objects yielded by the iterable can be of any type and will be
@@ -972,16 +1000,19 @@ cdef class KeyHash:
 
     def __init__(self):
         """__init__(self)\n--\n
-        
+
         Create a new empty key-hash collection.
-        
+
         """
+        cdef int status
         with nogil:
             if self._kh == NULL:
                 self._kh = libeasel.keyhash.esl_keyhash_Create()
             else:
-                libeasel.keyhash.esl_keyhash_Reuse(self._kh)
-        if not self._kh:
+                status = libeasel.keyhash.esl_keyhash_Reuse(self._kh)
+                if status != libeasel.eslOK:
+                    raise UnexpectedError(status, "esl_keyhash_Reuse")
+        if self._kh == NULL:
             raise AllocationError("ESL_KEYHASH", sizeof(ESL_KEYHASH))
 
     def __copy__(self):
@@ -1243,9 +1274,9 @@ cdef class Vector:
 
     def __init__(self, object iterable = ()):
         """__init__(self, iterable=())\n--\n
-        
+
         Create a new vector from the given iterable of values.
-        
+
         """
         raise TypeError("Can't instantiate abstract class 'Vector'")
 
@@ -1497,9 +1528,9 @@ cdef class VectorF(Vector):
 
     def __init__(self, object iterable = ()):
         """__init__(self, iterable=())\n--\n
-        
+
         Create a new float vector from the given data.
-        
+
         """
         cdef int        n
         cdef size_t     i
@@ -1924,9 +1955,9 @@ cdef class VectorU8(Vector):
 
     def __init__(self, object iterable = ()):
         """__init__(self, iterable=())\n--\n
-        
+
         Create a new byte vector from the given data.
-        
+
         """
         cdef int          n
         cdef size_t       i
@@ -2713,7 +2744,7 @@ cdef class MatrixF(Matrix):
 
         elif isinstance(index, slice):
             start, stop, step = index.indices(self._m)
-            if stop < 0 or stop >= self._m or start < 0 or start >= self._m:
+            if stop < 0 or stop > self._m or start < 0 or start >= self._m:
                 raise IndexError("matrix row index out of range")
 
             new = MatrixF.__new__(MatrixF)
@@ -2981,7 +3012,7 @@ cdef class MatrixU8(Matrix):
 
         elif isinstance(index, slice):
             start, stop, step = index.indices(self._m)
-            if stop < 0 or stop >= self._m or start < 0 or start >= self._m:
+            if stop < 0 or stop > self._m or start < 0 or start >= self._m:
                 raise IndexError("matrix row index out of range")
 
             new = MatrixU8.__new__(MatrixU8)
@@ -3145,19 +3176,88 @@ cdef class MatrixU8(Matrix):
 
 # --- Multiple Sequences Alignment -------------------------------------------
 
-cdef class _MSASequences:
+class _MSASequences(collections.abc.Sequence):
     """A read-only view over the individual sequences of an MSA.
     """
 
-    def __cinit__(self):
-        self.msa = None
+    __slots__ = ("msa",)
 
     def __init__(self, MSA msa):
         self.msa = msa
 
     def __len__(self):
-        assert self.msa._msa != NULL
-        return self.msa._msa.nseq
+        assert (<MSA> self.msa)._msa != NULL
+        return (<MSA> self.msa)._msa.nseq
+
+
+class _MSAAlignment(collections.abc.Sequence):
+    """A read-only view over the aligned sequences (i.e. rows) of an MSA.
+    """
+    __slots__ = ("msa",)
+
+    def __init__(self, MSA msa):
+        self.msa = msa
+
+    def __len__(self):
+        assert (<MSA> self.msa)._msa != NULL
+        return (<MSA> self.msa)._msa.nseq
+
+
+class _MSAIndex(collections.abc.Mapping):
+    """A read-only mapping of sequence names to sequences of an MSA.
+    """
+
+    __slots__ = ("msa",)
+
+    def __init__(self, MSA msa):
+        assert msa._msa != NULL
+
+        cdef int          status
+        cdef int          nseq   = msa._msa.nseq
+        cdef ESL_KEYHASH* kh     = msa._msa.index
+
+        if libeasel.keyhash.esl_keyhash_GetNumber(kh) != nseq:
+            with nogil:
+                msa._rehash()
+        self.msa = msa
+
+    def __getitem__(self, object item):
+        cdef int                      status
+        cdef int                      index  = -1
+        cdef const unsigned char[::1] key    = item
+        cdef esl_pos_t                length = key.shape[0]
+        cdef MSA                      msa    = self.msa
+        cdef ESL_KEYHASH*             kh     = msa._msa.index
+
+        with nogil:
+            status = libeasel.keyhash.esl_keyhash_Lookup(kh, <const char*> &key[0], length, &index)
+        if status == libeasel.eslOK:
+            return self.msa.sequences[index]
+        elif status == libeasel.eslENOTFOUND:
+            raise KeyError(item)
+        else:
+            raise UnexpectedError(status, "esl_keyhash_Lookup")
+
+    def __len__(self):
+        cdef ESL_KEYHASH* kh
+        cdef MSA          msa = self.msa
+
+        assert msa._msa != NULL
+        assert msa._msa.index != NULL
+
+        return libeasel.keyhash.esl_keyhash_GetNumber(msa._msa.index)
+
+    def __iter__(self):
+        cdef int          i
+        cdef ESL_KEYHASH* kh
+        cdef MSA          msa = self.msa
+
+        assert msa._msa != NULL
+        assert msa._msa.index != NULL
+
+        kh = msa._msa.index
+        for i in range(libeasel.keyhash.esl_keyhash_GetNumber(kh)):
+            yield <bytes> libeasel.keyhash.esl_keyhash_Get(kh, i)
 
 
 @cython.freelist(8)
@@ -3373,18 +3473,176 @@ cdef class MSA:
 
         return names
 
+    @property
+    def reference(self):
+        """`bytes` or `None`: The reference annotation (`#=GC RF`), if any.
+
+        .. versionadded:: 0.11.1
+
+        """
+        assert self._msa != NULL
+
+        if self._msa.rf == NULL:
+            return None
+        return PyBytes_FromStringAndSize(self._msa.rf, self._msa.alen)
+
+    @reference.setter
+    def reference(self, reference: bytes):
+        assert self._msa != NULL
+        if reference is None:
+            self._set_annotation(&self._msa.rf, NULL)
+        else:
+            self._set_annotation(&self._msa.rf, <char*> reference)
+
+    @property
+    def model_mask(self):
+        """`bytes` or `None`: The model mask (`#=GC MM`), if any.
+
+        .. versionadded:: 0.11.1
+
+        """
+        assert self._msa != NULL
+
+        if self._msa.mm == NULL:
+            return None
+        return PyBytes_FromStringAndSize(self._msa.mm, self._msa.alen)
+
+    @model_mask.setter
+    def model_mask(self, model_mask: bytes):
+        assert self._msa != NULL
+        if model_mask is None:
+            self._set_annotation(&self._msa.mm, NULL)
+        else:
+            self._set_annotation(&self._msa.mm, <char*> model_mask)
+
+    @property
+    def secondary_structure(self):
+        """`bytes` or `None`: The consensus secondary structure, if any.
+
+        .. versionadded:: 0.11.1
+
+        """
+        assert self._msa != NULL
+
+        if self._msa.ss_cons == NULL:
+            return None
+        return PyBytes_FromStringAndSize(self._msa.ss_cons, self._msa.alen)
+
+    @secondary_structure.setter
+    def secondary_structure(self, secondary_structure: bytes):
+        assert self._msa != NULL
+        if secondary_structure is None:
+            self._set_annotation(&self._msa.ss_cons, NULL)
+        else:
+            self._set_annotation(&self._msa.ss_cons, <char*> secondary_structure)
+
+    @property
+    def surface_accessibility(self):
+        """`bytes` or `None`: The consensus surface accessibility, if any.
+
+        .. versionadded:: 0.11.1
+
+        """
+        assert self._msa != NULL
+
+        if self._msa.sa_cons == NULL:
+            return None
+        return PyBytes_FromStringAndSize(self._msa.sa_cons, self._msa.alen)
+
+    @surface_accessibility.setter
+    def surface_accessibility(self, surface_accessibility: bytes):
+        assert self._msa != NULL
+        if surface_accessibility is None:
+            self._set_annotation(&self._msa.sa_cons, NULL)
+        else:
+            self._set_annotation(&self._msa.sa_cons, <char*> surface_accessibility)
+
+    @property
+    def posterior_probabilities(self):
+        """`bytes` or `None`: The consensus posterior probabilities, if any.
+
+        .. versionadded:: 0.11.1
+
+        """
+        assert self._msa != NULL
+
+        if self._msa.pp_cons == NULL:
+            return None
+        return PyBytes_FromStringAndSize(self._msa.pp_cons, self._msa.alen)
+
+    @posterior_probabilities.setter
+    def posterior_probabilities(self, posterior_probabilities: bytes):
+        assert self._msa != NULL
+        if posterior_probabilities is None:
+            self._set_annotation(&self._msa.pp_cons, NULL)
+        else:
+            self._set_annotation(&self._msa.pp_cons, <char*> posterior_probabilities)
+
+
     # TODO: Implement `weights` property exposing the sequence weights as
     #       a `Vector` object, needs implementation of a new `VectorD` class
     #       given that MSA.wgt is an array of `double`
 
+    @property
+    def indexed(self):
+        """`~collections.abc.Mapping`: A mapping of names to sequences.
+
+        This property can be used to access the sequence of a multiple
+        sequence alignment by name. An index is created the first time this
+        property is accessed.
+
+        Raises:
+            `KeyError`: When attempting to create an index for an alignment
+                containing duplicate sequence names.
+
+        Example:
+            >>> s1 = TextSequence(name=b"seq1", sequence="ATGC")
+            >>> s2 = TextSequence(name=b"seq2", sequence="ATTA")
+            >>> msa = TextMSA(name=b"msa", sequences=[s1, s2])
+            >>> msa.indexed[b'seq1'].sequence
+            'ATGC'
+            >>> msa.indexed[b'seq3']
+            Traceback (most recent call last):
+            ...
+            KeyError: b'seq3'
+
+        .. versionadded:: 0.11.1
+
+        """
+        return _MSAIndex(self)
+
     # --- Utils --------------------------------------------------------------
+
+    cdef int _set_annotation(self, char** field, char* value) except 1 nogil:
+        cdef size_t alen = self._msa.alen
+        cdef size_t vlen
+        if value == NULL:
+            if field[0] == NULL:
+                free(field[0])
+        else:
+            vlen = strlen(value)
+            if vlen != alen:
+                raise ValueError(f"invalid length (expected {alen}, found {vlen})")
+            if field[0] == NULL:
+                field[0] = <char*> calloc(alen, sizeof(char))
+                if field[0] == NULL:
+                    raise AllocationError("char", sizeof(char), alen)
+            memcpy(field[0], value, alen * sizeof(char))
+        return 0
 
     cdef int _rehash(self) except 1 nogil:
         """Rehash the sequence names for faster lookup.
+
+        Raises:
+            `KeyError`: When the multiple sequence alignment contains
+                duplicate sequence names.
+
         """
         cdef int status = libeasel.msa.esl_msa_Hash(self._msa)
         if status == libeasel.eslOK:
             return 0
+        elif status == libeasel.eslEDUP:
+            raise KeyError("duplicate sequence names")
         else:
             raise UnexpectedError(status, "esl_msa_Hash")
 
@@ -3401,6 +3659,88 @@ cdef class MSA:
             return checksum
         else:
             raise UnexpectedError(status, "esl_msa_Checksum")
+
+    cpdef MSA select(self, sequences = None, columns = None):
+        """Select and copy a subset of the multiple sequence alignment.
+
+        Arguments:
+            sequences (iterable of `int`, or `None`): The indices of sequences
+                to retain in the alignment subset. If `None` given, retain
+                all sequences.
+            columns (iterable of `int`, or `None`): The indices of columns to
+                retain in the alignment subset. If `None` given, retain all
+                columns.
+
+        Raises:
+            `IndexError`: When given indices that are out of bounds for the
+                sequences or columns.
+
+        Example:
+            >>> s1 = TextSequence(name=b"seq1", sequence="ATGC")
+            >>> s2 = TextSequence(name=b"seq2", sequence="ATCC")
+            >>> s3 = TextSequence(name=b"seq3", sequence="ATGA")
+            >>> msa = TextMSA(name=b"msa", sequences=[s1, s2, s3])
+            >>> msa.select(sequences=[0, 2]).names
+            (b'seq1', b'seq3')
+            >>> tuple(msa.select(columns=range(1,4)).alignment)
+            ('TGC', 'TCC', 'TGA')
+
+        .. versionadded:: 0.11.1
+
+        """
+        assert self._msa != NULL
+
+        # NB: This function does a copy first just to set the Python object
+        #     properly; it would be
+
+        cdef size_t              i
+        cdef char[eslERRBUFSIZE] errbuf
+        cdef int                 status
+        cdef int*                mask   = NULL
+        cdef MSA                 msa    = self.copy()
+        cdef size_t              alen   = self._msa.alen
+        cdef size_t              nseq   = self._msa.nseq
+
+        try:
+            if sequences is not None:
+                # allocate mask array
+                mask = <int*> realloc(mask, sizeof(int) * nseq)
+                if mask == NULL:
+                    raise AllocationError("int", sizeof(int), nseq)
+                memset(mask, 0, sizeof(int) * nseq)
+                # build array from Python arguments
+                for i in sequences:
+                    if i >= nseq:
+                        raise IndexError(i)
+                    mask[i] = True
+                # clear old memory
+                libeasel.msa.esl_msa_Destroy(msa._msa)
+                # subset sequences
+                status = libeasel.msa.esl_msa_SequenceSubset(self._msa, mask, &msa._msa)
+                if status != libeasel.eslOK:
+                    _reraise_error()
+                    raise UnexpectedError(status, "esl_msa_SequenceSubset")
+            if columns is not None:
+                # allocate mask array
+                mask = <int*> realloc(mask, sizeof(int) * alen)
+                if mask == NULL:
+                    raise AllocationError("int", sizeof(int), alen)
+                memset(mask, 0, sizeof(int) * alen)
+                # build array from Python arguments
+                for i in columns:
+                    if i >= alen:
+                        raise IndexError(i)
+                    mask[i] = True
+                # subset sequences
+                status = libeasel.msa.esl_msa_ColumnSubset(msa._msa, <char*> &errbuf, mask)
+                if status != libeasel.eslOK:
+                    _reraise_error()
+                    raise UnexpectedError(status, "esl_msa_SequenceSubset")
+        finally:
+            free(mask)
+
+        return msa
+
 
     cpdef void write(self, object fh, str format) except *:
         """Write the multiple sequence alignement to a file handle.
@@ -3436,42 +3776,47 @@ cdef class MSA:
             raise UnexpectedError(status, "esl_sqascii_WriteFasta")
 
 
-cdef class _TextMSASequences(_MSASequences):
+class _TextMSASequences(_MSASequences):
     """A read-only view over the sequences of an MSA in text mode.
     """
 
     def __init__(self, TextMSA msa):
-        self.msa = msa
+        super().__init__(msa)
 
     def __getitem__(self, int idx):
-        assert self.msa._msa != NULL
-
         cdef int          status
         cdef TextSequence seq
+        cdef TextMSA      msa    = self.msa
+
+        assert msa._msa != NULL
 
         if idx < 0:
-            idx += self.msa._msa.nseq
-        if idx >= self.msa._msa.nseq or idx < 0:
+            idx += msa._msa.nseq
+        if idx >= msa._msa.nseq or idx < 0:
             raise IndexError("list index out of range")
 
         seq = TextSequence.__new__(TextSequence)
-        status = libeasel.sq.esl_sq_FetchFromMSA(self.msa._msa, idx, &seq._sq)
-
+        status = libeasel.sq.esl_sq_FetchFromMSA(msa._msa, idx, &seq._sq)
         if status == libeasel.eslOK:
+            # TODO(@althonos): This is needed at the moment because of a bug
+            #                  `esl_sq_FetchFromMSA`, remove when patch for
+            #                  EddyRivasLab/easel#80 is released.
+            seq._sq.abc = NULL
             return seq
         else:
             raise UnexpectedError(status, "esl_sq_FetchFromMSA")
 
     def __setitem__(self, int idx, TextSequence seq):
-        assert self.msa is not None
-        assert seq._sq != NULL
-
         cdef int status
         cdef int hash_index
+        cdef MSA msa        = self.msa
+
+        assert msa._msa != NULL
+        assert seq._sq != NULL
 
         if idx < 0:
-            idx += self.msa._msa.nseq
-        if idx >= self.msa._msa.nseq or idx < 0:
+            idx += msa._msa.nseq
+        if idx >= msa._msa.nseq or idx < 0:
             raise IndexError("list index out of range")
 
         # make sure the sequence has a name
@@ -3479,12 +3824,12 @@ cdef class _TextMSASequences(_MSASequences):
             raise ValueError("cannot set an alignment sequence with an empty name")
 
         # make sure the sequence has the right length
-        if len(seq) != len(self.msa):
+        if len(seq) != msa._msa.alen:
             raise ValueError("sequence does not have the expected length")
 
         # make sure inserting the sequence will not create a name duplicate
         status = libeasel.keyhash.esl_keyhash_Lookup(
-            self.msa._msa.index,
+            msa._msa.index,
             seq._sq.name,
             -1,
             &hash_index
@@ -3494,9 +3839,32 @@ cdef class _TextMSASequences(_MSASequences):
 
         # set the new sequence
         with nogil:
-            (<TextMSA> self.msa)._set_sequence(idx, seq._sq)
+            (<TextMSA> msa)._set_sequence(idx, seq._sq)
             if hash_index != idx:
-                self.msa._rehash()
+                msa._rehash()
+
+class _TextMSAAlignment(_MSAAlignment):
+    """A read-only view over the alignment of an MSA in text mode.
+
+    .. versionadded:: 0.11.1
+
+    """
+
+    def __init__(self, TextMSA msa):
+        super().__init__(msa)
+
+    def __getitem__(self, int idx):
+        cdef int          status
+        cdef MSA          msa    = self.msa
+
+        assert msa._msa != NULL
+
+        if idx < 0:
+            idx += msa._msa.nseq
+        if idx >= msa._msa.nseq or idx < 0:
+            raise IndexError("list index out of range")
+
+        return PyUnicode_DecodeASCII(msa._msa.aseq[idx], msa._msa.alen, NULL)
 
 
 cdef class TextMSA(MSA):
@@ -3507,6 +3875,7 @@ cdef class TextMSA(MSA):
 
     def __init__(
         self,
+        *args,
         bytes name=None,
         bytes description=None,
         bytes accession=None,
@@ -3514,10 +3883,10 @@ cdef class TextMSA(MSA):
         bytes author=None,
     ):
         """__init__(self, name=None, description=None, accession=None, sequences=None, author=None)\n--\n
-        
+
         Create a new text-mode alignment with the given ``sequences``.
 
-        Arguments:
+        Keyword Arguments:
             name (`bytes`, optional): The name of the alignment, if any.
             description (`bytes`, optional): The description of the
                 alignment, if any.
@@ -3545,7 +3914,28 @@ cdef class TextMSA(MSA):
         .. versionchanged:: 0.3.0
            Allow creating an alignment from an iterable of `TextSequence`.
 
+        .. deprecated:: 0.11.1
+            Passing positional arguments to constructor.
+
         """
+
+        # TODO: Remove in 0.12.0 (deprecation)
+        if len(args) > 0:
+            warnings.warn(
+                "TextMSA.__init__ will not accept positional arguments after v0.12.0",
+                category=DeprecationWarning
+            )
+            if len(args) > 0:
+                name = args[0]
+            if len(args) > 1:
+                description = args[1]
+            if len(args) > 2:
+                accession = args[2]
+            if len(args) > 3:
+                sequences = args[3]
+            if len(args) > 4:
+                author = args[4]
+
         cdef TextSequence seq
         cdef int          i
         cdef list         seqs  = [] if sequences is None else list(sequences)
@@ -3578,7 +3968,7 @@ cdef class TextMSA(MSA):
 
     @property
     def alignment(self):
-        """`tuple` of `str`: A view of the aligned sequences as strings.
+        """`collections.abc.Sequence`: A view of the aligned sequence data.
 
         This property gives access to the aligned sequences, including gap
         characters, so that they can be displayed or processed column by
@@ -3608,28 +3998,17 @@ cdef class TextMSA(MSA):
 
         .. versionadded:: 0.4.8
 
+        .. versionchanged:: 0.11.1
+           Change the return type to a lazy `collections.abc.Sequence`.
+
         """
         assert self._msa != NULL
         assert not (self._msa.flags & libeasel.msa.eslMSA_DIGITAL)
-
-        cdef int64_t i
-        cdef str     seq
-        cdef tuple   aligned
-
-        if self._msa.alen == 0 or self._msa.nseq == 0:
-            return ()
-
-        aligned = PyTuple_New(self._msa.nseq)
-        for i in range(self._msa.nseq):
-            seq = PyUnicode_DecodeASCII(self._msa.aseq[i], self._msa.alen, NULL)
-            Py_INCREF(seq) # refcount increased because PyTuple_SET_ITEM won't
-            PyTuple_SET_ITEM(aligned, i, seq)
-
-        return aligned
+        return _TextMSAAlignment(self)
 
     @property
     def sequences(self):
-        """`_TextMSASequences`: A view of the sequences in the alignment.
+        """`collections.abc.Sequence`: A view of the alignment sequences.
 
         This property lets you access the individual sequences in the
         multiple sequence alignment as `TextSequence` instances.
@@ -3750,43 +4129,47 @@ cdef class TextMSA(MSA):
             raise UnexpectedError(status, "esl_msa_Digitize")
 
 
-cdef class _DigitalMSASequences(_MSASequences):
+class _DigitalMSASequences(_MSASequences):
     """A read-only view over the sequences of an MSA in digital mode.
     """
 
+    __slots__ = ("msa", "alphabet")
+
     def __init__(self, DigitalMSA msa):
-        self.msa = msa
+        super().__init__(msa)
         self.alphabet = msa.alphabet
 
     def __getitem__(self, int idx):
-        assert self.msa._msa != NULL
-
         cdef int             status
         cdef DigitalSequence seq
+        cdef MSA             msa    = self.msa
+
+        assert msa._msa != NULL
 
         if idx < 0:
-            idx += self.msa._msa.nseq
-        if idx >= self.msa._msa.nseq or idx < 0:
+            idx += msa._msa.nseq
+        if idx >= msa._msa.nseq or idx < 0:
             raise IndexError("list index out of range")
 
         seq = DigitalSequence.__new__(DigitalSequence, self.alphabet)
         with nogil:
-            status = libeasel.sq.esl_sq_FetchFromMSA(self.msa._msa, idx, &seq._sq)
+            status = libeasel.sq.esl_sq_FetchFromMSA(msa._msa, idx, &seq._sq)
         if status != libeasel.eslOK:
             raise UnexpectedError(status, "esl_sq_FetchFromMSA")
 
         return seq
 
     def __setitem__(self, int idx, DigitalSequence seq):
-        assert self.msa is not None
-        assert seq._sq != NULL
-
         cdef int status
         cdef int hash_index
+        cdef MSA msa        = self.msa
+
+        assert msa._msa != NULL
+        assert seq._sq != NULL
 
         if idx < 0:
-            idx += self.msa._msa.nseq
-        if idx >= self.msa._msa.nseq or idx < 0:
+            idx += msa._msa.nseq
+        if idx >= msa._msa.nseq or idx < 0:
             raise IndexError("list index out of range")
 
         # make sure the sequence has a name
@@ -3794,16 +4177,16 @@ cdef class _DigitalMSASequences(_MSASequences):
             raise ValueError("cannot set an alignment sequence with an empty name")
 
         # make sure the sequence has the right length
-        if len(seq) != len(self.msa):
+        if len(seq) != msa._msa.alen:
             raise ValueError("sequence does not have the expected length")
 
         # make sure the sequence has the right alphabet
-        if not (<Alphabet> self.msa.alphabet)._eq(seq.alphabet):
-            raise AlphabetMismatch(self.msa.alphabet, seq.alphabet)
+        if not (<Alphabet> msa.alphabet)._eq(seq.alphabet):
+            raise AlphabetMismatch(msa.alphabet, seq.alphabet)
 
         # make sure inserting the sequence will not create a name duplicate
         status = libeasel.keyhash.esl_keyhash_Lookup(
-            self.msa._msa.index,
+            msa._msa.index,
             seq._sq.name,
             -1,
             &hash_index
@@ -3813,9 +4196,38 @@ cdef class _DigitalMSASequences(_MSASequences):
 
         # set the new sequence
         with nogil:
-            (<TextMSA> self.msa)._set_sequence(idx, (<TextSequence> seq)._sq)
+            (<DigitalMSA> msa)._set_sequence(idx, seq._sq)
             if hash_index != idx:
-                self.msa._rehash()
+                msa._rehash()
+
+
+class _DigitalMSAAlignment(_MSAAlignment):
+    """A read-only view over the alignment of an MSA in digital mode.
+
+    .. versionadded:: 0.11.1
+
+    """
+
+    def __init__(self, DigitalMSA msa):
+        super().__init__(msa)
+
+    def __getitem__(self, int idx):
+        cdef int          status
+        cdef VectorU8     row
+        cdef MSA          msa    = self.msa
+
+        assert msa._msa != NULL
+
+        if idx < 0:
+            idx += msa._msa.nseq
+        if idx >= msa._msa.nseq or idx < 0:
+            raise IndexError("list index out of range")
+
+        row = VectorU8.__new__(VectorU8)
+        row._n = row._shape[0] = msa._msa.alen
+        row._data = &msa._msa.ax[idx][1]
+        row._owner = self
+        return row
 
 
 cdef class DigitalMSA(MSA):
@@ -3827,6 +4239,64 @@ cdef class DigitalMSA(MSA):
 
     """
 
+    @classmethod
+    def sample(
+        cls,
+        Alphabet alphabet not None,
+        int max_sequences,
+        int max_length,
+        RandomnessOrSeed randomness = None,
+    ):
+        """Sample a sequence of length at most ``L`` at random.
+
+        Arguments:
+            alphabet (`~pyhmmer.easel.Alphabet`): The alphabet of the
+                multiple sequence alignment.
+            max_sequences (`int`): The maximum number of sequences to
+                sample for the alignment (the actual sequence number is
+                sampled).
+            max_length (`int`): The maximum length of the alignment to
+                generate (the actual sequence length is sampled).
+            randomness (`~pyhmmer.easel.Randomness`, `int` or `None`): The
+                random number generator to use for sampling, or a seed to
+                initialize a generator. If `None` or ``0`` given, create
+                a new random number generator with a random seed.
+
+        Returns:
+            `~pyhmmer.easel.DigitalMSA`: A new digital multiple sequence
+            alignment generated at random.
+
+        Hint:
+            This constructor is only useful for testing and should not be
+            used to generate random sequences to e.g. compute a background
+            distribution for a statistical method, since this function
+            samples alphabet residues at random irrespective of prior
+            frequences.
+
+        .. versionadded:: 0.11.1
+
+        """
+        cdef int        status
+        cdef Randomness rng
+        cdef DigitalMSA msa    = DigitalMSA.__new__(DigitalMSA, alphabet)
+
+        if RandomnessOrSeed is Randomness:
+            rng = randomness
+        else:
+            rng = Randomness(randomness)
+
+        status = libeasel.msa.esl_msa_Sample(
+            rng._rng,
+            alphabet._abc,
+            max_sequences,
+            max_length,
+            &msa._msa,
+        )
+        if status != libeasel.eslOK:
+            raise UnexpectedError(status, "esl_msa_Sample")
+
+        return msa
+
     # --- Magic methods ------------------------------------------------------
 
     def __cinit__(self, Alphabet alphabet, *args, **kwargs):
@@ -3836,6 +4306,7 @@ cdef class DigitalMSA(MSA):
     def __init__(
         self,
         Alphabet alphabet,
+        *args,
         bytes name=None,
         bytes description=None,
         bytes accession=None,
@@ -3843,11 +4314,13 @@ cdef class DigitalMSA(MSA):
         bytes author=None,
     ):
         """__init__(self, alphabet, name=None, description=None, accession=None, sequences=None, author=None)\n--\n
-        
+
         Create a new digital-mode alignment with the given ``sequences``.
 
         Arguments:
             alphabet (`Alphabet`): The alphabet of the alignmed sequences.
+
+        Keyword Arguments:
             name (`bytes`, optional): The name of the alignment, if any.
             description (`bytes`, optional): The description of the
                 alignment, if any.
@@ -3863,7 +4336,27 @@ cdef class DigitalMSA(MSA):
         .. versionchanged:: 0.3.0
            Allow creating an alignment from an iterable of `DigitalSequence`.
 
+        .. deprecated:: 0.11.1
+            Passing positional arguments other than ``alphabet``.
+
         """
+        # TODO: Remove in 0.12.0 (deprecation)
+        if len(args) > 0:
+            warnings.warn(
+                "DigitalMSA.__init__ will not accept positional arguments besides `alphabet` after v0.12.0",
+                category=DeprecationWarning
+            )
+            if len(args) > 0:
+                name = args[0]
+            if len(args) > 1:
+                description = args[1]
+            if len(args) > 2:
+                accession = args[2]
+            if len(args) > 3:
+                sequences = args[3]
+            if len(args) > 4:
+                author = args[4]
+
         cdef DigitalSequence seq
         cdef list            seqs  = [] if sequences is None else list(sequences)
         cdef set             names = { seq.name for seq in seqs }
@@ -3903,8 +4396,22 @@ cdef class DigitalMSA(MSA):
     # --- Properties ---------------------------------------------------------
 
     @property
+    def alignment(self):
+        """`collections.abc.Sequence`: A view of the aligned sequence data.
+
+        This property gives access to the aligned rows of the alignment
+        in their encoded form.
+
+        .. versionadded:: 0.11.1
+
+        """
+        assert self._msa != NULL
+        assert (self._msa.flags & libeasel.msa.eslMSA_DIGITAL)
+        return _DigitalMSAAlignment(self)
+
+    @property
     def sequences(self):
-        """`_DigitalMSASequences`: A view of the sequences in the alignment.
+        """`collections.abc.Sequence`: A view of the alignment sequences.
 
         This property lets you access the individual sequences in the
         multiple sequence alignment as `DigitalSequence` instances.
@@ -3987,6 +4494,114 @@ cdef class DigitalMSA(MSA):
             return new
         else:
             raise UnexpectedError(status, "esl_msa_Textize")
+
+    cpdef DigitalMSA identity_filter(
+        self,
+        float max_identity=0.8,
+        float fragment_threshold=libeasel.msaweight.eslMSAWEIGHT_FRAGTHRESH,
+        float consensus_fraction=libeasel.msaweight.eslMSAWEIGHT_SYMFRAC,
+        bint ignore_rf=libeasel.msaweight.eslMSAWEIGHT_IGNORE_RF,
+        bint sample=libeasel.msaweight.eslMSAWEIGHT_ALLOW_SAMP,
+        int sample_threshold=libeasel.msaweight.eslMSAWEIGHT_SAMPTHRESH,
+        int sample_count=libeasel.msaweight.eslMSAWEIGHT_NSAMP,
+        int max_fragments=libeasel.msaweight.eslMSAWEIGHT_MAXFRAG,
+        uint64_t seed=libeasel.msaweight.eslMSAWEIGHT_RNGSEED,
+        str preference="conscover",
+    ):
+        r"""Filter the alignment sequences by percent identity.
+
+        Arguments:
+            max_identity (`float`): The maximum fractional identity
+                allowed between two alignment sequences. Sequences with
+                fractional identity :math:`\geq` this number will be
+                removed, with the remaining one selected according to
+                the given ``preference``.
+
+        Keyword Arguments:
+            fragment_threshold (`float`): The threshold for determining
+                which sequences of the alignment are fragments. An
+                sequence spanning columns :math:`i` to :math:`j` of an
+                alignment of width :math:`W` will be flagged as a fragment
+                if :math:`\frac{j - i}{ W } < \text{fragment_threshold}`,
+            consensus_fraction (`float`): The parameter for determining
+                with columns of the alignment are consensus columns.
+                A column containing :math:`n` symbols and :math:`m` gaps
+                will be marked a consensus column if
+                :math:`\frac{n}{n + m} \ge \text{consensus_fraction}`.
+            ignore_rf (`bool`): Set to `True` to ignore the *RF* line
+                of the alignment (if present) and to force building the
+                consensus.
+            sample (`bool`): Whether or not to enable consensus determination
+                by subsampling for large alignments. Set to `False` to force
+                using all sequences.
+            sample_threshold (`int`): The minimum number of sequences the
+                alignment must contain to use subsampling for consensus
+                determination (when ``sample`` is `True`).
+            sample_count (`int`): The number of sequences to use when
+                determining consensus by random subsampling.
+            max_fragments (`int`): The maximum number of allowed fragments
+                in the sample used for determining consensus. If the sample
+                contains more than ``max_fragments`` fragments, the
+                consensus determination is done with all sequences instead.
+            seed (`int`): The seed to use for initializing the random
+                number generator (used when ``preference`` is ``random``
+                or when ``sample`` is `True`). If ``0`` or `None` is given,
+                an arbitrary seed will be chosen using the system clock.
+            preference (`str`): The strategy to use for selecting the
+                representative sequence in case of duplicates. Supported
+                strategies are ``conscover`` (the default), which prefers
+                the sequence with an alignment span that covers more
+                consensus columns; ``origorder`` to use the first sequence
+                in the original alignment order; and ``random`` to select
+                the sequence at random.
+
+        Returns:
+            `~pyhmmer.easel.MSA`: The multiple sequence alignments with
+            duplicate sequence removed. Unparsed Sotckholm markup is not
+            propagated.
+
+        """
+        assert self._msa != NULL
+
+        cdef int status
+        cdef int filterpref
+        cdef ESL_MSAWEIGHT_CFG cfg
+        cdef DigitalMSA msa = DigitalMSA.__new__(DigitalMSA, self.alphabet)
+
+        # validate arguments
+        if fragment_threshold < 0 or fragment_threshold > 1:
+            raise InvalidParameter("fragment_threshold", fragment_threshold, hint="real number between 0 and 1")
+        if consensus_fraction < 0 or consensus_fraction > 1:
+            raise InvalidParameter("consensus_fraction", consensus_fraction, hint="real number between 0 and 1")
+        if sample_threshold < 0:
+            raise InvalidParameter("sample_threshold", sample_threshold, hint="positive integer")
+        if sample_count < 0:
+            raise InvalidParameter("sample_count", sample_count, hint="positive integer")
+        if max_fragments < 0:
+            raise InvalidParameter("max_fragments", max_fragments, hint="positive integer")
+        if preference not in MSA_WEIGHT_PREFERENCES:
+            raise InvalidParameter("preference", preference, choices=list(MSA_WEIGHT_PREFERENCES))
+
+        # prepare configuration
+        cfg.fragthresh = fragment_threshold
+        cfg.symfrac = consensus_fraction
+        cfg.sampthresh = sample_threshold
+        cfg.ignore_rf = ignore_rf
+        cfg.allow_samp = sample
+        cfg.sampthresh = sample_threshold
+        cfg.nsamp = sample_count
+        cfg.maxfrag = max_fragments
+        cfg.seed = seed
+        cfg.filterpref = MSA_WEIGHT_PREFERENCES[preference]
+
+        # run filtering
+        with nogil:
+            status = libeasel.msaweight.esl_msaweight_IDFilter_adv(&cfg, self._msa, max_identity, &msa._msa)
+        if status != libeasel.eslOK:
+            raise UnexpectedError(status, "esl_msaweight_IDFilter_adv")
+
+        return msa
+
 
 
 # --- MSA File ---------------------------------------------------------------
@@ -4073,7 +4688,7 @@ cdef class MSAFile:
         Alphabet alphabet = None,
     ):
         """__init__(self, file, format=None, *, digital=False, alphabet=False)\n--\n
-        
+
         Create a new MSA file parser wrapping the given ``file``.
 
         Arguments:
@@ -4233,7 +4848,7 @@ cdef class MSAFile:
             `ValueError`: if this methods is called after the file was closed.
 
         Example:
-            >>> with MSAFile("tests/data/msa/laccase.clw") as mf:
+            >>> with MSAFile("tests/data/msa/LuxC.sto") as mf:
             ...     mf.guess_alphabet()
             Alphabet.amino()
 
@@ -4323,7 +4938,7 @@ cdef class Randomness:
 
     def __init__(self, object seed=None, bint fast=False):
         """__init__(self, seed=None, fast=False)\n--\n
-        
+
         Create a new random number generator with the given seed.
 
         Arguments:
@@ -4766,10 +5381,61 @@ cdef class TextSequence(Sequence):
 
     """
 
+    @classmethod
+    def sample(
+        cls,
+        int max_length,
+        RandomnessOrSeed randomness = None,
+    ):
+        """Sample a sequence of length at most ``L`` at random.
+
+        Arguments:
+            max_length (`int`): The maximum length of the sequence to
+                generate (the actual sequence length is sampled).
+            randomness (`~pyhmmer.easel.Randomness`, `int` or `None`): The
+                random number generator to use for sampling, or a seed to
+                initialize a generator. If `None` or ``0`` given, create
+                a new random number generator with a random seed.
+
+        Returns:
+            `~pyhmmer.easel.TextSequence`: A new text sequence generated
+            at random.
+
+        Hint:
+            This constructor is only useful for testing and should not be
+            used to generate random sequences to e.g. compute a background
+            distribution for a statistical method, since this function
+            samples alphabet residues at random irrespective of prior
+            frequences.
+
+        .. versionadded:: 0.11.1
+
+        """
+        cdef int          status
+        cdef Randomness   rng
+        cdef TextSequence seq    = TextSequence.__new__(TextSequence)
+
+        if RandomnessOrSeed is Randomness:
+            rng = randomness
+        else:
+            rng = Randomness(randomness)
+
+        status = libeasel.sq.esl_sq_Sample(
+            rng._rng,
+            NULL,
+            max_length,
+            &seq._sq
+        )
+        if status != libeasel.eslOK:
+            raise UnexpectedError(status, "esl_sq_Sample")
+
+        return seq
+
     # --- Magic methods ------------------------------------------------------
 
     def __init__(
         self,
+        *args,
         bytes name=None,
         bytes description=None,
         bytes accession=None,
@@ -4778,14 +5444,36 @@ cdef class TextSequence(Sequence):
         dict  residue_markups=None,
     ):
         """__init__(self, name=None, description=None, accession=None, sequence=None, source=None, residue_markups=None)\n--\n
-        
+
         Create a new text-mode sequence with the given attributes.
 
         .. versionadded:: 0.10.4
             The ``residue_markups`` argument.
 
+        .. deprecated:: 0.11.1
+            Passing positional arguments to constructor.
+
         """
         cdef bytes sq
+
+        # TODO: Remove in 0.12.0 (deprecation)
+        if len(args) > 0:
+            warnings.warn(
+                "TextSequence.__init__ will not accept positional arguments after v0.12.0",
+                category=DeprecationWarning
+            )
+            if len(args) > 0:
+                name = args[0]
+            if len(args) > 1:
+                description = args[1]
+            if len(args) > 2:
+                accession = args[2]
+            if len(args) > 3:
+                sequence = args[3]
+            if len(args) > 4:
+                source = args[4]
+            if len(args) > 5:
+                residue_markups = args[5]
 
         if sequence is not None:
             sq = sequence.encode("ascii")
@@ -4813,17 +5501,16 @@ cdef class TextSequence(Sequence):
         assert self._sq.acc != NULL
 
     def __reduce__(self):
-        return (
+        constructor = functools.partial(
             type(self),
-            (
-                self.name,
-                self.description,
-                self.accession,
-                self.sequence,
-                self.source,
-                self.residue_markups,
-            )
+            name=self.name,
+            description=self.description,
+            accession=self.accession,
+            sequence=self.sequence,
+            source=self.source,
+            residue_markups=self.residue_markups,
         )
+        return constructor, ()
 
     def __getbuffer__(self, Py_buffer* buffer, int flags):
         assert self._sq != NULL
@@ -4971,6 +5658,59 @@ cdef class DigitalSequence(Sequence):
 
     """
 
+    @classmethod
+    def sample(
+        cls,
+        Alphabet alphabet not None,
+        int max_length,
+        RandomnessOrSeed randomness = None,
+    ):
+        """Sample a sequence of length at most ``L`` at random.
+
+        Arguments:
+            alphabet (`~pyhmmer.easel.Alphabet`): The alphabet of the
+                sequence.
+            max_length (`int`): The maximum length of the sequence to
+                generate (the actual sequence length is sampled).
+            randomness (`~pyhmmer.easel.Randomness`, `int` or `None`): The
+                random number generator to use for sampling, or a seed to
+                initialize a generator. If `None` or ``0`` given, create
+                a new random number generator with a random seed.
+
+        Returns:
+            `~pyhmmer.easel.DigitalSequence`: A new digital sequence
+            generated at random, including degenerate symbols.
+
+        Hint:
+            This constructor is only useful for testing and should not be
+            used to generate random sequences to e.g. compute a background
+            distribution for a statistical method, since this function
+            samples alphabet residues at random irrespective of prior
+            frequences.
+
+        .. versionadded:: 0.11.1
+
+        """
+        cdef int             status
+        cdef Randomness      rng
+        cdef DigitalSequence seq    = DigitalSequence.__new__(DigitalSequence, alphabet)
+
+        if RandomnessOrSeed is Randomness:
+            rng = randomness
+        else:
+            rng = Randomness(randomness)
+
+        status = libeasel.sq.esl_sq_Sample(
+            rng._rng,
+            alphabet._abc,
+            max_length,
+            &seq._sq
+        )
+        if status != libeasel.eslOK:
+            raise UnexpectedError(status, "esl_sq_Sample")
+
+        return seq
+
     # --- Magic methods ------------------------------------------------------
 
     def __cinit__(self, Alphabet alphabet, *args, **kwargs):
@@ -4978,6 +5718,7 @@ cdef class DigitalSequence(Sequence):
 
     def __init__(self,
               Alphabet              alphabet      not None,
+              *args,
               bytes                 name            = None,
               bytes                 description     = None,
               bytes                 accession       = None,
@@ -4986,7 +5727,7 @@ cdef class DigitalSequence(Sequence):
               dict                  residue_markups = None,
     ):
         """__init__(self, alphabet, name=None, description=None, accession=None, sequence=None, source=None, residue_markups=None)\n--\n
-        
+
         Create a new digital-mode sequence with the given attributes.
 
         Raises:
@@ -4998,10 +5739,32 @@ cdef class DigitalSequence(Sequence):
         .. versionadded:: 0.10.4
             The ``residue_markups`` argument.
 
+        .. deprecated:: 0.11.1
+            Passing positional arguments other than ``alphabet``.
+
         """
         cdef int     status
         cdef int64_t i
         cdef int64_t n
+
+        # TODO: Remove in 0.12.0 (deprecation)
+        if len(args) > 0:
+            warnings.warn(
+                "DigitalSequence.__init__ will not accept positional arguments besides `alphabet` after v0.12.0",
+                category=DeprecationWarning
+            )
+            if len(args) > 0:
+                name = args[0]
+            if len(args) > 1:
+                description = args[1]
+            if len(args) > 2:
+                accession = args[2]
+            if len(args) > 3:
+                sequence = args[3]
+            if len(args) > 4:
+                source = args[4]
+            if len(args) > 5:
+                residue_markups = args[5]
 
         # create an empty digital sequence
         self._sq = libeasel.sq.esl_sq_CreateDigital(alphabet._abc)
@@ -5050,18 +5813,16 @@ cdef class DigitalSequence(Sequence):
         assert self._sq.acc != NULL
 
     def __reduce__(self):
-        return (
+        constructor = functools.partial(
             type(self),
-            (
-                self.alphabet,
-                self.name,
-                self.description,
-                self.accession,
-                self.sequence,
-                self.source,
-                self.residue_markups,
-            )
+            name=self.name,
+            description=self.description,
+            accession=self.accession,
+            sequence=self.sequence,
+            source=self.source,
+            residue_markups=self.residue_markups,
         )
+        return constructor, (self.alphabet,)
 
     def __getbuffer__(self, Py_buffer* buffer, int flags):
         assert self._sq != NULL
@@ -5272,6 +6033,58 @@ cdef class DigitalSequence(Sequence):
 
 # --- Sequence Block ---------------------------------------------------------
 
+class _SequenceBlockIndex(collections.abc.Mapping):
+    """A read-only mapping of sequence names to sequences of a block.
+    """
+    __slots__ = ("block",)
+
+    def __init__(self, SequenceBlock block):
+        self.block = block
+        if len(block._indexed) != len(block):
+            with nogil:
+                block._rehash()
+
+    def __len__(self):
+        cdef SequenceBlock block = self.block
+        return libeasel.keyhash.esl_keyhash_GetNumber(block._indexed._kh)
+
+    def __getitem__(self, object item):
+        cdef int                      status
+        cdef int                      index  = -1
+        cdef const unsigned char[::1] key    = item
+        cdef esl_pos_t                length = key.shape[0]
+        cdef SequenceBlock            block  = self.block
+
+        assert block._indexed is not None
+        assert block._indexed._kh != NULL
+
+        with nogil:
+            status = libeasel.keyhash.esl_keyhash_Lookup(
+                block._indexed._kh,
+                <const char*> &key[0],
+                length,
+                &index
+            )
+        if status == libeasel.eslOK:
+            return block[index]
+        elif status == libeasel.eslENOTFOUND:
+            raise KeyError(item)
+        else:
+            raise UnexpectedError(status, "esl_keyhash_Lookup")
+
+    def __iter__(self):
+        cdef size_t        i
+        cdef size_t        length
+        cdef SequenceBlock block  = self.block
+
+        assert block._indexed is not None
+        assert block._indexed._kh != NULL
+
+        length = libeasel.keyhash.esl_keyhash_GetNumber(block._indexed._kh)
+        for i in range(length):
+            yield <bytes> libeasel.keyhash.esl_keyhash_Get(block._indexed._kh, i)
+
+
 cdef class SequenceBlock:
     """An abstract container for storing `Sequence` objects.
 
@@ -5306,6 +6119,7 @@ cdef class SequenceBlock:
         self._storage = []
         self._largest = -1
         self._owner = None
+        self._indexed = KeyHash()
 
     def __init__(self):
         raise TypeError("Can't instantiate abstract class 'SequenceBlock'")
@@ -5373,6 +6187,36 @@ cdef class SequenceBlock:
     def __sizeof__(self):
         return sizeof(self) + self._capacity * sizeof(ESL_SQ*)
 
+    # --- Properties ---------------------------------------------------------
+
+    @property
+    def indexed(self):
+        """`~collections.abc.Mapping`: A mapping of names to sequences.
+
+        This property can be used to access the sequence of a sequence block
+        by name. An index is created the first time this property is accessed.
+        An error is raised if the block contains duplicate sequence names.
+
+        Raises:
+            `KeyError`: When attempting to create an index for an alignment
+                containing duplicate sequence names.
+
+        Example:
+            >>> s1 = TextSequence(name=b"seq1", sequence="ATGC")
+            >>> s2 = TextSequence(name=b"seq2", sequence="ATTA")
+            >>> block = TextSequenceBlock([s1, s2])
+            >>> block.indexed[b'seq1'].sequence
+            'ATGC'
+            >>> block.indexed[b'seq3']
+            Traceback (most recent call last):
+            ...
+            KeyError: b'seq3'
+
+        .. versionadded:: 0.11.1
+
+        """
+        return _SequenceBlockIndex(self)
+
     # --- C methods ----------------------------------------------------------
 
     cdef void _allocate(self, size_t n) except *:
@@ -5390,8 +6234,35 @@ cdef class SequenceBlock:
         # for i in range(self._length, self._capacity):
         #     self._refs[i] = NULL
 
-    cdef void _on_modification(self) except *:
+    cdef void _on_modification(self) noexcept:
         self._largest = -1 # invalidate cache
+        self._indexed.clear()
+
+    cdef int _rehash(self) except 1 nogil:
+        assert self._indexed is not None
+        assert self._indexed._kh != NULL
+
+        cdef size_t      idx
+        cdef const char* name
+        cdef int         status
+
+        status = libeasel.keyhash.esl_keyhash_Reuse(self._indexed._kh)
+        if status != libeasel.eslOK:
+            raise UnexpectedError(status, "esl_keyhash_Reuse")
+
+        for idx in range(self._length):
+            status = libeasel.keyhash.esl_keyhash_Store(
+                self._indexed._kh,
+                self._refs[idx].name,
+                -1,
+                NULL,
+            )
+            if status == libeasel.eslEDUP:
+                raise KeyError("duplicate keys in sequence block")
+            elif status != libeasel.eslOK:
+                raise UnexpectedError(status, "esl_keyhash_Store")
+
+        return 0
 
     # --- Python methods -----------------------------------------------------
 
@@ -5575,7 +6446,7 @@ cdef class TextSequenceBlock(SequenceBlock):
         return False
 
     def __reduce__(self):
-        return (type(self), (), None, iter(self))
+        return type(self), (), None, iter(self)
 
     # --- Python methods -----------------------------------------------------
 
@@ -5666,7 +6537,7 @@ cdef class DigitalSequenceBlock(SequenceBlock):
 
     def __init__(self, Alphabet alphabet not None, object iterable = ()):
         """__init__(self, alphabet, iterable=())\n--\n
-        
+
         Create a new digital sequence block with the given alphabet.
 
         Arguments:
@@ -5727,7 +6598,7 @@ cdef class DigitalSequenceBlock(SequenceBlock):
         return False
 
     def __reduce__(self):
-        return (type(self), (self.alphabet,), None, iter(self))
+        return type(self), (self.alphabet,), None, iter(self)
 
     # --- Python methods -----------------------------------------------------
 
@@ -5803,7 +6674,7 @@ cdef class DigitalSequenceBlock(SequenceBlock):
                 recognized, or because the sequence has an invalid length.
 
         See Also:
-            `DigitalSequence.translate` for more information on how 
+            `DigitalSequence.translate` for more information on how
             ambiguous nucleotides are handled.
 
         """
@@ -6209,7 +7080,7 @@ cdef class SequenceFile:
         Alphabet alphabet = None,
     ):
         """__init__(self, file, format=None, *, digital=False, alphabet=None)\n--\n
-        
+
         Create a new sequence file parser wrapping the given ``file``.
 
         Arguments:
@@ -6649,7 +7520,7 @@ cdef class SSIReader:
 
     def __init__(self, object file):
         """__init__(self, file)\n--\n
-        
+
         Create a new SSI file reader for the file at the given location.
 
         Arguments:
@@ -6743,7 +7614,7 @@ cdef class SSIWriter:
 
     def __init__(self, object file, bint exclusive = False):
         """__init__(self, file, exclusive=False)\n--\n
-        
+
         Create a new SSI file write for the file at the given location.
 
         Arguments:

@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -35,6 +35,7 @@ class EmailPreview(object):
     """
     openapi_types = {
         'id': 'str',
+        'inbox_id': 'str',
         'domain_id': 'str',
         'subject': 'str',
         'to': 'list[str]',
@@ -43,11 +44,21 @@ class EmailPreview(object):
         'cc': 'list[str]',
         'created_at': 'datetime',
         'read': 'bool',
-        'attachments': 'list[str]'
+        'attachments': 'list[str]',
+        'thread_id': 'str',
+        'message_id': 'str',
+        'in_reply_to': 'str',
+        'sender': 'Sender',
+        'recipients': 'EmailRecipients',
+        'favourite': 'bool',
+        'body_part_content_types': 'list[str]',
+        'plus_address': 'str',
+        'size_bytes': 'int'
     }
 
     attribute_map = {
         'id': 'id',
+        'inbox_id': 'inboxId',
         'domain_id': 'domainId',
         'subject': 'subject',
         'to': 'to',
@@ -56,16 +67,26 @@ class EmailPreview(object):
         'cc': 'cc',
         'created_at': 'createdAt',
         'read': 'read',
-        'attachments': 'attachments'
+        'attachments': 'attachments',
+        'thread_id': 'threadId',
+        'message_id': 'messageId',
+        'in_reply_to': 'inReplyTo',
+        'sender': 'sender',
+        'recipients': 'recipients',
+        'favourite': 'favourite',
+        'body_part_content_types': 'bodyPartContentTypes',
+        'plus_address': 'plusAddress',
+        'size_bytes': 'sizeBytes'
     }
 
-    def __init__(self, id=None, domain_id=None, subject=None, to=None, _from=None, bcc=None, cc=None, created_at=None, read=None, attachments=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, inbox_id=None, domain_id=None, subject=None, to=None, _from=None, bcc=None, cc=None, created_at=None, read=None, attachments=None, thread_id=None, message_id=None, in_reply_to=None, sender=None, recipients=None, favourite=None, body_part_content_types=None, plus_address=None, size_bytes=None, local_vars_configuration=None):  # noqa: E501
         """EmailPreview - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._id = None
+        self._inbox_id = None
         self._domain_id = None
         self._subject = None
         self._to = None
@@ -75,9 +96,19 @@ class EmailPreview(object):
         self._created_at = None
         self._read = None
         self._attachments = None
+        self._thread_id = None
+        self._message_id = None
+        self._in_reply_to = None
+        self._sender = None
+        self._recipients = None
+        self._favourite = None
+        self._body_part_content_types = None
+        self._plus_address = None
+        self._size_bytes = None
         self.discriminator = None
 
         self.id = id
+        self.inbox_id = inbox_id
         self.domain_id = domain_id
         self.subject = subject
         self.to = to
@@ -87,6 +118,15 @@ class EmailPreview(object):
         self.created_at = created_at
         self.read = read
         self.attachments = attachments
+        self.thread_id = thread_id
+        self.message_id = message_id
+        self.in_reply_to = in_reply_to
+        self.sender = sender
+        self.recipients = recipients
+        self.favourite = favourite
+        self.body_part_content_types = body_part_content_types
+        self.plus_address = plus_address
+        self.size_bytes = size_bytes
 
     @property
     def id(self):
@@ -112,6 +152,29 @@ class EmailPreview(object):
             raise ValueError("Invalid value for `id`, must not be `None`")  # noqa: E501
 
         self._id = id
+
+    @property
+    def inbox_id(self):
+        """Gets the inbox_id of this EmailPreview.  # noqa: E501
+
+        ID of the inbox that received the email  # noqa: E501
+
+        :return: The inbox_id of this EmailPreview.  # noqa: E501
+        :rtype: str
+        """
+        return self._inbox_id
+
+    @inbox_id.setter
+    def inbox_id(self, inbox_id):
+        """Sets the inbox_id of this EmailPreview.
+
+        ID of the inbox that received the email  # noqa: E501
+
+        :param inbox_id: The inbox_id of this EmailPreview.  # noqa: E501
+        :type: str
+        """
+
+        self._inbox_id = inbox_id
 
     @property
     def domain_id(self):
@@ -323,6 +386,201 @@ class EmailPreview(object):
         """
 
         self._attachments = attachments
+
+    @property
+    def thread_id(self):
+        """Gets the thread_id of this EmailPreview.  # noqa: E501
+
+        MailSlurp thread ID for email chain that enables lookup for In-Reply-To and References fields.  # noqa: E501
+
+        :return: The thread_id of this EmailPreview.  # noqa: E501
+        :rtype: str
+        """
+        return self._thread_id
+
+    @thread_id.setter
+    def thread_id(self, thread_id):
+        """Sets the thread_id of this EmailPreview.
+
+        MailSlurp thread ID for email chain that enables lookup for In-Reply-To and References fields.  # noqa: E501
+
+        :param thread_id: The thread_id of this EmailPreview.  # noqa: E501
+        :type: str
+        """
+
+        self._thread_id = thread_id
+
+    @property
+    def message_id(self):
+        """Gets the message_id of this EmailPreview.  # noqa: E501
+
+        RFC 5322 Message-ID header value without angle brackets.  # noqa: E501
+
+        :return: The message_id of this EmailPreview.  # noqa: E501
+        :rtype: str
+        """
+        return self._message_id
+
+    @message_id.setter
+    def message_id(self, message_id):
+        """Sets the message_id of this EmailPreview.
+
+        RFC 5322 Message-ID header value without angle brackets.  # noqa: E501
+
+        :param message_id: The message_id of this EmailPreview.  # noqa: E501
+        :type: str
+        """
+
+        self._message_id = message_id
+
+    @property
+    def in_reply_to(self):
+        """Gets the in_reply_to of this EmailPreview.  # noqa: E501
+
+        Parsed value of In-Reply-To header. A Message-ID in a thread.  # noqa: E501
+
+        :return: The in_reply_to of this EmailPreview.  # noqa: E501
+        :rtype: str
+        """
+        return self._in_reply_to
+
+    @in_reply_to.setter
+    def in_reply_to(self, in_reply_to):
+        """Sets the in_reply_to of this EmailPreview.
+
+        Parsed value of In-Reply-To header. A Message-ID in a thread.  # noqa: E501
+
+        :param in_reply_to: The in_reply_to of this EmailPreview.  # noqa: E501
+        :type: str
+        """
+
+        self._in_reply_to = in_reply_to
+
+    @property
+    def sender(self):
+        """Gets the sender of this EmailPreview.  # noqa: E501
+
+
+        :return: The sender of this EmailPreview.  # noqa: E501
+        :rtype: Sender
+        """
+        return self._sender
+
+    @sender.setter
+    def sender(self, sender):
+        """Sets the sender of this EmailPreview.
+
+
+        :param sender: The sender of this EmailPreview.  # noqa: E501
+        :type: Sender
+        """
+
+        self._sender = sender
+
+    @property
+    def recipients(self):
+        """Gets the recipients of this EmailPreview.  # noqa: E501
+
+
+        :return: The recipients of this EmailPreview.  # noqa: E501
+        :rtype: EmailRecipients
+        """
+        return self._recipients
+
+    @recipients.setter
+    def recipients(self, recipients):
+        """Sets the recipients of this EmailPreview.
+
+
+        :param recipients: The recipients of this EmailPreview.  # noqa: E501
+        :type: EmailRecipients
+        """
+
+        self._recipients = recipients
+
+    @property
+    def favourite(self):
+        """Gets the favourite of this EmailPreview.  # noqa: E501
+
+
+        :return: The favourite of this EmailPreview.  # noqa: E501
+        :rtype: bool
+        """
+        return self._favourite
+
+    @favourite.setter
+    def favourite(self, favourite):
+        """Sets the favourite of this EmailPreview.
+
+
+        :param favourite: The favourite of this EmailPreview.  # noqa: E501
+        :type: bool
+        """
+
+        self._favourite = favourite
+
+    @property
+    def body_part_content_types(self):
+        """Gets the body_part_content_types of this EmailPreview.  # noqa: E501
+
+
+        :return: The body_part_content_types of this EmailPreview.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._body_part_content_types
+
+    @body_part_content_types.setter
+    def body_part_content_types(self, body_part_content_types):
+        """Sets the body_part_content_types of this EmailPreview.
+
+
+        :param body_part_content_types: The body_part_content_types of this EmailPreview.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._body_part_content_types = body_part_content_types
+
+    @property
+    def plus_address(self):
+        """Gets the plus_address of this EmailPreview.  # noqa: E501
+
+
+        :return: The plus_address of this EmailPreview.  # noqa: E501
+        :rtype: str
+        """
+        return self._plus_address
+
+    @plus_address.setter
+    def plus_address(self, plus_address):
+        """Sets the plus_address of this EmailPreview.
+
+
+        :param plus_address: The plus_address of this EmailPreview.  # noqa: E501
+        :type: str
+        """
+
+        self._plus_address = plus_address
+
+    @property
+    def size_bytes(self):
+        """Gets the size_bytes of this EmailPreview.  # noqa: E501
+
+
+        :return: The size_bytes of this EmailPreview.  # noqa: E501
+        :rtype: int
+        """
+        return self._size_bytes
+
+    @size_bytes.setter
+    def size_bytes(self, size_bytes):
+        """Sets the size_bytes of this EmailPreview.
+
+
+        :param size_bytes: The size_bytes of this EmailPreview.  # noqa: E501
+        :type: int
+        """
+
+        self._size_bytes = size_bytes
 
     def to_dict(self):
         """Returns the model properties as a dict"""

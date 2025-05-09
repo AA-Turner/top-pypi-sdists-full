@@ -125,7 +125,7 @@ class ChalkErrorConverter:
 
     @staticmethod
     def chalk_exception_decode(exception_proto: chalk_error_pb2.ChalkException) -> ChalkException:
-        return ChalkException(
+        return ChalkException.create(
             kind=exception_proto.kind,
             message=exception_proto.message,
             stacktrace=exception_proto.stacktrace,
@@ -160,7 +160,7 @@ class ChalkErrorConverter:
             chalk_exception = ChalkErrorConverter.chalk_exception_decode(error_proto.exception)
         else:
             chalk_exception = None
-        return ChalkError(
+        return ChalkError.create(
             code=ChalkErrorConverter._chalk_error_code_decode(error_proto.code),
             category=ChalkErrorConverter._chalk_error_code_category_decode(error_proto.category),
             message=error_proto.message,
@@ -581,7 +581,7 @@ class OnlineQueryConverter:
         if online_query_result_feather.errors:
             for error in online_query_result_feather.errors:
                 json_error = json.loads(error)
-                chalk_error = ChalkError(**json_error)
+                chalk_error = ChalkError.create(**json_error)
                 chalk_error_proto = chalk_error_pb2.ChalkError()
                 chalk_error_proto.CopyFrom(ChalkErrorConverter.chalk_error_encode(chalk_error))
                 proto_response.errors.append(chalk_error_proto)

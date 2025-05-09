@@ -19,7 +19,7 @@ import click
 from click import ClickException
 from localstack.cli import console
 from localstack.utils.analytics.cli import publish_invocation
-from localstack.utils.container_utils.container_client import ContainerConfiguration,ContainerConfigurator,ContainerException,VolumeBind
+from localstack.utils.container_utils.container_client import BindMount,ContainerConfiguration,ContainerConfigurator,ContainerException
 from rich.status import Status
 from rich.table import Table
 from.cli import RequiresLicenseGroup
@@ -41,7 +41,7 @@ def cmd_extensions_install(ctx,name):
 	if B.startswith('file://'):
 		A=B[7:]
 		if not os.path.exists(A):raise ClickException(f"No such file {A}")
-		A=os.path.abspath(A);B=f"/tmp/{os.path.basename(A)}";C.append(lambda cfg:cfg.volumes.add(VolumeBind(A,B)))
+		A=os.path.abspath(A);B=f"/tmp/{os.path.basename(A)}";C.append(lambda cfg:cfg.volumes.add(BindMount(A,B)))
 	D=console.status(_L)
 	with D:_ensure_venv_initialized();E=_stream_localstack_container_command([_PYTHON_IN_CONTAINER,_C,_D,_M,B],C);_process_extensions_event_stream(E,D,ctx.obj[_H])
 @extensions.command(_N,help='\n    Remove a LocalStack extension.\n\n    This command removes a previously installed LocalStack extension, where the name can be any valid package name.\n\n    \x08\n    Example invocations:\n        localstack extensions uninstall localstack-extension-stripe\n    ')

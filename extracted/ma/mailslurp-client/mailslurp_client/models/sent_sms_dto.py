@@ -3,7 +3,7 @@
 """
     MailSlurp API
 
-    MailSlurp is an API for sending and receiving emails from dynamically allocated email addresses. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
+    MailSlurp is an API for sending and receiving emails and SMS from dynamically allocated email addresses and phone numbers. It's designed for developers and QA teams to test applications, process inbound emails, send templated notifications, attachments, and more.  ## Resources  - [Homepage](https://www.mailslurp.com) - Get an [API KEY](https://app.mailslurp.com/sign-up/) - Generated [SDK Clients](https://docs.mailslurp.com/) - [Examples](https://github.com/mailslurp/examples) repository  # noqa: E501
 
     The version of the OpenAPI document: 6.5.2
     Contact: contact@mailslurp.dev
@@ -87,8 +87,10 @@ class SentSmsDto(object):
         self.to_number = to_number
         self.body = body
         self.sid = sid
-        self.reply_to_sid = reply_to_sid
-        self.reply_to_id = reply_to_id
+        if reply_to_sid is not None:
+            self.reply_to_sid = reply_to_sid
+        if reply_to_id is not None:
+            self.reply_to_id = reply_to_id
         self.created_at = created_at
         self.updated_at = updated_at
 
@@ -271,8 +273,6 @@ class SentSmsDto(object):
         :param reply_to_sid: The reply_to_sid of this SentSmsDto.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and reply_to_sid is None:  # noqa: E501
-            raise ValueError("Invalid value for `reply_to_sid`, must not be `None`")  # noqa: E501
 
         self._reply_to_sid = reply_to_sid
 
@@ -294,8 +294,6 @@ class SentSmsDto(object):
         :param reply_to_id: The reply_to_id of this SentSmsDto.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and reply_to_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `reply_to_id`, must not be `None`")  # noqa: E501
 
         self._reply_to_id = reply_to_id
 

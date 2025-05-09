@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: localstack-ext
-Version: 4.3.0
+Version: 4.4.0
 Summary: Extensions for LocalStack
 Author-email: LocalStack Team <info@localstack.cloud>
-License: Proprietary
+License-Expression: LicenseRef-All-Rights-Reserved
 Project-URL: Homepage, https://localstack.cloud
 Project-URL: Documentation, https://docs.localstack.cloud
 Project-URL: Issues, https://github.com/localstack/localstack/issues
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
-Classifier: License :: Other/Proprietary License
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Emulators
@@ -20,9 +19,9 @@ Requires-Dist: dnspython>=1.16.0
 Requires-Dist: packaging
 Requires-Dist: build
 Requires-Dist: plux>=1.10.0
-Requires-Dist: localstack-core==4.3.0
+Requires-Dist: localstack-core==4.4.0
 Requires-Dist: pyotp>=2.9.0
-Requires-Dist: python-jose[cryptography]>=3.1.0
+Requires-Dist: PyJWT[crypto]>=1.7.0
 Requires-Dist: requests>=2.20.0
 Requires-Dist: python-dateutil>=2.8
 Requires-Dist: tabulate
@@ -32,9 +31,10 @@ Requires-Dist: amazon.ion>=0.9.3; extra == "runtime"
 Requires-Dist: avro>=1.11.0; extra == "runtime"
 Requires-Dist: aws-encryption-sdk>=3.1.0; extra == "runtime"
 Requires-Dist: aws-json-term-matcher>=0.1.5; extra == "runtime"
+Requires-Dist: cedarpy>=4.1.0; extra == "runtime"
 Requires-Dist: dirtyjson>=1.0.7; extra == "runtime"
 Requires-Dist: distro; extra == "runtime"
-Requires-Dist: docker-registry-client>=0.5.2; extra == "runtime"
+Requires-Dist: python-dxf>=12.1.1; extra == "runtime"
 Requires-Dist: dulwich>=0.19.16; extra == "runtime"
 Requires-Dist: graphql-core>=3.0.3; extra == "runtime"
 Requires-Dist: janus>=0.5.0; extra == "runtime"
@@ -42,8 +42,8 @@ Requires-Dist: jsonpatch>=1.32; extra == "runtime"
 Requires-Dist: kafka-python; extra == "runtime"
 Requires-Dist: confluent-kafka; extra == "runtime"
 Requires-Dist: kubernetes>=21.7.0; extra == "runtime"
-Requires-Dist: libvirt-python==10.2.0; extra == "runtime"
-Requires-Dist: localstack-core[runtime]==4.3.0; extra == "runtime"
+Requires-Dist: libvirt-python; extra == "runtime"
+Requires-Dist: localstack-core[runtime]==4.4.0; extra == "runtime"
 Requires-Dist: paho-mqtt>=1.5; extra == "runtime"
 Requires-Dist: parquet[snappy]>=1.3.1; extra == "runtime"
 Requires-Dist: parse>=1.19.0; extra == "runtime"
@@ -58,7 +58,6 @@ Requires-Dist: pure-sasl>=0.6.2; extra == "runtime"
 Requires-Dist: thrift>=0.10.0; extra == "runtime"
 Requires-Dist: thrift_sasl>=0.1.0; extra == "runtime"
 Requires-Dist: pyion2json>=0.0.2; extra == "runtime"
-Requires-Dist: PyJWT>=1.7.0; extra == "runtime"
 Requires-Dist: pymysql; extra == "runtime"
 Requires-Dist: mysql-replication; extra == "runtime"
 Requires-Dist: pproxy-ext>=2.7.9; extra == "runtime"
@@ -72,12 +71,12 @@ Requires-Dist: sqlglot[rs]; extra == "runtime"
 Requires-Dist: srp-ext>=1.0.7.1; extra == "runtime"
 Requires-Dist: testing.common.database>=1.1.0; extra == "runtime"
 Requires-Dist: tornado>=6.0; extra == "runtime"
-Requires-Dist: warrant-ext>=0.6.2; extra == "runtime"
+Requires-Dist: pycognito>=2024.5.1; extra == "runtime"
 Requires-Dist: websockets<14,>=8.1; extra == "runtime"
 Requires-Dist: Whoosh>=2.7.4; extra == "runtime"
 Provides-Extra: test
 Requires-Dist: localstack-ext[runtime]; extra == "test"
-Requires-Dist: pytest-httpserver<1.1.2,>=1.0.1; extra == "test"
+Requires-Dist: pytest-httpserver>=1.0.1; extra == "test"
 Requires-Dist: aiohttp; extra == "test"
 Requires-Dist: async-timeout; extra == "test"
 Requires-Dist: awsiotsdk; extra == "test"
@@ -87,7 +86,7 @@ Requires-Dist: coverage[toml]>=5.0.0; extra == "test"
 Requires-Dist: deepdiff>=5.5.0; extra == "test"
 Requires-Dist: gremlinpython; extra == "test"
 Requires-Dist: jws>=0.1.3; extra == "test"
-Requires-Dist: localstack-core[test]==4.3.0; extra == "test"
+Requires-Dist: localstack-core[test]==4.4.0; extra == "test"
 Requires-Dist: msal; extra == "test"
 Requires-Dist: msal-extensions; extra == "test"
 Requires-Dist: msrest; extra == "test"

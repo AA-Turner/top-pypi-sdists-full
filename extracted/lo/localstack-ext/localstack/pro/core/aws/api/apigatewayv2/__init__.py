@@ -76,6 +76,11 @@ class IntegrationType(StrEnum):
     AWS_PROXY = "AWS_PROXY"
 
 
+class IpAddressType(StrEnum):
+    ipv4 = "ipv4"
+    dualstack = "dualstack"
+
+
 class LoggingLevel(StrEnum):
     ERROR = "ERROR"
     INFO = "INFO"
@@ -203,6 +208,7 @@ class Api(TypedDict, total=False):
     DisableSchemaValidation: Optional[_boolean]
     DisableExecuteApiEndpoint: Optional[_boolean]
     ImportInfo: Optional[_listOf__string]
+    IpAddressType: Optional[IpAddressType]
     Name: StringWithLengthBetween1And128
     ProtocolType: ProtocolType
     RouteSelectionExpression: SelectionExpression
@@ -332,6 +338,7 @@ class CreateApiRequest(ServiceRequest):
     Description: Optional[StringWithLengthBetween0And1024]
     DisableSchemaValidation: Optional[_boolean]
     DisableExecuteApiEndpoint: Optional[_boolean]
+    IpAddressType: Optional[IpAddressType]
     Name: StringWithLengthBetween1And128
     ProtocolType: ProtocolType
     RouteKey: Optional[SelectionKey]
@@ -352,6 +359,7 @@ class CreateApiResponse(TypedDict, total=False):
     DisableSchemaValidation: Optional[_boolean]
     DisableExecuteApiEndpoint: Optional[_boolean]
     ImportInfo: Optional[_listOf__string]
+    IpAddressType: Optional[IpAddressType]
     Name: Optional[StringWithLengthBetween1And128]
     ProtocolType: Optional[ProtocolType]
     RouteSelectionExpression: Optional[SelectionExpression]
@@ -445,6 +453,7 @@ class DomainNameConfiguration(TypedDict, total=False):
     DomainNameStatusMessage: Optional[_string]
     EndpointType: Optional[EndpointType]
     HostedZoneId: Optional[_string]
+    IpAddressType: Optional[IpAddressType]
     SecurityPolicy: Optional[SecurityPolicy]
     OwnershipVerificationCertificateArn: Optional[Arn]
 
@@ -1013,6 +1022,7 @@ class GetApiResponse(TypedDict, total=False):
     DisableSchemaValidation: Optional[_boolean]
     DisableExecuteApiEndpoint: Optional[_boolean]
     ImportInfo: Optional[_listOf__string]
+    IpAddressType: Optional[IpAddressType]
     Name: Optional[StringWithLengthBetween1And128]
     ProtocolType: Optional[ProtocolType]
     RouteSelectionExpression: Optional[SelectionExpression]
@@ -1486,6 +1496,7 @@ class ImportApiResponse(TypedDict, total=False):
     DisableSchemaValidation: Optional[_boolean]
     DisableExecuteApiEndpoint: Optional[_boolean]
     ImportInfo: Optional[_listOf__string]
+    IpAddressType: Optional[IpAddressType]
     Name: Optional[StringWithLengthBetween1And128]
     ProtocolType: Optional[ProtocolType]
     RouteSelectionExpression: Optional[SelectionExpression]
@@ -1553,6 +1564,7 @@ class ReimportApiResponse(TypedDict, total=False):
     DisableSchemaValidation: Optional[_boolean]
     DisableExecuteApiEndpoint: Optional[_boolean]
     ImportInfo: Optional[_listOf__string]
+    IpAddressType: Optional[IpAddressType]
     Name: Optional[StringWithLengthBetween1And128]
     ProtocolType: Optional[ProtocolType]
     RouteSelectionExpression: Optional[SelectionExpression]
@@ -1621,6 +1633,7 @@ class UpdateApiInput(TypedDict, total=False):
     Description: Optional[StringWithLengthBetween0And1024]
     DisableExecuteApiEndpoint: Optional[_boolean]
     DisableSchemaValidation: Optional[_boolean]
+    IpAddressType: Optional[IpAddressType]
     Name: Optional[StringWithLengthBetween1And128]
     RouteKey: Optional[SelectionKey]
     RouteSelectionExpression: Optional[SelectionExpression]
@@ -1663,6 +1676,7 @@ class UpdateApiRequest(ServiceRequest):
     Description: Optional[StringWithLengthBetween0And1024]
     DisableSchemaValidation: Optional[_boolean]
     DisableExecuteApiEndpoint: Optional[_boolean]
+    IpAddressType: Optional[IpAddressType]
     Name: Optional[StringWithLengthBetween1And128]
     RouteKey: Optional[SelectionKey]
     RouteSelectionExpression: Optional[SelectionExpression]
@@ -1681,6 +1695,7 @@ class UpdateApiResponse(TypedDict, total=False):
     DisableSchemaValidation: Optional[_boolean]
     DisableExecuteApiEndpoint: Optional[_boolean]
     ImportInfo: Optional[_listOf__string]
+    IpAddressType: Optional[IpAddressType]
     Name: Optional[StringWithLengthBetween1And128]
     ProtocolType: Optional[ProtocolType]
     RouteSelectionExpression: Optional[SelectionExpression]
@@ -2090,6 +2105,7 @@ class Apigatewayv2Api:
         description: StringWithLengthBetween0And1024 = None,
         disable_schema_validation: _boolean = None,
         disable_execute_api_endpoint: _boolean = None,
+        ip_address_type: IpAddressType = None,
         route_key: SelectionKey = None,
         route_selection_expression: SelectionExpression = None,
         tags: Tags = None,
@@ -2108,6 +2124,7 @@ class Apigatewayv2Api:
         :param disable_schema_validation: Avoid validating models when creating a deployment.
         :param disable_execute_api_endpoint: Specifies whether clients can invoke your API by using the default
         execute-api endpoint.
+        :param ip_address_type: The IP address types that can invoke the API.
         :param route_key: This property is part of quick create.
         :param route_selection_expression: The route selection expression for the API.
         :param tags: The collection of tags.
@@ -3288,6 +3305,7 @@ class Apigatewayv2Api:
         description: StringWithLengthBetween0And1024 = None,
         disable_schema_validation: _boolean = None,
         disable_execute_api_endpoint: _boolean = None,
+        ip_address_type: IpAddressType = None,
         name: StringWithLengthBetween1And128 = None,
         route_key: SelectionKey = None,
         route_selection_expression: SelectionExpression = None,
@@ -3305,6 +3323,7 @@ class Apigatewayv2Api:
         :param disable_schema_validation: Avoid validating models when creating a deployment.
         :param disable_execute_api_endpoint: Specifies whether clients can invoke your API by using the default
         execute-api endpoint.
+        :param ip_address_type: The IP address types that can invoke your API or domain name.
         :param name: The name of the API.
         :param route_key: This property is part of quick create.
         :param route_selection_expression: The route selection expression for the API.

@@ -3720,6 +3720,7 @@ async def nf_busca_nf_saida(num_nota_fiscal: str) -> RpaRetornoProcessoDTO:
 
         main_window.set_focus()
         await worker_sleep(3)
+        
 
         console.print(
             "Controles encontrados na janela 'Nota Fiscal de Saida', navegando entre eles...\n"
@@ -3752,6 +3753,79 @@ async def nf_busca_nf_saida(num_nota_fiscal: str) -> RpaRetornoProcessoDTO:
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=f"Não foi possivel clicar na Lupa para buscar a nota fiscal na tela de nota fiscal de saída, erro: {e}",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+            )
+    except Exception as e:
+        return RpaRetornoProcessoDTO(
+            sucesso=False,
+            retorno=f"Não foi possivel realizar a atividade na tela de Nota fiscal de Saida, erro: {e}",
+            status=RpaHistoricoStatusEnum.Falha,
+            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+        )
+
+
+async def nf_busca_nf_saida_mais_recente() -> RpaRetornoProcessoDTO:
+    try:
+        app = Application().connect(class_name="TFrmNotaFiscalSaida", timeout=60)
+        main_window = app["TFrmNotaFiscalSaida"]
+
+        main_window.set_focus()
+        await worker_sleep(3)
+
+        console.print(f"Alterando forma de visualização...\n")
+        ASSETS_PATH = "assets"
+        grid_visualizacao = pyautogui.locateOnScreen(
+            ASSETS_PATH + "\\emsys\\alterar_grid_visualizacao.png", confidence=0.7
+        )
+        pyautogui.click(grid_visualizacao)
+        await worker_sleep(3)
+
+        
+        grid_inventario = main_window.child_window(class_name="TPanel", found_index=0)
+        center_main = grid_inventario.child_window(class_name="TPageControl", found_index=0)
+        rect = center_main.rectangle()
+        center_x = (rect.left + rect.right) // 2
+        center_y = (rect.top + rect.bottom) // 2
+        pyautogui.moveTo(x=center_x, y=center_y)
+
+
+        await worker_sleep(2)
+        pyautogui.click()
+        await worker_sleep(2)
+        for _ in range(10):
+            pyautogui.press('pagedown')
+
+        pyautogui.press('enter')
+        await worker_sleep(7)
+
+
+        pergunta_screen = await is_window_open("Pergunta")
+        if pergunta_screen["IsOpened"] == True:
+            console.print("possui Pop-up de Pergunta, clicando em 'Não'... \n")
+            app = Application().connect(title="Pergunta", timeout=20)
+            main_window = app["Pergunta"]
+            main_window.set_focus()
+            await worker_sleep(1)
+
+            send_keys('%n')
+
+        try:
+            ASSETS_PATH = "assets"
+            grid_visualizacao = pyautogui.locateOnScreen(
+                ASSETS_PATH + "\\emsys\\alterar_grid_visualizacao.png", confidence=0.7
+            )
+            pyautogui.click(grid_visualizacao)
+            await worker_sleep(5)
+            return RpaRetornoProcessoDTO(
+                sucesso=True,
+                retorno=f"Processo Executado com Sucesso",
+                status=RpaHistoricoStatusEnum.Sucesso,
+            )
+        except Exception as e:
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Não foi possivel clicar no Grid de alterar visualização para buscar a nota fiscal na tela de nota fiscal de saída, erro: {e}",
                 status=RpaHistoricoStatusEnum.Falha,
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
