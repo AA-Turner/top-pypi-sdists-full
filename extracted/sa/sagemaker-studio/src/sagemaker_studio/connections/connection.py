@@ -355,6 +355,31 @@ class Connection:
                 f"Connection {self.name} does not have associated secret. Please check the connection type"
             )
 
+    def create_client(self, service_name: Optional[str] = None) -> BaseClient:
+        """
+        Returns a boto3 client initialized with the connection's credentials.
+
+        Args:
+            service_name (Optional[str]): The AWS service name of the boto3 client to initialize
+
+        Returns:
+            BaseClient: A boto3 client
+        """
+        DefaulAwsServicesByConnectionType = {
+            "ATHENA": "athena",
+            "DYNAMODB": "dynamodb",
+            "REDSHIFT": "redshift",
+            "S3": "s3",
+            "S3_FOLDER": "s3",
+        }
+        if not service_name and self.type not in DefaulAwsServicesByConnectionType:
+            raise RuntimeError("Please specify a service name to initialize a client")
+        return self._get_aws_client_with_connection_credentials(
+            service_name or DefaulAwsServicesByConnectionType[self.type],
+            self._connection_creds,
+            self._secrets_manager_api,
+        )
+
     def _find_secret_arn(self) -> str:
         """
         Finds the ARN of the secret associated with the connection. Looks in

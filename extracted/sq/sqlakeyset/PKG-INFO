@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlakeyset
-Version: 2.0.1739066250
+Version: 2.0.1746777265
 Summary: offset-free paging for sqlalchemy
 Project-URL: homepage, https://github.com/djrobstep/sqlakeyset
 Project-URL: repository, https://github.com/djrobstep/sqlakeyset

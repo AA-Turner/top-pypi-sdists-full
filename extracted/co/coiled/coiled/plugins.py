@@ -3,6 +3,8 @@ import logging
 import os
 from time import time
 
+import dask.config
+from dask.utils import parse_timedelta
 from distributed.diagnostics.plugin import SchedulerPlugin, WorkerPlugin
 
 
@@ -31,7 +33,8 @@ class DaskSchedulerWriteFiles(SchedulerPlugin):
                 except Exception:
                     logger.exception(f"Error creating symlink from {source_dir} to {target_dir}")
         if self._symlink_dirs == {"/mount": "./mount"}:
-            await wait_for_bucket_mounting(timeout=15, logger=logger)
+            timeout = parse_timedelta(dask.config.get("coiled.mount-bucket.timeout", "30 s"))
+            await wait_for_bucket_mounting(timeout=timeout, logger=logger)
 
 
 class DaskWorkerWriteFiles(WorkerPlugin):
@@ -59,7 +62,8 @@ class DaskWorkerWriteFiles(WorkerPlugin):
                 except Exception:
                     logger.exception(f"Error creating symlink from {source_dir} to {target_dir}")
         if self._symlink_dirs == {"/mount": "./mount"}:
-            await wait_for_bucket_mounting(timeout=15, logger=logger)
+            timeout = parse_timedelta(dask.config.get("coiled.mount-bucket.timeout", "30 s"))
+            await wait_for_bucket_mounting(timeout=timeout, logger=logger)
 
 
 async def wait_for_bucket_mounting(timeout: int, logger: logging.Logger):
@@ -72,4 +76,4 @@ async def wait_for_bucket_mounting(timeout: int, logger: logging.Logger):
     while time() < deadline and bucket_mounts_are_pending():
         await asyncio.sleep(1)
     if bucket_mounts_are_pending():
-        logger.error(f"Timed out waiting for buckets to be mounted after {timeout} seconds")
+        logger.error(f"Timed out waiting for buckets to be mounted after {timeout} seconds.")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cyclopts
-Version: 3.15.0
+Version: 3.16.0
 Summary: Intuitive, easy CLIs based on type hints.
 License: Apache-2.0
 Author: Brian Pugh

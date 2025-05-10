@@ -4,6 +4,7 @@ from typing import Any
 import pyarrow as pa
 from google.protobuf.descriptor import Descriptor, FieldDescriptor, FileDescriptor
 from google.protobuf.descriptor_pb2 import FileDescriptorProto, FileDescriptorSet
+from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import Message
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
@@ -90,6 +91,18 @@ def create_empty_pyarrow_scalar_from_proto_type(proto_message: Message) -> pa.Sc
     """Creates a PyArrow scalar with None value but with type structure matching the Protobuf message."""
     pa_type = convert_proto_message_type_to_pyarrow_type(proto_message.DESCRIPTOR)
     return pa.scalar({}, type=pa_type)
+
+
+@cache
+def reconstruct_message_field_descriptor(serialized: bytes, full_name: str):
+    file_descriptor_set = FileDescriptorSet()
+    file_descriptor_set.ParseFromString(serialized)
+
+    descriptor_pool = DescriptorPool()
+    for file in file_descriptor_set.file:
+        descriptor_pool.Add(file)
+
+    return descriptor_pool.FindMessageTypeByName(full_name)
 
 
 @cache

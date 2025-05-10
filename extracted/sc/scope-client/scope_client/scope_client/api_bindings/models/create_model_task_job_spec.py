@@ -28,7 +28,7 @@ class CreateModelTaskJobSpec(BaseModel):
     CreateModelTaskJobSpec
     """ # noqa: E501
     job_type: Optional[StrictStr] = 'create_model_task'
-    connector_id: StrictStr = Field(description="The id of the Shield connector to use to create the task.")
+    connector_id: StrictStr = Field(description="The id of the engine internal connector to use to create the task.")
     task_name: StrictStr = Field(description="The name of the task.")
     onboarding_identifier: Optional[StrictStr] = None
     initial_rules: List[NewRuleRequest] = Field(description="The initial rules to apply to the created model.")

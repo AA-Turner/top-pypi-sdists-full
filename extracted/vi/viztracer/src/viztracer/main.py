@@ -386,10 +386,9 @@ class VizUI:
         if not options.log_exit:
             tracer.stop(stop_option="flush_as_finish")
 
-        # The user code may forked, check it because Finalize won't execute
-        # if the pid is not the same
-        if os.getpid() != self.parent_pid and not options.ignore_multiprocess:
-            multiprocessing.util.Finalize(self.tracer, self.tracer.exit_routine, exitpriority=-1)
+            # Clear to global_dict to release all references.
+            # This is helpful for some deadlock issues.
+            global_dict.clear()
 
         # issue141 - concurrent.future requires a proper release by executing
         # threading._threading_atexits or it will deadlock if not explicitly

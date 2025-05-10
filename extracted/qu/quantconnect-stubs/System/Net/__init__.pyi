@@ -358,12 +358,28 @@ class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable
         """Gets the length of the network prefix in bits."""
         ...
 
+    def __eq__(self, right: System.Net.IPNetwork) -> bool:
+        """
+        Determines whether the specified instances of IPNetwork are equal.
+        
+        :returns: true if the networks are equal; otherwise false.
+        """
+        ...
+
     def __init__(self, base_address: System.Net.IPAddress, prefix_length: int) -> None:
         """
         Initializes a new instance of the IPNetwork class with the specified IPAddress and prefix length.
         
         :param base_address: The IPAddress that represents the prefix of the network.
         :param prefix_length: The length of the prefix in bits.
+        """
+        ...
+
+    def __ne__(self, right: System.Net.IPNetwork) -> bool:
+        """
+        Determines whether the specified instances of IPNetwork are not equal.
+        
+        :returns: true if the networks are not equal; otherwise false.
         """
         ...
 

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "concurrent-log-handler"
 dynamic = ["version"]
-description = "RotatingFileHandler replacement with concurrency, gzip and Windows support"
+description = "RotatingFileHandler replacement with concurrency, gzip and Windows support. Size and time based rotation."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.6"
@@ -36,6 +36,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Logging",
 ]
@@ -43,6 +44,16 @@ dependencies = [
     "portalocker>=1.6.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "hatch",
+  "pytest",
+  "coverage",
+  "pytest-sugar",
+  "pytest-cov",
+  "black",
+  "ruff",
+]
 [project.urls]
 Homepage = "https://github.com/Preston-Landers/concurrent-log-handler"
 
@@ -59,6 +70,7 @@ dependencies = [
   "coverage[toml] >= 7.2",
   "pytest >= 7.4",
   "pytest-sugar",
+  "pytest-cov",
 ]
 
 [tool.hatch.envs.test.scripts]
@@ -84,7 +96,7 @@ cov = [
 ]
 
 [[tool.hatch.envs.test.matrix]]
-python = ["3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
+python = ["3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
 
 [tool.hatch.envs.lint]
 detached = true
@@ -101,7 +113,7 @@ typing = [
   "mypy --install-types --non-interactive {args:src/concurrent_log_handler}"
   ]
 style = [
-  "ruff {args:.}",
+  "ruff check {args:.}",
   "black --check --diff {args:.}",
 ]
 fmt = [
@@ -118,6 +130,8 @@ all = [
 output-format = "grouped"
 target-version = "py37"
 fix = true
+
+[tool.ruff.lint]
 ignore = [
     # Never enforce `E501` (line length violations).
     "E501",

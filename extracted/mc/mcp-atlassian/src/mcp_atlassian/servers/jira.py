@@ -6,8 +6,11 @@ from typing import Annotated, Any
 
 from fastmcp import Context, FastMCP
 from pydantic import Field
+from requests.exceptions import HTTPError
 
+from mcp_atlassian.exceptions import MCPAtlassianAuthenticationError
 from mcp_atlassian.jira.constants import DEFAULT_READ_JIRA_FIELDS
+from mcp_atlassian.models.jira.common import JiraUser
 
 from .context import MainAppContext
 
@@ -20,6 +23,71 @@ jira_mcp = FastMCP(
 
 
 @jira_mcp.tool(tags={"jira", "read"})
+async def get_user_profile(
+    ctx: Context[Any, MainAppContext],
+    user_identifier: Annotated[
+        str,
+        Field(
+            description="Identifier for the user (e.g., email address 'user@example.com', username 'johndoe', account ID 'accountid:...', or key for Server/DC)."
+        ),
+    ],
+) -> str:
+    """
+    Retrieve profile information for a specific Jira user.
+
+    Args:
+        ctx: The FastMCP context.
+        user_identifier: User identifier (email, username, key, or account ID).
+
+    Returns:
+        JSON string representing the Jira user profile object, or an error object if not found.
+
+    Raises:
+        ValueError: If the Jira client is not configured or available.
+    """
+    lifespan_ctx = ctx.request_context.lifespan_context
+    if not lifespan_ctx or not lifespan_ctx.jira:
+        raise ValueError("Jira client is not configured or available.")
+    jira = lifespan_ctx.jira
+
+    try:
+        user: JiraUser = jira.get_user_profile_by_identifier(user_identifier)
+        result = user.to_simplified_dict()
+        response_data = {"success": True, "user": result}
+    except Exception as e:
+        error_message = ""
+        log_level = logging.ERROR
+
+        if isinstance(e, ValueError) and "not found" in str(e).lower():
+            log_level = logging.WARNING
+            error_message = str(e)
+        elif isinstance(e, MCPAtlassianAuthenticationError):
+            error_message = f"Authentication/Permission Error: {str(e)}"
+        elif isinstance(e, OSError | HTTPError):
+            error_message = f"Network or API Error: {str(e)}"
+        else:
+            error_message = (
+                "An unexpected error occurred while fetching the user profile."
+            )
+            logger.exception(
+                f"Unexpected error in get_user_profile for '{user_identifier}':"
+            )
+
+        error_result = {
+            "success": False,
+            "error": str(e),
+            "user_identifier": user_identifier,
+        }
+        logger.log(
+            log_level,
+            f"get_user_profile failed for '{user_identifier}': {error_message}",
+        )
+        response_data = error_result
+
+    return json.dumps(response_data, indent=2, ensure_ascii=False)
+
+
+@jira_mcp.tool(tags={"jira", "read"})
 async def get_issue(
     ctx: Context[Any, MainAppContext],
     issue_key: Annotated[str, Field(description="Jira issue key (e.g., 'PROJ-123')")],
@@ -27,8 +95,9 @@ async def get_issue(
         str | None,
         Field(
             description=(
-                "Fields to return. Can be a comma-separated list (e.g., 'summary,status,customfield_10010'), "
-                "'*all' for all fields (including custom fields), or omitted for essential fields only."
+                "Comma-separated list of fields to return (e.g., 'summary,status,customfield_10010'). "
+                "You may also provide a single field as a string (e.g., 'duedate'). "
+                "Use '*all' for all fields (including custom fields), or omit for essential fields only."
             ),
             default=",".join(DEFAULT_READ_JIRA_FIELDS),
         ),
@@ -72,7 +141,7 @@ async def get_issue(
     Args:
         ctx: The FastMCP context.
         issue_key: Jira issue key.
-        fields: Fields to return.
+        fields: Comma-separated list of fields to return (e.g., 'summary,status,customfield_10010'), a single field as a string (e.g., 'duedate'), '*all' for all fields, or omitted for essentials.
         expand: Optional fields to expand.
         comment_limit: Maximum number of comments.
         properties: Issue properties to return.
@@ -80,6 +149,9 @@ async def get_issue(
 
     Returns:
         JSON string representing the Jira issue object.
+
+    Raises:
+        ValueError: If the Jira client is not configured or available.
     """
     lifespan_ctx = ctx.request_context.lifespan_context
     if not lifespan_ctx or not lifespan_ctx.jira:
@@ -613,7 +685,7 @@ async def create_issue(
     assignee: Annotated[
         str | None,
         Field(
-            description="Assignee of the ticket (accountID, full name or e-mail)",
+            description="Assignee's user identifier (string): Email, display name, or account ID (e.g., 'user@example.com', 'John Doe', 'accountid:...')",
             default=None,
         ),
     ] = None,
@@ -649,7 +721,7 @@ async def create_issue(
         project_key: The JIRA project key.
         summary: Summary/title of the issue.
         issue_type: Issue type (e.g., 'Task', 'Bug', 'Story', 'Epic', 'Subtask').
-        assignee: Assignee of the ticket (accountID, full name or e-mail).
+        assignee: Assignee's user identifier (string): Email, display name, or account ID (e.g., 'user@example.com', 'John Doe', 'accountid:...').
         description: Issue description.
         components: Comma-separated list of component names.
         additional_fields: Dictionary of additional fields.
@@ -856,9 +928,8 @@ async def update_issue(
         dict[str, Any],
         Field(
             description=(
-                "A valid dictionary of fields to update. "
-                "Example: {'summary': 'New title', 'description': 'Updated description', "
-                "'priority': {'name': 'High'}, 'assignee': 'john.doe'}"
+                "Dictionary of fields to update. For 'assignee', provide a string identifier (email, name, or accountId). "
+                "Example: `{'assignee': 'user@example.com', 'summary': 'New Summary'}`"
             )
         ),
     ],

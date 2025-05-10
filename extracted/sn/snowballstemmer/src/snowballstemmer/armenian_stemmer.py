@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from armenian.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from armenian.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class ArmenianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from armenian.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from armenian.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_v = {u"ա", u"է", u"ի", u"օ", u"ւ", u"ե", u"ո", u"ը"}

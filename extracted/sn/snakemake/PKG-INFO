@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snakemake
-Version: 9.3.3
+Version: 9.3.4
 Summary: Workflow management system to create reproducible and scalable data analyses
 Author-email: Johannes Köster <johannes.koester@uni-due.de>
 License: MIT

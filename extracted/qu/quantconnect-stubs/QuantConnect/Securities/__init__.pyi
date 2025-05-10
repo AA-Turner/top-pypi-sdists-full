@@ -182,12 +182,30 @@ class CashAmount:
         """The currency in which the cash amount is denominated"""
         ...
 
+    def __eq__(self, rhs: QuantConnect.Securities.CashAmount) -> bool:
+        """
+        Will determine if two CashAmount instances are equal
+        Useful to compare against the default instance
+        
+        :returns: True if Currency and Amount are equal.
+        """
+        ...
+
     def __init__(self, amount: float, currency: str) -> None:
         """
         Initializes a new instance of the CashAmount class
         
         :param amount: The amount
         :param currency: The currency
+        """
+        ...
+
+    def __ne__(self, rhs: QuantConnect.Securities.CashAmount) -> bool:
+        """
+        Will determine if two CashAmount instances are different
+        Useful to compare against the default instance
+        
+        :returns: True if Currency or Amount are different.
         """
         ...
 
@@ -3018,6 +3036,14 @@ class SecurityDatabaseKey(System.Object, System.IEquatable[QuantConnect_Securiti
         """The security type"""
         ...
 
+    def __eq__(self, right: QuantConnect.Securities.SecurityDatabaseKey) -> bool:
+        """
+        Security Database Key == operator
+        
+        :returns: True if they are the same.
+        """
+        ...
+
     def __init__(self, market: str, symbol: str, security_type: QuantConnect.SecurityType) -> None:
         """
         Initializes a new instance of the SecurityDatabaseKey class
@@ -3025,6 +3051,14 @@ class SecurityDatabaseKey(System.Object, System.IEquatable[QuantConnect_Securiti
         :param market: The market
         :param symbol: The symbol. specify null to apply to all symbols in market/security type
         :param security_type: The security type
+        """
+        ...
+
+    def __ne__(self, right: QuantConnect.Securities.SecurityDatabaseKey) -> bool:
+        """
+        Security Database Key != operator
+        
+        :returns: True if they are not the same.
         """
         ...
 

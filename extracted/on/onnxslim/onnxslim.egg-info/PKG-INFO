@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxslim
-Version: 0.1.51
+Version: 0.1.52
 Summary: OnnxSlim: A Toolkit to Help Optimize Onnx Model
 Home-page: https://github.com/inisis/OnnxSlim
 Author: inisis

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-sdk
-Version: 1.32.1
+Version: 1.33.0
 Summary: OpenTelemetry Python SDK
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-sdk
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python
@@ -21,8 +21,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
-Requires-Dist: opentelemetry-api==1.32.1
-Requires-Dist: opentelemetry-semantic-conventions==0.53b1
+Requires-Dist: opentelemetry-api==1.33.0
+Requires-Dist: opentelemetry-semantic-conventions==0.54b0
 Requires-Dist: typing-extensions>=3.7.4
 Description-Content-Type: text/x-rst
 

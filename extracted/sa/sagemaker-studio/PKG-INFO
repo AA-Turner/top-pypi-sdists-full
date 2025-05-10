@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker_studio
-Version: 1.0.13
+Version: 1.0.14
 Summary: Python library to interact with Amazon SageMaker Unified Studio
 Home-page: https://aws.amazon.com/sagemaker/
 Author: Amazon Web Services
@@ -367,6 +367,34 @@ snowflake_connection: Connection = proj.connection("project.snowflake")
 secret = snowflake_connection.secret
 ```
 Secret can be a dictionary containing credentials, or a single string depending on the connection type.
+
+
+#### AWS Clients
+You can retrieve a Boto3 AWS client initialized with the connection's credentials.
+
+```python
+redshift_connection: Connection = proj.connection("project.redshift")
+redshift_client = redshift_connection.create_client()
+```
+
+Some connections are directly associated with an AWS service, and will default to using that AWS service's client if no service name is specified. Those connections are listed in the below table.
+
+| Connection Type | AWS Service Name |
+|-----------------|------------------|
+| ATHENA          | athena           |
+| DYNAMODB        | dynamodb         |
+| REDSHIFT        | redshift         |
+| S3              | s3               |
+| S3_FOLDER       | s3               |
+
+
+For other connection types, you must specify an AWS service name.
+
+```python
+iam_connection: Connection = proj.connection("project.iam")
+glue_client = iam_connection.create_client("glue")
+```
+
 
 #### Databases and Tables
 

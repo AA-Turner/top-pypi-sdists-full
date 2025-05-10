@@ -7,15 +7,12 @@ from chalk.utils.duration import Duration
 from chalk.utils.string import comma_join, comma_whitespace_split
 
 if TYPE_CHECKING:
-    import pydantic
-    from pydantic import BaseModel
+    from pydantic import BaseModel, Field
 else:
     try:
-        import pydantic.v1 as pydantic
-        from pydantic.v1 import BaseModel
+        from pydantic.v1 import BaseModel, Field
     except ImportError:
-        import pydantic
-        from pydantic import BaseModel
+        from pydantic import BaseModel, Field
 
 
 _KAFKA_BOOTSTRAP_SERVER_NAME = "KAFKA_BOOTSTRAP_SERVER"
@@ -75,7 +72,7 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
     Username for SASL PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512 authentication.
     """
 
-    sasl_password: Optional[str] = pydantic.Field(default=None, repr=False)
+    sasl_password: Optional[str] = Field(default=None, repr=False)
     """
     Password for SASL PLAIN, SCRAM-SHA-256, or SCRAM-SHA-512 authentication.
     """

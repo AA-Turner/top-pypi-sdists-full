@@ -228,6 +228,8 @@ class SpanAttributes:
 class Events(Enum):
     DB_QUERY_EMBEDDINGS = "db.query.embeddings"
     DB_QUERY_RESULT = "db.query.result"
+    DB_SEARCH_EMBEDDINGS = "db.search.embeddings"
+    DB_SEARCH_RESULT = "db.search.result"
 
 
 class EventAttributes(Enum):
@@ -245,11 +247,12 @@ class EventAttributes(Enum):
     # SEARCH
     DB_SEARCH_EMBEDDINGS_VECTOR = "db.search.embeddings.vector"
 
-    DB_SEARCH_RESULT_QUERY_ID = "db.search.query.id" # For multi-vector searches
+    DB_SEARCH_RESULT_QUERY_ID = "db.search.query.id"  # For multi-vector searches
     DB_SEARCH_RESULT_ID = "db.search.result.id"
     DB_SEARCH_RESULT_SCORE = "db.search.result.score"
     DB_SEARCH_RESULT_DISTANCE = "db.search.result.distance"
     DB_SEARCH_RESULT_ENTITY = "db.search.result.entity"
+
 
 class LLMRequestTypeValues(Enum):
     COMPLETION = "completion"

@@ -22,12 +22,12 @@ use ruff_linter::settings::types::{
     PythonVersion, UnsafeFixes,
 };
 use ruff_linter::{RuleParser, RuleSelector, RuleSelectorParser};
+use ruff_options_metadata::{OptionEntry, OptionsMetadata};
 use ruff_python_ast as ast;
 use ruff_source_file::{LineIndex, OneIndexed, PositionEncoding};
 use ruff_text_size::TextRange;
 use ruff_workspace::configuration::{Configuration, RuleSelection};
 use ruff_workspace::options::{Options, PycodestyleOptions};
-use ruff_workspace::options_base::{OptionEntry, OptionsMetadata};
 use ruff_workspace::resolver::ConfigurationTransformer;
 use rustc_hash::FxHashMap;
 use toml;
@@ -93,7 +93,7 @@ pub struct Args {
     pub(crate) global_options: GlobalConfigArgs,
 }
 
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 #[derive(Debug, clap::Subcommand)]
 pub enum Command {
     /// Run Ruff on the given files or directories.
@@ -177,11 +177,14 @@ pub struct AnalyzeGraphCommand {
     /// The minimum Python version that should be supported.
     #[arg(long, value_enum)]
     target_version: Option<PythonVersion>,
+    /// Path to a virtual environment to use for resolving additional dependencies
+    #[arg(long)]
+    python: Option<PathBuf>,
 }
 
 // The `Parser` derive is for ruff_dev, for ruff `Args` would be sufficient
 #[derive(Clone, Debug, clap::Parser)]
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct CheckCommand {
     /// List of files or directories to check.
     #[clap(help = "List of files or directories to check [default: .]")]
@@ -443,7 +446,7 @@ pub struct CheckCommand {
 }
 
 #[derive(Clone, Debug, clap::Parser)]
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct FormatCommand {
     /// List of files or directories to format.
     #[clap(help = "List of files or directories to format [default: .]")]
@@ -557,7 +560,7 @@ pub enum HelpFormat {
     Json,
 }
 
-#[allow(clippy::module_name_repetitions)]
+#[expect(clippy::module_name_repetitions)]
 #[derive(Debug, Default, Clone, clap::Args)]
 pub struct LogLevelArgs {
     /// Enable verbose logging.
@@ -796,6 +799,7 @@ impl AnalyzeGraphCommand {
         let format_arguments = AnalyzeGraphArgs {
             files: self.files,
             direction: self.direction,
+            python: self.python,
         };
 
         let cli_overrides = ExplicitConfigOverrides {
@@ -1027,7 +1031,7 @@ Possible choices:
 
 /// CLI settings that are distinct from configuration (commands, lists of files,
 /// etc.).
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct CheckArguments {
     pub add_noqa: bool,
     pub diff: bool,
@@ -1046,7 +1050,7 @@ pub struct CheckArguments {
 
 /// CLI settings that are distinct from configuration (commands, lists of files,
 /// etc.).
-#[allow(clippy::struct_excessive_bools)]
+#[expect(clippy::struct_excessive_bools)]
 pub struct FormatArguments {
     pub check: bool,
     pub no_cache: bool,
@@ -1261,12 +1265,12 @@ impl LineColumnParseError {
 pub struct AnalyzeGraphArgs {
     pub files: Vec<PathBuf>,
     pub direction: Direction,
+    pub python: Option<PathBuf>,
 }
 
 /// Configuration overrides provided via dedicated CLI flags:
 /// `--line-length`, `--respect-gitignore`, etc.
 #[derive(Clone, Default)]
-#[allow(clippy::struct_excessive_bools)]
 struct ExplicitConfigOverrides {
     dummy_variable_rgx: Option<Regex>,
     exclude: Option<Vec<FilePattern>>,

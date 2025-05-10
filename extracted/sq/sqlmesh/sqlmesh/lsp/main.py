@@ -14,7 +14,9 @@ from sqlmesh.core.linter.definition import AnnotatedRuleViolation
 from sqlmesh.lsp.completions import get_sql_completions
 from sqlmesh.lsp.context import LSPContext, ModelTarget
 from sqlmesh.lsp.custom import ALL_MODELS_FEATURE, AllModelsRequest, AllModelsResponse
-from sqlmesh.lsp.reference import get_model_definitions_for_a_path
+from sqlmesh.lsp.reference import (
+    get_references,
+)
 
 
 class SQLMeshLanguageServer:
@@ -175,6 +177,34 @@ class SQLMeshLanguageServer:
                 ls.show_message(f"Error formatting SQL: {e}", types.MessageType.Error)
                 return []
 
+        @self.server.feature(types.TEXT_DOCUMENT_HOVER)
+        def hover(ls: LanguageServer, params: types.HoverParams) -> t.Optional[types.Hover]:
+            """Provide hover information for an object."""
+            try:
+                self._ensure_context_for_document(params.text_document.uri)
+                document = ls.workspace.get_document(params.text_document.uri)
+                if self.lsp_context is None:
+                    raise RuntimeError(f"No context found for document: {document.path}")
+
+                references = get_references(
+                    self.lsp_context, params.text_document.uri, params.position
+                )
+                if not references:
+                    return None
+                reference = references[0]
+                if not reference.description:
+                    return None
+                return types.Hover(
+                    contents=types.MarkupContent(
+                        kind=types.MarkupKind.Markdown, value=reference.description
+                    ),
+                    range=reference.range,
+                )
+
+            except Exception as e:
+                ls.show_message(f"Error getting hover information: {e}", types.MessageType.Error)
+                return None
+
         @self.server.feature(types.TEXT_DOCUMENT_DEFINITION)
         def goto_definition(
             ls: LanguageServer, params: types.DefinitionParams
@@ -186,12 +216,9 @@ class SQLMeshLanguageServer:
                 if self.lsp_context is None:
                     raise RuntimeError(f"No context found for document: {document.path}")
 
-                references = get_model_definitions_for_a_path(
-                    self.lsp_context, params.text_document.uri
+                references = get_references(
+                    self.lsp_context, params.text_document.uri, params.position
                 )
-                if not references:
-                    return []
-
                 return [
                     types.LocationLink(
                         target_uri=reference.uri,
@@ -207,7 +234,6 @@ class SQLMeshLanguageServer:
                     )
                     for reference in references
                 ]
-
             except Exception as e:
                 ls.show_message(f"Error getting references: {e}", types.MessageType.Error)
                 return []

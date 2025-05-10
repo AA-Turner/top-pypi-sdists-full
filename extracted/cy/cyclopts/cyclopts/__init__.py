@@ -1,5 +1,5 @@
 # Don't manually change, let poetry-dynamic-versioning handle it.
-__version__ = "3.15.0"
+__version__ = "3.16.0"
 
 __all__ = [
     "App",
@@ -10,6 +10,7 @@ __all__ = [
     "CoercionError",
     "CommandCollisionError",
     "CycloptsError",
+    "CycloptsPanel",
     "Dispatcher",
     "DocstringError",
     "EditorError",
@@ -56,6 +57,7 @@ from cyclopts.exceptions import (
     ValidationError,
 )
 from cyclopts.group import Group
+from cyclopts.help import CycloptsPanel
 from cyclopts.parameter import Parameter
 from cyclopts.protocols import Dispatcher
 from cyclopts.token import Token

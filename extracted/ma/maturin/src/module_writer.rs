@@ -153,7 +153,11 @@ impl PathWriter {
             record_file.display()
         ))?;
 
-        for (filename, hash, len) in self.record {
+        // Sort records for deterministic output
+        let mut sorted_records = self.record.clone();
+        sorted_records.sort_by(|(path_a, _, _), (path_b, _, _)| path_a.cmp(path_b));
+
+        for (filename, hash, len) in sorted_records {
             buffer
                 .write_all(format!("{filename},sha256={hash},{len}\n").as_bytes())
                 .context(format!(
@@ -235,6 +239,7 @@ pub struct WheelWriter {
     wheel_path: PathBuf,
     file_tracker: FileTracker,
     excludes: Override,
+    compression_level: u16,
 }
 
 impl ModuleWriter for WheelWriter {
@@ -264,7 +269,7 @@ impl ModuleWriter for WheelWriter {
 
         // Unlike users which can use the develop subcommand, the tests have to go through
         // packing a zip which pip than has to unpack. This makes this 2-3 times faster
-        let compression_method = if cfg!(feature = "faster-tests") {
+        let compression_method = if cfg!(feature = "faster-tests") || self.compression_level == 0 {
             zip::CompressionMethod::Stored
         } else {
             zip::CompressionMethod::Deflated
@@ -273,6 +278,9 @@ impl ModuleWriter for WheelWriter {
         let mut options = zip::write::SimpleFileOptions::default()
             .unix_permissions(permissions)
             .compression_method(compression_method);
+        if self.compression_level != 0 {
+            options = options.compression_level(Some(self.compression_level as i64));
+        }
         let mtime = self.mtime().ok();
         if let Some(mtime) = mtime {
             options = options.last_modified_time(mtime);
@@ -298,6 +306,7 @@ impl WheelWriter {
         metadata24: &Metadata24,
         tags: &[String],
         excludes: Override,
+        compression_level: u16,
     ) -> Result<WheelWriter> {
         let wheel_path = wheel_dir.join(format!(
             "{}-{}-{}.whl",
@@ -315,6 +324,7 @@ impl WheelWriter {
             wheel_path,
             file_tracker: FileTracker::default(),
             excludes,
+            compression_level,
         };
 
         write_dist_info(&mut builder, metadata24, tags)?;
@@ -334,7 +344,7 @@ impl WheelWriter {
                 .normalize()
                 .with_context(|| {
                     format!(
-                        "failed to normalize python dir path `{}`",
+                        "python dir path `{}` does not exist or is invalid",
                         project_layout.python_dir.display()
                     )
                 })?
@@ -373,7 +383,7 @@ impl WheelWriter {
 
     /// Creates the record file and finishes the zip
     pub fn finish(mut self) -> Result<PathBuf, io::Error> {
-        let compression_method = if cfg!(feature = "faster-tests") {
+        let compression_method = if cfg!(feature = "faster-tests") || self.compression_level == 0 {
             zip::CompressionMethod::Stored
         } else {
             zip::CompressionMethod::Deflated
@@ -381,6 +391,9 @@ impl WheelWriter {
 
         let mut options =
             zip::write::SimpleFileOptions::default().compression_method(compression_method);
+        if self.compression_level != 0 {
+            options = options.compression_level(Some(self.compression_level as i64));
+        }
         let mtime = self.mtime().ok();
         if let Some(mtime) = mtime {
             options = options.last_modified_time(mtime);
@@ -389,7 +402,12 @@ impl WheelWriter {
         let record_filename = self.record_file.to_str().unwrap().replace('\\', "/");
         debug!("Adding {}", record_filename);
         self.zip.start_file(&record_filename, options)?;
-        for (filename, hash, len) in self.record {
+
+        // Sort records for deterministic output
+        let mut sorted_records = self.record.clone();
+        sorted_records.sort_by(|(path_a, _, _), (path_b, _, _)| path_a.cmp(path_b));
+
+        for (filename, hash, len) in sorted_records {
             self.zip
                 .write_all(format!("{filename},sha256={hash},{len}\n").as_bytes())?;
         }
@@ -1085,7 +1103,7 @@ fn generate_uniffi_bindings(
     // when running uniffi-bindgen
     let binding_dir = target_dir
         .normalize()?
-        .join("maturin")
+        .join(env!("CARGO_PKG_NAME"))
         .join("uniffi")
         .join(module_name)
         .into_path_buf();

@@ -7,6 +7,7 @@ from ..models.button_ui_block import ButtonUiBlock
 from ..models.chip_ui_block import ChipUiBlock
 from ..models.dropdown_multi_value_ui_block import DropdownMultiValueUiBlock
 from ..models.dropdown_ui_block import DropdownUiBlock
+from ..models.file_upload_ui_block import FileUploadUiBlock
 from ..models.markdown_ui_block import MarkdownUiBlock
 from ..models.search_input_multi_value_ui_block import SearchInputMultiValueUiBlock
 from ..models.search_input_ui_block import SearchInputUiBlock
@@ -29,6 +30,7 @@ class SectionUiBlock:
             ChipUiBlock,
             DropdownUiBlock,
             DropdownMultiValueUiBlock,
+            FileUploadUiBlock,
             MarkdownUiBlock,
             SearchInputUiBlock,
             SearchInputMultiValueUiBlock,
@@ -65,6 +67,9 @@ class SectionUiBlock:
                 children_item = children_item_data.to_dict()
 
             elif isinstance(children_item_data, DropdownMultiValueUiBlock):
+                children_item = children_item_data.to_dict()
+
+            elif isinstance(children_item_data, FileUploadUiBlock):
                 children_item = children_item_data.to_dict()
 
             elif isinstance(children_item_data, MarkdownUiBlock):
@@ -114,6 +119,7 @@ class SectionUiBlock:
                 ChipUiBlock,
                 DropdownUiBlock,
                 DropdownMultiValueUiBlock,
+                FileUploadUiBlock,
                 MarkdownUiBlock,
                 SearchInputUiBlock,
                 SearchInputMultiValueUiBlock,
@@ -134,6 +140,7 @@ class SectionUiBlock:
                     ChipUiBlock,
                     DropdownUiBlock,
                     DropdownMultiValueUiBlock,
+                    FileUploadUiBlock,
                     MarkdownUiBlock,
                     SearchInputUiBlock,
                     SearchInputMultiValueUiBlock,
@@ -147,6 +154,7 @@ class SectionUiBlock:
                         ChipUiBlock,
                         DropdownUiBlock,
                         DropdownMultiValueUiBlock,
+                        FileUploadUiBlock,
                         MarkdownUiBlock,
                         SearchInputUiBlock,
                         SearchInputMultiValueUiBlock,
@@ -171,6 +179,10 @@ class SectionUiBlock:
                             return children_item
                         if discriminator_value == "DROPDOWN_MULTIVALUE":
                             children_item = DropdownMultiValueUiBlock.from_dict(data, strict=False)
+
+                            return children_item
+                        if discriminator_value == "FILE_UPLOAD":
+                            children_item = FileUploadUiBlock.from_dict(data, strict=False)
 
                             return children_item
                         if discriminator_value == "MARKDOWN":
@@ -227,6 +239,14 @@ class SectionUiBlock:
                         if not isinstance(data, dict):
                             raise TypeError()
                         children_item = DropdownMultiValueUiBlock.from_dict(data, strict=True)
+
+                        return children_item
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        children_item = FileUploadUiBlock.from_dict(data, strict=True)
 
                         return children_item
                     except:  # noqa: E722
@@ -299,6 +319,7 @@ class SectionUiBlock:
                         ChipUiBlock,
                         DropdownUiBlock,
                         DropdownMultiValueUiBlock,
+                        FileUploadUiBlock,
                         MarkdownUiBlock,
                         SearchInputUiBlock,
                         SearchInputMultiValueUiBlock,
@@ -377,6 +398,7 @@ class SectionUiBlock:
             ChipUiBlock,
             DropdownUiBlock,
             DropdownMultiValueUiBlock,
+            FileUploadUiBlock,
             MarkdownUiBlock,
             SearchInputUiBlock,
             SearchInputMultiValueUiBlock,
@@ -399,6 +421,7 @@ class SectionUiBlock:
                 ChipUiBlock,
                 DropdownUiBlock,
                 DropdownMultiValueUiBlock,
+                FileUploadUiBlock,
                 MarkdownUiBlock,
                 SearchInputUiBlock,
                 SearchInputMultiValueUiBlock,

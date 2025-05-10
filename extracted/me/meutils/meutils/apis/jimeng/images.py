@@ -257,6 +257,9 @@ async def create_task(request: ImageRequest, token: Optional[str] = None):  # to
     # }
 
     aigc_data = (data.get("data") or {}).get("aigc_data") or {}
+
+    logger.debug(bjson(aigc_data))
+
     if task_id := aigc_data.get("history_record_id"):  # bug
         return TaskResponse(task_id=task_id, system_fingerprint=token)
     else:
@@ -278,7 +281,9 @@ async def create_task(request: ImageRequest, token: Optional[str] = None):  # to
 @retrying(max_retries=3, min=3)
 async def get_task(task_id, token):
     url = "/mweb/v1/get_history_by_ids"
+
     headers = get_headers(url, token)
+
     payload = {
         "history_ids": [
             task_id
@@ -288,11 +293,16 @@ async def get_task(task_id, token):
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers, timeout=60) as client:
         response = await client.post(url, json=payload)
         response.raise_for_status()
-        data = response.json()
+
+        if response.text:
+            data = response.json()
+        else:
+            data = {}
+
         logger.debug(bjson(data))
         # {'ret': '1015', 'errmsg': 'login error', 'systime': '1734524280', 'logid': '20241218201800AC3267447B287E9E6C46', 'data': None}
         task_info = (data.get("data") or {}).get(task_id, {})
-        item_list = task_info.get("item_list")  # "status": 30,
+        item_list = task_info.get("item_list", [])  # "status": 30,
 
         status_code = task_info.get("status")
         fail_msg = f"""{task_info.get("fail_msg")}"""
@@ -388,25 +398,26 @@ if __name__ == '__main__':
     #
     # face_recognize_data = face_recognize.get("data", {})
 
-
     # arun(generate(ImageRequest(**data)))
 
     # arun(generate(ImageRequest(prompt="fuck you")))
     prompt = "A plump Chinese beauty wearing a wedding  dress revealing her skirt and underwear is swinging on the swing,Happy smile,cleavage,Exposed thighs,Spread your legs open,Extend your leg,panties,upskirt,Barefoot,sole"
-    prompt = "a dog cat in the same room"
+    prompt = "a dog cat in the same room !!!  !!"
     # prompt = "https://oss.ffire.cc/files/kling_watermark.png 让这个女人带上墨镜，衣服换个颜色...  "
     request = ImageRequest(prompt=prompt, size="1328x1328")
     # request = ImageRequest(prompt=prompt, size="1024x1024")
 
     # request = ImageRequest(prompt=prompt, size="2048*2048")
 
-    # task = arun(create_task(ImageRequest(**data), token=token))
+    # task = arun(create_task(request, "7d9969ffd8ad2edda7da8fff11cb9434"))
+    task = arun(create_task(request, "b1cd6317e4d161bbb3889b9defd769ff"))
 
     # arun(get_task(task.task_id, task.system_fingerprint))
 
+    # TaskResponse(task_id='16127190069506', code=0, message=None, status='SUBMITTED', data=None,
+    #              system_fingerprint='8089661372fe8db9795cc507c3049625', model=None,
+    #              created_at='2025-05-06T19:49:50.933089')
 
-
-    arun(get_task("16132262728706", "d2d142fc877e696484cc2fc521127b36"))
+    # arun(get_task("16132262728706", "d2d142fc877e696484cc2fc521127b36"))
 
     # arun(generate(request))
-

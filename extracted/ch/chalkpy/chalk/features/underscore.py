@@ -374,8 +374,7 @@ class UnderscoreRoot(Underscore):
 
         Examples
         --------
-        >>> from chalk import _
-        >>> from chalk.features import features
+        >>> from chalk.features import features, _
         >>> @features
         ... class Transaction:
         ...    id: int

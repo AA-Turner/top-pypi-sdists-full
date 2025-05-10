@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 # Run in python_pip directory.
 
-package_version = environ.get("PACKAGE_VERSION", "1.0.0.40.0")
+package_version = environ.get("PACKAGE_VERSION", "1.0.0.40.1")
 go_package_version = package_version
 # If package version looks like 1.0.a.b.c, we assume a.b.c is the go binary version.
 if go_package_version.count(".") == 4:

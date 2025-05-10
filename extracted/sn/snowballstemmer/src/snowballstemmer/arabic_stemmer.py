@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from arabic.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from arabic.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class ArabicStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from arabic.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from arabic.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     B_is_defined = False

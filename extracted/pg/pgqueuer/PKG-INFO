@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgqueuer
-Version: 0.21.1
+Version: 0.22.0
 Summary: Pgqueuer is a Python library leveraging PostgreSQL for efficient job queuing.
 Author: JeyBee
 License: MIT License
@@ -136,7 +136,7 @@ async def main() -> PgQueuer:
 
 The above example is located in the examples folder, and can be run by using the `pgq` cli.
 ```bash
-pgq run examples.consumer.main
+pgq run examples.consumer:main
 ```
 
 ### Step 2: Write a producer
@@ -206,4 +206,3 @@ PGQueuer is MIT licensed. See [LICENSE](LICENSE) for more information.
 
 ---
 Ready to supercharge your workflows? Install PGQueuer today and take your job management to the next level!
-

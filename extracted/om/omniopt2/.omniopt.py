@@ -37,7 +37,7 @@ joined_valid_occ_types: str = ", ".join(valid_occ_types)
 SUPPORTED_MODELS: list = ["SOBOL", "FACTORIAL", "SAASBO", "BOTORCH_MODULAR", "UNIFORM", "BO_MIXED", "RANDOMFOREST", "EXTERNAL_GENERATOR", "PSEUDORANDOM"]
 joined_supported_models: str = ", ".join(SUPPORTED_MODELS)
 
-uncontinueable_models: list = ["PSEUDORANDOM", "EXTERNAL_GENERATOR"]
+uncontinueable_models: list = ["PSEUDORANDOM", "EXTERNAL_GENERATOR", "RANDOMFOREST"]
 
 special_col_names: list = ["arm_name", "generation_method", "trial_index", "trial_status", "generation_node"]
 IGNORABLE_COLUMNS: list = ["start_time", "end_time", "hostname", "signal", "exit_code", "run_time", "program_string"] + special_col_names
@@ -180,8 +180,6 @@ def makedirs(p: str) -> bool:
         return True
 
     return False
-
-print_debug_once_list: List = []
 
 YELLOW: str = "\033[93m"
 RESET: str = "\033[0m"
@@ -342,12 +340,6 @@ def print_debug(msg: str) -> None:
         sys.exit(99) # generalized code for run folder deleted during run
     except Exception as e:
         original_print(f"_debug: Error trying to write log file: {e}")
-
-@beartype
-def print_debug_once(msg: str) -> None:
-    if msg not in print_debug_once_list:
-        print_debug(msg)
-        print_debug_once_list.append(msg)
 
 @beartype
 def my_exit(_code: int = 0) -> None:
@@ -771,9 +763,22 @@ try:
         from ax.core import Metric
         import ax.exceptions.core
         import ax.exceptions.generation_strategy
-        import ax.modelbridge.generation_node
-        from ax.modelbridge.model_spec import ModelSpec
-        from ax.modelbridge.generation_strategy import (GenerationStep, GenerationStrategy)
+
+        try:
+            import ax.generation_strategy.generation_node
+            from ax.generation_strategy.generation_strategy import (GenerationStep, GenerationStrategy)
+            from ax.generation_strategy.generation_node import GenerationNode
+            from ax.generation_strategy.external_generation_node import ExternalGenerationNode
+            from ax.generation_strategy.transition_criterion import MaxTrials
+            from ax.generation_strategy.model_spec import GeneratorSpec
+        except Exception:
+            import ax.modelbridge.generation_node
+            from ax.modelbridge.generation_strategy import (GenerationStep, GenerationStrategy)
+            from ax.modelbridge.generation_node import GenerationNode
+            from ax.modelbridge.external_generation_node import ExternalGenerationNode
+            from ax.modelbridge.transition_criterion import MaxTrials
+            from ax.modelbridge.model_spec import GeneratorSpec
+
         from ax.modelbridge.registry import Models
         from ax.modelbridge.modelbridge_utils import get_pending_observation_features
         from ax.storage.json_store.load import load_experiment
@@ -784,9 +789,7 @@ try:
         from ax.core.experiment import Experiment
         from ax.core.parameter import RangeParameter, FixedParameter, ChoiceParameter, ParameterType
         from ax.core.types import TParameterization
-        from ax.modelbridge.external_generation_node import ExternalGenerationNode
-        from ax.modelbridge.generation_node import GenerationNode
-        from ax.modelbridge.transition_criterion import MaxTrials
+
         from ax.service.ax_client import AxClient, ObjectiveProperties
         from sklearn.ensemble import RandomForestRegressor
     with console.status("[bold green]Loading botorch...") as status:
@@ -1631,7 +1634,10 @@ def log_nr_of_workers() -> None:
     nr_current_workers, nr_current_workers_errmsg = count_jobs_in_squeue()
 
     if not nr_current_workers or nr_current_workers_errmsg:
-        print_debug(f"log_nr_of_workers: {nr_current_workers_errmsg}")
+        if nr_current_workers_errmsg:
+            print_debug(f"log_nr_of_workers: {nr_current_workers_errmsg}")
+        else:
+            print_debug("log_nr_of_workers: nr_current_workers is False")
         return None
 
     try:
@@ -1692,6 +1698,9 @@ def print_image_to_cli(image_path: str, width: int) -> bool:
         sixel_converter = sixel.converter.SixelConverter(image_path, w=width, h=height)
 
         sixel_converter.write(sys.stdout)
+
+        print("")
+
         _sleep(2)
 
         return True
@@ -2143,7 +2152,6 @@ def _get_column_value(pd_csv: str, column: str, default: Union[None, float, int]
         if isinstance(column_value, (int, float)) and isinstance(default, (int, float)):
             if (mode == "min" and default > column_value) or (mode == "max" and default < column_value):
                 return column_value, found_in_file
-
     return default, found_in_file
 
 @beartype
@@ -2248,6 +2256,7 @@ def handle_grid_search(name: Union[list, str], lower_bound: Union[float, int], u
         "name": name,
         "type": "choice",
         "is_ordered": True,
+        "value_type": "str",
         "values": values_str
     }
 
@@ -2368,6 +2377,7 @@ def parse_choice_param(params: list, j: int, this_args: Union[str, list], name: 
         "name": name,
         "type": "choice",
         "is_ordered": False,
+        "value_type": "str",
         "values": values
     }
 
@@ -2509,7 +2519,7 @@ class MonitorProcess:
         self.thread = threading.Thread(target=self._monitor)
         self.thread.daemon = True
 
-        print_debug_once(f"self.thread.daemon was set to {self.thread.daemon}") # only for deadcode to not complain
+        fool_linter(f"self.thread.daemon was set to {self.thread.daemon}") # only for deadcode to not complain
 
     def _monitor(self: Any) -> None:
         try:
@@ -3308,6 +3318,11 @@ def disable_logging() -> None:
             "ax.modelbridge.generation_node",
             "ax.modelbridge.best_model_selector",
 
+            "ax.generation_strategy.generation_strategy",
+            "ax.generation_strategy.generation_node",
+            "ax.generation_strategy.external_generation_node",
+            "ax.generation_strategy.transition_criterion",
+            "ax.generation_strategy.model_spec",
 
             "ax.service",
             "ax.service.utils",
@@ -4112,6 +4127,7 @@ def get_ax_param_representation(data: dict) -> dict:
             'dependents': None,
             'is_fidelity': False,
             'is_ordered': data["is_ordered"],
+            "value_type": "str",
             'is_task': False,
             'name': data["name"],
             'parameter_type': {
@@ -6256,7 +6272,7 @@ def _fetch_next_trials(nr_of_jobs_to_get: int, recursion: bool = False) -> Optio
                     nodes=[
                         GenerationNode(
                             node_name="Sobol",
-                            model_specs=[ModelSpec(Models.SOBOL, model_gen_kwargs={"random_seed": args.seed})]
+                            model_specs=[GeneratorSpec(Models.SOBOL, model_gen_kwargs={"random_seed": args.seed})]
                         )
                     ]
             )
@@ -6387,15 +6403,15 @@ def get_next_nr_steps(_num_parallel_jobs: int, _max_eval: int) -> int:
     return requested
 
 @beartype
-def select_model(model_arg: Any) -> ax.modelbridge.registry.Models:
+def select_model(model_arg: Any) -> ax.modelbridge.registry.Generators:
     """Selects the model based on user input or defaults to BOTORCH_MODULAR."""
-    available_models = list(Models.__members__.keys())
-    chosen_model = Models.BOTORCH_MODULAR
+    available_models = list(ax.modelbridge.registry.Generators.__members__.keys())
+    chosen_model = ax.modelbridge.registry.Generators.BOTORCH_MODULAR
 
     if model_arg:
         model_upper = str(model_arg).upper()
         if model_upper in available_models:
-            chosen_model = Models.__members__[model_upper]
+            chosen_model = ax.modelbridge.registry.Generators.__members__[model_upper]
         else:
             print_red(f"⚠ Cannot use {model_arg}. Available models are: {', '.join(available_models)}. Using BOTORCH_MODULAR instead.")
 
@@ -6599,7 +6615,7 @@ def create_node(model_name: str, threshold: int, next_model_name: Optional[str])
 
     selected_model = select_model(model_name)
     model_spec = [
-        ModelSpec(selected_model, model_gen_kwargs={"random_seed": args.seed})
+        GeneratorSpec(selected_model, model_gen_kwargs={"random_seed": args.seed})
     ]
 
     res = GenerationNode(

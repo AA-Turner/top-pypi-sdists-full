@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-router
-Version: 0.1.7
+Version: 0.1.8
 Summary: Super fast semantic router for AI decision making
 Author-email: Aurelio AI <hello@aurelio.ai>
 License-Expression: MIT
@@ -10,6 +10,7 @@ Requires-Dist: aiohttp<4,>=3.10.11
 Requires-Dist: aurelio-sdk>=0.0.19
 Requires-Dist: colorama<0.5,>=0.4.6
 Requires-Dist: colorlog<7,>=6.8.0
+Requires-Dist: litellm>=1.61.3
 Requires-Dist: numpy>=1.25.2
 Requires-Dist: openai<2.0.0,>=1.10.0
 Requires-Dist: pydantic<3,>=2.10.2
@@ -104,7 +105,7 @@ Description-Content-Type: text/markdown
 
 Semantic Router is a superfast decision-making layer for your LLMs and agents. Rather than waiting for slow LLM generations to make tool-use decisions, we use the magic of semantic vector space to make those decisions — _routing_ our requests using _semantic_ meaning.
 
-#### [Read the Docs](https://docs.aurelio.ai/semantic-router/index.html)
+#### [Read the Docs](https://docs.aurelio.ai/semantic-router/get-started/introduction)
 
 ---
 

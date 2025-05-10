@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import dataclasses
 import functools
-import itertools
 import re
 from datetime import timedelta, datetime
 from enum import Enum
@@ -25,6 +24,7 @@ from typing import (
     cast,
 )
 
+import itertools
 import numpy as np
 import pyarrow as pa
 
@@ -1318,7 +1318,7 @@ class Feature(Generic[_TPrim, _TRich]):
                     code="40",
                     raise_error=TypeError,
                 )
-            if isinstance(filter.lhs, Filter) and isinstance(filter.lhs, Filter) and filter.operation == "and":  # pyright: ignore[reportUnnecessaryIsInstance]
+            if ( isinstance(filter.lhs, Filter) and isinstance(filter.lhs, Filter) and filter.operation == "and"):  # pyright: ignore[reportUnnecessaryIsInstance]
                 if not self.is_has_one and not self.is_has_many:
                     assert self.features_cls is not None
                     my_primary_name = (
@@ -1639,6 +1639,7 @@ def feature(
         you can use this parameter to save space.
 
         >>> import pyarrow as pa
+        >>> from chalk.features import features, feature
         >>> @features
         ... class WatchEvent:
         ...     id: str
@@ -1656,6 +1657,7 @@ def feature(
         The maximum version for a feature. Versioned features can be
         referred to with the `@` operator:
 
+        >>> from chalk.features import features, feature
         >>> @features
         ... class User:
         ...     id: str
@@ -1669,6 +1671,7 @@ def feature(
         versioned feature without the `@` operator, you reference
         the `default_version`. Set to `1` by default.
 
+        >>> from chalk.features import features, feature
         >>> @features
         ... class User:
         ...     id: str
@@ -1776,10 +1779,12 @@ def feature(
         use this parameter, or the class `Primary` to indicate the primary key.
         For example:
 
+        >>> from chalk.features import features, Primary
         >>> @features
         ... class User:
         ...     uid: Primary[int]
 
+        >>> from chalk.features import features, feature
         >>> @features
         ... class User:
         ...     uid: int = feature(primary=True)
@@ -1789,6 +1794,7 @@ def feature(
         `fraud_score` feature with information about the values
         as follows:
 
+        >>> from chalk.features import features
         >>> @features
         ... class User:
         ...     # 0 to 100 score indicating an identity match.
@@ -1929,6 +1935,7 @@ def has_one(f: Callable[[], Any]) -> Any:
     each user has one card, you can define the `Card` and `User` classes as
     follows:
 
+    >>> from chalk.features import features
     >>> @features
     ... class User
     ...     id: str
@@ -1954,7 +1961,7 @@ def has_one(f: Callable[[], Any]) -> Any:
 
     Examples
     --------
-    >>> from chalk.features import DataFrame, features
+    >>> from chalk.features import features, has_one
     >>> @features
     ... class Card
     ...     id: str
@@ -1990,7 +1997,7 @@ def has_many(
 
     Examples
     --------
-    >>> from chalk.features import DataFrame, features
+    >>> from chalk.features import DataFrame, features, has_many
     >>> @features
     ... class Card
     ...     id: str

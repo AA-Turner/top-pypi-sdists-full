@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from spanish.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from spanish.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class SpanishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from spanish.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from spanish.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_v = {u"a", u"e", u"i", u"o", u"u", u"á", u"é", u"í", u"ó", u"ú", u"ü"}

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs-full
-Version: 1.38.12
-Summary: All-in-one type annotations for boto3 1.38.12 generated with mypy-boto3-builder 8.11.0
+Version: 1.38.13
+Summary: All-in-one type annotations for boto3 1.38.13 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.38.12](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.38.13](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -114,7 +114,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.38.12' mypy-boto3-builder`
+   `uvx --with 'boto3==1.38.13' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add all available services.
 4. Use provided commands to install generated packages.

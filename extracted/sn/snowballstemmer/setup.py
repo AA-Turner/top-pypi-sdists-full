@@ -3,7 +3,7 @@
 from setuptools import setup
 import re
 
-SNOWBALL_VERSION = '3.0.0.1'
+SNOWBALL_VERSION = '3.0.1'
 
 n_stemmers = 0
 
@@ -42,8 +42,8 @@ classifiers = [
 for lang in langs:
     lang_titlecase = lang.title()
     # Only classifiers listed in https://pypi.org/classifiers/ are allowed
-    if lang_titlecase not in ('Armenian', 'Estonian', 'Yiddish'):
-        classifiers.append('Natural Language :: ' + lang_titlecase)
+    # Remove them here or submit them to https://github.com/pypa/trove-classifiers
+    classifiers.append('Natural Language :: ' + lang_titlecase)
 
 classifiers.extend([
     'Operating System :: OS Independent',

@@ -188,6 +188,10 @@ class StandardFormat(System.IEquatable[System_Buffers_StandardFormat]):
         """true if the StandardFormat == default(StandardFormat)"""
         ...
 
+    def __eq__(self, right: System.Buffers.StandardFormat) -> bool:
+        """Returns true if both the Symbol and Precision are equal."""
+        ...
+
     def __init__(self, symbol: str, precision: int = ...) -> None:
         """
         Create a StandardFormat.
@@ -195,6 +199,10 @@ class StandardFormat(System.IEquatable[System_Buffers_StandardFormat]):
         :param symbol: A type-specific formatting character such as 'G', 'D' or 'X'
         :param precision: An optional precision ranging from 0..9 or the special value NoPrecision (the default)
         """
+        ...
+
+    def __ne__(self, right: System.Buffers.StandardFormat) -> bool:
+        """Returns false if both the Symbol and Precision are equal."""
         ...
 
     @overload

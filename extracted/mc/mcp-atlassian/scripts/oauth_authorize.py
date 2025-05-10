@@ -11,7 +11,10 @@ This script helps with the OAuth 2.0 (3LO) authorization flow for Atlassian Clou
 Usage:
     python oauth_authorize.py --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
                              --redirect-uri http://localhost:8080/callback
-                             --scope "read:jira-work write:jira-work read:confluence-space.summary"
+                             --scope "read:jira-work write:jira-work read:confluence-space.summary offline_access"
+
+IMPORTANT: The 'offline_access' scope is required for refresh tokens to work properly.
+Without this scope, tokens will expire quickly and authentication will fail.
 
 Environment variables can also be used:
 - ATLASSIAN_OAUTH_CLIENT_ID
@@ -24,6 +27,7 @@ import argparse
 import http.server
 import logging
 import os
+import secrets
 import socketserver
 import sys
 import threading
@@ -36,15 +40,22 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.mcp_atlassian.utils.oauth import OAuthConfig
 
-# Configure logging
+# Configure logging (basicConfig should be called only once, ideally at the very start)
+# Adding lineno for better debugging.
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(lineno)d - %(message)s",
+    force=True,
 )
+
+
 logger = logging.getLogger("oauth-authorize")
+logger.setLevel(logging.DEBUG)
+logging.getLogger("mcp-atlassian.oauth").setLevel(logging.DEBUG)
 
 # Global variables for callback handling
 authorization_code = None
-authorization_state = None
+received_state = None
 callback_received = False
 callback_error = None
 
@@ -52,33 +63,51 @@ callback_error = None
 class CallbackHandler(http.server.BaseHTTPRequestHandler):
     """HTTP request handler for OAuth callback."""
 
-    def do_get(self) -> None:
-        """Handle GET requests (OAuth callback)."""
-        global \
-            authorization_code, \
-            callback_received, \
-            callback_error, \
-            authorization_state
+    def do_GET(self) -> None:  # noqa: N802
+        """Handle GET requests (OAuth callback and favicon)."""
+        global authorization_code, callback_received, callback_error, received_state
+
+        parsed_path = urllib.parse.urlparse(self.path)
+        logger.debug(f"CallbackHandler received GET request for: {self.path}")
+
+        # Ignore favicon requests politely
+        if parsed_path.path == "/favicon.ico":
+            self.send_error(404, "File not found")
+            logger.debug("CallbackHandler: Ignored /favicon.ico request.")
+            return
+
+        # Process only /callback path
+        if parsed_path.path != "/callback":
+            self.send_error(404, "Not Found: Only /callback is supported.")
+            logger.warning(
+                f"CallbackHandler: Received request for unexpected path: {parsed_path.path}"
+            )
+            return
 
         # Parse the query parameters from the URL
-        query = urllib.parse.urlparse(self.path).query
+        query = parsed_path.query
         params = urllib.parse.parse_qs(query)
 
         if "error" in params:
             callback_error = params["error"][0]
             callback_received = True
+            logger.error(f"Authorization error from callback: {callback_error}")
             self._send_response(f"Authorization failed: {callback_error}")
             return
 
         if "code" in params:
             authorization_code = params["code"][0]
             if "state" in params:
-                authorization_state = params["state"][0]
+                received_state = params["state"][0]
             callback_received = True
+            logger.info(
+                "Authorization code and state received successfully via callback."
+            )
             self._send_response(
                 "Authorization successful! You can close this window now."
             )
         else:
+            logger.error("Invalid callback: 'code' or 'error' parameter missing.")
             self._send_response(
                 "Invalid callback: Authorization code missing", status=400
             )
@@ -187,16 +216,14 @@ def run_oauth_flow(args: argparse.Namespace) -> bool:
     )
 
     # Generate a random state for CSRF protection
-    import secrets
-
     state = secrets.token_urlsafe(16)
 
     # Start local callback server if using localhost
     hostname, port = parse_redirect_uri(args.redirect_uri)
     httpd = None
 
-    if hostname in ["localhost", "127.0.0.1"]:
-        logger.info(f"Starting local callback server on port {port}")
+    if hostname and hostname.lower() in ["localhost", "127.0.0.1"]:
+        logger.info(f"Attempting to start local callback server on {hostname}:{port}")
         try:
             httpd = start_callback_server(port)
         except OSError as e:
@@ -221,33 +248,40 @@ def run_oauth_flow(args: argparse.Namespace) -> bool:
         return False
 
     # Verify state to prevent CSRF attacks
-    if authorization_state != state:
-        logger.error("State mismatch! Possible CSRF attack.")
+    if received_state != state:
+        logger.error(
+            f"State mismatch! Possible CSRF attack. Expected: {state}, Received: {received_state}"
+        )
+        if httpd:
+            httpd.shutdown()
+        return False
+    logger.info("CSRF state verified successfully.")
+
+    # Exchange the code for tokens
+    logger.info("Exchanging authorization code for tokens...")
+    if not authorization_code:
+        logger.error("Authorization code is missing, cannot exchange for tokens.")
         if httpd:
             httpd.shutdown()
         return False
 
-    # Exchange the code for tokens
-    logger.info("Exchanging authorization code for tokens...")
     if oauth_config.exchange_code_for_tokens(authorization_code):
-        logger.info("OAuth authorization successful!")
-        logger.info(
-            f"Access token: {oauth_config.access_token[:10]}...{oauth_config.access_token[-5:]}"
-        )
-        logger.info(
-            f"Refresh token saved: {oauth_config.refresh_token[:5]}...{oauth_config.refresh_token[-3:]}"
-        )
+        logger.info("🎉 OAuth authorization flow completed successfully!")
 
         if oauth_config.cloud_id:
-            logger.info(f"Cloud ID: {oauth_config.cloud_id}")
-            logger.info("\nAdd the following to your .env file:")
+            logger.info(f"Retrieved Cloud ID: {oauth_config.cloud_id}")
+            logger.info(
+                "\n💡 Tip: Add/update the following in your .env file or environment variables:"
+            )
             logger.info(f"ATLASSIAN_OAUTH_CLIENT_ID={oauth_config.client_id}")
             logger.info(f"ATLASSIAN_OAUTH_CLIENT_SECRET={oauth_config.client_secret}")
             logger.info(f"ATLASSIAN_OAUTH_REDIRECT_URI={oauth_config.redirect_uri}")
             logger.info(f"ATLASSIAN_OAUTH_SCOPE={oauth_config.scope}")
             logger.info(f"ATLASSIAN_OAUTH_CLOUD_ID={oauth_config.cloud_id}")
         else:
-            logger.error("Failed to obtain cloud ID!")
+            logger.warning(
+                "Cloud ID could not be obtained. Some API calls might require it."
+            )
 
         if httpd:
             httpd.shutdown()
@@ -299,6 +333,17 @@ def main() -> int:
         logger.error(f"Missing required arguments: {', '.join(missing)}")
         parser.print_help()
         return 1
+
+    # Check for offline_access scope
+    if args.scope and "offline_access" not in args.scope.split():
+        logger.warning("\n⚠️ WARNING: The 'offline_access' scope is missing!")
+        logger.warning(
+            "Without this scope, refresh tokens will not be issued and authentication will fail when tokens expire."
+        )
+        logger.warning("Consider adding 'offline_access' to your scope string.")
+        proceed = input("Do you want to proceed anyway? (y/n): ")
+        if proceed.lower() != "y":
+            return 1
 
     success = run_oauth_flow(args)
     return 0 if success else 1

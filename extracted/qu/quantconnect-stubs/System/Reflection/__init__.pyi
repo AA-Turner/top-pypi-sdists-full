@@ -203,8 +203,14 @@ class MemberInfo(System.Object, System.Reflection.ICustomAttributeProvider, meta
     def metadata_token(self) -> int:
         ...
 
+    def __eq__(self, right: System.Reflection.MemberInfo) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.MemberInfo) -> bool:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -403,8 +409,14 @@ class FieldInfo(System.Reflection.MemberInfo, metaclass=abc.ABCMeta):
     def field_handle(self) -> System.RuntimeFieldHandle:
         ...
 
+    def __eq__(self, right: System.Reflection.FieldInfo) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.FieldInfo) -> bool:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -891,8 +903,14 @@ class MethodBase(System.Reflection.MemberInfo, metaclass=abc.ABCMeta):
     def is_security_transparent(self) -> bool:
         ...
 
+    def __eq__(self, right: System.Reflection.MethodBase) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.MethodBase) -> bool:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -956,8 +974,14 @@ class MethodInfo(System.Reflection.MethodBase, metaclass=abc.ABCMeta):
     def return_type_custom_attributes(self) -> System.Reflection.ICustomAttributeProvider:
         ...
 
+    def __eq__(self, right: System.Reflection.MethodInfo) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.MethodInfo) -> bool:
         ...
 
     @overload
@@ -1046,8 +1070,14 @@ class PropertyInfo(System.Reflection.MemberInfo, metaclass=abc.ABCMeta):
     def set_method(self) -> System.Reflection.MethodInfo:
         ...
 
+    def __eq__(self, right: System.Reflection.PropertyInfo) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.PropertyInfo) -> bool:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -1171,8 +1201,14 @@ class EventInfo(System.Reflection.MemberInfo, metaclass=abc.ABCMeta):
     def event_handler_type(self) -> typing.Type:
         ...
 
+    def __eq__(self, right: System.Reflection.EventInfo) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.EventInfo) -> bool:
         ...
 
     def add_event_handler(self, target: typing.Any, handler: System.Delegate) -> None:
@@ -1313,8 +1349,14 @@ class ConstructorInfo(System.Reflection.MethodBase, metaclass=abc.ABCMeta):
 
     TYPE_CONSTRUCTOR_NAME: str = ".cctor"
 
+    def __eq__(self, right: System.Reflection.ConstructorInfo) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.ConstructorInfo) -> bool:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -1625,8 +1667,14 @@ class Module(System.Object, System.Reflection.ICustomAttributeProvider, System.R
 
     FILTER_TYPE_NAME_IGNORE_CASE: typing.Callable[[typing.Type, System.Object], bool] = ...
 
+    def __eq__(self, right: System.Reflection.Module) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.Module) -> bool:
         ...
 
     def equals(self, o: typing.Any) -> bool:
@@ -2018,12 +2066,18 @@ class CustomAttributeTypedArgument(System.IEquatable[System_Reflection_CustomAtt
     def value(self) -> System.Object:
         ...
 
+    def __eq__(self, right: System.Reflection.CustomAttributeTypedArgument) -> bool:
+        ...
+
     @overload
     def __init__(self, argument_type: typing.Type, value: typing.Any) -> None:
         ...
 
     @overload
     def __init__(self, value: typing.Any) -> None:
+        ...
+
+    def __ne__(self, right: System.Reflection.CustomAttributeTypedArgument) -> bool:
         ...
 
     @overload
@@ -2066,12 +2120,18 @@ class CustomAttributeNamedArgument(System.IEquatable[System_Reflection_CustomAtt
     def is_field(self) -> bool:
         ...
 
+    def __eq__(self, right: System.Reflection.CustomAttributeNamedArgument) -> bool:
+        ...
+
     @overload
     def __init__(self, member_info: System.Reflection.MemberInfo, value: typing.Any) -> None:
         ...
 
     @overload
     def __init__(self, member_info: System.Reflection.MemberInfo, typed_argument: System.Reflection.CustomAttributeTypedArgument) -> None:
+        ...
+
+    def __ne__(self, right: System.Reflection.CustomAttributeNamedArgument) -> bool:
         ...
 
     @overload
@@ -2228,8 +2288,14 @@ class Assembly(System.Object, System.Reflection.ICustomAttributeProvider, System
     def security_rule_set(self) -> System.Security.SecurityRuleSet:
         ...
 
+    def __eq__(self, right: System.Reflection.Assembly) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.Assembly) -> bool:
         ...
 
     @overload

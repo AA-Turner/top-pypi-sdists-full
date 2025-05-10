@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: proglog
-Version: 0.1.11
+Version: 0.1.12
 Summary: Log and progress bar manager for console, notebooks, web...
 Author: Zulko
 License-Expression: MIT

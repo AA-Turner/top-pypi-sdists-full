@@ -126,12 +126,64 @@ class Quaternion(System.IEquatable[System_Numerics_Quaternion]):
         """Gets a value that indicates whether the current instance is the identity quaternion."""
         ...
 
+    def __add__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        """
+        Adds each element in one quaternion with its corresponding element in a second quaternion.
+        
+        :param value1: The first quaternion.
+        :param value_2: The second quaternion.
+        :returns: The quaternion that contains the summed values of  and .
+        """
+        ...
+
+    def __eq__(self, value_2: System.Numerics.Quaternion) -> bool:
+        """
+        Returns a value that indicates whether two quaternions are equal.
+        
+        :param value1: The first quaternion to compare.
+        :param value_2: The second quaternion to compare.
+        :returns: true if the two quaternions are equal; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, index: int) -> float:
         """
         Gets or sets the element at the specified index.
         
         :param index: The index of the element to get or set.
         :returns: The element at .
+        """
+        ...
+
+    def __iadd__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        """
+        Adds each element in one quaternion with its corresponding element in a second quaternion.
+        
+        :param value1: The first quaternion.
+        :param value_2: The second quaternion.
+        :returns: The quaternion that contains the summed values of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        """
+        Returns the quaternion that results from multiplying two quaternions together.
+        
+        :param value1: The first quaternion.
+        :param value_2: The second quaternion.
+        :returns: The product quaternion.
+        """
+        ...
+
+    @overload
+    def __imul__(self, value_2: float) -> System.Numerics.Quaternion:
+        """
+        Returns the quaternion that results from scaling all the components of a specified quaternion by a scalar factor.
+        
+        :param value1: The source quaternion.
+        :param value_2: The scalar value.
+        :returns: The scaled quaternion.
         """
         ...
 
@@ -157,12 +209,106 @@ class Quaternion(System.IEquatable[System_Numerics_Quaternion]):
         """
         ...
 
+    @overload
+    def __isub__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        """
+        Subtracts each element in a second quaternion from its corresponding element in a first quaternion.
+        
+        :param value1: The first quaternion.
+        :param value_2: The second quaternion.
+        :returns: The quaternion containing the values that result from subtracting each element in  from its corresponding element in .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Numerics.Quaternion:
+        """
+        Reverses the sign of each component of the quaternion.
+        
+        :param value: The quaternion to negate.
+        :returns: The negated quaternion.
+        """
+        ...
+
+    def __itruediv__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        """
+        Divides one quaternion by a second quaternion.
+        
+        :param value1: The dividend.
+        :param value_2: The divisor.
+        :returns: The quaternion that results from dividing  by .
+        """
+        ...
+
+    @overload
+    def __mul__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        """
+        Returns the quaternion that results from multiplying two quaternions together.
+        
+        :param value1: The first quaternion.
+        :param value_2: The second quaternion.
+        :returns: The product quaternion.
+        """
+        ...
+
+    @overload
+    def __mul__(self, value_2: float) -> System.Numerics.Quaternion:
+        """
+        Returns the quaternion that results from scaling all the components of a specified quaternion by a scalar factor.
+        
+        :param value1: The source quaternion.
+        :param value_2: The scalar value.
+        :returns: The scaled quaternion.
+        """
+        ...
+
+    def __ne__(self, value_2: System.Numerics.Quaternion) -> bool:
+        """
+        Returns a value that indicates whether two quaternions are not equal.
+        
+        :param value1: The first quaternion to compare.
+        :param value_2: The second quaternion to compare.
+        :returns: true if  and  are not equal; otherwise, false.
+        """
+        ...
+
     def __setitem__(self, index: int, value: float) -> None:
         """
         Gets or sets the element at the specified index.
         
         :param index: The index of the element to get or set.
         :returns: The element at .
+        """
+        ...
+
+    @overload
+    def __sub__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        """
+        Subtracts each element in a second quaternion from its corresponding element in a first quaternion.
+        
+        :param value1: The first quaternion.
+        :param value_2: The second quaternion.
+        :returns: The quaternion containing the values that result from subtracting each element in  from its corresponding element in .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Numerics.Quaternion:
+        """
+        Reverses the sign of each component of the quaternion.
+        
+        :param value: The quaternion to negate.
+        :returns: The negated quaternion.
+        """
+        ...
+
+    def __truediv__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        """
+        Divides one quaternion by a second quaternion.
+        
+        :param value1: The dividend.
+        :param value_2: The divisor.
+        :returns: The quaternion that results from dividing  by .
         """
         ...
 
@@ -444,12 +590,94 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
 
     ZERO: System.Numerics.Vector2
 
+    @overload
+    def __add__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Adds two vectors together.
+        
+        :param left: The first vector to add.
+        :param right: The second vector to add.
+        :returns: The summed vector.
+        """
+        ...
+
+    @overload
+    def __add__(self) -> System.Numerics.Vector2:
+        ...
+
+    def __and__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __eq__(self, right: System.Numerics.Vector2) -> bool:
+        """
+        Returns a value that indicates whether each pair of elements in two specified vectors is equal.
+        
+        :param left: The first vector to compare.
+        :param right: The second vector to compare.
+        :returns: true if  and  are equal; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, index: int) -> float:
         """
         Gets or sets the element at the specified index.
         
         :param index: The index of the element to get or set.
         :returns: The the element at .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Adds two vectors together.
+        
+        :param left: The first vector to add.
+        :param right: The second vector to add.
+        :returns: The summed vector.
+        """
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Numerics.Vector2:
+        ...
+
+    def __iand__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __ilshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The element-wise product vector.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Numerics.Vector2:
+        """
+        Multiplies the specified vector by the specified scalar value.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Multiplies the scalar value by the specified vector.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
         """
         ...
 
@@ -481,6 +709,113 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
         """
         ...
 
+    def __invert__(self) -> System.Numerics.Vector2:
+        ...
+
+    def __ior__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __irshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Subtracts the second vector from the first.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from subtracting  from .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Numerics.Vector2:
+        """
+        Negates the specified vector.
+        
+        :param value: The vector to negate.
+        :returns: The negated vector.
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Divides the first vector by the second.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from dividing  by .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, value_2: float) -> System.Numerics.Vector2:
+        """
+        Divides the specified vector by a specified scalar value.
+        
+        :param value1: The vector.
+        :param value_2: The scalar value.
+        :returns: The result of the division.
+        """
+        ...
+
+    def __ixor__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The element-wise product vector.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Numerics.Vector2:
+        """
+        Multiplies the specified vector by the specified scalar value.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Multiplies the scalar value by the specified vector.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    def __ne__(self, right: System.Numerics.Vector2) -> bool:
+        """
+        Returns a value that indicates whether two specified vectors are not equal.
+        
+        :param left: The first vector to compare.
+        :param right: The second vector to compare.
+        :returns: true if  and  are not equal; otherwise, false.
+        """
+        ...
+
+    def __or__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.Numerics.Vector2:
+        ...
+
     def __setitem__(self, index: int, value: float) -> None:
         """
         Gets or sets the element at the specified index.
@@ -488,6 +823,52 @@ class Vector2(System.IEquatable[System_Numerics_Vector2], System.IFormattable):
         :param index: The index of the element to get or set.
         :returns: The the element at .
         """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Subtracts the second vector from the first.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from subtracting  from .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Numerics.Vector2:
+        """
+        Negates the specified vector.
+        
+        :param value: The vector to negate.
+        :returns: The negated vector.
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
+        """
+        Divides the first vector by the second.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from dividing  by .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, value_2: float) -> System.Numerics.Vector2:
+        """
+        Divides the specified vector by a specified scalar value.
+        
+        :param value1: The vector.
+        :param value_2: The scalar value.
+        :returns: The result of the division.
+        """
+        ...
+
+    def __xor__(self, right: System.Numerics.Vector2) -> System.Numerics.Vector2:
         ...
 
     @staticmethod
@@ -1291,6 +1672,26 @@ class Matrix3x2(System.IEquatable[System_Numerics_Matrix3x2]):
     def translation(self, value: System.Numerics.Vector2) -> None:
         ...
 
+    def __add__(self, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Adds each element in one matrix with its corresponding element in a second matrix.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix that contains the summed values.
+        """
+        ...
+
+    def __eq__(self, value_2: System.Numerics.Matrix3x2) -> bool:
+        """
+        Returns a value that indicates whether the specified matrices are equal.
+        
+        :param value1: The first matrix to compare.
+        :param value_2: The second matrix to compare.
+        :returns: true if  and  are equal; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, row: int, column: int) -> float:
         """
         Gets or sets the element at the specified indices.
@@ -1298,6 +1699,38 @@ class Matrix3x2(System.IEquatable[System_Numerics_Matrix3x2]):
         :param row: The index of the row containing the element to get or set.
         :param column: The index of the column containing the element to get or set.
         :returns: The element at [][].
+        """
+        ...
+
+    def __iadd__(self, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Adds each element in one matrix with its corresponding element in a second matrix.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix that contains the summed values.
+        """
+        ...
+
+    @overload
+    def __imul__(self, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Multiplies two matrices together to compute the product.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The product matrix.
+        """
+        ...
+
+    @overload
+    def __imul__(self, value_2: float) -> System.Numerics.Matrix3x2:
+        """
+        Multiplies a matrix by a float to compute the product.
+        
+        :param value1: The matrix to scale.
+        :param value_2: The scaling value to use.
+        :returns: The scaled matrix.
         """
         ...
 
@@ -1314,6 +1747,59 @@ class Matrix3x2(System.IEquatable[System_Numerics_Matrix3x2]):
         """
         ...
 
+    @overload
+    def __isub__(self, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Subtracts each element in a second matrix from its corresponding element in a first matrix.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix containing the values that result from subtracting each element in  from its corresponding element in .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Numerics.Matrix3x2:
+        """
+        Negates the specified matrix by multiplying all its values by -1.
+        
+        :param value: The matrix to negate.
+        :returns: The negated matrix.
+        """
+        ...
+
+    @overload
+    def __mul__(self, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Multiplies two matrices together to compute the product.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The product matrix.
+        """
+        ...
+
+    @overload
+    def __mul__(self, value_2: float) -> System.Numerics.Matrix3x2:
+        """
+        Multiplies a matrix by a float to compute the product.
+        
+        :param value1: The matrix to scale.
+        :param value_2: The scaling value to use.
+        :returns: The scaled matrix.
+        """
+        ...
+
+    def __ne__(self, value_2: System.Numerics.Matrix3x2) -> bool:
+        """
+        Returns a value that indicates whether the specified matrices are not equal.
+        
+        :param value1: The first matrix to compare.
+        :param value_2: The second matrix to compare.
+        :returns: true if  and  are not equal; otherwise, false.
+        """
+        ...
+
     def __setitem__(self, row: int, column: int, value: float) -> None:
         """
         Gets or sets the element at the specified indices.
@@ -1321,6 +1807,27 @@ class Matrix3x2(System.IEquatable[System_Numerics_Matrix3x2]):
         :param row: The index of the row containing the element to get or set.
         :param column: The index of the column containing the element to get or set.
         :returns: The element at [][].
+        """
+        ...
+
+    @overload
+    def __sub__(self, value_2: System.Numerics.Matrix3x2) -> System.Numerics.Matrix3x2:
+        """
+        Subtracts each element in a second matrix from its corresponding element in a first matrix.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix containing the values that result from subtracting each element in  from its corresponding element in .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Numerics.Matrix3x2:
+        """
+        Negates the specified matrix by multiplying all its values by -1.
+        
+        :param value: The matrix to negate.
+        :returns: The negated matrix.
         """
         ...
 
@@ -1655,12 +2162,94 @@ class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
 
     ZERO: System.Numerics.Vector3
 
+    @overload
+    def __add__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Adds two vectors together.
+        
+        :param left: The first vector to add.
+        :param right: The second vector to add.
+        :returns: The summed vector.
+        """
+        ...
+
+    @overload
+    def __add__(self) -> System.Numerics.Vector3:
+        ...
+
+    def __and__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __eq__(self, right: System.Numerics.Vector3) -> bool:
+        """
+        Returns a value that indicates whether each pair of elements in two specified vectors is equal.
+        
+        :param left: The first vector to compare.
+        :param right: The second vector to compare.
+        :returns: true if  and  are equal; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, index: int) -> float:
         """
         Gets or sets the element at the specified index.
         
         :param index: The index of the element to get or set.
         :returns: The the element at .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Adds two vectors together.
+        
+        :param left: The first vector to add.
+        :param right: The second vector to add.
+        :returns: The summed vector.
+        """
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Numerics.Vector3:
+        ...
+
+    def __iand__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __ilshift__(self, shift_amount: int) -> System.Numerics.Vector3:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The element-wise product vector.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Numerics.Vector3:
+        """
+        Multiplies the specified vector by the specified scalar value.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Multiplies the scalar value by the specified vector.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
         """
         ...
 
@@ -1703,6 +2292,113 @@ class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
         """
         ...
 
+    def __invert__(self) -> System.Numerics.Vector3:
+        ...
+
+    def __ior__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __irshift__(self, shift_amount: int) -> System.Numerics.Vector3:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Subtracts the second vector from the first.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from subtracting  from .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Numerics.Vector3:
+        """
+        Negates the specified vector.
+        
+        :param value: The vector to negate.
+        :returns: The negated vector.
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Divides the first vector by the second.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from dividing  by .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, value_2: float) -> System.Numerics.Vector3:
+        """
+        Divides the specified vector by a specified scalar value.
+        
+        :param value1: The vector.
+        :param value_2: The scalar value.
+        :returns: The result of the division.
+        """
+        ...
+
+    def __ixor__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.Numerics.Vector3:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The element-wise product vector.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Numerics.Vector3:
+        """
+        Multiplies the specified vector by the specified scalar value.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Multiplies the scalar value by the specified vector.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    def __ne__(self, right: System.Numerics.Vector3) -> bool:
+        """
+        Returns a value that indicates whether two specified vectors are not equal.
+        
+        :param left: The first vector to compare.
+        :param right: The second vector to compare.
+        :returns: true if  and  are not equal; otherwise, false.
+        """
+        ...
+
+    def __or__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.Numerics.Vector3:
+        ...
+
     def __setitem__(self, index: int, value: float) -> None:
         """
         Gets or sets the element at the specified index.
@@ -1710,6 +2406,52 @@ class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
         :param index: The index of the element to get or set.
         :returns: The the element at .
         """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Subtracts the second vector from the first.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from subtracting  from .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Numerics.Vector3:
+        """
+        Negates the specified vector.
+        
+        :param value: The vector to negate.
+        :returns: The negated vector.
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
+        """
+        Divides the first vector by the second.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from dividing  by .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, value_2: float) -> System.Numerics.Vector3:
+        """
+        Divides the specified vector by a specified scalar value.
+        
+        :param value1: The vector.
+        :param value_2: The scalar value.
+        :returns: The result of the division.
+        """
+        ...
+
+    def __xor__(self, right: System.Numerics.Vector3) -> System.Numerics.Vector3:
         ...
 
     @staticmethod
@@ -2511,12 +3253,94 @@ class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
     ZERO: System.Numerics.Vector4
     """Gets a vector whose elements are equal to zero."""
 
+    @overload
+    def __add__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Adds two vectors together.
+        
+        :param left: The first vector to add.
+        :param right: The second vector to add.
+        :returns: The summed vector.
+        """
+        ...
+
+    @overload
+    def __add__(self) -> System.Numerics.Vector4:
+        ...
+
+    def __and__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    def __eq__(self, right: System.Numerics.Vector4) -> bool:
+        """
+        Returns a value that indicates whether each pair of elements in two specified vectors is equal.
+        
+        :param left: The first vector to compare.
+        :param right: The second vector to compare.
+        :returns: true if  and  are equal; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, index: int) -> float:
         """
         Gets or sets the element at the specified index.
         
         :param index: The index of the element to get or set.
         :returns: The the element at .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Adds two vectors together.
+        
+        :param left: The first vector to add.
+        :param right: The second vector to add.
+        :returns: The summed vector.
+        """
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Numerics.Vector4:
+        ...
+
+    def __iand__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    def __ilshift__(self, shift_amount: int) -> System.Numerics.Vector4:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The element-wise product vector.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Numerics.Vector4:
+        """
+        Multiplies the specified vector by the specified scalar value.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Multiplies the scalar value by the specified vector.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
         """
         ...
 
@@ -2571,6 +3395,113 @@ class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
         """
         ...
 
+    def __invert__(self) -> System.Numerics.Vector4:
+        ...
+
+    def __ior__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    def __irshift__(self, shift_amount: int) -> System.Numerics.Vector4:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Subtracts the second vector from the first.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from subtracting  from .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Numerics.Vector4:
+        """
+        Negates the specified vector.
+        
+        :param value: The vector to negate.
+        :returns: The negated vector.
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Divides the first vector by the second.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from dividing  by .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, value_2: float) -> System.Numerics.Vector4:
+        """
+        Divides the specified vector by a specified scalar value.
+        
+        :param value1: The vector.
+        :param value_2: The scalar value.
+        :returns: The result of the division.
+        """
+        ...
+
+    def __ixor__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.Numerics.Vector4:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Returns a new vector whose values are the product of each pair of elements in two specified vectors.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The element-wise product vector.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Numerics.Vector4:
+        """
+        Multiplies the specified vector by the specified scalar value.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Multiplies the scalar value by the specified vector.
+        
+        :param left: The vector.
+        :param right: The scalar value.
+        :returns: The scaled vector.
+        """
+        ...
+
+    def __ne__(self, right: System.Numerics.Vector4) -> bool:
+        """
+        Returns a value that indicates whether two specified vectors are not equal.
+        
+        :param left: The first vector to compare.
+        :param right: The second vector to compare.
+        :returns: true if  and  are not equal; otherwise, false.
+        """
+        ...
+
+    def __or__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.Numerics.Vector4:
+        ...
+
     def __setitem__(self, index: int, value: float) -> None:
         """
         Gets or sets the element at the specified index.
@@ -2578,6 +3509,52 @@ class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
         :param index: The index of the element to get or set.
         :returns: The the element at .
         """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Subtracts the second vector from the first.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from subtracting  from .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Numerics.Vector4:
+        """
+        Negates the specified vector.
+        
+        :param value: The vector to negate.
+        :returns: The negated vector.
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
+        """
+        Divides the first vector by the second.
+        
+        :param left: The first vector.
+        :param right: The second vector.
+        :returns: The vector that results from dividing  by .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, value_2: float) -> System.Numerics.Vector4:
+        """
+        Divides the specified vector by a specified scalar value.
+        
+        :param value1: The vector.
+        :param value_2: The scalar value.
+        :returns: The result of the division.
+        """
+        ...
+
+    def __xor__(self, right: System.Numerics.Vector4) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
@@ -3358,6 +4335,16 @@ class Plane(System.IEquatable[System_Numerics_Plane]):
     def d(self, value: float) -> None:
         ...
 
+    def __eq__(self, value_2: System.Numerics.Plane) -> bool:
+        """
+        Returns a value that indicates whether two planes are equal.
+        
+        :param value1: The first plane to compare.
+        :param value_2: The second plane to compare.
+        :returns: true if  and  are equal; otherwise, false.
+        """
+        ...
+
     @overload
     def __init__(self, x: float, y: float, z: float, d: float) -> None:
         """
@@ -3386,6 +4373,16 @@ class Plane(System.IEquatable[System_Numerics_Plane]):
         Creates a Plane object from a specified four-dimensional vector.
         
         :param value: A vector whose first three elements describe the normal vector, and whose Vector4.W defines the distance along that normal from the origin.
+        """
+        ...
+
+    def __ne__(self, value_2: System.Numerics.Plane) -> bool:
+        """
+        Returns a value that indicates whether two planes are not equal.
+        
+        :param value1: The first plane to compare.
+        :param value_2: The second plane to compare.
+        :returns: true if  and  are not equal; otherwise, false.
         """
         ...
 
@@ -3669,6 +4666,26 @@ class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
     def translation(self, value: System.Numerics.Vector3) -> None:
         ...
 
+    def __add__(self, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Adds each element in one matrix with its corresponding element in a second matrix.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix that contains the summed values.
+        """
+        ...
+
+    def __eq__(self, value_2: System.Numerics.Matrix4x4) -> bool:
+        """
+        Returns a value that indicates whether the specified matrices are equal.
+        
+        :param value1: The first matrix to compare.
+        :param value_2: The second matrix to care
+        :returns: true if  and  are equal; otherwise, false.
+        """
+        ...
+
     def __getitem__(self, row: int, column: int) -> float:
         """
         Gets or sets the element at the specified indices.
@@ -3676,6 +4693,38 @@ class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
         :param row: The index of the row containing the element to get or set.
         :param column: The index of the column containing the element to get or set.
         :returns: The element at [][].
+        """
+        ...
+
+    def __iadd__(self, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Adds each element in one matrix with its corresponding element in a second matrix.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix that contains the summed values.
+        """
+        ...
+
+    @overload
+    def __imul__(self, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Multiplies two matrices together to compute the product.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The product matrix.
+        """
+        ...
+
+    @overload
+    def __imul__(self, value_2: float) -> System.Numerics.Matrix4x4:
+        """
+        Multiplies a matrix by a float to compute the product.
+        
+        :param value1: The matrix to scale.
+        :param value_2: The scaling value to use.
+        :returns: The scaled matrix.
         """
         ...
 
@@ -3712,6 +4761,59 @@ class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
         """
         ...
 
+    @overload
+    def __isub__(self, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Subtracts each element in a second matrix from its corresponding element in a first matrix.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix containing the values that result from subtracting each element in  from its corresponding element in .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Numerics.Matrix4x4:
+        """
+        Negates the specified matrix by multiplying all its values by -1.
+        
+        :param value: The matrix to negate.
+        :returns: The negated matrix.
+        """
+        ...
+
+    @overload
+    def __mul__(self, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Multiplies two matrices together to compute the product.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The product matrix.
+        """
+        ...
+
+    @overload
+    def __mul__(self, value_2: float) -> System.Numerics.Matrix4x4:
+        """
+        Multiplies a matrix by a float to compute the product.
+        
+        :param value1: The matrix to scale.
+        :param value_2: The scaling value to use.
+        :returns: The scaled matrix.
+        """
+        ...
+
+    def __ne__(self, value_2: System.Numerics.Matrix4x4) -> bool:
+        """
+        Returns a value that indicates whether the specified matrices are not equal.
+        
+        :param value1: The first matrix to compare.
+        :param value_2: The second matrix to compare.
+        :returns: true if  and  are not equal; otherwise, false.
+        """
+        ...
+
     def __setitem__(self, row: int, column: int, value: float) -> None:
         """
         Gets or sets the element at the specified indices.
@@ -3719,6 +4821,27 @@ class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
         :param row: The index of the row containing the element to get or set.
         :param column: The index of the column containing the element to get or set.
         :returns: The element at [][].
+        """
+        ...
+
+    @overload
+    def __sub__(self, value_2: System.Numerics.Matrix4x4) -> System.Numerics.Matrix4x4:
+        """
+        Subtracts each element in a second matrix from its corresponding element in a first matrix.
+        
+        :param value1: The first matrix.
+        :param value_2: The second matrix.
+        :returns: The matrix containing the values that result from subtracting each element in  from its corresponding element in .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Numerics.Matrix4x4:
+        """
+        Negates the specified matrix by multiplying all its values by -1.
+        
+        :param value: The matrix to negate.
+        :returns: The negated matrix.
         """
         ...
 
@@ -4406,12 +5529,125 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
     ZERO: System.Numerics.Vector[System_Numerics_Vector_T]
     """Gets a new Vector{T} with all elements initialized to zero."""
 
+    @overload
+    def __add__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __add__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __and__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __eq__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
+        """
+        Compares two vectors to determine if all elements are equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if all elements in  were equal to the corresponding element in .
+        """
+        ...
+
     def __getitem__(self, index: int) -> System_Numerics_Vector_T:
         """
         Gets the element at the specified index.
         
         :param index: The index of the element to get.
         :returns: The value of the element at .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __iand__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __ilshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, factor: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param value: The vector to multiply with .
+        :param factor: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, value: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param factor: The scalar to multiply with .
+        :param value: The vector to multiply with .
+        :returns: The product of  and .
         """
         ...
 
@@ -4473,6 +5709,214 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         
         :param values: The span from which the vector is created.
         :returns: A new Vector{T} with its elements set to the first Vector{T}.Count elements from .
+        """
+        ...
+
+    def __invert__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Computes the ones-complement of a vector.
+        
+        :param value: The vector whose ones-complement is to be computed.
+        :returns: A vector whose elements are the ones-complement of the corresponding elements in .
+        """
+        ...
+
+    def __ior__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __irshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __isub__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param value: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __ixor__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
+        """
+        ...
+
+    def __lshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, factor: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param value: The vector to multiply with .
+        :param factor: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, value: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param factor: The scalar to multiply with .
+        :param value: The vector to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    def __ne__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> bool:
+        """
+        Compares two vectors to determine if any elements are not equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if any elements in  was not equal to the corresponding element in .
+        """
+        ...
+
+    def __or__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __rshift__(self, shift_count: int) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param value: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System_Numerics_Vector_T) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __xor__(self, right: System.Numerics.Vector[System_Numerics_Vector_T]) -> System.Numerics.Vector[System_Numerics_Vector_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
         """
         ...
 

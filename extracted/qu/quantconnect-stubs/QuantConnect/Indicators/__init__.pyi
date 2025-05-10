@@ -46,6 +46,22 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
     """Represents a piece of data at a specific time"""
 
     @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
+        ...
+
+    @overload
     def __init__(self) -> None:
         """
         Initializes a new default instance of IndicatorDataPoint with a time of
@@ -72,6 +88,22 @@ class IndicatorDataPoint(QuantConnect.Data.BaseData, System.IEquatable[QuantConn
         :param time: The time this data was produced
         :param value: The data
         """
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.Indicators.IndicatorDataPoint) -> bool:
         ...
 
     @overload
@@ -4318,6 +4350,86 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         """A rolling window keeping a history of the indicator values of a given period"""
         ...
 
+    @overload
+    def __eq__(self, right: float) -> bool:
+        """Determines if the indicator's current value is equal to the specified value"""
+        ...
+
+    @overload
+    def __eq__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __eq__(self, right: float) -> bool:
+        """Determines if the indicator's current value is equal to the specified value"""
+        ...
+
+    @overload
+    def __eq__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __eq__(self, right: int) -> bool:
+        """Determines if the indicator's current value is equal to the specified value"""
+        ...
+
+    @overload
+    def __eq__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __eq__(self, right: int) -> bool:
+        """Determines if the indicator's current value is equal to the specified value"""
+        ...
+
+    @overload
+    def __eq__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __ge__(self, right: float) -> bool:
+        """Determines if the indicator's current value is greater than or equal to the specified value"""
+        ...
+
+    @overload
+    def __ge__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is greater than or equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __ge__(self, right: float) -> bool:
+        """Determines if the indicator's current value is greater than or equal to the specified value"""
+        ...
+
+    @overload
+    def __ge__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is greater than or equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __ge__(self, right: int) -> bool:
+        """Determines if the indicator's current value is greater than or equal to the specified value"""
+        ...
+
+    @overload
+    def __ge__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is greater than or equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __ge__(self, right: int) -> bool:
+        """Determines if the indicator's current value is greater than or equal to the specified value"""
+        ...
+
+    @overload
+    def __ge__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is greater than or equal to the indicator's current value"""
+        ...
+
     def __getitem__(self, i: int) -> QuantConnect.Indicators.IndicatorDataPoint:
         """
         Indexes the history windows, where index 0 is the most recent indicator value.
@@ -4327,6 +4439,46 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         :param i: The index
         :returns: the ith most recent indicator value.
         """
+        ...
+
+    @overload
+    def __gt__(self, right: float) -> bool:
+        """Determines if the indicator's current value is greater than the specified value"""
+        ...
+
+    @overload
+    def __gt__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is greater than the indicator's current value"""
+        ...
+
+    @overload
+    def __gt__(self, right: float) -> bool:
+        """Determines if the indicator's current value is greater than the specified value"""
+        ...
+
+    @overload
+    def __gt__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is greater than the indicator's current value"""
+        ...
+
+    @overload
+    def __gt__(self, right: int) -> bool:
+        """Determines if the indicator's current value is greater than the specified value"""
+        ...
+
+    @overload
+    def __gt__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is greater than the indicator's current value"""
+        ...
+
+    @overload
+    def __gt__(self, right: int) -> bool:
+        """Determines if the indicator's current value is greater than the specified value"""
+        ...
+
+    @overload
+    def __gt__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is greater than the indicator's current value"""
         ...
 
     @overload
@@ -4350,6 +4502,126 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         ...
 
     def __iter__(self) -> typing.Iterator[QuantConnect.Indicators.IndicatorDataPoint]:
+        ...
+
+    @overload
+    def __le__(self, right: float) -> bool:
+        """Determines if the indicator's current value is less than or equal to the specified value"""
+        ...
+
+    @overload
+    def __le__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is less than or equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __le__(self, right: float) -> bool:
+        """Determines if the indicator's current value is less than or equal to the specified value"""
+        ...
+
+    @overload
+    def __le__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is less than or equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __le__(self, right: int) -> bool:
+        """Determines if the indicator's current value is less than or equal to the specified value"""
+        ...
+
+    @overload
+    def __le__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is less than or equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __le__(self, right: int) -> bool:
+        """Determines if the indicator's current value is less than or equal to the specified value"""
+        ...
+
+    @overload
+    def __le__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is less than or equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __lt__(self, right: float) -> bool:
+        """Determines if the indicator's current value is less than the specified value"""
+        ...
+
+    @overload
+    def __lt__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is less than the indicator's current value"""
+        ...
+
+    @overload
+    def __lt__(self, right: float) -> bool:
+        """Determines if the indicator's current value is less than the specified value"""
+        ...
+
+    @overload
+    def __lt__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is less than the indicator's current value"""
+        ...
+
+    @overload
+    def __lt__(self, right: int) -> bool:
+        """Determines if the indicator's current value is less than the specified value"""
+        ...
+
+    @overload
+    def __lt__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is less than the indicator's current value"""
+        ...
+
+    @overload
+    def __lt__(self, right: int) -> bool:
+        """Determines if the indicator's current value is less than the specified value"""
+        ...
+
+    @overload
+    def __lt__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is less than the indicator's current value"""
+        ...
+
+    @overload
+    def __ne__(self, right: float) -> bool:
+        """Determines if the indicator's current value is not equal to the specified value"""
+        ...
+
+    @overload
+    def __ne__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is not equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __ne__(self, right: float) -> bool:
+        """Determines if the indicator's current value is not equal to the specified value"""
+        ...
+
+    @overload
+    def __ne__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is not equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __ne__(self, right: int) -> bool:
+        """Determines if the indicator's current value is not equal to the specified value"""
+        ...
+
+    @overload
+    def __ne__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is not equal to the indicator's current value"""
+        ...
+
+    @overload
+    def __ne__(self, right: int) -> bool:
+        """Determines if the indicator's current value is not equal to the specified value"""
+        ...
+
+    @overload
+    def __ne__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
+        """Determines if the specified value is not equal to the indicator's current value"""
         ...
 
     @overload

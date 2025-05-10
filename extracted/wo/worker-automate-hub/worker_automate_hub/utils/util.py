@@ -3783,7 +3783,7 @@ async def nf_busca_nf_saida_mais_recente() -> RpaRetornoProcessoDTO:
 
         
         grid_inventario = main_window.child_window(class_name="TPanel", found_index=0)
-        center_main = grid_inventario.child_window(class_name="TPageControl", found_index=0)
+        center_main = grid_inventario.child_window(class_name="TcxGrid", found_index=0)
         rect = center_main.rectangle()
         center_x = (rect.left + rect.right) // 2
         center_y = (rect.top + rect.bottom) // 2
@@ -3795,6 +3795,7 @@ async def nf_busca_nf_saida_mais_recente() -> RpaRetornoProcessoDTO:
         await worker_sleep(2)
         for _ in range(10):
             pyautogui.press('pagedown')
+            await worker_sleep(1)
 
         pyautogui.press('enter')
         await worker_sleep(7)
@@ -4908,3 +4909,127 @@ async def status_trasmissao_nf():
     win32clipboard.CloseClipboard()
     console.print(f"Status copiado: {pop_up_status}")
     return pop_up_status
+
+
+async def gerenciador_nf_header_retransmissao(
+    periodo: str, cod_cliente: str
+) -> RpaRetornoProcessoDTO:
+    try:
+        console.print(f"\n'Conectando ao Gerenciador de NF", style="bold green")
+        app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=15)
+        main_window = app["TFrmGerenciadorNFe2"]
+        main_window.set_focus()
+
+        console.print("Conectando as Janelas para iteração...\n")
+        panel_TGroup_Box = main_window.child_window(
+            class_name="TGroupBox", found_index=0
+        )
+        console.print("Janela principal conectada...\n")
+
+        periodo_vigente_inicio = main_window.child_window(
+            class_name="TDBIEditDate", found_index=0
+        )
+        console.print("Periodo vigente inicio conectada...\n")
+        periodo_vigente_fim = main_window.child_window(
+            class_name="TDBIEditDate", found_index=1
+        )
+        console.print("Periodo vigente fim conectada...\n")
+        situacao_select = main_window.child_window(
+            class_name="TDBIComboBoxValues", found_index=2
+        )
+        console.print("Situacao conectada com sucesso...\n")
+        field_cod_cliente = main_window.child_window(
+            class_name="TDBIEditCode", found_index=4
+        )
+        console.print("Campo cliente conectada com sucesso...\n")
+        btn_pesquisar = main_window.child_window(title="Pesquisar")
+        console.print("Botao pesquisar conectada com sucesso...\n")
+
+        console.print("Inserindo o período vigente para buscar...\n")
+        periodo_vigente_inicio.set_edit_text(periodo)
+        await worker_sleep(1)
+        periodo_vigente_fim.set_edit_text(periodo)
+        await worker_sleep(2)
+
+        console.print("Verificando a situação...\n")
+        situacao_text = situacao_select.window_text()
+        if "transmitida" in situacao_text.lower():
+            console.print("Situação corretamente selecionada...\n")
+        else:
+            situacao_select.click()
+            # set_combobox("||List", "Todas")
+            set_combobox("||List", "Não Transmitida")
+
+        console.print("Inserindo o codigo do cliente...\n")
+        field_cod_cliente.click()
+        await worker_sleep(1)
+        field_cod_cliente.set_edit_text(cod_cliente)
+        await worker_sleep(1)
+        field_cod_cliente.click()
+        pyautogui.press("tab")
+        await worker_sleep(2)
+
+        console.print("Clicando em Pesquisar...\n")
+        i = 0
+        while i <= 1:
+            btn_pesquisar.click()
+            i = i + 1
+        await worker_sleep(5)
+
+        i = 0
+        max_attempts = 25
+
+        while i < max_attempts:
+            i += 1
+            console.print("Verificando se a nota foi encontrada...\n")
+            try:
+                main_window.set_focus()
+                no_data_full_path = "assets\\entrada_notas\\no_data_display.png"
+                img_no_data = pyautogui.locateCenterOnScreen(
+                    no_data_full_path, confidence=0.6
+                )
+                if img_no_data:
+                    console.print(
+                        "'No data display' ainda aparente. Tentando novamente..."
+                    )
+                    await worker_sleep(10)
+            except pyautogui.ImageNotFoundException:
+                console.print("'No data display' não encontrado na tela!")
+                break
+
+            except Exception as e:
+                console.print(f"Ocorreu um erro: {e}")
+
+        if i == max_attempts:
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Tempo esgotado, No data display ainda presente na busca pela nota em Gerenciador NF-e, nota não encontrada",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+            )
+
+        try:
+            console.print("Clicar Selecionar todos itens...\n")
+            selecionar_todos_itens = pyautogui.locateOnScreen(
+                ASSETS_PATH + "\\emsys\\selecinar_todos_itens_quadro_azul.png",
+                confidence=0.8,
+            )
+            pyautogui.click(selecionar_todos_itens)
+            await worker_sleep(5)
+            return RpaRetornoProcessoDTO(
+                sucesso=True, retorno=f"Sucesso", status=RpaHistoricoStatusEnum.Sucesso
+            )
+        except Exception as e:
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=f"Não foi possivel clicar em selecionar todos os itens na tela de Gerenciador de NF-e, erro: {e}",
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+            )
+    except Exception as e:
+        return RpaRetornoProcessoDTO(
+            sucesso=False,
+            retorno=f"Não foi possivel clicar na Lupa para buscar a nota fiscal na tela de nota fiscal de saída, erro: {e}",
+            status=RpaHistoricoStatusEnum.Falha,
+            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+        )

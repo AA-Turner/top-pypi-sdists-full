@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from yiddish.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from yiddish.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class YiddishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from yiddish.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from yiddish.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_niked = {u"\u05B0", u"\u05B4", u"\u05B5", u"\u05B6", u"\u05B1", u"\u05B7", u"\u05B2", u"\u05B8", u"\u05B3", u"\u05C2", u"\u05C1", u"\u05B9", u"\u05BC", u"\u05BB", u"\u05BF"}

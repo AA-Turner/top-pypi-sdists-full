@@ -24,6 +24,13 @@ async def healthcheck_server():
     ok_len = str(len(ok))
 
     class HealthHandler(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, format, *args):
+            # Skip logging for /ok endpoint
+            if self.path == "/ok":
+                return
+            # Log other requests normally
+            super().log_message(format, *args)
+
         def do_GET(self):
             if self.path == "/ok":
                 self.send_response(200)

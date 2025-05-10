@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from danish.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from danish.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class DanishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from danish.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from danish.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_c = {u"b", u"c", u"d", u"f", u"g", u"h", u"j", u"k", u"l", u"m", u"n", u"p", u"q", u"r", u"s", u"t", u"v", u"w", u"x", u"z"}

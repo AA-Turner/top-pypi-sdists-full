@@ -332,8 +332,16 @@ class MemberRelationship(System.IEquatable[System_ComponentModel_Design_Serializ
         """The object owning the member."""
         ...
 
+    def __eq__(self, right: System.ComponentModel.Design.Serialization.MemberRelationship) -> bool:
+        """Infrastructure support to make this a first class struct"""
+        ...
+
     def __init__(self, owner: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
         """Creates a new member relationship."""
+        ...
+
+    def __ne__(self, right: System.ComponentModel.Design.Serialization.MemberRelationship) -> bool:
+        """Infrastructure support to make this a first class struct"""
         ...
 
     @overload

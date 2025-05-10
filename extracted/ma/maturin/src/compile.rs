@@ -68,12 +68,12 @@ fn compile_universal2(
     targets: &[CompileTarget],
 ) -> Result<Vec<HashMap<CrateType, BuildArtifact>>> {
     let mut aarch64_context = context.clone();
-    aarch64_context.target = Target::from_target_triple(Some("aarch64-apple-darwin".to_string()))?;
+    aarch64_context.target = Target::from_resolved_target_triple("aarch64-apple-darwin")?;
 
     let aarch64_artifacts = compile_targets(&aarch64_context, python_interpreter, targets)
         .context("Failed to build a aarch64 library through cargo")?;
     let mut x86_64_context = context.clone();
-    x86_64_context.target = Target::from_target_triple(Some("x86_64-apple-darwin".to_string()))?;
+    x86_64_context.target = Target::from_resolved_target_triple("x86_64-apple-darwin")?;
 
     let x86_64_artifacts = compile_targets(&x86_64_context, python_interpreter, targets)
         .context("Failed to build a x86_64 library through cargo")?;
@@ -159,7 +159,15 @@ fn cargo_build_command(
 ) -> Result<Command> {
     let target = &context.target;
 
-    let mut cargo_rustc: cargo_options::Rustc = context.cargo_options.clone().into();
+    let user_specified_target = if target.user_specified {
+        Some(target.target_triple().to_string())
+    } else {
+        None
+    };
+    let mut cargo_rustc = context
+        .cargo_options
+        .clone()
+        .into_rustc_options(user_specified_target);
     cargo_rustc.message_format = vec!["json-render-diagnostics".to_string()];
 
     // --release and --profile are conflicting options
@@ -196,10 +204,7 @@ fn cargo_build_command(
         BridgeModel::Bin(..) => {
             cargo_rustc.bin.push(compile_target.target.name.clone());
         }
-        BridgeModel::Cffi
-        | BridgeModel::UniFfi
-        | BridgeModel::Bindings { .. }
-        | BridgeModel::BindingsAbi3 { .. } => {
+        BridgeModel::Cffi | BridgeModel::UniFfi | BridgeModel::PyO3 { .. } => {
             cargo_rustc.lib = true;
             // https://github.com/rust-lang/rust/issues/59302#issue-422994250
             // We must only do this for libraries as it breaks binaries
@@ -219,16 +224,17 @@ fn cargo_build_command(
 
     // https://github.com/PyO3/pyo3/issues/88#issuecomment-337744403
     if target.is_macos() {
-        if let BridgeModel::Bindings { .. } | BridgeModel::BindingsAbi3 { .. } = bridge_model {
+        if let BridgeModel::PyO3 { .. } = bridge_model {
             // Change LC_ID_DYLIB to the final .so name for macOS targets to avoid linking with
             // non-existent library.
             // See https://github.com/PyO3/setuptools-rust/issues/106 for detail
             let module_name = &context.module_name;
-            let so_filename = match bridge_model {
-                BridgeModel::BindingsAbi3 { .. } => format!("{module_name}.abi3.so"),
-                _ => python_interpreter
+            let so_filename = if bridge_model.is_abi3() {
+                format!("{module_name}.abi3.so")
+            } else {
+                python_interpreter
                     .expect("missing python interpreter for non-abi3 wheel build")
-                    .get_library_name(module_name),
+                    .get_library_name(module_name)
             };
             let macos_dylib_install_name =
                 format!("link-args=-Wl,-install_name,@rpath/{so_filename}");
@@ -390,7 +396,7 @@ fn cargo_build_command(
         build_command.env("CARGO_ENCODED_RUSTFLAGS", rustflags.encode()?);
     }
 
-    if let BridgeModel::BindingsAbi3 { .. } = bridge_model {
+    if bridge_model.is_abi3() {
         let is_pypy_or_graalpy = python_interpreter
             .map(|p| p.interpreter_kind.is_pypy() || p.interpreter_kind.is_graalpy())
             .unwrap_or(false);
@@ -409,10 +415,7 @@ fn cargo_build_command(
     if let Some(interpreter) = python_interpreter {
         // Target python interpreter isn't runnable when cross compiling
         if interpreter.runnable {
-            if bridge_model.is_bindings("pyo3")
-                || bridge_model.is_bindings("pyo3-ffi")
-                || matches!(bridge_model, BridgeModel::BindingsAbi3 { .. })
-            {
+            if bridge_model.is_pyo3() {
                 debug!(
                     "Setting PYO3_PYTHON to {}",
                     interpreter.executable.display()
@@ -425,17 +428,11 @@ fn cargo_build_command(
                     );
             }
 
-            // rust-cpython, and legacy pyo3 versions
+            // and legacy pyo3 versions
             build_command.env("PYTHON_SYS_EXECUTABLE", &interpreter.executable);
-        } else if (bridge_model.is_bindings("pyo3")
-            || bridge_model.is_bindings("pyo3-ffi")
-            || (matches!(bridge_model, BridgeModel::BindingsAbi3 { .. })
-                && (interpreter.interpreter_kind.is_pypy()
-                    || interpreter.interpreter_kind.is_graalpy())))
-            && env::var_os("PYO3_CONFIG_FILE").is_none()
-        {
+        } else if bridge_model.is_pyo3() && env::var_os("PYO3_CONFIG_FILE").is_none() {
             let pyo3_config = interpreter.pyo3_config_file();
-            let maturin_target_dir = context.target_dir.join("maturin");
+            let maturin_target_dir = context.target_dir.join(env!("CARGO_PKG_NAME"));
             let config_file = maturin_target_dir.join(format!(
                 "pyo3-config-{}-{}.{}.txt",
                 target_triple, interpreter.major, interpreter.minor

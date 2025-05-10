@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-kafka-python
-Version: 0.53b1
+Version: 0.54b0
 Summary: OpenTelemetry Kafka-Python instrumentation
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-kafka-python
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib
@@ -20,8 +20,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Requires-Dist: opentelemetry-api~=1.5
-Requires-Dist: opentelemetry-instrumentation==0.53b1
-Requires-Dist: opentelemetry-semantic-conventions==0.53b1
+Requires-Dist: opentelemetry-instrumentation==0.54b0
+Requires-Dist: opentelemetry-semantic-conventions==0.54b0
 Provides-Extra: instruments
 Requires-Dist: kafka-python-ng<3.0,>=2.0; extra == 'instruments'
 Requires-Dist: kafka-python<3.0,>=2.0; extra == 'instruments'

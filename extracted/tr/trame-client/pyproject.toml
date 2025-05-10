@@ -1,6 +1,6 @@
 [project]
 name = "trame-client"
-version = "3.8.2"
+version = "3.9.0"
 description = "Internal client of trame"
 authors = [
     {name = "Kitware Inc."},
@@ -72,6 +72,8 @@ ignore = []
 fixable = ["ALL"]
 unfixable = []
 
+[tool.ruff.lint.per-file-ignores]
+"trame_client/widgets/html.py" = ["E742"]
 
 [tool.ruff.format]
 quote-style = "double"

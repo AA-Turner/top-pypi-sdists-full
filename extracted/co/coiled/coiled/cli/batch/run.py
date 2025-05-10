@@ -409,7 +409,8 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         job_array_kwargs = {"task_array": job_array_ids}
 
     max_workers = kwargs["max_workers"]
-    n_task_workers = n_tasks if max_workers is None else min(n_tasks, max_workers)
+    n_tasks_on_workers = n_tasks - 1 if kwargs["task_on_scheduler"] else n_tasks
+    n_task_workers = n_tasks_on_workers if max_workers is None else min(n_tasks_on_workers, max_workers)
 
     scheduler_task_ids = parse_array_string(kwargs["scheduler_task_array"]) if kwargs["scheduler_task_array"] else []
     if kwargs["task_on_scheduler"]:

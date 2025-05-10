@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-propagator-jaeger
-Version: 1.32.1
+Version: 1.33.0
 Summary: OpenTelemetry Jaeger Propagator
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python/tree/main/propagator/opentelemetry-propagator-jaeger
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python

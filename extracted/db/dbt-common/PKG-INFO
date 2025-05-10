@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-common
-Version: 1.23.0
+Version: 1.24.0
 Summary: The shared common utilities that dbt-core and adapter implementations use
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-common
 Project-URL: Repository, https://github.com/dbt-labs/dbt-common.git

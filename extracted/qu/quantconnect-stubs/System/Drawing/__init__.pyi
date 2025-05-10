@@ -698,6 +698,12 @@ class Color(System.IEquatable[System_Drawing_Color]):
     def name(self) -> str:
         ...
 
+    def __eq__(self, right: System.Drawing.Color) -> bool:
+        ...
+
+    def __ne__(self, right: System.Drawing.Color) -> bool:
+        ...
+
     @overload
     def equals(self, obj: typing.Any) -> bool:
         ...
@@ -819,6 +825,40 @@ class SizeF(System.IEquatable[System_Drawing_SizeF]):
     def height(self, value: float) -> None:
         ...
 
+    def __add__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        """Performs vector addition of two System.Drawing.SizeF objects."""
+        ...
+
+    def __eq__(self, sz_2: System.Drawing.SizeF) -> bool:
+        """Tests whether two System.Drawing.SizeF objects are identical."""
+        ...
+
+    def __iadd__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        """Performs vector addition of two System.Drawing.SizeF objects."""
+        ...
+
+    @overload
+    def __imul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        """
+        Multiplies SizeF by a float producing SizeF.
+        
+        :param left: Multiplier of type float.
+        :param right: Multiplicand of type SizeF.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Multiplies SizeF by a float producing SizeF.
+        
+        :param left: Multiplicand of type SizeF.
+        :param right: Multiplier of type float.
+        :returns: Product of type SizeF.
+        """
+        ...
+
     @overload
     def __init__(self, size: System.Drawing.SizeF) -> None:
         """
@@ -846,6 +886,60 @@ class SizeF(System.IEquatable[System_Drawing_SizeF]):
     @overload
     def __init__(self, width: float, height: float) -> None:
         """Initializes a new instance of the System.Drawing.SizeF class from the specified dimensions."""
+        ...
+
+    def __isub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        """Contracts a System.Drawing.SizeF by another System.Drawing.SizeF"""
+        ...
+
+    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Divides SizeF by a float producing SizeF.
+        
+        :param left: Dividend of type SizeF.
+        :param right: Divisor of type int.
+        :returns: Result of type SizeF.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        """
+        Multiplies SizeF by a float producing SizeF.
+        
+        :param left: Multiplier of type float.
+        :param right: Multiplicand of type SizeF.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Multiplies SizeF by a float producing SizeF.
+        
+        :param left: Multiplicand of type SizeF.
+        :param right: Multiplier of type float.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    def __ne__(self, sz_2: System.Drawing.SizeF) -> bool:
+        """Tests whether two System.Drawing.SizeF objects are different."""
+        ...
+
+    def __sub__(self, sz_2: System.Drawing.SizeF) -> System.Drawing.SizeF:
+        """Contracts a System.Drawing.SizeF by another System.Drawing.SizeF"""
+        ...
+
+    def __truediv__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Divides SizeF by a float producing SizeF.
+        
+        :param left: Dividend of type SizeF.
+        :param right: Divisor of type int.
+        :returns: Result of type SizeF.
+        """
         ...
 
     @staticmethod
@@ -917,6 +1011,62 @@ class Size(System.IEquatable[System_Drawing_Size]):
     def height(self, value: int) -> None:
         ...
 
+    def __add__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Performs vector addition of two System.Drawing.Size objects."""
+        ...
+
+    def __eq__(self, sz_2: System.Drawing.Size) -> bool:
+        """Tests whether two System.Drawing.Size objects are identical."""
+        ...
+
+    def __iadd__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Performs vector addition of two System.Drawing.Size objects."""
+        ...
+
+    @overload
+    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
+        """
+        Multiplies a Size by an int producing Size.
+        
+        :param left: Multiplier of type int.
+        :param right: Multiplicand of type Size.
+        :returns: Product of type Size.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: int) -> System.Drawing.Size:
+        """
+        Multiplies Size by an int producing Size.
+        
+        :param left: Multiplicand of type Size.
+        :param right: Multiplier of type int.
+        :returns: Product of type Size.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
+        """
+        Multiplies Size by a float producing SizeF.
+        
+        :param left: Multiplier of type float.
+        :param right: Multiplicand of type Size.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Multiplies Size by a float producing SizeF.
+        
+        :param left: Multiplicand of type Size.
+        :param right: Multiplier of type float.
+        :returns: Product of type SizeF.
+        """
+        ...
+
     @overload
     def __init__(self, pt: System.Drawing.Point) -> None:
         """
@@ -928,6 +1078,106 @@ class Size(System.IEquatable[System_Drawing_Size]):
     @overload
     def __init__(self, width: int, height: int) -> None:
         """Initializes a new instance of the System.Drawing.Size class from the specified dimensions."""
+        ...
+
+    def __isub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Contracts a System.Drawing.Size by another System.Drawing.Size"""
+        ...
+
+    @overload
+    def __itruediv__(self, right: int) -> System.Drawing.Size:
+        """
+        Divides Size by an int producing Size.
+        
+        :param left: Dividend of type Size.
+        :param right: Divisor of type int.
+        :returns: Result of type Size.
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Divides Size by a float producing SizeF.
+        
+        :param left: Dividend of type Size.
+        :param right: Divisor of type int.
+        :returns: Result of type SizeF.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
+        """
+        Multiplies a Size by an int producing Size.
+        
+        :param left: Multiplier of type int.
+        :param right: Multiplicand of type Size.
+        :returns: Product of type Size.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: int) -> System.Drawing.Size:
+        """
+        Multiplies Size by an int producing Size.
+        
+        :param left: Multiplicand of type Size.
+        :param right: Multiplier of type int.
+        :returns: Product of type Size.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
+        """
+        Multiplies Size by a float producing SizeF.
+        
+        :param left: Multiplier of type float.
+        :param right: Multiplicand of type Size.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Multiplies Size by a float producing SizeF.
+        
+        :param left: Multiplicand of type Size.
+        :param right: Multiplier of type float.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    def __ne__(self, sz_2: System.Drawing.Size) -> bool:
+        """Tests whether two System.Drawing.Size objects are different."""
+        ...
+
+    def __sub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Contracts a System.Drawing.Size by another System.Drawing.Size"""
+        ...
+
+    @overload
+    def __truediv__(self, right: int) -> System.Drawing.Size:
+        """
+        Divides Size by an int producing Size.
+        
+        :param left: Dividend of type Size.
+        :param right: Divisor of type int.
+        :returns: Result of type Size.
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Divides Size by a float producing SizeF.
+        
+        :param left: Dividend of type Size.
+        :param right: Divisor of type int.
+        :returns: Result of type SizeF.
+        """
         ...
 
     @staticmethod
@@ -1006,6 +1256,34 @@ class PointF(System.IEquatable[System_Drawing_PointF]):
         ...
 
     @overload
+    def __add__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        """Translates a System.Drawing.PointF by a given System.Drawing.Size ."""
+        ...
+
+    @overload
+    def __add__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        """Translates a System.Drawing.PointF by a given System.Drawing.SizeF ."""
+        ...
+
+    def __eq__(self, right: System.Drawing.PointF) -> bool:
+        """
+        Compares two System.Drawing.PointF objects. The result specifies whether the values of the
+        System.Drawing.PointF.X and System.Drawing.PointF.Y properties of the two
+        System.Drawing.PointF objects are equal.
+        """
+        ...
+
+    @overload
+    def __iadd__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        """Translates a System.Drawing.PointF by a given System.Drawing.Size ."""
+        ...
+
+    @overload
+    def __iadd__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        """Translates a System.Drawing.PointF by a given System.Drawing.SizeF ."""
+        ...
+
+    @overload
     def __init__(self, x: float, y: float) -> None:
         """Initializes a new instance of the System.Drawing.PointF class with the specified coordinates."""
         ...
@@ -1016,6 +1294,34 @@ class PointF(System.IEquatable[System_Drawing_PointF]):
         Initializes a new instance of the System.Drawing.PointF struct from the specified
         System.Numerics.Vector2.
         """
+        ...
+
+    @overload
+    def __isub__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.Size ."""
+        ...
+
+    @overload
+    def __isub__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.SizeF ."""
+        ...
+
+    def __ne__(self, right: System.Drawing.PointF) -> bool:
+        """
+        Compares two System.Drawing.PointF objects. The result specifies whether the values of the
+        System.Drawing.PointF.X or System.Drawing.PointF.Y properties of the two
+        System.Drawing.PointF objects are unequal.
+        """
+        ...
+
+    @overload
+    def __sub__(self, sz: System.Drawing.Size) -> System.Drawing.PointF:
+        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.Size ."""
+        ...
+
+    @overload
+    def __sub__(self, sz: System.Drawing.SizeF) -> System.Drawing.PointF:
+        """Translates a System.Drawing.PointF by the negative of a given System.Drawing.SizeF ."""
         ...
 
     @staticmethod
@@ -1090,6 +1396,22 @@ class Point(System.IEquatable[System_Drawing_Point]):
     def y(self, value: int) -> None:
         ...
 
+    def __add__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        """Translates a System.Drawing.Point by a given System.Drawing.Size ."""
+        ...
+
+    def __eq__(self, right: System.Drawing.Point) -> bool:
+        """
+        Compares two System.Drawing.Point objects. The result specifies whether the values of the
+        System.Drawing.Point.X and System.Drawing.Point.Y properties of the two
+        System.Drawing.Point objects are equal.
+        """
+        ...
+
+    def __iadd__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        """Translates a System.Drawing.Point by a given System.Drawing.Size ."""
+        ...
+
     @overload
     def __init__(self, x: int, y: int) -> None:
         """Initializes a new instance of the System.Drawing.Point class with the specified coordinates."""
@@ -1103,6 +1425,22 @@ class Point(System.IEquatable[System_Drawing_Point]):
     @overload
     def __init__(self, dw: int) -> None:
         """Initializes a new instance of the Point class using coordinates specified by an integer value."""
+        ...
+
+    def __isub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        """Translates a System.Drawing.Point by the negative of a given System.Drawing.Size ."""
+        ...
+
+    def __ne__(self, right: System.Drawing.Point) -> bool:
+        """
+        Compares two System.Drawing.Point objects. The result specifies whether the values of the
+        System.Drawing.Point.X or System.Drawing.Point.Y properties of the two
+        System.Drawing.Point  objects are unequal.
+        """
+        ...
+
+    def __sub__(self, sz: System.Drawing.Size) -> System.Drawing.Point:
+        """Translates a System.Drawing.Point by the negative of a given System.Drawing.Size ."""
         ...
 
     @staticmethod
@@ -1345,6 +1683,10 @@ class RectangleF(System.IEquatable[System_Drawing_RectangleF]):
         """Tests whether this System.Drawing.RectangleF has a System.Drawing.RectangleF.Width or a System.Drawing.RectangleF.Height of 0."""
         ...
 
+    def __eq__(self, right: System.Drawing.RectangleF) -> bool:
+        """Tests whether two System.Drawing.RectangleF objects have equal location and size."""
+        ...
+
     @overload
     def __init__(self, x: float, y: float, width: float, height: float) -> None:
         """
@@ -1367,6 +1709,10 @@ class RectangleF(System.IEquatable[System_Drawing_RectangleF]):
         Initializes a new instance of the System.Drawing.RectangleF struct from the specified
         System.Numerics.Vector4.
         """
+        ...
+
+    def __ne__(self, right: System.Drawing.RectangleF) -> bool:
+        """Tests whether two System.Drawing.RectangleF objects differ in location or size."""
         ...
 
     @overload
@@ -1583,6 +1929,10 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
         """
         ...
 
+    def __eq__(self, right: System.Drawing.Rectangle) -> bool:
+        """Tests whether two System.Drawing.Rectangle objects have equal location and size."""
+        ...
+
     @overload
     def __init__(self, x: int, y: int, width: int, height: int) -> None:
         """
@@ -1594,6 +1944,10 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
     @overload
     def __init__(self, location: System.Drawing.Point, size: System.Drawing.Size) -> None:
         """Initializes a new instance of the Rectangle class with the specified location and size."""
+        ...
+
+    def __ne__(self, right: System.Drawing.Rectangle) -> bool:
+        """Tests whether two System.Drawing.Rectangle objects differ in location or size."""
         ...
 
     @staticmethod

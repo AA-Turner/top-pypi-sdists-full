@@ -34,6 +34,7 @@ class JobKind(str, Enum):
     ALERT_CHECK = 'alert_check'
     SCHEDULE_JOBS = 'schedule_jobs'
     CREATE_MODEL_TASK = 'create_model_task'
+    CREATE_MODEL_LINK_TASK = 'create_model_link_task'
     UPDATE_MODEL_TASK_RULES = 'update_model_task_rules'
     DELETE_MODEL_TASK = 'delete_model_task'
     FETCH_MODEL_TASK = 'fetch_model_task'

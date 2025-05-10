@@ -1563,7 +1563,7 @@ https://docs.chalk.ai/cli/apply
                 ChalkError.create(
                     code=ErrorCode.INVALID_QUERY,
                     message="Client failed to convert inputs to a multi-upload request",
-                    exception=ChalkException(
+                    exception=ChalkException.create(
                         kind=type(e).__name__,
                         message=str(e),
                         stacktrace=traceback.format_exc(),

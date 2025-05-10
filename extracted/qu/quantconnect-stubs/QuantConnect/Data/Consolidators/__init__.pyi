@@ -46,12 +46,26 @@ class CalendarInfo:
         """Calendar End"""
         ...
 
+    def __eq__(self, right: QuantConnect.Data.Consolidators.CalendarInfo) -> bool:
+        """
+        Indicates whether the given object is equal to this object, this is, the Calendar start
+        and consolidation period is the same for both
+        """
+        ...
+
     def __init__(self, start: typing.Union[datetime.datetime, datetime.date], period: datetime.timedelta) -> None:
         """
         Constructor for CalendarInfo; used for consolidation calendar
         
         :param start: Calendar Start
         :param period: Consolidation Period
+        """
+        ...
+
+    def __ne__(self, right: QuantConnect.Data.Consolidators.CalendarInfo) -> bool:
+        """
+        Indicates whether the given object is equal to this object, this is, the Calendar start
+        and consolidation period is the same for both
         """
         ...
 

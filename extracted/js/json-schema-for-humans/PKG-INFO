@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: json-schema-for-humans
-Version: 1.3.4
+Version: 1.4.1
 Summary: Generate static HTML documentation from JSON schemas
-Home-page: https://github.com/coveooss/json-schema-for-humans
 License: Apache-2.0
 Author: Denis Blanchette
 Author-email: tools@coveo.com
@@ -185,8 +184,8 @@ The following are supported:
 These are **not** supported at the moment (PRs welcome!):
 
 - Property names and size
-- Property dependencies
-- Media
+- [Property dependencies](https://json-schema.org/understanding-json-schema/reference/conditionals#dependentRequired)
+- [Media](https://json-schema.org/understanding-json-schema/reference/non_json_data)
 
 ## References
 

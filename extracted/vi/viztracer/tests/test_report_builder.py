@@ -46,6 +46,12 @@ class TestReportBuilder(BaseTmpl):
             result2 = s.getvalue()
         self.assertEqual(result1, result2)
 
+    def test_get_source_from_filename(self):
+        self.assertIsNotNone(ReportBuilder.get_source_from_filename("<frozen importlib._bootstrap>"))
+        self.assertIsNotNone(ReportBuilder.get_source_from_filename(__file__))
+        self.assertIsNone(ReportBuilder.get_source_from_filename("<frozen nonexistmodule>"))
+        self.assertIsNone(ReportBuilder.get_source_from_filename("<frozen incomplete"))
+
     def test_invalid(self):
         with self.assertRaises(TypeError):
             _ = ReportBuilder(123123)
@@ -132,7 +138,7 @@ class TestReportBuilder(BaseTmpl):
 
 
 class TestReportBuilderCmdline(CmdlineTmpl):
-    @package_matrix(["~orjson", "orjson"])
+    @package_matrix(["~orjson", "orjson"] if "free-threading" not in sys.version else None)
     def test_package_matrix(self):
         """
         The module will be imported only once so flipping the package matrix will only

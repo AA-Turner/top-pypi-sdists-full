@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: orb-billing
-Version: 3.19.2
+Version: 3.19.3
 Summary: The official Python library for the orb API
 Project-URL: Homepage, https://github.com/orbcorp/orb-python
 Project-URL: Repository, https://github.com/orbcorp/orb-python

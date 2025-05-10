@@ -131,6 +131,8 @@ pub struct BuildContext {
     pub editable: bool,
     /// Cargo build options
     pub cargo_options: CargoOptions,
+    /// Zip compression level
+    pub compression_level: u16,
 }
 
 /// The wheel file location and its Python version tag (e.g. `py3`).
@@ -152,41 +154,43 @@ impl BuildContext {
         let wheels = match self.bridge() {
             BridgeModel::Bin(None) => self.build_bin_wheel(None)?,
             BridgeModel::Bin(Some(..)) => self.build_bin_wheels(&self.interpreter)?,
-            BridgeModel::Bindings { .. } => self.build_binding_wheels(&self.interpreter)?,
-            BridgeModel::BindingsAbi3 { major, minor, .. } => {
-                let abi3_interps: Vec<_> = self
-                    .interpreter
-                    .iter()
-                    .filter(|interp| interp.has_stable_api())
-                    .cloned()
-                    .collect();
-                let non_abi3_interps: Vec<_> = self
-                    .interpreter
-                    .iter()
-                    .filter(|interp| !interp.has_stable_api())
-                    .cloned()
-                    .collect();
-                let mut built_wheels = Vec::new();
-                if !abi3_interps.is_empty() {
-                    built_wheels.extend(self.build_binding_wheel_abi3(
-                        &abi3_interps,
-                        *major,
-                        *minor,
-                    )?);
-                }
-                if !non_abi3_interps.is_empty() {
-                    let interp_names: HashSet<_> = non_abi3_interps
+            BridgeModel::PyO3(crate::PyO3 { abi3, .. }) => match abi3 {
+                Some((major, minor)) => {
+                    let abi3_interps: Vec<_> = self
+                        .interpreter
                         .iter()
-                        .map(|interp| interp.to_string())
+                        .filter(|interp| interp.has_stable_api())
+                        .cloned()
                         .collect();
-                    eprintln!(
-                        "⚠️ Warning: {} does not yet support abi3 so the build artifacts will be version-specific.",
-                        interp_names.iter().join(", ")
-                    );
-                    built_wheels.extend(self.build_binding_wheels(&non_abi3_interps)?);
+                    let non_abi3_interps: Vec<_> = self
+                        .interpreter
+                        .iter()
+                        .filter(|interp| !interp.has_stable_api())
+                        .cloned()
+                        .collect();
+                    let mut built_wheels = Vec::new();
+                    if !abi3_interps.is_empty() {
+                        built_wheels.extend(self.build_pyo3_wheel_abi3(
+                            &abi3_interps,
+                            *major,
+                            *minor,
+                        )?);
+                    }
+                    if !non_abi3_interps.is_empty() {
+                        let interp_names: HashSet<_> = non_abi3_interps
+                            .iter()
+                            .map(|interp| interp.to_string())
+                            .collect();
+                        eprintln!(
+                                "⚠️ Warning: {} does not yet support abi3 so the build artifacts will be version-specific.",
+                                interp_names.iter().join(", ")
+                            );
+                        built_wheels.extend(self.build_pyo3_wheels(&non_abi3_interps)?);
+                    }
+                    built_wheels
                 }
-                built_wheels
-            }
+                None => self.build_pyo3_wheels(&self.interpreter)?,
+            },
             BridgeModel::Cffi => self.build_cffi_wheel()?,
             BridgeModel::UniFfi => self.build_uniffi_wheel()?,
         };
@@ -612,7 +616,7 @@ impl BuildContext {
         Ok((tag, tags))
     }
 
-    fn write_binding_wheel_abi3(
+    fn write_pyo3_wheel_abi3(
         &self,
         artifact: BuildArtifact,
         platform_tags: &[PlatformTag],
@@ -629,6 +633,7 @@ impl BuildContext {
             &self.metadata24,
             &[tag.clone()],
             self.excludes(Format::Wheel)?,
+            self.compression_level,
         )?;
         self.add_external_libs(&mut writer, &[&artifact], &[ext_libs])?;
 
@@ -656,7 +661,7 @@ impl BuildContext {
 
     /// For abi3 we only need to build a single wheel and we don't even need a python interpreter
     /// for it
-    pub fn build_binding_wheel_abi3(
+    pub fn build_pyo3_wheel_abi3(
         &self,
         interpreters: &[PythonInterpreter],
         major: u8,
@@ -677,13 +682,8 @@ impl BuildContext {
         } else {
             self.platform_tag.clone()
         };
-        let (wheel_path, tag) = self.write_binding_wheel_abi3(
-            artifact,
-            &platform_tags,
-            external_libs,
-            major,
-            min_minor,
-        )?;
+        let (wheel_path, tag) =
+            self.write_pyo3_wheel_abi3(artifact, &platform_tags, external_libs, major, min_minor)?;
 
         eprintln!(
             "📦 Built wheel for abi3 Python ≥ {}.{} to {}",
@@ -696,7 +696,7 @@ impl BuildContext {
         Ok(wheels)
     }
 
-    fn write_binding_wheel(
+    fn write_pyo3_wheel(
         &self,
         python_interpreter: &PythonInterpreter,
         artifact: BuildArtifact,
@@ -711,6 +711,7 @@ impl BuildContext {
             &self.metadata24,
             &[tag.clone()],
             self.excludes(Format::Wheel)?,
+            self.compression_level,
         )?;
         self.add_external_libs(&mut writer, &[&artifact], &[ext_libs])?;
 
@@ -739,14 +740,14 @@ impl BuildContext {
         ))
     }
 
-    /// Builds wheels for a Cargo project for all given python versions.
+    /// Builds wheels for a pyo3 extension for all given python versions.
     /// Return type is the same as [BuildContext::build_wheels()]
     ///
     /// Defaults to 3.{5, 6, 7, 8, 9} if no python versions are given
     /// and silently ignores all non-existent python versions.
     ///
     /// Runs [auditwheel_rs()] if not deactivated
-    pub fn build_binding_wheels(
+    pub fn build_pyo3_wheels(
         &self,
         interpreters: &[PythonInterpreter],
     ) -> Result<Vec<BuiltWheelMetadata>> {
@@ -763,12 +764,8 @@ impl BuildContext {
             } else {
                 self.platform_tag.clone()
             };
-            let (wheel_path, tag) = self.write_binding_wheel(
-                python_interpreter,
-                artifact,
-                &platform_tags,
-                external_libs,
-            )?;
+            let (wheel_path, tag) =
+                self.write_pyo3_wheel(python_interpreter, artifact, &platform_tags, external_libs)?;
             eprintln!(
                 "📦 Built wheel for {} {}.{}{} to {}",
                 python_interpreter.interpreter_kind,
@@ -814,12 +811,12 @@ impl BuildContext {
             return Ok(artifact);
         }
         // auditwheel repair will edit the file, so we need to copy it to avoid errors in reruns
-        let artifact_path = &artifact.path;
-        let maturin_build = artifact_path.parent().unwrap().join("maturin");
+        let maturin_build = self.target_dir.join(env!("CARGO_PKG_NAME"));
         fs::create_dir_all(&maturin_build)?;
+        let artifact_path = &artifact.path;
         let new_artifact_path = maturin_build.join(artifact_path.file_name().unwrap());
         fs::copy(artifact_path, &new_artifact_path)?;
-        artifact.path = new_artifact_path;
+        artifact.path = new_artifact_path.normalize()?.into_path_buf();
         Ok(artifact)
     }
 
@@ -837,6 +834,7 @@ impl BuildContext {
             &self.metadata24,
             &tags,
             self.excludes(Format::Wheel)?,
+            self.compression_level,
         )?;
         self.add_external_libs(&mut writer, &[&artifact], &[ext_libs])?;
 
@@ -908,6 +906,7 @@ impl BuildContext {
             &self.metadata24,
             &tags,
             self.excludes(Format::Wheel)?,
+            self.compression_level,
         )?;
         self.add_external_libs(&mut writer, &[&artifact], &[ext_libs])?;
 
@@ -1006,6 +1005,7 @@ impl BuildContext {
             &metadata24,
             &tags,
             self.excludes(Format::Wheel)?,
+            self.compression_level,
         )?;
 
         if self.project_layout.python_module.is_some() && self.target.is_wasi() {

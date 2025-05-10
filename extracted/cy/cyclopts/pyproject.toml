@@ -9,7 +9,7 @@ style = "semver"
 
 [tool.poetry]
 name = "cyclopts"
-version = "3.15.0"  # Do not change, let poetry-dynamic-versioning handle it.
+version = "3.16.0"  # Do not change, let poetry-dynamic-versioning handle it.
 homepage = "https://github.com/BrianPugh/cyclopts"
 repository = "https://github.com/BrianPugh/cyclopts"
 license = "Apache-2.0"

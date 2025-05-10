@@ -13,11 +13,6 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from chalk.features import DataFrame
-else:
-    try:
-        from pydantic.v1 import BaseModel
-    except ImportError:
-        from pydantic import BaseModel
 
 
 @dataclasses.dataclass
@@ -27,13 +22,13 @@ class StreamResolverParam:
 
 @dataclasses.dataclass
 class StreamResolverParamMessage(StreamResolverParam):
-    typ: Union[Type[str], Type[bytes], Type[BaseModel], AnyDataclass]
+    typ: "Union[Type[str], Type[bytes], Type[BaseModel], AnyDataclass]"
 
 
 StreamResolverWindowType: TypeAlias = Union[
     Type[List[str]],
     Type[List[bytes]],
-    Type[List[BaseModel]],
+    Type["List[BaseModel]"],
     Type[AnyDataclass],
     Type[pyarrow.Table],
     Type["pl.DataFrame"],
@@ -55,5 +50,5 @@ class StreamResolverSignature:
 
 @dataclasses.dataclass
 class StreamResolverParamKeyedState(StreamResolverParam):
-    typ: Union[Type[BaseModel], Type[AnyDataclass]]
+    typ: "Union[Type[BaseModel], Type[AnyDataclass]]"
     default_value: Any

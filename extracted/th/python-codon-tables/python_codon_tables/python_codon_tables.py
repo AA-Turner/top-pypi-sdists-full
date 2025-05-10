@@ -13,7 +13,7 @@ else:
     urlopen = urllib2.urlopen
 
 _this_dir = os.path.dirname(os.path.realpath(__file__))
-_tables_dir = os.path.join(_this_dir, "..", "codon_usage_data", "tables")
+_tables_dir = os.path.join(_this_dir, "codon_usage_data", "tables")
 
 available_codon_tables_names = [filename[:-4] for filename in os.listdir(_tables_dir)]
 
@@ -63,8 +63,6 @@ def get_codons_table(table_name, replace_U_by_T=True, web_timeout=5):
     TAA etc.
 
     Returns a dict {"*": {'TAA': 0.64...}, 'K': {'AAA': 0.76...}, ...}
-
-
     """
     if replace_U_by_T:
         table = get_codons_table(table_name, replace_U_by_T=False, web_timeout=5)

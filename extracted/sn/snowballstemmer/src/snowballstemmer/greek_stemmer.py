@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from greek.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from greek.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class GreekStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from greek.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from greek.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_v = {u"α", u"ε", u"η", u"ι", u"ο", u"υ", u"ω"}

@@ -1,5 +1,3 @@
-# mypy: disable-error-code="overload-overlap,misc,type-arg"
-
 import datetime as dt
 import sys
 
@@ -63,7 +61,6 @@ from .types import (
     _IndexT,
     _RunEndType,
     _Size,
-    _ValueT,
 )
 
 _T = TypeVar("_T")
@@ -273,7 +270,7 @@ def array(
 @overload
 def array(
     values: Iterable | SupportArrowArray | SupportArrowDeviceArray,
-    type: Literal["u2", "uint16"] | types.Uint16Type,
+    type: Literal["u2", "uint16"] | types.UInt16Type,
     mask: Mask | None = None,
     size: int | None = None,
     from_pandas: bool | None = None,
@@ -293,7 +290,7 @@ def array(
 @overload
 def array(
     values: Iterable | SupportArrowArray | SupportArrowDeviceArray,
-    type: Literal["u8", "uint64"] | types.Uint64Type,
+    type: Literal["u8", "uint64"] | types.UInt64Type,
     mask: Mask | None = None,
     size: int | None = None,
     from_pandas: bool | None = None,
@@ -524,12 +521,12 @@ def asarray(
 @overload
 def asarray(
     values: Iterable | SupportArrowArray | SupportArrowDeviceArray,
-    type: Literal["u1", "uint8"] | types.Uint8Type,
+    type: Literal["u1", "uint8"] | types.UInt8Type,
 ) -> UInt8Array: ...
 @overload
 def asarray(
     values: Iterable | SupportArrowArray | SupportArrowDeviceArray,
-    type: Literal["u2", "uint16"] | types.Uint16Type,
+    type: Literal["u2", "uint16"] | types.UInt16Type,
 ) -> UInt16Array: ...
 @overload
 def asarray(
@@ -539,7 +536,7 @@ def asarray(
 @overload
 def asarray(
     values: Iterable | SupportArrowArray | SupportArrowDeviceArray,
-    type: Literal["u8", "uint64"] | types.Uint64Type,
+    type: Literal["u8", "uint64"] | types.UInt64Type,
 ) -> UInt64Array: ...
 @overload
 def asarray(
@@ -654,11 +651,11 @@ def nulls(
 ) -> Int64Array: ...
 @overload
 def nulls(
-    size: int, types: types.Uint8Type, memory_pool: MemoryPool | None = None
+    size: int, types: types.UInt8Type, memory_pool: MemoryPool | None = None
 ) -> UInt8Array: ...
 @overload
 def nulls(
-    size: int, types: types.Uint16Type, memory_pool: MemoryPool | None = None
+    size: int, types: types.UInt16Type, memory_pool: MemoryPool | None = None
 ) -> UInt16Array: ...
 @overload
 def nulls(
@@ -666,7 +663,7 @@ def nulls(
 ) -> UInt32Array: ...
 @overload
 def nulls(
-    size: int, types: types.Uint64Type, memory_pool: MemoryPool | None = None
+    size: int, types: types.UInt64Type, memory_pool: MemoryPool | None = None
 ) -> UInt64Array: ...
 @overload
 def nulls(
@@ -1581,6 +1578,12 @@ class LargeBinaryArray(Array[scalar.LargeBinaryScalar]):
 class BinaryViewArray(Array[scalar.BinaryViewScalar]): ...
 
 class DictionaryArray(Array[scalar.DictionaryScalar[_IndexT, _BasicValueT]]):
+    def dictionary_encode(self) -> Self: ...  # type: ignore[override]
+    def dictionary_decode(self) -> Array[Scalar[_BasicValueT]]: ...
+    @property
+    def indices(self) -> Array[Scalar[_IndexT]]: ...
+    @property
+    def dictionary(self) -> Array[Scalar[_BasicValueT]]: ...
     @staticmethod
     def from_buffers(  # type: ignore[override]
         type: _BasicValueT,
@@ -1621,25 +1624,25 @@ class RunEndEncodedArray(Array[scalar.RunEndEncodedScalar[_RunEndType, _BasicVal
     def from_arrays(
         run_ends: Int16Array,
         values: Array,
-        type: _ValueT | None = None,
+        type: DataType | None = None,
     ) -> RunEndEncodedArray[types.Int16Type, _BasicValueT]: ...
     @overload
     @staticmethod
     def from_arrays(
         run_ends: Int32Array,
         values: Array,
-        type: _ValueT | None = None,
+        type: DataType | None = None,
     ) -> RunEndEncodedArray[types.Int32Type, _BasicValueT]: ...
     @overload
     @staticmethod
     def from_arrays(
         run_ends: Int64Array,
         values: Array,
-        type: _ValueT | None = None,
+        type: DataType | None = None,
     ) -> RunEndEncodedArray[types.Int64Type, _BasicValueT]: ...
     @staticmethod
-    def from_buffers(  # type: ignore[override]
-        type: _ValueT,
+    def from_buffers(
+        type: DataType,
         length: int,
         buffers: list[Buffer],
         null_count: int = -1,

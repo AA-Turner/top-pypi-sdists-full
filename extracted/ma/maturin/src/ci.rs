@@ -169,14 +169,13 @@ impl GenerateCI {
         bridge_model: &BridgeModel,
         sdist: bool,
     ) -> Result<String> {
-        let is_abi3 = matches!(bridge_model, BridgeModel::BindingsAbi3 { .. });
+        let is_abi3 = bridge_model.is_abi3();
         let is_bin = bridge_model.is_bin();
         let setup_python = self.pytest
             || matches!(
                 bridge_model,
                 BridgeModel::Bin(Some(_))
-                    | BridgeModel::Bindings { .. }
-                    | BridgeModel::BindingsAbi3 { .. }
+                    | BridgeModel::PyO3 { .. }
                     | BridgeModel::Cffi
                     | BridgeModel::UniFfi
             );
@@ -665,7 +664,7 @@ jobs:\n",
 #[cfg(test)]
 mod tests {
     use super::GenerateCI;
-    use crate::{Bindings, BridgeModel};
+    use crate::{bridge::PyO3Crate, BridgeModel, PyO3};
     use expect_test::expect;
     use semver::Version;
 
@@ -674,9 +673,11 @@ mod tests {
         let conf = GenerateCI::default()
             .generate_github(
                 "example",
-                &BridgeModel::Bindings(Bindings {
-                    name: "pyo3".to_string(),
+                &BridgeModel::PyO3(PyO3 {
+                    crate_name: PyO3Crate::PyO3,
                     version: Version::new(0, 23, 0),
+                    abi3: None,
+                    metadata: None,
                 }),
                 true,
             )
@@ -870,14 +871,12 @@ mod tests {
         let conf = GenerateCI::default()
             .generate_github(
                 "example",
-                &BridgeModel::BindingsAbi3 {
-                    bindings: Bindings {
-                        name: "pyo3".to_string(),
-                        version: Version::new(0, 23, 0),
-                    },
-                    major: 3,
-                    minor: 7,
-                },
+                &BridgeModel::PyO3(PyO3 {
+                    crate_name: PyO3Crate::PyO3,
+                    version: Version::new(0, 23, 0),
+                    abi3: Some((3, 7)),
+                    metadata: None,
+                }),
                 false,
             )
             .unwrap()
@@ -1084,14 +1083,12 @@ mod tests {
         }
         .generate_github(
             "example",
-            &BridgeModel::BindingsAbi3 {
-                bindings: Bindings {
-                    name: "pyo3".to_string(),
-                    version: Version::new(0, 23, 0),
-                },
-                major: 3,
-                minor: 7,
-            },
+            &BridgeModel::PyO3(PyO3 {
+                crate_name: PyO3Crate::PyO3,
+                version: Version::new(0, 23, 0),
+                abi3: Some((3, 7)),
+                metadata: None,
+            }),
             false,
         )
         .unwrap()
@@ -1294,9 +1291,11 @@ mod tests {
         let conf = gen
             .generate_github(
                 "example",
-                &BridgeModel::Bindings(Bindings {
-                    name: "pyo3".to_string(),
+                &BridgeModel::PyO3(PyO3 {
+                    crate_name: PyO3Crate::PyO3,
                     version: Version::new(0, 23, 0),
+                    abi3: None,
+                    metadata: None,
                 }),
                 true,
             )

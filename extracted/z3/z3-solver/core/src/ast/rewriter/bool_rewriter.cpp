@@ -680,7 +680,43 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
         return BR_REWRITE2;
     }
 
+    result = simplify_eq_ite(val, ite);
+    if (result) 
+        return BR_REWRITE_FULL;            
+
     return BR_FAILED;
+}
+
+// check that all leaves are disjoint.
+expr_ref bool_rewriter::simplify_eq_ite(expr* value, expr* ite) {
+    SASSERT(m().is_value(value));
+    SASSERT(m().is_ite(ite));
+    expr* c = nullptr, * t = nullptr, * e = nullptr;
+    auto& todo = m_todo1;
+    todo.reset();
+    todo.push_back(ite);
+    bool is_disjoint = true;
+    while (!todo.empty()) {
+        expr* arg = todo.back();
+        todo.pop_back();
+        if (m_marked.is_marked(arg))
+            continue;
+        m_marked.mark(arg, true);
+        if (m().is_value(arg) && m().are_distinct(arg, value))
+            continue;
+        if (m().is_ite(arg, c, t, e)) {
+            if (!m_marked.is_marked(t)) 
+                todo.push_back(t);
+            if (!m_marked.is_marked(e))
+                todo.push_back(e);
+            continue;
+        }
+        is_disjoint = false;
+        break;
+    }
+    m_marked.reset();
+    todo.reset();
+    return expr_ref(is_disjoint ? m().mk_false() : nullptr, m());    
 }
 
 

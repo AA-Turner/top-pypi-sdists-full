@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from lithuanian.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from lithuanian.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class LithuanianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from lithuanian.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from lithuanian.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_v = {u"a", u"e", u"i", u"y", u"o", u"u", u"ą", u"ę", u"į", u"ų", u"ė", u"ū"}

@@ -105,8 +105,13 @@ class Completions(object):
 
         contents = []
         if urls := sum(request.last_urls.values(), []):
+            logger.debug(urls)
             # https://ai.google.dev/gemini-api/docs/document-processing?hl=zh-cn&lang=python
             file_objects = await self.upload(urls)
+            for file_object in file_objects:
+                for i in self.check_file(file_object):
+                    yield i
+
             contents += file_objects
             contents.append(request.last_user_content)
 
@@ -116,23 +121,28 @@ class Completions(object):
             yield "> `⏳️Uploading`\n"
             file_object = await self.upload(url)
             yield f"```json\n{file_object.model_dump_json(indent=4)}\n```\n\n"
-            yield f"> [🤔Thinking]("
 
-            s = time.time()
-            for i in range(100):
-                file_object = self.client.files.get(
-                    name=file_object.name,
-                    config={"http_options": {"timeout": 300 * 1000}}
-                )
+            for i in self.check_file(file_object):
+                yield i
+            # s = time.time()
+            # for i in range(100):
+            #     file_object = self.client.files.get(
+            #         name=file_object.name,
+            #         config={"http_options": {"timeout": 300 * 1000}}
+            #     )
+            #
+            #     logger.debug(file_object)
+            #     if file_object.state.name in {"ACTIVE", "FAILED_PRECONDITION"}:
+            #         yield f"100%) ✅️✅️✅️{time.time() - s:.2f}s.\n\n"
+            #         break
+            #     else:
+            #         yield f"{min(i * 5, 99)}%"
+            #
+            #     await asyncio.sleep(3)
 
-                logger.debug(file_object)
-                if file_object.state.name == "ACTIVE":
-                    yield f"100%) ✅️✅️✅️{time.time() - s:.2f}s.\n\n"
-                    break
-                else:
-                    yield f"{min(i * 5, 99)}%"
-
-                await asyncio.sleep(3)
+            # {'error': {'code': 400,
+            #            'message': 'The File cwjpskscrjd79hjezu7dhb is not in an ACTIVE state and usage is not allowed.',
+            #            'status': 'FAILED_PRECONDITION'}}
 
             # while file_object.state.name == "ACTIVE":
             #     logger.debug(file_object)
@@ -175,9 +185,7 @@ class Completions(object):
                     await asyncio.sleep(1)
                     continue
                 else:
-                    # {'error': {'code': 400,
-                    #            'message': 'The File cwjpskscrjd79hjezu7dhb is not in an ACTIVE state and usage is not allowed.',
-                    #            'status': 'FAILED_PRECONDITION'}}
+
                     yield e
                     raise e
 
@@ -364,6 +372,25 @@ class Completions(object):
             )
         )
 
+    def check_file(self, file_object):
+        s = time.time()
+
+        yield f"> [🤔Thinking]("
+        for i in range(100):
+            file_object = self.client.files.get(
+                name=file_object.name,
+                config={"http_options": {"timeout": 300 * 1000}}
+            )
+
+            logger.debug(file_object)
+            if file_object.state.name in {"ACTIVE", }:  # FAILED_PRECONDITION
+                yield f"100%) ✅️✅️✅️{time.time() - s:.2f}s.\n\n"
+                break
+            else:
+                yield f"{min(i * 5, 99)}%"
+
+            time.sleep(3)
+
 
 if __name__ == '__main__':
     file = "https://oss.ffire.cc/files/kling_watermark.png"
@@ -385,7 +412,11 @@ if __name__ == '__main__':
         # {"type": "text", "text": "总结下"},
         # {"type": "image_url", "image_url": {"url": url}},
 
-        # {"type": "video_url", "video_url": {"url": url}}
+        # {"type": "text", "text": "总结下"},
+        # {"type": "video_url", "video_url": {"url": "https://lmdbk.com/5.mp4"}},
+        # {"type": "video_url", "video_url": {"url": "https://lmdbk.com/5.mp4"}},
+
+        # {"type": "video_url", "video_url": {"url": "https://v3.fal.media/files/penguin/Rx-8V0MVgkVZM6PJ0RiPD_douyin.mp4"}}
 
     ]
 

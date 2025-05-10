@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: homeassistant
-Version: 2025.5.0
+Version: 2025.5.1
 Summary: Open-source home automation platform running on Python 3.
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License-Expression: Apache-2.0
@@ -21,7 +21,7 @@ Requires-Python: >=3.13.2
 Description-Content-Type: text/x-rst
 License-File: LICENSE.md
 License-File: homeassistant/backports/LICENSE.Python
-Requires-Dist: aiodns==3.3.0
+Requires-Dist: aiodns==3.4.0
 Requires-Dist: aiohasupervisor==0.3.1
 Requires-Dist: aiohttp==3.11.18
 Requires-Dist: aiohttp_cors==0.7.0

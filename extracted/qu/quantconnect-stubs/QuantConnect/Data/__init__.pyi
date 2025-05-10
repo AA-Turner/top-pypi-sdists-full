@@ -277,6 +277,10 @@ class SubscriptionDataConfig(System.Object, System.IEquatable[QuantConnect_Data_
         """Gets whether or not this subscription should have filters applied to it (market hours/user filters from security)"""
         ...
 
+    def __eq__(self, right: QuantConnect.Data.SubscriptionDataConfig) -> bool:
+        """Override equals operator"""
+        ...
+
     @overload
     def __init__(self, object_type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: QuantConnect.Resolution, data_time_zone: typing.Any, exchange_time_zone: typing.Any, fill_forward: bool, extended_hours: bool, is_internal_feed: bool, is_custom: bool = False, tick_type: typing.Optional[QuantConnect.TickType] = None, is_filtered_subscription: bool = True, data_normalization_mode: QuantConnect.DataNormalizationMode = ..., data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0, mapped_config: bool = False) -> None:
         """
@@ -321,6 +325,10 @@ class SubscriptionDataConfig(System.Object, System.IEquatable[QuantConnect_Data_
         :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 (default) will use the front month, 1 will use the back month contract
         :param mapped_config: True if this is created as a mapped config. This is useful for continuous contract at live trading where we subscribe to the mapped symbol but want to preserve uniqueness
         """
+        ...
+
+    def __ne__(self, right: QuantConnect.Data.SubscriptionDataConfig) -> bool:
+        """Override not equals operator"""
         ...
 
     @overload
@@ -507,6 +515,16 @@ class SubscriptionDataSource(System.Object, System.IEquatable[QuantConnect_Data_
         """Gets the header values to be used in the web request."""
         ...
 
+    def __eq__(self, right: QuantConnect.Data.SubscriptionDataSource) -> bool:
+        """
+        Indicates whether the current object is equal to another object of the same type.
+        
+        :param left: The SubscriptionDataSource instance on the left of the operator
+        :param right: The SubscriptionDataSource instance on the right of the operator
+        :returns: True if the two instances are considered equal, false otherwise.
+        """
+        ...
+
     @overload
     def __init__(self, source: str) -> None:
         """
@@ -547,6 +565,16 @@ class SubscriptionDataSource(System.Object, System.IEquatable[QuantConnect_Data_
         :param transport_medium: The transport medium to be used to retrieve the subscription's data from the source
         :param format: The format of the data within the source
         :param headers: The headers to be used for this source
+        """
+        ...
+
+    def __ne__(self, right: QuantConnect.Data.SubscriptionDataSource) -> bool:
+        """
+        Indicates whether the current object is not equal to another object of the same type.
+        
+        :param left: The SubscriptionDataSource instance on the left of the operator
+        :param right: The SubscriptionDataSource instance on the right of the operator
+        :returns: True if the two instances are not considered equal, false otherwise.
         """
         ...
 

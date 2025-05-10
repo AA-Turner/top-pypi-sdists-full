@@ -91,6 +91,7 @@ from scope_client.api_bindings.models.connector_spec_schema import ConnectorSpec
 from scope_client.api_bindings.models.connector_spec_schema_field import ConnectorSpecSchemaField
 from scope_client.api_bindings.models.connector_type import ConnectorType
 from scope_client.api_bindings.models.connectors_sort import ConnectorsSort
+from scope_client.api_bindings.models.create_model_link_task_job_spec import CreateModelLinkTaskJobSpec
 from scope_client.api_bindings.models.create_model_task_job_spec import CreateModelTaskJobSpec
 from scope_client.api_bindings.models.created_alerts import CreatedAlerts
 from scope_client.api_bindings.models.credentials import Credentials
@@ -230,6 +231,7 @@ from scope_client.api_bindings.models.post_job import PostJob
 from scope_client.api_bindings.models.post_job_batch import PostJobBatch
 from scope_client.api_bindings.models.post_job_kind import PostJobKind
 from scope_client.api_bindings.models.post_job_spec import PostJobSpec
+from scope_client.api_bindings.models.post_link_task_request import PostLinkTaskRequest
 from scope_client.api_bindings.models.post_metrics_query import PostMetricsQuery
 from scope_client.api_bindings.models.post_metrics_query_result_filter import PostMetricsQueryResultFilter
 from scope_client.api_bindings.models.post_metrics_query_result_filter_and_group import PostMetricsQueryResultFilterAndGroup

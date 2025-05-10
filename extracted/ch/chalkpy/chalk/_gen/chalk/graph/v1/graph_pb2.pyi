@@ -1267,21 +1267,27 @@ class FunctionGlobalCapturedFunction(_message.Message):
     ) -> None: ...
 
 class FunctionGlobalCapturedProto(_message.Message):
-    __slots__ = ("module", "name", "fd", "pa_dtype")
+    __slots__ = ("module", "name", "fd", "serialized_fd", "pa_dtype", "full_name")
     MODULE_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     FD_FIELD_NUMBER: _ClassVar[int]
+    SERIALIZED_FD_FIELD_NUMBER: _ClassVar[int]
     PA_DTYPE_FIELD_NUMBER: _ClassVar[int]
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
     module: str
     name: str
     fd: bytes
+    serialized_fd: bytes
     pa_dtype: _arrow_pb2.ArrowType
+    full_name: str
     def __init__(
         self,
         module: _Optional[str] = ...,
         name: _Optional[str] = ...,
         fd: _Optional[bytes] = ...,
+        serialized_fd: _Optional[bytes] = ...,
         pa_dtype: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...,
+        full_name: _Optional[str] = ...,
     ) -> None: ...
 
 class SourceFileReference(_message.Message):

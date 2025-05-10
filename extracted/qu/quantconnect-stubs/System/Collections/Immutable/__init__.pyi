@@ -2441,6 +2441,28 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
         """Gets a value indicating whether this struct is empty or uninitialized."""
         ...
 
+    @overload
+    def __eq__(self, right: System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T]) -> bool:
+        """
+        Checks equality between two instances.
+        
+        :param left: The instance to the left of the operator.
+        :param right: The instance to the right of the operator.
+        :returns: true if the values' underlying arrays are reference equal; false otherwise.
+        """
+        ...
+
+    @overload
+    def __eq__(self, right: typing.Optional[System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T]]) -> bool:
+        """
+        Checks equality between two instances.
+        
+        :param left: The instance to the left of the operator.
+        :param right: The instance to the right of the operator.
+        :returns: true if the values' underlying arrays are reference equal; false otherwise.
+        """
+        ...
+
     def __getitem__(self, index: int) -> System_Collections_Immutable_ImmutableArray_T:
         """
         Gets the element at the specified index in the read-only list.
@@ -2451,6 +2473,28 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
         ...
 
     def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableArray_T]:
+        ...
+
+    @overload
+    def __ne__(self, right: System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T]) -> bool:
+        """
+        Checks inequality between two instances.
+        
+        :param left: The instance to the left of the operator.
+        :param right: The instance to the right of the operator.
+        :returns: true if the values' underlying arrays are reference not equal; false otherwise.
+        """
+        ...
+
+    @overload
+    def __ne__(self, right: typing.Optional[System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T]]) -> bool:
+        """
+        Checks inequality between two instances.
+        
+        :param left: The instance to the left of the operator.
+        :param right: The instance to the right of the operator.
+        :returns: true if the values' underlying arrays are reference not equal; false otherwise.
+        """
         ...
 
     def add(self, item: System_Collections_Immutable_ImmutableArray_T) -> System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T]:

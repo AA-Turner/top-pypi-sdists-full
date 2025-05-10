@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kcli
-Version: 99.0.202505040916
+Version: 99.0.202505091018
 Summary: Provisioner/Manager for Libvirt/Vsphere/Aws/Gcp/Hcloud/Kubevirt/Ovirt/Openstack/IBM Cloud and containers
 Home-page: http://github.com/karmab/kcli
 Author: Karim Boumedhel
@@ -51,6 +51,7 @@ Requires-Dist: azure-mgmt-storage; extra == "all"
 Requires-Dist: azure-mgmt-msi; extra == "all"
 Requires-Dist: azure-mgmt-authorization; extra == "all"
 Requires-Dist: hcloud; extra == "all"
+Requires-Dist: proxmoxer; extra == "all"
 Provides-Extra: libvirt
 Provides-Extra: aws
 Requires-Dist: boto3; extra == "aws"

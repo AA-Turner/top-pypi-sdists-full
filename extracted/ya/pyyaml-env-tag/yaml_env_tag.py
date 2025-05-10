@@ -1,5 +1,5 @@
 """ A custom YAML tag for referencing environment variables in YAML files. """
-__version__ = '0.1'
+__version__ = '1.0'
 
 import os
 import yaml
@@ -20,9 +20,11 @@ def construct_env_tag(loader: yaml.Loader, node: yaml.Node) -> Any:
         # Env Vars are resolved as string values, ignoring (implicit) types.
         vars = [loader.construct_scalar(child) for child in child_nodes]
     else:
-        raise yaml.constructor.ConstructorError(None, None,
+        raise yaml.constructor.ConstructorError(
+            None, None,
             f'expected a scalar or sequence node, but found {node.id}',
-            node.start_mark)
+            node.start_mark
+        )
 
     for var in vars:
         if var in os.environ:
@@ -32,3 +34,9 @@ def construct_env_tag(loader: yaml.Loader, node: yaml.Node) -> Any:
             return loader.construct_object(yaml.nodes.ScalarNode(tag, value))
 
     return default
+
+
+def add_env_tag(loader: yaml.Loader) -> yaml.Loader:
+    """ Modify and return Loader with env tag support. """
+    loader.add_constructor('!ENV', construct_env_tag)
+    return loader

@@ -29,7 +29,6 @@ __all__ = [
     "UnknownOptionError",
     "UnusedCliTokensError",
     "ValidationError",
-    "format_cyclopts_error",
 ]
 
 
@@ -48,12 +47,11 @@ class DocstringError(Exception):
     """The docstring either has a syntax error, or inconsistency with the function signature."""
 
 
-@define(kw_only=True)
+@define  # (kw_only=True)
 class CycloptsError(Exception):
     """Root exception for runtime errors.
 
     As CycloptsErrors bubble up the Cyclopts call-stack, more information is added to it.
-    Finally, :meth:`format_cyclopts_error` formats the message nicely for the user.
     """
 
     msg: Optional[str] = None
@@ -141,10 +139,14 @@ class ValidationError(CycloptsError):
         message = ""
         if self.argument:
             value = self.argument.value if self.value is cyclopts.utils.UNSET else self.value
-            token = self.argument.tokens[0]
-            provided_by = "" if not token.source or token.source == "cli" else f' provided by "{token.source}"'
-            name = token.keyword if token.keyword else self.argument.name.lstrip("-").upper()
-            message = f'Invalid value "{value}" for "{name}"{provided_by}.'
+            try:
+                token = self.argument.tokens[0]
+            except IndexError:
+                pass
+            else:
+                provided_by = "" if not token.source or token.source == "cli" else f' provided by "{token.source}"'
+                name = token.keyword if token.keyword else self.argument.name.lstrip("-").upper()
+                message = f'Invalid value "{value}" for "{name}"{provided_by}.'
         elif self.group:
             if self.group.name:
                 message = f'Invalid values for group "{self.group.name}".'
@@ -153,10 +155,14 @@ class ValidationError(CycloptsError):
         else:
             raise NotImplementedError
 
+        cyclopts_message = f"{super().__str__()}{message}"
         if self.exception_message:
-            return f"{super().__str__()}{message} {self.exception_message}"
+            if cyclopts_message:
+                return f"{cyclopts_message} {self.exception_message}"
+            else:
+                return self.exception_message
         else:
-            return f"{super().__str__()}{message}"
+            return cyclopts_message
 
 
 @define(kw_only=True)
@@ -377,19 +383,3 @@ class MixedArgumentError(CycloptsError):
         assert self.argument is not None
         display_name = next((x.keyword for x in self.argument.tokens if x.keyword), self.argument.name)
         return super().__str__() + f'Cannot supply keyword & non-keyword arguments to "{display_name}".'
-
-
-def format_cyclopts_error(e: Any):
-    from rich import box
-    from rich.panel import Panel
-    from rich.text import Text
-
-    panel = Panel(
-        Text(str(e), "default"),
-        title="Error",
-        box=box.ROUNDED,
-        expand=True,
-        title_align="left",
-        style="red",
-    )
-    return panel

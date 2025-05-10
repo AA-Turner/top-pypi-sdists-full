@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-asyncclick
-Version: 0.53b1
+Version: 0.54b0
 Summary: Async Click instrumentation for OpenTelemetry
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/instrumentation/opentelemetry-instrumentation-asyncclick
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib
@@ -19,7 +19,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Requires-Dist: opentelemetry-api~=1.12
-Requires-Dist: opentelemetry-semantic-conventions==0.53b1
+Requires-Dist: opentelemetry-instrumentation==0.54b0
+Requires-Dist: opentelemetry-semantic-conventions==0.54b0
 Requires-Dist: typing-extensions~=4.12
 Requires-Dist: wrapt~=1.0
 Provides-Extra: instruments

@@ -8,7 +8,6 @@ from ..models.app_deactivated_webhook_v2 import AppDeactivatedWebhookV2
 from ..models.app_installed_webhook_v2 import AppInstalledWebhookV2
 from ..models.assay_run_created_webhook_v2 import AssayRunCreatedWebhookV2
 from ..models.assay_run_updated_fields_webhook_v2 import AssayRunUpdatedFieldsWebhookV2
-from ..models.canvas_created_webhook_v2 import CanvasCreatedWebhookV2
 from ..models.canvas_created_webhook_v2_beta import CanvasCreatedWebhookV2Beta
 from ..models.canvas_initialize_webhook_v2 import CanvasInitializeWebhookV2
 from ..models.canvas_interaction_webhook_v2 import CanvasInteractionWebhookV2
@@ -56,7 +55,6 @@ class WebhookEnvelopeV0:
         LifecycleConfigurationUpdateWebhookV2Beta,
         CanvasInteractionWebhookV2,
         CanvasInitializeWebhookV2,
-        CanvasCreatedWebhookV2,
         CanvasCreatedWebhookV2Beta,
         AppActivateRequestedWebhookV2,
         AppDeactivatedWebhookV2,
@@ -117,9 +115,6 @@ class WebhookEnvelopeV0:
             message = self._message.to_dict()
 
         elif isinstance(self._message, CanvasInitializeWebhookV2):
-            message = self._message.to_dict()
-
-        elif isinstance(self._message, CanvasCreatedWebhookV2):
             message = self._message.to_dict()
 
         elif isinstance(self._message, CanvasCreatedWebhookV2Beta):
@@ -270,7 +265,6 @@ class WebhookEnvelopeV0:
             LifecycleConfigurationUpdateWebhookV2Beta,
             CanvasInteractionWebhookV2,
             CanvasInitializeWebhookV2,
-            CanvasCreatedWebhookV2,
             CanvasCreatedWebhookV2Beta,
             AppActivateRequestedWebhookV2,
             AppDeactivatedWebhookV2,
@@ -305,7 +299,6 @@ class WebhookEnvelopeV0:
                 LifecycleConfigurationUpdateWebhookV2Beta,
                 CanvasInteractionWebhookV2,
                 CanvasInitializeWebhookV2,
-                CanvasCreatedWebhookV2,
                 CanvasCreatedWebhookV2Beta,
                 AppActivateRequestedWebhookV2,
                 AppDeactivatedWebhookV2,
@@ -364,8 +357,6 @@ class WebhookEnvelopeV0:
                     message = AssayRunCreatedWebhookV2.from_dict(_message)
                 elif discriminator == "v2.assayRun.updated.fields":
                     message = AssayRunUpdatedFieldsWebhookV2.from_dict(_message)
-                elif discriminator == "v2.canvas.created":
-                    message = CanvasCreatedWebhookV2.from_dict(_message)
                 elif discriminator == "v2.canvas.initialized":
                     message = CanvasInitializeWebhookV2.from_dict(_message)
                 elif discriminator == "v2.canvas.userInteracted":
@@ -419,7 +410,6 @@ class WebhookEnvelopeV0:
                     LifecycleConfigurationUpdateWebhookV2Beta,
                     CanvasInteractionWebhookV2,
                     CanvasInitializeWebhookV2,
-                    CanvasCreatedWebhookV2,
                     CanvasCreatedWebhookV2Beta,
                     AppActivateRequestedWebhookV2,
                     AppDeactivatedWebhookV2,
@@ -549,7 +539,6 @@ class WebhookEnvelopeV0:
         LifecycleConfigurationUpdateWebhookV2Beta,
         CanvasInteractionWebhookV2,
         CanvasInitializeWebhookV2,
-        CanvasCreatedWebhookV2,
         CanvasCreatedWebhookV2Beta,
         AppActivateRequestedWebhookV2,
         AppDeactivatedWebhookV2,
@@ -591,7 +580,6 @@ class WebhookEnvelopeV0:
             LifecycleConfigurationUpdateWebhookV2Beta,
             CanvasInteractionWebhookV2,
             CanvasInitializeWebhookV2,
-            CanvasCreatedWebhookV2,
             CanvasCreatedWebhookV2Beta,
             AppActivateRequestedWebhookV2,
             AppDeactivatedWebhookV2,

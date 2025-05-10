@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aider-chat
-Version: 0.82.3
+Version: 0.83.0
 Summary: Aider is AI pair programming in your terminal
 Project-URL: Homepage, https://github.com/Aider-AI/aider
 Classifier: Development Status :: 4 - Beta
@@ -11,10 +11,9 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development
-Requires-Python: <3.13,>=3.9
+Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: aiohappyeyeballs==2.6.1
@@ -43,18 +42,19 @@ Requires-Dist: gitpython==3.1.44
 Requires-Dist: google-ai-generativelanguage==0.6.15
 Requires-Dist: google-api-core[grpc]==2.24.2
 Requires-Dist: google-api-python-client==2.169.0
-Requires-Dist: google-auth==2.40.0
+Requires-Dist: google-auth==2.40.1
 Requires-Dist: google-auth-httplib2==0.2.0
 Requires-Dist: google-generativeai==0.8.5
 Requires-Dist: googleapis-common-protos==1.70.0
-Requires-Dist: grep-ast==0.8.1
+Requires-Dist: grep-ast==0.9.0
 Requires-Dist: grpcio==1.71.0
 Requires-Dist: grpcio-status==1.71.0
 Requires-Dist: h11==0.16.0
+Requires-Dist: hf-xet==1.1.0
 Requires-Dist: httpcore==1.0.9
 Requires-Dist: httplib2==0.22.0
 Requires-Dist: httpx==0.28.1
-Requires-Dist: huggingface-hub==0.30.2
+Requires-Dist: huggingface-hub==0.31.1
 Requires-Dist: idna==3.10
 Requires-Dist: importlib-metadata==7.2.1
 Requires-Dist: importlib-resources==6.5.2
@@ -63,21 +63,22 @@ Requires-Dist: jiter==0.9.0
 Requires-Dist: json5==0.12.0
 Requires-Dist: jsonschema==4.23.0
 Requires-Dist: jsonschema-specifications==2025.4.1
-Requires-Dist: litellm==1.68.0
+Requires-Dist: litellm==1.68.1
 Requires-Dist: markdown-it-py==3.0.0
 Requires-Dist: markupsafe==3.0.2
 Requires-Dist: mccabe==0.7.0
 Requires-Dist: mdurl==0.1.2
 Requires-Dist: mixpanel==4.10.1
+Requires-Dist: mslex==1.3.0
 Requires-Dist: multidict==6.4.3
-Requires-Dist: networkx==3.2.1
+Requires-Dist: networkx==3.4.2
 Requires-Dist: numpy==1.26.4
 Requires-Dist: openai==1.75.0
+Requires-Dist: oslex==0.1.3
 Requires-Dist: packaging==24.2
 Requires-Dist: pathspec==0.12.1
 Requires-Dist: pexpect==4.9.0
 Requires-Dist: pillow==11.2.1
-Requires-Dist: pip==25.1.1
 Requires-Dist: posthog==4.0.1
 Requires-Dist: prompt-toolkit==3.0.51
 Requires-Dist: propcache==0.3.1
@@ -106,7 +107,8 @@ Requires-Dist: requests==2.32.3
 Requires-Dist: rich==14.0.0
 Requires-Dist: rpds-py==0.24.0
 Requires-Dist: rsa==4.9.1
-Requires-Dist: scipy==1.13.1
+Requires-Dist: scipy==1.15.3
+Requires-Dist: shtab==1.7.2
 Requires-Dist: six==1.17.0
 Requires-Dist: smmap==5.0.2
 Requires-Dist: sniffio==1.3.1
@@ -119,7 +121,7 @@ Requires-Dist: tokenizers==0.21.1
 Requires-Dist: tqdm==4.67.1
 Requires-Dist: tree-sitter-c-sharp==0.23.1
 Requires-Dist: tree-sitter-embedded-template==0.23.2
-Requires-Dist: tree-sitter-language-pack==0.7.2
+Requires-Dist: tree-sitter-language-pack==0.7.3
 Requires-Dist: tree-sitter-yaml==0.7.0
 Requires-Dist: typing-extensions==4.13.2
 Requires-Dist: typing-inspection==0.4.0
@@ -147,7 +149,7 @@ Requires-Dist: distlib==0.3.9; extra == "dev"
 Requires-Dist: filelock==3.18.0; extra == "dev"
 Requires-Dist: fonttools==4.57.0; extra == "dev"
 Requires-Dist: google-api-core[grpc]==2.24.2; extra == "dev"
-Requires-Dist: google-auth==2.40.0; extra == "dev"
+Requires-Dist: google-auth==2.40.1; extra == "dev"
 Requires-Dist: google-cloud-bigquery==3.31.0; extra == "dev"
 Requires-Dist: google-cloud-core==2.4.3; extra == "dev"
 Requires-Dist: google-crc32c==1.7.1; extra == "dev"
@@ -162,7 +164,7 @@ Requires-Dist: iniconfig==2.1.0; extra == "dev"
 Requires-Dist: kiwisolver==1.4.8; extra == "dev"
 Requires-Dist: lox==0.13.0; extra == "dev"
 Requires-Dist: markdown-it-py==3.0.0; extra == "dev"
-Requires-Dist: matplotlib==3.10.1; extra == "dev"
+Requires-Dist: matplotlib==3.10.3; extra == "dev"
 Requires-Dist: mdurl==0.1.2; extra == "dev"
 Requires-Dist: multiprocess==0.70.18; extra == "dev"
 Requires-Dist: nodeenv==1.9.1; extra == "dev"
@@ -173,7 +175,7 @@ Requires-Dist: pathos==0.3.4; extra == "dev"
 Requires-Dist: pillow==11.2.1; extra == "dev"
 Requires-Dist: pip==25.1.1; extra == "dev"
 Requires-Dist: pip-tools==7.4.1; extra == "dev"
-Requires-Dist: platformdirs==4.3.7; extra == "dev"
+Requires-Dist: platformdirs==4.3.8; extra == "dev"
 Requires-Dist: pluggy==1.5.0; extra == "dev"
 Requires-Dist: pox==0.3.6; extra == "dev"
 Requires-Dist: ppft==1.7.7; extra == "dev"
@@ -201,8 +203,8 @@ Requires-Dist: typer==0.15.3; extra == "dev"
 Requires-Dist: typing-extensions==4.13.2; extra == "dev"
 Requires-Dist: tzdata==2025.2; extra == "dev"
 Requires-Dist: urllib3==2.4.0; extra == "dev"
-Requires-Dist: uv==0.7.2; extra == "dev"
-Requires-Dist: virtualenv==20.31.1; extra == "dev"
+Requires-Dist: uv==0.7.3; extra == "dev"
+Requires-Dist: virtualenv==20.31.2; extra == "dev"
 Requires-Dist: wheel==0.45.1; extra == "dev"
 Provides-Extra: help
 Requires-Dist: aiohappyeyeballs==2.6.1; extra == "help"
@@ -223,12 +225,13 @@ Requires-Dist: filelock==3.18.0; extra == "help"
 Requires-Dist: filetype==1.2.0; extra == "help"
 Requires-Dist: frozenlist==1.6.0; extra == "help"
 Requires-Dist: fsspec==2025.3.2; extra == "help"
-Requires-Dist: greenlet==3.2.1; extra == "help"
+Requires-Dist: greenlet==3.2.2; extra == "help"
 Requires-Dist: griffe==1.7.3; extra == "help"
 Requires-Dist: h11==0.16.0; extra == "help"
+Requires-Dist: hf-xet==1.1.0; extra == "help"
 Requires-Dist: httpcore==1.0.9; extra == "help"
 Requires-Dist: httpx==0.28.1; extra == "help"
-Requires-Dist: huggingface-hub[inference]==0.30.2; extra == "help"
+Requires-Dist: huggingface-hub[inference]==0.31.1; extra == "help"
 Requires-Dist: idna==3.10; extra == "help"
 Requires-Dist: jinja2==3.1.6; extra == "help"
 Requires-Dist: joblib==1.5.0; extra == "help"
@@ -240,12 +243,12 @@ Requires-Dist: mpmath==1.3.0; extra == "help"
 Requires-Dist: multidict==6.4.3; extra == "help"
 Requires-Dist: mypy-extensions==1.1.0; extra == "help"
 Requires-Dist: nest-asyncio==1.6.0; extra == "help"
-Requires-Dist: networkx==3.2.1; extra == "help"
+Requires-Dist: networkx==3.4.2; extra == "help"
 Requires-Dist: nltk==3.9.1; extra == "help"
 Requires-Dist: numpy==1.26.4; extra == "help"
 Requires-Dist: packaging==24.2; extra == "help"
 Requires-Dist: pillow==11.2.1; extra == "help"
-Requires-Dist: platformdirs==4.3.7; extra == "help"
+Requires-Dist: platformdirs==4.3.8; extra == "help"
 Requires-Dist: propcache==0.3.1; extra == "help"
 Requires-Dist: pydantic==2.11.4; extra == "help"
 Requires-Dist: pydantic-core==2.33.2; extra == "help"
@@ -254,7 +257,7 @@ Requires-Dist: regex==2024.11.6; extra == "help"
 Requires-Dist: requests==2.32.3; extra == "help"
 Requires-Dist: safetensors==0.5.3; extra == "help"
 Requires-Dist: scikit-learn==1.6.1; extra == "help"
-Requires-Dist: scipy==1.13.1; extra == "help"
+Requires-Dist: scipy==1.15.3; extra == "help"
 Requires-Dist: sentence-transformers==4.1.0; extra == "help"
 Requires-Dist: sniffio==1.3.1; extra == "help"
 Requires-Dist: sqlalchemy[asyncio]==2.0.40; extra == "help"
@@ -287,7 +290,7 @@ Requires-Dist: jinja2==3.1.6; extra == "browser"
 Requires-Dist: jsonschema==4.23.0; extra == "browser"
 Requires-Dist: jsonschema-specifications==2025.4.1; extra == "browser"
 Requires-Dist: markupsafe==3.0.2; extra == "browser"
-Requires-Dist: narwhals==1.38.0; extra == "browser"
+Requires-Dist: narwhals==1.38.2; extra == "browser"
 Requires-Dist: numpy==1.26.4; extra == "browser"
 Requires-Dist: packaging==24.2; extra == "browser"
 Requires-Dist: pandas==2.2.3; extra == "browser"
@@ -310,7 +313,7 @@ Requires-Dist: typing-extensions==4.13.2; extra == "browser"
 Requires-Dist: tzdata==2025.2; extra == "browser"
 Requires-Dist: urllib3==2.4.0; extra == "browser"
 Provides-Extra: playwright
-Requires-Dist: greenlet==3.2.1; extra == "playwright"
+Requires-Dist: greenlet==3.2.2; extra == "playwright"
 Requires-Dist: playwright==1.52.0; extra == "playwright"
 Requires-Dist: pyee==13.0.0; extra == "playwright"
 Requires-Dist: typing-extensions==4.13.2; extra == "playwright"
@@ -345,7 +348,7 @@ cog.out(text)
   <a href="https://github.com/Aider-AI/aider/stargazers"><img alt="GitHub Stars" title="Total number of GitHub stars the Aider project has received"
 src="https://img.shields.io/github/stars/Aider-AI/aider?style=flat-square&logo=github&color=f1c40f&labelColor=555555"/></a>
   <a href="https://pypi.org/project/aider-chat/"><img alt="PyPI Downloads" title="Total number of installations via pip from PyPI"
-src="https://img.shields.io/badge/📦%20Installs-2.1M-2ecc71?style=flat-square&labelColor=555555"/></a>
+src="https://img.shields.io/badge/📦%20Installs-2.2M-2ecc71?style=flat-square&labelColor=555555"/></a>
   <img alt="Tokens per week" title="Number of tokens processed weekly by Aider users"
 src="https://img.shields.io/badge/📈%20Tokens%2Fweek-15B-3498db?style=flat-square&labelColor=555555"/>
   <a href="https://openrouter.ai/#options-menu"><img alt="OpenRouter Ranking" title="Aider's ranking among applications on the OpenRouter platform"
@@ -453,7 +456,7 @@ See the [installation instructions](https://aider.chat/docs/install.html) and [u
 ### Community & Resources
 - [LLM Leaderboards](https://aider.chat/docs/leaderboards/)
 - [GitHub Repository](https://github.com/Aider-AI/aider)
-- [Discord Community](https://discord.gg/Tv2uQnR88V)
+- [Discord Community](https://discord.gg/Y7X7bhMQFV)
 - [Blog](https://aider.chat/blog/)
 
 ## Kind Words From Users
@@ -491,5 +494,6 @@ See the [installation instructions](https://aider.chat/docs/install.html) and [u
 - *"Oh no the secret is out! Yes, Aider is the best coding tool around. I highly, highly recommend it to anyone."* — [Joshua D Vander Hook](https://x.com/jodavaho/status/1911154899057795218)
 - *"thanks to aider, i have started and finished three personal projects within the last two days"* — [joseph stalzyn](https://x.com/anitaheeder/status/1908338609645904160)
 - *"Been using aider as my daily driver for over a year ... I absolutely love the tool, like beyond words."* — [koleok](https://discord.com/channels/1131200896827654144/1273248471394291754/1356727448372252783)
+- *"Aider ... is the tool to benchmark against."* — [BeetleB](https://news.ycombinator.com/item?id=43930201)
 - *"aider is really cool"* — [kache (@yacineMTB)](https://x.com/yacineMTB/status/1911224442430124387)
 

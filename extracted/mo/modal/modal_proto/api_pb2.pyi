@@ -1850,6 +1850,45 @@ class AttemptAwaitResponse(google.protobuf.message.Message):
 
 global___AttemptAwaitResponse = AttemptAwaitResponse
 
+class AttemptRetryRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    FUNCTION_ID_FIELD_NUMBER: builtins.int
+    PARENT_INPUT_ID_FIELD_NUMBER: builtins.int
+    INPUT_FIELD_NUMBER: builtins.int
+    ATTEMPT_TOKEN_FIELD_NUMBER: builtins.int
+    function_id: builtins.str
+    parent_input_id: builtins.str
+    @property
+    def input(self) -> global___FunctionPutInputsItem: ...
+    attempt_token: builtins.str
+    def __init__(
+        self,
+        *,
+        function_id: builtins.str = ...,
+        parent_input_id: builtins.str = ...,
+        input: global___FunctionPutInputsItem | None = ...,
+        attempt_token: builtins.str = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["input", b"input"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["attempt_token", b"attempt_token", "function_id", b"function_id", "input", b"input", "parent_input_id", b"parent_input_id"]) -> None: ...
+
+global___AttemptRetryRequest = AttemptRetryRequest
+
+class AttemptRetryResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ATTEMPT_TOKEN_FIELD_NUMBER: builtins.int
+    attempt_token: builtins.str
+    def __init__(
+        self,
+        *,
+        attempt_token: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["attempt_token", b"attempt_token"]) -> None: ...
+
+global___AttemptRetryResponse = AttemptRetryResponse
+
 class AttemptStartRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -5400,6 +5439,10 @@ class FunctionOptions(google.protobuf.message.Message):
     TARGET_CONCURRENT_INPUTS_FIELD_NUMBER: builtins.int
     REPLACE_VOLUME_MOUNTS_FIELD_NUMBER: builtins.int
     REPLACE_SECRET_IDS_FIELD_NUMBER: builtins.int
+    BUFFER_CONTAINERS_FIELD_NUMBER: builtins.int
+    MAX_CONCURRENT_INPUTS_FIELD_NUMBER: builtins.int
+    BATCH_MAX_SIZE_FIELD_NUMBER: builtins.int
+    BATCH_LINGER_MS_FIELD_NUMBER: builtins.int
     @property
     def secret_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
@@ -5418,6 +5461,10 @@ class FunctionOptions(google.protobuf.message.Message):
     target_concurrent_inputs: builtins.int
     replace_volume_mounts: builtins.bool
     replace_secret_ids: builtins.bool
+    buffer_containers: builtins.int
+    max_concurrent_inputs: builtins.int
+    batch_max_size: builtins.int
+    batch_linger_ms: builtins.int
     def __init__(
         self,
         *,
@@ -5433,11 +5480,23 @@ class FunctionOptions(google.protobuf.message.Message):
         target_concurrent_inputs: builtins.int | None = ...,
         replace_volume_mounts: builtins.bool = ...,
         replace_secret_ids: builtins.bool = ...,
+        buffer_containers: builtins.int | None = ...,
+        max_concurrent_inputs: builtins.int | None = ...,
+        batch_max_size: builtins.int | None = ...,
+        batch_linger_ms: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_concurrency_limit", b"_concurrency_limit", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "concurrency_limit", b"concurrency_limit", "resources", b"resources", "retry_policy", b"retry_policy", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "warm_pool_size", b"warm_pool_size"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_concurrency_limit", b"_concurrency_limit", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "concurrency_limit", b"concurrency_limit", "mount_ids", b"mount_ids", "replace_secret_ids", b"replace_secret_ids", "replace_volume_mounts", b"replace_volume_mounts", "resources", b"resources", "retry_policy", b"retry_policy", "secret_ids", b"secret_ids", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "volume_mounts", b"volume_mounts", "warm_pool_size", b"warm_pool_size"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "resources", b"resources", "retry_policy", b"retry_policy", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "warm_pool_size", b"warm_pool_size"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "mount_ids", b"mount_ids", "replace_secret_ids", b"replace_secret_ids", "replace_volume_mounts", b"replace_volume_mounts", "resources", b"resources", "retry_policy", b"retry_policy", "secret_ids", b"secret_ids", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "volume_mounts", b"volume_mounts", "warm_pool_size", b"warm_pool_size"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms"]) -> typing_extensions.Literal["batch_linger_ms"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_batch_max_size", b"_batch_max_size"]) -> typing_extensions.Literal["batch_max_size"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_buffer_containers", b"_buffer_containers"]) -> typing_extensions.Literal["buffer_containers"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_concurrency_limit", b"_concurrency_limit"]) -> typing_extensions.Literal["concurrency_limit"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_max_concurrent_inputs", b"_max_concurrent_inputs"]) -> typing_extensions.Literal["max_concurrent_inputs"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_resources", b"_resources"]) -> typing_extensions.Literal["resources"] | None: ...
     @typing.overload

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: worker-automate-hub
-Version: 0.5.519
+Version: 0.5.521
 Summary: Worker Automate HUB é uma aplicação para automatizar rotinas de RPA nos ambientes Argenta.
 Author: Joel Paim
 Requires-Python: >=3.12,<4.0

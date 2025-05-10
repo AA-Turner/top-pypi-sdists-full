@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-aws-lambda
-Version: 0.53b1
+Version: 0.54b0
 Summary: OpenTelemetry AWS Lambda instrumentation
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-aws-lambda
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib
@@ -19,9 +19,9 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
-Requires-Dist: opentelemetry-instrumentation==0.53b1
+Requires-Dist: opentelemetry-instrumentation==0.54b0
 Requires-Dist: opentelemetry-propagator-aws-xray~=1.0
-Requires-Dist: opentelemetry-semantic-conventions==0.53b1
+Requires-Dist: opentelemetry-semantic-conventions==0.54b0
 Provides-Extra: instruments
 Description-Content-Type: text/x-rst
 

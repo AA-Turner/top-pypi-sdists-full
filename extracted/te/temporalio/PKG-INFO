@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: temporalio
-Version: 1.11.0
+Version: 1.11.1
 Requires-Dist: protobuf>=3.20
 Requires-Dist: python-dateutil>=2.8.2,<3 ; python_full_version < '3.11'
 Requires-Dist: types-protobuf>=3.20

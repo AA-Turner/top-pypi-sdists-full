@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-vector-stores-postgres
-Version: 0.5.2
+Version: 0.5.3
 Summary: llama-index vector_stores postgres integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

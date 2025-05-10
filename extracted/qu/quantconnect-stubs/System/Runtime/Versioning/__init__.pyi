@@ -113,6 +113,9 @@ class FrameworkName(System.Object, System.IEquatable[System_Runtime_Versioning_F
     def full_name(self) -> str:
         ...
 
+    def __eq__(self, right: System.Runtime.Versioning.FrameworkName) -> bool:
+        ...
+
     @overload
     def __init__(self, identifier: str, version: System.Version) -> None:
         ...
@@ -123,6 +126,9 @@ class FrameworkName(System.Object, System.IEquatable[System_Runtime_Versioning_F
 
     @overload
     def __init__(self, framework_name: str) -> None:
+        ...
+
+    def __ne__(self, right: System.Runtime.Versioning.FrameworkName) -> bool:
         ...
 
     @overload

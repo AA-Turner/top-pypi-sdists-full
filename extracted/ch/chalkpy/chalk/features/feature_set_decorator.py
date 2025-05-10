@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import ast
-import builtins
 import collections
 import copy
 import inspect
 import re
-import sys
 import textwrap
 import types
-from datetime import datetime, timedelta
 import typing
+from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Type, TypeVar, Union, cast, overload
 
+import builtins
 import pyarrow as pa
+import sys
 
 from chalk._lsp.error_builder import FeatureClassErrorBuilder, LSPErrorBuilder
 from chalk.features._class_property import classproperty, classproperty_support
@@ -119,6 +119,7 @@ def features(
 
     Examples
     --------
+    >>> from chalk.features import features
     >>> @features(
     ...     owner="andy@chalk.ai",
     ...     max_staleness="30m",
@@ -767,7 +768,7 @@ def _process_class(
                         message=(
                             f"Quoted Windowed feature type annotation '{annotation}' for '{namespace}.{name}' could not be parsed: {e}."
                             f"To create a windowed feature with quotes for typing, use "
-                            f"'{name}: \"Windowed[int]\" = windowed(\"10m\", ...)'"
+                            f'\'{name}: "Windowed[int]" = windowed("10m", ...)\''
                         ),
                         label="missing windowed(...) call",
                         range=error_builder.property_range(name),
@@ -1343,6 +1344,7 @@ def _class_setattr(
     # Update graph in notebook for inline feature definition
     if FeatureSetBase.hook:
         FeatureSetBase.hook(cls)
+
 
 def parse_quoted_window_feature(annotation_str: str, module_str: str) -> Type[Windowed]:
     """

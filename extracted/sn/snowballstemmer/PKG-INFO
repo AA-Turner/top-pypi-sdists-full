@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowballstemmer
-Version: 3.0.0.1
+Version: 3.0.1
 Summary: This package provides 32 stemmers for 30 languages generated from Snowball algorithms.
 Home-page: https://github.com/snowballstem/snowball
 Author: Snowball Developers
@@ -11,12 +11,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: Arabic
+Classifier: Natural Language :: Armenian
 Classifier: Natural Language :: Basque
 Classifier: Natural Language :: Catalan
 Classifier: Natural Language :: Danish
 Classifier: Natural Language :: Dutch
 Classifier: Natural Language :: English
 Classifier: Natural Language :: Esperanto
+Classifier: Natural Language :: Estonian
 Classifier: Natural Language :: Finnish
 Classifier: Natural Language :: French
 Classifier: Natural Language :: German
@@ -37,6 +39,7 @@ Classifier: Natural Language :: Spanish
 Classifier: Natural Language :: Swedish
 Classifier: Natural Language :: Tamil
 Classifier: Natural Language :: Turkish
+Classifier: Natural Language :: Yiddish
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 2
@@ -76,9 +79,11 @@ Dynamic: summary
 Snowball stemming library collection for Python
 ===============================================
 
-Python 3 (>= 3.3) is supported.  We no longer actively support Python 2 as
-the Python developers stopped supporting it at the start of 2020.  Snowball
-2.1.0 was the last release to officially support Python 2.
+Python 3 (>= 3.3) is supported.  We no longer support Python 2 as the Python
+developers stopped supporting it at the start of 2020.  Snowball 2.1.0 was the
+last release to officially support Python 2; Snowball 3.0.0 was the last
+release which had the code to support Python 2, but we were no longer testing
+it.
 
 What is Stemming?
 -----------------

@@ -634,6 +634,10 @@ class PositionGroupKey(System.Object, System.IEquatable[QuantConnect_Securities_
         """Gets the unit quantities defining the ratio between position quantities in the group"""
         ...
 
+    def __eq__(self, right: QuantConnect.Securities.Positions.PositionGroupKey) -> bool:
+        """Equals operator"""
+        ...
+
     @overload
     def __init__(self, buying_power_model: QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel, security: QuantConnect.Securities.Security) -> None:
         """
@@ -652,6 +656,10 @@ class PositionGroupKey(System.Object, System.IEquatable[QuantConnect_Securities_
         :param buying_power_model: The group's buying power model
         :param positions: The positions comprising the group
         """
+        ...
+
+    def __ne__(self, right: QuantConnect.Securities.Positions.PositionGroupKey) -> bool:
+        """Not equals operator"""
         ...
 
     def create_empty_positions(self) -> typing.List[QuantConnect.Securities.Positions.IPosition]:

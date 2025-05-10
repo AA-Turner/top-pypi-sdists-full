@@ -16,8 +16,10 @@ chalk_logger = chalk.utils.log_with_context.get_logger("chalk.clogging.chalk_log
 
 Examples
 --------
+>>> from chalk.features import online
+>>> from chalk.logging import chalk_logger
 >>> @online
-... def fn() -> User.name:
+... def get_user_feature(User.id) -> User.name:
 ...     chalk_logger.info("running")
 ...     return ...
 """

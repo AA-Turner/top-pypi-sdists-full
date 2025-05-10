@@ -17,6 +17,7 @@ class DropdownMultiValueUiBlock:
     _id: str
     _dropdown_id: Union[Unset, str] = UNSET
     _label: Union[Unset, None, str] = UNSET
+    _required: Union[Unset, None, bool] = UNSET
     _value: Union[Unset, None, List[str]] = UNSET
     _enabled: Union[Unset, None, bool] = UNSET
     additional_properties: Dict[str, Any] = attr.ib(init=False, factory=dict)
@@ -27,6 +28,7 @@ class DropdownMultiValueUiBlock:
         fields.append("id={}".format(repr(self._id)))
         fields.append("dropdown_id={}".format(repr(self._dropdown_id)))
         fields.append("label={}".format(repr(self._label)))
+        fields.append("required={}".format(repr(self._required)))
         fields.append("value={}".format(repr(self._value)))
         fields.append("enabled={}".format(repr(self._enabled)))
         fields.append("additional_properties={}".format(repr(self.additional_properties)))
@@ -38,6 +40,7 @@ class DropdownMultiValueUiBlock:
         id = self._id
         dropdown_id = self._dropdown_id
         label = self._label
+        required = self._required
         value: Union[Unset, None, List[Any]] = UNSET
         if not isinstance(self._value, Unset):
             if self._value is None:
@@ -58,6 +61,8 @@ class DropdownMultiValueUiBlock:
             field_dict["dropdownId"] = dropdown_id
         if label is not UNSET:
             field_dict["label"] = label
+        if required is not UNSET:
+            field_dict["required"] = required
         if value is not UNSET:
             field_dict["value"] = value
         if enabled is not UNSET:
@@ -118,6 +123,17 @@ class DropdownMultiValueUiBlock:
                 raise
             label = cast(Union[Unset, None, str], UNSET)
 
+        def get_required() -> Union[Unset, None, bool]:
+            required = d.pop("required")
+            return required
+
+        try:
+            required = get_required()
+        except KeyError:
+            if strict:
+                raise
+            required = cast(Union[Unset, None, bool], UNSET)
+
         def get_value() -> Union[Unset, None, List[str]]:
             value = cast(List[str], d.pop("value"))
 
@@ -146,6 +162,7 @@ class DropdownMultiValueUiBlock:
             id=id,
             dropdown_id=dropdown_id,
             label=label,
+            required=required,
             value=value,
             enabled=enabled,
         )
@@ -219,6 +236,21 @@ class DropdownMultiValueUiBlock:
     @label.deleter
     def label(self) -> None:
         self._label = UNSET
+
+    @property
+    def required(self) -> Optional[bool]:
+        """When true, the user must provide a value before the app can proceed. Block must specify a label if required is set to true."""
+        if isinstance(self._required, Unset):
+            raise NotPresentError(self, "required")
+        return self._required
+
+    @required.setter
+    def required(self, value: Optional[bool]) -> None:
+        self._required = value
+
+    @required.deleter
+    def required(self) -> None:
+        self._required = UNSET
 
     @property
     def value(self) -> Optional[List[str]]:

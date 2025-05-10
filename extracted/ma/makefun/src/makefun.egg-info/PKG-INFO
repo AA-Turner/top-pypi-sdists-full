@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: makefun
-Version: 1.15.6
+Version: 1.16.0
 Summary: Small library to dynamically create python functions.
 Home-page: https://github.com/smarie/python-makefun
-Download-URL: https://github.com/smarie/python-makefun/tarball/1.15.6
+Download-URL: https://github.com/smarie/python-makefun/tarball/1.16.0
 Author: Sylvain MARIE <sylvain.marie@se.com>
 Maintainer: Sylvain MARIE <sylvain.marie@se.com>
 License: BSD 3-Clause
@@ -13,13 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11

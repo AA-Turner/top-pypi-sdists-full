@@ -1,34 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: meltanolabs-target-postgres
-Version: 0.3.2
+Version: 0.4.0
 Summary: Singer target for Postgres, built with the Meltano SDK for Singer Targets.
-Home-page: https://meltano.com
-License: MIT
-Keywords: Postgres,Singer,ELT,Meltano,Meltano SDK
-Author: Meltano Team and Contributors
-Author-email: hello@meltano.com
-Maintainer: Meltano Team and Contributors
-Maintainer-email: hello@meltano.com
-Requires-Python: >=3.9
+Project-URL: Homepage, https://meltano.com
+Project-URL: Repository, https://github.com/MeltanoLabs/target-postgres
+Project-URL: Documentation, https://github.com/MeltanoLabs/target-postgres/blob/main/README.md
+Author-email: Meltano Team and Contributors <hello@meltano.com>
+Maintainer-email: Meltano Team and Contributors <hello@meltano.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: ELT,Meltano,Meltano SDK,Postgres,Singer
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Requires-Python: >=3.9
+Requires-Dist: psycopg2-binary==2.9.10
+Requires-Dist: psycopg[binary]==3.2.7
+Requires-Dist: singer-sdk~=0.45.3
+Requires-Dist: sqlalchemy~=2.0
+Requires-Dist: sshtunnel==0.4.0
 Provides-Extra: faker
-Requires-Dist: faker (>=36.1,<37.0) ; extra == "faker"
-Requires-Dist: psycopg2-binary (==2.9.10)
-Requires-Dist: psycopg[binary] (==3.2.4)
-Requires-Dist: singer-sdk (>=0.44.0,<0.45.0)
-Requires-Dist: sqlalchemy (>=2.0,<3.0)
-Requires-Dist: sshtunnel (==0.4.0)
-Project-URL: Documentation, https://github.com/MeltanoLabs/target-postgres/blob/main/README.md
-Project-URL: Repository, https://github.com/MeltanoLabs/target-postgres
+Requires-Dist: faker~=37.1; extra == 'faker'
 Description-Content-Type: text/markdown
 
 # target-postgres
@@ -183,10 +181,13 @@ tap-carbon-intensity | target-postgres --config /path/to/target-postgres-config.
 
 ### Initialize your Development Environment
 
+Prerequisites:
+
+- Python 3.9+
+- [uv](https://docs.astral.sh/uv/)
+
 ```bash
-pipx install poetry
-poetry install
-pipx install pre-commit
+uv tool install pre-commit
 pre-commit install
 ```
 
@@ -230,13 +231,13 @@ Create tests within the `target_postgres/tests` subfolder and
   then run:
 
 ```bash
-poetry run pytest
+uv run pytest
 ```
 
-You can also test the `target-postgres` CLI interface directly using `poetry run`:
+You can also test the `target-postgres` CLI interface directly using `uv run`:
 
 ```bash
-poetry run target-postgres --help
+uv run target-postgres --help
 ```
 
 ### Testing with [Meltano](https://meltano.com/)
@@ -425,4 +426,3 @@ Example data:
 ```
 
 For convenience, data prefixed with `0x` or containing an odd number of characters is supported although it's not part of the standard.
-

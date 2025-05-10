@@ -480,7 +480,6 @@ class DefaultClientBrandingAttributesTypeDef(TypedDict):
     LoginMessage: NotRequired[Dict[str, str]]
 
 class DefaultWorkspaceCreationPropertiesTypeDef(TypedDict):
-    EnableWorkDocs: NotRequired[bool]
     EnableInternetAccess: NotRequired[bool]
     DefaultOu: NotRequired[str]
     CustomSecurityGroupId: NotRequired[str]
@@ -757,7 +756,6 @@ class WorkspaceAccessPropertiesTypeDef(TypedDict):
     DeviceTypeWorkSpacesThinClient: NotRequired[AccessPropertyValueType]
 
 class WorkspaceCreationPropertiesTypeDef(TypedDict):
-    EnableWorkDocs: NotRequired[bool]
     EnableInternetAccess: NotRequired[bool]
     DefaultOu: NotRequired[str]
     CustomSecurityGroupId: NotRequired[str]
@@ -1298,7 +1296,6 @@ class WorkspacePropertiesTypeDef(TypedDict):
 class RegisterWorkspaceDirectoryRequestTypeDef(TypedDict):
     DirectoryId: NotRequired[str]
     SubnetIds: NotRequired[Sequence[str]]
-    EnableWorkDocs: NotRequired[bool]
     EnableSelfService: NotRequired[bool]
     Tenancy: NotRequired[TenancyType]
     Tags: NotRequired[Sequence[TagTypeDef]]

@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from hindi.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from hindi.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class HindiStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from hindi.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from hindi.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_consonant = {u"\u0915", u"\u0916", u"\u0917", u"\u0918", u"\u0919", u"\u091A", u"\u091B", u"\u091C", u"\u091D", u"\u091E", u"\u091F", u"\u0920", u"\u0921", u"\u0922", u"\u0923", u"\u0924", u"\u0925", u"\u0926", u"\u0927", u"\u0928", u"\u092A", u"\u092B", u"\u092C", u"\u092D", u"\u092E", u"\u092F", u"\u0930", u"\u0932", u"\u0935", u"\u0936", u"\u0937", u"\u0938", u"\u0939", u"\u0933", u"\u093C", u"\u0929", u"\u0931", u"\u0934", u"\u0958", u"\u0959", u"\u095A", u"\u095B", u"\u095C", u"\u095D", u"\u095E", u"\u095F"}

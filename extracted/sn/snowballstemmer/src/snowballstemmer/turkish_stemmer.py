@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from turkish.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from turkish.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class TurkishStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from turkish.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from turkish.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_vowel = {u"a", u"e", u"ı", u"i", u"o", u"ö", u"u", u"ü"}

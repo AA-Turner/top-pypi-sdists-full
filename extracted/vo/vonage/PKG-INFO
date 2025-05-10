@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vonage
-Version: 4.4.2
+Version: 4.4.3
 Summary: Python Server SDK for using Vonage APIs
 Author-email: Vonage <devrel@vonage.com>
 Project-URL: homepage, https://github.com/Vonage/vonage-python-sdk
@@ -22,7 +22,7 @@ Requires-Dist: vonage-messages>=1.4.0
 Requires-Dist: vonage-network-auth>=1.0.2
 Requires-Dist: vonage-network-sim-swap>=1.1.2
 Requires-Dist: vonage-network-number-verification>=1.0.2
-Requires-Dist: vonage-number-insight>=1.0.6
+Requires-Dist: vonage-number-insight>=1.0.7
 Requires-Dist: vonage-numbers>=1.0.4
 Requires-Dist: vonage-sms>=1.1.6
 Requires-Dist: vonage-subaccounts>=1.0.4

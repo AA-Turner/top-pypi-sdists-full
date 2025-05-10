@@ -79,12 +79,104 @@ class OptionPosition(System.IEquatable[QuantConnect_Securities_Option_StrategyMa
         """Gets whether this position is short/long/none"""
         ...
 
+    def __add__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPosition:
+        """
+        OptionPosition + Operator, will add quantities together if they are for the same symbol.
+        
+        :returns: Resulting OptionPosition.
+        """
+        ...
+
+    def __eq__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> bool:
+        """
+        Option Position == Operator
+        
+        :returns: True if they are the same.
+        """
+        ...
+
+    def __iadd__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPosition:
+        """
+        OptionPosition + Operator, will add quantities together if they are for the same symbol.
+        
+        :returns: Resulting OptionPosition.
+        """
+        ...
+
+    @overload
+    def __imul__(self, factor: int) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPosition:
+        """
+        OptionPosition * Operator, will multiple quantity by given factor
+        
+        :param left: OptionPosition to operate on
+        :param factor: Factor to multiply by
+        :returns: Resulting OptionPosition.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPosition:
+        """
+        OptionPosition * Operator, will multiple quantity by given factor
+        
+        :param factor: Factor to multiply by
+        :param right: OptionPosition to operate on
+        :returns: Resulting OptionPosition.
+        """
+        ...
+
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int) -> None:
         """
         Initializes a new instance of the OptionPosition structure
         
         :param symbol: The option contract symbol
         :param quantity: The number of contracts held
+        """
+        ...
+
+    def __isub__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPosition:
+        """
+        OptionPosition - Operator, will subtract left - right quantities if they are for the same symbol.
+        
+        :returns: Resulting OptionPosition.
+        """
+        ...
+
+    @overload
+    def __mul__(self, factor: int) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPosition:
+        """
+        OptionPosition * Operator, will multiple quantity by given factor
+        
+        :param left: OptionPosition to operate on
+        :param factor: Factor to multiply by
+        :returns: Resulting OptionPosition.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPosition:
+        """
+        OptionPosition * Operator, will multiple quantity by given factor
+        
+        :param factor: Factor to multiply by
+        :param right: OptionPosition to operate on
+        :returns: Resulting OptionPosition.
+        """
+        ...
+
+    def __ne__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> bool:
+        """
+        Option Position != Operator
+        
+        :returns: True if they are not the same.
+        """
+        ...
+
+    def __sub__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPosition:
+        """
+        OptionPosition - Operator, will subtract left - right quantities if they are for the same symbol.
+        
+        :returns: Resulting OptionPosition.
         """
         ...
 
@@ -205,6 +297,26 @@ class OptionPositionCollection(System.Object, typing.Iterable[QuantConnect.Secur
         """Gets all unique expiration dates in the collection, in chronological order."""
         ...
 
+    def __add__(self, position: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
+        """
+        OptionPositionCollection + Operator
+        
+        :param positions: Collection to add to
+        :param position: OptionPosition to add
+        :returns: OptionPositionCollection with the new position added.
+        """
+        ...
+
+    def __iadd__(self, position: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
+        """
+        OptionPositionCollection + Operator
+        
+        :param positions: Collection to add to
+        :param position: OptionPosition to add
+        :returns: OptionPositionCollection with the new position added.
+        """
+        ...
+
     def __init__(self, positions: System.Collections.Immutable.ImmutableDictionary[QuantConnect.Symbol, QuantConnect.Securities.Option.StrategyMatcher.OptionPosition], rights: System.Collections.Immutable.ImmutableDictionary[QuantConnect.OptionRight, System.Collections.Immutable.ImmutableHashSet[QuantConnect.Symbol]], sides: System.Collections.Immutable.ImmutableDictionary[QuantConnect.PositionSide, System.Collections.Immutable.ImmutableHashSet[QuantConnect.Symbol]], strikes: System.Collections.Immutable.ImmutableSortedDictionary[float, System.Collections.Immutable.ImmutableHashSet[QuantConnect.Symbol]], expirations: System.Collections.Immutable.ImmutableSortedDictionary[datetime.datetime, System.Collections.Immutable.ImmutableHashSet[QuantConnect.Symbol]]) -> None:
         """
         Initializes a new instance of the OptionPositionCollection class
@@ -217,7 +329,27 @@ class OptionPositionCollection(System.Object, typing.Iterable[QuantConnect.Secur
         """
         ...
 
+    def __isub__(self, position: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
+        """
+        OptionPositionCollection - Operator
+        
+        :param positions: Collection to remove from
+        :param position: OptionPosition to remove
+        :returns: OptionPositionCollection with the position removed.
+        """
+        ...
+
     def __iter__(self) -> typing.Iterator[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+        ...
+
+    def __sub__(self, position: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
+        """
+        OptionPositionCollection - Operator
+        
+        :param positions: Collection to remove from
+        :param position: OptionPosition to remove
+        :returns: OptionPositionCollection with the position removed.
+        """
         ...
 
     def add(self, position: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
@@ -566,12 +698,28 @@ class OptionStrategyLegDefinitionMatch(System.IEquatable[QuantConnect_Securities
         """
         ...
 
+    def __eq__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch) -> bool:
+        """
+        OptionStrategyLegDefinitionMatch == Operator
+        
+        :returns: True if they are equal.
+        """
+        ...
+
     def __init__(self, multiplier: int, position: QuantConnect.Securities.Option.StrategyMatcher.OptionPosition) -> None:
         """
         Initializes a new instance of the OptionStrategyLegDefinitionMatch struct
         
         :param multiplier: The number of times the positions matched the leg definition
         :param position: The position that matched the leg definition
+        """
+        ...
+
+    def __ne__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch) -> bool:
+        """
+        OptionStrategyLegDefinitionMatch != Operator
+        
+        :returns: True if they are not equal.
         """
         ...
 
@@ -980,8 +1128,24 @@ class OptionStrategyDefinitionMatch(System.Object, System.IEquatable[QuantConnec
         """The OptionStrategyLegDefinitionMatch instances matched to the definition."""
         ...
 
+    def __eq__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
+        """
+        OptionStrategyDefinitionMatch == Operator
+        
+        :returns: True if they are the same.
+        """
+        ...
+
     def __init__(self, definition: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition, legs: typing.List[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch], multiplier: int) -> None:
         """Initializes a new instance of the OptionStrategyDefinitionMatch class"""
+        ...
+
+    def __ne__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
+        """
+        OptionStrategyDefinitionMatch != Operator
+        
+        :returns: True if they are not the same.
+        """
         ...
 
     def create_strategy(self) -> QuantConnect.Securities.Option.OptionStrategy:

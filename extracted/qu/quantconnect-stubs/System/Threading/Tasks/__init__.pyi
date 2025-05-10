@@ -2371,6 +2371,16 @@ class ValueTask(typing.Generic[System_Threading_Tasks_ValueTask_TResult], System
         ...
 
     @overload
+    def __eq__(self, right: System.Threading.Tasks.ValueTask) -> bool:
+        """Returns a value indicating whether two ValueTask values are equal."""
+        ...
+
+    @overload
+    def __eq__(self, right: System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_TResult]) -> bool:
+        """Returns a value indicating whether two ValueTask{TResult} values are equal."""
+        ...
+
+    @overload
     def __init__(self, task: System.Threading.Tasks.Task) -> None:
         """
         Initialize the ValueTask with a Task that represents the operation.
@@ -2415,6 +2425,16 @@ class ValueTask(typing.Generic[System_Threading_Tasks_ValueTask_TResult], System
         :param source: The source.
         :param token: Opaque value passed through to the IValueTaskSource.
         """
+        ...
+
+    @overload
+    def __ne__(self, right: System.Threading.Tasks.ValueTask) -> bool:
+        """Returns a value indicating whether two ValueTask values are not equal."""
+        ...
+
+    @overload
+    def __ne__(self, right: System.Threading.Tasks.ValueTask[System_Threading_Tasks_ValueTask_TResult]) -> bool:
+        """Returns a value indicating whether two ValueTask{TResult} values are not equal."""
         ...
 
     def as_task(self) -> System.Threading.Tasks.Task:

@@ -2501,6 +2501,26 @@ class SecurityChanges(System.Object):
         """
         ...
 
+    def __add__(self, right: QuantConnect.Data.UniverseSelection.SecurityChanges) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
+        """
+        Combines the results of two SecurityChanges
+        
+        :param left: The left side of the operand
+        :param right: The right side of the operand
+        :returns: Adds the additions together and removes any removals found in the additions, that is, additions take precedence.
+        """
+        ...
+
+    def __iadd__(self, right: QuantConnect.Data.UniverseSelection.SecurityChanges) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
+        """
+        Combines the results of two SecurityChanges
+        
+        :param left: The left side of the operand
+        :param right: The right side of the operand
+        :returns: Adds the additions together and removes any removals found in the additions, that is, additions take precedence.
+        """
+        ...
+
     def __init__(self, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
         """
         Initializes a new instance of the SecurityChanges class

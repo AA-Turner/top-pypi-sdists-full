@@ -1,16 +1,15 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: deepdiff
-Version: 8.4.2
+Version: 8.5.0
 Summary: Deep Difference and Search of any Python object/data. Recreate objects by adding adding deltas to each other.
-Home-page: https://github.com/seperman/deepdiff
-Download-URL: https://github.com/seperman/deepdiff/tarball/master
-Author: Seperman
-Author-email: sep@zepworks.com
-License: MIT
+Keywords: 
+Author-email: Seperman <sep@zepworks.com>
+Maintainer-email: Seperman <sep@zepworks.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -19,30 +18,47 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
 License-File: LICENSE
-License-File: AUTHORS.md
-Requires-Dist: orderly-set<6,>=5.3.0
+Requires-Dist: orderly-set>=5.4.1,<6
+Requires-Dist: click~=8.1.0 ; extra == "cli"
+Requires-Dist: pyyaml~=6.0.0 ; extra == "cli"
+Requires-Dist: coverage~=7.6.0 ; extra == "coverage"
+Requires-Dist: bump2version~=1.0.0 ; extra == "dev"
+Requires-Dist: jsonpickle~=4.0.0 ; extra == "dev"
+Requires-Dist: ipdb~=0.13.0 ; extra == "dev"
+Requires-Dist: numpy~=2.2.0 ; extra == "dev" and ( python_version >= '3.10')
+Requires-Dist: numpy~=2.0 ; extra == "dev" and ( python_version < '3.10')
+Requires-Dist: python-dateutil~=2.9.0 ; extra == "dev"
+Requires-Dist: orjson~=3.10.0 ; extra == "dev"
+Requires-Dist: tomli~=2.2.0 ; extra == "dev"
+Requires-Dist: tomli-w~=1.2.0 ; extra == "dev"
+Requires-Dist: pandas~=2.2.0 ; extra == "dev"
+Requires-Dist: polars~=1.21.0 ; extra == "dev"
+Requires-Dist: nox==2025.5.1 ; extra == "dev"
+Requires-Dist: Sphinx~=6.2.0 ; extra == "docs"
+Requires-Dist: sphinx-sitemap~=2.6.0 ; extra == "docs"
+Requires-Dist: sphinxemoji~=0.3.0 ; extra == "docs"
+Requires-Dist: orjson ; extra == "optimize"
+Requires-Dist: flake8~=7.1.0 ; extra == "static"
+Requires-Dist: flake8-pyproject~=1.2.3 ; extra == "static"
+Requires-Dist: pydantic~=2.10.0 ; extra == "static"
+Requires-Dist: pytest~=8.3.0 ; extra == "test"
+Requires-Dist: pytest-benchmark~=5.1.0 ; extra == "test"
+Requires-Dist: pytest-cov~=6.0.0 ; extra == "test"
+Requires-Dist: python-dotenv~=1.0.0 ; extra == "test"
+Project-URL: Documentation, https://zepworks.com/deepdiff/
+Project-URL: Homepage, https://zepworks.com/deepdiff/
+Project-URL: Issues, https://github.com/seperman/deepdiff/issues
+Project-URL: Repository, https://github.com/seperman/deepdiff
 Provides-Extra: cli
-Requires-Dist: click==8.1.8; extra == "cli"
-Requires-Dist: pyyaml==6.0.2; extra == "cli"
+Provides-Extra: coverage
+Provides-Extra: dev
+Provides-Extra: docs
 Provides-Extra: optimize
-Requires-Dist: orjson; extra == "optimize"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: license
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Provides-Extra: static
+Provides-Extra: test
 
-# DeepDiff v 8.4.2
+# DeepDiff v 8.5.0
 
 ![Downloads](https://img.shields.io/pypi/dm/deepdiff.svg?style=flat)
 ![Python Versions](https://img.shields.io/pypi/pyversions/deepdiff.svg?style=flat)
@@ -59,9 +75,9 @@ Dynamic: summary
 - [Extract](https://zepworks.com/deepdiff/current/extract.html): Extract an item from a nested Python object using its path.
 - [commandline](https://zepworks.com/deepdiff/current/commandline.html): Use DeepDiff from commandline.
 
-Tested on Python 3.8+ and PyPy3.
+Tested on Python 3.9+ and PyPy3.
 
-- **[Documentation](https://zepworks.com/deepdiff/8.4.2/)**
+- **[Documentation](https://zepworks.com/deepdiff/8.5.0/)**
 
 ## What is new?
 
@@ -170,3 +186,4 @@ Thank you!
 # Authors
 
 Please take a look at the [AUTHORS](AUTHORS.md) file.
+

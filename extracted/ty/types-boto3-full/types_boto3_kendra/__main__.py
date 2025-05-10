@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for boto3 Kendra 1.38.12\n"
-        "Version:         1.38.12\n"
+        "Type annotations for boto3 Kendra 1.38.13\n"
+        "Version:         1.38.13\n"
         "Builder version: 8.11.0\n"
         "Docs:            https://youtype.github.io/types_boto3_docs/types_boto3_kendra//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kendra.html#kendra\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("1.38.12\n")
+    sys.stdout.write("1.38.13\n")
 
 
 def main() -> None:

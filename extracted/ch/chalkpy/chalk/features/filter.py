@@ -284,6 +284,8 @@ class freeze_time:
 
         Examples
         --------
+        >>> from chalk.features import online, DataFrame
+        >>> from datetime import datetime, timedelta, timezone
         >>> @online
         ... def get_average_spend_30d(
         ...     spend: User.cards[after(days_ago=30)],

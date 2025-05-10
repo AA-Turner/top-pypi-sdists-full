@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hiredis
-Version: 3.1.0
+Version: 3.1.1
 Summary: Python wrapper for hiredis
 Home-page: https://github.com/redis/hiredis-py
 Author: Jan-Erik Rediger, Pieter Noordhuis

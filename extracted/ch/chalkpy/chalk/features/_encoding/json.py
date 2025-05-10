@@ -18,12 +18,12 @@ from chalk.features._encoding.rich import is_chalk_struct
 from chalk.utils.json import TJSON
 
 if TYPE_CHECKING:
-    import pydantic
+    from pydantic import BaseModel
 else:
     try:
-        import pydantic.v1 as pydantic
+        from pydantic.v1 import BaseModel
     except ImportError:
-        import pydantic
+        from pydantic import BaseModel
 
 __all__ = ["unstructure_primitive_to_json", "structure_json_to_primitive"]
 
@@ -340,7 +340,7 @@ class FeatureJsonConverter:
 ######
 
 
-class FeatureEncodingOptions(pydantic.BaseModel, frozen=True):
+class FeatureEncodingOptions(BaseModel, frozen=True):
     encode_structs_as_objects: bool = False
     """
     If 'True', a struct type will be encoded as a json object.

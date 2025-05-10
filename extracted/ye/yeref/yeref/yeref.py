@@ -7285,6 +7285,21 @@ async def uri_metadata(url, result):
                     result['marketplace'] = data_json['marketplace']
                 if 'uri' in data_json:
                     result['uri'] = data_json['uri']
+
+                if 'mintles_merkle_dump_uri' in data_json:
+                    result['mintles_merkle_dump_uri'] = data_json['mintles_merkle_dump_uri']
+                if 'custom_payload_api_uri' in data_json:
+                    result['custom_payload_api_uri'] = data_json['custom_payload_api_uri']
+                if 'timestamp' in data_json:
+                    result['timestamp'] = data_json['timestamp']
+                if 'public_key' in data_json:
+                    result['public_key'] = data_json['public_key']
+                if 'next_admin_address' in data_json:
+                    result['next_admin_address'] = data_json['next_admin_address']
+                if 'admin_address' in data_json:
+                    result['admin_address'] = data_json['admin_address']
+                if 'merkle_root' in data_json:
+                    result['merkle_root'] = data_json['merkle_root']
         print(f"uri_metadata = {result}")
     except Exception as e:
         logger.info(log_ % str(e))
@@ -7311,7 +7326,7 @@ async def onchain_metadata(cell, result):
                     result['image'] = string_value
                 elif k == int(hashlib.sha256('image_data'.encode()).hexdigest(), 16):
                     result['image_data'] = string_value
-                elif k == int(hashlib.sha256('image_data'.encode()).hexdigest(), 16):
+                elif k == int(hashlib.sha256('cover_image'.encode()).hexdigest(), 16):
                     result['cover_image'] = string_value
                 elif k == int(hashlib.sha256('content_url'.encode()).hexdigest(), 16):
                     result['content_url'] = string_value
@@ -7335,6 +7350,21 @@ async def onchain_metadata(cell, result):
                     result['marketplace'] = string_value
                 elif k == int(hashlib.sha256('uri'.encode()).hexdigest(), 16):
                     result['uri'] = string_value
+
+                elif k == int(hashlib.sha256('mintles_merkle_dump_uri'.encode()).hexdigest(), 16):
+                    result['mintles_merkle_dump_uri'] = string_value
+                elif k == int(hashlib.sha256('custom_payload_api_uri'.encode()).hexdigest(), 16):
+                    result['custom_payload_api_uri'] = string_value
+                elif k == int(hashlib.sha256('timestamp'.encode()).hexdigest(), 16):
+                    result['timestamp'] = string_value
+                elif k == int(hashlib.sha256('public_key'.encode()).hexdigest(), 16):
+                    result['public_key'] = string_value
+                elif k == int(hashlib.sha256('next_admin_address'.encode()).hexdigest(), 16):
+                    result['next_admin_address'] = string_value
+                elif k == int(hashlib.sha256('admin_address'.encode()).hexdigest(), 16):
+                    result['admin_address'] = string_value
+                elif k == int(hashlib.sha256('merkle_root'.encode()).hexdigest(), 16):
+                    result['merkle_root'] = string_value
             except Exception as e:
                 logger.info(log_ % str(e))
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -7582,7 +7612,7 @@ async def get_smc_info(address, KEYS_JSON, is_test_only=False):
         for provider, keys in data["ton"].items():  # provider = "tonapi" или "toncenter"
             for it in keys:  # it = {"all": "..."} или {"testnet": "..."}
                 if provider == "tonapi":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('all')
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
                     if key:
                         items.append([
                             'tonapi',
@@ -7593,7 +7623,7 @@ async def get_smc_info(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('mainnet')
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -7676,7 +7706,7 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
         for provider, keys in data["ton"].items():
             for it in keys:
                 if provider == "tonapi":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('all')
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
                     if key:
                         items.append([
                             'tonapi',
@@ -7687,7 +7717,7 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
                             }
                         ])
                 elif provider == "toncenter":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('mainnet')
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -7786,7 +7816,7 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
         for provider, keys in data["ton"].items():  # provider = "tonapi" или "toncenter"
             for it in keys:  # it = {"all": "..."} или {"testnet": "..."}
                 if provider == "tonapi":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('all')
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
                     if key:
                         items.append([
                             'tonapi',
@@ -7797,7 +7827,7 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('mainnet')
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -7957,7 +7987,7 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
         for provider, keys in data["ton"].items():  # provider = "tonapi" или "toncenter"
             for it in keys:  # it = {"all": "..."} или {"testnet": "..."}
                 if provider == "tonapi":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('all')
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
                     if key:
                         items.append([
                             'tonapi',
@@ -7968,7 +7998,7 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('mainnet')
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8085,7 +8115,7 @@ async def get_nft_in_account(address, collection, KEYS_JSON, is_test_only=False,
         for provider, keys in data["ton"].items():  # provider = "tonapi" или "toncenter"
             for it in keys:  # it = {"all": "..."} или {"testnet": "..."}
                 if provider == "tonapi":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('all')
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
                     if key:
                         items.append([
                             'tonapi',
@@ -8096,7 +8126,7 @@ async def get_nft_in_account(address, collection, KEYS_JSON, is_test_only=False,
                             }
                         ])
                 elif provider == "toncenter":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('mainnet')
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8157,7 +8187,7 @@ async def get_any_activity(address, KEYS_JSON, is_test_only=False):
         for provider, keys in data["ton"].items():  # provider = "tonapi" или "toncenter"
             for it in keys:  # it = {"all": "..."} или {"testnet": "..."}
                 if provider == "tonapi":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('all')
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
                     if key:
                         items.append([
                             'tonapi',
@@ -8168,7 +8198,7 @@ async def get_any_activity(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('mainnet')
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8236,7 +8266,7 @@ async def get_any_nfts(address, KEYS_JSON, is_test_only=False):
         for provider, keys in data["ton"].items():  # provider = "tonapi" или "toncenter"
             for it in keys:  # it = {"all": "..."} или {"testnet": "..."}
                 if provider == "tonapi":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('all')
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
                     if key:
                         items.append([
                             'tonapi',
@@ -8247,7 +8277,7 @@ async def get_any_nfts(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('mainnet')
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8314,7 +8344,7 @@ async def get_any_jettons(address, KEYS_JSON, is_test_only=False):
         for provider, keys in data["ton"].items():  # provider = "tonapi" или "toncenter"
             for it in keys:  # it = {"all": "..."} или {"testnet": "..."}
                 if provider == "tonapi":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('all')
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
                     if key:
                         items.append([
                             'tonapi',
@@ -8325,7 +8355,7 @@ async def get_any_jettons(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = it.get('testnet') if is_test_only and 'testnet' in it else it.get('mainnet')
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8379,6 +8409,215 @@ async def get_any_jettons(address, KEYS_JSON, is_test_only=False):
         return result
 
 
+async def calculate_wallet_address(owner, master, KEYS_JSON, is_test_only=False):
+    result = None
+    try:
+        # code = Cell.one_from_boc(jetton_wallet_code)
+        # data = (begin_cell()
+        #         .store_coins(0)
+        #         .store_address(Address(owner))
+        #         .store_address(Address(master))
+        #         .store_ref(Cell.one_from_boc(jetton_wallet_code))
+        #         .end_cell())
+        # state_init_wallet = StateInit(code=code, data=data)
+        # result = Address((0, state_init_wallet.serialize().hash)).to_str(is_bounceable=False, is_test_only=is_test_only)
+        # Address(owner)
+        # Address(master)
+
+        print(f"calculate_wallet_address {owner=}, {master=}")
+        pfx_testnet = "testnet." if is_test_only else ""
+        async with aiofiles.open(KEYS_JSON, mode='r') as f:
+            data = json.loads(await f.read())
+
+        items = []
+        for provider, keys in data["ton"].items():  # provider = "tonapi" или "toncenter"
+            for it in keys:  # it = {"all": "..."} или {"testnet": "..."}
+                if provider == "tonapi":    # continue
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
+                    
+                    if key:
+                        items.append([
+                            'tonapi',
+                            f'https://{pfx_testnet}tonapi.io/v2/accounts/{owner}/jettons/{master}',
+                            {
+                                'accept': 'application/json',
+                                'Authorization': f'Bearer {key}'
+                            }
+                        ])
+                elif provider == "toncenter":
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    if key: 
+                        items.append([
+                            'toncenter',
+                            f'https://{pfx_testnet}toncenter.com/api/v3/jetton/wallets'
+                            f'?owner_address={owner}&jetton_address={master}&limit=1&offset=0',
+                            {'accept': 'application/json', 'X-API-Key': key}
+                        ])
+
+        while True:
+            random.shuffle(items)
+            for item in items:
+                try:
+                    print(f"{item=}")
+                    name, url, headers = item
+
+                    if name == 'tonapi':
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+
+                        result = data.get("wallet_address", {}).get("address")
+                        print(f"{data=}, {result=}")
+                    else:
+                        print(0)
+                        headers.update({
+                            "Cache-Control": "no-cache, no-store, must-revalidate",
+                            "Pragma": "no-cache",
+                            "Expires": "0"
+                        })
+                        async with aiohttp.ClientSession(headers={"Cache-Control": "no-cache"}) as session:
+                            async with session.get(url, headers=headers) as response:
+                                data = await response.json()
+
+                        print(f"2 toncenter, {headers=}")
+                        result = data.get("jetton_wallets", [{}])[0].get("address")
+                        print(f"{data=}, {result=}")
+
+                    await asyncio.sleep(0.6)
+                    return
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+            break
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    finally:
+        return result
+
+
+async def get_method_data(address, KEYS_JSON, is_test_only=False, method_name='get_jetton_data', help_link=None):
+    result = None
+    try:
+        pfx_testnet = "testnet." if is_test_only else ""
+        async with aiofiles.open(KEYS_JSON, mode='r') as f:
+            data = json.loads(await f.read())
+
+        items = []
+        for provider, keys in data["ton"].items():  # provider = "tonapi" или "toncenter"
+            for it in keys:  # it = {"all": "..."} или {"testnet": "..."}
+                if provider == "tonapi":
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
+                    if key:
+                        items.append([
+                            'tonapi',
+                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/{method_name}',
+                            {
+                                'accept': 'application/json',
+                                'Authorization': f'Bearer {key}'
+                            }
+                        ])
+                elif provider == "toncenter":
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    if key:
+                        items.append([
+                            'toncenter',
+                            f'https://{pfx_testnet}toncenter.com/api/v3/runGetMethod',
+                            {
+                                'accept': 'application/json',
+                                'X-API-Key': key
+                            }
+                        ])
+
+        while True:
+            random.shuffle(items)
+            for item in items:
+                try:
+                    name, url, headers = item
+
+                    if name == 'tonapi':
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+
+                        # print('sooooo', data)
+                        if 'error' in data or not data['success']: return
+                        print('success', data['decoded']['total_supply'])
+                        result['total_supply'] = data['decoded']['total_supply']
+                        result['admin_address'] = data['decoded']['admin_address']
+                        result['jetton_wallet_code'] = data['decoded']['jetton_wallet_code']
+                        jetton_content = data['decoded']['jetton_content']
+
+                        cell = Cell.one_from_boc(jetton_content).begin_parse()
+                        _ = cell.load_uint(8)
+                        cont = ''
+                        try:
+                            cont = cell.load_snake_string()
+                        except Exception as _:
+                            pass
+
+                        print(f"{cont=}")
+                        if cont.startswith('https://'):
+                            result = await uri_metadata(cont, result)
+                        else:
+                            result = await onchain_metadata(cell, result)
+                            if 'uri' in result: result = await uri_metadata(cont, result)
+
+                        print(f"{result=}")
+                        if 'decimals' in result:
+                            result['total_supply'] = int(
+                                int(result['total_supply']) / (10 ** (int(result['decimals']))))
+                    else:
+                        payload = {"address": address, "method": method_name, "stack": []}
+                        print(f" {address=}")
+                        async with aiohttp.ClientSession() as session:
+                            async with session.post(url, headers=headers, json=payload) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+                        if await check_error(data): return
+
+                        print(f"tc , {data=}")
+                        print(f"0 len = {len(result)}")
+                        result['total_supply'] = int(data['stack'][0]['value'], 16)
+                        result['jetton_wallet_code'] = data['stack'][4]['value']
+                        try:
+                            result['admin_address'] = (
+                                Cell.one_from_boc(data['stack'][2]['value']).begin_parse().load_address()).to_str(
+                                is_bounceable=False, is_test_only=is_test_only)
+                        except Exception as _:
+                            result['admin_address'] = ""
+
+                        cell = Cell.one_from_boc(data['stack'][3]['value']).begin_parse()
+                        _ = cell.load_uint(8)
+                        cont = ''
+                        try:
+                            cont = cell.load_snake_string()
+                        except Exception as _:
+                            pass
+
+                        if cont.startswith('https://'):
+                            result = await uri_metadata(cont, result)
+                        else:
+                            result = await onchain_metadata(cell, result)
+                            if 'uri' in result: result = await uri_metadata(cont, result)
+
+                        if 'decimals' in result:
+                            result['total_supply'] = int(
+                                int(result['total_supply']) / (10 ** (int(result['decimals']))))
+
+                    await asyncio.sleep(0.6)
+                    return
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+            break
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    finally:
+        return result
 # endregion
 
 

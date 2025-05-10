@@ -741,7 +741,13 @@ class SortVersion(System.Object, System.IEquatable[System_Globalization_SortVers
     def sort_id(self) -> System.Guid:
         ...
 
+    def __eq__(self, right: System.Globalization.SortVersion) -> bool:
+        ...
+
     def __init__(self, full_version: int, sort_id: System.Guid) -> None:
+        ...
+
+    def __ne__(self, right: System.Globalization.SortVersion) -> bool:
         ...
 
     @overload

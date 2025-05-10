@@ -241,7 +241,7 @@ class TestCommandLineBasic(CmdlineTmpl):
     def test_cmd_string(self):
         self.template(["viztracer", "-c", "lst=[]; lst.append(1)"], expected_entries=3)
 
-    @package_matrix(["~orjson", "orjson"])
+    @package_matrix(["~orjson", "orjson"] if "free-threading" not in sys.version else None)
     def test_outputfile(self):
         self.template([sys.executable, "-m", "viztracer", "-o", "result.html", "cmdline_test.py"],
                       expected_output_file="result.html")
@@ -331,7 +331,16 @@ class TestCommandLineBasic(CmdlineTmpl):
     def test_minimize_memory(self):
         self.template([sys.executable, "-m", "viztracer", "--minimize_memory", "cmdline_test.py"])
 
-    @package_matrix(["~orjson", "orjson"])
+    def test_frozen_source(self):
+        script = "import calendar"
+
+        def check_func(data):
+            self.assertIn("<frozen importlib._bootstrap>", data["file_info"]["files"])
+            self.assertGreater(len(data["file_info"]["files"]["<frozen importlib._bootstrap>"]), 0)
+
+        self.template([sys.executable, "-m", "viztracer", "cmdline_test.py"], script=script, check_func=check_func)
+
+    @package_matrix(["~orjson", "orjson"] if "free-threading" not in sys.version else None)
     def test_combine(self):
         example_json_dir = os.path.join(os.path.dirname(__file__), "../", "example/json")
         self.template([sys.executable, "-m", "viztracer", "--combine",

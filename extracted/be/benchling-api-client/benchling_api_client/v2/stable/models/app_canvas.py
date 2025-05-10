@@ -9,6 +9,7 @@ from ..models.button_ui_block import ButtonUiBlock
 from ..models.chip_ui_block import ChipUiBlock
 from ..models.dropdown_multi_value_ui_block import DropdownMultiValueUiBlock
 from ..models.dropdown_ui_block import DropdownUiBlock
+from ..models.file_upload_ui_block import FileUploadUiBlock
 from ..models.markdown_ui_block import MarkdownUiBlock
 from ..models.search_input_multi_value_ui_block import SearchInputMultiValueUiBlock
 from ..models.search_input_ui_block import SearchInputUiBlock
@@ -42,6 +43,7 @@ class AppCanvas:
                 ChipUiBlock,
                 DropdownUiBlock,
                 DropdownMultiValueUiBlock,
+                FileUploadUiBlock,
                 MarkdownUiBlock,
                 SearchInputUiBlock,
                 SearchInputMultiValueUiBlock,
@@ -101,6 +103,9 @@ class AppCanvas:
                     blocks_item = blocks_item_data.to_dict()
 
                 elif isinstance(blocks_item_data, DropdownMultiValueUiBlock):
+                    blocks_item = blocks_item_data.to_dict()
+
+                elif isinstance(blocks_item_data, FileUploadUiBlock):
                     blocks_item = blocks_item_data.to_dict()
 
                 elif isinstance(blocks_item_data, MarkdownUiBlock):
@@ -263,6 +268,7 @@ class AppCanvas:
                     ChipUiBlock,
                     DropdownUiBlock,
                     DropdownMultiValueUiBlock,
+                    FileUploadUiBlock,
                     MarkdownUiBlock,
                     SearchInputUiBlock,
                     SearchInputMultiValueUiBlock,
@@ -286,6 +292,7 @@ class AppCanvas:
                     ChipUiBlock,
                     DropdownUiBlock,
                     DropdownMultiValueUiBlock,
+                    FileUploadUiBlock,
                     MarkdownUiBlock,
                     SearchInputUiBlock,
                     SearchInputMultiValueUiBlock,
@@ -301,6 +308,7 @@ class AppCanvas:
                         ChipUiBlock,
                         DropdownUiBlock,
                         DropdownMultiValueUiBlock,
+                        FileUploadUiBlock,
                         MarkdownUiBlock,
                         SearchInputUiBlock,
                         SearchInputMultiValueUiBlock,
@@ -327,6 +335,10 @@ class AppCanvas:
                             return blocks_item
                         if discriminator_value == "DROPDOWN_MULTIVALUE":
                             blocks_item = DropdownMultiValueUiBlock.from_dict(data, strict=False)
+
+                            return blocks_item
+                        if discriminator_value == "FILE_UPLOAD":
+                            blocks_item = FileUploadUiBlock.from_dict(data, strict=False)
 
                             return blocks_item
                         if discriminator_value == "MARKDOWN":
@@ -391,6 +403,14 @@ class AppCanvas:
                         if not isinstance(data, dict):
                             raise TypeError()
                         blocks_item = DropdownMultiValueUiBlock.from_dict(data, strict=True)
+
+                        return blocks_item
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        blocks_item = FileUploadUiBlock.from_dict(data, strict=True)
 
                         return blocks_item
                     except:  # noqa: E722
@@ -481,6 +501,7 @@ class AppCanvas:
                             ChipUiBlock,
                             DropdownUiBlock,
                             DropdownMultiValueUiBlock,
+                            FileUploadUiBlock,
                             MarkdownUiBlock,
                             SearchInputUiBlock,
                             SearchInputMultiValueUiBlock,
@@ -656,6 +677,7 @@ class AppCanvas:
             ChipUiBlock,
             DropdownUiBlock,
             DropdownMultiValueUiBlock,
+            FileUploadUiBlock,
             MarkdownUiBlock,
             SearchInputUiBlock,
             SearchInputMultiValueUiBlock,
@@ -680,6 +702,7 @@ class AppCanvas:
                 ChipUiBlock,
                 DropdownUiBlock,
                 DropdownMultiValueUiBlock,
+                FileUploadUiBlock,
                 MarkdownUiBlock,
                 SearchInputUiBlock,
                 SearchInputMultiValueUiBlock,

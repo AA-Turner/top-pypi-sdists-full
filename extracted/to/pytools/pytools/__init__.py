@@ -29,6 +29,7 @@ THE SOFTWARE.
 
 import builtins
 import contextlib
+import dataclasses
 import logging
 import operator
 import re
@@ -45,6 +46,7 @@ from collections.abc import (
 from functools import reduce, wraps
 from sys import intern
 from typing import (
+    TYPE_CHECKING,
     Any,
     ClassVar,
     Concatenate,
@@ -52,11 +54,17 @@ from typing import (
     ParamSpec,
     Protocol,
     TypeVar,
+    cast,
 )
 
-from typing_extensions import Self, dataclass_transform
+from typing_extensions import Self, dataclass_transform, override
 
 from pytools.version import VERSION_TEXT
+
+
+if TYPE_CHECKING:
+    from _typeshed import ReadableBuffer
+    from typing_extensions import Self
 
 
 __version__ = VERSION_TEXT
@@ -188,6 +196,8 @@ Backports of newer Python functionality
 Hashing
 -------
 
+.. autoclass:: Hash
+
 .. autofunction:: unordered_hash
 
 Sampling
@@ -233,6 +243,8 @@ Type Variables Used
 .. class:: P
 
     Generic unbound invariant :class:`typing.ParamSpec`.
+
+.. class:: _HashT
 """
 
 # {{{ type variables
@@ -342,7 +354,7 @@ def module_getattr_for_deprecations(
 
 # {{{ math
 
-def delta(x, y):
+def delta(x: int, y: int) -> int:
     if x == y:
         return 1
     return 0
@@ -429,6 +441,7 @@ class RecordWithoutPickling:
     def copy(self, **kwargs):
         return self.__class__(**self.get_copy_kwargs(**kwargs))
 
+    @override
     def __repr__(self):
         return "{}({})".format(
                 self.__class__.__name__,
@@ -471,23 +484,28 @@ class Record(RecordWithoutPickling):
             fields.add(key)
             setattr(self, key, value)
 
+    @override
     def __eq__(self, other):
         if self is other:
             return True
         return (self.__class__ == other.__class__
                 and self.__getstate__() == other.__getstate__())
 
+    @override
     def __ne__(self, other):
         return not self.__eq__(other)
 
 
 class ImmutableRecordWithoutPickling(RecordWithoutPickling):
     """Hashable record. Does not explicitly enforce immutability."""
+    _cached_hash: int | None
+
     def __init__(self, *args, **kwargs):
         RecordWithoutPickling.__init__(self, *args, **kwargs)
         self._cached_hash = None
 
-    def __hash__(self):
+    @override
+    def __hash__(self) -> int:
         # This attribute may vanish during pickling.
         if getattr(self, "_cached_hash", None) is None:
             self._cached_hash = hash((
@@ -495,6 +513,7 @@ class ImmutableRecordWithoutPickling(RecordWithoutPickling):
                     *(getattr(self, field) for field in self.__class__.fields)
                     ))
 
+        assert self._cached_hash is not None
         return self._cached_hash
 
 
@@ -864,6 +883,7 @@ class keyed_memoize_method(keyed_memoize_on_first_arg):  # noqa: N801
         Can memoize methods on classes that do not allow setting attributes
         (e.g. by overwriting ``__setattr__``), e.g. frozen :mod:`dataclasses`.
     """
+    @override
     def _default_cache_dict_name(self, function):
         return intern(f"_memoize_dic_{function.__name__}")
 
@@ -1481,10 +1501,10 @@ class _ConcatenableSequence(Generic[T_co], Protocol):
     .. automethod:: __add__
     .. automethod:: __len__
     """
-    def __getitem__(self, slice) -> Self:
+    def __getitem__(self, slice: slice, /) -> Self:
         ...
 
-    def __add__(self, other: Self) -> Self:
+    def __add__(self, value: Self, /) -> Self:
         ...
 
     def __len__(self) -> int:
@@ -1619,6 +1639,7 @@ class Table:
             max(len(row[i]) for row in rows) for i in range(self.ncolumns)
             )
 
+    @override
     def __str__(self) -> str:
         """
         Returns a string representation of the table.
@@ -2487,10 +2508,12 @@ class ProcessTimer:
         self.wall_elapsed = time.perf_counter() - self.perf_counter_start
         self.process_elapsed = time.process_time() - self.process_time_start
 
+    @override
     def __str__(self):
         cpu = self.process_elapsed / self.wall_elapsed
         return f"{self.wall_elapsed:.2f}s wall {cpu:.2f}x CPU"
 
+    @override
     def __repr__(self):
         wall = self.wall_elapsed
         process = self.process_elapsed
@@ -2724,9 +2747,41 @@ def resolve_name(name):
 
 # {{{ unordered_hash
 
-def unordered_hash(hash_instance: Any,
-                   iterable: Iterable[Any],
-                   hash_constructor: Callable[[], Any] | None = None) -> Any:
+class Hash(Protocol):
+    """A protocol for the hashes from :mod:`hashlib`.
+
+    .. automethod:: update
+    .. automethod:: digest
+    .. automethod:: hexdigest
+    .. automethod:: copy
+    """
+    def update(self, obj: ReadableBuffer, /) -> None:
+        ...
+
+    def digest(self) -> bytes:
+        ...
+
+    def hexdigest(self) -> str:
+        ...
+
+    def copy(self) -> Self:
+        ...
+
+    @property
+    def digest_size(self) -> int:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+
+_HashT = TypeVar("_HashT", bound=Hash)
+
+
+def unordered_hash(hash_instance: _HashT,
+                   iterable: Iterable[ReadableBuffer],
+                   hash_constructor: Callable[[], _HashT] | None = None) -> _HashT:
     """Using a hash algorithm given by the parameter-less constructor
     *hash_constructor*, return a hash object whose internal state
     depends on the entries of *iterable*, but not their order. If *hash*
@@ -2750,7 +2805,8 @@ def unordered_hash(hash_instance: Any,
     if hash_constructor is None:
         import hashlib
         from functools import partial
-        hash_constructor = partial(hashlib.new, hash_instance.name)
+        hash_constructor = cast(
+                "Callable[[], _HashT]", partial(hashlib.new, hash_instance.name))
 
     assert hash_constructor is not None
 
@@ -2979,7 +3035,7 @@ def unique_union(*args: Iterable[T]) -> Collection[T]:
 # }}}
 
 
-@dataclass_transform(frozen_default=True)
+@dataclass_transform(frozen_default=True, field_specifiers=(dataclasses.field,))
 def opt_frozen_dataclass(
             *,
             init: bool = True,

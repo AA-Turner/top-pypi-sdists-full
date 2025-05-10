@@ -86,6 +86,7 @@ class PermissionName(str, Enum):
     PROJECT_LIST_ROLE_BINDINGS = 'project_list_role_bindings'
     PROJECT_GENERATE_METRICS_SPEC = 'project_generate_metrics_spec'
     PROJECT_CREATE_MODEL_TASK = 'project_create_model_task'
+    PROJECT_CREATE_MODEL_LINK_TASK = 'project_create_model_link_task'
     MODEL_READ = 'model_read'
     MODEL_UPDATE = 'model_update'
     MODEL_DELETE = 'model_delete'

@@ -368,6 +368,7 @@ def group_by_windowed(
 
         >>> import pyarrow as pa
         >>> from chalk.features import features
+        >>> from chalk.streams import Windowed, windowed
         >>> @features
         ... class User:
         ...     id: str
@@ -671,12 +672,16 @@ def windowed(
         the feature definition. For example, you can document a
         `email_count` feature with information about the values
         as follows:
+        >>> from chalk.features import features
+        >>> from chalk.streams import Windowed, windowed
         >>> @features
         ... class User:
         ...     # Count of emails sent
         ...     email_count: Windowed[int] = windowed("10m", "30m")
 
         You can also specify the description directly with this parameter:
+        >>> from chalk.features import features
+        >>> from chalk.streams import Windowed, windowed
         >>> @features
         ... class User:
         ...     email_count: Windowed[int] = windowed(
@@ -692,6 +697,7 @@ def windowed(
 
         >>> import pyarrow as pa
         >>> from chalk.features import features
+        >>> from chalk.streams import Windowed, windowed
         >>> @features
         ... class User:
         ...     id: str
@@ -711,7 +717,8 @@ def windowed(
 
     Examples
     --------
-    >>> from chalk import windowed, Windowed
+    >>> from chalk.features import features
+    >>> from chalk.streams import windowed, Windowed
     >>> @features
     ... class User:
     ...     id: int

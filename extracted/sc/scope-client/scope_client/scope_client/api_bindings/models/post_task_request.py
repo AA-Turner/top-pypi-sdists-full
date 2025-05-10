@@ -29,7 +29,7 @@ class PostTaskRequest(BaseModel):
     PostTaskRequest
     """ # noqa: E501
     name: Annotated[str, Field(min_length=1, strict=True)] = Field(description="The name of the task")
-    connector_id: StrictStr = Field(description="The id of the connector where the task will be created. The connector must be a Shield connector.")
+    connector_id: StrictStr = Field(description="The id of the connector where the task will be created. The connector must be an engine internal connector.")
     onboarding_identifier: Optional[StrictStr] = None
     rules_to_add: Optional[List[NewRuleRequest]] = Field(default=None, description="List of rules to add to the task.")
     __properties: ClassVar[List[str]] = ["name", "connector_id", "onboarding_identifier", "rules_to_add"]

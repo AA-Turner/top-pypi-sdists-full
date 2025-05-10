@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from russian.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from russian.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class RussianStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from russian.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from russian.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_v = {u"а", u"е", u"и", u"о", u"у", u"ы", u"э", u"ю", u"я"}

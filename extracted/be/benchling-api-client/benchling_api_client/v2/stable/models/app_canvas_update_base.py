@@ -7,6 +7,7 @@ from ..models.button_ui_block_update import ButtonUiBlockUpdate
 from ..models.chip_ui_block_update import ChipUiBlockUpdate
 from ..models.dropdown_multi_value_ui_block_update import DropdownMultiValueUiBlockUpdate
 from ..models.dropdown_ui_block_update import DropdownUiBlockUpdate
+from ..models.file_upload_ui_block_update import FileUploadUiBlockUpdate
 from ..models.markdown_ui_block_update import MarkdownUiBlockUpdate
 from ..models.search_input_multi_value_ui_block_update import SearchInputMultiValueUiBlockUpdate
 from ..models.search_input_ui_block_update import SearchInputUiBlockUpdate
@@ -37,6 +38,7 @@ class AppCanvasUpdateBase:
                 ChipUiBlockUpdate,
                 DropdownUiBlockUpdate,
                 DropdownMultiValueUiBlockUpdate,
+                FileUploadUiBlockUpdate,
                 MarkdownUiBlockUpdate,
                 SearchInputUiBlockUpdate,
                 SearchInputMultiValueUiBlockUpdate,
@@ -84,6 +86,9 @@ class AppCanvasUpdateBase:
                     blocks_item = blocks_item_data.to_dict()
 
                 elif isinstance(blocks_item_data, DropdownMultiValueUiBlockUpdate):
+                    blocks_item = blocks_item_data.to_dict()
+
+                elif isinstance(blocks_item_data, FileUploadUiBlockUpdate):
                     blocks_item = blocks_item_data.to_dict()
 
                 elif isinstance(blocks_item_data, MarkdownUiBlockUpdate):
@@ -197,6 +202,7 @@ class AppCanvasUpdateBase:
                     ChipUiBlockUpdate,
                     DropdownUiBlockUpdate,
                     DropdownMultiValueUiBlockUpdate,
+                    FileUploadUiBlockUpdate,
                     MarkdownUiBlockUpdate,
                     SearchInputUiBlockUpdate,
                     SearchInputMultiValueUiBlockUpdate,
@@ -220,6 +226,7 @@ class AppCanvasUpdateBase:
                     ChipUiBlockUpdate,
                     DropdownUiBlockUpdate,
                     DropdownMultiValueUiBlockUpdate,
+                    FileUploadUiBlockUpdate,
                     MarkdownUiBlockUpdate,
                     SearchInputUiBlockUpdate,
                     SearchInputMultiValueUiBlockUpdate,
@@ -235,6 +242,7 @@ class AppCanvasUpdateBase:
                         ChipUiBlockUpdate,
                         DropdownUiBlockUpdate,
                         DropdownMultiValueUiBlockUpdate,
+                        FileUploadUiBlockUpdate,
                         MarkdownUiBlockUpdate,
                         SearchInputUiBlockUpdate,
                         SearchInputMultiValueUiBlockUpdate,
@@ -261,6 +269,10 @@ class AppCanvasUpdateBase:
                             return blocks_item
                         if discriminator_value == "DROPDOWN_MULTIVALUE":
                             blocks_item = DropdownMultiValueUiBlockUpdate.from_dict(data, strict=False)
+
+                            return blocks_item
+                        if discriminator_value == "FILE_UPLOAD":
+                            blocks_item = FileUploadUiBlockUpdate.from_dict(data, strict=False)
 
                             return blocks_item
                         if discriminator_value == "MARKDOWN":
@@ -325,6 +337,14 @@ class AppCanvasUpdateBase:
                         if not isinstance(data, dict):
                             raise TypeError()
                         blocks_item = DropdownMultiValueUiBlockUpdate.from_dict(data, strict=True)
+
+                        return blocks_item
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        blocks_item = FileUploadUiBlockUpdate.from_dict(data, strict=True)
 
                         return blocks_item
                     except:  # noqa: E722
@@ -415,6 +435,7 @@ class AppCanvasUpdateBase:
                             ChipUiBlockUpdate,
                             DropdownUiBlockUpdate,
                             DropdownMultiValueUiBlockUpdate,
+                            FileUploadUiBlockUpdate,
                             MarkdownUiBlockUpdate,
                             SearchInputUiBlockUpdate,
                             SearchInputMultiValueUiBlockUpdate,
@@ -545,6 +566,7 @@ class AppCanvasUpdateBase:
             ChipUiBlockUpdate,
             DropdownUiBlockUpdate,
             DropdownMultiValueUiBlockUpdate,
+            FileUploadUiBlockUpdate,
             MarkdownUiBlockUpdate,
             SearchInputUiBlockUpdate,
             SearchInputMultiValueUiBlockUpdate,
@@ -569,6 +591,7 @@ class AppCanvasUpdateBase:
                 ChipUiBlockUpdate,
                 DropdownUiBlockUpdate,
                 DropdownMultiValueUiBlockUpdate,
+                FileUploadUiBlockUpdate,
                 MarkdownUiBlockUpdate,
                 SearchInputUiBlockUpdate,
                 SearchInputMultiValueUiBlockUpdate,

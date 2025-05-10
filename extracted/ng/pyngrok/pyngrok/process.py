@@ -96,7 +96,9 @@ class NgrokProcess:
         if log.line == "":
             return None
 
-        ngrok_logger.log(getattr(logging, log.lvl), log.line)
+        lvl = log.lvl if log.lvl != "NOTSET" else "INFO"
+
+        ngrok_logger.log(getattr(logging, lvl), log.line)
         self.logs.append(log)
         if len(self.logs) > self.pyngrok_config.max_logs:
             self.logs.pop(0)
@@ -171,8 +173,8 @@ class NgrokProcess:
 def set_auth_token(pyngrok_config: PyngrokConfig,
                    token: str) -> None:
     """
-    Set the ``ngrok`` auth token in the config file, enabling authenticated features (for instance,
-    more concurrent tunnels, custom subdomains, etc.).
+    Set the ``ngrok`` auth token in the config file to streamline access to more features (for instance, multiple
+    concurrent tunnels, custom domains, etc.).
 
     :param pyngrok_config: The ``pyngrok`` configuration to use when interacting with the ``ngrok`` binary.
     :param token: The auth token to set.
@@ -180,15 +182,16 @@ def set_auth_token(pyngrok_config: PyngrokConfig,
     :raises: :class:`~pyngrok.exception.PyngrokNgrokError`: When ``ngrok`` could not start.
     """
     if pyngrok_config.ngrok_version == "v2":
-        start = [pyngrok_config.ngrok_path, "authtoken", token, "--log=stdout"]
+        start = [pyngrok_config.ngrok_path, "authtoken", token, "--log", "stdout"]
     elif pyngrok_config.ngrok_version == "v3":
-        start = [pyngrok_config.ngrok_path, "config", "add-authtoken", token, "--log=stdout"]
+        start = [pyngrok_config.ngrok_path, "config", "add-authtoken", token, "--log", "stdout"]
     else:
         raise PyngrokError(f"\"ngrok_version\" must be a supported version: {SUPPORTED_NGROK_VERSIONS}")
 
     if pyngrok_config.config_path:
         logger.info(f"Updating authtoken for \"config_path\": {pyngrok_config.config_path}")
-        start.append(f"--config={pyngrok_config.config_path}")
+        start.append("--config")
+        start.append(pyngrok_config.config_path)
     else:
         logger.info(
             f"Updating authtoken for default \"config_path\" of \"ngrok_path\": {pyngrok_config.ngrok_path}")
@@ -202,7 +205,8 @@ def set_auth_token(pyngrok_config: PyngrokConfig,
 def set_api_key(pyngrok_config: PyngrokConfig,
                 key: str) -> None:
     """
-    Set the ``ngrok`` API key in the config file, enabling more features (for instance, labeled tunnels).
+    Set the ``ngrok`` API key in the config file to enable access to more features (for instance,
+    `Internal Endpoints <https://ngrok.com/docs/universal-gateway/internal-endpoints/>`_).
 
     :param pyngrok_config: The ``pyngrok`` configuration to use when interacting with the ``ngrok`` binary.
     :param key: The API key to set.
@@ -212,13 +216,14 @@ def set_api_key(pyngrok_config: PyngrokConfig,
     if pyngrok_config.ngrok_version == "v2":
         raise PyngrokError("\"ngrok_version\" v2 does not have this command.")
     elif pyngrok_config.ngrok_version == "v3":
-        start = [pyngrok_config.ngrok_path, "config", "add-api-key", key, "--log=stdout"]
+        start = [pyngrok_config.ngrok_path, "config", "add-api-key", key, "--log", "stdout"]
     else:
         raise PyngrokError(f"\"ngrok_version\" must be a supported version: {SUPPORTED_NGROK_VERSIONS}")
 
     if pyngrok_config.config_path:
         logger.info(f"Updating API key for \"config_path\": {pyngrok_config.config_path}")
-        start.append(f"--config={pyngrok_config.config_path}")
+        start.append("--config")
+        start.append(pyngrok_config.config_path)
     else:
         logger.info(
             f"Updating API key for default \"config_path\" of \"ngrok_path\": {pyngrok_config.ngrok_path}")
@@ -311,19 +316,29 @@ def capture_run_process(ngrok_path: str, args: List[str]) -> str:
     Start a blocking ``ngrok`` process with the binary at the given path and the passed args. When the process
     returns, so will this method, and the captured output from the process along with it.
 
-    This method is meant for invoking ``ngrok`` directly (for instance, from the command line) and is not
-    necessarily compatible with non-blocking API methods. For that, use :func:`~pyngrok.process.get_process`.
+    This method is meant for invoking ``ngrok`` directly (for instance, for API requests) and is not
+    necessarily compatible with non-blocking API methods or interacting with active tunnels. For that, use
+    :func:`~pyngrok.process.get_process`.
 
     :param ngrok_path: The path to the ``ngrok`` binary.
     :param args: The args to pass to ``ngrok``.
     :return: The output from the process.
+    :raises: PyngrokNgrokError The ``ngrok`` process exited with an error.
+    :raises: CalledProcessError An error occurred while executing the process.
     """
     _validate_path(ngrok_path)
 
     start = [ngrok_path] + args
-    output = subprocess.check_output(start, stderr=subprocess.STDOUT)
+    try:
+        output = subprocess.check_output(start, stderr=subprocess.STDOUT)
 
-    return output.decode("utf-8").strip()
+        return output.decode("utf-8").strip()
+    except subprocess.CalledProcessError as e:
+        if e.returncode != 0:
+            raise PyngrokNgrokError(f"The ngrok process exited with code {e.returncode}: "
+                                    f"{e.output.decode('utf-8').strip()}")
+        else:
+            raise e
 
 
 def _validate_path(ngrok_path: str) -> None:
@@ -376,16 +391,19 @@ def _start_process(pyngrok_config: PyngrokConfig) -> NgrokProcess:
     _validate_path(pyngrok_config.ngrok_path)
     _validate_config(config_path)
 
-    start = [pyngrok_config.ngrok_path, "start", "--none", "--log=stdout"]
+    start = [pyngrok_config.ngrok_path, "start", "--none", "--log", "stdout"]
     if pyngrok_config.config_path:
         logger.info(f"Starting ngrok with config file: {pyngrok_config.config_path}")
-        start.append(f"--config={pyngrok_config.config_path}")
+        start.append("--config")
+        start.append(pyngrok_config.config_path)
     if pyngrok_config.auth_token:
         logger.info("Overriding default auth token")
-        start.append(f"--authtoken={pyngrok_config.auth_token}")
+        start.append("--authtoken")
+        start.append(pyngrok_config.auth_token)
     if pyngrok_config.region:
         logger.info(f"Starting ngrok in region: {pyngrok_config.region}")
-        start.append(f"--region={pyngrok_config.region}")
+        start.append("--region")
+        start.append(pyngrok_config.region)
 
     popen_kwargs: Dict[str, Any] = {"stdout": subprocess.PIPE, "universal_newlines": True}
     if os.name == "posix":

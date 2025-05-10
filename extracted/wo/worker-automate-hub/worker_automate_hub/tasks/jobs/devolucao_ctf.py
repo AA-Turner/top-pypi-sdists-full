@@ -45,6 +45,7 @@ from worker_automate_hub.utils.util import (
     status_trasmissao,
     find_warning_nop_divergence,
     gerenciador_nf_header,
+    gerenciador_nf_header_retransmissao,
     cadastro_pre_venda_header,
     incluir_registro,
     is_window_open,
@@ -949,15 +950,138 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                         )
                 else:
-                    get_error_msg = await get_text_display_window(pop_up_status)
-                    console.print(f"Mensagem Rejeição: {get_error_msg}")
-                    retorno = f"Erro ao transmitir, mensagem de rejeição {get_error_msg} \nEtapas Executadas:\n{steps}"
-                    return RpaRetornoProcessoDTO(
-                        sucesso=False,
-                        retorno=retorno,
-                        status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-                    )
+                    i = 0
+                    while i <= 1:
+                        app = Application().connect(class_name="TFrmGerenciadorNFe2")
+                        main_window = app["TFrmGerenciadorNFe2"]
+                        main_window.close()
+                        await worker_sleep(3)
+
+
+                        type_text_into_field("Gerenciador de Notas Fiscais", app["TFrmMenuPrincipal"]["Edit"], True, "50")
+                        pyautogui.press("enter")
+                        await worker_sleep(2)
+                        pyautogui.press("enter")
+                        await worker_sleep(5)
+                        console.print(f"\nPesquisa: 'Gerenciador de Notas Fiscais' realizada com sucesso",style="bold green")
+                        pesquisar_venda_devolucao = await is_window_open_by_class("TFrmGerenciadorNFe2", "TFrmGerenciadorNFe2")
+                        if pesquisar_venda_devolucao["IsOpened"] == True:
+                            console.print(f"\n'Gerenciador de Notas Fiscais'aberta com sucesso",style="bold green")
+                            selecionar_itens_gerenciador_nfe = await gerenciador_nf_header_retransmissao(data_hoje, cod_cliente_incorreto)
+                            if selecionar_itens_gerenciador_nfe.sucesso:
+                                console.print("PROCESSO EXECUTADO COM SUCESSO, SEGUINDO COM O PROCESSO PARA TRANSMITIR A NF-E...\n")
+                                app = Application().connect(class_name="TFrmGerenciadorNFe2", timeout=10)
+                                main_window = app["TFrmGerenciadorNFe2"]
+                                main_window.set_focus()
+
+
+                                console.print("Obtendo informacao da tela para o botao Transfimitir\n")
+                                tpanel_footer = main_window.child_window(class_name="TPanel", found_index=1)
+                                btn_transmitir = tpanel_footer.child_window(class_name="TBitBtn", found_index=5)
+                                btn_transmitir.click()
+                                pyautogui.click(595, 746)
+                                console.print("Transmitir clicado com sucesso...\n")
+                                await worker_sleep(3)
+
+                                max_attempts = 15
+                                i = 0
+                                console.print("Aguardando pop de operacação concluida \n")
+                                while i < max_attempts:
+                                    try:
+                                        app = Application().connect(class_name="TFrmProcessamentoNFe2", timeout=10)
+                                        main_window = app["TFrmProcessamentoNFe2"]
+
+                                        await worker_sleep(5)
+                                        information_pop_up = await is_window_open_by_class("TMessageForm", "TMessageForm")
+                                        if information_pop_up["IsOpened"] == True:
+                                            msg_pop_up = await ocr_by_class(numero_nota_fiscal, "TMessageForm", "TMessageForm")
+                                            if msg_pop_up.sucesso:
+                                                if 'concl' in msg_pop_up.retorno.lower():
+                                                    try:
+                                                        information_operacao_concluida = main_window.child_window(class_name="TMessageForm")
+                                                        btn_ok = information_operacao_concluida.child_window(class_name="TButton")
+                                                        btn_ok.click()
+                                                        await worker_sleep(4)
+                                                    except:
+                                                        pyautogui.press('enter')
+                                                        await worker_sleep(4)
+                                                    finally:
+                                                        pyautogui.press('enter')
+                                                    break
+                                                else:
+                                                    retorno = f"Pop up nao mapeado para seguimento do robo {msg_pop_up} \nEtapas Executadas:\n{steps}"
+                                                    return RpaRetornoProcessoDTO(
+                                                        sucesso=False,
+                                                        retorno=retorno,
+                                                        status=RpaHistoricoStatusEnum.Falha,
+                                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                                    )
+                                            else:
+                                                retorno = f"Não foi possivel realizar a confirmação do msg do OCR \nEtapas Executadas:\n{steps}"
+                                                return RpaRetornoProcessoDTO(
+                                                    sucesso=False,
+                                                    retorno=retorno,
+                                                    status=RpaHistoricoStatusEnum.Falha,
+                                                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                                )
+                                    except Exception as e:
+                                        pass
+
+
+                                    i += 1
+                                    await worker_sleep(10)
+                                
+
+                                if i == max_attempts:
+                                    console.print("Número máximo de tentativas atingido. Encerrando...")
+                                    retorno = f"Tempo esgotado e numero de tentativas atingido, não foi possivel obter o retorno de conclusão para transmissão na tela de Gerenciador NF-e \nEtapas Executadas:\n{steps}"
+                                    return RpaRetornoProcessoDTO(
+                                        sucesso=False,
+                                        retorno=retorno,
+                                        status=RpaHistoricoStatusEnum.Falha,
+                                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                                    )
+                                
+
+                                pop_up_status = await status_trasmissao()
+                                console.print(f"Status copiado: {pop_up_status}")
+
+                                if "autorizado o uso da nf-e" in pop_up_status.lower():
+                                    console.print("Sucesso ao transmitir...\n")
+                                    app = Application().connect(class_name="TFrmProcessamentoNFe2", timeout=15)
+                                    main_window = app["TFrmProcessamentoNFe2"]
+                                    main_window.set_focus()
+                                    await worker_sleep(3)
+                                    console.print(f"Fechando tela de processamento...\n")
+                                    fechar_tela_processamento = "assets\\emsys\\button_fechar.PNG"
+                                    button_location = pyautogui.locateCenterOnScreen(
+                                        fechar_tela_processamento, confidence=0.6
+                                    )
+                                    if button_location:
+                                        pyautogui.click(button_location)
+                                        console.print("Botão 'Fechar' clicado com sucesso!")
+                                    
+                                    break
+
+                    if i == 1:
+                        retorno = f"Erro ao transmitir, \nEtapas Executadas:\n{steps}"
+                        return RpaRetornoProcessoDTO(
+                            sucesso=False,
+                            retorno=retorno,
+                            status=RpaHistoricoStatusEnum.Falha,
+                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                        )
+                
+                # else:
+                #     get_error_msg = await get_text_display_window(pop_up_status)
+                #     console.print(f"Mensagem Rejeição: {get_error_msg}")
+                #     retorno = f"Erro ao transmitir, mensagem de rejeição {get_error_msg} \nEtapas Executadas:\n{steps}"
+                #     return RpaRetornoProcessoDTO(
+                #         sucesso=False,
+                #         retorno=retorno,
+                #         status=RpaHistoricoStatusEnum.Falha,
+                #         tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                #     )
                 # elif '773' in pop_up_status.lower():
                 #     get_error_msg = await get_text_display_window(pop_up_status)
                 #     console.print(f"Mensagem Rejeição: {get_error_msg}")

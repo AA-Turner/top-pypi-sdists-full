@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-test-utils
-Version: 0.53b1
+Version: 0.54b0
 Summary: Test utilities for OpenTelemetry unit tests
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python/tests/opentelemetry-test-utils
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python
@@ -20,8 +20,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Requires-Dist: asgiref~=3.0
-Requires-Dist: opentelemetry-api==1.32.1
-Requires-Dist: opentelemetry-sdk==1.32.1
+Requires-Dist: opentelemetry-api==1.33.0
+Requires-Dist: opentelemetry-sdk==1.33.0
 Description-Content-Type: text/x-rst
 
 OpenTelemetry Test Utilities

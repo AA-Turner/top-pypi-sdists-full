@@ -95,7 +95,7 @@ async def entrada_de_notas_503(task: RpaProcessoEntradaDTO) -> RpaRetornoProcess
         else:
             console.print("\nNota não lançada, iniciando o processo...")
         
-        app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3.exe")
+        app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3_35.exe")
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,

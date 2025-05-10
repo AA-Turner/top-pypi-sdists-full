@@ -26,11 +26,11 @@ Internal stuff that is only here because the documentation tool wants it
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 from warnings import warn
 
-from typing_extensions import Self, dataclass_transform
+from typing_extensions import Self, dataclass_transform, override
 
 from pytools import memoize, memoize_method
 
@@ -101,9 +101,11 @@ class DottedName:
                              "start with double underscores")
         return cls(name_parts)
 
+    @override
     def __repr__(self) -> str:
         return self.__class__.__name__ + repr(self.name_parts)
 
+    @override
     def __eq__(self, other: object) -> bool:
         if isinstance(other, DottedName):
             return self.name_parts == other.name_parts
@@ -118,7 +120,7 @@ class DottedName:
 T = TypeVar("T")
 
 
-@dataclass_transform(eq_default=True, frozen_default=True)
+@dataclass_transform(eq_default=True, frozen_default=True, field_specifiers=(field,))
 def tag_dataclass(cls: type[T]) -> type[T]:
     return dataclass(init=True, frozen=True, eq=True, repr=True)(cls)
 
@@ -253,11 +255,10 @@ class Taggable:
     # ReST references in docstrings must be fully qualified, as docstrings may
     # be inherited and appear in different contexts.
 
-    # type-checking only so that self.tags = ... in subclasses still works
-    if TYPE_CHECKING:
-        @property
-        def tags(self) -> frozenset[Tag]:
-            ...
+    # Before https://peps.python.org/pep-0767/, there isn't a good way to declare
+    # an attribute read-only. Mypy accepts @property, but this is unsound:
+    # https://peps.python.org/pep-0767/#clarifying-interaction-of-property-and-protocols
+    tags: frozenset[Tag]  # pyright: ignore[reportUninitializedInstanceVariable]
 
     def _with_new_tags(self, tags: frozenset[Tag]) -> Self:
         """
@@ -324,11 +325,13 @@ class Taggable:
                          for tag in self.tags
                          if not isinstance(tag, tag_t)})
 
+    @override
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Taggable):
             return self.tags == other.tags
         return super().__eq__(other)
 
+    @override
     def __hash__(self) -> int:
         return hash(self.tags)
 

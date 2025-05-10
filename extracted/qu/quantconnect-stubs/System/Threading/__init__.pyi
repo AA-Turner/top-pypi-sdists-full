@@ -269,6 +269,12 @@ class EventWaitHandle(System.Threading.WaitHandle):
 class AsyncFlowControl(System.IEquatable[System_Threading_AsyncFlowControl], System.IDisposable):
     """This class has no documentation."""
 
+    def __eq__(self, b: System.Threading.AsyncFlowControl) -> bool:
+        ...
+
+    def __ne__(self, b: System.Threading.AsyncFlowControl) -> bool:
+        ...
+
     def dispose(self) -> None:
         ...
 
@@ -855,11 +861,31 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         """Gets a Threading.WaitHandle that is signaled when the token is canceled."""
         ...
 
+    def __eq__(self, right: System.Threading.CancellationToken) -> bool:
+        """
+        Determines whether two CancellationToken instances are equal.
+        
+        :param left: The first instance.
+        :param right: The second instance.
+        :returns: True if the instances are equal; otherwise, false.
+        """
+        ...
+
     def __init__(self, canceled: bool) -> None:
         """
         Initializes the CancellationToken.
         
         :param canceled: The canceled state for the token.
+        """
+        ...
+
+    def __ne__(self, right: System.Threading.CancellationToken) -> bool:
+        """
+        Determines whether two CancellationToken instances are not equal.
+        
+        :param left: The first instance.
+        :param right: The second instance.
+        :returns: True if the instances are not equal; otherwise, false.
         """
         ...
 
@@ -988,6 +1014,27 @@ class CancellationTokenRegistration(System.IEquatable[System_Threading_Cancellat
     @property
     def token(self) -> System.Threading.CancellationToken:
         """Gets the CancellationToken with which this registration is associated."""
+        ...
+
+    def __eq__(self, right: System.Threading.CancellationTokenRegistration) -> bool:
+        """
+        Determines whether two CancellationTokenRegistration
+        instances are equal.
+        
+        :param left: The first instance.
+        :param right: The second instance.
+        :returns: True if the instances are equal; otherwise, false.
+        """
+        ...
+
+    def __ne__(self, right: System.Threading.CancellationTokenRegistration) -> bool:
+        """
+        Determines whether two CancellationTokenRegistration instances are not equal.
+        
+        :param left: The first instance.
+        :param right: The second instance.
+        :returns: True if the instances are not equal; otherwise, false.
+        """
         ...
 
     def dispose(self) -> None:

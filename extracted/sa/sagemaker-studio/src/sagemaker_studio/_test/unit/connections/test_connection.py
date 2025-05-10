@@ -939,3 +939,78 @@ class TestConnection(unittest.TestCase):
         )
         secret = connection.secret
         self.assertEqual(secret, {"username": "bogus_username", "password": "XXXXX_password"})
+
+    def test_get_aws_client_default(self):
+        datazone_api_mock = Mock()
+        datazone_api_mock.get_connection.return_value = {
+            "connectionId": "12345",
+            "type": "S3",
+            "physicalEndpoints": [],
+            "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS,
+        }
+        connection_data = {
+            "connectionId": "12345",
+            "physicalEndpoints": [],
+            "type": "S3",
+        }
+        connection = Connection(
+            connection_data,
+            Mock(),
+            datazone_api_mock,
+            boto3.client("secretsmanager", "us-east-1"),
+            ClientConfig(),
+        )
+
+        s3_client = connection.create_client()
+        self.assertEqual("s3", s3_client.meta.service_model.service_name)
+
+    def test_get_aws_client_specific_service(self):
+        datazone_api_mock = Mock()
+        datazone_api_mock.get_connection.return_value = {
+            "connectionId": "12345",
+            "type": "S3",
+            "physicalEndpoints": [],
+            "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS,
+        }
+        connection_data = {
+            "connectionId": "12345",
+            "physicalEndpoints": [],
+            "type": "S3",
+        }
+        connection = Connection(
+            connection_data,
+            Mock(),
+            datazone_api_mock,
+            boto3.client("secretsmanager", "us-east-1"),
+            ClientConfig(),
+        )
+
+        s3_client = connection.create_client("dynamodb")
+        self.assertEqual("dynamodb", s3_client.meta.service_model.service_name)
+
+    def test_get_aws_client_fails_for_connection_without_default_service(self):
+        datazone_api_mock = Mock()
+        datazone_api_mock.get_connection.return_value = {
+            "connectionId": "12345",
+            "type": "IAM",
+            "physicalEndpoints": [],
+            "connectionCredentials": BOGUS_CONNECTION_CREDENTIALS,
+        }
+        connection_data = {
+            "connectionId": "12345",
+            "physicalEndpoints": [],
+            "type": "SNOWFLAKE",
+        }
+        connection = Connection(
+            connection_data,
+            Mock(),
+            datazone_api_mock,
+            boto3.client("secretsmanager", "us-east-1"),
+            ClientConfig(),
+        )
+
+        with self.assertRaises(RuntimeError) as context:
+            connection.create_client()
+            self.assertTrue(
+                "Please specify a service name to initialize a client" in context.exception
+            )

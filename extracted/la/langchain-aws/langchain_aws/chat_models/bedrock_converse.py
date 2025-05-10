@@ -562,6 +562,9 @@ class ChatBedrockConverse(BaseChatModel):
             or
             # DeepSeek-R1 models
             (provider == "deepseek" and "r1" in model_id_lower)
+            or
+            # Writer Palmyra models
+            (provider == "writer" and "palmyra" in model_id_lower)
         ):
             streaming_support = "no_tools"
         else:
@@ -681,6 +684,8 @@ class ChatBedrockConverse(BaseChatModel):
                     and not added_model_name
                 ):
                     message_chunk.response_metadata["model_name"] = self.model_id
+                    if metadata := response.get("ResponseMetadata"):
+                        message_chunk.response_metadata["ResponseMetadata"] = metadata
                     added_model_name = True
                 generation_chunk = ChatGenerationChunk(message=message_chunk)
                 if run_manager:

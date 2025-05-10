@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-propagator-ot-trace
-Version: 0.53b1
+Version: 0.54b0
 Summary: OT Trace Propagator for OpenTelemetry
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/propagator/opentelemetry-propagator-ot-trace
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib

@@ -50,7 +50,6 @@ import google.protobuf.message
 import pyarrow
 import pyarrow as pa
 import requests
-from google.protobuf.descriptor import Descriptor
 from typing_extensions import ParamSpec, TypeAlias, final, get_args, get_origin
 
 from chalk._lsp.error_builder import ResolverErrorBuilder, get_resolver_error_builder
@@ -99,11 +98,7 @@ if TYPE_CHECKING:
     from chalk.sql import BaseSQLSourceProtocol, SQLSourceGroup
     from chalk.sql._internal.sql_settings import SQLResolverSettings
     from chalk.sql._internal.sql_source import BaseSQLSource
-else:
-    try:
-        from pydantic.v1 import BaseModel
-    except ImportError:
-        from pydantic import BaseModel
+
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
@@ -259,8 +254,8 @@ class FunctionCapturedGlobalStruct(FunctionCapturedGlobal):
 class FunctionCapturedGlobalProto(FunctionCapturedGlobal):
     module: str
     name: str
-    fd: Descriptor | None
     serialized_fd: bytes
+    full_name: str
     pa_dtype: pa.DataType
 
 
@@ -1560,9 +1555,8 @@ def capture_global(
                 return FunctionCapturedGlobalProto(
                     name=global_value.__name__,
                     module=global_value.__module__,
-                    # fd=global_value.DESCRIPTOR,
-                    fd=None,
                     serialized_fd=serialize_message_file_descriptor(global_value.DESCRIPTOR.file),
+                    full_name=global_value.DESCRIPTOR.full_name,
                     pa_dtype=convert_proto_message_type_to_pyarrow_type(global_value.DESCRIPTOR),
                 )
         except RecursionError as recursion_error:
@@ -2982,7 +2976,7 @@ def _get_stream_resolver_input_type(
     param: Union[StreamResolverParamMessage, StreamResolverParamMessageWindow],
     stream_fqn: str,
     error_builder: ResolverErrorBuilder,
-) -> Type[BaseModel]:
+) -> "Type[BaseModel]":
     if isinstance(param, StreamResolverParamMessage):
         input_model_type = param.typ
     elif isinstance(param, StreamResolverParamMessageWindow):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -3023,7 +3017,7 @@ def _get_stream_resolver_input_type(
 
 
 def _validate_possibly_nested_key(
-    *, stream_fqn: str, input_model_type: Type[BaseModel], key_path: str, error_builder: ResolverErrorBuilder
+    *, stream_fqn: str, input_model_type: "Type[BaseModel]", key_path: str, error_builder: ResolverErrorBuilder
 ) -> Any:
     """
     Validates that the given key can be used to look up the corresponding `value` in the original model.

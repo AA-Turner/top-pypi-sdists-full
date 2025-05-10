@@ -82,6 +82,35 @@ class NgrokTunnel:
         self.metrics = self.data["metrics"]
 
 
+class NgrokApiResponse:
+    """
+    An object containing a response from the ``ngrok`` API.
+    """
+
+    def __init__(self,
+                 status: str,
+                 data: Optional[Dict[str, Any]]) -> None:
+        #: The description of the response.
+        self.status: str = status
+        #: The parsed API response.
+        self.data: Optional[Dict[str, Any]] = data
+
+    @staticmethod
+    def from_body(body: str) -> "NgrokApiResponse":
+        """
+        Construct an object from a response body.
+
+        :param body: The response body to be parsed.
+        :return: The constructed object.
+        """
+        json_starts = body.find("{")
+
+        if json_starts < 0:
+            return NgrokApiResponse(body, None)
+        else:
+            return NgrokApiResponse(body[:json_starts], json.loads(body[json_starts:]))
+
+
 _current_tunnels: Dict[str, NgrokTunnel] = {}
 
 
@@ -110,8 +139,8 @@ def install_ngrok(pyngrok_config: Optional[PyngrokConfig] = None) -> None:
 def set_auth_token(token: str,
                    pyngrok_config: Optional[PyngrokConfig] = None) -> None:
     """
-    Set the ``ngrok`` auth token in the config file, enabling authenticated features (for instance,
-    opening multiple tunnels concurrently, custom domains, etc.).
+    Set the ``ngrok`` auth token in the config file to streamline access to more features (for instance, multiple
+    concurrent tunnels, custom domains, etc.).
 
     If ``ngrok`` is not installed at :class:`~pyngrok.conf.PyngrokConfig`'s ``ngrok_path``, calling this method
     will first download and install ``ngrok``.
@@ -131,7 +160,8 @@ def set_auth_token(token: str,
 def set_api_key(key: str,
                 pyngrok_config: Optional[PyngrokConfig] = None) -> None:
     """
-    Set the ``ngrok`` API key in the config file, enabling more features (for instance, labeled tunnels).
+    Set the ``ngrok`` API key in the config file to enable access to more features (for instance,
+    `Internal Endpoints <https://ngrok.com/docs/universal-gateway/internal-endpoints/>`_).
 
     If ``ngrok`` is not installed at :class:`~pyngrok.conf.PyngrokConfig`'s ``ngrok_path``, calling this method
     will first download and install ``ngrok``.
@@ -192,6 +222,8 @@ def _apply_edge_to_tunnel(tunnel: NgrokTunnel,
         else:
             raise PyngrokError(f"Unknown Edge prefix: {edge}.")
 
+        logger.info(f"Applying edge {edge} to tunnel {tunnel.id}")
+
         edge_response = api_request(f"https://api.ngrok.com/edges/{edges_prefix}/{edge}", method="GET",
                                     auth=pyngrok_config.api_key)
 
@@ -223,6 +255,7 @@ def _interpolate_tunnel_definition(pyngrok_config: PyngrokConfig,
     tunnel_definitions = config.get("tunnels", {})
     # If a "pyngrok-default" tunnel definition exists in the ngrok config, use that
     if not name and "pyngrok-default" in tunnel_definitions:
+        logger.info("pyngrok-default found defined in config, using for tunnel definition")
         name = "pyngrok-default"
 
     # Use a tunnel definition for the given name, if it exists
@@ -362,6 +395,8 @@ def connect(addr: Optional[str] = None,
                                          timeout=pyngrok_config.request_timeout),
                              pyngrok_config, api_url)
 
+        logger.info(f"ngrok v2 opens multiple tunnels, fetching just HTTP tunnel {tunnel.id} for return")
+
     _apply_edge_to_tunnel(tunnel, pyngrok_config)
 
     if tunnel.public_url is None:
@@ -459,6 +494,35 @@ def kill(pyngrok_config: Optional[PyngrokConfig] = None) -> None:
     process.kill_process(pyngrok_config.ngrok_path)
 
     _current_tunnels.clear()
+
+
+def api(*args: Any, pyngrok_config: Optional[PyngrokConfig] = None) -> NgrokApiResponse:
+    """
+    Run a ``ngrok`` command against the ``api`` with the given args. This will use the local agent
+    to run a remote API request for ``ngrok``, which requires that an API key has been set. For a list of
+    available commands, pass ``"--help"``.
+
+    :param pyngrok_config: A ``pyngrok`` configuration to use when interacting with the ``ngrok`` binary,
+        overriding :func:`~pyngrok.conf.get_default()`.
+    :param args: The args to pass to the ``api`` command.
+    :return: The response from executing the ``api`` command.
+    :raises: PyngrokNgrokError The ``ngrok`` process exited with an error.
+    :raises: CalledProcessError An error occurred while executing the process.
+    """
+    if pyngrok_config is None:
+        pyngrok_config = conf.get_default()
+
+    cmd_args = ["--config", pyngrok_config.config_path] if pyngrok_config.config_path else []
+    cmd_args.append("api")
+    if pyngrok_config.api_key:
+        cmd_args += ["--api-key", pyngrok_config.api_key]
+    cmd_args += [*args]
+
+    logger.info(f"Executing \"ngrok api\" command with args: {args}")
+
+    return NgrokApiResponse.from_body(
+        process.capture_run_process(pyngrok_config.ngrok_path,
+                                    cmd_args))
 
 
 def get_version(pyngrok_config: Optional[PyngrokConfig] = None) -> Tuple[str, str]:

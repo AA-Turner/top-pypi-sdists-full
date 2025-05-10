@@ -1,6 +1,6 @@
 [project]
 name = "flametree"
-version = "0.2.0"
+version = "0.2.1"
 license = "MIT"
 authors = [{ name = "Zulko" }]
 description = "Python file and zip operations made easy"
@@ -14,8 +14,5 @@ Homepage = "https://github.com/Edinburgh-Genome-Foundry/Flametree"
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-include-package-data = true
-
 [tool.setuptools.packages.find]
-exclude = ["docs"]
+exclude = ["docs*", "tests*"]

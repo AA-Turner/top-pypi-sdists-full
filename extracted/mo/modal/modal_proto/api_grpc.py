@@ -87,6 +87,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def AttemptRetry(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AttemptRetryRequest, modal_proto.api_pb2.AttemptRetryResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def AttemptStart(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AttemptStartRequest, modal_proto.api_pb2.AttemptStartResponse]') -> None:
         pass
 
@@ -717,6 +721,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.AttemptAwaitRequest,
                 modal_proto.api_pb2.AttemptAwaitResponse,
+            ),
+            '/modal.client.ModalClient/AttemptRetry': grpclib.const.Handler(
+                self.AttemptRetry,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AttemptRetryRequest,
+                modal_proto.api_pb2.AttemptRetryResponse,
             ),
             '/modal.client.ModalClient/AttemptStart': grpclib.const.Handler(
                 self.AttemptStart,
@@ -1617,6 +1627,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/AttemptAwait',
             modal_proto.api_pb2.AttemptAwaitRequest,
             modal_proto.api_pb2.AttemptAwaitResponse,
+        )
+        self.AttemptRetry = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AttemptRetry',
+            modal_proto.api_pb2.AttemptRetryRequest,
+            modal_proto.api_pb2.AttemptRetryResponse,
         )
         self.AttemptStart = grpclib.client.UnaryUnaryMethod(
             channel,

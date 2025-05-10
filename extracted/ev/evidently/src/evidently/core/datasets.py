@@ -159,9 +159,17 @@ class RAG:
 LLMDefinition = Union[Completion, RAG]
 
 
+DEFAULT_TRACE_LINK_COLUMN = "_evidently_trace_link"
+
+
+class ServiceColumns(BaseModel):
+    trace_link: Optional[str] = None
+
+
 class DataDefinition(BaseModel):
     id_column: Optional[str] = None
     timestamp: Optional[str] = None
+    service_columns: Optional[ServiceColumns] = None
     numerical_columns: Optional[List[str]] = None
     categorical_columns: Optional[List[str]] = None
     text_columns: Optional[List[str]] = None
@@ -189,6 +197,7 @@ class DataDefinition(BaseModel):
         categorical_descriptors: Optional[List[str]] = None,
         test_descriptors: Optional[List[str]] = None,
         ranking: Optional[List[Recsys]] = None,
+        service_columns: Optional[ServiceColumns] = None,
     ):
         super().__init__()
         self.id_column = id_column
@@ -204,6 +213,7 @@ class DataDefinition(BaseModel):
         self.categorical_descriptors = categorical_descriptors if categorical_descriptors is not None else []
         self.test_descriptors = test_descriptors
         self.ranking = ranking
+        self.service_columns = service_columns
 
     def get_numerical_columns(self):
         return (self.numerical_columns or []) + (self.numerical_descriptors or [])
@@ -675,6 +685,9 @@ class PandasDataset(Dataset):
         ):
             reserved_fields = []
             if data_definition is not None:
+                if data_definition.service_columns is not None:
+                    if data_definition.service_columns.trace_link is not None:
+                        reserved_fields.append(data_definition.service_columns.trace_link)
                 if data_definition.timestamp is not None:
                     reserved_fields.append(data_definition.timestamp)
                 if data_definition.id_column is not None:
@@ -691,7 +704,11 @@ class PandasDataset(Dataset):
                     reserved_fields.extend(data_definition.numerical_descriptors)
                 if data_definition.categorical_descriptors is not None:
                     reserved_fields.extend(data_definition.categorical_descriptors)
-            generated_data_definition = self._generate_data_definition(data, reserved_fields)
+            generated_data_definition = self._generate_data_definition(
+                data,
+                reserved_fields,
+                data_definition.service_columns if data_definition is not None else None,
+            )
             if data_definition is None:
                 self._data_definition = generated_data_definition
             else:
@@ -709,6 +726,11 @@ class PandasDataset(Dataset):
                     self._data_definition.text_columns = generated_data_definition.text_columns
                 if self._data_definition.timestamp is None and generated_data_definition.timestamp is not None:
                     self._data_definition.timestamp = generated_data_definition.timestamp
+                if (
+                    self._data_definition.service_columns is None
+                    and generated_data_definition.service_columns is not None
+                ):
+                    self._data_definition.service_columns = generated_data_definition.service_columns
         else:
             self._data_definition = copy.deepcopy(data_definition)
         (rows, columns) = data.shape
@@ -727,14 +749,25 @@ class PandasDataset(Dataset):
     def subdataset(self, column_name: str, label: object):
         return PandasDataset(self._data[self._data[column_name] == label], self._data_definition)
 
-    def _generate_data_definition(self, data: pd.DataFrame, reserved_fields: List[str]) -> DataDefinition:
+    def _generate_data_definition(
+        self,
+        data: pd.DataFrame,
+        reserved_fields: List[str],
+        service_columns: Optional[ServiceColumns] = None,
+    ) -> DataDefinition:
         numerical = []
         categorical = []
         text = []
         datetime = []
-
+        service = None
         for column in data.columns:
             if column in reserved_fields:
+                continue
+            if service_columns is None and column == DEFAULT_TRACE_LINK_COLUMN:
+                if service is None:
+                    service = ServiceColumns(trace_link=column)
+                else:
+                    service.trace_link = column
                 continue
             column_type = infer_column_type(data[column])
             if column_type == ColumnType.Numerical:
@@ -748,6 +781,7 @@ class PandasDataset(Dataset):
 
         return DataDefinition(
             timestamp=datetime[0] if len(datetime) == 1 else None,
+            service_columns=service,
             numerical_columns=numerical,
             categorical_columns=categorical,
             datetime_columns=datetime if len(datetime) != 1 else [],

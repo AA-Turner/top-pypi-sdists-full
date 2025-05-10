@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbt
-Version: 1.0.0.40.0
+Version: 1.0.0.40.1
 Summary: The dbt Cloud CLI - an ELT tool for running SQL transformations and data models in dbt Cloud. For more documentation on these commands, visit: docs.getdbt.com
 Home-page: https://www.getdbt.com/
 Author: dbt Labs

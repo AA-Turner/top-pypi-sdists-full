@@ -473,7 +473,8 @@ class ToProtoConverter:
                     name=captured_global.name,
                     module=captured_global.module,
                     pa_dtype=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(captured_global.pa_dtype),
-                    fd=captured_global.serialized_fd,
+                    serialized_fd=captured_global.serialized_fd,
+                    full_name=captured_global.full_name,
                 ),
             )
 

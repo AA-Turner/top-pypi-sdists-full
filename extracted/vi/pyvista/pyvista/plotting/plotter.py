@@ -61,6 +61,8 @@ from .mapper import OpenGLGPUVolumeRayCastMapper
 from .mapper import PointGaussianMapper
 from .mapper import SmartVolumeMapper
 from .mapper import UnstructuredGridVolumeRayCastMapper
+from .mapper import _mapper_get_data_set_input
+from .mapper import _mapper_has_data_set_input
 from .picking import PickingHelper
 from .render_window_interactor import RenderWindowInteractor
 from .renderer import Renderer
@@ -585,11 +587,20 @@ class BasePlotter(PickingHelper, WidgetHelper):
 
         # lazy import here to avoid importing unused modules
         importer = vtkOBJImporter()
-        importer.SetFileName(filename)
-        filename_mtl = filename.with_suffix('.mtl')
+        importer.SetFileName(str(filename) if pyvista.vtk_version_info < (9, 2, 2) else filename)
+        if filename_mtl is None:
+            filename_mtl = filename.with_suffix('.mtl')
+        else:
+            filename_mtl = Path(filename_mtl).expanduser().resolve()
         if filename_mtl.is_file():
-            importer.SetFileNameMTL(filename_mtl)
-            importer.SetTexturePath(filename_mtl.parents[0])
+            importer.SetFileNameMTL(
+                str(filename_mtl) if pyvista.vtk_version_info < (9, 2, 2) else filename_mtl
+            )
+            importer.SetTexturePath(
+                str(filename_mtl.parents[0])
+                if pyvista.vtk_version_info < (9, 2, 2)
+                else filename_mtl.parents[0]
+            )
         importer.SetRenderWindow(self.render_window)
         importer.Update()
 
@@ -6339,8 +6350,8 @@ class BasePlotter(PickingHelper, WidgetHelper):
                 mapper = actor.GetMapper()
 
                 # ignore any mappers whose inputs are not datasets
-                if hasattr(mapper, 'GetInputAsDataSet'):
-                    datasets.append(wrap(mapper.GetInputAsDataSet()))
+                if _mapper_has_data_set_input(mapper):
+                    datasets.append(wrap(_mapper_get_data_set_input(mapper)))
 
         return datasets
 

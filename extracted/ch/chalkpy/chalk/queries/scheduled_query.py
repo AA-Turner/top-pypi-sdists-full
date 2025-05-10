@@ -90,7 +90,7 @@ class ScheduledQuery:
 
         Examples
         --------
-        >>> from chalk.features import ScheduledQuery
+        >>> from chalk.queries import ScheduledQuery
         >>> # this scheduled query will automatically run every 5 minutes after `chalk apply`
         >>> ScheduledQuery(
         ...     name="ingest_users",

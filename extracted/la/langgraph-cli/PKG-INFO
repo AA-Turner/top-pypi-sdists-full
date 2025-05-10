@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: langgraph-cli
-Version: 0.2.8
+Version: 0.2.10
 Summary: CLI for interacting with LangGraph API
 License: MIT
 Requires-Python: >=3.9

@@ -41,7 +41,6 @@ namespace lp {
         mpq                 m_k;               // the right side of the cut
         hnf_cutter          m_hnf_cutter;
         unsigned            m_hnf_cut_period;
-        unsigned            m_dioph_eq_period;
         dioph_eq            m_dio;  
         int_gcd_test        m_gcd;
 
@@ -51,7 +50,6 @@ namespace lp {
 
         imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_dio(lia), m_gcd(lia) {
             m_hnf_cut_period = settings().hnf_cut_period();
-            m_dioph_eq_period = settings().m_dioph_eq_period;
         } 
 
         bool has_lower(unsigned j) const {
@@ -113,7 +111,7 @@ namespace lp {
                 }
                 // if bj == v, then, because we are patching the lra.get_value(v),
                 // we just need to assert that the lra.get_value(v) would be integral.
-                lp_assert(bj != v || lra.from_model_in_impq_to_mpq(new_val).is_int());
+                SASSERT(bj != v || lra.from_model_in_impq_to_mpq(new_val).is_int());
             }
         
             lra.set_value_for_nbasic_column(j, lia.get_value(j) + impq(delta));
@@ -126,6 +124,7 @@ namespace lp {
         }
 
         bool all_columns_are_integral() const {
+            return true; // otherwise it never returns true!
             for (lpvar j = 0; j < lra.number_of_vars(); j++)
                 if (!lra.column_is_int(j))
                     return false;
@@ -141,8 +140,8 @@ namespace lp {
                 return false;
             mpq a = fractional_part(c.coeff());
             mpq r = fractional_part(lra.get_value(v));
-            lp_assert(0 < r && r < 1);
-            lp_assert(0 < a && a < 1);
+            SASSERT(0 < r && r < 1);
+            SASSERT(0 < a && a < 1);
             mpq delta_plus, delta_minus;
             if (!get_patching_deltas(r, a, delta_plus, delta_minus))
                 return false;
@@ -158,7 +157,7 @@ namespace lp {
         lia_move patch_basic_columns() {
             lia.settings().stats().m_patches++;
             lra.remove_fixed_vars_from_base();
-            lp_assert(lia.is_feasible());
+            SASSERT(lia.is_feasible());
             for (unsigned j : lra.r_basis()) 
                 if (!lra.get_value(j).is_int() && lra.column_is_int(j) && !lia.is_fixed(j))
                     patch_basic_column(j);
@@ -175,8 +174,6 @@ namespace lp {
             if (r == lia_move::conflict) {
                 m_dio.explain(*this->m_ex);
                 return lia_move::conflict;
-            } else if (r == lia_move::branch)  {
-                return lia_move::branch;
             } 
             return r;
         }
@@ -188,18 +185,19 @@ namespace lp {
         }
 
         bool should_gomory_cut() {
-            return (!settings().dio_eqs() || settings().dio_enable_gomory_cuts())
-                && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
+            bool dio_allows_gomory = !settings().dio() || settings().dio_enable_gomory_cuts() ||
+                                      m_dio.some_terms_are_ignored();
+            return dio_allows_gomory && m_number_of_calls % settings().m_int_gomory_cut_period == 0;
         }
 
         bool should_solve_dioph_eq() {
-            return lia.settings().dio_eqs() && m_number_of_calls % m_dioph_eq_period == 0;
+            return lia.settings().dio() && (m_number_of_calls % settings().dio_calls_period() == 0);
         }
 
         // HNF
 
         bool should_hnf_cut() {
-            return (!settings().dio_eqs() || settings().dio_enable_hnf_cuts())
+            return (!settings().dio() || settings().dio_enable_hnf_cuts())
                 && settings().enable_hnf() && m_number_of_calls % settings().hnf_cut_period() == 0;
         }
         
@@ -211,90 +209,6 @@ namespace lp {
                 m_hnf_cut_period = settings().hnf_cut_period();
             return r;
         }
-
-        // Tighten bounds
-        // expose at level of lar_solver so it can be invoked by theory_lra after back-jumping 
-        // consider multi-round bound tightnening as well and deal with divergence issues.
-
-        unsigned m_bounds_refine_depth = 0;
-
-        lia_move tighten_bounds() {
-
-            if (m_bounds_refine_depth > 10)
-                return lia_move::undef;
-
-            struct bound_consumer {
-                imp& i;
-                bound_consumer(imp& i) : i(i) {}
-                lar_solver& lp() { return i.lra; }
-                bool bound_is_interesting(unsigned vi, lp::lconstraint_kind kind, const rational& bval) const { return true; }
-                bool add_eq(lpvar u, lpvar v, lp::explanation const& e, bool is_fixed) { return false; }
-            };
-            bound_consumer bc(*this);
-            std_vector<implied_bound> ibounds;
-            lp_bound_propagator<bound_consumer> bp(bc, ibounds);
-
-            auto set_conflict = [&](u_dependency * d1, u_dependency * d2) {
-                ++settings().stats().m_bounds_tightening_conflicts;
-                for (auto e : lra.flatten(d1))
-                    m_ex->push_back(e);
-                for (auto e : lra.flatten(d2))
-                    m_ex->push_back(e);
-            };
-
-            bool bounds_refined = false;
-            auto refine_bound = [&](implied_bound const& ib) {
-                unsigned j = ib.m_j;
-                rational bound = ib.m_bound;
-                if (ib.m_is_lower_bound) {
-                    if (lra.column_is_int(j))
-                        bound = ceil(bound);
-                    if (lra.column_has_lower_bound(j) && lra.column_lower_bound(j) >= bound)
-                        return l_undef;
-                    auto d = ib.explain_implied();
-                    if (lra.column_has_upper_bound(j) && lra.column_upper_bound(j) < bound) {
-                        set_conflict(d, lra.get_column_upper_bound_witness(j));
-                        return l_false;
-                    }
-                    lra.update_column_type_and_bound(j, ib.m_strict ? lconstraint_kind::GT : lconstraint_kind::GE, bound, d);                    
-                } 
-                else {
-                    if (lra.column_is_int(j))
-                        bound = floor(bound);
-                    if (lra.column_has_upper_bound(j) && lra.column_upper_bound(j) <= bound)
-                        return l_undef;
-                    auto d = ib.explain_implied();
-                    if (lra.column_has_lower_bound(j) && lra.column_lower_bound(j) > bound) {                        
-                        set_conflict(d, lra.get_column_lower_bound_witness(j));
-                        return l_false;
-                    }
-                    lra.update_column_type_and_bound(j, ib.m_strict ? lconstraint_kind::LT : lconstraint_kind::LE, bound, d);
-                }
-                ++settings().stats().m_bounds_tightenings;
-                bounds_refined = true;
-                return l_true;
-            };
-
-            for (unsigned row_index = 0; row_index < lra.row_count(); ++row_index) {
-                bp.init();
-                bound_analyzer_on_row<row_strip<mpq>, lp_bound_propagator<bound_consumer>>::analyze_row(
-                    lra.A_r().m_rows[row_index],
-                    zero_of_type<numeric_pair<mpq>>(),                    
-                    bp);
-
-                for (auto const& ib : ibounds)
-                    if (l_false == refine_bound(ib))
-                        return lia_move::conflict;
-            }
-            
-            if (bounds_refined) {
-                lra.trail().push(value_trail(m_bounds_refine_depth));
-                ++m_bounds_refine_depth;
-            }
-
-            return bounds_refined  ? lia_move::continue_with_check : lia_move::undef;
-        }
-
         
         lia_move check(lp::explanation * e) {
             SASSERT(lra.ax_is_correct());
@@ -309,7 +223,7 @@ namespace lp {
         
             lia_move r = lia_move::undef;
 
-            if (m_gcd.should_apply())
+            if (m_gcd.should_apply() || (settings().dio() && m_dio.some_terms_are_ignored()))
                 r = m_gcd();
 
             check_return_helper pc(lra);
@@ -321,7 +235,6 @@ namespace lp {
             if (r == lia_move::undef) r = patch_basic_columns();
             if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
             if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
-            // if (r == lia_move::undef) r = tighten_bounds();
             if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
             if (r == lia_move::undef && should_gomory_cut()) r = gomory(lia).get_gomory_cuts(2);
             if (r == lia_move::undef && should_solve_dioph_eq()) r = solve_dioph_eq();
@@ -489,16 +402,16 @@ namespace lp {
         // coprime. We can find u and v such that u*a1 + v*x2 = 1.
         rational u, v;
         gcd(a1, x2, u, v);
-        lp_assert(gcd(a1, x2, u, v).is_one());
-        lp_assert((x + (a1 / a2) * (-u * t) * x1).is_int());
+        SASSERT(gcd(a1, x2, u, v).is_one());
+        SASSERT((x + (a1 / a2) * (-u * t) * x1).is_int());
         // 1 = (u- l*x2 ) * a1 + (v + l*a1)*x2, for every integer l.
         rational d = u * t * x1;
         // We can prove that x+alpha*d is integral,
         // and any other delta, satisfying x+alpha*delta, is equal to d modulo a2.
         delta_plus = mod(d, a2);
-        lp_assert(delta_plus > 0);
+        SASSERT(delta_plus > 0);
         delta_minus = delta_plus - a2;
-        lp_assert(delta_minus < 0);
+        SASSERT(delta_minus < 0);
 
         return true;
     }
@@ -635,7 +548,7 @@ namespace lp {
             const mpq & a = c.coeff();
             unsigned i = lrac.m_r_basis[row_index];
             impq const & xi = get_value(i);
-            lp_assert(lrac.m_r_solver.column_is_feasible(i));
+            SASSERT(lrac.m_r_solver.column_is_feasible(i));
             if (column_is_int(i) && !a.is_int() && xi.is_int()) 
                 m = lcm(m, denominator(a));
         
@@ -675,7 +588,7 @@ namespace lp {
 
 
     bool int_solver::is_feasible() const {
-        lp_assert(
+        SASSERT(
             lrac.m_r_solver.calc_current_x_is_feasible_include_non_basis() ==
             lrac.m_r_solver.current_x_is_feasible());
         return lrac.m_r_solver.current_x_is_feasible();

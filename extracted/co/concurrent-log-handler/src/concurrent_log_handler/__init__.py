@@ -62,7 +62,7 @@ import sys
 import time
 import traceback
 import warnings
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from io import TextIOWrapper
 from logging.handlers import BaseRotatingHandler, TimedRotatingFileHandler
 from typing import TYPE_CHECKING, Dict, Generator, List, Optional, Tuple
@@ -88,7 +88,7 @@ except ImportError:
     else:
 
         def randbits(k: int) -> int:
-            return random.Random().getrandbits(k)
+            return random.Random().getrandbits(k)  # noqa: S311
 
 
 try:
@@ -129,6 +129,7 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         terminator: str = "\n",
         unicode_error_policy: str = "ignore",
         lock_file_directory: Optional[str] = None,
+        keep_file_open: bool = True,  # New parameter, default to True for better performance
     ):
         """Open the specified file and use it as the stream for logging.
 
@@ -161,6 +162,9 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         drive like Dropbox, OneDrive, Google Docs, etc., which may prevent the lock files
         from working correctly. The lock file must be accessible to all processes writing
         to a shared log, including across all different hosts (machines).
+        :param keep_file_open: keep the log file and lock file open between writes for better
+        performance (default: True). When set to False, reverts to the original behavior
+        of opening and closing the file for each log message.
 
         By default, the file grows indefinitely. You can specify particular
         values of maxBytes and backupCount to allow the file to rollover at
@@ -187,6 +191,28 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         expected. The same is true if this class is used by one application, but
         the RotatingFileHandler is used by another.
         """
+        self._debug = debug
+
+        # Save user preference and set platform-specific behavior
+        self.user_keep_file_open_preference = keep_file_open
+        # Determine if the main LOG stream should actually be kept open
+        self._actual_keep_log_stream_open = self.user_keep_file_open_preference
+        self._windows_override_warning = None
+        if os.name == "nt" and self.user_keep_file_open_preference:
+            # On Windows, keeping the main log stream open by multiple processes
+            # prevents renaming during rollover. Force it closed after a write.
+            self._actual_keep_log_stream_open = False
+            if self._debug:
+                # Store message for potential later logging if needed
+                self._windows_override_warning = (
+                    "Note: On Windows, 'keep_file_open=True' for the main log stream "
+                    "is overridden to 'False' internally to allow file rotation. "
+                    "The lock file may still be kept open based on this preference."
+                )
+
+        # For the LOCK file, we try to honor the user's preference
+        self._actual_keep_lock_file_open = self.user_keep_file_open_preference
+
         # noinspection PyTypeChecker
         self.stream: Optional[TextIOWrapper] = None  # type: ignore[assignment]
         self.stream_lock: Optional[TextIOWrapper] = None
@@ -198,8 +224,8 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         self.maxBytes = maxBytes
         self.backupCount = backupCount
         self.newline = newline
+        self.is_posix = os.name == "posix"
 
-        self._debug = debug
         self.use_gzip = bool(gzip and use_gzip)
         self.gzip_buffer = 8096
         self.maxLockAttempts = 20
@@ -240,6 +266,10 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
 
         # This is primarily for the benefit of the unit tests.
         self.num_rollovers = 0
+
+        # Log the Windows warning now if debug is enabled
+        if self._debug and self._windows_override_warning:
+            self._console_log(self._windows_override_warning, stack=False)
 
     def getLockFilename(self, lock_file_directory: Optional[str]) -> str:
         """
@@ -346,15 +376,15 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
                 os.umask(prev_umask)
 
     def _close(self) -> None:
-        """Close file stream.  Unlike close(), we don't tear anything down, we
-        expect the log to be re-opened after rotation."""
-
+        """Close file stream. The stream will be reopened as needed."""
         if self.stream:
             try:
                 if not self.stream.closed:
-                    # Flushing probably isn't technically necessary, but it feels right
                     self.stream.flush()
                     self.stream.close()
+            except Exception as e:
+                if self._debug:
+                    self._console_log(f"Exception during _close: {e}", stack=False)
             finally:
                 # noinspection PyTypeChecker
                 self.stream = None
@@ -384,6 +414,9 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
             try:
                 self._do_lock()
 
+                # Perform stale handle check if we are keeping the file open on POSIX
+                self._check_stream()
+
                 try:
                     if self.shouldRollover(record):
                         self.doRollover()
@@ -402,16 +435,69 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         except Exception:
             self.handleError(record)
 
+    def _check_stream(self) -> None:
+        """
+        Check that the stream is still valid on POSIX if keep_file_open is active.
+        If stale (inode/device changed), close it to force reopen in do_write.
+        """
+        # Only run if we are *actually* keeping the log stream open AND on POSIX
+        if (
+            self._actual_keep_log_stream_open
+            and self.is_posix
+            and self.stream
+            and not self.stream.closed
+        ):
+            try:
+                # Get stats for the file path we expect to be writing to
+                sbuf = os.stat(self.baseFilename)
+                # Get stats for the currently open file descriptor
+                fbuf = os.fstat(self.stream.fileno())
+
+                if sbuf.st_ino != fbuf.st_ino or sbuf.st_dev != fbuf.st_dev:
+                    # The file has changed (e.g., rotated by another process, original deleted)
+                    if self._debug:
+                        self._console_log(
+                            f"Detected stale file handle for {self.baseFilename}. Reopening.",
+                            stack=False,
+                        )
+                    self.stream.close()
+                    # Force reopen in do_write
+                    # noinspection PyTypeChecker
+                    self.stream = None
+            except OSError as e:
+                # Could happen if baseFilename was deleted and not yet recreated,
+                # or self.stream.fileno() is bad.
+                if self._debug:
+                    self._console_log(
+                        f"Error during stale handle check for {self.baseFilename}: {e}. Reopening.",
+                        stack=False,
+                    )
+                # Ensure close if error occurred
+                if self.stream and not self.stream.closed:
+                    with suppress(OSError):
+                        # Already bad
+                        self.stream.close()
+                # Force reopen
+                # noinspection PyTypeChecker
+                self.stream = None
+
     def flush(self) -> None:
-        """Does nothing; stream is flushed on each write."""
+        """Flush the stream if it exists."""
+        if self.stream and not self.stream.closed:
+            self.stream.flush()
 
     def do_write(self, msg: str) -> None:
-        """Handling writing an individual record; we do a fresh open every time.
+        """Handling writing an individual record; we do a fresh open every time
+        if not keeping the file open, otherwise reuse the existing stream.
         This assumes emit() has already locked the file."""
-        self.stream = self.do_open()
-        stream = self.stream
 
+        # Open the stream if it's not already open
+        if self.stream is None or self.stream.closed:
+            self.stream = self.do_open()
+
+        stream = self.stream
         msg = msg + self.terminator
+
         try:
             stream.write(msg)
         except UnicodeError:
@@ -427,12 +513,19 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
                 raise
 
         stream.flush()
-        self._close()
+
+        # Only close the stream if we're not keeping it open (platform-aware)
+        if not self._actual_keep_log_stream_open:
+            self._close()
 
     def _do_lock(self) -> None:
         if self.is_locked:
             return  # already locked... recursive?
-        self._open_lockfile()
+
+        # Open the lock file if it's not already open
+        if self.stream_lock is None or self.stream_lock.closed:
+            self._open_lockfile()
+
         if self.stream_lock:
             for _i in range(self.maxLockAttempts):
                 try:
@@ -440,7 +533,8 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
                     self.is_locked = True
                     # self._console_log("Acquired lock")
                     break
-                except Exception:  # noqa: S112
+                except Exception:
+                    time.sleep(0.001)  # Small delay to reduce CPU spinning
                     continue
             else:
                 raise RuntimeError(
@@ -457,8 +551,9 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
                     # self._console_log("Released lock")
                 finally:
                     self.is_locked = False
-                    self.stream_lock.close()
-                    self.stream_lock = None
+                    if not self._actual_keep_lock_file_open:
+                        self.stream_lock.close()
+                        self.stream_lock = None
         else:
             self._console_log("No self.stream_lock to unlock", stack=True)
 
@@ -466,20 +561,62 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         """Close log stream and stream_lock."""
         self._console_log("In close()", stack=True)
         try:
-            self._close()
+            # Always fully close files when the handler is closed
+            if self.stream and not self.stream.closed:
+                self.stream.close()
+                # noinspection PyTypeChecker
+                self.stream = None
+
+            # Also close the lock file if it's open
+            if self.stream_lock and not self.stream_lock.closed:
+                if self.is_locked:
+                    with suppress(Exception):
+                        unlock(self.stream_lock)
+                    self.is_locked = False
+                self.stream_lock.close()
+                self.stream_lock = None
         finally:
             super(ConcurrentRotatingFileHandler, self).close()
 
-    def doRollover(self) -> None:  # noqa: C901
+    def doRollover(self) -> None:  # noqa: C901, PLR0912, PLR0915
         """
         Do a rollover, as described in __init__().
         """
-        self._close()
+        # Always close the stream before rotation
+        if self.stream and not self.stream.closed:
+            # fsync paranoia for gzip + POSIX
+            if self.use_gzip and self.is_posix:
+                self.stream.flush()
+                try:
+                    os.fsync(self.stream.fileno())
+                except OSError as e:
+                    if self._debug:
+                        self._console_log(
+                            f"fsync before close failed in doRollover: {e}", stack=False
+                        )
+            self.stream.close()
+            # noinspection PyTypeChecker
+            self.stream = None
+
         if self.backupCount <= 0:
             # Don't keep any backups, just overwrite the existing backup file
             # Locking doesn't much matter here; since we are overwriting it anyway
             self.stream = self.do_open("w")
-            self._close()
+            # Use adaptive flag here
+            if not self._actual_keep_log_stream_open:
+                self._close()
+            # The increment of num_rollovers is mostly for testing purposes. Here's the explanation:
+            # When backupCount <= 0, the handler truncates the file by reopening it in "w" mode, but it does
+            # not increment its internal self.num_rollovers counter before returning.
+            # Therefore, even though the file is effectively "rolling over" by truncation, the num_rollovers
+            # attribute of each handler instance remains 0. The worker_process in stresstest.py then adds
+            # these zeros to the SharedCounter, resulting in a total of 0 reported rollovers.
+            self.num_rollovers += 1
+            if self._debug:
+                self._console_log(
+                    f"Rotation completed by truncation (backupCount={self.backupCount})"
+                )
+                return
             return
 
         # Determine if we can rename the log file or not. Windows refuses to
@@ -487,17 +624,16 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
 
         # Attempt to rename logfile to tempname:
         # There is a slight race-condition here, but it seems unavoidable
-        tmpname = None
         while True:
-            tmpname = f"{self.baseFilename}.rotate.{randbits(64):08}"
-            if not os.path.exists(tmpname):
+            temp_file_name = f"{self.baseFilename}.rotate.{randbits(64):08}"
+            if not os.path.exists(temp_file_name):
                 break
         try:
             # Do a rename test to determine if we can successfully rename the log file
-            os.rename(self.baseFilename, tmpname)
+            os.rename(self.baseFilename, temp_file_name)
 
             if self.use_gzip:
-                self.do_gzip(tmpname)
+                self.do_gzip(temp_file_name)
         except OSError as e:
             self._console_log(f"rename failed.  File in use? e={e}", stack=True)
             return
@@ -541,11 +677,11 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
             do_rename(sfn, dfn)
 
         dfn = self.rotation_filename(self.baseFilename + ".1")
-        do_rename(tmpname, dfn)
+        do_rename(temp_file_name, dfn)
 
         if self.use_gzip:
-            logFilename = self.baseFilename + ".1.gz"
-            self._do_chown_and_chmod(logFilename)
+            log_file_name = self.baseFilename + ".1.gz"
+            self._do_chown_and_chmod(log_file_name)
 
         self.num_rollovers += 1
         self._console_log("Rotation completed (on size)")
@@ -562,14 +698,50 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
         return self._shouldRollover()
 
     def _shouldRollover(self) -> bool:
-        if self.maxBytes > 0:  # are we rolling over?
-            self.stream = self.do_open()
+        if self.maxBytes <= 0:  # are we rolling over?
+            return False
+
+        # Check/reopen stale handle first if needed (POSIX + keep open)
+        if self._actual_keep_log_stream_open and self.is_posix:
+            self._check_stream()
+
+        # Now attempt to use the stream if it's available and we *intend* to keep it open
+        if self._actual_keep_log_stream_open and self.stream and not self.stream.closed:
             try:
-                self.stream.seek(0, 2)  # due to non-posix-compliant Windows feature
-                if self.stream.tell() >= self.maxBytes:
-                    return True
+                self.stream.flush()  # Vital to ensure the file pointer is at the end
+                self.stream.seek(0, 2)  # Seek to end
+                return self.stream.tell() >= self.maxBytes
+            except OSError as e:
+                # Handle error accessing the supposedly open stream
+                if self._debug:
+                    self._console_log(
+                        f"Error accessing open stream in _shouldRollover: {e}. Falling back.",
+                        stack=False,
+                    )
+                if self.stream and not self.stream.closed:
+                    with suppress(OSError):
+                        self.stream.close()
+                # noinspection PyTypeChecker
+                self.stream = None
+                # Fall through to the fallback logic
+
+        # Fallback logic: Try getsize first, then temporary open/seek/close
+        try:
+            # Try getting size without opening file first
+            size = os.path.getsize(self.baseFilename)
+            if size >= self.maxBytes:
+                return True
+        except OSError:
+            # Fallback to original method if getsize() fails
+            stream = None
+            try:
+                stream = self.do_open()
+                stream.seek(0, 2)  # Seek to end
+                return stream.tell() >= self.maxBytes
             finally:
-                self._close()
+                if stream:  # Always close this temporary stream
+                    stream.close()
+
         return False
 
     def do_gzip(self, input_filename: str) -> None:
@@ -577,18 +749,42 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
             self._console_log("#no gzip available", stack=False)
             return
         out_filename = input_filename + ".gz"
-
-        with open(input_filename, "rb") as input_fh, gzip.open(
-            out_filename, "wb"
-        ) as gzip_fh:
-            while True:
-                data = input_fh.read(self.gzip_buffer)
-                if not data:
-                    break
-                gzip_fh.write(data)
-
-        os.remove(input_filename)
-        self._console_log(f"#gzipped: {out_filename}", stack=False)
+        success = False
+        try:
+            with open(input_filename, "rb") as input_fh, gzip.open(
+                out_filename, "wb"
+            ) as gzip_fh:
+                while True:
+                    data = input_fh.read(self.gzip_buffer)
+                    if not data:
+                        break
+                    gzip_fh.write(data)
+            success = True  # Mark success only if all writes complete
+        except Exception as e:
+            self._console_log(
+                f"Error during gzip of {input_filename} to {out_filename}: {e}. Rolled back if possible.",
+                stack=True,
+            )
+            # Attempt to remove potentially incomplete .gz file
+            if os.path.exists(out_filename):
+                try:
+                    os.remove(out_filename)
+                except Exception as e_rem:
+                    self._console_log(
+                        f"Could not remove incomplete/problematic gz file {out_filename}: {e_rem}",
+                        stack=False,
+                    )
+        finally:
+            if success:
+                try:
+                    os.remove(input_filename)  # Only remove original if gzip succeeded
+                    self._console_log(f"#gzipped: {out_filename}", stack=False)
+                except Exception as e_rem_orig:
+                    self._console_log(
+                        f"Failed to remove original file {input_filename} after successful gzip: {e_rem_orig}",
+                        stack=True,
+                    )
+            # else: original input_filename is preserved if gzip failed
 
     def _do_chown_and_chmod(self, filename: str) -> None:
         if HAS_CHOWN and self._set_uid is not None and self._set_gid is not None:
@@ -598,6 +794,7 @@ class ConcurrentRotatingFileHandler(BaseRotatingHandler):
             os.chmod(filename, self.chmod)
 
 
+# noinspection PyProtectedMember
 class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
     """A time-based rotating log handler that supports concurrent access across
     multiple processes or hosts (using logs on a shared network drive).
@@ -632,10 +829,10 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
         terminator: str = "\n",
         unicode_error_policy: str = "ignore",
         lock_file_directory: Optional[str] = None,
+        keep_file_open: bool = True,  # New parameter, default to True for better performance
         **kwargs,
     ):
-        if "mode" in kwargs:
-            del kwargs["mode"]
+        kwargs.pop("mode", None)
         trfh_kwargs: Dict[str, Optional[str]] = {}
         if sys.version_info >= (3, 9):
             trfh_kwargs["errors"] = errors
@@ -666,6 +863,7 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
             terminator=terminator,
             unicode_error_policy=unicode_error_policy,
             lock_file_directory=lock_file_directory,
+            keep_file_open=keep_file_open,  # Pass through to the ConcurrentRotatingFileHandler
             **kwargs,
         )
         self.num_rollovers = 0
@@ -694,6 +892,9 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
             msg = self.format(record)
             try:
                 self.clh._do_lock()
+
+                # CRITICAL: Call the check method on the composed handler
+                self.clh._check_stream()
 
                 try:
                     if self.shouldRollover(record):
@@ -787,11 +988,9 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
         elif self.clh.shouldRollover(record):
             self.clh._console_log("Rolling over because of size")
             do_rollover = True
-        if do_rollover:
-            return True
-        return False
+        return bool(do_rollover)
 
-    def doRollover(self) -> None:  # noqa: C901, PLR0912
+    def doRollover(self) -> None:  # noqa: C901, PLR0912, PLR0915
         """
         do a rollover; in this case, a date/time stamp is appended to the filename
         when the rollover happens.  However, you want the file to be named for the
@@ -801,7 +1000,27 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
 
         This code was adapted from the TimedRotatingFileHandler class from Python 3.11.
         """
-        self.clh._close()
+        # Make sure we close both our own stream and the ConcurrentHandler's stream
+        if self.stream:
+            self.stream.close()
+            self.stream = None  # type: ignore[assignment]
+
+        # Some of this code is duplicated in parent class, could be refactored out
+        if self.clh.stream:
+            # fsync paranoia for gzip + POSIX
+            if self.clh.use_gzip and self.clh.is_posix:
+                self.clh.stream.flush()
+                try:
+                    os.fsync(self.clh.stream.fileno())
+                except OSError as e:
+                    if self.clh._debug:
+                        self.clh._console_log(
+                            f"fsync before close failed in CTRFH.doRollover: {e}",
+                            stack=False,
+                        )
+            self.clh.stream.close()
+            self.clh.stream = None
+
         self.__internal_close()
 
         # get the time that this sequence started at and make it a TimeTuple
@@ -864,58 +1083,119 @@ class ConcurrentTimedRotatingFileHandler(TimedRotatingFileHandler):
         self.write_rollover_time()
         self._console_log(f"Rotation completed (on time) {dfn}")
 
-    def getFilesToDelete(self) -> List[str]:
+    def getFilesToDelete(self) -> List[str]:  # noqa: C901, PLR0912
         """
         Determine the files to delete when rolling over.
 
-        Copied from Python 3.11, and only applied when the current Python
-        seems to be Python 3.8 or lower, which is when this seemed to change.
-        The newer version supports custom suffixes like ours, such
-        as when hitting a size limit before the time limit.
+        This implementation handles the naming convention used by ConcurrentTimedRotatingFileHandler
+        when both time and size rotation are active, where files can have names like:
+        basename.YYYY-MM-DD_HH-MM-SS.1, basename.YYYY-MM-DD_HH-MM-SS.2, etc.
+
+        We need to parse both the timestamp and any counter suffix to properly sort these files
+        and delete the oldest ones when backupCount is exceeded.
         """
-
-        # If Python is 3.9 or later, then use the superclass method.
-        if sys.version_info >= (3, 9):
-            return super().getFilesToDelete()
-
         dirName, baseName = os.path.split(self.baseFilename)
         fileNames = os.listdir(dirName)
-        result = []
-        # See bpo-44753: Don't use the extension when computing the prefix.
-        n, e = os.path.splitext(baseName)
-        prefix = n + "."
-        plen = len(prefix)
+
+        # Build a list of files to analyze
+        candidates = []
+
+        # Build a pattern that matches our log file with optional .gz extension
+        gzip_ext = ".gz" if self.clh.use_gzip else ""
         for fileName in fileNames:
-            if self.namer is None:
-                # Our files will always start with baseName
-                if not fileName.startswith(baseName):
-                    continue
-            # Our files could be just about anything after custom naming, but
-            # likely candidates are of the form
-            # foo.log.DATETIME_SUFFIX or foo.DATETIME_SUFFIX.log
-            elif (
-                not fileName.startswith(baseName)
-                and fileName.endswith(e)
-                and len(fileName) > (plen + 1)
-                and not fileName[plen + 1].isdigit()
+            # Skip the current log file - it's not a backup
+            if fileName == baseName:
+                continue
+
+            # Skip if not a rotated version of our log file
+            if not fileName.startswith(baseName + "."):
+                continue
+
+            # Skip lock files or other unrelated files
+            if not self.extMatch.search(fileName) and not (
+                gzip_ext and fileName.endswith(gzip_ext)
             ):
                 continue
 
-            if fileName[:plen] == prefix:
-                suffix = fileName[plen:]
-                # See bpo-45628: The date/time suffix could be anywhere in the
-                # filename
-                parts = suffix.split(".")
-                for part in parts:
-                    if self.extMatch.match(part):
-                        result.append(os.path.join(dirName, fileName))
-                        break
-        if len(result) < self.backupCount:
-            result = []
-        else:
-            result.sort()
-            result = result[: len(result) - self.backupCount]
-        return result
+            candidates.append(os.path.join(dirName, fileName))
+
+        if len(candidates) <= self.backupCount:
+            return []  # Nothing to delete yet
+
+        # Sort files by modification time primarily, and then by counter suffix if available
+        file_data = []
+        for candidate in candidates:
+            # Get basic file info
+            filename = os.path.basename(candidate)
+
+            # Extract the timestamp part
+            time_part = ""
+            counter_part = 0
+
+            # Split the filename into parts
+            parts = filename[len(baseName) + 1 :].split(".")
+
+            # Look for the timestamp part and the optional counter suffix
+            for i, part in enumerate(parts):
+                if self.extMatch.match(part):
+                    time_part = part
+                    # Check if the next part is a counter suffix
+                    # Note: 'gz' will not pass the isdigit() check, so we don't need to explicitly exclude it
+                    if i + 1 < len(parts) and parts[i + 1].isdigit():
+                        counter_part = int(parts[i + 1])
+                    break
+
+            # If we couldn't find a time part, try to fallback using file modification time
+            if not time_part:
+                mtime = os.path.getmtime(candidate)
+                file_data.append((mtime, 0, candidate))
+            else:
+                # Use the parsed time component as primary sort key, counter as secondary
+                try:
+                    # Try to convert time part to a timestamp for proper chronological sorting
+                    time_tuple = time.strptime(time_part, self.suffix)
+                    timestamp = time.mktime(time_tuple)
+                    file_data.append((timestamp, counter_part, candidate))
+                except (ValueError, TypeError):
+                    # Fallback if time part can't be parsed
+                    mtime = os.path.getmtime(candidate)
+                    file_data.append((mtime, counter_part, candidate))
+
+        # Sort by primary key (timestamp) then secondary key (counter)
+        # Oldest files first for proper deletion
+        file_data.sort()
+
+        # Return the list of old files beyond the backupCount
+        result = [x[2] for x in file_data]
+
+        if self.clh._debug:
+            self._console_log(
+                f"Found {len(candidates)} log files, keeping {self.backupCount}"
+            )
+            if len(result) > 10:  # noqa: PLR2004
+                self._console_log(
+                    f"First 5 files to keep: {result[len(result) - self.backupCount:][:5]}"
+                )
+                self._console_log(f"First 5 files to delete: {result[:5]}")
+            else:
+                self._console_log(
+                    f"Files to keep: {result[len(result) - self.backupCount:]}"
+                )
+                self._console_log(
+                    f"Files to delete: {result[:len(result) - self.backupCount]}"
+                )
+
+        if len(result) > self.backupCount:
+            return result[: len(result) - self.backupCount]
+        return []
+
+    def close(self) -> None:
+        """Close all resources."""
+        # Make sure we properly close the CLH instance too
+        if hasattr(self, "clh") and self.clh:
+            with suppress(Exception):
+                self.clh.close()
+        super(ConcurrentTimedRotatingFileHandler, self).close()
 
 
 # Publish these classes to the "logging.handlers" module, so they can be used

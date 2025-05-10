@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class MetricsUpload(BaseModel):
     """
-    MetricsUpload
+    The set of metrics that are available to submit via the PostMetrics API Notably, this does not include systems metrics jobs
     """ # noqa: E501
     metrics: List[MetricsUploadMetricsInner] = Field(description="List of metrics to upload.")
     __properties: ClassVar[List[str]] = ["metrics"]

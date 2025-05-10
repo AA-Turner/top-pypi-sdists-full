@@ -41,12 +41,333 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
     ZERO: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]
     """Gets a new Vector128{T} with all elements initialized to zero."""
 
+    @overload
+    def __add__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __add__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __and__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __eq__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> bool:
+        """
+        Compares two vectors to determine if all elements are equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if all elements in  were equal to the corresponding element in .
+        """
+        ...
+
     def __getitem__(self, index: int) -> System_Runtime_Intrinsics_Vector128_T:
         """
         Gets the element at the specified index.
         
         :param index: The index of the element to get.
         :returns: The value of the element at .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __iand__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __ilshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The vector to multiply with .
+        :param right: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The scalar to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    def __invert__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Computes the ones-complement of a vector.
+        
+        :param vector: The vector whose ones-complement is to be computed.
+        :returns: A vector whose elements are the ones-complement of the corresponding elements in .
+        """
+        ...
+
+    def __ior__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __irshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __isub__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param vector: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __ixor__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
+        """
+        ...
+
+    def __lshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The vector to multiply with .
+        :param right: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The scalar to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    def __ne__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> bool:
+        """
+        Compares two vectors to determine if any elements are not equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if any elements in  was not equal to the corresponding element in .
+        """
+        ...
+
+    def __or__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __rshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param vector: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __xor__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
         """
         ...
 
@@ -889,12 +1210,333 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
     ZERO: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
     """Gets a new Vector512{T} with all elements initialized to zero."""
 
+    @overload
+    def __add__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __add__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __and__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __eq__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> bool:
+        """
+        Compares two vectors to determine if all elements are equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if all elements in  were equal to the corresponding element in .
+        """
+        ...
+
     def __getitem__(self, index: int) -> System_Runtime_Intrinsics_Vector512_T:
         """
         Gets the element at the specified index.
         
         :param index: The index of the element to get.
         :returns: The value of the element at .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __iand__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __ilshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The vector to multiply with .
+        :param right: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The scalar to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    def __invert__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Computes the ones-complement of a vector.
+        
+        :param vector: The vector whose ones-complement is to be computed.
+        :returns: A vector whose elements are the ones-complement of the corresponding elements in .
+        """
+        ...
+
+    def __ior__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __irshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __isub__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param vector: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __ixor__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
+        """
+        ...
+
+    def __lshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The vector to multiply with .
+        :param right: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The scalar to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    def __ne__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> bool:
+        """
+        Compares two vectors to determine if any elements are not equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if any elements in  was not equal to the corresponding element in .
+        """
+        ...
+
+    def __or__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __rshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param vector: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __xor__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
         """
         ...
 
@@ -1760,12 +2402,333 @@ class Vector64(typing.Generic[System_Runtime_Intrinsics_Vector64_T], System.Runt
     ZERO: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]
     """Gets a new Vector64{T} with all elements initialized to zero."""
 
+    @overload
+    def __add__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __add__(self) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __and__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __eq__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> bool:
+        """
+        Compares two vectors to determine if all elements are equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if all elements in  were equal to the corresponding element in .
+        """
+        ...
+
     def __getitem__(self, index: int) -> System_Runtime_Intrinsics_Vector64_T:
         """
         Gets the element at the specified index.
         
         :param index: The index of the element to get.
         :returns: The value of the element at .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __iand__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __ilshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System_Runtime_Intrinsics_Vector64_T) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The vector to multiply with .
+        :param right: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The scalar to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    def __invert__(self) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Computes the ones-complement of a vector.
+        
+        :param vector: The vector whose ones-complement is to be computed.
+        :returns: A vector whose elements are the ones-complement of the corresponding elements in .
+        """
+        ...
+
+    def __ior__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __irshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __isub__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param vector: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System_Runtime_Intrinsics_Vector64_T) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __ixor__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
+        """
+        ...
+
+    def __lshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System_Runtime_Intrinsics_Vector64_T) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The vector to multiply with .
+        :param right: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The scalar to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    def __ne__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> bool:
+        """
+        Compares two vectors to determine if any elements are not equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if any elements in  was not equal to the corresponding element in .
+        """
+        ...
+
+    def __or__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __rshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param vector: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System_Runtime_Intrinsics_Vector64_T) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __xor__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
         """
         ...
 
@@ -2521,12 +3484,333 @@ class Vector256(typing.Generic[System_Runtime_Intrinsics_Vector256_T], System.Ru
     IS_HARDWARE_ACCELERATED: bool
     """Gets a value that indicates whether 256-bit vector operations are subject to hardware acceleration through JIT intrinsic support."""
 
+    @overload
+    def __add__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __add__(self) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __and__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __eq__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> bool:
+        """
+        Compares two vectors to determine if all elements are equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if all elements in  were equal to the corresponding element in .
+        """
+        ...
+
     def __getitem__(self, index: int) -> System_Runtime_Intrinsics_Vector256_T:
         """
         Gets the element at the specified index.
         
         :param index: The index of the element to get.
         :returns: The value of the element at .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Adds two vectors to compute their sum.
+        
+        :param left: The vector to add with .
+        :param right: The vector to add with .
+        :returns: The sum of  and .
+        """
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Returns a given vector unchanged.
+        
+        :param value: The vector.
+        """
+        ...
+
+    def __iand__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Computes the bitwise-and of two vectors.
+        
+        :param left: The vector to bitwise-and with .
+        :param right: The vector to bitwise-and with .
+        :returns: The bitwise-and of  and .
+        """
+        ...
+
+    def __ilshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System_Runtime_Intrinsics_Vector256_T) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The vector to multiply with .
+        :param right: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The scalar to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    def __invert__(self) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Computes the ones-complement of a vector.
+        
+        :param vector: The vector whose ones-complement is to be computed.
+        :returns: A vector whose elements are the ones-complement of the corresponding elements in .
+        """
+        ...
+
+    def __ior__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __irshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __isub__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param vector: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: System_Runtime_Intrinsics_Vector256_T) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __ixor__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
+        """
+        ...
+
+    def __lshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Shifts each element of a vector left by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted left by .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Multiplies two vectors to compute their element-wise product.
+        
+        :param left: The vector to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The element-wise product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System_Runtime_Intrinsics_Vector256_T) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The vector to multiply with .
+        :param right: The scalar to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Multiplies a vector by a scalar to compute their product.
+        
+        :param left: The scalar to multiply with .
+        :param right: The vector to multiply with .
+        :returns: The product of  and .
+        """
+        ...
+
+    def __ne__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> bool:
+        """
+        Compares two vectors to determine if any elements are not equal.
+        
+        :param left: The vector to compare with .
+        :param right: The vector to compare with .
+        :returns: true if any elements in  was not equal to the corresponding element in .
+        """
+        ...
+
+    def __or__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Computes the bitwise-or of two vectors.
+        
+        :param left: The vector to bitwise-or with .
+        :param right: The vector to bitwise-or with .
+        :returns: The bitwise-or of  and .
+        """
+        ...
+
+    def __rshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Shifts (signed) each element of a vector right by the specified amount.
+        
+        :param value: The vector whose elements are to be shifted.
+        :param shift_count: The number of bits by which to shift each element.
+        :returns: A vector whose elements where shifted right by .
+        """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Subtracts two vectors to compute their difference.
+        
+        :param left: The vector from which  will be subtracted.
+        :param right: The vector to subtract from .
+        :returns: The difference of  and .
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Computes the unary negation of a vector.
+        
+        :param vector: The vector to negate.
+        :returns: A vector whose elements are the unary negation of the corresponding elements in .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Divides two vectors to compute their quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The vector that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: System_Runtime_Intrinsics_Vector256_T) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Divides a vector by a scalar to compute the per-element quotient.
+        
+        :param left: The vector that will be divided by .
+        :param right: The scalar that will divide .
+        :returns: The quotient of  divided by .
+        """
+        ...
+
+    def __xor__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
+        """
+        Computes the exclusive-or of two vectors.
+        
+        :param left: The vector to exclusive-or with .
+        :param right: The vector to exclusive-or with .
+        :returns: The exclusive-or of  and .
         """
         ...
 

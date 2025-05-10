@@ -29,8 +29,7 @@ def feature_time() -> Any:
 
     Examples
     --------
-    >>> from chalk.features import features
-    >>> from chalk.features import feature_time
+    >>> from chalk.features import features, feature_time
     >>> @features
     ... class User:
     ...     updated_at: datetime = feature_time()
@@ -54,11 +53,11 @@ def is_feature_time(f: Any) -> bool:
 
     Examples
     --------
-    >>> from chalk.features import features
+    >>> from chalk.features import features, FeatureTime
     >>> @features
     ... class User:
     ...     id: str
-    ...     updated_at: datetime = feature_time()
+    ...     updated_at: FeatureTime
     >>> assert is_feature_time(User.updated_at) is True
     >>> assert is_feature_time(User.id) is False
     """

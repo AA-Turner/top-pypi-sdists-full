@@ -18,7 +18,7 @@ PROXMOX = ['proxmoxer']
 VSPHERE = ['pyvmomi', 'cryptography']
 IBMCLOUD = ['google-crc32c==1.1.2', 'ibm_vpc', 'ibm-cos-sdk', 'ibm-platform-services', 'ibm-cloud-networking-services']
 EXTRAS = ['pyghmi', 'podman', 'websockify']
-ALL = EXTRAS + AWS + GCP + OPENSTACK + OVIRT + PACKET + VSPHERE + IBMCLOUD + AZURE + HCLOUD
+ALL = EXTRAS + AWS + GCP + OPENSTACK + OVIRT + PACKET + VSPHERE + IBMCLOUD + AZURE + HCLOUD + PROXMOX
 
 description = 'Provisioner/Manager for Libvirt/Vsphere/Aws/Gcp/Hcloud/Kubevirt/Ovirt/Openstack/IBM Cloud and containers'
 long_description = description
@@ -27,7 +27,7 @@ if os.path.exists('README.rst'):
 
 setup(
     name='kcli',
-    version='99.0.202505040916',
+    version='99.0.202505091018',
     include_package_data=True,
     packages=find_packages(),
     zip_safe=False,

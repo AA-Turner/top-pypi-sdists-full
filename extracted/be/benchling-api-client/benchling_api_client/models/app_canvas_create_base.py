@@ -7,6 +7,7 @@ from ..models.button_ui_block_create import ButtonUiBlockCreate
 from ..models.chip_ui_block_create import ChipUiBlockCreate
 from ..models.dropdown_multi_value_ui_block_create import DropdownMultiValueUiBlockCreate
 from ..models.dropdown_ui_block_create import DropdownUiBlockCreate
+from ..models.file_upload_ui_block_create import FileUploadUiBlockCreate
 from ..models.markdown_ui_block_create import MarkdownUiBlockCreate
 from ..models.search_input_multi_value_ui_block_create import SearchInputMultiValueUiBlockCreate
 from ..models.search_input_ui_block_create import SearchInputUiBlockCreate
@@ -37,6 +38,7 @@ class AppCanvasCreateBase:
                 ChipUiBlockCreate,
                 DropdownUiBlockCreate,
                 DropdownMultiValueUiBlockCreate,
+                FileUploadUiBlockCreate,
                 MarkdownUiBlockCreate,
                 SearchInputUiBlockCreate,
                 SearchInputMultiValueUiBlockCreate,
@@ -84,6 +86,9 @@ class AppCanvasCreateBase:
                     blocks_item = blocks_item_data.to_dict()
 
                 elif isinstance(blocks_item_data, DropdownMultiValueUiBlockCreate):
+                    blocks_item = blocks_item_data.to_dict()
+
+                elif isinstance(blocks_item_data, FileUploadUiBlockCreate):
                     blocks_item = blocks_item_data.to_dict()
 
                 elif isinstance(blocks_item_data, MarkdownUiBlockCreate):
@@ -197,6 +202,7 @@ class AppCanvasCreateBase:
                     ChipUiBlockCreate,
                     DropdownUiBlockCreate,
                     DropdownMultiValueUiBlockCreate,
+                    FileUploadUiBlockCreate,
                     MarkdownUiBlockCreate,
                     SearchInputUiBlockCreate,
                     SearchInputMultiValueUiBlockCreate,
@@ -220,6 +226,7 @@ class AppCanvasCreateBase:
                     ChipUiBlockCreate,
                     DropdownUiBlockCreate,
                     DropdownMultiValueUiBlockCreate,
+                    FileUploadUiBlockCreate,
                     MarkdownUiBlockCreate,
                     SearchInputUiBlockCreate,
                     SearchInputMultiValueUiBlockCreate,
@@ -235,6 +242,7 @@ class AppCanvasCreateBase:
                         ChipUiBlockCreate,
                         DropdownUiBlockCreate,
                         DropdownMultiValueUiBlockCreate,
+                        FileUploadUiBlockCreate,
                         MarkdownUiBlockCreate,
                         SearchInputUiBlockCreate,
                         SearchInputMultiValueUiBlockCreate,
@@ -261,6 +269,10 @@ class AppCanvasCreateBase:
                             return blocks_item
                         if discriminator_value == "DROPDOWN_MULTIVALUE":
                             blocks_item = DropdownMultiValueUiBlockCreate.from_dict(data, strict=False)
+
+                            return blocks_item
+                        if discriminator_value == "FILE_UPLOAD":
+                            blocks_item = FileUploadUiBlockCreate.from_dict(data, strict=False)
 
                             return blocks_item
                         if discriminator_value == "MARKDOWN":
@@ -325,6 +337,14 @@ class AppCanvasCreateBase:
                         if not isinstance(data, dict):
                             raise TypeError()
                         blocks_item = DropdownMultiValueUiBlockCreate.from_dict(data, strict=True)
+
+                        return blocks_item
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        blocks_item = FileUploadUiBlockCreate.from_dict(data, strict=True)
 
                         return blocks_item
                     except:  # noqa: E722
@@ -415,6 +435,7 @@ class AppCanvasCreateBase:
                             ChipUiBlockCreate,
                             DropdownUiBlockCreate,
                             DropdownMultiValueUiBlockCreate,
+                            FileUploadUiBlockCreate,
                             MarkdownUiBlockCreate,
                             SearchInputUiBlockCreate,
                             SearchInputMultiValueUiBlockCreate,
@@ -545,6 +566,7 @@ class AppCanvasCreateBase:
             ChipUiBlockCreate,
             DropdownUiBlockCreate,
             DropdownMultiValueUiBlockCreate,
+            FileUploadUiBlockCreate,
             MarkdownUiBlockCreate,
             SearchInputUiBlockCreate,
             SearchInputMultiValueUiBlockCreate,
@@ -569,6 +591,7 @@ class AppCanvasCreateBase:
                 ChipUiBlockCreate,
                 DropdownUiBlockCreate,
                 DropdownMultiValueUiBlockCreate,
+                FileUploadUiBlockCreate,
                 MarkdownUiBlockCreate,
                 SearchInputUiBlockCreate,
                 SearchInputMultiValueUiBlockCreate,

@@ -100,6 +100,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.AttemptAwaitRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.AttemptAwaitResponse.FromString,
                 )
+        self.AttemptRetry = channel.unary_unary(
+                '/modal.client.ModalClient/AttemptRetry',
+                request_serializer=modal__proto_dot_api__pb2.AttemptRetryRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.AttemptRetryResponse.FromString,
+                )
         self.AttemptStart = channel.unary_unary(
                 '/modal.client.ModalClient/AttemptStart',
                 request_serializer=modal__proto_dot_api__pb2.AttemptStartRequest.SerializeToString,
@@ -867,6 +872,12 @@ class ModalClientServicer(object):
         These RPCs are experimental, not deployed to production, and can be changed / removed
         without needing to worry about backwards compatibility.
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AttemptRetry(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1776,6 +1787,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.AttemptAwait,
                     request_deserializer=modal__proto_dot_api__pb2.AttemptAwaitRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.AttemptAwaitResponse.SerializeToString,
+            ),
+            'AttemptRetry': grpc.unary_unary_rpc_method_handler(
+                    servicer.AttemptRetry,
+                    request_deserializer=modal__proto_dot_api__pb2.AttemptRetryRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.AttemptRetryResponse.SerializeToString,
             ),
             'AttemptStart': grpc.unary_unary_rpc_method_handler(
                     servicer.AttemptStart,
@@ -2733,6 +2749,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/AttemptAwait',
             modal__proto_dot_api__pb2.AttemptAwaitRequest.SerializeToString,
             modal__proto_dot_api__pb2.AttemptAwaitResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AttemptRetry(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/AttemptRetry',
+            modal__proto_dot_api__pb2.AttemptRetryRequest.SerializeToString,
+            modal__proto_dot_api__pb2.AttemptRetryResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

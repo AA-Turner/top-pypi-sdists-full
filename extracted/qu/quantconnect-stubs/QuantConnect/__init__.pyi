@@ -186,12 +186,90 @@ class Symbol(System.Object, System.IEquatable[QuantConnect_Symbol], System.IComp
         """The Central Index Key number (CIK) corresponding to this Symbol"""
         ...
 
+    @overload
+    def __eq__(self, right: typing.Any) -> bool:
+        """
+        Equals operator
+        
+        :param left: The left operand
+        :param right: The right operand
+        :returns: True if both symbols are equal, otherwise false.
+        """
+        ...
+
+    @overload
+    def __eq__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Equals operator
+        
+        :param left: The left operand
+        :param right: The right operand
+        :returns: True if both symbols are equal, otherwise false.
+        """
+        ...
+
+    @overload
+    def __eq__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Equals operator
+        
+        :param left: The left operand
+        :param right: The right operand
+        :returns: True if both symbols are equal, otherwise false.
+        """
+        ...
+
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
     def __init__(self, sid: QuantConnect.SecurityIdentifier, value: str) -> None:
         """
         Initializes a new instance of the Symbol class
         
         :param sid: The security identifier for this symbol
         :param value: The current ticker symbol value
+        """
+        ...
+
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ne__(self, right: typing.Any) -> bool:
+        """
+        Not equals operator
+        
+        :param left: The left operand
+        :param right: The right operand
+        :returns: True if both symbols are not equal, otherwise false.
+        """
+        ...
+
+    @overload
+    def __ne__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Not equals operator
+        
+        :param left: The left operand
+        :param right: The right operand
+        :returns: True if both symbols are not equal, otherwise false.
+        """
+        ...
+
+    @overload
+    def __ne__(self, right: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Not equals operator
+        
+        :param left: The left operand
+        :param right: The right operand
+        :returns: True if both symbols are not equal, otherwise false.
         """
         ...
 
@@ -1381,6 +1459,26 @@ class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityI
         """
         ...
 
+    def __eq__(self, right: QuantConnect.SecurityIdentifier) -> bool:
+        """Override equals operator"""
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        ...
+
     @overload
     def __init__(self, symbol: str, properties: int) -> None:
         """
@@ -1400,6 +1498,26 @@ class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityI
         :param properties: Other data defining properties of the symbol including market, security type, listing or expiry date, strike/call/put/style for options, ect...
         :param underlying: Specifies a SecurityIdentifier that represents the underlying security
         """
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: QuantConnect.SecurityIdentifier) -> bool:
+        ...
+
+    def __ne__(self, right: QuantConnect.SecurityIdentifier) -> bool:
+        """Override not equals operator"""
         ...
 
     @overload
@@ -6158,8 +6276,28 @@ class Exchange(System.Object):
         """Security types traded in this exchange"""
         ...
 
+    def __eq__(self, right: QuantConnect.Exchange) -> bool:
+        """
+        Equals operator
+        
+        :param left: The left operand
+        :param right: The right operand
+        :returns: True if both symbols are equal, otherwise false.
+        """
+        ...
+
     def __init__(self, name: str, code: str, description: str, market: str, *security_types: typing.Union[QuantConnect.SecurityType, typing.Iterable[QuantConnect.SecurityType]]) -> None:
         """Creates a new exchange instance"""
+        ...
+
+    def __ne__(self, right: QuantConnect.Exchange) -> bool:
+        """
+        Not equals operator
+        
+        :param left: The left operand
+        :param right: The right operand
+        :returns: True if both symbols are not equal, otherwise false.
+        """
         ...
 
     def equals(self, obj: typing.Any) -> bool:

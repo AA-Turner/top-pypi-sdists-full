@@ -232,6 +232,10 @@ class MapFileRow(System.Object, System.IEquatable[QuantConnect_Data_Auxiliary_Ma
         """Gets the securities mapping mode associated to this mapping row"""
         ...
 
+    def __eq__(self, right: QuantConnect.Data.Auxiliary.MapFileRow) -> bool:
+        """Determines whether or not the two instances are equal"""
+        ...
+
     @overload
     def __init__(self, date: typing.Union[datetime.datetime, datetime.date], mapped_symbol: str, primary_exchange: str, market: str = ..., security_type: QuantConnect.SecurityType = ..., data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None) -> None:
         """Initializes a new instance of the MapFileRow class."""
@@ -240,6 +244,10 @@ class MapFileRow(System.Object, System.IEquatable[QuantConnect_Data_Auxiliary_Ma
     @overload
     def __init__(self, date: typing.Union[datetime.datetime, datetime.date], mapped_symbol: str, primary_exchange: QuantConnect.Exchange = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None) -> None:
         """Initializes a new instance of the MapFileRow class."""
+        ...
+
+    def __ne__(self, right: QuantConnect.Data.Auxiliary.MapFileRow) -> bool:
+        """Determines whether or not the two instances are not equal"""
         ...
 
     @overload

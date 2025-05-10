@@ -35,6 +35,7 @@ class ModalClientModal:
         self.AppSetObjects = modal.client.UnaryUnaryWrapper(grpclib_stub.AppSetObjects, client, server_url)
         self.AppStop = modal.client.UnaryUnaryWrapper(grpclib_stub.AppStop, client, server_url)
         self.AttemptAwait = modal.client.UnaryUnaryWrapper(grpclib_stub.AttemptAwait, client, server_url)
+        self.AttemptRetry = modal.client.UnaryUnaryWrapper(grpclib_stub.AttemptRetry, client, server_url)
         self.AttemptStart = modal.client.UnaryUnaryWrapper(grpclib_stub.AttemptStart, client, server_url)
         self.BlobCreate = modal.client.UnaryUnaryWrapper(grpclib_stub.BlobCreate, client, server_url)
         self.BlobGet = modal.client.UnaryUnaryWrapper(grpclib_stub.BlobGet, client, server_url)

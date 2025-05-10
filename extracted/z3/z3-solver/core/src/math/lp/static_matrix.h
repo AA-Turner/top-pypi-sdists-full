@@ -93,16 +93,9 @@ public:
         operator T () const { return m_matrix.get_elem(m_row, m_col); }
     };
 
-    class ref_row {
-        const static_matrix & m_matrix;
-        unsigned        m_row;
-    public:
-        ref_row(const static_matrix & m, unsigned row): m_matrix(m), m_row(row) {}
-        T operator[](unsigned col) const { return m_matrix.get_elem(m_row, col); }
-    };
-
 public:
-
+    const auto & operator[](unsigned i) const { return m_rows[i]; }
+    
     const T & get_val(const column_cell & c) const {
         return m_rows[c.var()][c.offset()].coeff();
     }
@@ -145,6 +138,11 @@ public:
     void add_columns_up_to(unsigned j) { while (j >= column_count()) add_column(); }
 
     void remove_element(std_vector<row_cell<T>> & row, row_cell<T> & elem_to_remove);
+
+    void remove_element(unsigned ei, row_cell<T> & elem_to_remove) {
+        remove_element(m_rows[ei], elem_to_remove);
+    }
+    
     
     void multiply_column(unsigned column, T const & alpha) {
         for (auto & t : m_columns[column]) {
@@ -238,7 +236,7 @@ public:
         for (auto & c : row) {
             unsigned j = c.var();
             auto & col = m_columns[j];
-            lp_assert(col[col.size() - 1].var() == m_rows.size() -1 ); // todo : start here!!!!
+            SASSERT(col[col.size() - 1].var() == m_rows.size() -1 ); // todo : start here!!!!
             col.pop_back();
         }
     }
@@ -265,7 +263,7 @@ public:
                 m_columns.pop_back(); // delete the last column
             m_stack.pop();
         }
-        lp_assert(is_correct());
+        SASSERT(is_correct());
     }
 
     void multiply_row(unsigned row, T const & alpha) {
@@ -281,7 +279,7 @@ public:
     }
     
     T dot_product_with_column(const std_vector<T> & y, unsigned j) const {
-        lp_assert(j < column_count());
+        SASSERT(j < column_count());
         T ret = numeric_traits<T>::zero();
         for (auto & it : m_columns[j]) {
             ret += y[it.var()] * get_val(it); // get_value_of_column_cell(it);
@@ -304,12 +302,12 @@ public:
         // now fix the columns
         for (auto & rc : m_rows[i]) {
             column_cell & cc = m_columns[rc.var()][rc.offset()];
-            lp_assert(cc.var() == ii);
+            SASSERT(cc.var() == ii);
             cc.var() = i;
         }
         for (auto & rc : m_rows[ii]) {
             column_cell & cc = m_columns[rc.var()][rc.offset()];
-            lp_assert(cc.var() == i);
+            SASSERT(cc.var() == i);
             cc.var() = ii;
         }
     
@@ -347,7 +345,7 @@ public:
     void fill_last_row_with_pivoting(const term& row,
                                      unsigned bj, // the index of the basis column
                                      const std_vector<int> & basis_heading) {
-        lp_assert(row_count() > 0);
+        SASSERT(row_count() > 0);
         m_work_vector.clear();
         m_work_vector.resize(column_count());
         T a;
@@ -368,7 +366,7 @@ public:
         for (unsigned j : m_work_vector.m_index) {
             set (last_row, j, m_work_vector.m_data[j]);
         }
-        lp_assert(column_count() > 0);
+        SASSERT(column_count() > 0);
         set(last_row, column_count() - 1, one_of_type<T>());
     }
 
@@ -384,7 +382,7 @@ public:
     template <typename L>
     L dot_product_with_row(unsigned row, const std_vector<L> & w) const {
         L ret = zero_of_type<L>();
-        lp_assert(row < m_rows.size());
+        SASSERT(row < m_rows.size());
         for (auto & it : m_rows[row]) {
             ret += w[it.var()] * it.coeff();
         }
@@ -452,7 +450,6 @@ public:
         return column_container(j, *this);
     }
 
-    ref_row operator[](unsigned i) const { return ref_row(*this, i);}
     typedef T coefftype;
     typedef X argtype;
 };

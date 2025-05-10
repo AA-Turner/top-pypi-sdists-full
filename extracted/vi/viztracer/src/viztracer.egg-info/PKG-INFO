@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: viztracer
-Version: 1.0.3
+Version: 1.0.4
 Summary: A debugging and profiling tool that can trace and visualize python code execution
 Author-email: Tian Gao <gaogaotiantian@hotmail.com>
 License:                                  Apache License
@@ -249,6 +249,7 @@ License-File: NOTICE.txt
 Requires-Dist: objprint>=0.3.0
 Provides-Extra: full
 Requires-Dist: orjson; extra == "full"
+Dynamic: license-file
 
 # VizTracer
 

@@ -2926,7 +2926,7 @@ class DataSetFilters(DataObjectFilters):
         """Generate streamlines of vectors from the points of a source mesh.
 
         The integration is performed using a specified integrator, by default
-        Runge-Kutta2. This supports integration through any type of dataset.
+        Runge-Kutta45. This supports integration through any type of dataset.
         If the dataset contains 2D cells like polygons or triangles and the
         ``surface_streamlines`` parameter is used, the integration is constrained
         to lie on the surface defined by 2D cells.
@@ -3233,7 +3233,7 @@ class DataSetFilters(DataObjectFilters):
         >>> plotter.view_xy()
         >>> plotter.show()
 
-        See :ref:`2d_streamlines_example` for more examples using this filter.
+        See :ref:`streamlines_2D_example` for more examples using this filter.
 
         """
         if integrator_type not in [2, 4]:
@@ -5175,8 +5175,6 @@ class DataSetFilters(DataObjectFilters):
     ):
         """Join one or many other grids to this grid.
 
-        Grid is updated in-place by default.
-
         Can be used to merge points of adjacent cells when no grids
         are input.
 
@@ -6733,6 +6731,12 @@ class DataSetFilters(DataObjectFilters):
 
         By default, a new ``'int_rgb'`` array is added with the same name as the
         specified ``scalars`` but with ``_rgb`` appended.
+
+        .. note::
+            The package ``colorcet`` is required to use the default colors from the
+            ``'glasbey_category10'`` colormap. For a similar, but very limited,
+            alternative that does not require ``colorcet``, set ``colors='tab10'``
+            and consider setting the coloring mode explicitly.
 
         .. versionadded:: 0.45
 

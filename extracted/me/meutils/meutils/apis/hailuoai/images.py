@@ -211,10 +211,9 @@ async def get_request_policy(token):
 
 @retrying(predicate=lambda r: r.base_resp.status_code in {1000061, 1500009})  # 限流
 async def create_task(request: ImageRequest, token: Optional[str] = None):
-    BASE_URL = get_base_url(token)
 
     refresh_token = token or await get_next_token_for_polling(FEISHU_URL, from_redis=True, check_token=check_token)
-    # refresh_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDA0NzA4NzgsInVzZXIiOnsiaWQiOiIzMjg2MDg4ODkzNTA4MTU3NDQiLCJuYW1lIjoiUm9idXN0IEdlcnRydWRlIiwiYXZhdGFyIjoiaHR0cHM6Ly9jZG4uaGFpbHVvYWkudmlkZW8vbW9zcy9wcm9kLzIwMjQtMTItMjgtMTYvdXNlci91c2VyX2F2YXRhci8xNzM1Mzc1OTI0OTkyMTcxMDY3LWF2YXRhcl8zMjg2MDg4ODkzNTA4MTU3NDQiLCJkZXZpY2VJRCI6IjMwMjgzMzc1OTUxMjc2NDQxNyIsImlzQW5vbnltb3VzIjpmYWxzZX19.dLNBSHjqnKutGl3ralS2g8A-RodHjOdos11vdpbkPwc"
+    BASE_URL = get_base_url(refresh_token)
 
     # token = await get_access_token(refresh_token) ##########
 

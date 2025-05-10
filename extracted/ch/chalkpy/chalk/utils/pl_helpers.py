@@ -156,10 +156,15 @@ def pl_time_to_iso_string(expr: pl.Expr) -> pl.Expr:
         )
 
 
-def pl_json_decode(series: pl.Series, dtype: pl.PolarsDataType | None = None):
+def pl_json_decode(series: pl.Series, dtype: pl.PolarsDataType | None = None) -> pl.Series:
     if is_new_polars:
-        return series.map_elements(json_loads, return_dtype=dtype)  # pyright: ignore -- polars backcompat
-    return series.apply(json_loads, return_dtype=dtype)
+        decoded_series = series.map_elements(json_loads, return_dtype=dtype)  # pyright: ignore -- polars backcompat
+    else:
+        decoded_series = series.apply(json_loads, return_dtype=dtype)
+    if dtype is not None:
+        # Special case -- for nested dtypes polars doesn't always respect the return_dtype
+        decoded_series = decoded_series.cast(dtype)
+    return decoded_series
 
 
 def pl_duration_to_iso_string(expr: pl.Expr) -> pl.Expr:

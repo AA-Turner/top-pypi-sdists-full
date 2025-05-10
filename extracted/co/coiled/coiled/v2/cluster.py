@@ -442,7 +442,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         bucket ``my-s3-bucket``, using your forwarded AWS credentials, and ``"gs://my-gcs-bucket"`` will mount
         the GCS bucket ``my-gcs-bucket`` using your forwarded Google Application Default Credentials.
         Buckets are mounted to subdirectories in both ``/mount`` and ``./mount`` (relative to working directory
-        for Dask), subdirectory name will be taken from bucket name.
+        for Dask), subdirectory name will be taken from bucket name. By default, mounting times out after 30 s.
+        You can manually configure a different timeout using the ``coiled.mount-bucket.timeout`` configuration value.
     host_setup_script
         Script to run on the host VM during the setup process.
         You can either specify as text of the script to run, or as path to a local script file to copy and run.
@@ -828,6 +829,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         self._last_logged_state_summary = None
         self._try_local_gcp_creds = True
         self._using_aws_creds_endpoint = False
+        self._credentials_refresh_at = None
+        self._credentials_refresh_handle = None
 
         if send_dask_config:
             if self.unset_single_threading_variables:
@@ -2251,7 +2254,9 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         return self.sync(self._send_credentials, schedule_callback=automatic_refresh)
 
     def _schedule_cred_update(self, expiration: datetime.datetime | None, label: str, extra_warning: str = ""):
-        # schedule callback for updating creds before they expire
+        """Schedule callback for updating credentials before they expire"""
+        if self.status in TERMINATING_STATES:
+            return
 
         # default to updating every 45 minutes
         delay = 45 * 60
@@ -2275,11 +2280,22 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
             # requested, then we'll update as if that were the duration (with lower bound of 5s).
             delay = max(5, int(self._credentials_duration_seconds * 0.5))
 
-        self._queue_cluster_event("credentials", f"refresh scheduled in {delay} seconds for {label}")
-
+        # should never be None but distributed baseclass claims it can be
         if self.loop:
-            # should never be None but distributed baseclass claims it can be
-            self.loop.call_later(delay=delay, callback=self._send_credentials)
+            now = self.loop.time()
+            at = now + delay
+            if (
+                self._credentials_refresh_at is not None
+                and self._credentials_refresh_at > now
+                and self._credentials_refresh_at < at
+            ):
+                return
+            handle = self.loop.call_at(when=at, callback=self._send_credentials)
+            if self._credentials_refresh_handle is not None:
+                self.loop.remove_timeout(self._credentials_refresh_handle)
+            self._credentials_refresh_handle = handle
+            self._credentials_refresh_at = at
+            self._queue_cluster_event("credentials", f"refresh scheduled in {delay} seconds")
             logger.debug(f"{label} from local credentials shipped to cluster, planning to refresh in {delay} seconds")
 
     async def _send_aws_credentials(self, schedule_callback: bool):

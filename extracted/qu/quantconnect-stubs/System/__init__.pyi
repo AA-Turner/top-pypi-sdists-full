@@ -547,6 +547,18 @@ class Array(System.Object, System.ICloneable, System.Collections.IList, System.C
 class Enum(System.Object, System.IComparable, System.ISpanFormattable, System.IConvertible, metaclass=abc.ABCMeta):
     """Provides the base class for enumerations."""
 
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
     def compare_to(self, target: typing.Any) -> int:
         ...
 
@@ -871,6 +883,33 @@ class Version(System.Object, System.ICloneable, System.IComparable[System_Versio
     def minor_revision(self) -> int:
         ...
 
+    def __eq__(self, v_2: System.Version) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.Version) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, v_2: System.Version) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.Version) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, v_2: System.Version) -> bool:
+        ...
+
     @overload
     def __init__(self, major: int, minor: int, build: int, revision: int) -> None:
         ...
@@ -889,6 +928,33 @@ class Version(System.Object, System.ICloneable, System.IComparable[System_Versio
 
     @overload
     def __init__(self) -> None:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.Version) -> bool:
+        ...
+
+    @overload
+    def __le__(self, v_2: System.Version) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.Version) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, v_2: System.Version) -> bool:
+        ...
+
+    def __ne__(self, v_2: System.Version) -> bool:
         ...
 
     def clone(self) -> System.Object:
@@ -1754,6 +1820,38 @@ class UInt32(System.IComparable[int], System.IConvertible, System.ISpanFormattab
 
     MIN_VALUE: int = ...
 
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
     @staticmethod
     def big_mul(left: int, right: int) -> int:
         """
@@ -2032,6 +2130,54 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
         """Gets the number of ticks that represent the time of this instance."""
         ...
 
+    def __eq__(self, right: System.TimeOnly) -> bool:
+        """
+        Determines whether two specified instances of TimeOnly are equal.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left and right represent the same time; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.TimeOnly) -> bool:
+        """
+        Determines whether one specified TimeOnly represents a time that is the same as or later than another specified TimeOnly.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left is the same as or later than right; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __ge__(self, other: System.TimeOnly) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: System.TimeOnly) -> bool:
+        """
+        Determines whether one specified TimeOnly is later than another specified TimeOnly.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left is later than right; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __gt__(self, other: System.TimeOnly) -> bool:
+        ...
+
     @overload
     def __init__(self, hour: int, minute: int) -> None:
         """
@@ -2084,6 +2230,74 @@ class TimeOnly(System.IComparable[System_TimeOnly], System.IEquatable[System_Tim
         Initializes a new instance of the TimeOnly structure using a specified number of ticks.
         
         :param ticks: A time of day expressed in the number of 100-nanosecond units since 00:00:00.0000000.
+        """
+        ...
+
+    def __isub__(self, t_2: System.TimeOnly) -> datetime.timedelta:
+        """
+        Gives the elapsed time between two points on a circular clock, which will always be a positive value.
+        
+        :param t1: The first TimeOnly instance.
+        :param t_2: The second TimeOnly instance..
+        :returns: The elapsed time between t1 and t_2.
+        """
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: System.TimeOnly) -> bool:
+        """
+        Determines whether one specified TimeOnly represents a time that is the same as or earlier than another specified TimeOnly.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left is the same as or earlier than right; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __le__(self, other: System.TimeOnly) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.TimeOnly) -> bool:
+        """
+        Determines whether one specified TimeOnly is earlier than another specified TimeOnly.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left is earlier than right; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __lt__(self, other: System.TimeOnly) -> bool:
+        ...
+
+    def __ne__(self, right: System.TimeOnly) -> bool:
+        """
+        Determines whether two specified instances of TimeOnly are not equal.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left and right do not represent the same time; otherwise, false.
+        """
+        ...
+
+    def __sub__(self, t_2: System.TimeOnly) -> datetime.timedelta:
+        """
+        Gives the elapsed time between two points on a circular clock, which will always be a positive value.
+        
+        :param t1: The first TimeOnly instance.
+        :param t_2: The second TimeOnly instance..
+        :returns: The elapsed time between t1 and t_2.
         """
         ...
 
@@ -2724,6 +2938,54 @@ class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_Dat
         """Gets the number of days since January 1, 0001 in the Proleptic Gregorian calendar represented by this instance."""
         ...
 
+    def __eq__(self, right: System.DateOnly) -> bool:
+        """
+        Determines whether two specified instances of DateOnly are equal.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left and right represent the same date; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.DateOnly) -> bool:
+        """
+        Determines whether one specified DateOnly represents a date that is the same as or later than another specified DateOnly.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left is the same as or later than right; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __ge__(self, other: System.DateOnly) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: System.DateOnly) -> bool:
+        """
+        Determines whether one specified DateOnly is later than another specified DateOnly.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left is later than right; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __gt__(self, other: System.DateOnly) -> bool:
+        ...
+
     @overload
     def __init__(self, year: int, month: int, day: int) -> None:
         """
@@ -2744,6 +3006,54 @@ class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_Dat
         :param month: The month (1 through the number of months in calendar).
         :param day: The day (1 through the number of days in ).
         :param calendar: The calendar that is used to interpret year, month, and day..
+        """
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: System.DateOnly) -> bool:
+        """
+        Determines whether one specified DateOnly represents a date that is the same as or earlier than another specified DateOnly.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left is the same as or earlier than right; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __le__(self, other: System.DateOnly) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.DateOnly) -> bool:
+        """
+        Determines whether one specified DateOnly is earlier than another specified DateOnly.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left is earlier than right; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __lt__(self, other: System.DateOnly) -> bool:
+        ...
+
+    def __ne__(self, right: System.DateOnly) -> bool:
+        """
+        Determines whether two specified instances of DateOnly are not equal.
+        
+        :param left: The first object to compare.
+        :param right: The second object to compare.
+        :returns: true if left and right do not represent the same date; otherwise, false.
         """
         ...
 
@@ -3348,6 +3658,39 @@ class DateTime(System.IComparable[datetime.datetime], System.ISpanFormattable, S
     def year(self) -> int:
         ...
 
+    def __add__(self, t: datetime.timedelta) -> datetime.datetime:
+        ...
+
+    def __eq__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    def __iadd__(self, t: datetime.timedelta) -> datetime.datetime:
+        ...
+
     @overload
     def __init__(self, ticks: int) -> None:
         ...
@@ -3536,6 +3879,49 @@ class DateTime(System.IComparable[datetime.datetime], System.ISpanFormattable, S
         :param calendar: The calendar that is used to interpret , , and .
         :param kind: One of the enumeration values that indicates whether , , , , , , and  specify a local time, Coordinated Universal Time (UTC), or neither.
         """
+        ...
+
+    @overload
+    def __isub__(self, t: datetime.timedelta) -> datetime.datetime:
+        ...
+
+    @overload
+    def __isub__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    def __ne__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __sub__(self, t: datetime.timedelta) -> datetime.datetime:
+        ...
+
+    @overload
+    def __sub__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
         ...
 
     def add(self, value: datetime.timedelta) -> datetime.datetime:
@@ -3998,6 +4384,31 @@ class DateTimeOffset(System.IComparable[System_DateTimeOffset], System.ISpanForm
     def year(self) -> int:
         ...
 
+    def __add__(self, time_span: datetime.timedelta) -> System.DateTimeOffset:
+        ...
+
+    def __eq__(self, right: System.DateTimeOffset) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.DateTimeOffset) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.DateTimeOffset) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.DateTimeOffset) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: System.DateTimeOffset) -> bool:
+        ...
+
+    def __iadd__(self, time_span: datetime.timedelta) -> System.DateTimeOffset:
+        ...
+
     @overload
     def __init__(self, ticks: int, offset: datetime.timedelta) -> None:
         ...
@@ -4070,6 +4481,41 @@ class DateTimeOffset(System.IComparable[System_DateTimeOffset], System.ISpanForm
         :param calendar: The calendar that is used to interpret , , and .
         :param offset: The time's offset from Coordinated Universal Time (UTC).
         """
+        ...
+
+    @overload
+    def __isub__(self, time_span: datetime.timedelta) -> System.DateTimeOffset:
+        ...
+
+    @overload
+    def __isub__(self, right: System.DateTimeOffset) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __le__(self, other: System.DateTimeOffset) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: System.DateTimeOffset) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.DateTimeOffset) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.DateTimeOffset) -> bool:
+        ...
+
+    def __ne__(self, right: System.DateTimeOffset) -> bool:
+        ...
+
+    @overload
+    def __sub__(self, time_span: datetime.timedelta) -> System.DateTimeOffset:
+        ...
+
+    @overload
+    def __sub__(self, right: System.DateTimeOffset) -> datetime.timedelta:
         ...
 
     def add(self, time_span: datetime.timedelta) -> System.DateTimeOffset:
@@ -4325,6 +4771,33 @@ class Guid(System.ISpanFormattable, System.IComparable[System_Guid], System.IEqu
         """Gets the value of the version field for the Guid."""
         ...
 
+    def __eq__(self, b: System.Guid) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.Guid) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.Guid) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.Guid) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: System.Guid) -> bool:
+        ...
+
     @overload
     def __init__(self, b: typing.List[int]) -> None:
         ...
@@ -4347,6 +4820,33 @@ class Guid(System.ISpanFormattable, System.IComparable[System_Guid], System.IEqu
 
     @overload
     def __init__(self, g: str) -> None:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.Guid) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: System.Guid) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.Guid) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.Guid) -> bool:
+        ...
+
+    def __ne__(self, b: System.Guid) -> bool:
         ...
 
     @overload
@@ -5215,6 +5715,38 @@ class Char(System.IComparable[str], System.IEquatable[str], System.IConvertible,
     MAX_VALUE: str = ...
 
     MIN_VALUE: str = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: str) -> bool:
+        ...
 
     @overload
     def compare_to(self, value: typing.Any) -> int:
@@ -6742,6 +7274,78 @@ class ValueTuple(typing.Generic[System_ValueTuple_T1, System_ValueTuple_T2, Syst
         ...
 
     @overload
+    def __ge__(self, other: System.ValueTuple) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.ValueTuple[System_ValueTuple_T1]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7, System_ValueTuple_TRest]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.ValueTuple) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.ValueTuple[System_ValueTuple_T1]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7, System_ValueTuple_TRest]) -> bool:
+        ...
+
+    @overload
     def __init__(self, item_1: System_ValueTuple_T1) -> None:
         """
         Initializes a new instance of the ValueTuple{T1} value type.
@@ -6839,6 +7443,78 @@ class ValueTuple(typing.Generic[System_ValueTuple_T1, System_ValueTuple_T2, Syst
         :param item_7: The value of the tuple's seventh component.
         :param rest: The value of the tuple's eight component.
         """
+        ...
+
+    @overload
+    def __le__(self, other: System.ValueTuple) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.ValueTuple[System_ValueTuple_T1]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7, System_ValueTuple_TRest]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.ValueTuple) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.ValueTuple[System_ValueTuple_T1]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.ValueTuple[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7, System_ValueTuple_TRest]) -> bool:
         ...
 
     @overload
@@ -7132,7 +7808,26 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
     def length(self) -> int:
         ...
 
+    def __eq__(self, b: str) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: str) -> bool:
+        ...
+
     def __getitem__(self, index: int) -> str:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: str) -> bool:
         ...
 
     @overload
@@ -7164,6 +7859,25 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
         ...
 
     def __iter__(self) -> typing.Iterator[str]:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: str) -> bool:
+        ...
+
+    def __ne__(self, b: str) -> bool:
         ...
 
     def clone(self) -> System.Object:
@@ -7927,6 +8641,12 @@ class TimeZoneInfo(System.Object, System.IEquatable[System_TimeZoneInfo], System
         def is_fixed_date_rule(self) -> bool:
             ...
 
+        def __eq__(self, t_2: System.TimeZoneInfo.TransitionTime) -> bool:
+            ...
+
+        def __ne__(self, t_2: System.TimeZoneInfo.TransitionTime) -> bool:
+            ...
+
         @staticmethod
         def create_fixed_date_rule(time_of_day: typing.Union[datetime.datetime, datetime.date], month: int, day: int) -> System.TimeZoneInfo.TransitionTime:
             ...
@@ -8277,12 +8997,62 @@ class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr]
 
     MIN_VALUE: System.IntPtr
 
+    def __add__(self, offset: int) -> System.IntPtr:
+        ...
+
+    def __eq__(self, value_2: System.IntPtr) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.IntPtr) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.IntPtr) -> bool:
+        ...
+
+    def __iadd__(self, offset: int) -> System.IntPtr:
+        ...
+
     @overload
     def __init__(self, value: typing.Any) -> None:
         ...
 
     @overload
     def __init__(self, value: int) -> None:
+        ...
+
+    def __isub__(self, offset: int) -> System.IntPtr:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.IntPtr) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.IntPtr) -> bool:
+        ...
+
+    def __ne__(self, value_2: System.IntPtr) -> bool:
+        ...
+
+    def __sub__(self, offset: int) -> System.IntPtr:
         ...
 
     @staticmethod
@@ -8537,12 +9307,62 @@ class UIntPtr(System.IEquatable[System_UIntPtr], System.IComparable[System_UIntP
 
     MIN_VALUE: System.UIntPtr
 
+    def __add__(self, offset: int) -> System.UIntPtr:
+        ...
+
+    def __eq__(self, value_2: System.UIntPtr) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.UIntPtr) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.UIntPtr) -> bool:
+        ...
+
+    def __iadd__(self, offset: int) -> System.UIntPtr:
+        ...
+
     @overload
     def __init__(self, value: typing.Any) -> None:
         ...
 
     @overload
     def __init__(self, value: int) -> None:
+        ...
+
+    def __isub__(self, offset: int) -> System.UIntPtr:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.UIntPtr) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.UIntPtr) -> bool:
+        ...
+
+    def __ne__(self, value_2: System.UIntPtr) -> bool:
+        ...
+
+    def __sub__(self, offset: int) -> System.UIntPtr:
         ...
 
     @staticmethod
@@ -9189,6 +10009,38 @@ class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
 
     MIN_VALUE: int = ...
 
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
     @staticmethod
     def abs(value: int) -> int:
         ...
@@ -9476,6 +10328,38 @@ class Byte(System.IComparable[int], System.IConvertible, System.ISpanFormattable
 
     MIN_VALUE: int = 0
 
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
     @staticmethod
     def clamp(value: int, min: int, max: int) -> int:
         ...
@@ -9684,6 +10568,59 @@ class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanForma
 
     NEGATIVE_ONE: System.Int128
 
+    @overload
+    def __add__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __add__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __add__(self) -> System.Int128:
+        ...
+
+    def __and__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __eq__(self, right: System.Int128) -> bool:
+        ...
+
+    def __ge__(self, right: System.Int128) -> bool:
+        ...
+
+    def __gt__(self, right: System.Int128) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Int128:
+        ...
+
+    def __iand__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __ilshift__(self, shift_amount: int) -> System.Int128:
+        ...
+
+    def __imod__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Int128) -> System.Int128:
+        ...
+
     def __init__(self, upper: int, lower: int) -> None:
         """
         Initializes a new instance of the Int128 struct.
@@ -9691,6 +10628,98 @@ class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanForma
         :param upper: The upper 64-bits of the 128-bit value.
         :param lower: The lower 64-bits of the 128-bit value.
         """
+        ...
+
+    def __invert__(self) -> System.Int128:
+        ...
+
+    def __ior__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __irshift__(self, shift_amount: int) -> System.Int128:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __isub__(self) -> System.Int128:
+        ...
+
+    @overload
+    def __isub__(self) -> System.Int128:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __ixor__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __le__(self, right: System.Int128) -> bool:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.Int128:
+        ...
+
+    def __lt__(self, right: System.Int128) -> bool:
+        ...
+
+    def __mod__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __ne__(self, right: System.Int128) -> bool:
+        ...
+
+    def __or__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.Int128:
+        ...
+
+    @overload
+    def __sub__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __sub__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __sub__(self) -> System.Int128:
+        ...
+
+    @overload
+    def __sub__(self) -> System.Int128:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __xor__(self, right: System.Int128) -> System.Int128:
         ...
 
     @staticmethod
@@ -9915,6 +10944,38 @@ class Int64(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
 
     @staticmethod
     def abs(value: int) -> int:
@@ -10549,8 +11610,14 @@ class Type(System.Reflection.MemberInfo, System.Reflection.IReflect, metaclass=a
 
     FILTER_NAME_IGNORE_CASE: typing.Callable[[System.Reflection.MemberInfo, System.Object], bool] = ...
 
+    def __eq__(self, right: typing.Type) -> bool:
+        ...
+
     def __init__(self) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, right: typing.Type) -> bool:
         ...
 
     @overload
@@ -11126,6 +12193,59 @@ class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanF
 
     ZERO: System.UInt128
 
+    @overload
+    def __add__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __add__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __add__(self) -> System.UInt128:
+        ...
+
+    def __and__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __eq__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __ge__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __gt__(self, right: System.UInt128) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __iadd__(self) -> System.UInt128:
+        ...
+
+    def __iand__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __ilshift__(self, shift_amount: int) -> System.UInt128:
+        ...
+
+    def __imod__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __imul__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __imul__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
     def __init__(self, upper: int, lower: int) -> None:
         """
         Initializes a new instance of the UInt128 struct.
@@ -11133,6 +12253,98 @@ class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanF
         :param upper: The upper 64-bits of the 128-bit value.
         :param lower: The lower 64-bits of the 128-bit value.
         """
+        ...
+
+    def __invert__(self) -> System.UInt128:
+        ...
+
+    def __ior__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __irshift__(self, shift_amount: int) -> System.UInt128:
+        ...
+
+    @overload
+    def __isub__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __isub__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __isub__(self) -> System.UInt128:
+        ...
+
+    @overload
+    def __isub__(self) -> System.UInt128:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __ixor__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __le__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.UInt128:
+        ...
+
+    def __lt__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __mod__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __mul__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __mul__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __ne__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __or__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.UInt128:
+        ...
+
+    @overload
+    def __sub__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __sub__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __sub__(self) -> System.UInt128:
+        ...
+
+    @overload
+    def __sub__(self) -> System.UInt128:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __xor__(self, right: System.UInt128) -> System.UInt128:
         ...
 
     @staticmethod
@@ -11517,6 +12729,13 @@ class ReadOnlySpan(typing.Generic[System_ReadOnlySpan_T]):
     EMPTY: System.ReadOnlySpan[System_ReadOnlySpan_T]
     """Returns a 0-length read-only span whose base is the null pointer."""
 
+    def __eq__(self, right: System.ReadOnlySpan[System_ReadOnlySpan_T]) -> bool:
+        """
+        Returns true if left and right point at the same memory and have the same length.  Note that
+        this does *not* check to see if the *contents* are equal.
+        """
+        ...
+
     def __getitem__(self, index: int) -> typing.Any:
         """
         Returns the specified element of the read-only span.
@@ -11565,6 +12784,13 @@ class ReadOnlySpan(typing.Generic[System_ReadOnlySpan_T]):
         Creates a new ReadOnlySpan{T} of length 1 around the specified reference.
         
         :param reference: A reference to data.
+        """
+        ...
+
+    def __ne__(self, right: System.ReadOnlySpan[System_ReadOnlySpan_T]) -> bool:
+        """
+        Returns false if left and right point at the same memory and have the same length.  Note that
+        this does *not* check to see if the *contents* are equal.
         """
         ...
 
@@ -11981,6 +13207,38 @@ class SByte(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
 
     MIN_VALUE: int = ...
 
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
     @staticmethod
     def abs(value: int) -> int:
         ...
@@ -12219,6 +13477,55 @@ class Decimal(System.ISpanFormattable, System.IComparable[float], System.IConver
         ...
 
     @overload
+    def __add__(self) -> float:
+        ...
+
+    @overload
+    def __add__(self, d_2: float) -> float:
+        ...
+
+    def __eq__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self) -> float:
+        ...
+
+    @overload
+    def __iadd__(self, d_2: float) -> float:
+        ...
+
+    def __imod__(self, d_2: float) -> float:
+        ...
+
+    def __imul__(self, d_2: float) -> float:
+        ...
+
+    @overload
     def __init__(self, value: int) -> None:
         ...
 
@@ -12241,6 +13548,61 @@ class Decimal(System.ISpanFormattable, System.IComparable[float], System.IConver
 
     @overload
     def __init__(self, lo: int, mid: int, hi: int, is_negative: bool, scale: int) -> None:
+        ...
+
+    @overload
+    def __isub__(self) -> float:
+        ...
+
+    @overload
+    def __isub__(self, d_2: float) -> float:
+        ...
+
+    def __itruediv__(self, d_2: float) -> float:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, d_2: float) -> bool:
+        ...
+
+    def __mod__(self, d_2: float) -> float:
+        ...
+
+    def __mul__(self, d_2: float) -> float:
+        ...
+
+    def __ne__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __sub__(self) -> float:
+        ...
+
+    @overload
+    def __sub__(self, d_2: float) -> float:
+        ...
+
+    def __truediv__(self, d_2: float) -> float:
         ...
 
     @staticmethod
@@ -12588,6 +13950,38 @@ class Boolean(System.IComparable[bool], System.IConvertible, System.IEquatable[b
     FALSE_STRING: str = ...
 
     @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: bool) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: bool) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: bool) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: bool) -> bool:
+        ...
+
+    @overload
     def compare_to(self, obj: typing.Any) -> int:
         ...
 
@@ -12647,6 +14041,38 @@ class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
 
     @staticmethod
     def abs(value: int) -> int:
@@ -13532,6 +14958,57 @@ class TimeSpan(System.IComparable[datetime.timedelta], System.IEquatable[datetim
         ...
 
     @overload
+    def __add__(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __add__(self, t_2: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    def __eq__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __iadd__(self, t_2: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __imul__(self, factor: float) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __imul__(self, time_span: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    @overload
     def __init__(self, ticks: int) -> None:
         ...
 
@@ -13570,6 +15047,73 @@ class TimeSpan(System.IComparable[datetime.timedelta], System.IEquatable[datetim
         :param milliseconds: Number of milliseconds.
         :param microseconds: Number of microseconds.
         """
+        ...
+
+    @overload
+    def __isub__(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __isub__(self, t_2: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __itruediv__(self, divisor: float) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __itruediv__(self, t_2: datetime.timedelta) -> float:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __le__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __mul__(self, factor: float) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __mul__(self, time_span: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    def __ne__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __sub__(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __sub__(self, t_2: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __truediv__(self, divisor: float) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __truediv__(self, t_2: datetime.timedelta) -> float:
         ...
 
     def add(self, ts: datetime.timedelta) -> datetime.timedelta:
@@ -14041,6 +15585,60 @@ class Double(System.IComparable[float], System.IConvertible, System.ISpanFormatt
 
     TAU: float = ...
     """Represents the number of radians in one turn, specified by the constant, Tau."""
+
+    def __eq__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: float) -> bool:
+        ...
+
+    def __ne__(self, right: float) -> bool:
+        ...
 
     @staticmethod
     def abs(value: float) -> float:
@@ -15016,6 +16614,60 @@ class Single(System.IComparable[float], System.IConvertible, System.ISpanFormatt
     TAU: float = ...
     """Represents the number of radians in one turn, specified by the constant, Tau."""
 
+    def __eq__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: float) -> bool:
+        ...
+
+    def __ne__(self, right: float) -> bool:
+        ...
+
     @staticmethod
     def abs(value: float) -> float:
         ...
@@ -15551,6 +17203,110 @@ class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEqu
     ZERO: System.Half
 
     NEGATIVE_ONE: System.Half
+
+    @overload
+    def __add__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __add__(self) -> System.Half:
+        ...
+
+    def __eq__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.Half) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.Half) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Half:
+        ...
+
+    def __imod__(self, right: System.Half) -> System.Half:
+        ...
+
+    def __imul__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __isub__(self) -> System.Half:
+        ...
+
+    def __itruediv__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.Half) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.Half) -> bool:
+        ...
+
+    def __mod__(self, right: System.Half) -> System.Half:
+        ...
+
+    def __mul__(self, right: System.Half) -> System.Half:
+        ...
+
+    def __ne__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __sub__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __sub__(self) -> System.Half:
+        ...
+
+    def __truediv__(self, right: System.Half) -> System.Half:
+        ...
 
     @staticmethod
     def abs(value: System.Half) -> System.Half:
@@ -18137,6 +19893,9 @@ class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.IS
     def target(self) -> System.Object:
         ...
 
+    def __eq__(self, d_2: System.Delegate) -> bool:
+        ...
+
     @overload
     def __init__(self, target: typing.Any, method: str) -> None:
         """This method is protected."""
@@ -18145,6 +19904,9 @@ class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.IS
     @overload
     def __init__(self, target: typing.Type, method: str) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, d_2: System.Delegate) -> bool:
         ...
 
     def clone(self) -> System.Object:
@@ -18268,6 +20030,38 @@ class UInt16(System.IComparable[int], System.IConvertible, System.ISpanFormattab
     MAX_VALUE: int = ...
 
     MIN_VALUE: int = 0
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
 
     @staticmethod
     def clamp(value: int, min: int, max: int) -> int:
@@ -19174,6 +20968,38 @@ class UInt64(System.IComparable[int], System.IConvertible, System.ISpanFormattab
 
     MIN_VALUE: int = ...
 
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
     @staticmethod
     def big_mul(left: int, right: int) -> System.UInt128:
         """
@@ -19506,6 +21332,13 @@ class Span(typing.Generic[System_Span_T]):
     EMPTY: System.Span[System_Span_T]
     """Returns an empty Span{T}"""
 
+    def __eq__(self, right: System.Span[System_Span_T]) -> bool:
+        """
+        Returns true if left and right point at the same memory and have the same length.  Note that
+        this does *not* check to see if the *contents* are equal.
+        """
+        ...
+
     def __getitem__(self, index: int) -> typing.Any:
         """
         Returns a reference to specified element of the Span.
@@ -19554,6 +21387,13 @@ class Span(typing.Generic[System_Span_T]):
         Creates a new Span{T} of length 1 around the specified reference.
         
         :param reference: A reference to data.
+        """
+        ...
+
+    def __ne__(self, right: System.Span[System_Span_T]) -> bool:
+        """
+        Returns false if left and right point at the same memory and have the same length.  Note that
+        this does *not* check to see if the *contents* are equal.
         """
         ...
 
@@ -19717,6 +21557,9 @@ class ArraySegment(typing.Generic[System_ArraySegment_T], System.Collections.Gen
     def count(self) -> int:
         ...
 
+    def __eq__(self, b: System.ArraySegment[System_ArraySegment_T]) -> bool:
+        ...
+
     def __getitem__(self, index: int) -> System_ArraySegment_T:
         ...
 
@@ -19729,6 +21572,9 @@ class ArraySegment(typing.Generic[System_ArraySegment_T], System.Collections.Gen
         ...
 
     def __iter__(self) -> typing.Iterator[System_ArraySegment_T]:
+        ...
+
+    def __ne__(self, b: System.ArraySegment[System_ArraySegment_T]) -> bool:
         ...
 
     def __setitem__(self, index: int, value: System_ArraySegment_T) -> None:
@@ -19933,6 +21779,9 @@ class StackOverflowException(System.SystemException):
 class MulticastDelegate(System.Delegate, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
+    def __eq__(self, d_2: System.MulticastDelegate) -> bool:
+        ...
+
     @overload
     def __init__(self, target: typing.Any, method: str) -> None:
         """This method is protected."""
@@ -19941,6 +21790,9 @@ class MulticastDelegate(System.Delegate, System.Runtime.Serialization.ISerializa
     @overload
     def __init__(self, target: typing.Type, method: str) -> None:
         """This method is protected."""
+        ...
+
+    def __ne__(self, d_2: System.MulticastDelegate) -> bool:
         ...
 
     def combine_impl(self, follow: System.Delegate) -> System.Delegate:
@@ -20389,7 +22241,13 @@ class ConsoleKeyInfo(System.IEquatable[System_ConsoleKeyInfo]):
     def modifiers(self) -> System.ConsoleModifiers:
         ...
 
+    def __eq__(self, b: System.ConsoleKeyInfo) -> bool:
+        ...
+
     def __init__(self, key_char: str, key: System.ConsoleKey, shift: bool, alt: bool, control: bool) -> None:
+        ...
+
+    def __ne__(self, b: System.ConsoleKeyInfo) -> bool:
         ...
 
     @overload

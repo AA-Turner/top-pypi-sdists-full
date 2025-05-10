@@ -83,6 +83,10 @@ class ModalClientStub:
     These RPCs are experimental, not deployed to production, and can be changed / removed
     without needing to worry about backwards compatibility.
     """
+    AttemptRetry: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AttemptRetryRequest,
+        modal_proto.api_pb2.AttemptRetryResponse,
+    ]
     AttemptStart: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.AttemptStartRequest,
         modal_proto.api_pb2.AttemptStartResponse,
@@ -746,6 +750,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         These RPCs are experimental, not deployed to production, and can be changed / removed
         without needing to worry about backwards compatibility.
         """
+    @abc.abstractmethod
+    def AttemptRetry(
+        self,
+        request: modal_proto.api_pb2.AttemptRetryRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AttemptRetryResponse: ...
     @abc.abstractmethod
     def AttemptStart(
         self,

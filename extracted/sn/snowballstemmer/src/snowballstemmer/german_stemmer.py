@@ -1,5 +1,5 @@
 #-*- coding: utf-8 -*-
-# Generated from german.sbl by Snowball 3.0.0 - https://snowballstem.org/
+# Generated from german.sbl by Snowball 3.0.1 - https://snowballstem.org/
 
 from .basestemmer import BaseStemmer
 from .among import Among
@@ -8,7 +8,7 @@ from .among import Among
 class GermanStemmer(BaseStemmer):
     '''
     This class implements the stemming algorithm defined by a snowball script.
-    Generated from german.sbl by Snowball 3.0.0 - https://snowballstem.org/
+    Generated from german.sbl by Snowball 3.0.1 - https://snowballstem.org/
     '''
 
     g_v = {u"a", u"e", u"i", u"o", u"u", u"y", u"ä", u"ö", u"ü"}

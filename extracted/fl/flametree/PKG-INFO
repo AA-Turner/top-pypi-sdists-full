@@ -1,15 +1,13 @@
 Metadata-Version: 2.4
 Name: flametree
-Version: 0.2.0
+Version: 0.2.1
 Summary: Python file and zip operations made easy
-Home-page: https://github.com/Edinburgh-Genome-Foundry/Flametree
 Author: Zulko
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/Edinburgh-Genome-Foundry/Flametree
 Keywords: file system,zip,archive,file,directory
 Description-Content-Type: text/x-rst
-License-File: LICENCE.txt
-Dynamic: home-page
+License-File: LICENSE
 Dynamic: license-file
 
 Flametree

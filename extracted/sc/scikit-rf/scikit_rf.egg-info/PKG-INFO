@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: scikit-rf
-Version: 1.6.2
+Version: 1.7.0
 Summary: Object Oriented Microwave Engineering
 Author-email: Alex Arsenovic <alexanderarsenovic@gmail.com>
 License: LICENSE.txt

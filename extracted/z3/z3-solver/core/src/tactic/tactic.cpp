@@ -74,7 +74,6 @@ void report_tactic_progress(char const * id, unsigned val) {
         IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(" << id << " " << val << ")\n");        
     }
 }
-
 statistics_report::~statistics_report() {
     statistics st;
     if (m_tactic)
@@ -100,13 +99,22 @@ class lazy_tactic : public tactic {
     params_ref p;
     std::function<tactic* (ast_manager& m, params_ref const& p)> m_mk_tactic;
     tactic* m_tactic = nullptr;
-    void ensure_tactic() { if (!m_tactic) m_tactic = m_mk_tactic(m, p); }
+    void ensure_tactic() {
+        if (!m_tactic) {
+            m_tactic = m_mk_tactic(m, p);
+            m_tactic->updt_params(p);
+        }
+    }
 public:
     lazy_tactic(ast_manager& m, params_ref const& p, std::function<tactic* (ast_manager&, params_ref const&)> mk_tactic) : m(m), p(p), m_mk_tactic(mk_tactic) {}
     ~lazy_tactic() override { dealloc(m_tactic); }
     void operator()(goal_ref const& in, goal_ref_buffer& result) override {
         ensure_tactic();
         (*m_tactic)(in, result);
+    }
+    void updt_params(params_ref const& p) override { 
+        this->p.append(p);
+        if (m_tactic) m_tactic->updt_params(p);
     }
     void cleanup() override { if (m_tactic) m_tactic->cleanup(); }
     char const* name() const override { return "lazy tactic"; }

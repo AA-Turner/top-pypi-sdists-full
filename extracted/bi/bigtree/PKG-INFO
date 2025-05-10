@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigtree
-Version: 0.28.0
+Version: 0.29.0
 Summary: Tree Implementation and Methods for Python, integrated with list, dictionary, pandas and polars DataFrame.
 Project-URL: Documentation, https://bigtree.readthedocs.io
 Project-URL: Issues, https://github.com/kayjan/bigtree/issues
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.8
 Provides-Extra: all
+Requires-Dist: lark; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
 Requires-Dist: pandas; extra == 'all'
 Requires-Dist: pillow; extra == 'all'
@@ -37,6 +38,8 @@ Provides-Extra: pandas
 Requires-Dist: pandas; extra == 'pandas'
 Provides-Extra: polars
 Requires-Dist: polars; extra == 'polars'
+Provides-Extra: query
+Requires-Dist: lark; extra == 'query'
 Provides-Extra: vis
 Requires-Dist: pyvis; extra == 'vis'
 Description-Content-Type: text/markdown
@@ -61,8 +64,8 @@ Related Links:
   - [PyPI](https://pypi.org/project/bigtree/)
   / [Conda](https://anaconda.org/conda-forge/bigtree)
 - Articles
-  - [Python Tree Implementation with BigTree](https://towardsdatascience.com/python-tree-implementation-with-bigtree-13cdabd77adc#245a-94ae81f0b3f1)
-  - [The Reingold Tilford Algorithm Explained, with Walkthrough](https://towardsdatascience.com/reingold-tilford-algorithm-explained-with-walkthrough-be5810e8ed93?sk=2db8e10398cee76c486c4b06b0b33322)
+  - [Python Tree Implementation with BigTree](https://medium.com/data-science/python-tree-implementation-with-bigtree-13cdabd77adc#245a-94ae81f0b3f1)
+  - [The Reingold Tilford Algorithm Explained, with Walkthrough](https://medium.com/data-science/reingold-tilford-algorithm-explained-with-walkthrough-be5810e8ed93?sk=2db8e10398cee76c486c4b06b0b33322)
 - <div><p>If you want to support bigtree, <a href="https://www.buymeacoffee.com/kayjan"><img src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee" style="vertical-align:middle"></a></p></div>
 
 -----
@@ -70,7 +73,7 @@ Related Links:
 ## Components
 There are 3 segments to Big Tree consisting of Tree, Binary Tree, and Directed Acyclic Graph (DAG) implementation.
 
-For **Tree** implementation, there are 9 main components.
+For **Tree** implementation, there are 10 main components.
 
 1. [**🌺 Node**](https://bigtree.readthedocs.io/en/stable/bigtree/node/node)
    1. ``BaseNode``, extendable class
@@ -138,7 +141,7 @@ Binary Node inherits from Node, so the components in Tree implementation are als
 
 -----
 
-For **Directed Acyclic Graph (DAG)** implementation, there are 4 main components.
+For **Directed Acyclic Graph (DAG)** implementation, there are 5 main components.
 
 1. [**🌼 Node**](https://bigtree.readthedocs.io/en/stable/bigtree/node/dagnode)
    1. ``DAGNode``, extendable class for constructing Directed Acyclic Graph (DAG)

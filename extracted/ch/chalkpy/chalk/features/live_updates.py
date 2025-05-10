@@ -10,17 +10,10 @@ from chalk.utils.log_with_context import get_logger
 if TYPE_CHECKING:
     import IPython
     import IPython.core.interactiveshell
-    import pydantic.fields as pydantic_fields
 
     from chalk.client.models import UpdateGraphEntityResponse
     from chalk.features.feature_set import Features
     from chalk.features.resolver import OfflineResolver, OnlineResolver, Resolver
-
-else:
-    try:
-        import pydantic.v1.fields as pydantic_fields
-    except ImportError:
-        import pydantic.fields as pydantic_fields
 
 _logger = get_logger(__name__)
 
@@ -211,8 +204,15 @@ def register_pydantic_serializer():
 
     Borrowed from: https://github.com/ray-project/ray/blob/master/python/ray/util/serialization_addons.py
     """
+    try:
+        import pydantic.v1.fields as pydantic_fields
+    except ImportError:
+        try:
+            import pydantic.fields as pydantic_fields
+        except ImportError:
+            return
 
-    def _custom_serializer(o: pydantic_fields.ModelField):
+    def _custom_serializer(o: "pydantic_fields.ModelField"):
         return {
             "name": o.name,
             # outer_type_ is the original type for ModelFields,
@@ -247,7 +247,7 @@ def register_live_updates_if_in_notebook(cls: Any):
     if notebook.is_notebook():
         if not hasattr(cls, "hook"):
             raise TypeError(f"{cls} has no hook attribute")
-        setattr(cls, "hook", _add_object_to_cache)
+        cls.hook = _add_object_to_cache
 
 
 def initialize_live_updates_if_in_notebook():

@@ -197,10 +197,10 @@ if __name__ == '__main__':
     token = "7d9969ffd8ad2edda7da8fff11cb9434"
     token = "1513337bdba08a1a77fedad95c03bc6c"
     token = "b1cd6317e4d161bbb3889b9defd769ff"
-    token = "ed16bb360a4744696f88a7b52b7c10a3"
-    # arun(check_token(token))
+    token = "d2d142fc877e696484cc2fc521127b36"
+    arun(check_token(token))
 
-    arun(get_upload_token(token, 'video'))
+    # arun(get_upload_token(token, 'video'))
 
     # print(arun(aget_spreadsheet_values(feishu_url=FEISHU_URL, to_dataframe=True))[0].tolist())
     # tokens = arun(get_series(FEISHU_URL))

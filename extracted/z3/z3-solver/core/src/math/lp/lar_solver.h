@@ -32,7 +32,6 @@
 #include "math/lp/lar_constraints.h"
 #include "math/lp/lar_core_solver.h"
 #include "math/lp/lp_bound_propagator.h"
-#include "math/lp/lp_primal_core_solver.h"
 #include "math/lp/lp_types.h"
 #include "math/lp/nra_solver.h"
 #include "math/lp/numeric_pair.h"
@@ -74,6 +73,14 @@ class lar_solver : public column_namer {
         }
     };
 
+    struct column_update {
+        bool m_is_upper;
+        unsigned m_j;
+        impq m_bound;
+        column m_column;
+    };
+    struct column_update_trail;
+
     //////////////////// fields //////////////////////////
     trail_stack m_trail;
     lp_settings m_settings;
@@ -87,6 +94,8 @@ class lar_solver : public column_namer {
     bool m_need_register_terms = false;
     var_register m_var_register;
     svector<column> m_columns;
+    vector<column_update> m_column_updates;
+    
     constraint_set m_constraints;
     // the set of column indices j such that bounds have changed for j
     indexed_uint_set m_columns_with_changed_bounds;
@@ -202,8 +211,8 @@ class lar_solver : public column_namer {
     
     void pop_core_solver_params();
     void pop_core_solver_params(unsigned k);
-    void set_upper_bound_witness(lpvar j, u_dependency* ci);
-    void set_lower_bound_witness(lpvar j, u_dependency* ci);
+    void set_upper_bound_witness(lpvar j, u_dependency* ci, impq const& high);
+    void set_lower_bound_witness(lpvar j, u_dependency* ci, impq const& low);
     void substitute_terms_in_linear_expression(const vector<std::pair<mpq, lpvar>>& left_side_with_terms,
                                                vector<std::pair<mpq, lpvar>>& left_side) const;
 
@@ -335,7 +344,7 @@ public:
                 int sign = j_sign * a_sign;
                 const column& ul = m_columns[j];
                 auto* witness = sign > 0 ? ul.upper_bound_witness() : ul.lower_bound_witness();
-                lp_assert(witness);
+                SASSERT(witness);
                 for (auto ci : flatten(witness))
                     bp.consume(a, ci);
             }
@@ -453,7 +462,7 @@ public:
     void set_value_for_nbasic_column_report(unsigned j,
                                             const impq& new_val,
                                             const ChangeReport& after) {
-        lp_assert(!is_base(j));
+        SASSERT(!is_base(j));
         auto& x = m_mpq_lar_core_solver.r_x(j);
         auto delta = new_val - x;
         x = new_val;
@@ -524,7 +533,7 @@ public:
     }
 
     inline mpq bound_span_x(lpvar j) const {
-        return m_mpq_lar_core_solver.m_r_solver.m_upper_bounds[j].x - m_mpq_lar_core_solver.m_r_solver.m_lower_bounds[j].x;
+        return get_upper_bound(j).x - get_lower_bound(j).x;
     }
     
     bool has_lower_bound(lpvar var, u_dependency*& ci, mpq& value, bool& is_strict) const;
@@ -617,11 +626,13 @@ public:
     }
     inline bool column_has_term(lpvar j) const { return m_columns[j].term() != nullptr; }
 
-    std::ostream& print_column_info(unsigned j, std::ostream& out) const {
-        m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+    std::ostream& print_column_info(unsigned j, std::ostream& out, bool print_expl = false) const {
+        m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out, false);
         if (column_has_term(j)) 
-            print_term_as_indices(get_term(j), out) << "\n";       
-        display_column_explanation(out, j);
+            print_term_as_indices(get_term(j), out << "   := ") << " ";
+        out << "\n";
+        if (print_expl)
+            display_column_explanation(out, j);        
         return out;
     }
 
@@ -630,10 +641,18 @@ public:
         svector<unsigned> vs1, vs2;
         m_dependencies.linearize(ul.lower_bound_witness(), vs1);
         m_dependencies.linearize(ul.upper_bound_witness(), vs2);
-        if (!vs1.empty())
-            out << "lo: " << vs1;
-        if (!vs2.empty())
-            out << "hi: " << vs2;
+        if (!vs1.empty()) {
+            out << " lo:\n";
+            for (unsigned ci : vs1) {
+                display_constraint(out, ci) << "\n";
+            }
+        }
+        if (!vs2.empty()) {
+            out << " hi:\n";
+            for (unsigned ci : vs2) {
+                display_constraint(out, ci) << "\n";
+            }
+        }     
         if (!vs1.empty() || !vs2.empty())
             out << "\n";
         return out;
@@ -716,6 +735,10 @@ public:
             return 0;
         return m_usage_in_terms[j];
     }
+
+    std::string get_bounds_string(unsigned j) const;
+    void write_bound_lemma(unsigned j, bool is_low, const std::string & location, std::ostream & out) const;
+
     std::function<void (const indexed_uint_set& columns_with_changed_bound)> m_find_monics_with_changed_bounds_func = nullptr;
     friend int_solver;
     friend int_branch;

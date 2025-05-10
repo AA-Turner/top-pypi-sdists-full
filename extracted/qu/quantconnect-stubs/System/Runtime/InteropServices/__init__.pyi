@@ -1102,12 +1102,18 @@ class GCHandle(typing.Generic[System_Runtime_InteropServices_GCHandle_T], System
     def target(self, value: System_Runtime_InteropServices_GCHandle_T) -> None:
         ...
 
+    def __eq__(self, b: System.Runtime.InteropServices.GCHandle) -> bool:
+        ...
+
     def __init__(self, target: System_Runtime_InteropServices_GCHandle_T) -> None:
         """
         Allocates a handle for the specified object.
         
         :param target: The object that uses the GCHandle{T}.
         """
+        ...
+
+    def __ne__(self, b: System.Runtime.InteropServices.GCHandle) -> bool:
         ...
 
     def addr_of_pinned_object(self) -> System.IntPtr:
@@ -1310,6 +1316,12 @@ class OSPlatform(System.IEquatable[System_Runtime_InteropServices_OSPlatform]):
     OSX: System.Runtime.InteropServices.OSPlatform
 
     WINDOWS: System.Runtime.InteropServices.OSPlatform
+
+    def __eq__(self, right: System.Runtime.InteropServices.OSPlatform) -> bool:
+        ...
+
+    def __ne__(self, right: System.Runtime.InteropServices.OSPlatform) -> bool:
+        ...
 
     @staticmethod
     def create(os_platform: str) -> System.Runtime.InteropServices.OSPlatform:
@@ -2048,7 +2060,13 @@ class ErrorWrapper(System.Object):
 class ArrayWithOffset(System.IEquatable[System_Runtime_InteropServices_ArrayWithOffset]):
     """This class has no documentation."""
 
+    def __eq__(self, b: System.Runtime.InteropServices.ArrayWithOffset) -> bool:
+        ...
+
     def __init__(self, array: typing.Any, offset: int) -> None:
+        ...
+
+    def __ne__(self, b: System.Runtime.InteropServices.ArrayWithOffset) -> bool:
         ...
 
     @overload
@@ -3014,11 +3032,251 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
 
     NEGATIVE_ZERO: System.Runtime.InteropServices.NFloat
 
+    @overload
+    def __add__(self) -> System.Runtime.InteropServices.NFloat:
+        """
+        Computes the unary plus of a value.
+        
+        :param value: The value for which to compute its unary plus.
+        :returns: The unary plus of .
+        """
+        ...
+
+    @overload
+    def __add__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Adds two values together to compute their sum.
+        
+        :param left: The value to which  is added.
+        :param right: The value which is added to .
+        :returns: The sum of  and .
+        """
+        ...
+
+    def __eq__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+        """
+        Compares two values to determine equality.
+        
+        :param left: The value to compare with .
+        :param right: The value to compare with .
+        :returns: true if  is equal to ; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+        """
+        Compares two values to determine which is greater or equal.
+        
+        :param left: The value to compare with .
+        :param right: The value to compare with .
+        :returns: true if  is greater than or equal to ; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __ge__(self, other: System.Runtime.InteropServices.NFloat) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+        """
+        Compares two values to determine which is greater.
+        
+        :param left: The value to compare with .
+        :param right: The value to compare with .
+        :returns: true if  is greater than ; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __gt__(self, other: System.Runtime.InteropServices.NFloat) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Runtime.InteropServices.NFloat:
+        """
+        Computes the unary plus of a value.
+        
+        :param value: The value for which to compute its unary plus.
+        :returns: The unary plus of .
+        """
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Adds two values together to compute their sum.
+        
+        :param left: The value to which  is added.
+        :param right: The value which is added to .
+        :returns: The sum of  and .
+        """
+        ...
+
+    def __imod__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Divides two values together to compute their remainder.
+        
+        :param left: The value which  divides.
+        :param right: The value which divides .
+        :returns: The remainder of  divided-by .
+        """
+        ...
+
+    def __imul__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Multiplies two values together to compute their product.
+        
+        :param left: The value which  multiplies.
+        :param right: The value which multiplies .
+        :returns: The product of  multiplied-by .
+        """
+        ...
+
     def __init__(self, value: float) -> None:
         """
         Constructs an instance from a 32-bit floating point value.
         
         :param value: The floating-point value.
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> System.Runtime.InteropServices.NFloat:
+        """
+        Computes the unary negation of a value.
+        
+        :param value: The value for which to compute its unary negation.
+        :returns: The unary negation of .
+        """
+        ...
+
+    @overload
+    def __isub__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Subtracts two values to compute their difference.
+        
+        :param left: The value from which  is subtracted.
+        :param right: The value which is subtracted from .
+        :returns: The difference of  subtracted from .
+        """
+        ...
+
+    def __itruediv__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Divides two values together to compute their quotient.
+        
+        :param left: The value which  divides.
+        :param right: The value which divides .
+        :returns: The quotient of  divided-by .
+        """
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+        """
+        Compares two values to determine which is less or equal.
+        
+        :param left: The value to compare with .
+        :param right: The value to compare with .
+        :returns: true if  is less than or equal to ; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __le__(self, other: System.Runtime.InteropServices.NFloat) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+        """
+        Compares two values to determine which is less.
+        
+        :param left: The value to compare with .
+        :param right: The value to compare with .
+        :returns: true if  is less than ; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __lt__(self, other: System.Runtime.InteropServices.NFloat) -> bool:
+        ...
+
+    def __mod__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Divides two values together to compute their remainder.
+        
+        :param left: The value which  divides.
+        :param right: The value which divides .
+        :returns: The remainder of  divided-by .
+        """
+        ...
+
+    def __mul__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Multiplies two values together to compute their product.
+        
+        :param left: The value which  multiplies.
+        :param right: The value which multiplies .
+        :returns: The product of  multiplied-by .
+        """
+        ...
+
+    def __ne__(self, right: System.Runtime.InteropServices.NFloat) -> bool:
+        """
+        Compares two values to determine inequality.
+        
+        :param left: The value to compare with .
+        :param right: The value to compare with .
+        :returns: true if  is not equal to ; otherwise, false.
+        """
+        ...
+
+    @overload
+    def __sub__(self) -> System.Runtime.InteropServices.NFloat:
+        """
+        Computes the unary negation of a value.
+        
+        :param value: The value for which to compute its unary negation.
+        :returns: The unary negation of .
+        """
+        ...
+
+    @overload
+    def __sub__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Subtracts two values to compute their difference.
+        
+        :param left: The value from which  is subtracted.
+        :param right: The value which is subtracted from .
+        :returns: The difference of  subtracted from .
+        """
+        ...
+
+    def __truediv__(self, right: System.Runtime.InteropServices.NFloat) -> System.Runtime.InteropServices.NFloat:
+        """
+        Divides two values together to compute their quotient.
+        
+        :param left: The value which  divides.
+        :param right: The value which divides .
+        :returns: The quotient of  divided-by .
         """
         ...
 

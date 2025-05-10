@@ -5,3 +5,5 @@ from .python_codon_tables import (
     get_all_available_codons_tables,
     download_codons_table,
 )
+
+from .version import __version__

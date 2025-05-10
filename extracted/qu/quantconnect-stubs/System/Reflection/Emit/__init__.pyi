@@ -263,6 +263,12 @@ class Label(System.IEquatable[System_Reflection_Emit_Label]):
         """Gets the label unique id assigned by the ILGenerator."""
         ...
 
+    def __eq__(self, b: System.Reflection.Emit.Label) -> bool:
+        ...
+
+    def __ne__(self, b: System.Reflection.Emit.Label) -> bool:
+        ...
+
     @overload
     def equals(self, obj: typing.Any) -> bool:
         ...
@@ -433,6 +439,12 @@ class OpCode(System.IEquatable[System_Reflection_Emit_OpCode]):
 
     @property
     def name(self) -> str:
+        ...
+
+    def __eq__(self, b: System.Reflection.Emit.OpCode) -> bool:
+        ...
+
+    def __ne__(self, b: System.Reflection.Emit.OpCode) -> bool:
         ...
 
     @overload

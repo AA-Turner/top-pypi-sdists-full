@@ -17,7 +17,7 @@ from setuptools import setup
 from setuptools import find_packages
 from setuptools import Extension
 
-version = '3.10.3'
+version = '3.11.0'
 
 # If CXX is defined in the environment, it will be used to link the .so
 # but setuptools will be confused if it is made of several words like 'ccache g++'
@@ -45,14 +45,14 @@ if 'CC' in os.environ and os.environ['CC'].strip().find(' ') >= 0:
 # Switches
 # ---------------------------------------------------------------------------
 
-is_standalone_build = not os.path.exists('/home/even/gdal/3.10/build/swig/python')
+is_standalone_build = not os.path.exists('/home/even/gdal/3.11/build/swig/python')
 
 if is_standalone_build:
     include_dirs = []
     library_dirs = []
 else:
-    include_dirs = ['/home/even/gdal/3.10/build/port', '/home/even/gdal/3.10/port', '/home/even/gdal/3.10/build/gcore', '/home/even/gdal/3.10/gcore', '/home/even/gdal/3.10/alg', '/home/even/gdal/3.10/ogr/', '/home/even/gdal/3.10/ogr/ogrsf_frmts', '/home/even/gdal/3.10/gnm', '/home/even/gdal/3.10/apps']
-    library_dirs = ['/home/even/gdal/3.10/build']
+    include_dirs = ['/home/even/gdal/3.11/build/port', '/home/even/gdal/3.11/port', '/home/even/gdal/3.11/build/gcore', '/home/even/gdal/3.11/gcore', '/home/even/gdal/3.11/alg', '/home/even/gdal/3.11/ogr/', '/home/even/gdal/3.11/ogr/ogrsf_frmts', '/home/even/gdal/3.11/gnm', '/home/even/gdal/3.11/apps']
+    library_dirs = ['/home/even/gdal/3.11/build']
 libraries = ['gdal']
 
 
@@ -186,20 +186,32 @@ if sys.platform == 'win32':
 
 numpy_include_dir = '.'
 numpy_error_msg = ""
-try:
-    numpy_include_dir = get_numpy_include()
-    HAVE_NUMPY = numpy_include_dir != '.'
-    if not HAVE_NUMPY:
-        numpy_error_msg = "numpy found, but numpy headers were not found!"
-except ImportError:
-    HAVE_NUMPY = False
-    numpy_error_msg = "numpy not available!"
 
-if not HAVE_NUMPY:
-   if "GDAL_PYTHON_BINDINGS_WITHOUT_NUMPY" in os.environ:
-      print("WARNING: " + numpy_error_msg + " Array support will not be enabled.")
-   else:
-      raise Exception(numpy_error_msg + " This error may happen if you build/install using setup.py directly, but should normally not happen if you install using pip install. If you still want to build the bindings without numpy support, define the GDAL_PYTHON_BINDINGS_WITHOUT_NUMPY environment variable")
+do_numpy_detection = True
+if "GDAL_PYTHON_BINDINGS_WITHOUT_NUMPY" in os.environ:
+    v = os.environ["GDAL_PYTHON_BINDINGS_WITHOUT_NUMPY"].upper()
+    if v in ('YES', '1', 'ON', 'TRUE'):
+        do_numpy_detection = False
+    elif v not in ('NO', '0', 'OFF', 'FALSE'):
+        raise Exception("Unrecognized value for GDAL_PYTHON_BINDINGS_WITHOUT_NUMPY")
+
+if do_numpy_detection:
+    try:
+        numpy_include_dir = get_numpy_include()
+        HAVE_NUMPY = numpy_include_dir != '.'
+        if not HAVE_NUMPY:
+            numpy_error_msg = "numpy found, but numpy headers were not found!"
+    except ImportError:
+        HAVE_NUMPY = False
+        numpy_error_msg = "numpy not available!"
+
+    if not HAVE_NUMPY:
+        if "GDAL_PYTHON_BINDINGS_WITHOUT_NUMPY" in os.environ:
+            print("WARNING: " + numpy_error_msg + " Array support will not be enabled.")
+        else:
+            raise Exception(numpy_error_msg + " This error may happen if you build/install using setup.py directly, but should normally not happen if you install using pip install. If you still want to build the bindings without numpy support, define the GDAL_PYTHON_BINDINGS_WITHOUT_NUMPY environment variable")
+else:
+    HAVE_NUMPY = False
 
 class gdal_ext(build_ext):
 
