@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2017 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2017 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -397,8 +397,6 @@ public:
       // An example of an unneeded threadblock is one that is assigned to compute in the upper
       // portion of a Rank2K kernel filled with mode kLower.
       //
-      // TODO: Consider pushing these checks into ProblemVisitor to avoid spuriously
-      // returning from `next_tile()`.
       //
 
       // Early exit if threadblock is out of range

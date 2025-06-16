@@ -1259,8 +1259,12 @@ class BaseChatOpenAI(BaseChatModel):
         try:
             encoding = tiktoken.encoding_for_model(model)
         except KeyError:
-            model = "cl100k_base"
-            encoding = tiktoken.get_encoding(model)
+            encoder = "cl100k_base"
+            if self.model_name.startswith("gpt-4o") or self.model_name.startswith(
+                "gpt-4.1"
+            ):
+                encoder = "o200k_base"
+            encoding = tiktoken.get_encoding(encoder)
         return model, encoding
 
     def get_token_ids(self, text: str) -> list[int]:
@@ -3536,14 +3540,12 @@ def _convert_responses_chunk_to_generation_chunk(
             {"type": "text", "text": chunk.delta, "index": chunk.content_index}
         )
     elif chunk.type == "response.output_text.annotation.added":
-        content.append(
-            {
-                "annotations": [
-                    chunk.annotation.model_dump(exclude_none=True, mode="json")
-                ],
-                "index": chunk.content_index,
-            }
-        )
+        if isinstance(chunk.annotation, dict):
+            # Appears to be a breaking change in openai==1.82.0
+            annotation = chunk.annotation
+        else:
+            annotation = chunk.annotation.model_dump(exclude_none=True, mode="json")
+        content.append({"annotations": [annotation], "index": chunk.content_index})
     elif chunk.type == "response.created":
         response_metadata["id"] = chunk.response.id
     elif chunk.type == "response.completed":

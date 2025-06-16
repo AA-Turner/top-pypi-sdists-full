@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: tapystry
+Version: 0.4.0
+Summary: A redux-saga inspired effects library
+Home-page: https://github.com/wuthefwasthat/tapystry
+Author: Jeffrey Wu
+License: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3.7
+License-File: LICENSE
+
+UNKNOWN
+

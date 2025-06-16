@@ -1,5 +1,5 @@
 import { WidgetView } from '@jupyter-widgets/base';
-import { GeoJSON } from 'leaflet';
+import { ControlPosition, GeoJSON, Map } from 'leaflet';
 import L from '../leaflet';
 import { LayerShapes } from '../definitions/leaflet-extend';
 import { LeafletControlModel, LeafletControlView } from './Control';
@@ -44,7 +44,8 @@ export declare class LeafletGeomanDrawControlView extends LeafletControlView {
     };
     initialize(parameters: WidgetView.IInitializeParameters<LeafletControlModel>): void;
     create_obj(): void;
-    remove(): void;
+    private setControlOptions;
+    remove(): this;
     setMode(): void;
     properties_type(layer: L.Layer): "polyline" | "circle" | "polygon" | "circlemarker" | "rectangle" | "marker" | undefined;
     layer_to_json(layer: LayerShapes | L.Layer): any;
@@ -54,5 +55,10 @@ export declare class LeafletGeomanDrawControlView extends LeafletControlView {
     handle_message(content: {
         msg: string;
     }): void;
+    model_events(): void;
+    getPosition(): any;
+    setPosition(position: ControlPosition): this;
+    getContainer(): any;
+    addTo(map: Map): this;
 }
 //# sourceMappingURL=GeomanDrawControl.d.ts.map

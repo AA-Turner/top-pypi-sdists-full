@@ -651,6 +651,39 @@ def test_hybrid(hybrid_axial_dim):
     mask = torch.randint(0, 2, (2, 1024)).bool()
     embed = enc(x, mask = mask)
 
+def test_hybrid_cache():
+    from torch.nn import GRU
+
+    model = TransformerWrapper(
+        num_tokens = 20000,
+        max_seq_len = 1024,
+        attn_layers = Decoder(
+            dim = 128,
+            depth = 6,
+            heads = 8,
+            attn_dim_head = 64,
+            attn_hybrid_fold_axial_dim = 1,
+            attn_hybrid_module = GRU(128, 64 * 8, batch_first = True)
+        )
+    )
+
+    x = torch.randint(0, 20000, (2, 4))
+
+    # parallel
+
+    out_parallel = model(x)
+
+    # sequential
+
+    x_without_last = x[:, :-1]
+
+    out1, cache = model(x_without_last, return_intermediates = True)
+    out2 = model(x, cache = cache)
+
+    out_seq = torch.cat((out1, out2), dim = 1)
+
+    assert torch.allclose(out_parallel, out_seq, atol = 1e-5)
+
 def test_multi_latent_attention():
     model = TransformerWrapper(
         num_tokens = 20000,
@@ -870,9 +903,11 @@ def test_ff_deep_embed():
 
 @pytest.mark.parametrize('probabilistic', (False, True))
 @pytest.mark.parametrize('cache_kv', (False, True))
+@pytest.mark.parametrize('rollout_steps', (1, 4))
 def test_continuous(
     probabilistic,
-    cache_kv
+    cache_kv,
+    rollout_steps
 ):
     from x_transformers import (
         ContinuousTransformerWrapper,
@@ -903,7 +938,7 @@ def test_continuous(
 
     # train on a lot of data above
 
-    loss = model(x, mask = mask)
+    loss = model(x, mask = mask, rollout_steps = rollout_steps)
     loss.backward()
 
     # then generate

@@ -99,6 +99,8 @@ def run_certora(args: List[str], attrs_class: Optional[Type[AttrUtil.Attributes]
             print(f"Verifier run command:\n {check_cmd_string}", flush=True)
 
             compare_with_tool_output = False
+            if context.test == str(Util.TestValue.BEFORE_LOCAL_PROVER_CALL):
+                raise Util.TestResultsReady(' '.join(check_cmd))
             run_result = Util.run_jar_cmd(check_cmd, compare_with_tool_output, logger_topic="verification",
                                           print_output=True)
             # For solana and wasm, we don't check types so build time is zero.

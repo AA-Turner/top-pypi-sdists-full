@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "django-unfold"
-version = "0.59.0"
+version = "0.60.0"
 description = "Modern Django admin theme for seamless interface development"
 license = "MIT"
 readme = "README.md"
@@ -29,6 +29,7 @@ django = ">=4.2"
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3"
 pytest-django = "^4.11"
+pytest-factoryboy = "^2.7.0"
 tox = "^4.26"
 django-money = "^3.5"
 

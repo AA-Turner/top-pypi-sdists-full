@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: rosdep
+Version: 0.25.1
+Summary: rosdep package manager abstraction tool for ROS
+Home-page: http://wiki.ros.org/rosdep
+Author: Tully Foote, Ken Conley
+Author-email: tfoote@osrfoundation.org
+Maintainer: ROS Infrastructure Team
+License: BSD
+Project-URL: Source code, https://github.com/ros-infrastructure/rosdep
+Project-URL: Issue tracker, https://github.com/ros-infrastructure/rosdep/issues
+Keywords: ROS
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: License :: OSI Approved :: BSD License
+Requires-Python: >=3.6
+Provides-Extra: test
+License-File: LICENSE
+
+Command-line tool for installing system dependencies on a variety of platforms.
+

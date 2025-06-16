@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: optimum
-Version: 1.25.3
+Version: 1.26.1
 Summary: Optimum Library is an extension of the Hugging Face Transformers library, providing a framework to integrate third-party libraries from Hardware Partners and interface with their specific functionality.
 Home-page: https://github.com/huggingface/optimum
 Author: HuggingFace Inc. Special Ops Team
@@ -31,33 +31,33 @@ Requires-Dist: onnx; extra == "onnxruntime"
 Requires-Dist: datasets>=1.2.1; extra == "onnxruntime"
 Requires-Dist: protobuf>=3.20.1; extra == "onnxruntime"
 Requires-Dist: onnxruntime>=1.11.0; extra == "onnxruntime"
-Requires-Dist: transformers<4.52.0,>=4.36; extra == "onnxruntime"
+Requires-Dist: transformers<4.53.0,>=4.36; extra == "onnxruntime"
 Provides-Extra: onnxruntime-gpu
 Requires-Dist: onnx; extra == "onnxruntime-gpu"
 Requires-Dist: datasets>=1.2.1; extra == "onnxruntime-gpu"
 Requires-Dist: protobuf>=3.20.1; extra == "onnxruntime-gpu"
 Requires-Dist: onnxruntime-gpu>=1.11.0; extra == "onnxruntime-gpu"
-Requires-Dist: transformers<4.52.0,>=4.36; extra == "onnxruntime-gpu"
+Requires-Dist: transformers<4.53.0,>=4.36; extra == "onnxruntime-gpu"
 Provides-Extra: onnxruntime-training
 Requires-Dist: evaluate; extra == "onnxruntime-training"
 Requires-Dist: torch-ort; extra == "onnxruntime-training"
 Requires-Dist: accelerate; extra == "onnxruntime-training"
 Requires-Dist: datasets>=1.2.1; extra == "onnxruntime-training"
 Requires-Dist: protobuf>=3.20.1; extra == "onnxruntime-training"
-Requires-Dist: transformers<4.52.0,>=4.36; extra == "onnxruntime-training"
+Requires-Dist: transformers<4.53.0,>=4.36; extra == "onnxruntime-training"
 Requires-Dist: onnxruntime-training>=1.11.0; extra == "onnxruntime-training"
 Provides-Extra: exporters
 Requires-Dist: onnx; extra == "exporters"
 Requires-Dist: timm; extra == "exporters"
 Requires-Dist: onnxruntime; extra == "exporters"
 Requires-Dist: protobuf>=3.20.1; extra == "exporters"
-Requires-Dist: transformers<4.52.0,>=4.36; extra == "exporters"
+Requires-Dist: transformers<4.53.0,>=4.36; extra == "exporters"
 Provides-Extra: exporters-gpu
 Requires-Dist: onnx; extra == "exporters-gpu"
 Requires-Dist: timm; extra == "exporters-gpu"
 Requires-Dist: onnxruntime-gpu; extra == "exporters-gpu"
 Requires-Dist: protobuf>=3.20.1; extra == "exporters-gpu"
-Requires-Dist: transformers<4.52.0,>=4.36; extra == "exporters-gpu"
+Requires-Dist: transformers<4.53.0,>=4.36; extra == "exporters-gpu"
 Provides-Extra: exporters-tf
 Requires-Dist: onnx; extra == "exporters-tf"
 Requires-Dist: timm; extra == "exporters-tf"
@@ -106,6 +106,7 @@ Requires-Dist: scikit-learn; extra == "dev"
 Requires-Dist: sentencepiece; extra == "dev"
 Requires-Dist: rjieba; extra == "dev"
 Requires-Dist: hf_xet; extra == "dev"
+Requires-Dist: onnxslim>=0.1.53; extra == "dev"
 Requires-Dist: black~=23.1; extra == "dev"
 Requires-Dist: ruff==0.1.5; extra == "dev"
 Provides-Extra: tests
@@ -124,6 +125,7 @@ Requires-Dist: scikit-learn; extra == "tests"
 Requires-Dist: sentencepiece; extra == "tests"
 Requires-Dist: rjieba; extra == "tests"
 Requires-Dist: hf_xet; extra == "tests"
+Requires-Dist: onnxslim>=0.1.53; extra == "tests"
 Provides-Extra: quality
 Requires-Dist: black~=23.1; extra == "quality"
 Requires-Dist: ruff==0.1.5; extra == "quality"

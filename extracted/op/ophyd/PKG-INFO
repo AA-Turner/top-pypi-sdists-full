@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ophyd
-Version: 1.10.6
+Version: 1.10.7
 Summary: Bluesky hardware abstraction with an emphasis on EPICS
 Home-page: https://github.com/bluesky/ophyd
 License: BSD

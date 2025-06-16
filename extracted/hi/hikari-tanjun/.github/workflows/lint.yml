@@ -1,0 +1,40 @@
+name: Lint
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron: "0 12 * * 6"
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: "true"
+
+      - name: Install Python
+        uses: ./.github/actions/setup-py
+
+      - name: Lint markup
+        run: nox -s verify-markup
+
+      - name: Check spelling
+        run: nox -s spell-check
+
+      - name: Lint with flake8
+        run: nox -s flake8
+
+      - name: Check slotting
+        run: nox -s slot-check

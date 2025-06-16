@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,9 +33,9 @@
  * Mingos' NameGen
  * This file was written by Dominik "Mingos" Marczuk.
  */
-
-#ifndef _TCOD_NAMEGEN_H
-#define _TCOD_NAMEGEN_H
+#pragma once
+#ifndef TCOD_NAMEGEN_H_
+#define TCOD_NAMEGEN_H_
 
 #include "list.h"
 #include "mersenne.h"
@@ -61,4 +61,4 @@ TCODLIB_API void TCOD_namegen_destroy(void);
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif  // TCOD_NAMEGEN_H_

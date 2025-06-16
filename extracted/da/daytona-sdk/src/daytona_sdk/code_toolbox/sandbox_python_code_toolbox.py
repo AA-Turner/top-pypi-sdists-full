@@ -1,11 +1,11 @@
 # Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
+# SPDX-License-Identifier: Apache-2.0
 
 import base64
 import re
 from typing import Optional
 
-from daytona_sdk.common.process import CodeRunParams
+from ..common.process import CodeRunParams
 
 
 class SandboxPythonCodeToolbox:

@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_RANDOM_TYPES_H
-#define _TCOD_RANDOM_TYPES_H
+#pragma once
+#ifndef TCOD_RANDOM_TYPES_H_
+#define TCOD_RANDOM_TYPES_H_
 #include <stdint.h>
 
 #include "config.h"
@@ -86,4 +87,4 @@ typedef union TCOD_Random {
 TCOD_DEPRECATED("This type hides indirection.  Use TCOD_Random* instead.")
 typedef union TCOD_Random* TCOD_random_t;
 
-#endif /* _TCOD_RANDOM_TYPES_H */
+#endif  // TCOD_RANDOM_TYPES_H_

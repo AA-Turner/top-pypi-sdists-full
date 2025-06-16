@@ -1,3 +1,0 @@
-"@inherits": ../oscar/config.yml
-cluster:
-  backend: yarn

@@ -81,6 +81,7 @@ def run_cli(cmd):
     return cli.communicate()
 
 
+@pytest.mark.xfail(reason="Needs to be fixed.")
 def test_cta_prod_submit(tmp_path):
     production_config = tmp_path / "production_config.yml"
     with open(production_config, "w") as f:

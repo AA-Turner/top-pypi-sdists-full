@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ struct TCOD_Frontier* TCOD_frontier_new(int ndim) {
     TCOD_set_errorvf("Can not make a pathfinder with %i dimensions.", ndim);
     return NULL;
   }
-  struct TCOD_Frontier* frontier = calloc(sizeof(*frontier), 1);
+  struct TCOD_Frontier* frontier = calloc(1, sizeof(*frontier));
   if (!frontier) {
     TCOD_set_errorv("Out of memory allocating pathfinder.");
     return NULL;

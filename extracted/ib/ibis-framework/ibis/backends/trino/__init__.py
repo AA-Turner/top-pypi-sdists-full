@@ -20,7 +20,13 @@ import ibis.common.exceptions as com
 import ibis.expr.schema as sch
 import ibis.expr.types as ir
 from ibis import util
-from ibis.backends import CanCreateDatabase, CanListCatalog, NoExampleLoader
+from ibis.backends import (
+    CanCreateDatabase,
+    CanListCatalog,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+    NoExampleLoader,
+)
 from ibis.backends.sql import SQLBackend
 from ibis.backends.sql.compilers.base import AlterTable, C, RenameTable
 
@@ -35,24 +41,37 @@ if TYPE_CHECKING:
     import ibis.expr.operations as ops
 
 
-class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, NoExampleLoader):
+class Backend(
+    SQLBackend,
+    CanListCatalog,
+    CanCreateDatabase,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+    NoExampleLoader,
+):
     name = "trino"
     compiler = sc.trino.compiler
     supports_create_or_replace = False
     supports_temporary_tables = False
 
-    def _from_url(self, url: ParseResult, **kwargs):
-        catalog, db = url.path.strip("/").split("/")
-        self.do_connect(
-            user=url.username or None,
-            auth=unquote_plus(url.password) if url.password is not None else None,
-            host=url.hostname or None,
-            port=url.port or None,
-            database=catalog,
-            schema=db,
-            **kwargs,
-        )
-        return self
+    def _from_url(self, url: ParseResult, **kwarg_overrides):
+        kwargs = {}
+        database, *schema = url.path.strip("/").split("/", 1)
+        if url.username:
+            kwargs["user"] = url.username
+        if url.password:
+            kwargs["auth"] = unquote_plus(url.password)
+        if url.hostname:
+            kwargs["host"] = url.hostname
+        if database:
+            kwargs["database"] = database
+        if url.port:
+            kwargs["port"] = url.port
+        if schema:
+            kwargs["schema"] = schema[0]
+        kwargs.update(kwarg_overrides)
+        self._convert_kwargs(kwargs)
+        return self.connect(**kwargs)
 
     def raw_sql(self, query: str | sg.Expression) -> Any:
         """Execute a raw SQL query."""
@@ -212,22 +231,6 @@ class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, NoExampleLoader):
     def list_tables(
         self, *, like: str | None = None, database: tuple[str, str] | str | None = None
     ) -> list[str]:
-        """List the tables in the database.
-
-        Parameters
-        ----------
-        like
-            A pattern to use for listing tables.
-        database
-            The database location to perform the list against.
-
-            By default uses the current `database` (`self.current_database`) and
-            `catalog` (`self.current_catalog`).
-
-            To specify a table in a separate catalog, you can pass in the
-            catalog and database as a string `"catalog.database"`, or as a tuple of
-            strings `("catalog", "database")`.
-        """
         table_loc = self._to_sqlglot_table(database)
 
         query = "SHOW TABLES"

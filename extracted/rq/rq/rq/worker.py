@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 from random import shuffle
 from types import FrameType
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 from uuid import uuid4
 
 if TYPE_CHECKING:
@@ -24,11 +24,6 @@ if TYPE_CHECKING:
         pass
     from redis import Redis
     from redis.client import Pipeline, PubSub, PubSubWorkerThread
-
-try:
-    from signal import SIGKILL
-except ImportError:
-    from signal import SIGTERM as SIGKILL
 
 from contextlib import suppress
 
@@ -52,12 +47,11 @@ from .logutils import blue, green, setup_loghandlers, yellow
 from .queue import Queue
 from .registry import StartedJobRegistry, clean_registries
 from .scheduler import RQScheduler
-from .serializers import resolve_serializer
+from .serializers import Serializer, resolve_serializer
 from .suspension import is_suspended
 from .timeouts import HorseMonitorTimeoutException, JobTimeoutException, UnixSignalDeathPenalty
 from .utils import (
     as_text,
-    backend_class,
     compact,
     ensure_job_list,
     get_connection_from_queues,
@@ -104,6 +98,9 @@ def signal_name(signum):
         return 'SIG_UNKNOWN'
 
 
+SHUTDOWN_SIGNAL = signal.SIGTERM if not hasattr(signal, 'SIGKILL') else signal.SIGKILL
+
+
 class DequeueStrategy(str, Enum):
     DEFAULT = 'default'
     ROUND_ROBIN = 'round_robin'
@@ -145,13 +142,13 @@ class BaseWorker:
         maintenance_interval: int = DEFAULT_MAINTENANCE_TASK_INTERVAL,
         default_worker_ttl: Optional[int] = None,  # TODO remove this arg in 3.0
         worker_ttl: Optional[int] = None,
-        job_class: Optional[Type['Job']] = None,
-        queue_class: Optional[Type['Queue']] = None,
+        job_class: Optional[type[Job]] = None,
+        queue_class: Optional[type[Queue]] = None,
         log_job_description: bool = True,
         job_monitoring_interval=DEFAULT_JOB_MONITORING_INTERVAL,
         disable_default_exception_handler: bool = False,
         prepare_for_work: bool = True,
-        serializer=None,
+        serializer: Optional[Union[Serializer, str]] = None,
         work_horse_killed_handler: Optional[Callable[[Job, int, int, 'struct_rusage'], None]] = None,
     ):  # noqa
         self.default_result_ttl = default_result_ttl
@@ -175,8 +172,8 @@ class BaseWorker:
         self.connection = connection
         self.redis_server_version = None
 
-        self.job_class = backend_class(self, 'job_class', override=job_class)
-        self.queue_class = backend_class(self, 'queue_class', override=queue_class)
+        self.job_class = job_class if job_class else Job
+        self.queue_class = queue_class if queue_class else Queue
         self.version: str = VERSION
         self.python_version: str = sys.version
         self.serializer = resolve_serializer(serializer)
@@ -201,7 +198,7 @@ class BaseWorker:
         self.queues = queues
         self.validate_queues()
         self._ordered_queues = self.queues[:]
-        self._exc_handlers: List[Callable] = []
+        self._exc_handlers: list[Callable] = []
         self._work_horse_killed_handler = work_horse_killed_handler
         self._shutdown_requested_date: Optional[datetime] = None
 
@@ -220,7 +217,7 @@ class BaseWorker:
         self.current_job_working_time: float = 0
         self.birth_date = None
         self.scheduler: Optional[RQScheduler] = None
-        self.pubsub: Optional['PubSub'] = None
+        self.pubsub: Optional[PubSub] = None
         self.pubsub_thread = None
         self._dequeue_strategy: Optional[DequeueStrategy] = DequeueStrategy.DEFAULT
 
@@ -259,9 +256,9 @@ class BaseWorker:
         cls,
         worker_key: str,
         connection: 'Redis',
-        job_class: Optional[Type['Job']] = None,
-        queue_class: Optional[Type['Queue']] = None,
-        serializer=None,
+        job_class: Optional[type['Job']] = None,
+        queue_class: Optional[type['Queue']] = None,
+        serializer: Optional[Union[Serializer, str]] = None,
     ) -> Optional['BaseWorker']:
         """Returns a Worker instance, based on the naming conventions for
         naming the internal Redis keys.  Can be used to reverse-lookup Workers
@@ -272,7 +269,7 @@ class BaseWorker:
             connection (Optional[Redis], optional): Redis connection. Defaults to None.
             job_class (Optional[Type[Job]], optional): The job class if custom class is being used. Defaults to None.
             queue_class (Optional[Type[Queue]]): The queue class if a custom class is being used. Defaults to None.
-            serializer (Any, optional): The serializer to use. Defaults to None.
+            serializer (Optional[Union[Serializer, str]], optional): The serializer to use. Defaults to None.
 
         Raises:
             ValueError: If the key doesn't start with `rq:worker:`, the default worker namespace prefix.
@@ -306,11 +303,11 @@ class BaseWorker:
     def all(
         cls,
         connection: Optional['Redis'] = None,
-        job_class: Optional[Type['Job']] = None,
-        queue_class: Optional[Type['Queue']] = None,
+        job_class: Optional[type['Job']] = None,
+        queue_class: Optional[type['Queue']] = None,
         queue: Optional['Queue'] = None,
         serializer=None,
-    ) -> List['BaseWorker']:
+    ) -> list['BaseWorker']:
         """Returns an iterable of all Workers.
 
         Returns:
@@ -330,7 +327,7 @@ class BaseWorker:
         return compact(workers)
 
     @classmethod
-    def all_keys(cls, connection: Optional['Redis'] = None, queue: Optional['Queue'] = None) -> List[str]:
+    def all_keys(cls, connection: Optional['Redis'] = None, queue: Optional['Queue'] = None) -> list[str]:
         """List of worker keys
 
         Args:
@@ -480,9 +477,9 @@ class BaseWorker:
         """Sanity check for the given queues."""
         for queue in self.queues:
             if not isinstance(queue, self.queue_class):
-                raise TypeError('{0} is not of type {1} or string types'.format(queue, self.queue_class))
+                raise TypeError(f'{queue} is not of type {self.queue_class} or string types')
 
-    def queue_names(self) -> List[str]:
+    def queue_names(self) -> list[str]:
         """Returns the queue names of this worker's queues.
 
         Returns:
@@ -490,7 +487,7 @@ class BaseWorker:
         """
         return [queue.name for queue in self.queues]
 
-    def queue_keys(self) -> List[str]:
+    def queue_keys(self) -> list[str]:
         """Returns the Redis keys representing this worker's queues.
 
         Returns:
@@ -1060,7 +1057,7 @@ class BaseWorker:
 
     def dequeue_job_and_maintain_ttl(
         self, timeout: Optional[int], max_idle_time: Optional[int] = None
-    ) -> Optional[Tuple['Job', 'Queue']]:
+    ) -> Optional[tuple['Job', 'Queue']]:
         """Dequeues a job while maintaining the TTL.
 
         Returns:
@@ -1138,7 +1135,7 @@ class BaseWorker:
             pipeline (Optional[Redis]): A Redis pipeline
         """
         timeout = timeout or self.worker_ttl + 60
-        connection: Union[Redis, 'Pipeline'] = pipeline if pipeline is not None else self.connection
+        connection: Union[Redis, Pipeline] = pipeline if pipeline is not None else self.connection
         connection.expire(self.key, timeout)
         connection.hset(self.key, 'last_heartbeat', utcformat(now()))
         self.log.debug('Sent heartbeat to prevent worker timeout. Next one should arrive in %s seconds.', timeout)
@@ -1232,7 +1229,7 @@ class BaseWorker:
         """Pushes an exception handler onto the exc handler stack."""
         self._exc_handlers.append(handler_func)
 
-    def kill_horse(self, sig: signal.Signals = SIGKILL):
+    def kill_horse(self, sig: signal.Signals = SHUTDOWN_SIGNAL):
         raise NotImplementedError()
 
 
@@ -1242,7 +1239,7 @@ class Worker(BaseWorker):
         """Returns whether or not this is the worker or the work horse."""
         return self._is_horse
 
-    def kill_horse(self, sig: signal.Signals = SIGKILL):
+    def kill_horse(self, sig: signal.Signals = SHUTDOWN_SIGNAL):
         """Kill the horse but catch "No such process" error has the horse could already be dead.
 
         Args:
@@ -1258,7 +1255,7 @@ class Worker(BaseWorker):
             else:
                 raise
 
-    def wait_for_horse(self) -> Tuple[Optional[int], Optional[int], Optional['struct_rusage']]:
+    def wait_for_horse(self) -> tuple[Optional[int], Optional[int], Optional['struct_rusage']]:
         """Waits for the horse process to complete.
         Uses `0` as argument as to include "any child in the process group of the current process".
         """
@@ -1311,7 +1308,7 @@ class Worker(BaseWorker):
             os._exit(0)  # just in case
         else:
             self._horse_pid = child_pid
-            self.procline('Forked {0} at {1}'.format(child_pid, time.time()))
+            self.procline(f'Forked {child_pid} at {time.time()}')
 
     def get_heartbeat_ttl(self, job: 'Job') -> int:
         """Get's the TTL for the next heartbeat.
@@ -1568,11 +1565,13 @@ class Worker(BaseWorker):
                     # a WatchError is thrown by execute()
                     pipeline.watch(job.dependents_key)
                     # enqueue_dependents might call multi() on the pipeline
+                    self.log.debug('Enqueueing dependents of job %s', job.id)
                     queue.enqueue_dependents(job, pipeline=pipeline)
 
                     if not pipeline.explicit_transaction:
                         # enqueue_dependents didn't call multi after all!
                         # We have to do it ourselves to make sure everything runs in a transaction
+                        self.log.debug('Calling multi() on pipeline for job %s', job.id)
                         pipeline.multi()
 
                     self.increment_successful_job_count(pipeline=pipeline)
@@ -1728,6 +1727,12 @@ class SpawnWorker(Worker):
         """Spawns a work horse to perform the actual work using os.spawn()."""
         os.environ['RQ_WORKER_ID'] = self.name
         os.environ['RQ_JOB_ID'] = job.id
+
+        redis_kwargs = self.connection.connection_pool.connection_kwargs
+        if redis_kwargs.get('retry'):
+            # Remove retry from connection kwargs to avoid issues with os.spawnv
+            del redis_kwargs['retry']
+
         child_pid = os.spawnv(
             os.P_NOWAIT,
             sys.executable,
@@ -1742,7 +1747,7 @@ from rq import Worker, Queue
 from rq.job import Job
 
 # Recreate worker instance
-redis = Redis(**{self.connection.connection_pool.connection_kwargs})
+redis = Redis(**{redis_kwargs})
 worker = Worker.find_by_key("{self.key}", connection=redis)
 if not worker:
     sys.exit(1)
@@ -1783,7 +1788,7 @@ class SimpleWorker(Worker):
         if job.timeout == -1:
             return DEFAULT_WORKER_TTL
         else:
-            return int((job.timeout or DEFAULT_WORKER_TTL)) + 60
+            return int(job.timeout or DEFAULT_WORKER_TTL) + 60
 
 
 class HerokuWorker(Worker):

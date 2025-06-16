@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mypy
-Version: 1.16.0
+Version: 1.16.1
 Summary: Optional static typing for Python
 Author-email: Jukka Lehtosalo <jukka.lehtosalo@iki.fi>
 License: MIT

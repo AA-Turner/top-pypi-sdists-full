@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2017 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2017 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -388,6 +388,18 @@ public:
       [[maybe_unused]] dim3 cluster(cute::size<0>(typename GemmKernel::DispatchPolicy::ClusterShape{}),
         cute::size<1>(typename GemmKernel::DispatchPolicy::ClusterShape{}),
         cute::size<2>(typename GemmKernel::DispatchPolicy::ClusterShape{}));
+      
+      // Dynamic cluster support
+      [[maybe_unused]] dim3 fallback_cluster = dim3{0,0,0};
+      if constexpr (GemmKernel::ArchTag::kMinComputeCapability == 100 
+                    || GemmKernel::ArchTag::kMinComputeCapability == 101
+                    ) {
+        if constexpr (!cute::is_static_v<typename GemmKernel::DispatchPolicy::ClusterShape>) {
+          fallback_cluster = params.hw_info.cluster_shape_fallback;
+          cluster = params.hw_info.cluster_shape;
+        }
+      }
+      
       [[maybe_unused]] void* kernel_params[] = {&params};
 
       if constexpr (kEnableCudaHostAdapter) {
@@ -415,6 +427,7 @@ public:
           else {
             launch_result = cuda_adapter->launch(grid,
                                                 cluster,
+                                                fallback_cluster, 
                                                 block,
                                                 smem_size,
                                                 stream,
@@ -430,8 +443,7 @@ public:
       else {
         CUTLASS_ASSERT(cuda_adapter == nullptr);
         [[maybe_unused]] void const* kernel = (void const*) device_kernel<GemmKernel>;
-        static constexpr bool kClusterLaunch = GemmKernel::ArchTag::kMinComputeCapability == 90
-                                        ;
+        static constexpr bool kClusterLaunch = GemmKernel::ArchTag::kMinComputeCapability == 90;
         if constexpr (kClusterLaunch) {
           if constexpr (is_static_1x1x1) {
 #if (CUTLASS_DEBUG_TRACE_LEVEL > 1)
@@ -456,6 +468,44 @@ public:
               grid, cluster, block, smem_size, stream, kernel, kernel_params, launch_with_pdl);
           }
         }
+        
+        else {
+          if constexpr (GemmKernel::ArchTag::kMinComputeCapability == 100
+                        || GemmKernel::ArchTag::kMinComputeCapability == 101
+                        || GemmKernel::ArchTag::kMinComputeCapability == 120
+                       ) {
+            if constexpr (is_static_1x1x1) {
+#if (CUTLASS_DEBUG_TRACE_LEVEL > 1)
+              CUTLASS_TRACE_HOST("GemmUniversal::run: Launching static 1x1x1 kernel");
+#endif
+              launch_result = cutlass::kernel_launch<GemmKernel>(grid, block, smem_size, stream, params, launch_with_pdl);
+              if (launch_result != Status::kSuccess) {
+                CUTLASS_TRACE_HOST("GemmUniversal::run: cutlass::kernel_launch reports failure");
+              }
+#if (CUTLASS_DEBUG_TRACE_LEVEL > 1)
+              else {
+                CUTLASS_TRACE_HOST("GemmUniversal::run: cutlass::kernel_launch reports success");
+              }
+#endif
+            }
+            else {
+#if (CUTLASS_DEBUG_TRACE_LEVEL > 1)
+              CUTLASS_TRACE_HOST("GemmUniversal::run: Launching kernel with fall-back cluster");
+#endif
+              launch_result = ClusterLauncher::launch_with_fallback_cluster(
+                grid, 
+                cluster,
+                fallback_cluster,
+                block,
+                smem_size,
+                stream,
+                kernel,
+                kernel_params,
+                launch_with_pdl);
+            }
+          }
+        }
+        
       }
     }
     else {

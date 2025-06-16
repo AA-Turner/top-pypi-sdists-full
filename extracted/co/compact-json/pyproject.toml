@@ -1,0 +1,72 @@
+[tool.poetry]
+authors = ["Jon Connell <python@figsandfudge.com>"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+description = "A JSON formatter that produces compact but human-readable"
+documentation = "https://github.com/masaccio/compact-json/blob/main/README.md"
+license = "MIT"
+name = "compact-json"
+packages = [{include = "compact_json", from = "src"}]
+readme = "README.md"
+repository = "https://github.com/masaccio/compact-json"
+version = "1.8.1"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+wcwidth = ">0.2.8"
+setuptools = ">=69.0.3"
+importlib-resources = ">=6.1"
+
+[tool.poetry.group.dev.dependencies]
+black = {version = "*", allow-prereleases = true}
+pytest-check = "*"
+pytest-console-scripts = "*"
+pytest-cov = "*"
+ruff = "*"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
+
+[tool.poetry.scripts]
+compact-json = "compact_json._compact_json:main"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.html]
+directory = "coverage_html_report"
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/compact_json --cov-report=term-missing"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = true
+envlist = py39, py310, py311, py312
+[testenv]
+allowlist_externals = poetry
+commands_pre = poetry install --no-root --sync
+commands = poetry run -vvv pytest --import-mode importlib
+"""
+
+# linter settings
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+fix = true
+ignore = ["T201", "FBT001", "FBT003", "PTH123"]
+line-length = 100
+select = ["ALL"]
+target-version = "py39"
+
+[tool.ruff.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.per-file-ignores]
+"tests/**" = ["PTH123", "PLR2004", "S101", "D100", "D103", "ANN201", "ANN001"]

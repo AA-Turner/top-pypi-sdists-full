@@ -319,7 +319,7 @@ class DATA_PT_lightprobe_display(DataButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class DATA_PT_lightprobe_display_eevee_next(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_lightprobe_display_eevee(DataButtonsPanel, bpy.types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -349,7 +349,7 @@ class DATA_PT_lightprobe_display_eevee_next(DataButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
-class DATA_PT_lightprobe_eevee_next(DataButtonsPanel, bpy.types.Panel):
+class DATA_PT_lightprobe_eevee(DataButtonsPanel, bpy.types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any

@@ -4,8 +4,17 @@ from django.dispatch import receiver
 from rest_framework.reverse import reverse
 from wbcore.contrib.guardian.models.mixins import PermissionObjectModelMixin
 from wbcore.contrib.icons.icons import WBIcon
+from wbcore.metadata.configs.buttons import ButtonViewConfig
 from wbcore.metadata.configs.buttons.buttons import WidgetButton
+from wbcore.metadata.configs.buttons.enums import Button
 from wbcore.signals.instance_buttons import add_extra_button
+
+
+class PivotUserObjectPermissionButtonViewConfig(ButtonViewConfig):
+    def get_create_buttons(self):
+        return {
+            Button.SAVE_AND_CLOSE.value,
+        }
 
 
 @receiver(add_extra_button)

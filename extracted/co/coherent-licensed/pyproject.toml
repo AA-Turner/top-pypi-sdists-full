@@ -1,0 +1,25 @@
+[build-system]
+requires = ["flit-core >=3.11, <4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "coherent.licensed"
+version = "0.5.2"
+description = "License management tooling for Coherent System and skeleton projects"
+readme = "README.md"
+requires-python = ">= 3.9"
+dependencies = []
+classifiers = ["Development Status :: 4 - Beta", "Intended Audience :: Developers", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only"]
+license = "MIT"
+
+[[project.authors]]
+name = "Jason R. Coombs"
+email = "jaraco@jaraco.com"
+
+[project.urls]
+Source = "https://github.com/coherent-oss/coherent.licensed"
+
+[project.entry-points."setuptools.finalize_distribution_options"]
+inject-license = "coherent.licensed.setuptools:inject"
+
+[project.scripts]

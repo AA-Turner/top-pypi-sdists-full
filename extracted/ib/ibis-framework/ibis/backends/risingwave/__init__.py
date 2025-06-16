@@ -20,7 +20,13 @@ import ibis.expr.operations as ops
 import ibis.expr.schema as sch
 import ibis.expr.types as ir
 from ibis import util
-from ibis.backends import CanCreateDatabase, CanListCatalog, NoExampleLoader
+from ibis.backends import (
+    CanCreateDatabase,
+    CanListCatalog,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+    NoExampleLoader,
+)
 from ibis.backends.sql import SQLBackend
 from ibis.backends.sql.compilers.base import TRUE, C, ColGen
 from ibis.util import experimental
@@ -51,58 +57,35 @@ def format_properties(props):
     return "( {} ) ".format(", ".join(tokens))
 
 
-class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, NoExampleLoader):
+class Backend(
+    SQLBackend,
+    CanListCatalog,
+    CanCreateDatabase,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+    NoExampleLoader,
+):
     name = "risingwave"
     compiler = sc.risingwave.compiler
     supports_python_udfs = False
 
-    def _from_url(self, url: ParseResult, **kwargs):
-        """Connect to a backend using a URL `url`.
-
-        Parameters
-        ----------
-        url
-            URL with which to connect to a backend.
-        kwargs
-            Additional keyword arguments
-
-        Returns
-        -------
-        BaseBackend
-            A backend instance
-
-        """
+    def _from_url(self, url: ParseResult, **kwarg_overrides):
+        kwargs = {}
         database, *schema = url.path[1:].split("/", 1)
-        connect_args = {
-            "user": url.username,
-            "password": unquote_plus(url.password or ""),
-            "host": url.hostname,
-            "database": database or "",
-            "schema": schema[0] if schema else "",
-            "port": url.port,
-        }
-
-        kwargs.update(connect_args)
+        if url.username:
+            kwargs["user"] = url.username
+        if url.password:
+            kwargs["password"] = unquote_plus(url.password)
+        if url.hostname:
+            kwargs["host"] = url.hostname
+        if database:
+            kwargs["database"] = database
+        if url.port:
+            kwargs["port"] = url.port
+        if schema:
+            kwargs["schema"] = schema[0]
+        kwargs.update(kwarg_overrides)
         self._convert_kwargs(kwargs)
-
-        if "user" in kwargs and not kwargs["user"]:
-            del kwargs["user"]
-
-        if "host" in kwargs and not kwargs["host"]:
-            del kwargs["host"]
-
-        if "database" in kwargs and not kwargs["database"]:
-            del kwargs["database"]
-
-        if "schema" in kwargs and not kwargs["schema"]:
-            del kwargs["schema"]
-
-        if "password" in kwargs and kwargs["password"] is None:
-            del kwargs["password"]
-
-        if "port" in kwargs and kwargs["port"] is None:
-            del kwargs["port"]
-
         return self.connect(**kwargs)
 
     @contextlib.contextmanager
@@ -187,28 +170,6 @@ class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, NoExampleLoader):
     def list_tables(
         self, *, like: str | None = None, database: tuple[str, str] | str | None = None
     ) -> list[str]:
-        """List the tables in the database.
-
-        ::: {.callout-note}
-        ## Ibis does not use the word `schema` to refer to database hierarchy.
-
-        A collection of tables is referred to as a `database`.
-        A collection of `database` is referred to as a `catalog`.
-
-        These terms are mapped onto the corresponding features in each
-        backend (where available), regardless of whether the backend itself
-        uses the same terminology.
-        :::
-
-        Parameters
-        ----------
-        like
-            A pattern to use for listing tables.
-        database
-            Database to list tables from. Default behavior is to show tables in
-            the current database.
-        """
-
         if database is not None:
             table_loc = database
         else:
@@ -613,9 +574,7 @@ class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, NoExampleLoader):
             create_stmt = sge.Create(
                 kind="TABLE",
                 this=target,
-                properties=sge.Properties(
-                    expressions=sge.Properties.from_dict(connector_properties)
-                ),
+                properties=sge.Properties.from_dict(connector_properties),
             )
             create_stmt = create_stmt.sql(self.dialect) + data_and_encode_format(
                 data_format, encode_format, encode_properties
@@ -774,6 +733,7 @@ class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, NoExampleLoader):
         data_format: str,
         encode_format: str,
         encode_properties: dict | None = None,
+        includes: dict[str, str] | None = None,
     ) -> ir.Table:
         """Creating a source.
 
@@ -794,22 +754,31 @@ class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, NoExampleLoader):
             The encode format for the new source, e.g., "JSON". data_format and encode_format must be specified at the same time.
         encode_properties
             The properties of encode format, providing information like schema registry url. Refer https://docs.risingwave.com/docs/current/sql-create-source/ for more details.
+        includes
+            A dict of `INCLUDE` clauses of the form `{field: alias, ...}`.
+            Set value(s) to `None` if no alias is needed. Refer to https://docs.risingwave.com/docs/current/sql-create-source/ for more details.
 
         Returns
         -------
         Table
             Table expression
         """
-        table = sg.table(name, db=database, quoted=self.compiler.quoted)
+        quoted = self.compiler.quoted
+        table = sg.table(name, db=database, quoted=quoted)
         target = sge.Schema(this=table, expressions=schema.to_sqlglot(self.dialect))
 
-        create_stmt = sge.Create(
-            kind="SOURCE",
-            this=target,
-            properties=sge.Properties(
-                expressions=sge.Properties.from_dict(connector_properties)
-            ),
+        properties = sge.Properties.from_dict(connector_properties)
+        properties.expressions.extend(
+            sge.IncludeProperty(
+                this=sg.to_identifier(include_type),
+                alias=sg.to_identifier(column_name, quoted=quoted)
+                if column_name
+                else None,
+            )
+            for include_type, column_name in (includes or {}).items()
         )
+
+        create_stmt = sge.Create(kind="SOURCE", this=target, properties=properties)
 
         create_stmt = create_stmt.sql(self.dialect) + data_and_encode_format(
             data_format, encode_format, encode_properties

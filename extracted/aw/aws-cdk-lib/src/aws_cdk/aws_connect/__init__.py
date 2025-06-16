@@ -1684,7 +1684,7 @@ class CfnEmailAddress(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param email_address: The email address with the instance, in [^\\s@]+@[^\\s@]+.[^\\s@]+ format.
+        :param email_address: The email address, including the domain.
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
         :param description: The description of the email address.
         :param display_name: The display name of email address.
@@ -1757,7 +1757,7 @@ class CfnEmailAddress(
     @builtins.property
     @jsii.member(jsii_name="emailAddress")
     def email_address(self) -> builtins.str:
-        '''The email address with the instance, in [^\\s@]+@[^\\s@]+.[^\\s@]+ format.'''
+        '''The email address, including the domain.'''
         return typing.cast(builtins.str, jsii.get(self, "emailAddress"))
 
     @email_address.setter
@@ -1843,7 +1843,7 @@ class CfnEmailAddressProps:
     ) -> None:
         '''Properties for defining a ``CfnEmailAddress``.
 
-        :param email_address: The email address with the instance, in [^\\s@]+@[^\\s@]+.[^\\s@]+ format.
+        :param email_address: The email address, including the domain.
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
         :param description: The description of the email address.
         :param display_name: The display name of email address.
@@ -1891,7 +1891,7 @@ class CfnEmailAddressProps:
 
     @builtins.property
     def email_address(self) -> builtins.str:
-        '''The email address with the instance, in [^\\s@]+@[^\\s@]+.[^\\s@]+ format.
+        '''The email address, including the domain.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-emailaddress.html#cfn-connect-emailaddress-emailaddress
         '''
@@ -8148,7 +8148,7 @@ class CfnQueue(
             *,
             outbound_email_address_id: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The outbound email address Id.
+            '''The outbound email address ID.
 
             :param outbound_email_address_id: The identifier of the email address.
 

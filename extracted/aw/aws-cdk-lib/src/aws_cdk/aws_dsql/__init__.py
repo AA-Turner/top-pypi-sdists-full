@@ -85,12 +85,12 @@ class CfnCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_dsql.CfnCluster",
 ):
-    '''The CreateCluster API allows you to create both single-region clusters and multi-Region clusters.
+    '''The ``AWS::DSQL::Cluster`` resource specifies an cluster. You can use this resource to create, modify, and manage clusters.
 
-    With the addition of the *multiRegionProperties* parameter, you can create a cluster with witness Region support and establish peer relationships with clusters in other Regions during creation.
+    This resource supports both single-Region clusters and multi-Region clusters through the ``MultiRegionProperties`` parameter.
     .. epigraph::
 
-       Creating multi-Region clusters requires additional IAM permissions beyond those needed for single-Region clusters, as detailed in the *Required permissions* section below.
+       Creating multi-Region clusters requires additional IAM permissions beyond those needed for single-Region clusters. > - The witness Region specified in ``multiRegionProperties.witnessRegion`` cannot be the same as the cluster's Region.
 
     *Required permissions*
 
@@ -102,7 +102,7 @@ class CfnCluster(
 
     Resources: ``arn:aws:dsql:region:account-id:cluster/*``
 
-    - **dsql:PutMultiRegionProperties** - Permission to configure multi-region properties for a cluster.
+    - **dsql:PutMultiRegionProperties** - Permission to configure multi-Region properties for a cluster.
 
     Resources: ``arn:aws:dsql:region:account-id:cluster/*``
 
@@ -117,9 +117,6 @@ class CfnCluster(
     Resources: ``arn:aws:dsql:region:account-id:cluster/*``
 
     Condition Keys: ``dsql:WitnessRegion`` (matching the specified witness region)
-    .. epigraph::
-
-       - The witness Region specified in ``multiRegionProperties.witnessRegion`` cannot be the same as the cluster's Region.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dsql-cluster.html
     :cloudformationResource: AWS::DSQL::Cluster
@@ -133,6 +130,10 @@ class CfnCluster(
         
         cfn_cluster = dsql.CfnCluster(self, "MyCfnCluster",
             deletion_protection_enabled=False,
+            multi_region_properties=dsql.CfnCluster.MultiRegionPropertiesProperty(
+                clusters=["clusters"],
+                witness_region="witnessRegion"
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -146,12 +147,14 @@ class CfnCluster(
         id: builtins.str,
         *,
         deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        multi_region_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCluster.MultiRegionPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param deletion_protection_enabled: Whether deletion protection is enabled on this cluster.
+        :param multi_region_properties: Defines the structure for multi-Region cluster configurations, containing the witness Region and peered cluster settings.
         :param tags: A map of key and value pairs this cluster is tagged with.
         '''
         if __debug__:
@@ -159,7 +162,9 @@ class CfnCluster(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnClusterProps(
-            deletion_protection_enabled=deletion_protection_enabled, tags=tags
+            deletion_protection_enabled=deletion_protection_enabled,
+            multi_region_properties=multi_region_properties,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -226,9 +231,15 @@ class CfnCluster(
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
     def attr_status(self) -> builtins.str:
-        '''The current status of the cluster.
+        '''The current status of the cluster. Possible values include: CREATING, ACTIVE, DELETING, FAILED.
 
-        Possible values include: CREATING, ACTIVE, DELETING, FAILED.
+        The cluster can have two additional status values when working with multi-Region clusters:
+
+        ``PENDING_SETUP`` —Indicates the cluster is being configured
+
+        ``PENDING_DELETE`` —Indicates the cluster is being deleted
+
+        *Note:* These status values only appear for multi-Region cluster operations.
 
         :cloudformationAttribute: Status
         '''
@@ -275,6 +286,24 @@ class CfnCluster(
         jsii.set(self, "deletionProtectionEnabled", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="multiRegionProperties")
+    def multi_region_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.MultiRegionPropertiesProperty"]]:
+        '''Defines the structure for multi-Region cluster configurations, containing the witness Region and peered cluster settings.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.MultiRegionPropertiesProperty"]], jsii.get(self, "multiRegionProperties"))
+
+    @multi_region_properties.setter
+    def multi_region_properties(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCluster.MultiRegionPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d1cd42de6387e3057eda85830c6674c4cac74a5be160e21869cc4c1b3274381c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "multiRegionProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
         '''A map of key and value pairs this cluster is tagged with.'''
@@ -287,12 +316,87 @@ class CfnCluster(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dsql.CfnCluster.MultiRegionPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"clusters": "clusters", "witness_region": "witnessRegion"},
+    )
+    class MultiRegionPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            clusters: typing.Optional[typing.Sequence[builtins.str]] = None,
+            witness_region: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines the structure for multi-Region cluster configurations, containing the witness Region and peered cluster settings.
+
+            :param clusters: The set of peered clusters that form the multi-Region cluster configuration. Each peered cluster represents a database instance in a different Region.
+            :param witness_region: The Region that serves as the witness Region for a multi-Region cluster. The witness Region helps maintain cluster consistency and quorum.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dsql-cluster-multiregionproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dsql as dsql
+                
+                multi_region_properties_property = dsql.CfnCluster.MultiRegionPropertiesProperty(
+                    clusters=["clusters"],
+                    witness_region="witnessRegion"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b9a11b947e8fa036630c80e949e1619ff609036ee5de58658c8157988d8c212f)
+                check_type(argname="argument clusters", value=clusters, expected_type=type_hints["clusters"])
+                check_type(argname="argument witness_region", value=witness_region, expected_type=type_hints["witness_region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if clusters is not None:
+                self._values["clusters"] = clusters
+            if witness_region is not None:
+                self._values["witness_region"] = witness_region
+
+        @builtins.property
+        def clusters(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The set of peered clusters that form the multi-Region cluster configuration.
+
+            Each peered cluster represents a database instance in a different Region.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dsql-cluster-multiregionproperties.html#cfn-dsql-cluster-multiregionproperties-clusters
+            '''
+            result = self._values.get("clusters")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def witness_region(self) -> typing.Optional[builtins.str]:
+            '''The Region that serves as the witness Region for a multi-Region cluster.
+
+            The witness Region helps maintain cluster consistency and quorum.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dsql-cluster-multiregionproperties.html#cfn-dsql-cluster-multiregionproperties-witnessregion
+            '''
+            result = self._values.get("witness_region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MultiRegionPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_dsql.CfnClusterProps",
     jsii_struct_bases=[],
     name_mapping={
         "deletion_protection_enabled": "deletionProtectionEnabled",
+        "multi_region_properties": "multiRegionProperties",
         "tags": "tags",
     },
 )
@@ -301,11 +405,13 @@ class CfnClusterProps:
         self,
         *,
         deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        multi_region_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.MultiRegionPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCluster``.
 
         :param deletion_protection_enabled: Whether deletion protection is enabled on this cluster.
+        :param multi_region_properties: Defines the structure for multi-Region cluster configurations, containing the witness Region and peered cluster settings.
         :param tags: A map of key and value pairs this cluster is tagged with.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dsql-cluster.html
@@ -319,6 +425,10 @@ class CfnClusterProps:
             
             cfn_cluster_props = dsql.CfnClusterProps(
                 deletion_protection_enabled=False,
+                multi_region_properties=dsql.CfnCluster.MultiRegionPropertiesProperty(
+                    clusters=["clusters"],
+                    witness_region="witnessRegion"
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -328,10 +438,13 @@ class CfnClusterProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c99b78beafe41f2e25cbcc0b8a8aff58ff66a77464bef06dbf9128ff75ebd08c)
             check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
+            check_type(argname="argument multi_region_properties", value=multi_region_properties, expected_type=type_hints["multi_region_properties"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if deletion_protection_enabled is not None:
             self._values["deletion_protection_enabled"] = deletion_protection_enabled
+        if multi_region_properties is not None:
+            self._values["multi_region_properties"] = multi_region_properties
         if tags is not None:
             self._values["tags"] = tags
 
@@ -345,6 +458,17 @@ class CfnClusterProps:
         '''
         result = self._values.get("deletion_protection_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
+    def multi_region_properties(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.MultiRegionPropertiesProperty]]:
+        '''Defines the structure for multi-Region cluster configurations, containing the witness Region and peered cluster settings.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dsql-cluster.html#cfn-dsql-cluster-multiregionproperties
+        '''
+        result = self._values.get("multi_region_properties")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.MultiRegionPropertiesProperty]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
@@ -379,6 +503,7 @@ def _typecheckingstub__b82b76673b1942e60f823768c857e13a61b0491cdd1ca21c1f2a574e9
     id: builtins.str,
     *,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    multi_region_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.MultiRegionPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -402,8 +527,22 @@ def _typecheckingstub__393f500a888707295be5db6ececab65a69f1c1889e02c7043d1d8ad0e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d1cd42de6387e3057eda85830c6674c4cac74a5be160e21869cc4c1b3274381c(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCluster.MultiRegionPropertiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c9eb2f89b2e4104fba43d8d14808715e2f3435951317df69258fecf9b606d598(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9a11b947e8fa036630c80e949e1619ff609036ee5de58658c8157988d8c212f(
+    *,
+    clusters: typing.Optional[typing.Sequence[builtins.str]] = None,
+    witness_region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -411,6 +550,7 @@ def _typecheckingstub__c9eb2f89b2e4104fba43d8d14808715e2f3435951317df69258fecf9b
 def _typecheckingstub__c99b78beafe41f2e25cbcc0b8a8aff58ff66a77464bef06dbf9128ff75ebd08c(
     *,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    multi_region_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.MultiRegionPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

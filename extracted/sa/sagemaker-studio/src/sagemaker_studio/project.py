@@ -4,6 +4,7 @@ from typing import List, Optional
 from sagemaker_studio.connections import ConnectionService
 from sagemaker_studio.connections.connection import Connection
 from sagemaker_studio.data_models import ClientConfig
+from sagemaker_studio.execution.utils import RemoteExecutionUtils
 from sagemaker_studio.sagemaker_studio_api import SageMakerStudioAPI
 from sagemaker_studio.utils._internal import InternalUtils
 
@@ -296,6 +297,18 @@ class _ProjectS3Path:
         blueprint_path = "/sys/emr/boot-strap"
 
         return self._get_path(blueprint_name, blueprint_path)
+
+    def workflow_script_path(self, local_script_path: str) -> str:
+        """
+        Retrieves the S3 path of a script file.
+
+        Args:
+            local_script_path (str): The path to the local script file.
+
+        Returns:
+            str: The S3 path of the script file.
+        """
+        return RemoteExecutionUtils.pack_s3_path_for_input_file(self.root, local_script_path)
 
     def environment_path(self, environment_id: str) -> str:
         """

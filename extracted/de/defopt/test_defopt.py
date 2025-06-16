@@ -1,5 +1,6 @@
 import builtins
 import contextlib
+import functools
 import inspect
 import multiprocessing as mp
 import re
@@ -16,15 +17,24 @@ from enum import Enum
 from io import StringIO
 from pathlib import Path
 
+from docutils.utils import SystemMessage
+
 import defopt
-from defopt import __version__
+from defopt import __version__, _options
 from examples import (
-    annotations, booleans, choices, exceptions, lists, parsers, short,
-    starargs, styles)
+    annotations, booleans, choices, exceptions, lists, parsers, partials,
+    short, starargs, styles)
 
 
 Choice = Enum('Choice', [('one', 1), ('two', 2), ('%', 0.01)])
 Pair = typing.NamedTuple('Pair', [('first', int), ('second', str)])
+
+
+def _parse_none(i):
+    if i.lower() == ':none:':
+        return None
+    else:
+        raise ValueError(f'{i} is not a valid None string')
 
 
 # Also check that the Attributes section doesn't trip docutils.
@@ -44,10 +54,6 @@ class ConstructibleFromStr:
 class NotConstructibleFromStr:
     def __init__(self, s):
         pass
-
-
-class EmptyType:
-    pass
 
 
 class TestDefopt(unittest.TestCase):
@@ -171,11 +177,11 @@ class TestDefopt(unittest.TestCase):
             defopt.run([sub1, {'sub2': [subsub1, subsub2]}],
                         argv=['sub1', '1.2'])
         with self.assertRaises(ValueError):
-                defopt.run([sub1, {'sub2': [subsub1, subsub2]}],
-                        argv=['sub2', 'subsub1', '--baz', '1'])
+            defopt.run([sub1, {'sub2': [subsub1, subsub2]}],
+                       argv=['sub2', 'subsub1', '--baz', '1'])
         with self.assertRaises(ValueError):
-                defopt.run([sub1, {'sub2': [subsub1, subsub2]}],
-                        argv=['sub2', 'subsub2', '1.1'])
+            defopt.run([sub1, {'sub2': [subsub1, subsub2]}],
+                       argv=['sub2', 'subsub2', '1.1'])
 
     def test_nested_subcommands_mixed_invalid2(self):
         def sub(*bar):
@@ -301,6 +307,9 @@ class TestDefopt(unittest.TestCase):
             self.assertEqual(
                 defopt.run(main, argv=['1', '-kk', '2'], intermixed=True),
                 ((1, 2), 'k'))
+        else:
+            with self.assertRaises(RuntimeError):
+                defopt.run(main, argv=['1', '-kk', '2'], intermixed=True)
 
 
 class TestBindKnown(unittest.TestCase):
@@ -431,19 +440,16 @@ class TestParsers(unittest.TestCase):
         def main(foo=None):
             """:type foo: typing.Optional[bool]"""
             return foo
-        def _parse_none(i):
-            if i.lower() == 'none':
-                return None
-            else:
-                raise ValueError('{} is not a valid None string'.format(i))
         self.assertIs(defopt.run(main, argv=['1'],
-                      parsers={type(None): _parse_none}), True)
+                                 parsers={type(None): _parse_none}), True)
         self.assertIs(defopt.run(main, argv=['0'],
-                      parsers={type(None): _parse_none}), False)
-        self.assertIs(defopt.run(main, argv=['None'],
-                      parsers={type(None): _parse_none}), None)
+                                 parsers={type(None): _parse_none}), False)
+        with self.assertRaises(SystemExit):
+            defopt.run(main, argv=[':none:'])
+        self.assertIs(defopt.run(main, argv=[':none:'],
+                                 parsers={type(None): _parse_none}), None)
         self.assertIs(defopt.run(main, argv=[],
-                      parsers={type(None): _parse_none}), None)
+                                 parsers={type(None): _parse_none}), None)
 
     def test_bool_optional_keyword_none(self):
         def main(*, foo=None):
@@ -541,18 +547,6 @@ class TestParsers(unittest.TestCase):
                                  argv=['--no-foo']), False)
         self.assertIs(defopt.run(main, cli_options='has_default',
                                  argv=['--foo', '--no-foo']), False)
-        with self.assertWarns(DeprecationWarning):
-            self.assertIs(defopt.run(main, strict_kwonly=False,
-                                     argv=[]), 'default')
-        with self.assertWarns(DeprecationWarning):
-            self.assertIs(defopt.run(main, strict_kwonly=False,
-                                     argv=['--foo']), True)
-        with self.assertWarns(DeprecationWarning):
-            self.assertIs(defopt.run(main, strict_kwonly=False,
-                                     argv=['--no-foo']), False)
-        with self.assertWarns(DeprecationWarning):
-            self.assertIs(defopt.run(main, strict_kwonly=False,
-                                     argv=['--foo', '--no-foo']), False)
 
     def test_bool_keyword_only(self):
         def main(*, foo):
@@ -712,7 +706,7 @@ class TestTuple(unittest.TestCase):
 
     def test_tuple_fails_early(self):
         def main(foo):
-            """:param typing.Tuple[int,EmptyType] foo: foo"""
+            """:param typing.Tuple[int,NotConstructibleFromStr] foo: foo"""
         with self.assertRaisesRegex(Exception, 'no parser'):
             defopt.run(main, argv=['-h'])
 
@@ -731,8 +725,8 @@ class TestUnion(unittest.TestCase):
         self.assertEqual(defopt.run(main, argv=['a', '2']), (str, float))
 
     def test_or_union(self):
-        if not hasattr(types, "UnionType"):
-            raise unittest.SkipTest("A|B-style unions not supported")
+        if not hasattr(types, 'UnionType'):
+            raise unittest.SkipTest('A|B-style unions not supported')
         def main(foo):
             """:param int|str foo: foo"""
             return type(foo)
@@ -765,6 +759,20 @@ class TestUnion(unittest.TestCase):
         def main(foo: typing.List[int] = None): return foo
         self.assertEqual(defopt.run(main, argv=['--foo', '1']), [1])
 
+    def test_union_infaillible_and_unparseable(self):
+        def main(foo: typing.Union[str, NotConstructibleFromStr],
+                 bar: typing.Union[Path, NotConstructibleFromStr]):
+            return foo, bar
+        self.assertEqual(defopt.run(main, argv=['a', 'b']), ('a', Path('b')))
+
+    def test_union_unparseable_and_infaillible(self):
+        def main(foo: typing.Union[NotConstructibleFromStr, str]): return foo
+        with self.assertRaises(Exception):
+            defopt.run(main, argv=['foo'])
+        def main(foo: typing.Union[NotConstructibleFromStr, Path]): return foo
+        with self.assertRaises(Exception):
+            defopt.run(main, argv=['foo'])
+
 
 class TestOptional(unittest.TestCase):
     def test_optional_hint_list(self):
@@ -788,36 +796,36 @@ class TestOptional(unittest.TestCase):
         self.assertEqual(defopt.run(main, argv=['1']), ('1',))
 
     def test_union_operator_hint_list(self):
-        if not hasattr(types, "UnionType"):
-            raise unittest.SkipTest("A|B-style unions not supported")
+        if not hasattr(types, 'UnionType'):
+            raise unittest.SkipTest('A|B-style unions not supported')
         def main(op: typing.List[str] | None): return op
         self.assertEqual(defopt.run(main, argv=['--op', '1', '2']), ['1', '2'])
 
     def test_union_operator_hint_tuple(self):
-        if not hasattr(types, "UnionType"):
-            raise unittest.SkipTest("A|B-style unions not supported")
+        if not hasattr(types, 'UnionType'):
+            raise unittest.SkipTest('A|B-style unions not supported')
         def main(op: typing.Tuple[int] | None): return op
         self.assertEqual(defopt.run(main, argv=['1']), (1,))
 
     def test_union_operator_doc_list(self):
-        if not hasattr(types, "UnionType"):
-            raise unittest.SkipTest("A|B-style unions not supported")
+        if not hasattr(types, 'UnionType'):
+            raise unittest.SkipTest('A|B-style unions not supported')
         def main(op):
             """:param list[int]|None op: op"""
             return op
         self.assertEqual(defopt.run(main, argv=['--op', '1', '2']), [1, 2])
 
     def test_union_operator_doc_one_item_tuple(self):
-        if not hasattr(types, "UnionType"):
-            raise unittest.SkipTest("A|B-style unions not supported")
+        if not hasattr(types, 'UnionType'):
+            raise unittest.SkipTest('A|B-style unions not supported')
         def main(op):
             """:param tuple[int]|None op: op"""
             return op
         self.assertEqual(defopt.run(main, argv=['1']), (1,))
 
     def test_union_operator_doc_multiple_item_tuple(self):
-        if not hasattr(types, "UnionType"):
-            raise unittest.SkipTest("A|B-style unions not supported")
+        if not hasattr(types, 'UnionType'):
+            raise unittest.SkipTest('A|B-style unions not supported')
         def main(op):
             """:param tuple[str,str]|None op: op"""
             return op
@@ -826,41 +834,34 @@ class TestOptional(unittest.TestCase):
     def test_multiple_item_optional_tuple_none_parser(self):
         def main(op):
             """:param typing.Optional[typing.Tuple[int, int]] op: op"""
-            return op
-        def _parse_none(i):
-            if i.lower() == 'none':
-                return None
-            else:
-                raise ValueError('{} is not a valid None string'.format(i))
         with self.assertRaises(ValueError):
             defopt.run(main, argv=['1', '2'],
                        parsers={type(None): _parse_none})
 
     def test_one_item_optional_tuple_none_parser(self):
-        # As long as there is not support for trying the NoneType parser
-        # before the tuple parser in the case of a one-item optional tuple,
-        # this case should also raise an error. See comments on GH115 for more
-        # details.
         def main(op):
-            """:param typing.Optional[typing.Tuple[str]] op: op"""
+            """:param typing.Optional[typing.Tuple[int]] op: op"""
             return op
-        def _parse_none(i):
-            if i.lower() == 'none':
-                return None
-            else:
-                raise ValueError('{} is not a valid None string'.format(i))
-        with self.assertRaises(ValueError):
-            defopt.run(main, argv=['1'], parsers={type(None): _parse_none})
+        self.assertEqual(defopt.run(main, argv=['1'],
+                                    parsers={type(None): _parse_none}),
+                         (1,))
+        self.assertEqual(defopt.run(main, argv=[':none:'],
+                                    parsers={type(None): _parse_none}),
+                         None)
+        with self.assertRaises(SystemExit):
+            defopt.run(main, argv=['foo'],
+                       parsers={type(None): _parse_none})
 
 
 class TestLiteral(unittest.TestCase):
     def test_literal(self):
         def main(foo):
-            """:param defopt.Literal["bar","baz"] foo: foo"""
+            """:param defopt.Literal[Choice.one,"bar","baz"] foo: foo"""
             return foo
-        self.assertEqual(defopt.run(main, argv=["bar"]), "bar")
+        self.assertEqual(defopt.run(main, argv=['bar']), 'bar')
+        self.assertEqual(defopt.run(main, argv=['one']), Choice.one)
         with self.assertRaises(SystemExit):
-            defopt.run(main, argv=["quux"])
+            defopt.run(main, argv=['quux'])
 
 
 class TestExceptions(unittest.TestCase):
@@ -870,12 +871,12 @@ class TestExceptions(unittest.TestCase):
             :param str name: name
             :raises RuntimeError:
             """
-            raise getattr(builtins, name)("oops")
+            raise getattr(builtins, name)('oops')
 
         with self.assertRaises(SystemExit):
-            defopt.run(main, argv=["RuntimeError"])
+            defopt.run(main, argv=['RuntimeError'])
         with self.assertRaises(ValueError):
-            defopt.run(main, argv=["ValueError"])
+            defopt.run(main, argv=['ValueError'])
 
 
 class TestDoc(unittest.TestCase):
@@ -889,14 +890,14 @@ class TestDoc(unittest.TestCase):
         :returns: str
         :junk one two: nothing
         """
-        doc = defopt._parse_docstring(inspect.cleandoc(doc))
-        self.assertEqual(doc.text, 'Test function\n\n')
-        one = doc.params['one']
-        self.assertEqual(one.text, 'first param')
-        self.assertEqual(one.type, 'int')
-        two = doc.params['two']
-        self.assertEqual(two.text, 'second param')
-        self.assertEqual(two.type, 'float')
+        doc_sig = defopt._parse_docstring(inspect.cleandoc(doc))
+        self.assertEqual(doc_sig.doc, 'Test function\n\n')
+        one = doc_sig.parameters['one']
+        self.assertEqual(one.doc, 'first param')
+        self.assertEqual(one.annotation, 'int')
+        two = doc_sig.parameters['two']
+        self.assertEqual(two.doc, 'second param')
+        self.assertEqual(two.annotation, 'float')
 
     def test_parse_params(self):
         doc = """
@@ -909,13 +910,13 @@ class TestDoc(unittest.TestCase):
         :key fifth: fifth param
         :keyword str sixth: sixth param
         """
-        doc = defopt._parse_docstring(inspect.cleandoc(doc))
-        self.assertEqual(doc.params['first'].text, 'first param')
-        self.assertEqual(doc.params['second'].text, 'second param')
-        self.assertEqual(doc.params['third'].text, 'third param')
-        self.assertEqual(doc.params['fourth'].text, 'fourth param')
-        self.assertEqual(doc.params['fifth'].text, 'fifth param')
-        self.assertEqual(doc.params['sixth'].text, 'sixth param')
+        doc_sig = defopt._parse_docstring(inspect.cleandoc(doc))
+        self.assertEqual(doc_sig.parameters['first'].doc, 'first param')
+        self.assertEqual(doc_sig.parameters['second'].doc, 'second param')
+        self.assertEqual(doc_sig.parameters['third'].doc, 'third param')
+        self.assertEqual(doc_sig.parameters['fourth'].doc, 'fourth param')
+        self.assertEqual(doc_sig.parameters['fifth'].doc, 'fifth param')
+        self.assertEqual(doc_sig.parameters['sixth'].doc, 'sixth param')
 
     def test_parse_doubles(self):
         doc = """
@@ -936,24 +937,25 @@ class TestDoc(unittest.TestCase):
             defopt._parse_docstring(inspect.cleandoc(doc))
 
     def test_no_doc(self):
-        doc = defopt._parse_docstring(None)
-        self.assertEqual(doc.text, '')
-        self.assertEqual(doc.params, {})
+        doc_sig = defopt._parse_docstring(None)
+        self.assertEqual(doc_sig.doc, '')
+        self.assertEqual(doc_sig.parameters, {})
 
     def test_param_only(self):
-        doc = defopt._parse_docstring(""":param int param: test""")
-        self.assertEqual(doc.text, '')
-        param = doc.params['param']
-        self.assertEqual(param.text, 'test')
-        self.assertEqual(param.type, 'int')
+        doc_sig = defopt._parse_docstring(""":param int param: test""")
+        self.assertEqual(doc_sig.doc, '')
+        param = doc_sig.parameters['param']
+        self.assertEqual(param.doc, 'test')
+        self.assertEqual(param.annotation, 'int')
 
     def test_implicit_role(self):
-        doc = defopt._parse_docstring("""start `int` end""")
-        self.assertEqual(doc.text, 'start \033[4mint\033[0m end\n\n')
+        doc_sig = defopt._parse_docstring("""start `int` end""")
+        self.assertEqual(doc_sig.doc, 'start \033[4mint\033[0m end\n\n')
 
     def test_explicit_role(self):
-        doc = defopt._parse_docstring("""start :py:class:`int` end""")
-        self.assertEqual(doc.text, 'start int end\n\n')
+        doc_sig = defopt._parse_docstring(
+            """start :py:class:`int` :kbd:`ctrl` end""")
+        self.assertEqual(doc_sig.doc, 'start int ctrl end\n\n')
 
     def test_sphinx(self):
         doc = """
@@ -963,6 +965,8 @@ class TestDoc(unittest.TestCase):
 
         :param int arg1: Description of arg1
         :param str arg2: Description of arg2
+
+            And more about arg2
         :keyword float arg3: Description of arg3
         :returns: Description of return value.
         :rtype: str
@@ -971,11 +975,11 @@ class TestDoc(unittest.TestCase):
 
         >>> print("hello, world")
         """
-        doc = defopt._parse_docstring(inspect.cleandoc(doc))
-        self._check_doc(doc)
+        doc_sig = defopt._parse_docstring(inspect.cleandoc(doc))
+        self._check_doc(doc_sig)
 
     def test_google(self):
-        # Docstring taken from Napoleon's example (plus a keyword argument).
+        # Docstring modified from Napoleon's example.
         doc = """
         One line summary.
 
@@ -984,6 +988,8 @@ class TestDoc(unittest.TestCase):
         Args:
           arg1(int): Description of arg1
           arg2(str): Description of arg2
+
+            And more about arg2
 
         Keyword Arguments:
           arg3(float): Description of arg3
@@ -994,11 +1000,11 @@ class TestDoc(unittest.TestCase):
         Examples:
           >>> print("hello, world")
         """
-        doc = defopt._parse_docstring(inspect.cleandoc(doc))
-        self._check_doc(doc)
+        doc_sig = defopt._parse_docstring(inspect.cleandoc(doc))
+        self._check_doc(doc_sig)
 
     def test_numpy(self):
-        # Docstring taken from Napoleon's example (plus a keyword argument).
+        # Docstring modified from Napoleon's example.
         doc = """
         One line summary.
 
@@ -1010,6 +1016,8 @@ class TestDoc(unittest.TestCase):
             Description of arg1
         arg2 : str
             Description of arg2
+
+            And more about arg2
 
         Keyword Arguments
         -----------------
@@ -1025,39 +1033,39 @@ class TestDoc(unittest.TestCase):
         --------
         >>> print("hello, world")
         """
-        doc = defopt._parse_docstring(inspect.cleandoc(doc))
-        self._check_doc(doc)
+        doc_sig = defopt._parse_docstring(inspect.cleandoc(doc))
+        self._check_doc(doc_sig)
 
-    def _check_doc(self, doc):
+    def _check_doc(self, doc_sig):
         self.assertEqual(
-            doc.text,
+            doc_sig.doc,
             'One line summary.\n\nExtended description.\n\n'
             'examples:\n\n>>> print("hello, world")\n\n')
-        self.assertEqual(len(doc.params), 3)
-        self.assertEqual(doc.params['arg1'].text, 'Description of arg1')
-        self.assertEqual(doc.params['arg1'].type, 'int')
-        self.assertEqual(doc.params['arg2'].text, 'Description of arg2')
-        self.assertEqual(doc.params['arg2'].type, 'str')
-        self.assertEqual(doc.params['arg3'].text, 'Description of arg3')
-        self.assertEqual(doc.params['arg3'].type, 'float')
+        self.assertEqual(len(doc_sig.parameters), 3)
+        self.assertEqual(doc_sig.parameters['arg1'].doc, 'Description of arg1')
+        self.assertEqual(doc_sig.parameters['arg1'].annotation, 'int')
+        self.assertEqual(doc_sig.parameters['arg2'].doc,
+                         'Description of arg2\n\nAnd more about arg2')
+        self.assertEqual(doc_sig.parameters['arg2'].annotation, 'str')
+        self.assertEqual(doc_sig.parameters['arg3'].doc, 'Description of arg3')
+        self.assertEqual(doc_sig.parameters['arg3'].annotation, 'float')
 
     def test_sequence(self):
-        globalns = {'Sequence': typing.Sequence}
         self.assertEqual(
-            defopt._get_type_from_doc('Sequence[int]', globalns),
+            defopt._get_type_from_doc(
+                'Sequence[int]', {'Sequence': typing.Sequence}),
             typing.List[int])
 
     def test_collection(self):
-        # This test effectively does nothing on python versions < 3.6
-        globalns = {'Collection': getattr(typing, 'Collection', typing.List)}
         self.assertEqual(
-            defopt._get_type_from_doc('Collection[int]', globalns),
+            defopt._get_type_from_doc(
+                'Collection[int]', {'Collection': typing.Collection}),
             typing.List[int])
 
     def test_iterable(self):
-        globalns = {'typing': typing}
         self.assertEqual(
-            defopt._get_type_from_doc('typing.Iterable[int]', globalns),
+            defopt._get_type_from_doc(
+                'typing.Iterable[int]', {'typing': typing}),
             typing.List[int])
 
     def test_literal_block(self):
@@ -1071,9 +1079,9 @@ class TestDoc(unittest.TestCase):
 
             def foo(): pass
         """
-        doc = defopt._parse_docstring(inspect.cleandoc(doc))
+        doc_sig = defopt._parse_docstring(inspect.cleandoc(doc))
         self.assertEqual(
-            doc.text,
+            doc_sig.doc,
             '    Literal block\n        Multiple lines\n\n'
             '    def foo(): pass\n\n')
 
@@ -1098,8 +1106,8 @@ class TestDoc(unittest.TestCase):
         ii. bar
         #.  baz
         """
-        doc = defopt._parse_docstring(inspect.cleandoc(doc))
-        self.assertEqual(doc.text, inspect.cleandoc("""\
+        doc_sig = defopt._parse_docstring(inspect.cleandoc(doc))
+        self.assertEqual(doc_sig.doc, inspect.cleandoc("""\
             Bar
             Baz
 
@@ -1119,6 +1127,15 @@ class TestDoc(unittest.TestCase):
 
             iii. baz""") + "\n\n")
 
+    def test_bad_doc(self):
+        doc = """
+        some
+        - bad
+          - indent
+        """
+        with self.assertRaises(SystemMessage):
+            defopt._parse_docstring(inspect.cleandoc(doc))
+
 
 class TestAnnotations(unittest.TestCase):
     def test_simple(self):
@@ -1131,7 +1148,7 @@ class TestAnnotations(unittest.TestCase):
     def test_conflicting(self):
         def foo(bar: int):
             """:type bar: float"""
-        with self.assertRaisesRegex(ValueError, 'bar.*float.*int'):
+        with self.assertRaisesRegex(ValueError, 'bar.*int.*float'):
             defopt.run(foo, argv=['1'])
 
     def test_none(self):
@@ -1145,6 +1162,39 @@ class TestAnnotations(unittest.TestCase):
             """:type bar: int"""
             return bar
         self.assertEqual(defopt.run(foo, argv=['1']), 1)
+
+
+class TestAlias(unittest.TestCase):
+    def test_alias(self):
+        if not hasattr(typing, 'TypeAliasType'):
+            raise unittest.SkipTest('TypeAliasType not supported')
+        d = {}
+        exec('type L = list[int]\ndef foo(bar: L): return bar', d)
+        self.assertEqual(defopt.run(d['foo'], argv=['-b1']), [1])
+
+
+class TestFunctoolsPartial(unittest.TestCase):
+    # does not have a default for `bar`
+    @staticmethod
+    def foo(*, bar: int) -> None:
+        """The foo tool
+
+        :param int bar: the bar option"""
+        return bar
+
+    def test_partial_top_level(self):
+        actual = defopt.run(functools.partial(self.foo, bar=4), argv=[])
+        self.assertEqual(actual, 4)
+
+    def test_partial_sub_command(self):
+        funcs = {'foo': functools.partial(self.foo, bar=4)}
+        actual = defopt.run(funcs, argv=['foo'])
+        self.assertEqual(actual, 4)
+
+    def test_partial_sub_commands(self):
+        funcs = {'bar': [functools.partial(self.foo, bar=4)]}
+        actual = defopt.run(funcs, argv=['bar', 'foo'])
+        self.assertEqual(actual, 4)
 
 
 class TestHelp(unittest.TestCase):
@@ -1311,6 +1361,39 @@ class TestHelp(unittest.TestCase):
         self.assert_in_help('summary-of-foo', [foo, bar], '')
         self.assert_not_in_help('FOO', [foo, bar], '')
 
+    def test_functools_partial_make_param_default(self):
+        def foo(*, bar):
+            """The foo tool
+
+            :param int bar: the bar option"""
+        func = functools.partial(foo, bar=4)
+        self.assert_in_help('The foo tool', func, 't')
+        self.assert_in_help('(type: int)', func, 't')
+        self.assert_in_help('(default: 4)', func, 'd')
+        self.assert_in_help('(type: int, default: 4)', func, 'dt')
+
+    def test_functools_partial_override_param_default(self):
+        def foo(*, bar=5):
+            """The foo tool
+
+            :param int bar: the bar option"""
+        func = functools.partial(foo, bar=4)
+        self.assert_in_help('The foo tool', func, 't')
+        self.assert_in_help('(type: int)', func, 't')
+        self.assert_in_help('(default: 4)', func, 'd')
+        self.assert_in_help('(type: int, default: 4)', func, 'dt')
+
+    def test_functools_partial_command_list(self):
+        def foo():
+            """Foo"""
+        def bar():
+            """Bar"""
+        func_foo = functools.partial(foo)
+        func_bar = functools.partial(bar)
+        funcs = [func_foo, func_bar]
+        self.assert_in_help('Foo', funcs, 't')
+        self.assert_in_help('Bar', funcs, 't')
+
     def assert_in_help(self, s, funcs, flags):
         self.assertIn(s, self._get_help(funcs, flags))
 
@@ -1319,35 +1402,70 @@ class TestHelp(unittest.TestCase):
 
     def _get_help(self, funcs, flags):
         self.assertLessEqual({*flags}, {'d', 't', 'n'})
-        parser = defopt._create_parser(
-            funcs, show_defaults='d' in flags, show_types='t' in flags,
-            no_negated_flags='n' in flags, cli_options='has_default')
+        parser = defopt._create_parser(funcs, _options(
+            show_defaults='d' in flags, show_types='t' in flags,
+            no_negated_flags='n' in flags, cli_options='has_default'))
         return parser.format_help()
+
+
+@contextlib.contextmanager
+def _assert_streams(self, *, stdout=None, stderr=None):
+    with ExitStack() as stack:
+        if stdout is not None:
+            r_stdout = stack.enter_context(
+                contextlib.redirect_stdout(StringIO()))
+            stack.callback(
+                lambda: self.assertRegex(r_stdout.getvalue(), stdout))
+        if stderr is not None:
+            r_stderr = stack.enter_context(
+                contextlib.redirect_stderr(StringIO()))
+            stack.callback(
+                lambda: self.assertRegex(r_stderr.getvalue(), stderr))
+        yield
+
+
+class TestErrorMessage(unittest.TestCase):
+    def test_enum(self):
+        def foo(x: Choice): pass
+        with self.assertRaises(SystemExit), _assert_streams(
+                self, stderr="error: argument x: invalid choice: 'three'"):
+            defopt.run(foo, argv=['three'])
+
+    def test_literal(self):
+        def foo(x: defopt.Literal[1, "a"]): pass
+        with self.assertRaises(SystemExit), _assert_streams(
+                self, stderr="error: argument x: invalid choice: 'three'"):
+            defopt.run(foo, argv=['three'])
+
+    def test_tuple(self):
+        def foo(x: typing.Tuple[int]): pass
+        with self.assertRaises(SystemExit), _assert_streams(
+                self, stderr="error: argument x: invalid literal for int"):
+            defopt.run(foo, argv=['three'])
 
 
 class TestVersion(unittest.TestCase):
     def test_no_version(self):
         for funcs in [[], lambda: None, [lambda: None]]:
-            with self.assertRaises(SystemExit), \
-                 self._assert_streams(
+            with self.assertRaises(SystemExit), _assert_streams(
+                     self,
                      stdout=r'\A\Z',
                      stderr='unrecognized arguments: --version'):
                 defopt.run([], version=False, argv=['--version'])
 
     def test_auto_version(self):
-        with self.assertRaises(SystemExit), \
-             self._assert_streams(
-                 stdout=r'\A{}\n\Z'.format(re.escape(__version__))):
+        with self.assertRaises(SystemExit), _assert_streams(
+                 self, stdout=rf'\A{re.escape(__version__)}\n\Z'):
             defopt.run(lambda: None, argv=['--version'])
-        with self.assertRaises(SystemExit), \
-             self._assert_streams(
+        with self.assertRaises(SystemExit), _assert_streams(
+                 self,
                  stdout=r'\A\Z',
                  stderr='unrecognized arguments: --version'):
             defopt.run([], argv=['--version'])
 
     def test_manual_version(self):
-        with self.assertRaises(SystemExit), \
-             self._assert_streams(stdout=r'\Afoo 42\n\Z'):
+        with self.assertRaises(SystemExit), _assert_streams(
+                self, stdout=r'\Afoo 42\n\Z'):
             defopt.run([], version='foo 42', argv=['--version'])
 
     def test_moduleless(self):
@@ -1355,21 +1473,6 @@ class TestVersion(unittest.TestCase):
         moduleless.__module__ = None
         with self.assertRaises(ValueError):
             defopt.run([moduleless], version=True)
-
-    @contextlib.contextmanager
-    def _assert_streams(self, *, stdout=None, stderr=None):
-        with ExitStack() as stack:
-            if stdout is not None:
-                r_stdout = stack.enter_context(
-                    contextlib.redirect_stdout(StringIO()))
-                stack.callback(
-                    lambda: self.assertRegex(r_stdout.getvalue(), stdout))
-            if stderr is not None:
-                r_stderr = stack.enter_context(
-                    contextlib.redirect_stderr(StringIO()))
-                stack.callback(
-                    lambda: self.assertRegex(r_stderr.getvalue(), stderr))
-            yield
 
 
 class TestExamples(unittest.TestCase):
@@ -1453,7 +1556,7 @@ class TestExamples(unittest.TestCase):
 
     def test_parsers(self):
         date = parsers.datetime(2015, 9, 13)
-        with self._assert_stdout('{}\n'.format(date)):
+        with self._assert_stdout(f'{date}\n'):
             parsers.main(date)
         with self._assert_stdout('junk\n'):
             parsers.main('junk')
@@ -1465,6 +1568,12 @@ class TestExamples(unittest.TestCase):
             self._run_example(parsers, ['junk'])
         self.assertIn(b'datetime', error.exception.output)
         self.assertIn(b'junk', error.exception.output)
+
+    def test_partials(self):
+        output = self._run_example(partials, ['foo'])
+        self.assertEqual(output, b'5\n')
+        output = self._run_example(partials, ['sub', 'bar'])
+        self.assertEqual(output, b'6\n')
 
     def test_short(self):
         with self._assert_stdout('hello!\n'):
@@ -1564,14 +1673,14 @@ class TestStyle(unittest.TestCase):
         for path in [defopt.__file__, __file__]:
             with tokenize.open(path) as src:
                 for i, line in enumerate(src, 1):
-                    yield '{}:{}'.format(path, i), line.rstrip('\n')
+                    yield f'{path}:{i}', line.rstrip('\n')
 
     def test_line_length(self):
         for name, line in self._iter_stripped_lines():
             if len(line) > 79:
-                self.fail('{} is too long'.format(name))
+                self.fail(f'{name} is too long')
 
     def test_trailing_whitespace(self):
         for name, line in self._iter_stripped_lines():
             if line and line[-1].isspace():
-                self.fail('{} has trailing whitespace'.format(name))
+                self.fail(f'{name} has trailing whitespace')

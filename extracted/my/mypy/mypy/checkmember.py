@@ -341,8 +341,8 @@ def analyze_instance_member_access(
             assert isinstance(method, OverloadedFuncDef)
             getter = method.items[0]
             assert isinstance(getter, Decorator)
-            if mx.is_lvalue and (len(items := method.items) > 1):
-                mx.chk.warn_deprecated(items[1], mx.context)
+            if mx.is_lvalue and getter.var.is_settable_property:
+                mx.chk.warn_deprecated(method.setter, mx.context)
             return analyze_var(name, getter.var, typ, mx)
 
         if mx.is_lvalue and not mx.suppress_errors:
@@ -916,7 +916,7 @@ def analyze_var(
             bound_items = []
             for ct in call_type.items if isinstance(call_type, UnionType) else [call_type]:
                 p_ct = get_proper_type(ct)
-                if isinstance(p_ct, FunctionLike) and not p_ct.is_type_obj():
+                if isinstance(p_ct, FunctionLike) and (not p_ct.bound() or var.is_property):
                     item = expand_and_bind_callable(p_ct, var, itype, name, mx, is_trivial_self)
                 else:
                     item = expand_without_binding(ct, var, itype, original_itype, mx)
@@ -974,6 +974,10 @@ def expand_and_bind_callable(
     assert isinstance(expanded, CallableType)
     if var.is_settable_property and mx.is_lvalue and var.setter_type is not None:
         # TODO: use check_call() to infer better type, same as for __set__().
+        if not expanded.arg_types:
+            # This can happen when accessing invalid property from its own body,
+            # error will be reported elsewhere.
+            return AnyType(TypeOfAny.from_error)
         return expanded.arg_types[0]
     else:
         return expanded.ret_type
@@ -1499,6 +1503,6 @@ def bind_self_fast(method: F, original_type: Type | None = None) -> F:
         arg_types=method.arg_types[1:],
         arg_kinds=method.arg_kinds[1:],
         arg_names=method.arg_names[1:],
-        bound_args=[original_type],
+        is_bound=True,
     )
     return cast(F, res)

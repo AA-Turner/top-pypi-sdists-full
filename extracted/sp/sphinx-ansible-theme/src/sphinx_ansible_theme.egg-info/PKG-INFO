@@ -1,0 +1,57 @@
+Metadata-Version: 2.1
+Name: sphinx-ansible-theme
+Version: 0.10.3
+Summary: Ansible Sphinx Theme
+Author-email: Ansible by Red Hat <info@ansible.com>
+Maintainer-email: Ansible by Red Hat <info@ansible.com>
+License: MIT
+Project-URL: homepage, https://github.com/ansible-community/sphinx_ansible_theme
+Project-URL: documentation, https://sphinx-ansible-theme.readthedocs.io/en/latest/
+Project-URL: repository, https://github.com/ansible-community/sphinx_ansible_theme
+Project-URL: changelog, https://github.com/ansible-community/sphinx_ansible_theme/releases
+Keywords: ansible,sphinx,theme
+Classifier: Development Status :: 6 - Mature
+Classifier: Environment :: Console
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Sphinx :: Theme
+Classifier: Framework :: Sphinx
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Documentation
+Classifier: Topic :: Software Development :: Documentation
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: ansible-pygments>=0.1.1
+Requires-Dist: sphinx>=5.3.0
+Requires-Dist: sphinx-rtd-theme>=1.1.1
+Provides-Extra: test
+Requires-Dist: sphinx-notfound-page; extra == "test"
+
+sphinx_ansible_theme
+--------------------
+
+A reusable Ansible Sphinx Theme.
+
+Demo-site at https://sphinx-ansible-theme.readthedocs.io/en/latest/
+
+Logos in ``sphinx_ansible_theme/static/images/``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Ansible logos are taken from `the official Ansible Community logo download page <https://www.ansible.com/logos>`_. The files are slightly modified as follows:
+
+* The SVG logos' bounding boxes are modified from ``0 0 300 300`` to ``30 30 240 240``.
+* The PNG files are rescaled to 180x180 using ImageMagick as follows:
+
+  .. code-block:: sh
+
+    convert Ansible-Mark-Large-RGB-Black.png -resize 180x180 Ansible-Mark-RGB_Black.png
+    convert Ansible-Mark-Large-RGB-White.png -resize 180x180 Ansible-Mark-RGB_White.png

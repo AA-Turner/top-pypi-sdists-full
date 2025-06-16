@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.6.0
+Version: 1.6.2
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -538,6 +538,8 @@ Provides-Extra: sqlite
 Requires-Dist: sqlalchemy; extra == "sqlite"
 Provides-Extra: gcs
 Requires-Dist: google-cloud-storage; extra == "gcs"
+Provides-Extra: firestore
+Requires-Dist: google-cloud-firestore; extra == "firestore"
 Provides-Extra: redis
 Requires-Dist: redis; extra == "redis"
 Provides-Extra: pgvector
@@ -638,6 +640,7 @@ Requires-Dist: agno[sql]; extra == "storage"
 Requires-Dist: agno[postgres]; extra == "storage"
 Requires-Dist: agno[sqlite]; extra == "storage"
 Requires-Dist: agno[gcs]; extra == "storage"
+Requires-Dist: agno[firestore]; extra == "storage"
 Requires-Dist: agno[redis]; extra == "storage"
 Provides-Extra: vectordbs
 Requires-Dist: agno[pgvector]; extra == "vectordbs"

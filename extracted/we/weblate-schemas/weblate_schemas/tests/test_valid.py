@@ -10,17 +10,17 @@ from jsonschema.exceptions import ValidationError
 from weblate_schemas import load_schema, validate_schema
 
 
-def test_validate_manual():
+def test_validate_manual() -> None:
     """Test memory schema being valid."""
     validate([], load_schema("weblate-memory.schema.json"))
 
 
-def test_memory():
+def test_memory() -> None:
     """Test validate schema API."""
     validate_schema([], "weblate-memory.schema.json")
 
 
-def test_memory_newline():
+def test_memory_newline() -> None:
     """Test memory entry containing newlines."""
     validate_schema(
         [
@@ -37,7 +37,7 @@ def test_memory_newline():
     )
 
 
-def test_userdata():
+def test_userdata() -> None:
     """Test user data schema being valid."""
     validate_schema(
         {
@@ -78,7 +78,7 @@ def test_userdata():
     )
 
 
-def test_backup():
+def test_backup() -> None:
     """Test memory schema being valid."""
     backup_without_teams = {
         "metadata": {
@@ -151,7 +151,7 @@ def test_backup():
     )
 
 
-def test_backup_blank_url():
+def test_backup_blank_url() -> None:
     """Test memory schema being valid."""
     validate_schema(
         {
@@ -181,7 +181,7 @@ def test_backup_blank_url():
     )
 
 
-def test_backup_unicode_url():
+def test_backup_unicode_url() -> None:
     """Test memory schema being valid."""
     validate_schema(
         {
@@ -211,7 +211,7 @@ def test_backup_unicode_url():
     )
 
 
-def test_component():
+def test_component() -> None:
     """Test memory schema being valid."""
     data = {
         "component": {
@@ -338,6 +338,26 @@ def test_component():
         "weblate-component.schema.json",
     )
     data["component"]["category"] = "my-category"
+    validate_schema(
+        data,
+        "weblate-component.schema.json",
+    )
+
+    # Weblate 5.13+ backup with separate model for pending changes
+    for unit in data["units"]:
+        del unit["pending"]
+    data["pending_unit_changes"] = [
+        {
+            "unit_id_hash": "1234567890abcdef",
+            "author": "weblate",
+            "target": "hello world",
+            "explanation": "simple explanation",
+            "source_unit_explanation": "simple source explanation",
+            "timestamp": "2019-11-18T18:58:30.845Z",
+            "state": 0,
+            "add_unit": False,
+        }
+    ]
     validate_schema(
         data,
         "weblate-component.schema.json",

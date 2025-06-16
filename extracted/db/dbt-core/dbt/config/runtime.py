@@ -1,8 +1,7 @@
 import itertools
 import os
 from copy import deepcopy
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
@@ -16,8 +15,6 @@ from typing import (
     Type,
 )
 
-import pytz
-
 from dbt import tracking
 from dbt.adapters.contracts.connection import (
     AdapterRequiredConfig,
@@ -26,6 +23,7 @@ from dbt.adapters.contracts.connection import (
 )
 from dbt.adapters.contracts.relation import ComponentName
 from dbt.adapters.factory import get_include_paths, get_relation_class_by_name
+from dbt.artifacts.resources.v1.components import Quoting
 from dbt.config.project import load_raw_project
 from dbt.contracts.graph.manifest import ManifestMetadata
 from dbt.contracts.project import Configuration
@@ -53,11 +51,12 @@ def load_project(
     version_check: bool,
     profile: HasCredentials,
     cli_vars: Optional[Dict[str, Any]] = None,
+    validate: bool = False,
 ) -> Project:
     # get the project with all of the provided information
     project_renderer = DbtProjectYamlRenderer(profile, cli_vars)
     project = Project.from_project_root(
-        project_root, project_renderer, verify_version=version_check
+        project_root, project_renderer, verify_version=version_check, validate=validate
     )
 
     # Save env_vars encountered in rendering for partial parsing
@@ -101,7 +100,6 @@ class RuntimeConfig(Project, Profile, AdapterRequiredConfig):
     profile_name: str
     cli_vars: Dict[str, Any]
     dependencies: Optional[Mapping[str, "RuntimeConfig"]] = None
-    invoked_at: datetime = field(default_factory=lambda: datetime.now(pytz.UTC))
 
     def __post_init__(self):
         self.validate()
@@ -299,6 +297,12 @@ class RuntimeConfig(Project, Profile, AdapterRequiredConfig):
                 get_flags().SEND_ANONYMOUS_USAGE_STATS if tracking.active_user else None
             ),
             adapter_type=self.credentials.type,
+            quoting=Quoting(
+                database=self.quoting.get("database", None),
+                schema=self.quoting.get("schema", None),
+                identifier=self.quoting.get("identifier", None),
+                column=self.quoting.get("column", None),
+            ),
         )
 
     def _get_v2_config_paths(

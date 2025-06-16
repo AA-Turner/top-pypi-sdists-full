@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: tags
+      run: |
+        git fetch --tags --force
+    - name: version
+      id: version
+      run: |
+        echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
+    - name: install
+      run: |
+        go get github.com/git-chglog/git-chglog/cmd/git-chglog
+        go get github.com/github-release/github-release
+    - name: changelog
+      run: |
+        # https://github.com/git-chglog/git-chglog#git-chglog
+        $(go env GOPATH)/bin/git-chglog \
+          --config .chglog/RELEASE_NOTES-config.yml \
+          -o $GITHUB_WORKSPACE/CHANGELOG.md \
+          ${{ steps.version.outputs.VERSION }}
+    - name: release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        $(go env GOPATH)/bin/github-release -v release \
+          --user m0nhawk \
+          --repo grafana_api \
+          --tag ${{ steps.version.outputs.VERSION }} \
+          --name ${{ steps.version.outputs.VERSION }} \
+          --description "$(cat $GITHUB_WORKSPACE/CHANGELOG.md)"

@@ -97,14 +97,12 @@ class Rule_CV12(BaseRule):
             "join_clause", no_recursive_seg_type=["select_statement"]
         ):
             # mark table reference as seen
-            join_table_references = [
-                *join_clause.recursive_crawl(
+            join_table_reference = next(
+                join_clause.recursive_crawl(
                     "from_expression_element",
                     no_recursive_seg_type=["select_statement"],
                 )
-            ]
-            assert len(join_table_references) == 1
-            join_table_reference = join_table_references[0]
+            )
             encountered_references.add(
                 self._get_from_expression_element_alias(join_table_reference)
             )
@@ -113,12 +111,13 @@ class Rule_CV12(BaseRule):
             ]
 
             if any(
-                kw.raw_upper in ("CROSS", "POSITIONAL", "USING")
+                kw.raw_upper in ("CROSS", "POSITIONAL", "USING", "APPLY")
                 for kw in join_clause_keywords
             ):
                 # If explicit CROSS JOIN is used, disregard lack of condition
                 # If explicit POSITIONAL JOIN is used, disregard lack of condition
                 # If explicit JOIN USING is used, disregard lack of condition
+                # If explicit CROSS/OUTER APPLY is used, disregard lack of condition
                 continue
 
             this_join_condition = join_clause.get_child("join_on_condition")

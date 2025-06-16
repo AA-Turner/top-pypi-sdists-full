@@ -1,0 +1,71 @@
+[dependencies]
+arrow2 = {workspace = true, features = [
+  "chrono-tz",
+  "compute_take",
+  "compute_cast",
+  "compute_aggregate",
+  "compute_if_then_else",
+  "compute_sort",
+  "compute_filter",
+  "compute_temporal",
+  "compute_comparison",
+  "compute_arithmetics",
+  "compute_concatenate",
+  "compute_substring",
+  "io_ipc"
+]}
+bincode = {workspace = true}
+chrono = {workspace = true}
+chrono-tz = {workspace = true}
+comfy-table = {workspace = true}
+common-arrow-ffi = {path = "../common/arrow-ffi", default-features = false}
+common-display = {path = "../common/display", default-features = false}
+common-error = {path = "../common/error", default-features = false}
+common-hashable-float-wrapper = {path = "../common/hashable-float-wrapper"}
+common-py-serde = {path = "../common/py-serde", default-features = false}
+daft-hash = {workspace = true}
+daft-minhash = {path = "../daft-minhash", default-features = false}
+daft-schema = {path = "../daft-schema", default-features = false}
+daft-sketch = {path = "../daft-sketch", default-features = false}
+derive_more = {workspace = true}
+fastrand = "2.1.0"
+fnv = "1.0.7"
+html-escape = {workspace = true}
+hyperloglog = {path = "../hyperloglog"}
+indexmap = {workspace = true, features = ["serde"]}
+itertools = {workspace = true}
+log = {workspace = true}
+mur3 = "0.1.0"
+ndarray = "0.16.1"
+num-traits = {workspace = true}
+pyo3 = {workspace = true, optional = true}
+rand = "0.8.5"
+serde = {workspace = true}
+sketches-ddsketch = {workspace = true}
+
+[dependencies.numpy]
+optional = true
+version = "0.23.0"
+
+[dependencies.xxhash-rust]
+features = ["xxh3", "const_xxh3", "xxh64"]
+version = "0.8.5"
+
+[features]
+python = [
+  "common-arrow-ffi/python",
+  "common-display/python",
+  "common-error/python",
+  "common-py-serde/python",
+  "daft-schema/python",
+  "dep:numpy",
+  "dep:pyo3"
+]
+
+[lints]
+workspace = true
+
+[package]
+edition = {workspace = true}
+name = "daft-core"
+version = {workspace = true}

@@ -1,0 +1,54 @@
+ci:
+    autofix_commit_msg: |
+        [pre-commit.ci] auto fixes from pre-commit.com hooks
+
+        for more information, see https://pre-commit.ci
+    autoupdate_commit_msg: 'ci(pre-commit): pre-commit autoupdate'
+
+repos:
+- repo: https://github.com/psf/black-pre-commit-mirror
+  rev: 25.1.0
+  hooks:
+  - id: black
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: check-added-large-files
+  - id: check-case-conflict
+  - id: check-merge-conflict
+  - id: check-symlinks
+  - id: check-yaml
+  - id: debug-statements
+  - id: end-of-file-fixer
+  - id: mixed-line-ending
+  - id: requirements-txt-fixer
+  - id: trailing-whitespace
+
+- repo: https://github.com/PyCQA/isort
+  rev: 6.0.1
+  hooks:
+  - id: isort
+
+- repo: https://github.com/asottile/pyupgrade
+  rev: v3.20.0
+  hooks:
+  - id: pyupgrade
+    args: ["--py39-plus"]
+
+- repo: https://github.com/asottile/setup-cfg-fmt
+  rev: v2.8.0
+  hooks:
+  - id: setup-cfg-fmt
+
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.11.4
+  hooks:
+  - id: ruff
+    args: [--fix, --show-fixes]
+
+- repo: https://github.com/pre-commit/mirrors-clang-format
+  rev: "v20.1.5"
+  hooks:
+    - id: clang-format
+      types_or: [c++, c, cuda]

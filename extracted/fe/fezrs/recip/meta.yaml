@@ -1,0 +1,44 @@
+{% set version = environ.get('FEZRS_VERSION', '1.0.1') %}
+
+package:
+  name: fezrs
+  version: "{{ version }}"
+
+source:
+  url: https://pypi.io/packages/source/f/fezrs/fezrs-{{ version }}.tar.gz
+
+build:
+  number: 1
+  noarch: python
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir"
+
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - setuptools
+    - opencv
+  run:
+    - python >=3.10
+    - numpy
+    - matplotlib
+    - scikit-image
+    - scikit-learn
+    - fastapi
+    - opencv
+
+
+# test:
+#   imports:
+#     - fezrs
+  # skip tests temporarily because of missing libEGL dependency
+
+about:
+  home: https://github.com/FEZtool-team/FEZrs
+  license: Apache
+  license_file: LICENSE
+  summary: "FEZrs is a Python package for feature extraction and analysis in remote sensing imagery."
+
+extra:
+  recipe-maintainers:
+    - FEZtool-team

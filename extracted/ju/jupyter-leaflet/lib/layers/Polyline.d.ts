@@ -1,6 +1,7 @@
-import { Polygon, Polyline } from 'leaflet';
+import { Polyline } from 'leaflet';
 import L from '../leaflet';
 import { LeafletPathModel, LeafletPathView } from './Path';
+import { LineString, MultiLineString } from 'geojson';
 export declare class LeafletPolylineModel extends LeafletPathModel {
     defaults(): {
         _view_name: string;
@@ -31,10 +32,12 @@ export declare class LeafletPolylineModel extends LeafletPathModel {
         popup_max_height: number | null;
         pane: string;
         subitems: L.Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
 export declare class LeafletPolylineView extends LeafletPathView {
-    obj: Polyline | Polygon;
+    obj: Polyline<LineString | MultiLineString>;
     create_obj(): void;
     model_events(): void;
     update_transform(): void;

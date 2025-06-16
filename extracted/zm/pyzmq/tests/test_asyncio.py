@@ -17,7 +17,7 @@ import zmq.asyncio as zaio
 
 
 @pytest.fixture
-def Context(event_loop):
+async def Context():
     return zaio.Context
 
 
@@ -403,6 +403,33 @@ async def test_poll_leak():
         # one more sleep allows further chained cleanup
         await asyncio.sleep(0.1)
         assert len(s._recv_futures) == 0
+
+
+async def test_draft_asyncio():
+    if not zmq.has("draft"):
+        pytest.skip("draft API")
+    if zmq.zmq_version_info() < (4, 3, 2):
+        pytest.skip("requires libzmq 4.3.2 for zmq_poller_fd")
+    with zmq.asyncio.Context() as ctx, ctx.socket(zmq.CLIENT) as client, ctx.socket(
+        zmq.SERVER
+    ) as server:
+        server.bind_to_random_port("tcp://127.0.0.1")
+        client.connect(server.last_endpoint)
+        server.rcvtimeo = client.rcvtimeo = 100
+        with pytest.raises(zmq.Again):
+            await server.recv()
+        with pytest.raises(zmq.Again):
+            await client.recv()
+        server.rcvtimeo = client.rcvtimeo = server.sndtimeo = client.sndtimeo = 3000
+        recv_future = asyncio.ensure_future(server.recv(copy=False))
+        assert not recv_future.done()
+        await client.send(b'request')
+        msg = await recv_future
+        recv_future = asyncio.ensure_future(client.recv())
+        assert not recv_future.done()
+        await server.send(msg)
+        response = await recv_future
+        assert response == b'request'
 
 
 class ProcessForTeardownTest(Process):

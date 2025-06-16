@@ -1,5 +1,0 @@
-VOLUME_MOUNT_DOCKER = "docker"
-VOLUME_MOUNT_SHM = "shm"
-VOLUME_MOUNT_CONFIGS = "configs-context"
-VOLUME_MOUNT_ARTIFACTS = "artifacts-context"
-VOLUME_MOUNT_CONNECTIONS_FORMAT = "connections-context-{}"

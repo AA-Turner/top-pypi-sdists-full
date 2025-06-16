@@ -3,15 +3,13 @@ from datetime import datetime, timedelta
 from operator import itemgetter
 import json
 
-def sumMonth2YearV0001(d, statfile):
+def sumMonth2YearV0001(d, statfile, verbosity):
     
     # accumulate months to year:
     # if lasttimerec is 2025xxxx then summup to (inkl) 202212
 
     yearInt = int(d['timelastrec'][0:4])
     yearInt = yearInt - 3
-    print("sumMonth2Year:  year of last rec: " + str(yearInt) + ",  accumulate till (including): " + str(yearInt))
-
     sumUntilMonth = str(yearInt) + '12'
    
     lasttimerecobj = datetime.strptime(d['timelastrec'],"%Y%m%d%H%M%S")
@@ -67,13 +65,13 @@ def sumMonth2YearV0001(d, statfile):
         # Server Response Code:
         if 'serverResponseCode' in dtmp['v0001']['days'][x]['user']:
             for ck,cv in dtmp['v0001']['days'][x]['user']['serverResponseCode'].items():
-                print("sumMonth2Year:  Responsecode  In: " + ck + ": " + str(cv) )
+                print("sumMonth2Year Responsecode In:  " + ck + ": " + str(cv) )
           
                 if ck in d['v0001']['days'][recYear]['user']['serverResponseCode']:
                     d['v0001']['days'][recYear]['user']['serverResponseCode'][ck] += cv
                 else:
                     d['v0001']['days'][recYear]['user']['serverResponseCode'][ck] = cv
-                print("sumMonth2Year responseCode Out: " + str(d['v0001']['days'][recYear]['user']['serverResponseCode']))
+                print("sumMonth2Year ResponseCode Out: " + str(d['v0001']['days'][recYear]['user']['serverResponseCode']))
         
         # Country Hits
         if 'countryHits' in dtmp['v0001']['days'][x]['user']:
@@ -125,5 +123,7 @@ def sumMonth2YearV0001(d, statfile):
                     
         # delete obsolete data:
         del d['v0001']['days'][x]
+        if verbosity == '99':
+             print("sumMonth2Year Result: " + str(recYear) + ": " + str( d['v0001']['days'][recYear] ))
 
     return d

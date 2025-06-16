@@ -1449,6 +1449,10 @@ class CfnEventDataStore(
                 name="name"
             )],
             billing_mode="billingMode",
+            context_key_selectors=[cloudtrail.CfnEventDataStore.ContextKeySelectorProperty(
+                equal_to=["equalTo"],
+                type="type"
+            )],
             federation_enabled=False,
             federation_role_arn="federationRoleArn",
             ingestion_enabled=False,
@@ -1457,6 +1461,7 @@ class CfnEventDataStore(
                 insight_type="insightType"
             )],
             kms_key_id="kmsKeyId",
+            max_event_size="maxEventSize",
             multi_region_enabled=False,
             name="name",
             organization_enabled=False,
@@ -1476,12 +1481,14 @@ class CfnEventDataStore(
         *,
         advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventDataStore.AdvancedEventSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         billing_mode: typing.Optional[builtins.str] = None,
+        context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventDataStore.ContextKeySelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         federation_role_arn: typing.Optional[builtins.str] = None,
         ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         insights_destination: typing.Optional[builtins.str] = None,
         insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventDataStore.InsightSelectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
+        max_event_size: typing.Optional[builtins.str] = None,
         multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         name: typing.Optional[builtins.str] = None,
         organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -1494,12 +1501,14 @@ class CfnEventDataStore(
         :param id: Construct identifier for this resource (unique in its scope).
         :param advanced_event_selectors: The advanced event selectors to use to select the events for the data store. You can configure up to five advanced event selectors for each event data store. For more information about how to use advanced event selectors to log CloudTrail events, see `Log events by using advanced event selectors <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html#creating-data-event-selectors-advanced>`_ in the CloudTrail User Guide. For more information about how to use advanced event selectors to include AWS Config configuration items in your event data store, see `Create an event data store for AWS Config configuration items <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-eds-cli.html#lake-cli-create-eds-config>`_ in the CloudTrail User Guide. For more information about how to use advanced event selectors to include events outside of AWS events in your event data store, see `Create an integration to log events from outside AWS <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-integrations-cli.html#lake-cli-create-integration>`_ in the CloudTrail User Guide.
         :param billing_mode: The billing mode for the event data store determines the cost for ingesting events and the default and maximum retention period for the event data store. The following are the possible values: - ``EXTENDABLE_RETENTION_PRICING`` - This billing mode is generally recommended if you want a flexible retention period of up to 3653 days (about 10 years). The default retention period for this billing mode is 366 days. - ``FIXED_RETENTION_PRICING`` - This billing mode is recommended if you expect to ingest more than 25 TB of event data per month and need a retention period of up to 2557 days (about 7 years). The default retention period for this billing mode is 2557 days. The default value is ``EXTENDABLE_RETENTION_PRICING`` . For more information about CloudTrail pricing, see `AWS CloudTrail Pricing <https://docs.aws.amazon.com/cloudtrail/pricing/>`_ and `Managing CloudTrail Lake costs <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-manage-costs.html>`_ .
+        :param context_key_selectors: The list of context key selectors that are configured for the event data store.
         :param federation_enabled: Indicates if `Lake query federation <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html>`_ is enabled. By default, Lake query federation is disabled. You cannot delete an event data store if Lake query federation is enabled.
         :param federation_role_arn: If Lake query federation is enabled, provides the ARN of the federation role used to access the resources for the federated event data store. The federation role must exist in your account and provide the `required minimum permissions <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html#query-federation-permissions-role>`_ .
         :param ingestion_enabled: Specifies whether the event data store should start ingesting live events. The default is true.
         :param insights_destination: The ARN (or ID suffix of the ARN) of the destination event data store that logs Insights events. For more information, see `Create an event data store for CloudTrail Insights events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-insights.html>`_ .
         :param insight_selectors: A JSON string that contains the Insights types you want to log on an event data store. ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types. The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume. The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
         :param kms_key_id: Specifies the AWS KMS key ID to use to encrypt the events delivered by CloudTrail. The value can be an alias name prefixed by ``alias/`` , a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier. .. epigraph:: Disabling or deleting the KMS key, or removing CloudTrail permissions on the key, prevents CloudTrail from logging events to the event data store, and prevents users from querying the data in the event data store that was encrypted with the key. After you associate an event data store with a KMS key, the KMS key cannot be removed or changed. Before you disable or delete a KMS key that you are using with an event data store, delete or back up your event data store. CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . Examples: - ``alias/MyAliasName`` - ``arn:aws:kms:us-east-2:123456789012:alias/MyAliasName`` - ``arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012`` - ``12345678-1234-1234-1234-123456789012``
+        :param max_event_size: The maximum allowed size for events to be stored in the specified event data store. If you are using context key selectors, MaxEventSize must be set to Large.
         :param multi_region_enabled: Specifies whether the event data store includes events from all Regions, or only from the Region in which the event data store is created.
         :param name: The name of the event data store.
         :param organization_enabled: Specifies whether an event data store collects events logged for an organization in AWS Organizations .
@@ -1514,12 +1523,14 @@ class CfnEventDataStore(
         props = CfnEventDataStoreProps(
             advanced_event_selectors=advanced_event_selectors,
             billing_mode=billing_mode,
+            context_key_selectors=context_key_selectors,
             federation_enabled=federation_enabled,
             federation_role_arn=federation_role_arn,
             ingestion_enabled=ingestion_enabled,
             insights_destination=insights_destination,
             insight_selectors=insight_selectors,
             kms_key_id=kms_key_id,
+            max_event_size=max_event_size,
             multi_region_enabled=multi_region_enabled,
             name=name,
             organization_enabled=organization_enabled,
@@ -1639,6 +1650,24 @@ class CfnEventDataStore(
         jsii.set(self, "billingMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="contextKeySelectors")
+    def context_key_selectors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventDataStore.ContextKeySelectorProperty"]]]]:
+        '''The list of context key selectors that are configured for the event data store.'''
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventDataStore.ContextKeySelectorProperty"]]]], jsii.get(self, "contextKeySelectors"))
+
+    @context_key_selectors.setter
+    def context_key_selectors(
+        self,
+        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventDataStore.ContextKeySelectorProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa0ae30f8c5291a79387d1a2f7fb5c056fc8459c7878eb58241f52eba3a4762e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contextKeySelectors", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="federationEnabled")
     def federation_enabled(
         self,
@@ -1730,6 +1759,19 @@ class CfnEventDataStore(
             type_hints = typing.get_type_hints(_typecheckingstub__b2945b7a3d4af202bf1a8d8550ce4b17a1ab219e4dd829832fc9bd51a53c69b0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxEventSize")
+    def max_event_size(self) -> typing.Optional[builtins.str]:
+        '''The maximum allowed size for events to be stored in the specified event data store.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "maxEventSize"))
+
+    @max_event_size.setter
+    def max_event_size(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a69353bf46f46a1067b410e6f91c0033234561f53fceb13608d40dd90dd0832e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxEventSize", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="multiRegionEnabled")
@@ -2164,6 +2206,79 @@ class CfnEventDataStore(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudtrail.CfnEventDataStore.ContextKeySelectorProperty",
+        jsii_struct_bases=[],
+        name_mapping={"equal_to": "equalTo", "type": "type"},
+    )
+    class ContextKeySelectorProperty:
+        def __init__(
+            self,
+            *,
+            equal_to: typing.Sequence[builtins.str],
+            type: builtins.str,
+        ) -> None:
+            '''An object that contains information types to be included in CloudTrail enriched events.
+
+            :param equal_to: A list of keys defined by Type to be included in CloudTrail enriched events.
+            :param type: Specifies the type of the event record field in ContextKeySelector. Valid values include RequestContext, TagContext.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-eventdatastore-contextkeyselector.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudtrail as cloudtrail
+                
+                context_key_selector_property = cloudtrail.CfnEventDataStore.ContextKeySelectorProperty(
+                    equal_to=["equalTo"],
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__442b3465c9cf8a3aebc6597e8616078b26e24675af399050c52412909f6169e3)
+                check_type(argname="argument equal_to", value=equal_to, expected_type=type_hints["equal_to"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "equal_to": equal_to,
+                "type": type,
+            }
+
+        @builtins.property
+        def equal_to(self) -> typing.List[builtins.str]:
+            '''A list of keys defined by Type to be included in CloudTrail enriched events.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-eventdatastore-contextkeyselector.html#cfn-cloudtrail-eventdatastore-contextkeyselector-equals
+            '''
+            result = self._values.get("equal_to")
+            assert result is not None, "Required property 'equal_to' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''Specifies the type of the event record field in ContextKeySelector.
+
+            Valid values include RequestContext, TagContext.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudtrail-eventdatastore-contextkeyselector.html#cfn-cloudtrail-eventdatastore-contextkeyselector-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContextKeySelectorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cloudtrail.CfnEventDataStore.InsightSelectorProperty",
         jsii_struct_bases=[],
         name_mapping={"insight_type": "insightType"},
@@ -2229,12 +2344,14 @@ class CfnEventDataStore(
     name_mapping={
         "advanced_event_selectors": "advancedEventSelectors",
         "billing_mode": "billingMode",
+        "context_key_selectors": "contextKeySelectors",
         "federation_enabled": "federationEnabled",
         "federation_role_arn": "federationRoleArn",
         "ingestion_enabled": "ingestionEnabled",
         "insights_destination": "insightsDestination",
         "insight_selectors": "insightSelectors",
         "kms_key_id": "kmsKeyId",
+        "max_event_size": "maxEventSize",
         "multi_region_enabled": "multiRegionEnabled",
         "name": "name",
         "organization_enabled": "organizationEnabled",
@@ -2249,12 +2366,14 @@ class CfnEventDataStoreProps:
         *,
         advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         billing_mode: typing.Optional[builtins.str] = None,
+        context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         federation_role_arn: typing.Optional[builtins.str] = None,
         ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         insights_destination: typing.Optional[builtins.str] = None,
         insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
+        max_event_size: typing.Optional[builtins.str] = None,
         multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         name: typing.Optional[builtins.str] = None,
         organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -2266,12 +2385,14 @@ class CfnEventDataStoreProps:
 
         :param advanced_event_selectors: The advanced event selectors to use to select the events for the data store. You can configure up to five advanced event selectors for each event data store. For more information about how to use advanced event selectors to log CloudTrail events, see `Log events by using advanced event selectors <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/logging-data-events-with-cloudtrail.html#creating-data-event-selectors-advanced>`_ in the CloudTrail User Guide. For more information about how to use advanced event selectors to include AWS Config configuration items in your event data store, see `Create an event data store for AWS Config configuration items <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-eds-cli.html#lake-cli-create-eds-config>`_ in the CloudTrail User Guide. For more information about how to use advanced event selectors to include events outside of AWS events in your event data store, see `Create an integration to log events from outside AWS <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/lake-integrations-cli.html#lake-cli-create-integration>`_ in the CloudTrail User Guide.
         :param billing_mode: The billing mode for the event data store determines the cost for ingesting events and the default and maximum retention period for the event data store. The following are the possible values: - ``EXTENDABLE_RETENTION_PRICING`` - This billing mode is generally recommended if you want a flexible retention period of up to 3653 days (about 10 years). The default retention period for this billing mode is 366 days. - ``FIXED_RETENTION_PRICING`` - This billing mode is recommended if you expect to ingest more than 25 TB of event data per month and need a retention period of up to 2557 days (about 7 years). The default retention period for this billing mode is 2557 days. The default value is ``EXTENDABLE_RETENTION_PRICING`` . For more information about CloudTrail pricing, see `AWS CloudTrail Pricing <https://docs.aws.amazon.com/cloudtrail/pricing/>`_ and `Managing CloudTrail Lake costs <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-manage-costs.html>`_ .
+        :param context_key_selectors: The list of context key selectors that are configured for the event data store.
         :param federation_enabled: Indicates if `Lake query federation <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html>`_ is enabled. By default, Lake query federation is disabled. You cannot delete an event data store if Lake query federation is enabled.
         :param federation_role_arn: If Lake query federation is enabled, provides the ARN of the federation role used to access the resources for the federated event data store. The federation role must exist in your account and provide the `required minimum permissions <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-federation.html#query-federation-permissions-role>`_ .
         :param ingestion_enabled: Specifies whether the event data store should start ingesting live events. The default is true.
         :param insights_destination: The ARN (or ID suffix of the ARN) of the destination event data store that logs Insights events. For more information, see `Create an event data store for CloudTrail Insights events <https://docs.aws.amazon.com/awscloudtrail/latest/userguide/query-event-data-store-insights.html>`_ .
         :param insight_selectors: A JSON string that contains the Insights types you want to log on an event data store. ``ApiCallRateInsight`` and ``ApiErrorRateInsight`` are valid Insight types. The ``ApiCallRateInsight`` Insights type analyzes write-only management API calls that are aggregated per minute against a baseline API call volume. The ``ApiErrorRateInsight`` Insights type analyzes management API calls that result in error codes. The error is shown if the API call is unsuccessful.
         :param kms_key_id: Specifies the AWS KMS key ID to use to encrypt the events delivered by CloudTrail. The value can be an alias name prefixed by ``alias/`` , a fully specified ARN to an alias, a fully specified ARN to a key, or a globally unique identifier. .. epigraph:: Disabling or deleting the KMS key, or removing CloudTrail permissions on the key, prevents CloudTrail from logging events to the event data store, and prevents users from querying the data in the event data store that was encrypted with the key. After you associate an event data store with a KMS key, the KMS key cannot be removed or changed. Before you disable or delete a KMS key that you are using with an event data store, delete or back up your event data store. CloudTrail also supports AWS KMS multi-Region keys. For more information about multi-Region keys, see `Using multi-Region keys <https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html>`_ in the *AWS Key Management Service Developer Guide* . Examples: - ``alias/MyAliasName`` - ``arn:aws:kms:us-east-2:123456789012:alias/MyAliasName`` - ``arn:aws:kms:us-east-2:123456789012:key/12345678-1234-1234-1234-123456789012`` - ``12345678-1234-1234-1234-123456789012``
+        :param max_event_size: The maximum allowed size for events to be stored in the specified event data store. If you are using context key selectors, MaxEventSize must be set to Large.
         :param multi_region_enabled: Specifies whether the event data store includes events from all Regions, or only from the Region in which the event data store is created.
         :param name: The name of the event data store.
         :param organization_enabled: Specifies whether an event data store collects events logged for an organization in AWS Organizations .
@@ -2306,6 +2427,10 @@ class CfnEventDataStoreProps:
                     name="name"
                 )],
                 billing_mode="billingMode",
+                context_key_selectors=[cloudtrail.CfnEventDataStore.ContextKeySelectorProperty(
+                    equal_to=["equalTo"],
+                    type="type"
+                )],
                 federation_enabled=False,
                 federation_role_arn="federationRoleArn",
                 ingestion_enabled=False,
@@ -2314,6 +2439,7 @@ class CfnEventDataStoreProps:
                     insight_type="insightType"
                 )],
                 kms_key_id="kmsKeyId",
+                max_event_size="maxEventSize",
                 multi_region_enabled=False,
                 name="name",
                 organization_enabled=False,
@@ -2329,12 +2455,14 @@ class CfnEventDataStoreProps:
             type_hints = typing.get_type_hints(_typecheckingstub__bc172d8375a6bcb019f0df4a0d571d671956c64545dc03fc01f9ad66e38ac10e)
             check_type(argname="argument advanced_event_selectors", value=advanced_event_selectors, expected_type=type_hints["advanced_event_selectors"])
             check_type(argname="argument billing_mode", value=billing_mode, expected_type=type_hints["billing_mode"])
+            check_type(argname="argument context_key_selectors", value=context_key_selectors, expected_type=type_hints["context_key_selectors"])
             check_type(argname="argument federation_enabled", value=federation_enabled, expected_type=type_hints["federation_enabled"])
             check_type(argname="argument federation_role_arn", value=federation_role_arn, expected_type=type_hints["federation_role_arn"])
             check_type(argname="argument ingestion_enabled", value=ingestion_enabled, expected_type=type_hints["ingestion_enabled"])
             check_type(argname="argument insights_destination", value=insights_destination, expected_type=type_hints["insights_destination"])
             check_type(argname="argument insight_selectors", value=insight_selectors, expected_type=type_hints["insight_selectors"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument max_event_size", value=max_event_size, expected_type=type_hints["max_event_size"])
             check_type(argname="argument multi_region_enabled", value=multi_region_enabled, expected_type=type_hints["multi_region_enabled"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument organization_enabled", value=organization_enabled, expected_type=type_hints["organization_enabled"])
@@ -2346,6 +2474,8 @@ class CfnEventDataStoreProps:
             self._values["advanced_event_selectors"] = advanced_event_selectors
         if billing_mode is not None:
             self._values["billing_mode"] = billing_mode
+        if context_key_selectors is not None:
+            self._values["context_key_selectors"] = context_key_selectors
         if federation_enabled is not None:
             self._values["federation_enabled"] = federation_enabled
         if federation_role_arn is not None:
@@ -2358,6 +2488,8 @@ class CfnEventDataStoreProps:
             self._values["insight_selectors"] = insight_selectors
         if kms_key_id is not None:
             self._values["kms_key_id"] = kms_key_id
+        if max_event_size is not None:
+            self._values["max_event_size"] = max_event_size
         if multi_region_enabled is not None:
             self._values["multi_region_enabled"] = multi_region_enabled
         if name is not None:
@@ -2407,6 +2539,17 @@ class CfnEventDataStoreProps:
         '''
         result = self._values.get("billing_mode")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def context_key_selectors(
+        self,
+    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.ContextKeySelectorProperty]]]]:
+        '''The list of context key selectors that are configured for the event data store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-contextkeyselectors
+        '''
+        result = self._values.get("context_key_selectors")
+        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.ContextKeySelectorProperty]]]], result)
 
     @builtins.property
     def federation_enabled(
@@ -2492,6 +2635,17 @@ class CfnEventDataStoreProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-kmskeyid
         '''
         result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_event_size(self) -> typing.Optional[builtins.str]:
+        '''The maximum allowed size for events to be stored in the specified event data store.
+
+        If you are using context key selectors, MaxEventSize must be set to Large.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudtrail-eventdatastore.html#cfn-cloudtrail-eventdatastore-maxeventsize
+        '''
+        result = self._values.get("max_event_size")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -5285,12 +5439,14 @@ def _typecheckingstub__058a94222b13ad44b4607ad5932ec9b6a2defcb250ff436576e6e8976
     *,
     advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     billing_mode: typing.Optional[builtins.str] = None,
+    context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     federation_role_arn: typing.Optional[builtins.str] = None,
     ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     insights_destination: typing.Optional[builtins.str] = None,
     insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
+    max_event_size: typing.Optional[builtins.str] = None,
     multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     name: typing.Optional[builtins.str] = None,
     organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -5321,6 +5477,12 @@ def _typecheckingstub__7bc51d9a1ef5affc48ffb624785b29a7a5d0a3eba5e72b94f687da941
 
 def _typecheckingstub__106939491635761bff083d6af3ca26d1723f9df71ec433399c5746554b88e334(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa0ae30f8c5291a79387d1a2f7fb5c056fc8459c7878eb58241f52eba3a4762e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnEventDataStore.ContextKeySelectorProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5356,6 +5518,12 @@ def _typecheckingstub__b360ff34d6b267287ccf6e4c636b401ab6c739c7a90856639462b1c73
     pass
 
 def _typecheckingstub__b2945b7a3d4af202bf1a8d8550ce4b17a1ab219e4dd829832fc9bd51a53c69b0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a69353bf46f46a1067b410e6f91c0033234561f53fceb13608d40dd90dd0832e(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -5418,6 +5586,14 @@ def _typecheckingstub__13e48a5f3f6a4ee090f15046f2744cbdc1f623a943843b6e8cd72526e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__442b3465c9cf8a3aebc6597e8616078b26e24675af399050c52412909f6169e3(
+    *,
+    equal_to: typing.Sequence[builtins.str],
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5dc8183d614f9c9498310cd377ff020cdc048d422b2548bbe678fc3c199d1dc6(
     *,
     insight_type: typing.Optional[builtins.str] = None,
@@ -5429,12 +5605,14 @@ def _typecheckingstub__bc172d8375a6bcb019f0df4a0d571d671956c64545dc03fc01f9ad66e
     *,
     advanced_event_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.AdvancedEventSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     billing_mode: typing.Optional[builtins.str] = None,
+    context_key_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.ContextKeySelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     federation_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     federation_role_arn: typing.Optional[builtins.str] = None,
     ingestion_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     insights_destination: typing.Optional[builtins.str] = None,
     insight_selectors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventDataStore.InsightSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
+    max_event_size: typing.Optional[builtins.str] = None,
     multi_region_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     name: typing.Optional[builtins.str] = None,
     organization_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,

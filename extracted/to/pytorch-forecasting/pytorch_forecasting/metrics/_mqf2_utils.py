@@ -1,8 +1,7 @@
 """Classes and functions for the MQF2 metric."""
 
-from typing import List, Optional, Tuple
+from typing import Optional
 
-from cpflows.flows import DeepConvexFlow, SequentialFlow
 import torch
 from torch.distributions import (
     AffineTransform,
@@ -11,6 +10,11 @@ from torch.distributions import (
     TransformedDistribution,
 )
 import torch.nn.functional as F
+
+from pytorch_forecasting.utils._dependencies import _safe_import
+
+DeepConvexFlow = _safe_import("cpflows.flows.DeepConvexFlow")
+SequentialFlow = _safe_import("cpflows.flows.SequentialFlow")
 
 
 class DeepConvexNet(DeepConvexFlow):
@@ -92,7 +96,7 @@ class DeepConvexNet(DeepConvexFlow):
         logdet: Optional[torch.Tensor] = 0,
         context: Optional[torch.Tensor] = None,
         extra: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         if self.estimate_logdet:
             return self.forward_transform_stochastic(
                 x, logdet, context=context, extra=extra
@@ -114,7 +118,7 @@ class SequentialNet(SequentialFlow):
         list of DeepConvexNet and/or ActNorm instances
     """
 
-    def __init__(self, networks: List[torch.nn.Module]) -> None:
+    def __init__(self, networks: list[torch.nn.Module]) -> None:
         super().__init__(networks)
         self.networks = self.flows
 
@@ -487,7 +491,7 @@ class MQF2Distribution(Distribution):
         return self.hidden_state.shape[:-1]
 
     @property
-    def event_shape(self) -> Tuple:
+    def event_shape(self) -> tuple:
         return (self.prediction_length,)
 
     @property
@@ -499,12 +503,12 @@ class TransformedMQF2Distribution(TransformedDistribution):
     def __init__(
         self,
         base_distribution: MQF2Distribution,
-        transforms: List[AffineTransform],
+        transforms: list[AffineTransform],
         validate_args: bool = False,
     ) -> None:
         super().__init__(base_distribution, transforms, validate_args=validate_args)
 
-    def scale_input(self, y: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def scale_input(self, y: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # Auxiliary function to scale the observations
         scale = torch.tensor(1.0, device=y.device)
         for t in self.transforms[::-1]:

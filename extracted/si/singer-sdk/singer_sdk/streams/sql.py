@@ -15,7 +15,7 @@ from singer_sdk.streams.core import REPLICATION_INCREMENTAL, Stream
 
 if t.TYPE_CHECKING:
     from singer_sdk.connectors.sql import FullyQualifiedName
-    from singer_sdk.helpers.types import Context
+    from singer_sdk.helpers.types import Context, Record
     from singer_sdk.tap_base import Tap
 
 
@@ -107,7 +107,7 @@ class SQLStream(Stream, metaclass=abc.ABCMeta):
         return self._singer_catalog_entry.tap_stream_id
 
     @property
-    def primary_keys(self) -> t.Sequence[str] | None:
+    def primary_keys(self) -> t.Sequence[str]:
         """Get primary keys from the catalog entry definition.
 
         Returns:
@@ -167,8 +167,90 @@ class SQLStream(Stream, metaclass=abc.ABCMeta):
         """
         return super().effective_schema
 
+    def apply_query_filters(
+        self,
+        query: sa.sql.Select,
+        table: sa.Table,
+        *,
+        context: Context | None = None,
+    ) -> sa.sql.Select:
+        """Apply WHERE and ORDER BY clauses to the query.
+
+        By default, this method applies a replication filter to the query
+        and orders the results by the replication key, if a replication key is set.
+
+        Args:
+            query: The SQLAlchemy Select object.
+            table: The SQLAlchemy Table object.
+            context: The context object.
+
+        Returns:
+            A SQLAlchemy Select object.
+        """
+        if self.replication_key:
+            column = table.columns[self.replication_key]
+            order_by = (
+                sa.nulls_first(column.asc())
+                if self.supports_nulls_first
+                else column.asc()
+            )
+            query = query.order_by(order_by)
+
+            start_val = self.get_starting_replication_key_value(context)
+            if start_val is not None:
+                query = query.where(column >= start_val)
+
+        return query
+
+    def apply_query_limit(self, query: sa.sql.Select) -> sa.sql.Select:
+        """Apply LIMIT clause to the query.
+
+        By default, this method applies a limit filter to the query
+        if the stream has an ABORT_AT_RECORD_COUNT value set.
+
+        The ABORT_AT_RECORD_COUNT limit is incremented by 1 to ensure that the
+        `MaxRecordsLimitException` exception is properly raised by caller
+        `Stream._sync_records()` if more records are available than can be
+        processed.
+
+        Args:
+            query: The SQLAlchemy Select object.
+
+        Returns:
+            A SQLAlchemy Select object.
+        """
+        if self.ABORT_AT_RECORD_COUNT is not None:
+            # Limit record count to one greater than the abort threshold. This ensures
+            # `MaxRecordsLimitException` exception is properly raised by caller
+            # `Stream._sync_records()` if more records are available than can be
+            # processed.
+            query = query.limit(self.ABORT_AT_RECORD_COUNT + 1)
+
+        return query
+
+    def build_query(self, *, context: Context | None = None) -> sa.sql.Select:
+        """Build a SQLAlchemy Select object for the stream.
+
+        - Apply WHERE and ORDER BY clauses to the query.
+        - Apply a LIMIT clause to the query.
+
+        Args:
+            context: The context object.
+
+        Returns:
+            A SQLAlchemy Select object.
+        """
+        selected_column_names = self.get_selected_schema()["properties"].keys()
+        table = self.connector.get_table(
+            full_table_name=self.fully_qualified_name,
+            column_names=selected_column_names,
+        )
+        query = table.select()
+        query = self.apply_query_filters(query, table, context=context)
+        return self.apply_query_limit(query)
+
     # Get records from stream
-    def get_records(self, context: Context | None) -> t.Iterable[dict[str, t.Any]]:
+    def get_records(self, context: Context | None) -> t.Iterable[Record]:
         """Return a generator of record-type dictionary objects.
 
         If the stream has a replication_key value defined, records will be sorted by the
@@ -186,44 +268,14 @@ class SQLStream(Stream, metaclass=abc.ABCMeta):
             NotImplementedError: If partition is passed in context and the stream does
                 not support partitioning.
         """
-        if context:
+        if context:  # pragma: no cover
             msg = f"Stream '{self.name}' does not support partitioning."
             raise NotImplementedError(msg)
 
-        selected_column_names = self.get_selected_schema()["properties"].keys()
-        table = self.connector.get_table(
-            full_table_name=self.fully_qualified_name,
-            column_names=selected_column_names,
-        )
-        query = table.select()
-
-        if self.replication_key:
-            replication_key_col = table.columns[self.replication_key]
-            order_by = (
-                sa.nulls_first(replication_key_col.asc())
-                if self.supports_nulls_first
-                else replication_key_col.asc()
-            )
-            query = query.order_by(order_by)
-
-            start_val = self.get_starting_replication_key_value(context)
-            if start_val:
-                query = query.where(replication_key_col >= start_val)
-
-        if self.ABORT_AT_RECORD_COUNT is not None:
-            # Limit record count to one greater than the abort threshold. This ensures
-            # `MaxRecordsLimitException` exception is properly raised by caller
-            # `Stream._sync_records()` if more records are available than can be
-            # processed.
-            query = query.limit(self.ABORT_AT_RECORD_COUNT + 1)
-
         with self.connector._connect() as conn:  # noqa: SLF001
-            for record in conn.execute(query).mappings():
-                transformed_record = self.post_process(dict(record))
-                if transformed_record is None:
-                    # Record filtered out during post_process()
-                    continue
-                yield transformed_record
+            for row in conn.execute(self.build_query(context=context)).mappings():
+                # https://github.com/sqlalchemy/sqlalchemy/discussions/10053#discussioncomment-6344965
+                yield dict(row)
 
     @property
     def is_sorted(self) -> bool:

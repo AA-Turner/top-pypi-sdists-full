@@ -4441,10 +4441,11 @@ def _int(val: Any = 0, base=_MISSING):
                     else:
                         ret = (ret * base) + ch_num
                 return ret
-        if base is _MISSING:
-            return int(deep_realize(val))
-        else:
-            return int(deep_realize(val), base=realize(base))
+        elif isinstance(val, CrossHairValue):
+            val = deep_realize(val)
+            base = deep_realize(base)
+
+    return int(val) if base is _MISSING else int(val, base=base)
 
 
 _FLOAT_REGEX = re.compile(
@@ -4549,7 +4550,7 @@ def _len(ls):
 def _map(fn, *iters):
     # Wrap the `map` callback in a pure Python lambda.
     # This de-optimization ensures that the callback can be intercepted.
-    return map(lambda x: fn(x), *iters)
+    return map(lambda *a: fn(*a), *iters)
 
 
 def _memoryview(source):

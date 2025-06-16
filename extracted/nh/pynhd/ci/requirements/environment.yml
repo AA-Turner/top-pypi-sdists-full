@@ -1,0 +1,64 @@
+name: pynhd-tests
+channels:
+- conda-forge
+- nodefaults
+dependencies:
+  # async-retriever deps
+- aiodns
+- aiosqlite
+- aiohttp >=3.8.3
+- brotli
+- cytoolz
+- nest-asyncio
+- aiohttp-client-cache >=0.8.1
+- ujson
+
+  # pygeoogc deps
+  # - async-retriever >=0.3.5
+- cytoolz
+- defusedxml
+- owslib >=0.27.2
+- pyproj >=2.2
+- requests
+- requests-cache >=0.9.6
+- shapely >=2.0
+- urllib3
+
+  # pygeoutils deps
+- cytoolz
+- geopandas-base >=0.7
+- netcdf4
+- numpy >=1.17
+- pyproj >=2.2
+- rasterio >=1.2
+- rioxarray >=0.11
+- scipy
+- shapely >=2.0
+- ujson
+- xarray >=2023.01.0
+
+  # pynhd deps
+  # - async-retriever >=0.3.6
+- cytoolz
+- geopandas-base >=0.9
+- networkx
+- numpy >=1.17
+- pandas >=1.0
+- pyarrow >=1.0.1
+  # - pygeoogc >=0.13.7
+  # - pygeoutils >=0.13.7
+- shapely >=2.0
+  # optional deps
+- pyogrio
+- py7zr
+
+  # test deps
+- psutil
+- pytest-cov
+- pytest-xdist
+
+- pip
+- pip:
+  - git+https://github.com/hyriver/async-retriever.git
+  - git+https://github.com/hyriver/pygeoogc.git
+  - git+https://github.com/hyriver/pygeoutils.git

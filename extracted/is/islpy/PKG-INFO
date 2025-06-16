@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: islpy
-Version: 2025.2.3
+Version: 2025.2.5
 Summary: Wrapper around isl, an integer set library
 Author-Email: Andreas Kloeckner <inform@tiker.net>
 License-Expression: MIT

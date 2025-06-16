@@ -26,6 +26,8 @@ export class LeafletLayerModel extends WidgetModel {
             popup_max_height: null,
             pane: '',
             subitems: [],
+            pm_ignore: true,
+            snap_ignore: false,
         };
     }
 }

@@ -1,8 +1,7 @@
 # Local imports
-from uplink._extras import installer, plugin
+from uplink._extras import installer, plugin  # noqa: I001
 from uplink.compat import abc
 from uplink.converters import keys
-from uplink.converters.interfaces import Factory, ConverterFactory, Converter
 from uplink.converters.register import (
     get_default_converter_factories,
     register_default_converter_factory,
@@ -12,22 +11,24 @@ from uplink.converters.register import (
 # last in the converter chain.
 # fmt: off
 from uplink.converters.standard import StandardConverter
+from uplink.converters.typing_ import TypingConverter
+
+from uplink.converters.interfaces import Converter, ConverterFactory, Factory
 from uplink.converters.marshmallow_ import MarshmallowConverter
 from uplink.converters.pydantic_ import PydanticConverter
-from uplink.converters.typing_ import TypingConverter
 # fmt: on
 
 __all__ = [
-    "StandardConverter",
+    "Converter",
+    "ConverterFactory",  # TODO: Remove this in v1.0.0
+    "Factory",
     "MarshmallowConverter",
     "PydanticConverter",
+    "StandardConverter",
     "TypingConverter",
     "get_default_converter_factories",
-    "register_default_converter_factory",
-    "Factory",
-    "ConverterFactory",  # TODO: Remove this in v1.0.0
-    "Converter",
     "keys",
+    "register_default_converter_factory",
 ]
 
 
@@ -44,7 +45,7 @@ plugin("converters")(install)
 installer(Factory)(install)
 
 
-class ConverterChain(object):
+class ConverterChain:
     def __init__(self, converter_factory):
         self._converter_factory = converter_factory
 
@@ -58,27 +59,29 @@ class ConverterChain(object):
 class ConverterFactoryRegistry(abc.Mapping):
     """
     A registry that chains together
-    :py:class:`interfaces.ConverterFactory` instances.
+    [`interfaces.ConverterFactory`][uplink.converters.interfaces.ConverterFactory] instances.
 
     When queried for a factory that can handle a particular converter
-    type (e.g., ``keys.CONVERT_TO_REQUEST_BODY``), the registry
+    type (e.g., `keys.CONVERT_TO_REQUEST_BODY`), the registry
     traverses the chain until it finds a converter factory that can
     handle the request (i.e., the type's associated method returns a
-    value other than ``None``).
+    value other than `None`).
 
     Here's an example -- it's contrived but effectively details the
-    expected pattern of usage::
+    expected pattern of usage:
 
-        # Create a registry with a single factory in its chain.
-        registry = ConverterFactoryRegistry((StandardConverter,))
+    ```python
+    # Create a registry with a single factory in its chain.
+    registry = ConverterFactoryRegistry((StandardConverter,))
 
-        # Get a callable that returns converters for turning arbitrary
-        # objects into strings.
-        get_str_converter_for_type = registry[keys.CONVERT_TO_STRING]
+    # Get a callable that returns converters for turning arbitrary
+    # objects into strings.
+    get_str_converter_for_type = registry[keys.CONVERT_TO_STRING]
 
-        # Traverse the chain to find a converter that can handle
-        # converting ints into strings.
-        converter = get_str_converter_for_type(int)
+    # Traverse the chain to find a converter that can handle
+    # converting ints into strings.
+    converter = get_str_converter_for_type(int)
+    ```
 
     Args:
         factories: An iterable of converter factories. Factories that
@@ -112,6 +115,7 @@ class ConverterFactoryRegistry(abc.Mapping):
                 converter = func(factory)(*args, **kwargs)
                 if callable(converter):
                     return converter
+            return None
 
         return ConverterChain(chain)
 
@@ -126,14 +130,13 @@ class ConverterFactoryRegistry(abc.Mapping):
         associated to the given key.
 
         If the given key is a callable, it will be recursively invoked
-        to retrieve the final callable. See :py:class:`keys.Map` for
+        to retrieve the final callable. See [`keys.Map`][uplink.converters.keys.Map] for
         an example of such a key. These callable keys should accept a
-        single argument, a :py:class:`ConverterFactoryRegistry`.
+        single argument, a [`ConverterFactoryRegistry`][uplink.converters.ConverterFactoryRegistry].
         """
         if callable(converter_key):
             return converter_key(self)
-        else:
-            return self._make_chain_for_key(converter_key)
+        return self._make_chain_for_key(converter_key)
 
     def __len__(self):
         return len(self._converter_factory_registry)
@@ -145,7 +148,13 @@ class ConverterFactoryRegistry(abc.Mapping):
     def register(cls, converter_key):
         """
         Returns a decorator that can be used to register a callable for
-        the given ``converter_key``.
+        the given `converter_key`.
+
+        Args:
+            converter_key: The key to register the callable under.
+
+        Returns:
+            A decorator function that registers the decorated callable.
         """
 
         def wrapper(func):

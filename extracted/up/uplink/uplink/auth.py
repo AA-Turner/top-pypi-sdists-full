@@ -8,50 +8,52 @@ from uplink import utils
 from uplink.compat import abc
 
 __all__ = [
-    "ApiTokenParam",
     "ApiTokenHeader",
+    "ApiTokenParam",
     "BasicAuth",
-    "ProxyAuth",
     "BearerToken",
     "MultiAuth",
+    "ProxyAuth",
 ]
 
 
 def get_auth(auth_object=None):
     if auth_object is None:
         return utils.no_op
-    elif isinstance(auth_object, abc.Iterable):
+    if isinstance(auth_object, abc.Iterable):
         return BasicAuth(*auth_object)
-    elif callable(auth_object):
+    if callable(auth_object):
         return auth_object
-    else:
-        raise ValueError("Invalid authentication strategy: %s" % auth_object)
+    raise ValueError(f"Invalid authentication strategy: {auth_object}")
 
 
-class ApiTokenParam(object):
+class ApiTokenParam:
     """
     Authorizes requests using a token or key in a query parameter.
 
     Users may use this directly, or API library authors may subclass this
     to predefine the query parameter name to use. If supplying query parameter
-    name on a subclass, define the ``_param`` property or attribute and
-    override ``__init__()`` without using ``super()``.
+    name on a subclass, define the `_param` property or attribute and
+    override `__init__()` without using `super()`.
 
-    .. code-block:: python
+    Examples:
+        Direct use:
+            ```python
+            token_param = ApiTokenParam(QUERY_PARAM_NAME, TOKEN)
+            api_consumer = SomeApiConsumerClass(BASE_URL, auth=token_param)
+            ```
 
-        # direct use
-        token_param = ApiTokenParam(QUERY_PARAM_NAME, TOKEN)
-        api_consumer = SomeApiConsumerClass(BASE_URL, auth=token_param)
+        Subclass in API library:
+            ```python
+            class ExampleApiTokenParam(ApiTokenParam):
+                _param = "api-token"
+                def __init__(self, token):
+                    self._param_value = token
 
-        # subclass in API library
-        class ExampleApiTokenParam(ApiTokenParam):
-            _param = "api-token"
-            def __init__(self, token):
-                self._param_value = token
-
-        # using the subclass
-        token_param = ExampleApiTokenParam(TOKEN)
-        api_consumer = SomeApiConsumerClass(BASE_URL, auth=token_param)
+            # using the subclass
+            token_param = ExampleApiTokenParam(TOKEN)
+            api_consumer = SomeApiConsumerClass(BASE_URL, auth=token_param)
+            ```
     """
 
     def __init__(self, param, token):
@@ -62,7 +64,7 @@ class ApiTokenParam(object):
         request_builder.info["params"][self._param] = self._param_value
 
 
-class ApiTokenHeader(object):
+class ApiTokenHeader:
     """
     Authorizes requests using a token or key in a header.
     Users should subclass this class to define which header is the token header.
@@ -70,31 +72,40 @@ class ApiTokenHeader(object):
 
     Users may use this directly, or API library authors may subclass this
     to predefine the header name or a prefix to use. If supplying header name or prefix
-    in a subclass, define the ``_header`` and/or ``_prefix`` properties or attributes
-    and override ``__init__()`` without using ``super()``.
+    in a subclass, define the `_header` and/or `_prefix` properties or attributes
+    and override `__init__()` without using `super()`.
 
-    .. code-block:: python
+    Examples:
+        Direct use:
+            ```python
+            token_header = ApiTokenHeader(HEADER_NAME, TOKEN)
+            api_consumer = SomeApiConsumerClass(BASE_URL, auth=token_header)
+            ```
 
-        # direct use
-        token_header = ApiTokenHeader(HEADER_NAME, TOKEN)
-        api_consumer = SomeApiConsumerClass(BASE_URL, auth=token_header)
+        Subclass in API library with a prefix:
+            ```python
+            class ExampleApiTokenHeader(ApiTokenHeader):
+                _header = "X-Api-Token"
+                def __init__(self, token):
+                    self._token = token
 
-        # subclass in API library with a prefix
-        class ExampleApiTokenHeader(ApiTokenHeader):
-            _header = "X-Api-Token"
-            def __init__(self, token):
-                self._token = token
+            # using the subclass
+            token_header = ExampleApiTokenHeader(TOKEN)
+            api_consumer = SomeApiConsumerClass(BASE_URL, auth=token_header)
+            ```
 
-        # subclass in API library with a prefix
-        class ExampleApiTokenHeader(ApiTokenHeader):
-            _header = "X-App-Id"
-            _prefix = "APP"
-            def __init__(self, token):
-                self._token = token
+        Subclass in API library with a prefix:
+            ```python
+            class ExampleApiTokenHeader(ApiTokenHeader):
+                _header = "X-App-Id"
+                _prefix = "APP"
+                def __init__(self, token):
+                    self._token = token
 
-        # using the subclass
-        token_header = ExampleApiTokenHeader(TOKEN)
-        api_consumer = SomeApiConsumerClass(BASE_URL, auth=token_header)
+            # using the subclass
+            token_header = ExampleApiTokenHeader(TOKEN)
+            api_consumer = SomeApiConsumerClass(BASE_URL, auth=token_header)
+            ```
     """
 
     _header = None
@@ -108,9 +119,8 @@ class ApiTokenHeader(object):
     @property
     def _header_value(self):
         if self._prefix:
-            return "%s %s" % (self._prefix, self._token)
-        else:
-            return self._token
+            return f"{self._prefix} {self._token}"
+        return self._token
 
     def __call__(self, request_builder):
         request_builder.info["headers"][self._header] = self._header_value
@@ -122,13 +132,13 @@ class BasicAuth(ApiTokenHeader):
 
     There are two ways to use BasicAuth with a Consumer:
 
-    .. code-block:: python
+    ```python
+    # implicit BasicAuth
+    github = Github(BASE_URL, auth=(USER, PASS))
 
-        # implicit BasicAuth
-        github = Github(BASE_URL, auth=(USER, PASS))
-
-        # explicit BasicAuth
-        github = GitHub(BASE_URL, auth=BasicAuth(USER, PASS))
+    # explicit BasicAuth
+    github = GitHub(BASE_URL, auth=BasicAuth(USER, PASS))
+    ```
     """
 
     _header = "Authorization"
@@ -149,17 +159,17 @@ class ProxyAuth(BasicAuth):
     If both API auth and intermediate Proxy auth are required,
     wrap ProxyAuth in MultiAuth:
 
-    .. code-block:: python
+    ```python
+    # only ProxyAuth
+    github = Github(BASE_URL, auth=ProxyAuth(PROXYUSER, PROXYPASS))
 
-        # only ProxyAuth
-        github = Github(BASE_URL, auth=ProxyAuth(PROXYUSER, PROXYPASS))
-
-        # both BasicAuth and ProxyAuth
-        auth_methods = MultiAuth(
-            BasicAuth(USER, PASS),
-            ProxyAuth(PROXYUSER, PROXYPASS)
-        )
-        github = GitHub(BASE_URL, auth=auth_methods)
+    # both BasicAuth and ProxyAuth
+    auth_methods = MultiAuth(
+        BasicAuth(USER, PASS),
+        ProxyAuth(PROXYUSER, PROXYPASS)
+    )
+    github = GitHub(BASE_URL, auth=auth_methods)
+    ```
     """
 
     _header = "Proxy-Authorization"
@@ -169,11 +179,11 @@ class BearerToken(ApiTokenHeader):
     """
     Authorizes requests using a Bearer Token.
 
-    .. code-block:: python
-
-        token = something_like_oauth_that_returns_a_token()
-        bearer = BearerToken(token)
-        api_consumer = SomeApiConsumerClass(BASE_URL, auth=bearer)
+    ```python
+    token = something_like_oauth_that_returns_a_token()
+    bearer = BearerToken(token)
+    api_consumer = SomeApiConsumerClass(BASE_URL, auth=bearer)
+    ```
     """
 
     _header = "Authorization"
@@ -183,55 +193,53 @@ class BearerToken(ApiTokenHeader):
         self._token = token
 
 
-class MultiAuth(object):
+class MultiAuth:
     """
     Authorizes requests using multiple auth methods at the same time.
 
     This is useful for API users to supply both API credentials and
     intermediary credentials (such as for a proxy).
 
-    .. code-block:: python
-
-        auth_methods = MultiAuth(
-            BasicAuth(USER, PASS),
-            ProxyAuth(PROXY_USER, PROXY_PASS)
-        )
-        api_consumer = SomeApiConsumerClass(BASE_URL, auth=auth_methods)
+    ```python
+    auth_methods = MultiAuth(
+        BasicAuth(USER, PASS),
+        ProxyAuth(PROXY_USER, PROXY_PASS)
+    )
+    api_consumer = SomeApiConsumerClass(BASE_URL, auth=auth_methods)
+    ```
 
     This may also be used if an API requires multiple Auth Tokens.
 
-    .. code-block:: python
-
-        auth_methods = MultiAuth(
-            BearerToken(API_TOKEN),
-            ApiTokenParam(QUERY_PARAMETER_NAME, QUERY_PARAMETER_VALUE),
-            ApiTokenHeader(API_HEADER_NAME, API_TOKEN_2)
-        )
-        api_consumer = SomeApiConsumerClass(BASE_URL, auth=auth_methods)
+    ```python
+    auth_methods = MultiAuth(
+        BearerToken(API_TOKEN),
+        ApiTokenParam(QUERY_PARAMETER_NAME, QUERY_PARAMETER_VALUE),
+        ApiTokenHeader(API_HEADER_NAME, API_TOKEN_2)
+    )
+    api_consumer = SomeApiConsumerClass(BASE_URL, auth=auth_methods)
+    ```
 
     API library authors may find it more helpful to treat MultiAuth as
-    a list using ``append`` or ``extend`` to add aditional auth methods.
+    a list using `append` or `extend` to add aditional auth methods.
 
-    .. code-block:: python
+    ```python
+    auth_methods = MultiAuth()
 
-        auth_methods = MultiAuth()
+    auth_methods.append(BearerToken(API_TOKEN))
+    auth_methods.extend([
+        ApiTokenParam(QUERY_PARAMETER_NAME, QUERY_PARAMETER_VALUE),
+        ApiTokenHeader(API_HEADER_NAME, API_TOKEN_2)
+    ])
+    api_consumer = SomeApiConsumerClass(BASE_URL, auth=auth_methods)
 
-        auth_methods.append(BearerToken(API_TOKEN))
-        auth_methods.extend([
-            ApiTokenParam(QUERY_PARAMETER_NAME, QUERY_PARAMETER_VALUE),
-            ApiTokenHeader(API_HEADER_NAME, API_TOKEN_2)
-        ])
-        api_consumer = SomeApiConsumerClass(BASE_URL, auth=auth_methods)
-
-        # looping over contained auth methods is also supported
-        for method in auth_methods:
-            print(method.__class__.__name__)
+    # looping over contained auth methods is also supported
+    for method in auth_methods:
+        print(method.__class__.__name__)
+    ```
     """
 
     def __init__(self, *auth_methods):
-        self._auth_methods = [
-            get_auth(auth_method) for auth_method in auth_methods
-        ]
+        self._auth_methods = [get_auth(auth_method) for auth_method in auth_methods]
 
     def __call__(self, request_builder):
         for auth_method in self._auth_methods:

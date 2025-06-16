@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_ZIP_H
-#define _TCOD_ZIP_H
+#pragma once
+#ifndef TCOD_ZIP_H_
+#define TCOD_ZIP_H_
 #ifndef TCOD_NO_ZLIB
 
 #include "color.h"
@@ -92,4 +93,4 @@ TCODLIB_API void TCOD_zip_skip_bytes(TCOD_zip_t zip, uint32_t nbBytes);
 }
 #endif
 #endif  // TCOD_NO_ZLIB
-#endif  // _TCOD_ZIP_H
+#endif  // TCOD_ZIP_H_

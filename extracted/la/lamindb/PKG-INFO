@@ -1,0 +1,68 @@
+Metadata-Version: 2.3
+Name: lamindb
+Version: 1.6.2
+Summary: A data framework for biology.
+Author-email: Lamin Labs <open-source@lamin.ai>
+Requires-Python: >=3.10,<3.14
+Description-Content-Type: text/markdown
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: lamin_utils==0.14.0
+Requires-Dist: lamin_cli==1.4.2
+Requires-Dist: lamindb_setup[aws]==1.6.1
+Requires-Dist: pyyaml
+Requires-Dist: pyarrow
+Requires-Dist: pandera>=0.24.0
+Requires-Dist: typing_extensions!=4.6.0
+Requires-Dist: python-dateutil
+Requires-Dist: pandas>=2.0.0
+Requires-Dist: scipy<1.15.0
+Requires-Dist: anndata>=0.8.0,<=0.11.4
+Requires-Dist: fsspec
+Requires-Dist: graphviz
+Requires-Dist: psycopg2-binary
+Requires-Dist: bionty>=1.5.0 ; extra == "bionty"
+Requires-Dist: clinicore ; extra == "clinicore"
+Requires-Dist: tomlkit ; extra == "dev"
+Requires-Dist: line_profiler ; extra == "dev"
+Requires-Dist: pre-commit ; extra == "dev"
+Requires-Dist: nox ; extra == "dev"
+Requires-Dist: laminci>=0.3 ; extra == "dev"
+Requires-Dist: pytest>=6.0 ; extra == "dev"
+Requires-Dist: coverage ; extra == "dev"
+Requires-Dist: pytest-cov ; extra == "dev"
+Requires-Dist: mudata ; extra == "dev"
+Requires-Dist: nbproject_test>=0.6.0 ; extra == "dev"
+Requires-Dist: faker-biology ; extra == "dev"
+Requires-Dist: pronto ; extra == "dev"
+Requires-Dist: readfcs>=2.0.1 ; extra == "fcs"
+Requires-Dist: lamindb_setup[gcp] ; extra == "gcp"
+Requires-Dist: nbproject==0.11.1 ; extra == "jupyter"
+Requires-Dist: jupytext ; extra == "jupyter"
+Requires-Dist: nbconvert>=7.2.1 ; extra == "jupyter"
+Requires-Dist: mistune!=3.1.0 ; extra == "jupyter"
+Requires-Dist: omop ; extra == "omop"
+Requires-Dist: wetlab>=1.3.1 ; extra == "wetlab"
+Requires-Dist: numcodecs<0.16.0 ; extra == "zarr"
+Requires-Dist: zarr>=2.16.0,<3.0.0a0 ; extra == "zarr"
+Project-URL: Home, https://github.com/laminlabs/lamindb
+Provides-Extra: bionty
+Provides-Extra: clinicore
+Provides-Extra: dev
+Provides-Extra: fcs
+Provides-Extra: gcp
+Provides-Extra: jupyter
+Provides-Extra: omop
+Provides-Extra: wetlab
+Provides-Extra: zarr
+
+[![Stars](https://img.shields.io/github/stars/laminlabs/lamindb?logo=GitHub&color=yellow)](https://github.com/laminlabs/lamindb)
+[![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
+[![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
+
+# LaminDB - A data framework for biology
+
+Read the [docs](https://docs.lamin.ai).
+

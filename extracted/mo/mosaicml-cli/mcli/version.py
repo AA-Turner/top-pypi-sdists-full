@@ -115,7 +115,7 @@ def print_version(**kwargs) -> None:
     print(get_formatted_version())
 
 
-__version__ = '0.7.2'
+__version__ = '0.7.3'
 
 v = Version.from_string(__version__)
 __version_major__ = v.major

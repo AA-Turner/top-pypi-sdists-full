@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_PERLIN_H
-#define _TCOD_PERLIN_H
+#pragma once
+#ifndef TCOD_PERLIN_H_
+#define TCOD_PERLIN_H_
 
 #include "config.h"
 #include "mersenne_types.h"
@@ -159,4 +160,4 @@ TCOD_PUBLIC void TCOD_noise_get_turbulence_vectorized(
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif  // TCOD_PERLIN_H_

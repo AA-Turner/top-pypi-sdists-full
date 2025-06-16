@@ -1,0 +1,19 @@
+from twilio.base.instance_resource import InstanceResource as InstanceResource
+from twilio.base.list_resource import ListResource as ListResource
+from twilio.base.page import Page as Page
+from twilio.rest.api.v2010.account.usage.record import RecordList as RecordList
+from twilio.rest.api.v2010.account.usage.trigger import TriggerList as TriggerList
+
+class UsageList(ListResource):
+    def __init__(self, version, account_sid) -> None: ...
+    @property
+    def records(self): ...
+    @property
+    def triggers(self): ...
+
+class UsagePage(Page):
+    def __init__(self, version, response, solution) -> None: ...
+    def get_instance(self, payload): ...
+
+class UsageInstance(InstanceResource):
+    def __init__(self, version, payload, account_sid) -> None: ...

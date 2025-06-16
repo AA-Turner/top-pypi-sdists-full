@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_PARSER_H
-#define _TCOD_PARSER_H
+#pragma once
+#ifndef TCOD_PARSER_H_
+#define TCOD_PARSER_H_
 
 #include "color.h"
 #include "lex.h"
@@ -193,4 +194,4 @@ TCOD_parse_property_value(TCOD_Parser* parser, TCOD_ParserStruct* def, char* pro
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif  // TCOD_PARSER_H_

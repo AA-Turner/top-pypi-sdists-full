@@ -1,2 +1,0 @@
-parameters:
-  instanceref: ${_instance}

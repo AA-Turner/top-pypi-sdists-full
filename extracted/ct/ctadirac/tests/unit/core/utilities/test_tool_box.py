@@ -6,6 +6,7 @@ from CTADIRAC.Core.Utilities.tool_box import (
     extract_run_number_from_evndisplay,
     extract_run_number_from_image_extractor,
     extract_run_number_from_logs_tgz,
+    extract_run_number_from_simpipe,
     run_number_from_filename,
 )
 
@@ -83,6 +84,24 @@ def test_run_number_from_filename_corsika_log():
     package = "corsika_simtelarray"
     assert extract_run_number_from_corsika_sim_telarray(filename) == 900
     assert run_number_from_filename(filename, package) == 900
+
+
+def test_run_number_from_filename_simpipe():
+    filename = (
+        "/path/to/gamma_run000004_za20deg_azm000deg_South_alpha_"
+        "6.0.0_test_simpipe_wms_interface.zst"
+    )
+    package = "simpipe"
+    assert extract_run_number_from_simpipe(filename) == 4
+    assert run_number_from_filename(filename, package) == 4
+
+    filename = (
+        "/path/to/gamma_run000004_za20deg_azm000deg_South_alpha_"
+        "6.1.0_test_simpipe_wms_interface.log_hist.tar.gz"
+    )
+    package = "simpipe"
+    assert extract_run_number_from_simpipe(filename) == 4
+    assert run_number_from_filename(filename, package) == 4
 
 
 def test_run_number_from_filename_evndisplay_tid():

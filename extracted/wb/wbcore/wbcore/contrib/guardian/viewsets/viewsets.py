@@ -8,6 +8,7 @@ from wbcore.contrib.authentication.models.users import Permission, User
 from wbcore.contrib.authentication.serializers import UserRepresentationSerializer
 from wbcore.contrib.guardian.models import UserObjectPermission
 from wbcore.contrib.guardian.viewsets.configs import (
+    PivotUserObjectPermissionButtonViewConfig,
     PivotUserObjectPermissionDisplayViewConfig,
     PivotUserObjectPermissionEndpointViewConfig,
     PivotUserObjectPermissionTitleViewConfig,
@@ -17,6 +18,7 @@ from wbcore.contrib.guardian.viewsets.configs import (
 class PivotUserObjectPermissionModelViewSet(viewsets.ModelViewSet):
     queryset = UserObjectPermission.objects.all()
 
+    button_config_class = PivotUserObjectPermissionButtonViewConfig
     display_config_class = PivotUserObjectPermissionDisplayViewConfig
     endpoint_config_class = PivotUserObjectPermissionEndpointViewConfig
     title_config_class = PivotUserObjectPermissionTitleViewConfig

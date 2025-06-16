@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 from connector.config import config
+from connector.handlers.lumos_log_handler import LumosLogHandler
 
 logger = logging.getLogger(__name__)
 
@@ -43,3 +44,9 @@ def set_logger_config(app_id: str):
             level=log_level.value,
             force=True,
         )
+
+    # Add Lumos log handler if enabled
+    if config.send_logs_to_on_prem_proxy and config.agent_identifier is not None:
+        lumos_handler = LumosLogHandler()
+        lumos_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt="%H:%M:%S"))
+        logging.getLogger().addHandler(lumos_handler)

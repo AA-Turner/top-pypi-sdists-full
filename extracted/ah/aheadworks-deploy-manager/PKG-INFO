@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: aheadworks_deploy_manager
+Version: 1.7.3
+Summary: deploy manager from aheadworks
+Home-page: https://bitbucket.org/awimpl/deploy-tools
+Author: nnuser
+Author-email: sednev@aheadworks.com
+License: EULA
+Requires-Dist: fire
+Requires-Dist: python-dateutil
+Requires-Dist: requests
+Requires-Dist: docker
+Requires-Dist: regex
+Requires-Dist: discord>=2.0.0
+Requires-Dist: jira
+Requires-Dist: boto3
+Requires-Dist: stringcase
+Requires-Dist: python-dotenv
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary
+
+deploy manager from aheadworks

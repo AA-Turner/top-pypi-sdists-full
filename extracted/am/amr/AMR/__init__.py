@@ -25,6 +25,12 @@ from .functions import add_custom_microorganisms
 from .functions import clear_custom_microorganisms
 from .functions import age
 from .functions import age_groups
+from .functions import all_mic
+from .functions import all_mic_predictors
+from .functions import all_sir
+from .functions import all_sir_predictors
+from .functions import step_mic_log2
+from .functions import step_sir_numeric
 from .functions import antibiogram
 from .functions import wisca
 from .functions import retrieve_wisca_parameters

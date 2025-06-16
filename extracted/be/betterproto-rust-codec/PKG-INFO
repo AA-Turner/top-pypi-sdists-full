@@ -1,0 +1,18 @@
+Metadata-Version: 2.3
+Name: betterproto-rust-codec
+Version: 0.1.1
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
+Summary: Fast conversion between betterproto messages and Protobuf wire format.
+Author-email: Erik Friese <e.friese0@gmail.com>
+License: MIT
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: homepage, https://github.com/124C41p/betterproto-rust-codec
+Project-URL: repository, https://github.com/124C41p/betterproto-rust-codec
+
+# betterproto-rust-codec
+
+Exposes functions for fast conversion between [betterproto](https://github.com/danielgtaylor/python-betterproto) messages and the Protobuf wire format. These functions are implemented in Rust, hence considerably faster than the original native Python code.

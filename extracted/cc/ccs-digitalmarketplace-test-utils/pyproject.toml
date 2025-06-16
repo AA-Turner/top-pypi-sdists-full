@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccs-digitalmarketplace-test-utils"
+dynamic = ["version"]
+dependencies = []
+requires-python = ">=3.11,<3.14"
+authors = [
+  {name = "GDS Developers"},
+  {name = "CCS Developers"},
+]
+description = "Utilities for testing Digital Marketplace apps."
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.urls]
+Homepage = "https://github.com/Crown-Commercial-Service/ccs-digitalmarketplace-test-utils"
+Repository = "https://github.com/Crown-Commercial-Service/ccs-digitalmarketplace-test-utils.git"
+Issues = "https://github.com/Crown-Commercial-Service/ccs-digitalmarketplace-test-utils/issues"
+Changelog = "https://github.com/Crown-Commercial-Service/ccs-digitalmarketplace-test-utils/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+  'flake8>=7.1.1',
+  'black',
+  'pytest',
+  'fleep',
+  'pre-commit',
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "dmtestutils.__version__"}
+
+[tool.pytest.ini_options]
+addopts = "-p no:logging"
+testpaths = "tests"
+
+[tool.black]
+line-length = 120
+target-version = ['py311']

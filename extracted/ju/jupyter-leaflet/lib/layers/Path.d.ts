@@ -27,6 +27,8 @@ export declare class LeafletPathModel extends LeafletVectorLayerModel {
         popup_max_height: number | null;
         pane: string;
         subitems: import("leaflet").Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
 export declare class LeafletPathView extends LeafletVectorLayerView {

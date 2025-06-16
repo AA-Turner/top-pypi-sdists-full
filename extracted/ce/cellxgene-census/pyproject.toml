@@ -1,0 +1,162 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cellxgene-census"
+dynamic = ["version"]
+description = "API to facilitate the use of the CZ CELLxGENE Discover Census. For more information about the API and the project visit https://github.com/chanzuckerberg/cellxgene-census/"
+authors = [
+    { name = "Chan Zuckerberg Initiative Foundation", email = "soma@chanzuckerberg.com" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">= 3.10, < 3.13"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies= [
+    # NOTE: the tiledbsoma version must be >= to the version used in the Census builder, to
+    # ensure that the assets are readable (tiledbsoma supports backward compatible reading).
+    # Make sure this version does not fall behind the builder's tiledbsoma version.
+    "tiledbsoma>=1.15.3",
+    "anndata",
+    "numpy>=1.23",
+    "requests",
+    "typing_extensions",
+    "s3fs>=2021.06.1",
+]
+
+[project.optional-dependencies]
+experimental = [
+    "torch",
+    "torchdata~=0.7,<0.10",  # FIXME: delete when the deprecated pytorch loader API prototype is fully graduated to TileDB-SOMA-ML
+    "scikit-learn>=1.2",
+    "scikit-misc>=0.3",
+    "tiledb-vector-search~=0.11",  # newest version compatible with tiledbsoma's version of TileDB Embedded
+    "psutil",
+]
+spatial = [
+    "spatialdata>=0.2.5",
+]
+doc = [
+    "nbsphinx",
+    "myst-parser",
+    "sphinx-rtd-theme",
+    "gitpython",
+    "sphinx<7.0.0",
+]
+
+[project.urls]
+homepage = "https://github.com/chanzuckerberg/cellxgene-census"
+repository = "https://github.com/chanzuckerberg/cellxgene-census"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["cellxgene_census*"]  # package names should match these glob patterns (["*"] by default)
+exclude = ["tests*"]  # exclude packages matching these glob patterns (empty by default)
+
+[tool.setuptools.package-data]
+"cellxgene_census" = ["py.typed"]
+
+[tool.setuptools_scm]
+root = "../../.."
+
+[tool.ruff]
+line-length = 120
+src = ["api/python/cellxgene_census/src"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "F",  # Errors detected by Pyflakes
+    "E",  # Error detected by Pycodestyle
+    "W",  # Warning detected by Pycodestyle
+    "I",  # isort
+    "D",  # pydocstyle
+    "B",  # flake8-bugbear
+    "TID",  # flake8-tidy-imports
+    "C4",  # flake8-comprehensions
+    "BLE",  # flake8-blind-except
+    "UP",  # pyupgrade
+    "RUF100",  # Report unused noqa directives
+]
+ignore = [
+    # line too long -> we accept long comment lines; formatter gets rid of long code lines
+    "E501",
+    # Do not assign a lambda expression, use a def -> lambda expression assignments are convenient
+    "E731",
+    # allow I, O, l as variable names -> I is the identity matrix
+    "E741",
+    # Missing docstring in public package
+    "D104",
+    # Missing docstring in public module
+    "D100",
+    # Missing docstring in __init__
+    "D107",
+    # Errors from function calls in argument defaults. These are fine when the result is immutable.
+    "B008",
+    # __magic__ methods are are often self-explanatory, allow missing docstrings
+    "D105",
+    # first line should end with a period [Bug: doesn't work with single-line docstrings]
+    "D400",
+    # First line should be in imperative mood; try rephrasing
+    "D401",
+    ## Disable one in each pair of mutually incompatible rules
+    # We don’t want a blank line before a class docstring
+    "D203",
+    # We want docstrings to start immediately after the opening triple quote
+    "D213",
+    # Missing argument description in the docstring TODO: enable
+    "D417",
+    # Blank line required between summary line and description TODO: enable
+    "D205",
+    # Prefer absolute imports over relative imports from parent modules TODO: enable
+    "TID252",
+    # It's okay to use zip without the strict kwarg. In fact, numba doesn't like it when you use it
+    "B905",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"*/tests/*" = ["D"]
+"*/__init__.py" = ["F401"]
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[tool.mypy]
+show_error_codes = true
+ignore_missing_imports = true
+warn_unreachable = true
+strict = true
+plugins = "numpy.typing.mypy_plugin"
+
+[tool.pytest.ini_options]
+markers = [
+    "live_corpus: runs on the live CELLxGENE Census data corpus and small enough to run in CI",
+    "expensive: too expensive to run regularly or in CI",
+    "experimental: tests for the `experimental` package",
+    "lts_compat_check: check for compatibility with an LTS build",
+    "geneformer: Geneformer tests (not run in CI due to dependency issues)",
+]

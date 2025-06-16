@@ -1,0 +1,268 @@
+## For details of how to configure settings in this file, please
+## see https://msticpy.readthedocs.io/en/latest/getting_started/msticpyconfig.html
+##
+## The definition for a leaf item is:
+##     type([options])
+##         type can be:
+##           "str" - text box
+##           "bool" - check box
+##           "int" - text box with numeric conversion
+##           "enum" - single select list
+##           "m_enum" - multi-select list
+##         options:
+##           required (bool): if the setting is required
+##           default (str): The default value e.g. True, a_value, ["one"; "two"]
+##             In the case of bool/str/int/enum this is a simple string with no quotes
+##             For m_enum it is a list of items (optionally quoted) separated by semi-colons
+##           format: uuid
+##             only uuid is supported
+##           options (list):
+##              A list of options for the list box, separated by ";" e.g.
+##              options=[one; two; three]
+definitions:
+  # Azure Sentinel workspace definition
+  workspace_defn: &workspace
+    WorkspaceName: str(required=False)
+    WorkspaceId: str(format=uuid)
+    TenantId: str(format=uuid)
+    SubscriptionId: str(required=False, format=uuid)
+    ResourceGroup: str(required=False)
+  # Providers args definition
+  env_var_defn: &env_var
+    EnvironmentVar: str()
+  kv_path_defn: &kv_path
+    KeyVault: str(required=False)
+  cred_key_opts:
+    one_of:
+      - str: str()
+      - <<: *env_var
+      - <<: *kv_path
+  macros:
+    - &cred_key cred_key(mp_defn_path="/definitions/cred_key_opts")
+    - &cred_key_opt cred_key(mp_defn_path="/definitions/cred_key_opts", required=False)
+AzureSentinel:
+  Workspaces:
+    # Workspace used if you don't explicitly name a workspace when creating WorkspaceConfig
+    # Specifying values here overrides config.json settings unless you explicitly load
+    # WorkspaceConfig with config_file parameter (WorkspaceConfig(config_file="../config.json")
+    Default:
+      <<: *workspace
+Azure:
+  cloud: enum(required=False, options=[global; cn; usgov], default=global)
+  auth_methods: m_enum(required=False,
+    options=[env; msi; cli; devicecode; interactive; vscode; powershell; clientsecret; certificate],
+    default=["cli"; "msi", "devicecode"]
+    )
+  resource_manager_url: str(required=False)
+QueryDefinitions:
+  # Add paths to folders containing custom query definitions here
+  Custom: list(required=False)
+TIProviders:
+  # If a provider has Primary: True it will be run by default on IoC lookups
+  # Secondary providers can be run optionally
+  OTX:
+    Args:
+      AuthKey: *cred_key
+    Primary: bool(default=True)
+    Provider: "OTX"
+  VirusTotal:
+    Args:
+      AuthKey: *cred_key
+      UseVT3PrivateAPI: bool(required=False, default=False)
+    Primary: bool(default=True)
+    Provider: "VirusTotal"
+  XForce:
+    # You can store items in an environment variable using this syntax
+    Args:
+      ApiID: *cred_key
+      AuthKey: *cred_key
+    Primary: bool(default=False)
+    Provider: "XForce"
+  AzureSentinel:
+    # Note this can be a different workspace/tenant from your main workspace
+    # This only controls where the Azure Sentinel TI provider looks for the
+    # ThreatIndicator table.
+    Args:
+      WorkspaceID: str(format=uuid)
+      TenantID: str(format=uuid)
+    Primary: bool(default=False)
+    Provider: "AzSTI"
+  OpenPageRank:
+    Args:
+      AuthKey: *cred_key
+    Primary: bool(default=False)
+    Provider: "OPR"
+  TorExitNodes:
+    Primary: bool(default=False)
+    Provider: "Tor"
+  GreyNoise:
+    Args:
+      # Leave AuthKey empty to use the community API or populate if you want to use the Enterprise API features.
+      AuthKey: *cred_key
+    Primary: bool(default=True)
+    Provider: "GreyNoise"
+  RiskIQ:
+    Primary: bool(default=True)
+    Provider: "RiskIQ"
+    Args:
+      ApiID: str()
+      AuthKey: *cred_key
+  IntSights:
+    Primary: bool(default=True)
+    Provider: "IntSights"
+    Args:
+      ApiID: str()
+      AuthKey: *cred_key
+  Pulsedive:
+    Args:
+      AuthKey: *cred_key
+    Primary: bool(default=False)
+    Provider: "Pulsedive"
+  IPQualityScore:
+    Args:
+      AuthKey: *cred_key
+    Primary: bool(default=False)
+    Provider: "IPQualityScore"
+  BinaryEdge:
+    Args:
+      AuthKey: *cred_key
+    Primary: bool(default=False)
+    Provider: "BinaryEdge"
+  AbuseIPDB:
+    Args:
+      AuthKey: *cred_key
+    Primary: bool(default=False)
+    Provider: "AbuseIPDB"
+OtherProviders:
+  GeoIPLite:
+    Args:
+      AuthKey: *cred_key
+      DBFolder: str(default="~/.msticpy")
+    Provider: "GeoLiteLookup"
+  IPStack:
+    Args:
+      AuthKey: *cred_key
+    Provider: "IPStackLookup"
+DataProviders:
+  AzureCLI:
+    Args:
+      auth_methods: m_enum(required=False,
+        options=[env; msi; cli; devicecode; interactive; vscode; powershell; clientsecret; certificate],
+        default=["cli"; "devicecode"; "msi"]
+        )
+      clientId: str(required=False, format=uuid)
+      tenantId: str(required=False, format=uuid)
+      # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test code")]
+      clientSecret: *cred_key
+  Splunk:
+    Args:
+      host: str()
+      username: str(required=False)
+      # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test code")]
+      password: *cred_key
+      port: int(required=False)
+      http_scheme: str(default=https, required=False)
+      verify: bool(required=False)
+      owner: str(required=False)
+      app: str(required=False)
+      # Note option lists can be surrounded by quotes or []
+      # option items can be quoted or not - always treated as strings - ";" separated
+      sharing: enum(required=False, options=[global; system; app; user], default=global)
+      token: str(required=False)
+      cookie: str(required=False)
+      autologin: bool(required=False)
+  LocalData:
+    data_paths: list(required=False)
+  Mordor:
+    save_folder: str(required=False)
+    use_cached: bool(required=False, default=True)
+  Browshot:
+    Args:
+      AuthKey: *cred_key
+  MicrosoftDefender:
+    Args:
+      ClientId: str(format=uuid)
+      TenantId: str(format=uuid)
+      UserName: str(required=False)
+      # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test code")]
+      ClientSecret: *cred_key
+      Cloud: str(required=False)
+  MicrosoftGraph:
+    Args:
+      ClientId: str(format=uuid)
+      TenantId: str(format=uuid)
+      UserName: str(required=False)
+      # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test code")]
+      ClientSecret: *cred_key
+  Sumologic:
+    Args:
+      connection_str: str()
+      accessid: str()
+      # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test code")]
+      accesskey: *cred_key
+  Cybereason:
+    Args:
+      TenantId: str(format=uuid)
+      ClientId: str()
+      # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test code")]
+      ClientSecret: *cred_key
+  Kusto:
+    Args:
+      Cluster: str()
+      TenantId: str(format=uuid)
+      IntegratedAuth: bool()
+      ClientId: str(required=False, format=uuid)
+      # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test code")]
+      ClientSecret: *cred_key_opt
+msticpy:
+  FriendlyExceptions: bool(default=True, required=False)
+  QueryDefinitions: list(required=False)
+  http_timeout: int(required=False)
+  # Proxies key not yet supported
+AzureCLI:
+  # Deprecated section - use DataProviders.AzureCLI
+  Args:
+    auth_methods: m_enum(required=False,
+      options=[env; msi; cli; devicecode; interactive; vscode; powershell; clientsecret; certificate],
+      default=["cli"; "devicecode"; "msi"]
+      )
+    clientId: str(required=False, format=uuid)
+    tenantId: str(required=False, format=uuid)
+    # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Test code")]
+    clientSecret: *cred_key
+KeyVault:
+  # Key Vault connection specification for secrets
+  TenantId: str(format=uuid)
+  SubscriptionId: str(format=uuid, required=False)
+  ResourceGroup: str(required=False)
+  AzureRegion: str(required=False)
+  VaultName: str()
+  UseKeyring: bool(default=True, required=False)
+  Authority: enum(options="global; usgov; cn", default=global)
+UserDefaults:
+  # List of query providers to load
+  QueryProviders:
+    AzureSentinel:
+      workspace:
+        alias: str(required=False)
+        connect: bool(required=False, default=True)
+    provider:
+      alias: str(required=False)
+      connect: bool(required=False, default=True)
+
+  # List of other providers/components to load
+  LoadComponents:
+    TILookup:
+    GeoIpLookup:
+      provider: str(default=GeoLiteLookup)
+    Notebooklets:
+      query_provider:
+        AzureSentinel: txt_dict(default=workspace:Default)
+    Pivot:
+    AzureData:
+      auth_methods: m_enum(options=[env; msi; cli; interactive], default=[env; interactive])
+      connect: bool(default=True)
+    AzureSentinelAPI:
+      auth_methods: m_enum(options=[env; msi; cli; interactive], default=["env"; "interactive"])
+      res_id: str(default=None)
+      connect: bool(default=True)

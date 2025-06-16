@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ragformance"
+version = "0.1.100"
+description = "A library for generating dataset and evaluating these datasets on RAG based solutions"
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+authors = [
+    { name="FOR Team", email="jonathan.sprauel@irt-saintexupery.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "tqdm",
+    "pytrec_eval",
+    "plotly",
+    "pydantic",
+    "pre-commit>=2.1.1",
+    "litellm"
+]
+
+[project.optional-dependencies]
+# RAG implementations
+rag-haystack = [
+    "farm-haystack==1.22.1",
+    "sentence-transformers==2.2.2"
+]
+rag-naive = [
+    "sentence-transformers==2.2.2"
+]
+
+# Data generators
+generators-ragas = [
+    "ragas",
+    "langchain-community"
+]
+generators-llm-summary = [
+    "unstructured[md]"
+]
+
+# Visualization and evaluation
+visualization = [
+    "sentence-transformers==2.2.2"
+]
+
+# HuggingFace integration
+huggingface = [
+    "huggingface_hub",
+    "datasets"
+]
+
+# Development and additional tools
+dev = [
+    "forcolate"
+]
+
+# Phoenix Arize integration
+phoenix = [
+    "arize-phoenix",
+    "arize-phoenix-otel",
+    "openinference-instrumentation-litellm"
+]
+
+# All optional dependencies
+all = [
+    "farm-haystack==1.22.1",
+    "sentence-transformers==2.2.2",
+    "ragas",
+    "unstructured[md]",
+    "huggingface_hub",
+    "datasets",
+    "forcolate",
+    "arize-phoenix",
+    "arize-phoenix-otel",
+    "openinference-instrumentation-litellm"
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ragformance*", "ragformance.*"]
+
+[project.urls]
+"Homepage" = "https://github.com/FOR-sight-ai/RAGFORmance"
+"Bug Tracker" = "https://github.com/FOR-sight-ai/RAGFORmance/issues"
+
+[project.scripts]
+ragformance = "ragformance.cli.run:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+pytest-cov = "^4.0"
+
+[tool.pytest.ini_options]
+python_files = "test_*.py tests_*.py"
+python_classes = "Test* Tests*"
+python_functions = "test_* tests_*"
+testpaths = [
+    "tests",
+]

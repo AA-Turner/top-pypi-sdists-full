@@ -82,6 +82,7 @@ class _Mount(modal._object._Object):
     _deployment_name: typing.Optional[str]
     _namespace: typing.Optional[int]
     _environment_name: typing.Optional[str]
+    _allow_overwrite: bool
     _content_checksum_sha256_hex: typing.Optional[str]
 
     @staticmethod
@@ -172,7 +173,9 @@ class _Mount(modal._object._Object):
         self: _Mount,
         deployment_name: typing.Optional[str] = None,
         namespace=1,
+        *,
         environment_name: typing.Optional[str] = None,
+        allow_overwrite: bool = False,
         client: typing.Optional[modal.client._Client] = None,
     ) -> None: ...
     def _get_metadata(self) -> modal_proto.api_pb2.MountHandleMetadata: ...
@@ -184,6 +187,7 @@ class Mount(modal.object.Object):
     _deployment_name: typing.Optional[str]
     _namespace: typing.Optional[int]
     _environment_name: typing.Optional[str]
+    _allow_overwrite: bool
     _content_checksum_sha256_hex: typing.Optional[str]
 
     def __init__(self, *args, **kwargs): ...
@@ -288,7 +292,9 @@ class Mount(modal.object.Object):
             /,
             deployment_name: typing.Optional[str] = None,
             namespace=1,
+            *,
             environment_name: typing.Optional[str] = None,
+            allow_overwrite: bool = False,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None: ...
         async def aio(
@@ -296,7 +302,9 @@ class Mount(modal.object.Object):
             /,
             deployment_name: typing.Optional[str] = None,
             namespace=1,
+            *,
             environment_name: typing.Optional[str] = None,
+            allow_overwrite: bool = False,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None: ...
 
@@ -308,25 +316,26 @@ def _create_client_mount(): ...
 def create_client_mount(): ...
 def _get_client_mount(): ...
 def _is_modal_path(remote_path: pathlib.PurePosixPath): ...
-async def _create_single_mount(
+async def _create_single_client_dependency_mount(
     client: modal.client._Client,
     builder_version: str,
     python_version: str,
-    platform: str,
     arch: str,
-    uv_python_platform: str = None,
+    platform: str,
+    uv_python_platform: str,
     check_if_exists: bool = True,
+    allow_overwrite: bool = False,
 ): ...
 async def _create_client_dependency_mounts(
-    client=None, check_if_exists=True, python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    client=None, python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"], check_if_exists=True
 ): ...
 
 class __create_client_dependency_mounts_spec(typing_extensions.Protocol):
     def __call__(
-        self, /, client=None, check_if_exists=True, python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        self, /, client=None, python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"], check_if_exists=True
     ): ...
     async def aio(
-        self, /, client=None, check_if_exists=True, python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        self, /, client=None, python_versions: list[str] = ["3.9", "3.10", "3.11", "3.12", "3.13"], check_if_exists=True
     ): ...
 
 create_client_dependency_mounts: __create_client_dependency_mounts_spec

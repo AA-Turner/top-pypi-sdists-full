@@ -4,6 +4,7 @@ from CTADIRAC.Interfaces.API.CTAJob import MetadataDict
 
 software_version = "v0.19.2"
 simulation_software_version = "2020-06-29b"
+simpipe_software_version = "v0.16-avx2"
 
 SIMULATION_CONFIG = {
     "ID": 1,
@@ -21,6 +22,17 @@ SIMULATION_CONFIG = {
         "sct": None,
         "moon": "dark",
         "start_run_number": 0,
+    },
+}
+SIMPIPE_CONFIG = {
+    "ID": 1,
+    "input_meta_query": {"parentID": None, "dataset": None},
+    "job_config": {
+        "type": "SimPipe",
+        "version": simpipe_software_version,
+        "simpipe_config": "simpipe_config.yml",
+        "run_number": 1,
+        "run_number_offset": 0,
     },
 }
 SIM_TELARRAY_PROCESSING_CONFIG = {
@@ -91,7 +103,7 @@ SIMULATION_OUTPUT_METADATA = MetadataDict(
         ("array_layout", "Advanced-Baseline"),
         ("site", "LaPalma"),
         ("particle", "gamma-diffuse"),
-        ("phiP", 180),
+        ("phiP", 180.0),
         ("thetaP", 20.0),
         ("sct", "False"),
         ("tel_sim_prog", "sim_telarray"),
@@ -100,6 +112,25 @@ SIMULATION_OUTPUT_METADATA = MetadataDict(
         ("outputType", "Data"),
         ("configuration_id", 1),
         ("MCCampaign", "Prod5bTest"),
+    ]
+)
+
+SIMPIPE_OUTPUT_METADATA = MetadataDict(
+    [
+        ("array_layout", "Alpha"),
+        ("site", "LaPalma"),
+        ("particle", "gamma-diffuse"),
+        ("phiP", 180.0),
+        ("thetaP", 20.0),
+        ("sct", "False"),
+        ("tel_sim_prog", "simpipe"),
+        ("tel_sim_prog_version", simpipe_software_version),
+        ("data_level", -1),
+        ("outputType", "Data"),
+        ("configuration_id", 1),
+        ("MCCampaign", "Prod5bTest"),
+        ("type", "SimPipe"),
+        ("version", simpipe_software_version),
     ]
 )
 

@@ -454,9 +454,18 @@ class MessageRules(CelRules):
         rule: validate_pb2.MessageOneofRule,
     ):
         fields = []
+        seen = set()
+        if len(rule.fields) == 0:
+            msg = f"at least one field must be specified in oneof rule for the message {self._desc.full_name}"
+            raise CompilationError(msg)
+
         for name in rule.fields:
             if name in self._desc.fields_by_name:
+                if name in seen:
+                    msg = f"duplicate {name} in oneof rule for the message {self._desc.full_name}"
+                    raise CompilationError(msg)
                 fields.append(self._desc.fields_by_name[name])
+                seen.add(name)
             else:
                 msg = f'field "{name}" not found in message {self._desc.full_name}'
                 raise CompilationError(msg)
@@ -1038,10 +1047,13 @@ class RuleFactory:
     def _new_rules(self, desc: descriptor.Descriptor) -> list[Rules]:
         result: list[Rules] = []
         rule: typing.Optional[Rules] = None
+        all_msg_oneof_fields = set()
         if validate_pb2.message in desc.GetOptions().Extensions:
             message_level = desc.GetOptions().Extensions[validate_pb2.message]
             if message_level.disabled:
                 return []
+            for oneof in message_level.oneof:
+                all_msg_oneof_fields.update(oneof.fields)
             if rule := self._new_message_rule(message_level, desc):
                 result.append(rule)
 
@@ -1053,6 +1065,11 @@ class RuleFactory:
         for field in desc.fields:
             if validate_pb2.field in field.GetOptions().Extensions:
                 field_level = field.GetOptions().Extensions[validate_pb2.field]
+                if not field_level.HasField("ignore") and field.name in all_msg_oneof_fields:
+                    field_level_override = validate_pb2.FieldRules()
+                    field_level_override.CopyFrom(field_level)
+                    field_level_override.ignore = validate_pb2.IGNORE_IF_UNPOPULATED
+                    field_level = field_level_override
                 if field_level.ignore == validate_pb2.IGNORE_ALWAYS:
                     continue
                 result.append(self._new_field_rule(field, field_level))

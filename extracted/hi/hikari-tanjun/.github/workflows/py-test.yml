@@ -1,0 +1,70 @@
+name: Run tests
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  schedule:
+    - cron: "0 12 * * 6"
+  workflow_dispatch:
+
+jobs:
+  py-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: "true"
+
+      - name: Install Python
+        uses: ./.github/actions/setup-py
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run tests
+        run: nox -s test
+
+  # TODO: Could we switch over to gather coverage from the normal test runs and combining
+  # the result once https://github.com/nedbat/coveragepy/issues/1002 is fixed?
+  upload-coverage:
+    # needs: [test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: "true"
+
+      - name: Install Python
+        uses: ./.github/actions/setup-py
+
+      - name: Record coverage
+        run: nox -s test-coverage
+
+      - name: Upload coverage
+        uses: paambaati/codeclimate-action@f429536ee076d758a24705203199548125a28ca7
+        env:
+          CC_TEST_REPORTER_ID: 117363998d7c6b4bab4ac57348026e1089767e142ccca3eb8cc37da6cf4cc8b9
+        with:
+          coverageLocations: .coverage.xml:coverage.py
+
+      - name: Archive coverage
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
+        with:
+          name: coverage
+          path: ./coverage_html
+          if-no-files-found: error

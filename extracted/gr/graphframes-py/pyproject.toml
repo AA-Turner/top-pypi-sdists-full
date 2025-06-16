@@ -1,0 +1,8 @@
+[project]
+name = "graphframes-py"
+version = "0.0.0"
+description = "Coming soon"
+authors = [
+    {name = "Russell Jurney", email = "russell.jurney@gmail.com"},
+	{name = "Ángel Álvarez Pascua", email = "angel.alvarez.pascua@gmail.com"}
+]

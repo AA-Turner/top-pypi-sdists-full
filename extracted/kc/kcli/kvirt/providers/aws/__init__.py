@@ -2184,3 +2184,7 @@ class Kaws(object):
             self.conn.modify_network_interface_attribute(NetworkInterfaceId=nic_id, Groups=sg_ids)
         clean_name = lb.replace('.', '-')
         self.elb.register_instances_with_load_balancer(LoadBalancerName=clean_name, Instances=Instances)
+
+    def detach_disks(self, name):
+        print("not implemented")
+        return {'result': 'success'}

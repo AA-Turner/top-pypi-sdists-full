@@ -1,0 +1,26 @@
+[project]
+name = "internal"
+version = "1.0.129"
+description = ""
+authors = [{ name = "Ray", email = "ray@cruisys.com" }]
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+
+[tool.poetry]
+packages = [{ include = "internal", from = "src" }]
+
+[tool.poetry.dependencies]
+fastapi = "^0.115.6"
+arrow = "^1.3.0"
+pydantic-settings = "^2.7.1"
+watchtower = "^3.3.1"
+httpx = "^0.28.1"
+beanie = "^1.29.0"
+dictdiffer = "^0.9.0"
+redis = "^5.2.1"
+uvicorn = "^0.34.0"
+asgi-correlation-id = "^4.3.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

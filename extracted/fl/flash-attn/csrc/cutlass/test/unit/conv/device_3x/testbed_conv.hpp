@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -113,14 +113,14 @@ struct DenseConvParams {
   // Default Kernel data types
   using ElementA = typename Conv::ConvKernel::ElementA;
   using ElementB = typename Conv::ConvKernel::ElementB;
-  
+
   static constexpr cutlass::conv::Operator ConvOp = Conv::DispatchPolicy::ConvOp;
   static constexpr int NumSpatialDimensions = Conv::NumSpatialDimensions;
   using ProblemShape = cutlass::conv::ConvProblemShape<ConvOp, NumSpatialDimensions>;
 
   // get the default arguments without sparse data
   auto get_mainloop_arguments(
-    [[maybe_unused]] ProblemShape const& problem_shape,  
+    [[maybe_unused]] ProblemShape const& problem_shape,
     thrust::universal_vector<ElementA>& tensor_A,
     thrust::universal_vector<ElementB>& tensor_B
   ) {
@@ -172,6 +172,8 @@ struct ConvTestbed {
 
   static constexpr bool IsBiasEnabled = cutlass::epilogue::collective::detail::IsThreadEpilogueOpWithBias<FusionOp>::value &&
                                         !cute::is_same_v<BiasType, void>;
+  static constexpr bool IsPerChannelScaleEnabled = cutlass::epilogue::collective::detail::IsThreadEpilogueOpWithPerChannelScaled<FusionOp>::value;
+
   static constexpr bool DisableSource = cute::is_void_v<typename FusionOp::ElementSource>;
 
   using StrideC  = typename Conv::ConvKernel::StrideC;
@@ -213,10 +215,24 @@ struct ConvTestbed {
     tensor_D_computed.resize(sizeof(ElementD) * problem_shape.size_C());
     tensor_D_reference.resize(sizeof(ElementD) * problem_shape.size_C());
     tensor_bias.resize(sizeof(ElementBias) * cute::size(cute::get<0>(problem_shape.get_shape_B())));
+    if constexpr (IsPerChannelScaleEnabled) {
+      tensor_alpha.resize(sizeof(ElementScalar) * cute::size(cute::get<0>(problem_shape.get_shape_B())));
+      tensor_beta.resize(sizeof(ElementScalar) * cute::size(cute::get<0>(problem_shape.get_shape_B())));
+    }
     initialize_values(tensor_A, init_A, seed);
     initialize_values(tensor_B, init_B, seed * 11);
     initialize_values(tensor_C, init_C, seed * 17);
     initialize_values(tensor_bias, init_bias, seed * 19);
+    if constexpr (IsPerChannelScaleEnabled) {
+      initialize_values(tensor_alpha, init_bias, seed * 23);
+      if constexpr (DisableSource) {
+        initialize_values(tensor_beta, init_disable, seed * 27);
+      }
+      else {
+        initialize_values(tensor_beta, init_bias, seed * 27);
+      }
+    }
+
     bool flag = true;
     if constexpr (isSparseEnabled) {
       flag &= params.initialize(problem_shape, tensor_B, static_cast<int>(seed + 2023));
@@ -242,12 +258,81 @@ struct ConvTestbed {
     return max_smem_size >= Conv::ConvKernel::SharedStorageSize;
   }
 
+  auto transform_shape_and_stride_with_groups(ProblemShape const& problem_shape) {
+    using TensorExtent = cute::array<int32_t, NumSpatialDimensions + 3>;
+    using TensorStride = cute::array<int64_t, NumSpatialDimensions + 3>;
+
+    TensorExtent shape_a_g{};
+    TensorExtent shape_b_g{};
+    TensorExtent shape_c_g{};
+    TensorStride stride_a_g{};
+    TensorStride stride_b_g{};
+    TensorStride stride_c_g{};
+
+    auto shape_a = cute::reverse(problem_shape.shape_A);
+    auto shape_b = cute::reverse(problem_shape.shape_B);
+    auto shape_c = cute::reverse(problem_shape.shape_C);
+    auto stride_a = cute::reverse(problem_shape.stride_A);
+    auto stride_b = cute::reverse(problem_shape.stride_B);
+    auto stride_c = cute::reverse(problem_shape.stride_C);
+
+    int32_t G = problem_shape.groups;
+
+    if constexpr (ConvOp == cutlass::conv::Operator::kFprop ||
+                  ConvOp == cutlass::conv::Operator::kDgrad) {
+      // shape_a_g = (c,w,h,d,n,g) or (k,q,p,z,n,g)
+      // shape_b_g = (c,s,r,k,t,g)
+      // shape_c_g = (k,q,p,z,n,g) or (c,w,h,d,n,g)
+      shape_a_g = cute::to_array<int32_t>(tuple_cat(
+        cute::make_shape(cute::size<0>(shape_a) / G),
+        cute::take<1,NumSpatialDimensions + 2>(shape_a),
+        cute::make_shape(G)));
+      shape_b_g = cute::to_array<int32_t>(tuple_cat(
+        cute::take<0,NumSpatialDimensions + 1>(shape_b),
+        cute::make_shape(cute::size<NumSpatialDimensions + 1>(shape_b) / G, G)));
+      shape_c_g = cute::to_array<int32_t>(tuple_cat(
+        cute::make_shape(cute::size<0>(shape_c) / G),
+        cute::take<1,NumSpatialDimensions + 2>(shape_c),
+        cute::make_shape(G)));
+
+      stride_a_g = cute::to_array<int64_t>(append(stride_a, cute::size<0>(shape_a) / G));
+      stride_b_g = cute::to_array<int64_t>(append(stride_b,
+        cute::size<NumSpatialDimensions + 1>(stride_b) * cute::size<NumSpatialDimensions + 1>(shape_b) / G));
+      stride_c_g = cute::to_array<int64_t>(append(stride_c, cute::size<0>(shape_c) / G));
+    }
+    else if constexpr (ConvOp == cutlass::conv::Operator::kWgrad) {
+      // shape_a_g = (k,q,p,z,n,g)
+      // shape_b_g = (c,w,h,d,n,g)
+      // shape_c_g = (c,s,r,k,t,g)
+      shape_a_g = cute::to_array<int32_t>(tuple_cat(
+        cute::make_shape(cute::size<0>(shape_a) / G),
+        cute::take<1,NumSpatialDimensions + 2>(shape_a),
+        cute::make_shape(G)));
+      shape_b_g = cute::to_array<int32_t>(tuple_cat(
+        cute::make_shape(cute::size<0>(shape_b) / G),
+        cute::take<1,NumSpatialDimensions + 2>(shape_b),
+        cute::make_shape(G)));
+      shape_c_g = cute::to_array<int32_t>(tuple_cat(
+        cute::take<0,NumSpatialDimensions + 1>(shape_c),
+        cute::make_shape(cute::size<NumSpatialDimensions + 1>(shape_c) / G, G)));
+
+      stride_a_g = cute::to_array<int64_t>(append(stride_a, cute::size<0>(shape_a) / G));
+      stride_b_g = cute::to_array<int64_t>(append(stride_b, cute::size<0>(shape_b) / G));
+      stride_c_g = cute::to_array<int64_t>(append(stride_c,
+        cute::size<NumSpatialDimensions + 1>(stride_c) * cute::size<NumSpatialDimensions + 1>(shape_c) / G));
+    }
+
+    return make_tuple(shape_a_g, shape_b_g, shape_c_g,
+                      stride_a_g, stride_b_g, stride_c_g);
+  }
+
   // Executes one test
   bool run(
     ProblemShape const& problem_shape,
     ElementScalar alpha = ElementScalar(1),
-    ElementScalar beta = ElementScalar(0)
-    ,
+    ElementScalar beta = ElementScalar(0),
+    dim3 cluster_shape = dim3(0, 0, 0),
+    dim3 cluster_shape_fallback = dim3(0, 0, 0),
     RasterOrderOptions raster_order = RasterOrderOptions::Heuristic,
     MaxSwizzleSize max_swizzle = MaxSwizzleSize{},
     Splits splits = Splits{},
@@ -263,7 +348,7 @@ struct ConvTestbed {
     }
 
     bool ret = initialize(problem_shape);
-    
+
     if (!ret) {
       std::cerr << "initialize failed for the given problem_shape: \n";
       return false;
@@ -272,6 +357,9 @@ struct ConvTestbed {
     cutlass::KernelHardwareInfo hw_info;
     cudaGetDevice(&hw_info.device_id);
     hw_info.sm_count = cutlass::KernelHardwareInfo::query_device_multiprocessor_count(hw_info.device_id);
+
+    hw_info.cluster_shape = cluster_shape;
+    hw_info.cluster_shape_fallback = cluster_shape_fallback;
 
     // configure the operator
     Conv conv_op;
@@ -323,6 +411,11 @@ struct ConvTestbed {
 
     fusion_args.alpha = alpha;
     fusion_args.beta = beta;
+
+    if constexpr (IsPerChannelScaleEnabled) {
+      fusion_args.alpha_ptr = tensor_alpha.data().get();
+      fusion_args.beta_ptr = tensor_beta.data().get();
+    }
 
     if constexpr (IsBiasEnabled) {
       fusion_args.bias_ptr = tensor_bias.data().get();
@@ -382,14 +475,9 @@ struct ConvTestbed {
                                    << cudaGetErrorString(result);
 
     // Create cute::Tensors using the logical rank-3 MNK multi-mode shapes the mainloop gives us
-    auto shape_mA = cute::reverse(problem_shape.shape_A);
-    auto shape_mB = cute::reverse(problem_shape.shape_B);
-    auto shape_mC = cute::reverse(problem_shape.shape_C);
+    auto [shape_mA, shape_mB, shape_mC, stride_mA, stride_mB, stride_mC] =
+      transform_shape_and_stride_with_groups(problem_shape);
     auto shape_mBias = cute::make_shape(cute::size(cute::get<0>(problem_shape.get_shape_B())));
-
-    auto stride_mA = cute::reverse(problem_shape.stride_A);
-    auto stride_mB = cute::reverse(problem_shape.stride_B);
-    auto stride_mC = cute::reverse(problem_shape.stride_C);
 
     auto mA = make_tensor(tensor_A.data().get(), make_layout(shape_mA, stride_mA));
     auto mB = make_tensor(tensor_B.data().get(), make_layout(shape_mB, stride_mB));
@@ -414,6 +502,11 @@ struct ConvTestbed {
 
     epilogue_fusion_params.alpha = alpha;
     epilogue_fusion_params.beta = beta;
+
+    if constexpr (IsPerChannelScaleEnabled) {
+      epilogue_fusion_params.tensor_alpha = mAlpha;
+      epilogue_fusion_params.tensor_beta = mBeta;
+    }
 
     if constexpr (IsBiasEnabled) {
       epilogue_fusion_params.tensor_bias = mBias;
@@ -575,6 +668,16 @@ struct ConvTestbed {
       for (size_t i = 0; i < size_t(size(B)); ++i) {
         printf("[%llu]: B = %f\n", static_cast<unsigned long long>(i), float(B(i)));
       }
+      if constexpr (IsPerChannelScaleEnabled) {
+        for (size_t i = 0; i < size_t(size(tensor_alpha)); ++i) {
+          printf("[%llu]: alpha = %f\n", static_cast<unsigned long long>(i),
+            float(tensor_alpha(i)));
+        }
+        for (size_t i = 0; i < size_t(size(tensor_beta)); ++i) {
+          printf("[%llu]: beta = %f\n", static_cast<unsigned long long>(i),
+            float(tensor_beta(i)));
+        }
+      }
       if constexpr (IsBiasEnabled) {
         for (size_t i = 0; i < size_t(size(tensor_bias)); ++i) {
           printf("[%llu]: bias = %f\n", static_cast<unsigned long long>(i),
@@ -594,7 +697,9 @@ struct ConvTestbed {
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename Conv, bool SupportStrides = (Conv::DispatchPolicy::ConvOp != cutlass::conv::Operator::kDgrad)>
-bool TestAllConv(double alpha = 1.0, double beta = 0.0, float epsilon = 0.0f
+bool TestAllConv(double alpha = 1.0, double beta = 0.0, float epsilon = 0.0f,
+                 dim3 cluster_shape = dim3(0, 0, 0),
+                 dim3 cluster_shape_fallback = dim3(0, 0, 0)
                  ) {
   using ElementScalar = typename Conv::EpilogueOutputOp::ElementScalar;
 
@@ -634,8 +739,10 @@ bool TestAllConv(double alpha = 1.0, double beta = 0.0, float epsilon = 0.0f
         passed = testbed.run(
           conv_problem,
           cutlass::from_real<ElementScalar>(alpha),
-          cutlass::from_real<ElementScalar>(beta)
-          ,RasterOrderOptions::Heuristic, // raster_order
+          cutlass::from_real<ElementScalar>(beta),
+          cluster_shape,
+          cluster_shape_fallback,
+          RasterOrderOptions::Heuristic, // raster_order
           MaxSwizzleSize(1),
           splits,
           decomp_mode

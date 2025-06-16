@@ -131,7 +131,6 @@ from .types import (
     LettaRequestConfig,
     LettaResponse,
     LettaStopReason,
-    LettaStopReasonStopReason,
     LettaStreamingRequest,
     LettaUsageStatistics,
     LettaUserMessageContentUnion,
@@ -197,6 +196,7 @@ from .types import (
     SseServerConfig,
     StdioServerConfig,
     Step,
+    StopReasonType,
     SupervisorManager,
     SupervisorManagerUpdate,
     SystemMessage,
@@ -205,6 +205,7 @@ from .types import (
     TextContent,
     TextResponseFormat,
     Tool,
+    ToolAnnotations,
     ToolCall,
     ToolCallContent,
     ToolCallDelta,
@@ -308,7 +309,6 @@ from .tools import (
     ListMcpServersResponseValue,
 )
 from .version import __version__
-from .voice import CreateVoiceChatCompletionsRequestBody
 
 __all__ = [
     "ActionModel",
@@ -414,7 +414,6 @@ __all__ = [
     "CreateAgentRequestResponseFormat",
     "CreateAgentRequestToolRulesItem",
     "CreateBlock",
-    "CreateVoiceChatCompletionsRequestBody",
     "DeleteMcpServerResponseItem",
     "DynamicManager",
     "DynamicManagerUpdate",
@@ -468,7 +467,6 @@ __all__ = [
     "LettaRequestConfig",
     "LettaResponse",
     "LettaStopReason",
-    "LettaStopReasonStopReason",
     "LettaStreamingRequest",
     "LettaUsageStatistics",
     "LettaUserMessageContentUnion",
@@ -539,6 +537,7 @@ __all__ = [
     "SseServerConfig",
     "StdioServerConfig",
     "Step",
+    "StopReasonType",
     "SupervisorManager",
     "SupervisorManagerUpdate",
     "SystemMessage",
@@ -549,6 +548,7 @@ __all__ = [
     "TextContent",
     "TextResponseFormat",
     "Tool",
+    "ToolAnnotations",
     "ToolCall",
     "ToolCallContent",
     "ToolCallDelta",

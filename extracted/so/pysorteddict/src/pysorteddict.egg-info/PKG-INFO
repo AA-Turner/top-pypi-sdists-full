@@ -1,0 +1,46 @@
+Metadata-Version: 2.1
+Name: pysorteddict
+Version: 0.7.2
+Summary: Python sorted dictionary: a Python dictionary in which the keys are always in ascending order
+Author: Vishal Pankaj Chandratreya
+Project-URL: Homepage, https://tfpf.github.io/pysorteddict/
+Project-URL: Documentation, https://tfpf.github.io/pysorteddict/documentation.html
+Project-URL: Repository, https://github.com/tfpf/pysorteddict
+Project-URL: Changelog, https://tfpf.github.io/pysorteddict/changelog.html
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: COPYING.md
+
+# pysorteddict
+
+Provides `SortedDict`, which is a Python sorted dictionary: a Python dictionary in which the keys are always in
+ascending order.
+
+[Read more on the homepage.](https://tfpf.github.io/pysorteddict/)
+
+[View the project on PyPI.](https://pypi.org/project/pysorteddict/)
+
+[Explore the source code on GitHub.](https://github.com/tfpf/pysorteddict)
+
+[![Hatch project](https://img.shields.io/badge/%F0%9F%A5%9A-Hatch-4051b5.svg)](https://github.com/pypa/hatch)
+[![ci](https://github.com/tfpf/pysorteddict/actions/workflows/ci.yml/badge.svg)](https://github.com/tfpf/pysorteddict/actions/workflows/ci.yml)
+[![pages](https://github.com/tfpf/pysorteddict/actions/workflows/pages.yml/badge.svg)](https://github.com/tfpf/pysorteddict/actions/workflows/pages.yml)
+
+<p align="center">
+ <img src="https://github.com/user-attachments/assets/e9d1e78e-c0fd-4d87-93f6-e293ddef31ba" />
+</p>

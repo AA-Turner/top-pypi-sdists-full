@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,7 @@
  */
 #include "context_init.h"
 #ifndef NO_SDL
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -145,7 +145,6 @@ static const char TCOD_help_msg[] =
 -help : Show this help message.\n\
 -windowed : Open in a resizable window.\n\
 -fullscreen : Open a borderless fullscreen window.\n\
--exclusive-fullscreen : Open an exclusive fullscreen window.\n\
 -resolution <width>x<height> : Sets the desired pixel resolution.\n\
 -width <pixels> : Set the desired pixel width.\n\
 -height <pixels> : Set the desired pixel height.\n\
@@ -161,8 +160,9 @@ static const char TCOD_help_msg[] =
     @brief Parse context parameters and output to a fully defined struct.
  */
 static TCOD_Error parse_context_parameters(const TCOD_ContextParams* in, TCOD_ContextParams* out) {
+  const int tcod_version = in->tcod_version ? in->tcod_version : TCOD_COMPILEDVERSION;
   *out = (TCOD_ContextParams){
-      .tcod_version = in->tcod_version,
+      .tcod_version = tcod_version,
       .window_x = in->window_x,
       .window_y = in->window_y,
       .pixel_width = in->pixel_width,
@@ -179,7 +179,7 @@ static TCOD_Error parse_context_parameters(const TCOD_ContextParams* in, TCOD_Co
       .cli_output = in->cli_output,
       .cli_userdata = in->cli_userdata,
       .window_xy_defined = in->window_xy_defined,
-      .console = (in->tcod_version >= TCOD_VERSIONNUM(1, 19, 0) ? in->console : NULL),
+      .console = (tcod_version >= TCOD_VERSIONNUM(1, 19, 0) ? in->console : NULL),
   };
   if (!out->window_xy_defined) {
     if (!out->window_x) out->window_x = (int)SDL_WINDOWPOS_UNDEFINED;
@@ -194,14 +194,14 @@ static TCOD_Error parse_context_parameters(const TCOD_ContextParams* in, TCOD_Co
         TCOD_CHECK_ARGUMENT(out->argv[i], "help")) {
       return send_to_cli_out(out, "%s", TCOD_help_msg);
     } else if (TCOD_CHECK_ARGUMENT(out->argv[i], "windowed")) {
-      out->sdl_window_flags &= ~(SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP);
+      out->sdl_window_flags &= ~(SDL_WINDOW_FULLSCREEN);
       out->sdl_window_flags |= SDL_WINDOW_RESIZABLE;
     } else if (TCOD_CHECK_ARGUMENT(out->argv[i], "exclusive-fullscreen")) {
-      out->sdl_window_flags &= ~(SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP);
+      out->sdl_window_flags &= ~(SDL_WINDOW_FULLSCREEN);
       out->sdl_window_flags |= SDL_WINDOW_FULLSCREEN;
     } else if (TCOD_CHECK_ARGUMENT(out->argv[i], "fullscreen")) {
-      out->sdl_window_flags &= ~(SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP);
-      out->sdl_window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+      out->sdl_window_flags &= ~(SDL_WINDOW_FULLSCREEN);
+      out->sdl_window_flags |= SDL_WINDOW_FULLSCREEN;
     } else if (TCOD_CHECK_ARGUMENT(out->argv[i], "vsync")) {
       out->vsync = 1;
     } else if (TCOD_CHECK_ARGUMENT(out->argv[i], "no-vsync")) {
@@ -269,7 +269,6 @@ TCOD_Error TCOD_context_new(const TCOD_ContextParams* params_in, TCOD_Context** 
   if (err < 0) return err;
 
   // Initialize the renderer.
-  int renderer_flags = SDL_RENDERER_PRESENTVSYNC * params.vsync;
   err = TCOD_E_OK;
   switch (params.renderer_type) {
     case TCOD_RENDERER_SDL:
@@ -287,7 +286,7 @@ TCOD_Error TCOD_context_new(const TCOD_ContextParams* params_in, TCOD_Context** 
           params.pixel_height,
           params.window_title,
           params.sdl_window_flags,
-          renderer_flags,
+          params.vsync,
           params.tileset);
       if (!*out) {
         return TCOD_E_ERROR;

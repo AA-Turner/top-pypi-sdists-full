@@ -1,0 +1,158 @@
+[project]
+name = "glue-utils"
+version = "0.11.1"
+description = "Reusable utilities for working with Glue PySpark jobs"
+readme = "README.md"
+authors = [{ name = "Noel Llevares", email = "dashmug@gmail.com" }]
+license = "MIT"
+classifiers = [
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+keywords = [
+    "aws",
+    "glue",
+    "pyspark",
+    "spark",
+    "etl",
+    "data",
+    "data-engineering",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+homepage = "https://github.com/dashmug/glue-utils"
+repository = "https://github.com/dashmug/glue-utils/issues"
+documentation = "https://github.com/dashmug/glue-utils/wiki"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "test", "README.md", "pyproject.toml", "LICENSE", "py.typed"]
+
+[dependency-groups]
+dev = ["bumpver>=2024.1130", "mypy>=1.16.0", "ruff>=0.11.13"]
+local = ["aws-glue-libs", "pyspark==3.5.4"]
+test = ["pytest>=8.3.5", "pytest-cov>=6.1.1", "pytest-randomly>=3.16.0"]
+
+[tool.uv.sources]
+aws-glue-libs = { git = "https://github.com/awslabs/aws-glue-libs.git", branch = "master" }
+
+[tool.ruff]
+line-length = 88
+output-format = "full"
+target-version = "py39"
+unsafe-fixes = true
+show-fixes = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D104",
+    "D203",
+    "D213",
+    # Conflicts with ruff format
+    "COM812",
+    "ISC001",
+    # line-too-long
+    "E501",
+    # Ignore camelCase attributes since Glue uses a lot of them
+    "N815",
+    # X | Y syntax does not play well with get_type_hints in Python 3.9
+    "UP007",
+]
+# # Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 5
+
+[tool.ruff.lint.per-file-ignores]
+"test/**" = [
+    "S101",
+    "ANN001",
+    "ANN201",
+    "ARG001",
+    "ARG002",
+    "PLR2004",
+    "PLR0913",
+    "D",
+]
+
+[tool.mypy]
+files = "**/*.py"
+python_version = "3.9"
+show_error_codes = true
+pretty = true
+strict = true
+ignore_missing_imports = true
+implicit_reexport = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = "test.*"
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+disallow_untyped_decorators = false
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py"]
+filterwarnings = [
+    "ignore::FutureWarning:pyspark.sql.context",
+    "ignore::UserWarning:test.test_options",
+    "ignore::UserWarning:test.pyspark.test_options",
+]
+junit_suite_name = "glue_utils"
+
+[tool.coverage.run]
+relative_files = true
+branch = true
+omit = ["**/test_*.py"]
+
+[tool.coverage.paths]
+source = ["src/glue_utils", "*/site-packages/glue_utils"]
+
+[tool.coverage.report]
+skip_empty = true
+show_missing = true
+exclude_also = [
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "@overload",
+]
+
+[tool.coverage.xml]
+output = "coverage/results.xml"
+
+[tool.bumpver]
+current_version = "0.11.1"
+version_pattern = "MAJOR.MINOR.PATCH[PYTAGNUM]"
+commit_message = "release: Bump version {old_version} -> {new_version}"
+commit = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ['current_version = "{version}"', 'version = "{version}"']
+"README.md" = ['glue_utils=={version}']
+"src/glue_utils/__init__.py" = ['^__version__ = "{version}"$']
+"sonar-project.properties" = ['^sonar.projectVersion={version}$']

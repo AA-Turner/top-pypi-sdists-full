@@ -1,0 +1,271 @@
+[build-system]
+build-backend = "hatchling.build"
+
+requires = [
+  "hatch-vcs",
+  "hatchling",
+]
+
+[project]
+name = "pygeoogc"
+description = "An interface to ArcGIS RESTful-, WFS-, and WMS-based services."
+readme = "README.rst"
+license = { text = "MIT" }
+authors = [
+  { name = "Taher Chegini", email = "cheginit@gmail.com" },
+]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Topic :: Scientific/Engineering :: Hydrology",
+  "Typing :: Typed",
+]
+dynamic = [
+  "version",
+]
+dependencies = [
+  "async-retriever>=0.19,<0.20",
+  "cytoolz",
+  "defusedxml",
+  "joblib",
+  "multidict",
+  "orjson>=3.10,<4",
+  "owslib>=0.27.2",
+  "pyproj>=3.0.1",
+  "requests",
+  "requests-cache>=0.9.6",
+  "shapely>=2",
+  "typing-extensions",
+  "url-normalize>=1.4",
+  "urllib3",
+  "yarl",
+]
+optional-dependencies.test = [
+  "pandas",
+  "pytest-cov",
+  "pytest-sugar",
+]
+urls.Changelog = "https://docs.hyriver.io/changelogs/pygeoogc.html"
+urls.CI = "https://github.com/hyriver/pygeoogc/actions"
+urls.Homepage = "https://docs.hyriver.io/readme/pygeoogc.html"
+urls.Issues = "https://github.com/hyriver/pygeoogc/issues"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "src/pygeoogc",
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+exclude = [
+  ".nox",
+  "__pycache__",
+]
+
+lint.select = [
+  # flake8-bugbear
+  "B",
+  # flake8-comprehensions
+  "C4",
+  # pydocstyle
+  "D",
+  # Error
+  "E",
+  # pyflakes
+  "F",
+  # refurb
+  "FURB",
+  # isort
+  "I",
+  # flake8-gettext
+  "INT",
+  # flake8-implicit-str-concat
+  "ISC",
+  # pep8-naming
+  "N",
+  # compatibility with numpy 2.0
+  "NPY201",
+  # Perflint
+  "PERF",
+  # pygrep-hooks
+  "PGH",
+  # misc lints
+  "PIE",
+  # pylint
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  # flake8-pytest-style
+  "PT",
+  # flake8-use-pathlib
+  "PTH",
+  # flake8-pyi
+  "PYI",
+  # flake8-quotes
+  "Q",
+  # Ruff-specific rules
+  "RUF",
+  # bandit
+  "S",
+  # flake8-simplify
+  "SIM",
+  # flake8-debugger
+  "T10",
+  # flake8-print
+  "T20",
+  # type-checking imports
+  "TC",
+  # tidy imports
+  "TID",
+  # tryceratops
+  "TRY",
+  # pyupgrade
+  "UP",
+  # Warning
+  "W",
+  # flake8-2020
+  "YTT",
+]
+
+lint.ignore = [
+  "D103",
+  "D105",
+  "E501",
+  # conflict with ruff-formatter
+  "ISC001",
+  # specific type error ignored
+  "PGH003",
+  "PLR0913",
+  "PLR2004",
+  # url schema
+  "S310",
+  "S603",
+  # shell command
+  "S605",
+  "S607",
+  # custom exception
+  "TRY003",
+]
+
+lint.per-file-ignores."tests/*.py" = [
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "D106",
+  "D107",
+  # specific type error ignored
+  "PGH003",
+  # use of "assert"
+  "S101",
+]
+lint.extend-safe-fixes = [
+  # module level imports
+  "E402",
+  # break down assert
+  "PT018",
+  # Move imports
+  "TC",
+  # absolute imports
+  "TID252",
+]
+lint.isort.known-first-party = [
+  "async_retriever",
+  "pygeoogc",
+  "pygeoutils",
+  "pynhd",
+  "py3dep",
+  "hydrosignatures",
+  "pygeohydro",
+  "pydaymet",
+  "pygridmet",
+  "pynldas2",
+  "tiny_retriever",
+]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
+
+lint.pydocstyle.convention = "numpy"
+
+[tool.codespell]
+skip = "__pycache__,_build,.mypy_cache,.git,./htmlcov,.nox,**/us_abbrs.py,cache"
+ignore-words-list = "gage,gages,paramss,trough"
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+  "--doctest-modules",
+  "-v",
+  "--durations=5",
+]
+doctest_optionflags = 'NORMALIZE_WHITESPACE IGNORE_EXCEPTION_DETAIL NUMBER'
+filterwarnings = [
+  "ignore:.*distutils.*",
+  "ignore:.*--rsyncdir command line argument.*",
+  "ignore:.*numpy.ndarray size changed.*",
+  "ignore:.*'cgi' is deprecated.*",
+  "ignore:.*Ensure you extract a single element.*",
+  "ignore:.*Deprecated in Pydantic V2.0.*",
+]
+testpaths = [
+  "tests",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  'raise ServiceUnavailableError',
+  "if TYPE_CHECKING:",
+]
+ignore_errors = true
+omit = [
+  "**/__init__.py",
+]
+
+[tool.coverage.paths]
+source = [ "src", "*/site-packages" ]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source_pkgs = [
+  "pygeoogc",
+]
+
+[tool.pyright]
+exclude = [
+  "**/__pycache__",
+  "**/__init__.py",
+]
+include = [
+  "src/pygeoogc",
+]
+reportMissingTypeStubs = false
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnknownVariableType = false
+reportUnnecessaryIsInstance = false
+reportUntypedFunctionDecorator = false
+reportAttributeAccessIssue = false
+reportInvalidTypeForm = false
+typeCheckingMode = "strict"

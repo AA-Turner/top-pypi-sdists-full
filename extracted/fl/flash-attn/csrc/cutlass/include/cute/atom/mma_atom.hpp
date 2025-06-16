@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -154,6 +154,10 @@ struct MMA_Atom<MMA_Traits<MMAOperation, Args...>>
     if constexpr (has_dereference<FrgTypeA>::value) {
       // If the intended FrgTypeA is a view (of the current tensor), forward the whole
       static_assert(is_same<ValTypeA, typename remove_cvref_t<ATensor>::value_type>::value
+                        || (sizeof_bits_v<typename remove_cvref_t<ATensor>::value_type> == 8 &&
+                            (sizeof_bits_v<ValTypeA> == 8 || sizeof_bits_v<ValTypeA> == 6 || sizeof_bits_v<ValTypeA> == 4))
+                        || (sizeof_bits_v<typename remove_cvref_t<ATensor>::value_type> == 4 &&
+                            (sizeof_bits_v<ValTypeA> == 4 || sizeof_bits_v<ValTypeA> == 3 || sizeof_bits_v<ValTypeA> == 2))
                       , "Expecting ValTypeA type");
       return make_tensor<FrgTypeA>(static_cast<ATensor&&>(atensor));
     } else {
@@ -176,6 +180,10 @@ struct MMA_Atom<MMA_Traits<MMAOperation, Args...>>
     if constexpr (has_dereference<FrgTypeB>::value) {
       // If the intended FrgTypeB is a view (of the current tensor), forward the whole
       static_assert(is_same<ValTypeB, typename remove_cvref_t<BTensor>::value_type>::value
+                      
+                      || (sizeof_bits_v<typename remove_cvref_t<BTensor>::value_type> == 8 &&
+                          (sizeof_bits_v<ValTypeB> == 8 || sizeof_bits_v<ValTypeB> == 6 || sizeof_bits_v<ValTypeB> == 4))
+                      
                       , "Expecting ValTypeB type");
       return make_tensor<FrgTypeB>(static_cast<BTensor&&>(btensor));
     } else {
@@ -442,8 +450,6 @@ struct TiledMMA : MMA_Atom
   {
     // (M,K) -> (M,K)
     auto ref_A = make_layout(make_shape(tile_size_mnk<0>(), tile_size_mnk<2>()));
-    // (athrid,val) -> (M,K)
-    auto layoutA_TV = thrfrg_A(ref_A);
 
     // (ThrV,(ThrM,ThrK)) -> (ThrV,(ThrM,ThrN,ThrK))
     auto atile = make_tile(_,
@@ -481,8 +487,6 @@ struct TiledMMA : MMA_Atom
   {
     // (N,K) -> (N,K)
     auto ref_B = make_layout(make_shape(tile_size_mnk<1>(), tile_size_mnk<2>()));
-    // (bthrid,val) -> (N,K)
-    auto layoutB_TV = thrfrg_B(ref_B);
 
     // (ThrV,(ThrN,ThrK)) -> (ThrV,(ThrM,ThrN,ThrK))
     auto btile = make_tile(_,
@@ -1070,7 +1074,7 @@ print_svg_mma(LayoutC const& C, ThrIDC const& TC,  // (m,n) -> (tid,vid)  and  t
   }
 
   // footer
-  printf("</svg>");
+  printf("</svg>\n");
 }
 
 template <class... Args>
@@ -1107,6 +1111,11 @@ print_svg(TiledMMA<Args...> const &mma) {
 #include <cute/atom/mma_traits_sm70.hpp>
 #include <cute/atom/mma_traits_sm75.hpp>
 #include <cute/atom/mma_traits_sm80.hpp>
+#include <cute/atom/mma_traits_sm89.hpp>
 #include <cute/atom/mma_traits_sm90.hpp>
 #include <cute/atom/mma_traits_sm90_gmma.hpp>
+#include <cute/atom/mma_traits_sm100.hpp> 
+#include <cute/atom/mma_traits_sm120.hpp>
+#include <cute/atom/mma_traits_sm120_sparse.hpp>
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////

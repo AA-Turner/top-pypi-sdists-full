@@ -1,8 +1,0 @@
-classes:
-  - cluster.facts
-  - cluster.default
-  - cluster.global
-
-parameters:
-  target: n15
-  _instance: cluster

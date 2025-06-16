@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2017 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2017 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,8 +31,10 @@
 /* \file
    \brief Command line options for performance test program
 */
-
+#include <cuda.h>
+#include <cuda_runtime_api.h>
 #include <algorithm>
+#include <fstream>
 #include <set>
 
 #include "cutlass/cutlass.h"
@@ -139,7 +141,16 @@ Options::Device::Device(cutlass::CommandLine const &cmdline) {
       }
     }
 
+    // Permit overriding the sm_count
+    cmdline.get_cmd_line_argument("sm-count", sm_count, 0);
   }
+}
+
+int Options::Device::get_sm_count(int device_index) const {
+  if (sm_count <= 0) {
+    return properties[device_index].multiProcessorCount;
+  }
+  return sm_count;
 }
 
 void Options::Device::print_usage(std::ostream &out) const {
@@ -164,9 +175,11 @@ void Options::Device::print_usage(std::ostream &out) const {
         break;
       }
       else {
+        int32_t clock_KHz;
+        cudaDeviceGetAttribute(&clock_KHz, cudaDevAttrClockRate, 0);
         out << "    [" << idx << "] - "
           << prop.name << " - SM " << prop.major << "." << prop.minor << ", "
-          << prop.multiProcessorCount << " SMs @ " << (prop.clockRate / 1000.0) << " MHz, "
+          << prop.multiProcessorCount << " SMs @ " << (clock_KHz / 1000.0) << " MHz, "
           << "L2 cache: " << (prop.l2CacheSize >> 20) << " MB, Global Memory: " << (prop.totalGlobalMem >> 30) << " GB"
           << std::endl;
       }
@@ -181,7 +194,12 @@ void Options::Device::print_usage(std::ostream &out) const {
     << "  --llc-capacity=<capacity in KiB>             "
     << "    Capacity of last-level cache in kilobytes. If this is non-zero," << end_of_line
     << "      profiling phases cycle through different input tensors to induce" << end_of_line
-    << "      capacity misses in the L2.\n\n";
+    << "      capacity misses in the L2.\n\n"
+
+     << "  --sm-count=<int>                             "
+     << "    Override the number of SMs. This is used to limit the number of " << end_of_line
+     << "      during profiling. If this is set, profiling attempts to limit the sm_count " << end_of_line
+     << "      to user-set value. This is not possible on all architectures and all kernel types. \n\n";
 
 }
 
@@ -215,9 +233,11 @@ void Options::Device::print_options(std::ostream &out, int indent) const {
   for (int device : devices) {
     out << device << ',';
   }
+  int32_t clock_KHz;
+  cudaDeviceGetAttribute(&clock_KHz, cudaDevAttrClockRate, 0);
   out
     << "\n"
-    << indent_str(indent) << "clock: " << int(double(properties[0].clockRate) / 1000.0) << "\n"
+    << indent_str(indent) << "clock: " << int(double(clock_KHz) / 1000.0) << "\n"
     << indent_str(indent) << "compute-capability: " << compute_capability(0) << "\n";
 }
 
@@ -474,6 +494,11 @@ Options::Profiling::Profiling(cutlass::CommandLine const &cmdline) {
   cmdline.get_cmd_line_argument("profiling-iterations", iterations, 100);
   cmdline.get_cmd_line_argument("sleep-duration", sleep_duration, 50);
   cmdline.get_cmd_line_argument("profiling-enabled", enabled, true);
+  cmdline.get_cmd_line_argument("profiling-duration", duration, 10);
+  cmdline.get_cmd_line_argument("min-iterations", min_iterations, 10);
+  cmdline.get_cmd_line_argument("use-cuda-graphs", use_cuda_graphs, false);
+  cmdline.get_cmd_line_argument("enable-kernel-performance-search", enable_kernel_performance_search, false);
+  cmdline.get_cmd_line_argument("enable-best-kernel-for-fixed-shape", enable_best_kernel_for_fixed_shape, false);
 
   if (cmdline.check_cmd_line_flag("providers")) {
 
@@ -504,7 +529,17 @@ void Options::Profiling::print_usage(std::ostream &out) const {
 
     << "  --profiling-iterations=<iterations>          "
     << "    Number of iterations to profile each kernel. If zero, kernels" << end_of_line
-    << "      are launched up to the profiling duration.\n\n"
+    << "      are launched up to the profiling duration. If non-zero, this overrides" << end_of_line
+    << "      --profiling-duration and --min-iterations.\n\n"
+
+    << "  --profiling-duration=<duration>             "
+    << "    Time to spend profiling each kernel (ms)." << end_of_line
+    << "    Overriden by `profiling-iterations` when `profiling-iterations` > 0." << end_of_line
+    << "    Note that `min-iterations` must also be satisfied.\n\n"
+
+    << "  --min-iterations=<iterations>             "
+    << "    Minimum number of iterations to spend profiling each kernel, even if" << end_of_line
+    << "    `profiling-duration` has been met.\n\n"
 
     << "  --warmup-iterations=<iterations>             "
     << "    Number of iterations to execute each kernel prior to profiling.\n\n"
@@ -669,7 +704,9 @@ Options::Report::Report(cutlass::CommandLine const &cmdline) {
 
   cmdline.get_cmd_line_argument("verbose", verbose, true);
 
-  cmdline.get_cmd_line_argument("sort-results", sort_results, false);
+  cmdline.get_cmd_line_argument("sort-results-flops-per-byte", sort_flops_per_byte, false);
+
+  cmdline.get_cmd_line_argument("sort-results-flops-per-sec", sort_flops_per_sec, false);
 
   cmdline.get_cmd_line_argument("print-kernel-before-running", print_kernel_before_running, false);
 }
@@ -798,15 +835,26 @@ Options::Options(cutlass::CommandLine const &cmdline):
   }
   else if (cmdline.check_cmd_line_flag("kernels")) {
     cmdline.get_cmd_line_arguments("kernels", operation_names);
-    profiling.error_on_no_match = cmdline.check_cmd_line_flag("error-on-no-match");
-    profiling.error_if_nothing_is_profiled = cmdline.check_cmd_line_flag("error-if-nothing-is-profiled");
+  }
+
+  if (cmdline.check_cmd_line_flag("kernels-file")) {
+    std::string filename;
+    cmdline.get_cmd_line_argument("kernels-file", filename, {});
+    std::ifstream input(filename);
+    if (!input.good()) {
+      throw std::runtime_error("failed to open: " + filename);
+    }
+    for (std::string line; getline(input, line);) {
+      operation_names.push_back(line);
+    }
   }
 
   if (cmdline.check_cmd_line_flag("ignore-kernels")) {
     cmdline.get_cmd_line_arguments("ignore-kernels", excluded_operation_names);
-    profiling.error_on_no_match = cmdline.check_cmd_line_flag("error-on-no-match");
-    profiling.error_if_nothing_is_profiled = cmdline.check_cmd_line_flag("error-if-nothing-is-profiled");
   }
+
+  profiling.error_on_no_match            = cmdline.check_cmd_line_flag("error-on-no-match");
+  profiling.error_if_nothing_is_profiled = cmdline.check_cmd_line_flag("error-if-nothing-is-profiled");
 
   // Prevent launches on the device for anything other than CUTLASS operation
   // Allow verification only on host
@@ -843,6 +891,11 @@ void Options::print_usage(std::ostream &out) const {
     << "    Filter operations by kernel names. For example, call all kernels with" << end_of_line
     << "      (\"s1688\" and \"nt\") or (\"s844\" and \"tn\" and \"align8\") in their" << end_of_line
     << "      operation name using --kernels=\"s1688*nt, s884*tn*align8\"\n\n"
+
+    << "  --kernels-file=<filename>                      "
+    << "    Same behavior as --kernels, but kernel names are specified in a file" << end_of_line
+    << "    with one kernel on each line. Set of profiled kernels is the union of kernels specified" << end_of_line
+    << "    here and those specified in `kernels`.\n\n"
 
     << "  --ignore-kernels=<string_list>               "
     << "    Excludes kernels whose names match anything in this list.\n\n"

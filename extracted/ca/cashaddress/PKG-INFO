@@ -1,0 +1,16 @@
+Metadata-Version: 1.2
+Name: cashaddress
+Version: 1.0.6
+Summary: Python tool for converty bitcoin cash legacy addresses
+Home-page: https://github.com/oskyk/cashaddress
+Author: Oskar Hladky
+Author-email: oskyks1@gmail.com
+License: UNKNOWN
+Download-URL: https://github.com/oskyk/cashaddress/archive/1.0.4.tar.gz
+Description: UNKNOWN
+Keywords: bitcoincash,bch,address,cashaddress,legacy,convert
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Requires-Python: >=2.7

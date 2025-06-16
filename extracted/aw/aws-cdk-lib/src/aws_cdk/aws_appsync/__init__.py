@@ -5782,9 +5782,9 @@ class CfnApiCache(
         :param api_id: The GraphQL API ID.
         :param ttl: TTL in seconds for cache entries. Valid values are 1–3,600 seconds.
         :param type: The cache instance type. Valid values are. - ``SMALL`` - ``MEDIUM`` - ``LARGE`` - ``XLARGE`` - ``LARGE_2X`` - ``LARGE_4X`` - ``LARGE_8X`` (not available in all regions) - ``LARGE_12X`` Historically, instance types were identified by an EC2-style value. As of July 2020, this is deprecated, and the generic identifiers above should be used. The following legacy instance types are available, but their use is discouraged: - *T2_SMALL* : A t2.small instance type. - *T2_MEDIUM* : A t2.medium instance type. - *R4_LARGE* : A r4.large instance type. - *R4_XLARGE* : A r4.xlarge instance type. - *R4_2XLARGE* : A r4.2xlarge instance type. - *R4_4XLARGE* : A r4.4xlarge instance type. - *R4_8XLARGE* : A r4.8xlarge instance type.
-        :param at_rest_encryption_enabled: At-rest encryption flag for cache. You cannot update this setting after creation.
+        :param at_rest_encryption_enabled: *This parameter has been deprecated* . At-rest encryption flag for cache. You cannot update this setting after creation.
         :param health_metrics_config: Controls how cache health metrics will be emitted to CloudWatch. Cache health metrics include:. - *NetworkBandwidthOutAllowanceExceeded* : The network packets dropped because the throughput exceeded the aggregated bandwidth limit. This is useful for diagnosing bottlenecks in a cache configuration. - *EngineCPUUtilization* : The CPU utilization (percentage) allocated to the Redis process. This is useful for diagnosing bottlenecks in a cache configuration. Metrics will be recorded by API ID. You can set the value to ``ENABLED`` or ``DISABLED`` .
-        :param transit_encryption_enabled: Transit encryption flag when connecting to cache. You cannot update this setting after creation.
+        :param transit_encryption_enabled: *This parameter has been deprecated* . Transit encryption flag when connecting to cache. You cannot update this setting after creation.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e9d92b7b2abdac7341eb92f7ac10d2d67dd2700af68eaf42c72c47ffdaacc344)
@@ -5905,7 +5905,7 @@ class CfnApiCache(
     def at_rest_encryption_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''At-rest encryption flag for cache.'''
+        '''*This parameter has been deprecated* .'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "atRestEncryptionEnabled"))
 
     @at_rest_encryption_enabled.setter
@@ -5939,7 +5939,7 @@ class CfnApiCache(
     def transit_encryption_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Transit encryption flag when connecting to cache.'''
+        '''*This parameter has been deprecated* .'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "transitEncryptionEnabled"))
 
     @transit_encryption_enabled.setter
@@ -5984,9 +5984,9 @@ class CfnApiCacheProps:
         :param api_id: The GraphQL API ID.
         :param ttl: TTL in seconds for cache entries. Valid values are 1–3,600 seconds.
         :param type: The cache instance type. Valid values are. - ``SMALL`` - ``MEDIUM`` - ``LARGE`` - ``XLARGE`` - ``LARGE_2X`` - ``LARGE_4X`` - ``LARGE_8X`` (not available in all regions) - ``LARGE_12X`` Historically, instance types were identified by an EC2-style value. As of July 2020, this is deprecated, and the generic identifiers above should be used. The following legacy instance types are available, but their use is discouraged: - *T2_SMALL* : A t2.small instance type. - *T2_MEDIUM* : A t2.medium instance type. - *R4_LARGE* : A r4.large instance type. - *R4_XLARGE* : A r4.xlarge instance type. - *R4_2XLARGE* : A r4.2xlarge instance type. - *R4_4XLARGE* : A r4.4xlarge instance type. - *R4_8XLARGE* : A r4.8xlarge instance type.
-        :param at_rest_encryption_enabled: At-rest encryption flag for cache. You cannot update this setting after creation.
+        :param at_rest_encryption_enabled: *This parameter has been deprecated* . At-rest encryption flag for cache. You cannot update this setting after creation.
         :param health_metrics_config: Controls how cache health metrics will be emitted to CloudWatch. Cache health metrics include:. - *NetworkBandwidthOutAllowanceExceeded* : The network packets dropped because the throughput exceeded the aggregated bandwidth limit. This is useful for diagnosing bottlenecks in a cache configuration. - *EngineCPUUtilization* : The CPU utilization (percentage) allocated to the Redis process. This is useful for diagnosing bottlenecks in a cache configuration. Metrics will be recorded by API ID. You can set the value to ``ENABLED`` or ``DISABLED`` .
-        :param transit_encryption_enabled: Transit encryption flag when connecting to cache. You cannot update this setting after creation.
+        :param transit_encryption_enabled: *This parameter has been deprecated* . Transit encryption flag when connecting to cache. You cannot update this setting after creation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-apicache.html
         :exampleMetadata: fixture=_generated
@@ -6102,9 +6102,9 @@ class CfnApiCacheProps:
     def at_rest_encryption_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''At-rest encryption flag for cache.
+        '''*This parameter has been deprecated* .
 
-        You cannot update this setting after creation.
+        At-rest encryption flag for cache. You cannot update this setting after creation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-apicache.html#cfn-appsync-apicache-atrestencryptionenabled
         '''
@@ -6129,9 +6129,9 @@ class CfnApiCacheProps:
     def transit_encryption_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Transit encryption flag when connecting to cache.
+        '''*This parameter has been deprecated* .
 
-        You cannot update this setting after creation.
+        Transit encryption flag when connecting to cache. You cannot update this setting after creation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-apicache.html#cfn-appsync-apicache-transitencryptionenabled
         '''

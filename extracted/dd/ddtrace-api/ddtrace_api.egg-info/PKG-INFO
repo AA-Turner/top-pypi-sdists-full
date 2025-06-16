@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: ddtrace-api
+Version: 0.0.1
+Summary: The public API of the dd-trace libraries
+Author-email: "Datadog, Inc." <dev@datadoghq.com>
+Project-URL: Bug Tracker, https://github.com/DataDog/dd-trace-py-api/issues
+Project-URL: Changelog, https://github.com/DataDog/dd-trace-py-api/releases
+Project-URL: Homepage, https://github.com/DataDog/dd-trace-py-api/
+Project-URL: Source Code, https://github.com/DataDog/dd-trace-py-api/
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+License-File: LICENSE.apache2
+License-File: NOTICE
+Provides-Extra: dev
+Requires-Dist: hatch==1.14.0; extra == "dev"
+Dynamic: license-file

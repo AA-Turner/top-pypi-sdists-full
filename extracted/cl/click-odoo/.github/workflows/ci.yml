@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "master"
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  tests:
+    runs-on: ${{matrix.machine}}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.6"
+            toxenv: "py36-11.0"
+            machine: ubuntu-20.04
+          - python-version: "3.6"
+            toxenv: "py36-12.0"
+            machine: ubuntu-20.04
+          - python-version: "3.6"
+            toxenv: "py36-13.0"
+            machine: ubuntu-20.04
+          - python-version: "3.6"
+            toxenv: "py36-14.0"
+            machine: ubuntu-20.04
+          - python-version: "3.8"
+            toxenv: "py38-15.0"
+            machine: ubuntu-22.04
+          - python-version: "3.10"
+            toxenv: "py310-16.0"
+            machine: ubuntu-22.04
+          - python-version: "3.12"
+            toxenv: "py312-17.0"
+            machine: ubuntu-22.04
+          - python-version: "3.12"
+            toxenv: "py312-18.0"
+            machine: ubuntu-24.04
+          - python-version: "3.12"
+            toxenv: "twine_check"
+            machine: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+        ports:
+          - 5432:5432
+        # needed because the postgres container does not provide a healthcheck
+        options:
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: odoo
+      PGPASSWORD: odoo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ matrix.python-version }}"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.toxenv }}
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq --no-install-recommends \
+            libxml2-dev libxslt1-dev \
+            libldap2-dev libsasl2-dev \
+            gettext
+          pip install tox virtualenv
+      - name: Run tox
+        run: tox -e ${{ matrix.toxenv }}
+      - uses: codecov/codecov-action@v1

@@ -511,7 +511,7 @@ class NotionHelper:
                 ), 
                 "price": get_property_value(result.get("properties").get("价格")),
                 "wordCount": get_property_value(result.get("properties").get("字数")),
-                # "comment": get_property_value(result.get("properties").get("豆瓣短评")),
+                "image": get_property_value(result.get("properties").get("封面")),
                 "status": get_property_value(result.get("properties").get("阅读状态")),
             }
         return books_dict

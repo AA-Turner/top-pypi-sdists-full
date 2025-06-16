@@ -90,6 +90,7 @@ class MaleoClientConfiguration(BaseModel):
     url:str = Field(..., description="Client's URL")
 
 class MaleoClientConfigurations(BaseModel):
+    telemetry:MaleoClientConfiguration = Field(..., description="MaleoTelemetry client's configuration")
     metadata:MaleoClientConfiguration = Field(..., description="MaleoMetadata client's configuration")
     identity:MaleoClientConfiguration = Field(..., description="MaleoIdentity client's configuration")
     access:MaleoClientConfiguration = Field(..., description="MaleoAccess client's configuration")
@@ -152,12 +153,12 @@ class ServiceManager:
             self._log_config.google_cloud_logging = None
         self._load_google_credentials()
         self._initialize_secret_manager()
-        self._initialize_cloud_storage()
         self._load_maleo_credentials()
         self._load_configs()
         self._load_keys()
         self._initialize_loggers()
         self._initialize_cache()
+        self._initialize_cloud_storage()
         self._initialize_db()
         self._initialize_foundation()
 
@@ -186,23 +187,6 @@ class ServiceManager:
     @property
     def secret_manager(self) -> GoogleSecretManager:
         return self._secret_manager
-
-    def _initialize_cloud_storage(self) -> None:
-        environment = (
-            BaseEnums.EnvironmentType.STAGING
-            if self._settings.ENVIRONMENT == BaseEnums.EnvironmentType.LOCAL
-            else self._settings.ENVIRONMENT
-        )
-        self._cloud_storage = GoogleCloudStorage(
-            log_config=self._log_config,
-            service_key=self._settings.SERVICE_KEY,
-            bucket_name=f"maleo-suite-{environment}",
-            credentials=self._google_credentials
-        )
-
-    @property
-    def cloud_storage(self) -> GoogleCloudStorage:
-        return self._cloud_storage
 
     def _load_maleo_credentials(self) -> None:
         environment = (
@@ -348,6 +332,24 @@ class ServiceManager:
     def cache(self) -> CacheManagers:
         return self._cache
 
+    def _initialize_cloud_storage(self) -> None:
+        environment = (
+            BaseEnums.EnvironmentType.STAGING
+            if self._settings.ENVIRONMENT == BaseEnums.EnvironmentType.LOCAL
+            else self._settings.ENVIRONMENT
+        )
+        self._cloud_storage = GoogleCloudStorage(
+            log_config=self._log_config,
+            service_key=self._settings.SERVICE_KEY,
+            bucket_name=f"maleo-suite-{environment}",
+            credentials=self._google_credentials,
+            redis=self._redis
+        )
+
+    @property
+    def cloud_storage(self) -> GoogleCloudStorage:
+        return self._cloud_storage
+
     def _initialize_db(self) -> None:
         self._database = DatabaseManager(
             metadata=self._db_metadata,
@@ -414,7 +416,7 @@ class ServiceManager:
             maleo_foundation=self._foundation
         )
         self._middleware.add_all()
-        self._loggers.application.info("Middlewares addedd successfully")
+        self._loggers.application.info("Middlewares added successfully")
 
         #* Add exception handler(s)
         self._loggers.application.info("Adding exception handlers")
@@ -426,7 +428,7 @@ class ServiceManager:
             exc_class_or_status_code=HTTPException,
             handler=BaseExceptions.http_exception_handler
         )
-        self._loggers.application.info("Exception handlers addedd successfully")
+        self._loggers.application.info("Exception handlers added successfully")
 
         #* Include router
         self._loggers.application.info("Including routers")

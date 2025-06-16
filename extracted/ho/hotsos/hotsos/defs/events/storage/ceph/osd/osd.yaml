@@ -1,3 +1,0 @@
-requires:
-  systemd:
-    ceph-osd: enabled

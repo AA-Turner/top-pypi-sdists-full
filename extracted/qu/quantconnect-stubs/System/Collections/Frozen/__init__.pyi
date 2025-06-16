@@ -9,14 +9,143 @@ import System.Collections.Frozen
 import System.Collections.Generic
 import System.Collections.Immutable
 
+System_Collections_Frozen_FrozenSet_T = typing.TypeVar("System_Collections_Frozen_FrozenSet_T")
+System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate = typing.TypeVar("System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate")
 System_Collections_Frozen_FrozenDictionary_TKey = typing.TypeVar("System_Collections_Frozen_FrozenDictionary_TKey")
 System_Collections_Frozen_FrozenDictionary_TValue = typing.TypeVar("System_Collections_Frozen_FrozenDictionary_TValue")
 System_Collections_Frozen_FrozenDictionary_AlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Frozen_FrozenDictionary_AlternateLookup_TAlternateKey")
-System_Collections_Frozen_FrozenSet_T = typing.TypeVar("System_Collections_Frozen_FrozenSet_T")
-System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate = typing.TypeVar("System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate")
 
 
-class FrozenDictionary(typing.Generic[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue], System.Object, System.Collections.Generic.IDictionary[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]], metaclass=abc.ABCMeta):
+class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Object, System.Collections.Generic.ISet[System_Collections_Frozen_FrozenSet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Frozen_FrozenSet_T], System.Collections.ICollection, typing.Iterable[System_Collections_Frozen_FrozenSet_T], metaclass=abc.ABCMeta):
+    """Provides an immutable, read-only set optimized for fast lookup and enumeration."""
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Frozen_FrozenSet_T]):
+        """Enumerates the values of a FrozenSet{T}."""
+
+        @property
+        def current(self) -> System_Collections_Frozen_FrozenSet_T:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+    class AlternateLookup(typing.Generic[System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate]):
+        """
+        Provides a type that may be used to perform operations on a FrozenSet{T}
+        using a TAlternate as a key instead of a T.
+        """
+
+        @property
+        def set(self) -> System.Collections.Frozen.FrozenSet[System_Collections_Frozen_FrozenSet_T]:
+            """Gets the FrozenSet{T} against which this instance performs operations."""
+            ...
+
+        def contains(self, item: System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate) -> bool:
+            """
+            Determines whether a set contains the specified element.
+            
+            :param item: The element to locate in the set.
+            :returns: true if the set contains the specified element; otherwise, false.
+            """
+            ...
+
+        def try_get_value(self, equal_value: System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate, actual_value: typing.Optional[System_Collections_Frozen_FrozenSet_T]) -> typing.Tuple[bool, System_Collections_Frozen_FrozenSet_T]:
+            """
+            Searches the set for a given value and returns the equal value it finds, if any.
+            
+            :param equal_value: The value to search for.
+            :param actual_value: The value from the set that the search found, or the default value of T when the search yielded no match.
+            :returns: A value indicating whether the search was successful.
+            """
+            ...
+
+    EMPTY: System.Collections.Frozen.FrozenSet[System_Collections_Frozen_FrozenSet_T]
+    """Gets an empty FrozenSet{T}."""
+
+    @property
+    def comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Frozen_FrozenSet_T]:
+        """Gets the comparer used by this set."""
+        ...
+
+    @property
+    def items(self) -> System.Collections.Immutable.ImmutableArray[System_Collections_Frozen_FrozenSet_T]:
+        """Gets a collection containing the values in the set."""
+        ...
+
+    @property
+    def count(self) -> int:
+        """Gets the number of values contained in the set."""
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Frozen_FrozenSet_T]:
+        ...
+
+    def contains(self, item: System_Collections_Frozen_FrozenSet_T) -> bool:
+        """
+        Determines whether the set contains the specified element.
+        
+        :param item: The element to locate.
+        :returns: true if the set contains the specified element; otherwise, false.
+        """
+        ...
+
+    @overload
+    def copy_to(self, destination: typing.List[System_Collections_Frozen_FrozenSet_T], destination_index: int) -> None:
+        """
+        Copies the values in the set to an array, starting at the specified .
+        
+        :param destination: The array that is the destination of the values copied from the set.
+        :param destination_index: The zero-based index in  at which copying begins.
+        """
+        ...
+
+    @overload
+    def copy_to(self, destination: System.Span[System_Collections_Frozen_FrozenSet_T]) -> None:
+        """
+        Copies the values in the set to a span.
+        
+        :param destination: The span that is the destination of the values copied from the set.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Frozen.FrozenSet.Enumerator:
+        """
+        Returns an enumerator that iterates through the set.
+        
+        :returns: An enumerator that iterates through the set.
+        """
+        ...
+
+    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
+        ...
+
+    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
+        ...
+
+    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
+        ...
+
+    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
+        ...
+
+    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
+        ...
+
+    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
+        ...
+
+    def try_get_value(self, equal_value: System_Collections_Frozen_FrozenSet_T, actual_value: typing.Optional[System_Collections_Frozen_FrozenSet_T]) -> typing.Tuple[bool, System_Collections_Frozen_FrozenSet_T]:
+        """
+        Searches the set for a given value and returns the equal value it finds, if any.
+        
+        :param equal_value: The value to search for.
+        :param actual_value: The value from the set that the search found, or the default value of T when the search yielded no match.
+        :returns: A value indicating whether the search was successful.
+        """
+        ...
+
+
+class FrozenDictionary(typing.Generic[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue], System.Object, System.Collections.Generic.IDictionary[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]], metaclass=abc.ABCMeta):
     """Provides an immutable, read-only dictionary optimized for fast lookup and enumeration."""
 
     class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Frozen_FrozenDictionary_TKey, System_Collections_Frozen_FrozenDictionary_TValue]]):
@@ -166,135 +295,6 @@ class FrozenDictionary(typing.Generic[System_Collections_Frozen_FrozenDictionary
         :param key: The key of the value to get.
         :param value: When this method returns, contains the value associated with the specified key, if the key is found; otherwise, the default value for the type of the value parameter.
         :returns: true if the dictionary contains an element with the specified key; otherwise, false.
-        """
-        ...
-
-
-class FrozenSet(typing.Generic[System_Collections_Frozen_FrozenSet_T], System.Object, System.Collections.Generic.ISet[System_Collections_Frozen_FrozenSet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Frozen_FrozenSet_T], System.Collections.ICollection, typing.Iterable[System_Collections_Frozen_FrozenSet_T], metaclass=abc.ABCMeta):
-    """Provides an immutable, read-only set optimized for fast lookup and enumeration."""
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Frozen_FrozenSet_T]):
-        """Enumerates the values of a FrozenSet{T}."""
-
-        @property
-        def current(self) -> System_Collections_Frozen_FrozenSet_T:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-    class AlternateLookup(typing.Generic[System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate]):
-        """
-        Provides a type that may be used to perform operations on a FrozenSet{T}
-        using a TAlternate as a key instead of a T.
-        """
-
-        @property
-        def set(self) -> System.Collections.Frozen.FrozenSet[System_Collections_Frozen_FrozenSet_T]:
-            """Gets the FrozenSet{T} against which this instance performs operations."""
-            ...
-
-        def contains(self, item: System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate) -> bool:
-            """
-            Determines whether a set contains the specified element.
-            
-            :param item: The element to locate in the set.
-            :returns: true if the set contains the specified element; otherwise, false.
-            """
-            ...
-
-        def try_get_value(self, equal_value: System_Collections_Frozen_FrozenSet_AlternateLookup_TAlternate, actual_value: typing.Optional[System_Collections_Frozen_FrozenSet_T]) -> typing.Tuple[bool, System_Collections_Frozen_FrozenSet_T]:
-            """
-            Searches the set for a given value and returns the equal value it finds, if any.
-            
-            :param equal_value: The value to search for.
-            :param actual_value: The value from the set that the search found, or the default value of T when the search yielded no match.
-            :returns: A value indicating whether the search was successful.
-            """
-            ...
-
-    EMPTY: System.Collections.Frozen.FrozenSet[System_Collections_Frozen_FrozenSet_T]
-    """Gets an empty FrozenSet{T}."""
-
-    @property
-    def comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Frozen_FrozenSet_T]:
-        """Gets the comparer used by this set."""
-        ...
-
-    @property
-    def items(self) -> System.Collections.Immutable.ImmutableArray[System_Collections_Frozen_FrozenSet_T]:
-        """Gets a collection containing the values in the set."""
-        ...
-
-    @property
-    def count(self) -> int:
-        """Gets the number of values contained in the set."""
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Frozen_FrozenSet_T]:
-        ...
-
-    def contains(self, item: System_Collections_Frozen_FrozenSet_T) -> bool:
-        """
-        Determines whether the set contains the specified element.
-        
-        :param item: The element to locate.
-        :returns: true if the set contains the specified element; otherwise, false.
-        """
-        ...
-
-    @overload
-    def copy_to(self, destination: typing.List[System_Collections_Frozen_FrozenSet_T], destination_index: int) -> None:
-        """
-        Copies the values in the set to an array, starting at the specified .
-        
-        :param destination: The array that is the destination of the values copied from the set.
-        :param destination_index: The zero-based index in  at which copying begins.
-        """
-        ...
-
-    @overload
-    def copy_to(self, destination: System.Span[System_Collections_Frozen_FrozenSet_T]) -> None:
-        """
-        Copies the values in the set to a span.
-        
-        :param destination: The span that is the destination of the values copied from the set.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Frozen.FrozenSet.Enumerator:
-        """
-        Returns an enumerator that iterates through the set.
-        
-        :returns: An enumerator that iterates through the set.
-        """
-        ...
-
-    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
-        ...
-
-    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
-        ...
-
-    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
-        ...
-
-    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
-        ...
-
-    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
-        ...
-
-    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Frozen_FrozenSet_T]) -> bool:
-        ...
-
-    def try_get_value(self, equal_value: System_Collections_Frozen_FrozenSet_T, actual_value: typing.Optional[System_Collections_Frozen_FrozenSet_T]) -> typing.Tuple[bool, System_Collections_Frozen_FrozenSet_T]:
-        """
-        Searches the set for a given value and returns the equal value it finds, if any.
-        
-        :param equal_value: The value to search for.
-        :param actual_value: The value from the set that the search found, or the default value of T when the search yielded no match.
-        :returns: A value indicating whether the search was successful.
         """
         ...
 

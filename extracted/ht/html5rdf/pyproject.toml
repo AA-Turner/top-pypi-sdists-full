@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "html5rdf"
+authors = [
+    # HTML5Lib-modern and HTML5rdf author:
+    {name = "Ashley Sommer", email = "ashleysommer@gmail.com"},
+    # Original HTML5Lib author:
+    {name = "James Graham", email = "james@hoppipolla.co.uk"},
+]
+description = "HTML parser based on the WHATWG HTML specification"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: Implementation :: CPython',
+    'Programming Language :: Python :: Implementation :: PyPy',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Text Processing :: Markup :: HTML'
+]
+dependencies = []
+dynamic = ["version", "readme"]
+
+[tool.setuptools]
+include-package-data = false  # to disable including package data for tests (true by default)
+
+[tool.setuptools.dynamic]
+version = {attr = "html5rdf.__version__"}  # any module attribute compatible with ast.literal_eval
+readme = {file = ["README.rst", "AUTHORS.rst"]}
+
+[tool.setuptools.packages.find]
+where = ["."]  # list of folders that contain the packages (["."] by default)
+include = ["html5rdf*"]  # package names should match these glob patterns (["*"] by default)
+exclude = ["html5rdf.tests*"]  # exclude packages matching these glob patterns (empty by default)
+namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
+

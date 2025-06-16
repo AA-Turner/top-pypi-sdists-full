@@ -15,8 +15,10 @@ import sys
 
 import objc
 from PyObjCTest.metadata import OC_MetaDataTest
-from PyObjCTools.TestSupport import TestCase
+from PyObjCTools.TestSupport import TestCase, expectedFailureIf
 from .fnd import NSArray, NSString, NSPredicate, NSObject
+from PyObjCTest.classes import OCTestClasses
+from objc import super  # noqa: A004
 
 make_array = array.array
 
@@ -337,6 +339,56 @@ def setupMetaData():
                     "c_array_length_in_arg": 2 + 1,
                     "null_accepted": False,
                 }
+            }
+        },
+    )
+    objc.registerMetaDataForSelector(
+        b"OC_MetaDataTest",
+        b"makeIntArray:sameSizeAs:",
+        {
+            "arguments": {
+                2
+                + 0: {
+                    "type_modifier": objc._C_IN,
+                    "c_array_length_in_arg": 2 + 1,
+                    "null_accepted": False,
+                },
+                2
+                + 1: {
+                    "type_modifier": objc._C_IN,
+                },
+            }
+        },
+    )
+    objc.registerMetaDataForSelector(
+        b"OC_MetaDataTest",
+        b"makeIntArray:sameSizeAs:on:",
+        {
+            "arguments": {
+                2
+                + 0: {
+                    "type_modifier": objc._C_IN,
+                    "c_array_length_in_arg": 2 + 1,
+                    "null_accepted": False,
+                },
+                2
+                + 1: {
+                    "type_modifier": objc._C_IN,
+                },
+            }
+        },
+    )
+    objc.registerMetaDataForSelector(
+        b"OC_MetaDataTest",
+        b"makeIntArray:sameSizeAsNilOn:",
+        {
+            "arguments": {
+                2
+                + 0: {
+                    "type_modifier": objc._C_IN,
+                    "c_array_of_variable_length": True,
+                    "null_accepted": False,
+                },
             }
         },
     )
@@ -1070,15 +1122,17 @@ class TestArraysIn(TestCase):
         v = o.make4Tuple_(a)
         self.assertEqual(list(v), [2.5, 3.5, 4.5, 5.5])
 
+    @expectedFailureIf(objc.arch == "x86_64")
+    def testFixedSizeSubclass(self):
         class OC_MetaDataTestArrayArg(OC_MetaDataTest):
             def make8Tuple_(self, a):
-                print(a)
                 return [a]
 
             def make8TupleB_(self, a):
                 return ["B", a]
 
         obj = OC_MetaDataTestArrayArg()
+        self.assertArgHasType(obj.make8Tuple_, 0, b"n[8d]")
         a_list = [n + 2.5 for n in range(8)]
         v = OC_MetaDataTest.make8Tuple_on_(a_list, obj)
         self.assertEqual(v, [tuple(a_list)])
@@ -1166,8 +1220,29 @@ class TestArraysIn(TestCase):
         )
         self.assertEqual(a, [10, 20, 30, 40])
 
+        with self.assertRaisesRegex(
+            TypeError, "Don't know how to extract count from encoding: @"
+        ):
+            o.makeIntArray_sameSize_([10, 20, 30, 40, 50], NSObject.alloc().init())
+
         a = o.makeIntArray_sameSize_([10, 20, 30, 40, 50], None)
         self.assertEqual(a, ())
+
+        a = o.makeIntArray_sameSizeAs_(
+            [10, 20, 30, 40, 50], NSArray.arrayWithArray_(list(range(4)))
+        )
+        self.assertEqual(a, [10, 20, 30, 40])
+
+        a = o.makeIntArray_sameSizeAs_([10, 20, 30, 40, 50], None)
+        self.assertEqual(a, ())
+
+        a = o.makeIntArray_sameSizeAs_([10, 20, 30, 40, 50], objc.NULL)
+        self.assertEqual(a, ())
+
+        with self.assertRaisesRegex(
+            TypeError, r"Don't know how to extract count from encoding: \^@"
+        ):
+            o.makeIntArray_sameSizeAs_([10, 20, 30, 40, 50], NSObject.alloc().init())
 
         with self.assertRaisesRegex(
             TypeError, "Don't know how to extract count from encoding: f"
@@ -2125,6 +2200,9 @@ class TestVariableLengthValue(TestCase):
             def makeVariableLengthArray_halfCount_(self, a, b):
                 return [a, b, a[: 2 * b]]
 
+            def makeIntArray_sameSizeAs_(self, a, b):
+                return [a, b]
+
         obj = OC_MetaDataTestVarArrayImpl()
         result = OC_MetaDataTest.makeVariableLengthArray_halfCount_on_(
             [10, 20, 30, 40, 50, 60], 2, obj
@@ -2135,6 +2213,26 @@ class TestVariableLengthValue(TestCase):
         self.assertIsInstance(result[0], objc.varlist)
         self.assertEqual(result[1], 2)
         self.assertEqual(result[2], (10, 20, 30, 40))
+
+        result = OC_MetaDataTest.makeIntArray_sameSizeAs_on_(
+            [10, 20, 30, 40, 50, 60], [1, 2], obj
+        )
+        self.assertEqual(result, [(10, 20), [1, 2]])
+
+        result = OC_MetaDataTest.makeIntArray_sameSizeAs_on_(
+            [10, 20, 30, 40, 50, 60], None, obj
+        )
+        self.assertEqual(result, [(), objc.NULL])
+
+        result = OC_MetaDataTest.makeIntArray_sameSizeAsNilOn_(
+            [10, 20, 30, 40, 50, 60], obj
+        )
+        self.assertEqual(result, [(), None])
+
+        result = OC_MetaDataTest.makeIntArray_sameSizeAs_on_(
+            [10, 20, 30, 40, 50, 60], objc.NULL, obj
+        )
+        self.assertEqual(result, [(), objc.NULL])
 
 
 class TestVariadicArray(TestCase):
@@ -2236,3 +2334,46 @@ class TestMisc(TestCase):
         self.assertEqual(signature["arguments"][0]["type"], b"@?")
         self.assertEqual(signature["arguments"][1]["type"], b"i")
         self.assertEqual(signature["arguments"][2]["type"], b"f")
+
+
+class OCInitFamily(NSObject):
+    def initWithX_(self, x):
+        return super().init()
+
+    def initSelector(self):
+        return super().init()
+
+    @objc.objc_method(signature=b"i@:")
+    def initInteger(self):
+        return super().init()
+
+    def initialSize(self):
+        return 42
+
+    def size(self):
+        return 21
+
+
+class TestInitMethods(TestCase):
+    def test_standard(self):
+        self.assertIsInitializer(NSObject.init)
+        self.assertIsInitializer(NSString.initWithString_)
+
+        self.assertIsNotInitializer(NSObject.alloc)
+        self.assertIsNotInitializer(NSString.length)
+
+    def test_standard_py(self):
+        self.assertIsInitializer(OCInitFamily.init)
+        self.assertIsInitializer(OCInitFamily.initWithX_)
+
+        self.assertIsNotInitializer(OCInitFamily.size)
+
+    def test_alternates(self):
+        self.assertIsInitializer(OCTestClasses.initMethod)
+        self.assertIsNotInitializer(OCTestClasses.initNot)
+        self.assertIsNotInitializer(OCTestClasses.initialValue)
+
+    def test_alternates_py(self):
+        self.assertIsInitializer(OCInitFamily.initSelector)
+        self.assertIsNotInitializer(OCInitFamily.initInteger)
+        self.assertIsNotInitializer(OCInitFamily.initialSize)

@@ -1,0 +1,15 @@
+Metadata-Version: 1.2
+Name: recurrent
+Version: 0.4.1
+Summary: Natural language parsing and formatting of recurring events
+Home-page: http://github.com/kvh/recurrent
+Author: Ken Van Haren
+Author-email: kenvanharen@gmail.com
+License: BSD
+Description: See http://github.com/kvh/recurrent
+Keywords: calendar recurring date event NLP
+Platform: UNKNOWN
+Classifier: Natural Language :: English
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: License :: OSI Approved :: BSD License
+Requires-Python: >3.6.0

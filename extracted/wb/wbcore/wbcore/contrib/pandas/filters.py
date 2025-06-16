@@ -44,7 +44,10 @@ class PandasDjangoFilterBackend(DjangoFilterBackend):
                         if isinstance(_filter, wb_filters.NumberFilter):
                             try:
                                 conditions.append(
-                                    self.lookups_operator[lookup_expr](df[_filter.field_name], float(value))
+                                    self.lookups_operator[lookup_expr](
+                                        df[_filter.field_name],
+                                        float(value) if not _filter.percent else float(value) / 100,
+                                    )
                                 )
                             except ValueError:
                                 pass

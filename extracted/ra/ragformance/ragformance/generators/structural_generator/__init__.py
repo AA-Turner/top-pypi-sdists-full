@@ -1,0 +1,2 @@
+from .generator import StructuralGenerator as StructuralGenerator
+from .config import StructuralGeneratorConfig as StructuralGeneratorConfig

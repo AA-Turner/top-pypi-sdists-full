@@ -1,0 +1,30 @@
+[build-system]
+requires = [ "setuptools", "wheel",]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gway"
+version = "0.3.2"
+description = "Software Project Infrastructure by https://www.gelectriic.com"
+requires-python = ">=3.7"
+license = "MIT"
+classifiers = [ "Programming Language :: Python :: 3", "Operating System :: OS Independent",]
+dependencies = [ "toml", "setuptools", "twine", "build", "colorama", "bottle", "paste", "requests", "dateparser", "fastapi", "uvicorn", "docutils", "croniter", "qrcode[pil]", "cryptography", "jinja2", "pygame", "python-multipart", "httpx", "websockets", "pyperclip; platform_system == \"Windows\"", "plyer", "numpy", "pygetwindow; platform_system == \"Windows\"", "psycopg2; platform_system != \"Windows\"", "duckdb", "pywin32L; platform_system == \"Windows\"",]
+[[project.authors]]
+name = "Rafael J. Guillén-Osorio"
+email = "tecnologia@gelectriic.com"
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.scripts]
+gway = "gway:cli_main"
+
+[project.urls]
+Repository = "https://github.com/arthexis/gway.git"
+Homepage = "https://arthexis.com"
+Sponsor = "https://www.gelectriic.com/"
+
+[tool.setuptools]
+packages = [ "gway",]

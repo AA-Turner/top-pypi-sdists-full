@@ -10,6 +10,48 @@ import System.Collections.Generic
 import System.IO
 
 
+class RestSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
+    """Represents a stream reader capable of polling a rest client"""
+
+    @property
+    def should_be_rate_limited(self) -> bool:
+        """Gets whether or not this stream reader should be rate limited"""
+        ...
+
+    @property
+    def stream_reader(self) -> System.IO.StreamReader:
+        """Direct access to the StreamReader instance"""
+        ...
+
+    @property
+    def transport_medium(self) -> QuantConnect.SubscriptionTransportMedium:
+        """Gets SubscriptionTransportMedium.Rest"""
+        ...
+
+    @property
+    def end_of_stream(self) -> bool:
+        """Gets whether or not there's more data to be read in the stream"""
+        ...
+
+    def __init__(self, source: str, headers: typing.List[System.Collections.Generic.KeyValuePair[str, str]], is_live_mode: bool) -> None:
+        """
+        Initializes a new instance of the RestSubscriptionStreamReader class.
+        
+        :param source: The source url to poll with a GET
+        :param headers: Defines header values to add to the request
+        :param is_live_mode: True for live mode, false otherwise
+        """
+        ...
+
+    def dispose(self) -> None:
+        """This stream reader doesn't require disposal"""
+        ...
+
+    def read_line(self) -> str:
+        """Gets the next line/batch of content from the stream"""
+        ...
+
+
 class RemoteFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
     """
     Represents a stream reader capabable of downloading a remote file and then
@@ -70,6 +112,47 @@ class RemoteFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.
         ...
 
 
+class ObjectStoreSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
+    """Represents a stream reader capable of reading lines from the object store"""
+
+    @property
+    def should_be_rate_limited(self) -> bool:
+        """Gets whether or not this stream reader should be rate limited"""
+        ...
+
+    @property
+    def stream_reader(self) -> System.IO.StreamReader:
+        """Direct access to the StreamReader instance"""
+        ...
+
+    @property
+    def transport_medium(self) -> QuantConnect.SubscriptionTransportMedium:
+        """Gets SubscriptionTransportMedium.LocalFile"""
+        ...
+
+    @property
+    def end_of_stream(self) -> bool:
+        """Gets whether or not there's more data to be read in the stream"""
+        ...
+
+    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore, key: str) -> None:
+        """
+        Initializes a new instance of the ObjectStoreSubscriptionStreamReader class.
+        
+        :param object_store: The IObjectStore used to retrieve a stream of data
+        :param key: The object store key the data should be fetched from
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Disposes of the stream"""
+        ...
+
+    def read_line(self) -> str:
+        """Gets the next line/batch of content from the stream"""
+        ...
+
+
 class LocalFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
     """Represents a stream reader capable of reading lines from disk"""
 
@@ -127,89 +210,6 @@ class LocalFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.I
         :param data_cache_provider: The IDataCacheProvider used to retrieve a stream of data
         :param source: The local file to be read
         :param starting_position: The position in the stream from which to start reading
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Disposes of the stream"""
-        ...
-
-    def read_line(self) -> str:
-        """Gets the next line/batch of content from the stream"""
-        ...
-
-
-class RestSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
-    """Represents a stream reader capable of polling a rest client"""
-
-    @property
-    def should_be_rate_limited(self) -> bool:
-        """Gets whether or not this stream reader should be rate limited"""
-        ...
-
-    @property
-    def stream_reader(self) -> System.IO.StreamReader:
-        """Direct access to the StreamReader instance"""
-        ...
-
-    @property
-    def transport_medium(self) -> QuantConnect.SubscriptionTransportMedium:
-        """Gets SubscriptionTransportMedium.Rest"""
-        ...
-
-    @property
-    def end_of_stream(self) -> bool:
-        """Gets whether or not there's more data to be read in the stream"""
-        ...
-
-    def __init__(self, source: str, headers: typing.List[System.Collections.Generic.KeyValuePair[str, str]], is_live_mode: bool) -> None:
-        """
-        Initializes a new instance of the RestSubscriptionStreamReader class.
-        
-        :param source: The source url to poll with a GET
-        :param headers: Defines header values to add to the request
-        :param is_live_mode: True for live mode, false otherwise
-        """
-        ...
-
-    def dispose(self) -> None:
-        """This stream reader doesn't require disposal"""
-        ...
-
-    def read_line(self) -> str:
-        """Gets the next line/batch of content from the stream"""
-        ...
-
-
-class ObjectStoreSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
-    """Represents a stream reader capable of reading lines from the object store"""
-
-    @property
-    def should_be_rate_limited(self) -> bool:
-        """Gets whether or not this stream reader should be rate limited"""
-        ...
-
-    @property
-    def stream_reader(self) -> System.IO.StreamReader:
-        """Direct access to the StreamReader instance"""
-        ...
-
-    @property
-    def transport_medium(self) -> QuantConnect.SubscriptionTransportMedium:
-        """Gets SubscriptionTransportMedium.LocalFile"""
-        ...
-
-    @property
-    def end_of_stream(self) -> bool:
-        """Gets whether or not there's more data to be read in the stream"""
-        ...
-
-    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore, key: str) -> None:
-        """
-        Initializes a new instance of the ObjectStoreSubscriptionStreamReader class.
-        
-        :param object_store: The IObjectStore used to retrieve a stream of data
-        :param key: The object store key the data should be fetched from
         """
         ...
 

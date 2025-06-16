@@ -1,0 +1,34 @@
+# squape-report/pyproject.toml
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["squape"]
+namespaces = false
+
+[project]
+name = "squape"
+version = "1.1"
+authors = [
+    { name="Cyber Alpaca", email="contact@cyberalpaca.com" },
+]
+requires-python = ">=3.8"
+readme = "README.md"
+description = "Python utilities for the Squish GUI Tester"
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/CyberAlpaca/squish-api-python-extension"
+"Documentation" = "https://squape.cyberalpaca.com"
+"Changelog" = "https://github.com/CyberAlpaca/squish-api-python-extension/blob/main/HISTORY.md"
+"Cyber Alpaca" = "https://cyberalpaca.com"

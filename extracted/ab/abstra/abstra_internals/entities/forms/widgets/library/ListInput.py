@@ -13,7 +13,7 @@ class ListInput(InputWidget):
     """Repeatable list of input components that can be dynamically added or removed.
 
     Attributes:
-        value (List[State]): The list of states for each item in the list.
+        value (List[State]): The list of states for each item in the list. State is a dictionary-like object that holds the values for each input in the list indexed by their keys.
     """
 
     type = "list-input"
@@ -129,7 +129,7 @@ class ListInput(InputWidget):
             template = self._get_item_template(idx)
             renderer = TemplateRenderer(template)
             raw_value = item or {}
-            parsed = renderer.make_partial_state(raw_value)
-            state.update_values(parsed)
+            parsed = renderer.parse_state(raw_state=raw_value, include_missing=False)
+            state.update(parsed)
             parsed_values.append(state)
         return parsed_values

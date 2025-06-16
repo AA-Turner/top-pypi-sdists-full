@@ -1,0 +1,363 @@
+Metadata-Version: 2.4
+Name: mlcflow
+Version: 1.0.16
+Summary: An automation interface for ML applications
+Author-email: MLCommons <systems@mlcommons.org>
+License: 
+                                         Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+Project-URL: Homepage, https://github.com/mlcommons/mlcflow
+Project-URL: Documentation, https://docs.mlcommons.org/mlcflow
+Project-URL: Repository, https://github.com/mlcommons/mlcflow
+Project-URL: Issues, https://github.com/mlcommons/mlcflow/issues
+Keywords: mlc,mlcflow,pypi,package,automation
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: requests
+Requires-Dist: pyyaml
+Requires-Dist: giturlparse
+Requires-Dist: colorama
+Dynamic: license-file
+
+**MLCFlow: Simplifying MLPerf Automations**
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-green)](https://github.com/mlcommons/mlcflow/blob/main/LICENSE.md)
+[![Downloads](https://static.pepy.tech/badge/mlcflow)](https://pepy.tech/project/mlcflow)
+
+[![MLC core actions test](https://github.com/mlcommons/mlcflow/actions/workflows/test-mlc-core-actions.yaml/badge.svg)](https://github.com/mlcommons/mlcflow/actions/workflows/test-mlc-core-actions.yaml)
+[![MLC script automation features test](https://github.com/mlcommons/mlperf-automations/actions/workflows/test-mlc-script-features.yml/badge.svg?cache-bust=1)](https://github.com/mlcommons/mlperf-automations/actions/workflows/test-mlc-script-features.yml)
+[![MLPerf inference resnet50](https://github.com/mlcommons/mlcflow/actions/workflows/mlperf-inference-resnet50.yml/badge.svg)](https://github.com/mlcommons/mlcflow/actions/workflows/mlperf-inference-resnet50.yml)
+[![MLPerf inference bert (deepsparse, tf, onnxruntime, pytorch)](https://github.com/mlcommons/mlcflow/actions/workflows/mlperf-inference-bert.yml/badge.svg)](https://github.com/mlcommons/mlcflow/actions/workflows/mlperf-inference-bert.yml)
+
+
+MLCFlow is a versatile CLI and Python interface developed by MLCommons in collaboration with a dedicated team of volunteers (see [Contributors](https://github.com/mlcommons/mlcflow/blob/main/CONTRIBUTORS.md)). It serves as a streamlined replacement for the [CMind](https://github.com/mlcommons/ck/tree/master/cm) tool, designed to drive the automation workflows of MLPerf benchmarks more efficiently. You can use this tool for any of your workflow automation tasks. 
+
+The concept behind CMind originated from **Grigori Fursin**, while the **MLPerf Automations** project was created by **Grigori Fursin** and **Arjun Suresh**, whose collective contributions laid the foundation for modernizing MLPerf benchmarking tools. MLCFlow is a complete replacement for the CMind package with an entirely new implementation led by **Arjun Suresh** and **Anandhu Sooraj**, with support from the [MLCFlow community](https://github.com/mlcommons/mlcflow/blob/main/CONTRIBUTORS.md). The script automation used in MLCFlow is inherited from the CM project but is now modified to support MLC and provides a simpler interface to the devlopers. Please see [the documentation](https://docs.mlcommons.org/mlcflow/) for more details. 
+
+On February 9, 2025, MLCFlow released its first stable version, 1.0.0.
+
+### Key Features
+Building upon the core idea of CMind—wrapping native scripts with Python wrappers and YAML metadata—MLCFlow focuses exclusively on key automation components: **Scripts**, along with its complementary modules: **Cache**, **Docker**, and **Experiments**. This targeted design simplifies both implementation and interface, enabling a more user-friendly experience.
+
+---
+
+### Status
+MLCFlow is now fully equipped for workflow development, with complete support for all previously used CM scripts in MLPerf inference automation. If you're interested in discussions, join the MLCommons Benchmark Infra [Discord channel](https://discord.gg/T9rHVwQFNX), and check out the latest progress in [Issues](https://github.com/mlcommons/mlcflow/issues).
+
+---
+
+## MLC CLI Overview
+
+The **MLC Command-Line Interface (CLI)** enables users to perform actions on specified targets using a simple syntax:
+
+```bash
+mlc <action> <target> [options]
+```
+
+### Key Components:
+- **`<action>`**: The operation to be performed.
+- **`<target>`**: The object on which the action is executed.
+- **`[options]`**: Additional parameters passed to the action.
+
+---
+
+### Supported Targets and Actions
+
+#### 1. **Repo**
+- Actions related to repositories, such as cloning or updating.
+
+#### 2. **Script**
+- Manage or execute automation scripts.
+
+#### 3. **Cache**
+- Handle cached data, including cleanup or inspection.
+
+Each target has its own set of specific actions to tailor automation workflows as specified below.
+
+
+
+| Target | Action          |
+|--------|-----------------|
+| script    | run, find/search, rm, mv, cp, add, test, docker, show       |
+| cache    | find/search, rm, show  |
+| repo    | pull, search, rm, list, find/search , add        |
+
+
+MLC started with a compatibility layer where by it supported MLCommons CM automations - Script, Cache and Experiment. Now, MLCFLow has just the Script Automation which is an extension of the Script Automation from CM but with a cleaner integration of Cache Automation and Docker and Test extensions. The old CM scripts are now updated with the latest MLCFlow scripts in the [MLPerf Automations](https://github.com/mlcommons/mlperf-automations/tree/main/script) repository. 
+
+
+## Architectural Diagram
+
+```mermaid
+classDiagram
+    class Action {
+        +access(options)
+        +find_target_folder(target)
+        +load_repos_and_meta()
+        +load_repos()
+        +conflicting_repo(repo_meta)
+        +register_repo(repo_meta)
+        +unregister_repo(repo_path)
+        +add(i)
+        +rm(i)
+        +save_new_meta(i, item_id, item_name, target_name, item_path, repo)
+        +update(i)
+        +is_uid(name)
+        +cp(run_args)
+        +copy_item(source_path, destination_path)
+        +search(i)
+    }
+    class RepoAction {
+        +find(run_args)
+        +github_url_to_user_repo_format(url)
+        +pull_repo(repo_url, branch, checkout)
+        +pull(run_args)
+        +list(run_args)
+        +rm(run_args)
+    }
+    class ScriptAction {
+        +search(i)
+        +rm(i)
+        +dynamic_import_module(script_path)
+        +call_script_module_function(function_name, run_args)
+        +docker(run_args)
+        +run(run_args)
+        +test(run_args)
+        +list(args)
+    }
+    class CacheAction {
+        +search(i)
+        +find(i)
+        +rm(i)
+        +show(run_args)
+        +list(args)
+    }
+    class ExperimentAction {
+        +show(args)
+        +list(args)
+    }
+    class CfgAction {
+        +load(args)
+    }
+    class Index {
+        +add(meta, folder_type, path, repo)
+        +get_index(folder_type, uid)
+        +update(meta, folder_type, path, repo)
+        +rm(meta, folder_type, path)
+        +build_index()
+    }
+    class Item {
+        +meta
+        +path
+        +repo
+        +_load_meta()
+    }
+    class Repo {
+        +path
+        +meta
+        +_load_meta()
+    }
+    class Automation {
+        +action_object
+        +automation_type
+        +meta
+        +path
+        +_load_meta()
+        +search(i)
+    }
+
+    Action <|-- RepoAction
+    Action <|-- ScriptAction
+    Action <|-- CacheAction
+    Action <|-- ExperimentAction
+    Action <|-- CfgAction
+    RepoAction o-- Repo
+    ScriptAction o-- Automation
+    CacheAction o-- Index
+    ExperimentAction o-- Index
+    CfgAction o-- Index
+    Index o-- Repo
+    Index o-- Item
+    Item o-- Repo
+    Automation o-- Action
+```
+

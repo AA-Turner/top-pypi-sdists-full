@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: mo-imports
-Version: 7.678.25061
+Version: 7.685.25166
 Summary: More Imports! - Delayed importing
 Home-page: https://github.com/klahnakoski/mo-imports
 Author: Kyle Lahnakoski
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mo-future==7.678.25061
+Requires-Dist: mo-future==7.685.25166
 Provides-Extra: tests
 Requires-Dist: mo-logs>=8.672.25036; extra == "tests"
 Dynamic: author
@@ -26,6 +26,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary

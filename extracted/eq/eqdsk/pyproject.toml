@@ -1,0 +1,189 @@
+[build-system]
+requires      = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source           = "vcs"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "eqdsk/_version.py"
+
+[project]
+name = "eqdsk"
+authors = [{ name = "The Bluemira Developers" }]
+description = """A reader, writer and converter for the eqdsk format"""
+dynamic = ['version']
+readme = "README.md"
+license = "LGPL-2.1-or-later"
+requires-python = ">=3.10"
+keywords = ["tokamak", "cocos", "eqdsk", "GEQDSK"]
+classifiers = [
+  "Programming Language :: Python",
+  "Development Status :: 3 - Alpha",
+  "Natural Language :: English",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+dependencies = ["fortranformat", "numpy", "click"]
+
+[project.urls]
+Source        = "https://github.com/Fusion-Power-Plant-Framework/eqdsk"
+Documentation = "https://github.com/Fusion-Power-Plant-Framework/eqdsk#readme"
+Issues        = "https://github.com/Fusion-Power-Plant-Framework/eqdsk/issues"
+
+[project.optional-dependencies]
+dev = ["pre-commit"]
+test = [
+  "pytest",
+  "pytest-cov",
+  "pytest-html",
+  "pytest-metadata",
+  "pytest-json-report",
+]
+docs = [
+  "mkdocs",
+  "mkdocs-material",
+  "mkdocstrings[python]",
+  "mkdocs-gen-files",
+  "mkdocs-section-index",
+  "mkdocs-literate-nav",
+]
+lint = ["ruff", "mypy"]
+cli = ["matplotlib"]
+
+[project.scripts]
+eqdsk = "eqdsk.cli:cli"
+
+# env: default
+[tool.hatch.envs.default]
+features = ["dev", "test", "docs", "lint"]
+
+# env: test
+[tool.hatch.envs.test]
+features = ["test"]
+[[tool.hatch.envs.test.matrix]]
+python = ["3.10", "3.11", "3.12"]
+[tool.hatch.envs.test.scripts]
+tests      = "pytest {args:tests}"
+tests-cov  = "pytest --cov eqdsk  --cov-report html:htmlcov_eqdsk --cov-report xml {args:tests}"
+tests-cov-private  = "pytest --private --cov eqdsk --cov-report html:htmlcov --cov-report xml {args:tests}"
+
+# env: docs
+[tool.hatch.envs.docs]
+features = ["docs"]
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build"
+serve = "mkdocs serve"
+deploy = "mkdocs gh-deploy"
+
+# env: lint
+[tool.hatch.envs.lint]
+detached     = true                           # Don't inherit from default (does not download project dependencies)
+dependencies = ["ruff", "mypy", "pre-commit"]
+[tool.hatch.envs.lint.scripts]
+typing = "mypy --install-types --non-interactive {args:eqdsk tests}"
+style  = ["ruff {args:check .}"]
+fmt    = ["pre-commit run --all-files --hook-stage manual"]
+all    = ["style", "typing"]
+
+# tool: ruff
+[tool.ruff]
+target-version = "py310"
+line-length = 89
+output-format = "concise"
+exclude = [
+  ".git",
+  "__pycache__",
+  "documentation",
+  ".env",
+  ".idea",
+  ".pytest_cache",
+  "htmlcov",
+]
+
+[tool.ruff.format]
+preview = true
+
+[tool.ruff.lint]
+preview = true
+select = ["ALL"]
+ignore = [
+  "ANN",     # type annotations
+  "EM",      # string in error messages
+  "PD",      # Pandas
+  "B019",    # using cache memory leaks
+  "COM812",  # enforce trailing comma, disagrees with black/ruff format
+  "D200",    # docs stuff
+  "D203",
+  "D205",
+  "D301",
+  "D400",
+  "D401",
+  "DOC502",  # Raises sections not in top level function
+  "DTZ005",  # datetime timezone arg
+  "E203",    # black/ruff format conflicts
+  "FIX002",  # Line contains todo
+  "ISC001",  # ruff format conflict
+  "PLW1514", # Specify file open encoding
+  "PTH123",  # use Path.open
+  "TRY003",  # put error messages in error class
+  "FURB152", # 3.14 != pi
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["eqdsk"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**" = [
+  "INP001",
+  "D100",
+  "D102",
+  "D104",
+  "ERA001",
+  "PLR2004",
+  "PLR0912",
+  "PLR0914",
+  "N802",
+  "S101",
+  "TID252",
+]
+"__init__.py" = ["F401", "F403"]
+
+[tool.ruff.lint.pep8-naming]
+ignore-names = ["*Bp*", "*R_phi_Z*", "*B0*", "*Ip*", "*CSTM"]
+
+[tool.ruff.lint.pylint]
+# These should be made stricter
+max-args       = 7
+max-statements = 61
+max-locals     = 18
+
+
+[tool.ruff.lint.flake8-copyright]
+notice-rgx = "(?i)# SPDX-FileCopyrightText:\\s\\d{4}(-(\\d{4}|present))*"
+
+[tool.coverage.report]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+"omit"        = ["eqdsk/_version.py"]
+
+[tool.pytest.ini_options]
+addopts        = "--html=report.html --self-contained-html --strict-markers -r fEX"
+log_cli        = true
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s"
+log_cli_level  = "INFO"
+markers = ["private: Tests using private data"]

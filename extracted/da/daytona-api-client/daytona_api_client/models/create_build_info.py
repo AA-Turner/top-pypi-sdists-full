@@ -1,4 +1,7 @@
 # coding: utf-8
+# Copyright 2025 Daytona Platforms Inc.
+# SPDX-License-Identifier: Apache-2.0
+
 
 """
     Daytona
@@ -23,12 +26,18 @@ from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
+
 class CreateBuildInfo(BaseModel):
     """
     CreateBuildInfo
-    """ # noqa: E501
-    dockerfile_content: StrictStr = Field(description="The Dockerfile content used for the build", alias="dockerfileContent")
-    context_hashes: Optional[List[StrictStr]] = Field(default=None, description="The context hashes used for the build", alias="contextHashes")
+    """  # noqa: E501
+
+    dockerfile_content: StrictStr = Field(
+        description="The Dockerfile content used for the build", alias="dockerfileContent"
+    )
+    context_hashes: Optional[List[StrictStr]] = Field(
+        default=None, description="The context hashes used for the build", alias="contextHashes"
+    )
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["dockerfileContent", "contextHashes"]
 
@@ -37,7 +46,6 @@ class CreateBuildInfo(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,9 +72,11 @@ class CreateBuildInfo(BaseModel):
           are ignored.
         * Fields in `self.additional_properties` are added to the output dict.
         """
-        excluded_fields: Set[str] = set([
-            "additional_properties",
-        ])
+        excluded_fields: Set[str] = set(
+            [
+                "additional_properties",
+            ]
+        )
 
         _dict = self.model_dump(
             by_alias=True,
@@ -89,15 +99,12 @@ class CreateBuildInfo(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "dockerfileContent": obj.get("dockerfileContent"),
-            "contextHashes": obj.get("contextHashes")
-        })
+        _obj = cls.model_validate(
+            {"dockerfileContent": obj.get("dockerfileContent"), "contextHashes": obj.get("contextHashes")}
+        )
         # store additional fields in additional_properties
         for _key in obj.keys():
             if _key not in cls.__properties:
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
-
-

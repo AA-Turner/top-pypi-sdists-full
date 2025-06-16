@@ -37,8 +37,8 @@ from swift.llm import InferRequest, MultiModelKeys, RequestConfig, RowPreprocess
 from swift.llm.model.utils import get_llm_model
 from swift.llm.template.template_inputs import StdTemplateInputs
 from swift.plugin import loss_scale_map, multi_turns, orms, rm_plugins
-from swift.utils import (JsonlWriter, gc_collect, get_device, get_logger, is_vllm_available, is_wandb_available,
-                         seed_worker)
+from swift.utils import (JsonlWriter, gc_collect, get_current_device, get_device, get_logger, is_vllm_available,
+                         is_wandb_available, seed_worker)
 from ..mixin import SwiftMixin
 from .rlhf_mixin import RLHFTrainerMixin
 from .utils import _ForwardRedirection, patch_lora_merge, patch_lora_unmerge, unwrap_model_for_generation
@@ -74,6 +74,10 @@ class DataCache:
     outputs: List[Dict] = field(default_factory=list)
 
 
+def identity_data_collator(features):
+    return features
+
+
 class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
@@ -92,10 +96,6 @@ class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
         self.eval_queue = Queue()
 
         self.processing_class = kwargs.get('template').tokenizer
-
-        # for offload model/optimizer
-        self.offload_modules = {}
-        self.offload_states = {}
 
         if not isinstance(reward_funcs, list):
             reward_funcs = [reward_funcs]
@@ -176,7 +176,8 @@ class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
         self.max_completion_length = args.max_completion_length
         self.completion_length_limit_scope = args.completion_length_limit_scope
         model.warnings_issued['estimate_tokens'] = True
-        kwargs['data_collator'] = lambda features: features
+
+        kwargs['data_collator'] = identity_data_collator  # No data collation is needed in GRPO
         self.shuffle_dataset = args.dataset_shuffle
 
         self.use_vllm = args.use_vllm
@@ -458,7 +459,7 @@ class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
             template.max_length = max_length
 
     @profiling_decorator
-    def _move_model_to_vllm(self):
+    def _move_model_to_vllm(self, skip_async_check=False):
         deepspeed_plugin = self.accelerator.state.deepspeed_plugin
         zero_stage_3 = deepspeed_plugin is not None and deepspeed_plugin.zero_stage == 3
         if zero_stage_3:
@@ -467,7 +468,7 @@ class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
         else:
             gather_if_zero3 = nullcontext
 
-        if self.args.async_generate:
+        if self.args.async_generate and not skip_async_check:
             # before sync weight, we should wait async generate finish
             self._wait_queue()
 
@@ -753,13 +754,18 @@ class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
     def _prefetch(self, dataloader: DataLoader):
         inputs = next(iter(dataloader))
         all_inputs = gather_object(inputs)
+        if self.state.global_step != self._last_loaded_step:
+            self._move_model_to_vllm(skip_async_check=True)
+            self._last_loaded_step = self.state.global_step
         outputs = self._infer_single_or_multi_turn(all_inputs, self.request_config, is_global_inputs=True)
         self._queue.put(DataCache(all_inputs, outputs))
 
     def _fast_infer(self, inputs: InputsType) -> Tuple[InputsType, OutputsType]:
         if self.vllm_mode == 'colocate' and self.args.sleep_level > 0:
             if self.args.offload_model:
-                self.offload_model()
+                self.offload_model(self.accelerator.unwrap_model(self.model))
+                if self.ref_model:
+                    self.offload_model(self.ref_model)
             if self.args.offload_optimizer:
                 self.offload_optimizer()
             if self.args.gc_collect_after_offload:
@@ -797,7 +803,9 @@ class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
             if self.args.gc_collect_after_offload:
                 gc_collect()
             if self.args.offload_model:
-                self.load_model()
+                self.load_model(self.accelerator.unwrap_model(self.model))
+                if self.ref_model:
+                    self.load_model(self.ref_model)
             if self.args.offload_optimizer:
                 self.load_optimizer()
         return inputs, outputs
@@ -1387,37 +1395,18 @@ class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
             return self.train_queue
 
     @torch.no_grad()
-    def offload_model(self):
-        if len(self.offload_modules) > 0:
-            return
-        unwrapped_model = self.accelerator.unwrap_model(self.model)
-        for name, module in unwrapped_model.named_modules():
-            if isinstance(module, torch.nn.Embedding):
-                self.offload_modules[name] = module.weight.device
-                module.to('cpu')
-            elif not hasattr(module, 'device'):
-                pass
-            elif module.device.type != 'cpu':
-                self.offload_modules[name] = module.device
-                module.to('cpu')
+    def offload_model(self, model):
+        for param in model.parameters():
+            param.data = param.data.to(torch.device('cpu'), non_blocking=True)
 
     @torch.no_grad()
-    def load_model(self):
-        if len(self.offload_modules) == 0:
-            return
-        unwrapped_model = self.accelerator.unwrap_model(self.model)
-        for name, device in self.offload_modules.items():
-            module = unwrapped_model.get_submodule(name)
-            if isinstance(module, torch.nn.Embedding):
-                module.weight.to(device)
-            else:
-                module.to(device)
-        self.offload_modules.clear()
+    def load_model(self, model):
+        device = get_current_device()
+        for param in model.parameters():
+            param.data = param.data.to(device, non_blocking=True)
 
     @torch.no_grad()
     def offload_optimizer(self):
-        if len(self.offload_states) > 0:
-            return
         if not self.optimizer.state:
             return
         for param_group in self.optimizer.param_groups:
@@ -1425,13 +1414,11 @@ class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
                 state = self.optimizer.state[param]
                 for key, value in state.items():
                     if isinstance(value, torch.Tensor):
-                        self.offload_states[key] = value.device
                         state[key] = value.to('cpu', non_blocking=True)
 
     @torch.no_grad()
     def load_optimizer(self):
-        if len(self.offload_states) == 0:
-            return
+        device = get_current_device()
         if not self.optimizer.state:
             return
         for param_group in self.optimizer.param_groups:
@@ -1439,8 +1426,7 @@ class GRPOTrainer(RLHFTrainerMixin, SwiftMixin, HFGRPOTrainer):
                 state = self.optimizer.state[param]
                 for key, value in state.items():
                     if isinstance(value, torch.Tensor):
-                        state[key] = value.to(self.offload_states[key], non_blocking=True)
-        self.offload_states.clear()
+                        state[key] = value.to(device, non_blocking=True)
 
     @contextmanager
     def multi_turn_completion_length_context(self):

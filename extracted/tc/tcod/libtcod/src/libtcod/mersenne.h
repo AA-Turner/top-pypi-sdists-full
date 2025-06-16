@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_RANDOM_H
-#define _TCOD_RANDOM_H
+#pragma once
+#ifndef TCOD_RANDOM_H_
+#define TCOD_RANDOM_H_
 
 #include "mersenne_types.h"
 #include "portability.h"
@@ -61,4 +62,4 @@ TCODLIB_API int TCOD_random_dice_roll_s(TCOD_Random* mersenne, const char* s);
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif  // TCOD_RANDOM_H_

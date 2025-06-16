@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: asyncio-nats-streaming
+Version: 0.4.0
+Summary: NATS Streaming client for Python Asyncio
+Home-page: https://github.com/nats-io/stan.py
+Author: Waldemar Quevedo
+Author-email: wally@synadia.com
+License: Apache 2 License
+Description: Asyncio based Python client for NATS Streaming
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7

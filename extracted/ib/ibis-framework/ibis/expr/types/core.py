@@ -17,6 +17,7 @@ from ibis.common.typing import get_defining_scope
 from ibis.config import _default_backend
 from ibis.config import options as opts
 from ibis.expr.format import pretty
+from ibis.expr.types.rich import capture_rich_renderable, to_rich
 from ibis.util import experimental
 
 if TYPE_CHECKING:
@@ -27,41 +28,11 @@ if TYPE_CHECKING:
     import polars as pl
     import pyarrow as pa
     import torch
-    from rich.console import Console, RenderableType
+    from rich.console import Console
 
     import ibis.expr.types as ir
     from ibis.backends import BaseBackend
     from ibis.expr.visualize import EdgeAttributeGetter, NodeAttributeGetter
-
-
-try:
-    from rich.jupyter import JupyterMixin
-except ImportError:
-
-    class _FixedTextJupyterMixin:
-        """No-op when rich is not installed."""
-else:
-
-    class _FixedTextJupyterMixin(JupyterMixin):
-        """JupyterMixin adds a spurious newline to text, this fixes the issue."""
-
-        def _repr_mimebundle_(self, *args, **kwargs):
-            try:
-                bundle = super()._repr_mimebundle_(*args, **kwargs)
-            except Exception:  # noqa: BLE001
-                return None
-            else:
-                bundle["text/plain"] = bundle["text/plain"].rstrip()
-                return bundle
-
-
-def _capture_rich_renderable(renderable: RenderableType) -> str:
-    from rich.console import Console
-
-    console = Console(force_terminal=False)
-    with console.capture() as capture:
-        console.print(renderable)
-    return capture.get().rstrip()
 
 
 @public
@@ -80,7 +51,7 @@ class Expr(Immutable, Coercible):
 
     def __repr__(self) -> str:
         if ibis.options.interactive:
-            return _capture_rich_renderable(self)
+            return capture_rich_renderable(self)
         else:
             return self._noninteractive_repr()
 
@@ -101,8 +72,6 @@ class Expr(Immutable, Coercible):
 
         try:
             if opts.interactive:
-                from ibis.expr.types.pretty import to_rich
-
                 rich_object = to_rich(self, console_width=console_width)
             else:
                 rich_object = Text(self._noninteractive_repr())
@@ -555,8 +524,8 @@ class Expr(Immutable, Coercible):
         params: Mapping[ir.Scalar, Any] | None = None,
         limit: int | str | None = None,
         **kwargs: Any,
-    ) -> pa.Table:
-        """Execute expression and return results in as a pyarrow table.
+    ) -> pa.Table | pa.Array | pa.Scalar:
+        """Execute expression to a pyarrow object.
 
         This method is eager and will execute the associated expression
         immediately.
@@ -567,14 +536,16 @@ class Expr(Immutable, Coercible):
             Mapping of scalar parameter expressions to value.
         limit
             An integer to effect a specific row limit. A value of `None` means
-            "no limit". The default is in `ibis/config.py`.
+            no limit. The default is in `ibis/config.py`.
         kwargs
             Keyword arguments
 
         Returns
         -------
-        Table
-            A pyarrow table holding the results of the executed expression.
+        result
+            If the passed expression is a Table, a pyarrow table is returned.
+            If the passed expression is a Column, a pyarrow array is returned.
+            If the passed expression is a Scalar, a pyarrow scalar is returned.
         """
         return self._find_backend(use_default=True).to_pyarrow(
             self, params=params, limit=limit, **kwargs

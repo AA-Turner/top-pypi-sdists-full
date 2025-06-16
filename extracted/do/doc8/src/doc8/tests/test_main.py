@@ -1,12 +1,11 @@
 import os
-from io import StringIO
-import unittest
-from unittest.mock import patch, MagicMock
 import shutil
 import sys
+import unittest
+from io import StringIO
+from unittest.mock import MagicMock, patch
 
-from doc8.main import main, doc8, from_toml
-
+from doc8.main import doc8, from_toml, main
 
 # Location to create test files
 TMPFS_DIR_NAME = ".tmp"
@@ -78,9 +77,7 @@ Detailed error counts:
 
 
 class Capture:
-    """
-    Context manager to capture output on stdout and stderr
-    """
+    """Context manager to capture output on stdout and stderr"""
 
     def __enter__(self):
         self.old_out = sys.stdout
@@ -99,15 +96,13 @@ class Capture:
 
 
 class TmpFs:
-    """
-    Context manager to create and clean a temporary file area for testing
-    """
+    """Context manager to create and clean a temporary file area for testing"""
 
     def __enter__(self):
         self.path = os.path.join(os.getcwd(), TMPFS_DIR_NAME)
         if os.path.exists(self.path):
             raise ValueError(
-                "Tmp dir found at %s - remove before running tests" % self.path
+                "Tmp dir found at %s - remove before running tests" % self.path,
             )
         os.mkdir(self.path)
         return self
@@ -120,22 +115,16 @@ class TmpFs:
             file.write(content)
 
     def mock(self):
-        """
-        Create a file which fails on a LineCheck and a ContentCheck
-        """
+        """Create a file which fails on a LineCheck and a ContentCheck"""
         self.create_file("invalid.rst", "D002 D005 ")
 
     def expected(self, template):
-        """
-        Insert the path into a template to generate an expected test value
-        """
+        """Insert the path into a template to generate an expected test value"""
         return template.format(path=self.path)
 
 
 class FakeResult:
-    """
-    Minimum valid result returned from doc8
-    """
+    """Minimum valid result returned from doc8"""
 
     total_errors = 0
 
@@ -144,13 +133,13 @@ class FakeResult:
 
 
 class TestCommandLine(unittest.TestCase):
-    """
-    Test command line invocation
-    """
+    """Test command line invocation"""
 
     def test_main__no_quiet_no_verbose__output_is_not_quiet(self):
-        with TmpFs() as tmpfs, Capture() as (out, err), patch(
-            "argparse._sys.argv", ["doc8", tmpfs.path]
+        with (
+            TmpFs() as tmpfs,
+            Capture() as (out, err),
+            patch("argparse._sys.argv", ["doc8", tmpfs.path]),
         ):
             tmpfs.mock()
             state = main()
@@ -159,8 +148,10 @@ class TestCommandLine(unittest.TestCase):
         self.assertEqual(state, 1)
 
     def test_main__quiet_no_verbose__output_is_quiet(self):
-        with TmpFs() as tmpfs, Capture() as (out, err), patch(
-            "argparse._sys.argv", ["doc8", "--quiet", tmpfs.path]
+        with (
+            TmpFs() as tmpfs,
+            Capture() as (out, err),
+            patch("argparse._sys.argv", ["doc8", "--quiet", tmpfs.path]),
         ):
             tmpfs.mock()
             state = main()
@@ -169,8 +160,10 @@ class TestCommandLine(unittest.TestCase):
         self.assertEqual(state, 1)
 
     def test_main__no_quiet_verbose__output_is_verbose(self):
-        with TmpFs() as tmpfs, Capture() as (out, err), patch(
-            "argparse._sys.argv", ["doc8", "--verbose", tmpfs.path]
+        with (
+            TmpFs() as tmpfs,
+            Capture() as (out, err),
+            patch("argparse._sys.argv", ["doc8", "--verbose", tmpfs.path]),
         ):
             tmpfs.mock()
             state = main()
@@ -180,9 +173,7 @@ class TestCommandLine(unittest.TestCase):
 
 
 class TestApi(unittest.TestCase):
-    """
-    Test direct code invocation
-    """
+    """Test direct code invocation"""
 
     def test_doc8__defaults__no_output_and_report_as_expected(self):
         with TmpFs() as tmpfs, Capture() as (out, err):
@@ -195,14 +186,14 @@ class TestApi(unittest.TestCase):
                 [
                     (
                         "doc8.checks.CheckTrailingWhitespace",
-                        "{}/invalid.rst".format(tmpfs.path),
+                        f"{tmpfs.path}/invalid.rst",
                         1,
                         "D002",
                         "Trailing whitespace",
                     ),
                     (
                         "doc8.checks.CheckNewlineEndOfFile",
-                        "{}/invalid.rst".format(tmpfs.path),
+                        f"{tmpfs.path}/invalid.rst",
                         1,
                         "D005",
                         "No newline at end of file",
@@ -225,9 +216,7 @@ class TestApi(unittest.TestCase):
 
 
 class TestArguments(unittest.TestCase):
-    """
-    Test that arguments are parsed correctly
-    """
+    """Test that arguments are parsed correctly"""
 
     def get_args(self, **kwargs):
         # Defaults
@@ -282,8 +271,9 @@ class TestArguments(unittest.TestCase):
 
     def test_args__paths__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "path1", "path2"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("argparse._sys.argv", ["doc8", "path1", "path2"]),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -292,10 +282,13 @@ class TestArguments(unittest.TestCase):
     def test_args__config__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
         mock_config = MagicMock(return_value={})
-        with patch("doc8.main.scan", mock_scan), patch(
-            "doc8.main.extract_config", mock_config
-        ), patch(
-            "argparse._sys.argv", ["doc8", "--config", "path1", "--config", "path2"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("doc8.main.extract_config", mock_config),
+            patch(
+                "argparse._sys.argv",
+                ["doc8", "--config", "path1", "--config", "path2"],
+            ),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -303,8 +296,9 @@ class TestArguments(unittest.TestCase):
 
     def test_args__allow_long_titles__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "--allow-long-titles"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("argparse._sys.argv", ["doc8", "--allow-long-titles"]),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -312,9 +306,12 @@ class TestArguments(unittest.TestCase):
 
     def test_args__ignore__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv",
-            ["doc8", "--ignore", "D002", "--ignore", "D002", "--ignore", "D005"],
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch(
+                "argparse._sys.argv",
+                ["doc8", "--ignore", "D002", "--ignore", "D002", "--ignore", "D005"],
+            ),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -322,8 +319,9 @@ class TestArguments(unittest.TestCase):
 
     def test_args__sphinx__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "--no-sphinx"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("argparse._sys.argv", ["doc8", "--no-sphinx"]),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -331,38 +329,47 @@ class TestArguments(unittest.TestCase):
 
     def test_args__ignore_path__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv",
-            ["doc8", "--ignore-path", "path1", "--ignore-path", "path2"],
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch(
+                "argparse._sys.argv",
+                ["doc8", "--ignore-path", "path1", "--ignore-path", "path2"],
+            ),
         ):
             state = main()
             self.assertEqual(state, 0)
             mock_scan.assert_called_once_with(
-                self.get_args(ignore_path=["path1", "path2"])
+                self.get_args(ignore_path=["path1", "path2"]),
             )
 
     def test_args__ignore_path_errors__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv",
-            [
-                "doc8",
-                "--ignore-path-errors",
-                "path1;D002",
-                "--ignore-path-errors",
-                "path2;D005",
-            ],
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch(
+                "argparse._sys.argv",
+                [
+                    "doc8",
+                    "--ignore-path-errors",
+                    "path1;D002",
+                    "--ignore-path-errors",
+                    "path2;D005",
+                ],
+            ),
         ):
             state = main()
             self.assertEqual(state, 0)
             mock_scan.assert_called_once_with(
-                self.get_args(ignore_path_errors={"path1": {"D002"}, "path2": {"D005"}})
+                self.get_args(
+                    ignore_path_errors={"path1": {"D002"}, "path2": {"D005"}},
+                ),
             )
 
     def test_args__default_extension__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "--default-extension", "rst"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("argparse._sys.argv", ["doc8", "--default-extension", "rst"]),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -370,8 +377,9 @@ class TestArguments(unittest.TestCase):
 
     def test_args__file_encoding__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "--file-encoding", "utf8"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("argparse._sys.argv", ["doc8", "--file-encoding", "utf8"]),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -379,8 +387,9 @@ class TestArguments(unittest.TestCase):
 
     def test_args__max_line_length__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "--max-line-length", "88"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("argparse._sys.argv", ["doc8", "--max-line-length", "88"]),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -389,19 +398,24 @@ class TestArguments(unittest.TestCase):
     def test_args__extension__overrides_default(self):
         # ": [".rst", ".txt"],
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "--extension", "ext1", "--extension", "ext2"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch(
+                "argparse._sys.argv",
+                ["doc8", "--extension", "ext1", "--extension", "ext2"],
+            ),
         ):
             state = main()
             self.assertEqual(state, 0)
             mock_scan.assert_called_once_with(
-                self.get_args(extension=[".rst", ".txt", "ext1", "ext2"])
+                self.get_args(extension=[".rst", ".txt", "ext1", "ext2"]),
             )
 
     def test_args__quiet__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "--quiet"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("argparse._sys.argv", ["doc8", "--quiet"]),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -409,8 +423,9 @@ class TestArguments(unittest.TestCase):
 
     def test_args__verbose__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "--verbose"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("argparse._sys.argv", ["doc8", "--verbose"]),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -418,8 +433,9 @@ class TestArguments(unittest.TestCase):
 
     def test_args__version__overrides_default(self):
         mock_scan = MagicMock(return_value=([], 0))
-        with patch("doc8.main.scan", mock_scan), patch(
-            "argparse._sys.argv", ["doc8", "--version"]
+        with (
+            patch("doc8.main.scan", mock_scan),
+            patch("argparse._sys.argv", ["doc8", "--version"]),
         ):
             state = main()
             self.assertEqual(state, 0)
@@ -440,9 +456,7 @@ sphinx = false"""
 
 
 class TestConfig(unittest.TestCase):
-    """
-    Test that configuration file is loaded correctly
-    """
+    """Test that configuration file is loaded correctly"""
 
     def test_config__from_toml(self):
         with TmpFs() as tmpfs:

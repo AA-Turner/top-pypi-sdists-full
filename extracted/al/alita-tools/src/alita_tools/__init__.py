@@ -20,7 +20,7 @@ from .qtest import get_tools as get_qtest, QtestToolkit
 from .zephyr_scale import get_tools as get_zephyr_scale, ZephyrScaleToolkit
 from .zephyr_enterprise import get_tools as get_zephyr_enterprise, ZephyrEnterpriseToolkit
 from .ado import get_tools as get_ado
-from .ado.repos import AzureDevOpsReposToolkit
+from .ado.repos import get_tools as  get_ado_repo,  AzureDevOpsReposToolkit
 from .ado.test_plan import AzureDevOpsPlansToolkit
 from .ado.work_item import AzureDevOpsWorkItemsToolkit
 from .ado.wiki import AzureDevOpsWikiToolkit
@@ -52,7 +52,7 @@ def get_tools(tools_list, alita: 'AlitaClient', llm: 'LLMLikeObject', *args, **k
     for tool in tools_list:
         # validate tool name syntax - it cannot be started with _
         for tool_name in tool.get('settings', {}).get('selected_tools', []):
-            if tool_name.startswith('_'):
+            if isinstance(tool_name, str) and tool_name.startswith('_'):
                 raise ValueError(f"Tool name '{tool_name}' from toolkit '{tool.get('type', '')}' cannot start with '_'")
         tool['settings']['alita'] = alita
         tool['settings']['llm'] = llm
@@ -82,8 +82,10 @@ def get_tools(tools_list, alita: 'AlitaClient', llm: 'LLMLikeObject', *args, **k
             tools.extend(get_bitbucket(tool))
         elif tool['type'] == 'testrail':
             tools.extend(get_testrail(tool))
-        elif tool['type'] in ['ado_boards', 'ado_wiki', 'ado_plans', 'ado_repos', 'azure_devops_repos']:
+        elif tool['type'] in ['ado_boards', 'ado_wiki', 'ado_plans']:
             tools.extend(get_ado(tool['type'], tool))
+        elif tool['type'] in ['ado_repos', 'azure_devops_repos']:
+            tools.extend(get_ado_repo(tool))
         elif tool['type'] == 'testio':
             tools.extend(get_testio(tool))
         elif tool['type'] == 'xray_cloud':

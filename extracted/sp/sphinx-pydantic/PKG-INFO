@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: sphinx-pydantic
+Version: 0.1.1
+Summary: Generate Sphinx documentation from PyDantic objects.
+Home-page: https://github.com/Zsailer/sphinx_pydantic
+Author: Zach Sailer
+Author-email: zachsailer@gmail.com
+License: MIT
+Description: 
+        sphinx-pydantic
+        ===============
+        
+        **Autogenerate documentation from pydantic objects in Sphinx**
+        
+        See the [documentation](https://sphinx-pydantic.readthedocs.io).
+        
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.6.0
+Description-Content-Type: text/markdown

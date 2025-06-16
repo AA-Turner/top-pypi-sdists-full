@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -93,7 +93,7 @@ static const float DELTA = 1e-6f;
     (y) = swap_variable__;    \
   }
 
-#define FLOOR(a) ((a) > 0 ? (int)(a) : ((int)(a)-1))
+#define FLOOR(a) ((a) > 0 ? (int)(a) : ((int)(a) - 1))
 #define CUBIC(a) ((a) * (a) * (3 - 2 * (a)))
 
 static void normalize(const TCOD_Noise* __restrict data, float* __restrict f) {
@@ -108,7 +108,7 @@ static void normalize(const TCOD_Noise* __restrict data, float* __restrict f) {
 }
 
 TCOD_Noise* TCOD_noise_new(int ndim, float hurst, float lacunarity, TCOD_Random* random) {
-  TCOD_Noise* data = calloc(sizeof(*data), 1);
+  TCOD_Noise* data = calloc(1, sizeof(*data));
   if (!data) {
     TCOD_set_errorv("Out of memory.");
     return NULL;
@@ -153,39 +153,39 @@ static float TCOD_noise_perlin(TCOD_Noise* __restrict data, const float* __restr
   float value;
   switch (data->ndim) {
     case 1:
-      value =
-          LERP(lattice(data, n[0], r[0], 0, 0, 0, 0, 0, 0), lattice(data, n[0] + 1, r[0] - 1, 0, 0, 0, 0, 0, 0), w[0]);
+      value = TCOD_LERP(
+          lattice(data, n[0], r[0], 0, 0, 0, 0, 0, 0), lattice(data, n[0] + 1, r[0] - 1, 0, 0, 0, 0, 0, 0), w[0]);
       break;
     case 2:
-      value = LERP(
-          LERP(
+      value = TCOD_LERP(
+          TCOD_LERP(
               lattice(data, n[0], r[0], n[1], r[1], 0, 0, 0, 0),
               lattice(data, n[0] + 1, r[0] - 1, n[1], r[1], 0, 0, 0, 0),
               w[0]),
-          LERP(
+          TCOD_LERP(
               lattice(data, n[0], r[0], n[1] + 1, r[1] - 1, 0, 0, 0, 0),
               lattice(data, n[0] + 1, r[0] - 1, n[1] + 1, r[1] - 1, 0, 0, 0, 0),
               w[0]),
           w[1]);
       break;
     case 3:
-      value = LERP(
-          LERP(
-              LERP(
+      value = TCOD_LERP(
+          TCOD_LERP(
+              TCOD_LERP(
                   lattice(data, n[0], r[0], n[1], r[1], n[2], r[2], 0, 0),
                   lattice(data, n[0] + 1, r[0] - 1, n[1], r[1], n[2], r[2], 0, 0),
                   w[0]),
-              LERP(
+              TCOD_LERP(
                   lattice(data, n[0], r[0], n[1] + 1, r[1] - 1, n[2], r[2], 0, 0),
                   lattice(data, n[0] + 1, r[0] - 1, n[1] + 1, r[1] - 1, n[2], r[2], 0, 0),
                   w[0]),
               w[1]),
-          LERP(
-              LERP(
+          TCOD_LERP(
+              TCOD_LERP(
                   lattice(data, n[0], r[0], n[1], r[1], n[2] + 1, r[2] - 1, 0, 0),
                   lattice(data, n[0] + 1, r[0] - 1, n[1], r[1], n[2] + 1, r[2] - 1, 0, 0),
                   w[0]),
-              LERP(
+              TCOD_LERP(
                   lattice(data, n[0], r[0], n[1] + 1, r[1] - 1, n[2] + 1, r[2] - 1, 0, 0),
                   lattice(data, n[0] + 1, r[0] - 1, n[1] + 1, r[1] - 1, n[2] + 1, r[2] - 1, 0, 0),
                   w[0]),
@@ -193,46 +193,46 @@ static float TCOD_noise_perlin(TCOD_Noise* __restrict data, const float* __restr
           w[2]);
       break;
     case 4:
-      value = LERP(
-          LERP(
-              LERP(
-                  LERP(
+      value = TCOD_LERP(
+          TCOD_LERP(
+              TCOD_LERP(
+                  TCOD_LERP(
                       lattice(data, n[0], r[0], n[1], r[1], n[2], r[2], n[3], r[3]),
                       lattice(data, n[0] + 1, r[0] - 1, n[1], r[1], n[2], r[2], n[3], r[3]),
                       w[0]),
-                  LERP(
+                  TCOD_LERP(
                       lattice(data, n[0], r[0], n[1] + 1, r[1] - 1, n[2], r[2], n[3], r[3]),
                       lattice(data, n[0] + 1, r[0] - 1, n[1] + 1, r[1] - 1, n[2], r[2], n[3], r[3]),
                       w[0]),
                   w[1]),
-              LERP(
-                  LERP(
+              TCOD_LERP(
+                  TCOD_LERP(
                       lattice(data, n[0], r[0], n[1], r[1], n[2] + 1, r[2] - 1, n[3], r[3]),
                       lattice(data, n[0] + 1, r[0] - 1, n[1], r[1], n[2] + 1, r[2] - 1, n[3], r[3]),
                       w[0]),
-                  LERP(
+                  TCOD_LERP(
                       lattice(data, n[0], r[0], n[1] + 1, r[1] - 1, n[2] + 1, r[2] - 1, 0, 0),
                       lattice(data, n[0] + 1, r[0] - 1, n[1] + 1, r[1] - 1, n[2] + 1, r[2] - 1, n[3], r[3]),
                       w[0]),
                   w[1]),
               w[2]),
-          LERP(
-              LERP(
-                  LERP(
+          TCOD_LERP(
+              TCOD_LERP(
+                  TCOD_LERP(
                       lattice(data, n[0], r[0], n[1], r[1], n[2], r[2], n[3] + 1, r[3] - 1),
                       lattice(data, n[0] + 1, r[0] - 1, n[1], r[1], n[2], r[2], n[3] + 1, r[3] - 1),
                       w[0]),
-                  LERP(
+                  TCOD_LERP(
                       lattice(data, n[0], r[0], n[1] + 1, r[1] - 1, n[2], r[2], n[3] + 1, r[3] - 1),
                       lattice(data, n[0] + 1, r[0] - 1, n[1] + 1, r[1] - 1, n[2], r[2], n[3] + 1, r[3] - 1),
                       w[0]),
                   w[1]),
-              LERP(
-                  LERP(
+              TCOD_LERP(
+                  TCOD_LERP(
                       lattice(data, n[0], r[0], n[1], r[1], n[2] + 1, r[2] - 1, n[3] + 1, r[3] - 1),
                       lattice(data, n[0] + 1, r[0] - 1, n[1], r[1], n[2] + 1, r[2] - 1, n[3] + 1, r[3] - 1),
                       w[0]),
-                  LERP(
+                  TCOD_LERP(
                       lattice(data, n[0], r[0], n[1] + 1, r[1] - 1, n[2] + 1, r[2] - 1, 0, 0),
                       lattice(data, n[0] + 1, r[0] - 1, n[1] + 1, r[1] - 1, n[2] + 1, r[2] - 1, n[3] + 1, r[3] - 1),
                       w[0]),
@@ -671,7 +671,7 @@ static float TCOD_noise_turbulence_int(
   float value = 0;
   for (i = 0; i < (int)octaves; ++i) {
     const float noise_value = func(noise, tf);
-    value += ABS(noise_value) * noise->exponent[i];
+    value += TCOD_ABS(noise_value) * noise->exponent[i];
     for (int j = 0; j < noise->ndim; ++j) {
       tf[j] *= noise->lacunarity;
     }
@@ -681,7 +681,7 @@ static float TCOD_noise_turbulence_int(
   octaves -= (int)octaves;
   if (octaves > DELTA) {
     const float noise_value = func(noise, tf);
-    value += octaves * ABS(noise_value) * noise->exponent[i];
+    value += octaves * TCOD_ABS(noise_value) * noise->exponent[i];
   }
   return clamp_signed_f(value);
 }

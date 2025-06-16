@@ -193,7 +193,6 @@ async def worker(
         async with connect() as conn:
             if exception is None:
                 status = "success"
-                await Runs.set_status(conn, run_id, "success")
                 # If a stateful run succeeded but no checkpoint was returned, likely
                 # there was a retriable exception that resumed right at the end
                 if checkpoint is None and not temporary:
@@ -214,6 +213,9 @@ async def worker(
                             run_id=str(run_id),
                             run_attempt=attempt,
                         )
+                await Threads.set_joint_status(
+                    conn, run["thread_id"], run_id, status, checkpoint=checkpoint
+                )
             elif isinstance(exception, TimeoutError):
                 status = "timeout"
                 run_ended_at = datetime.now(UTC).isoformat()
@@ -231,13 +233,17 @@ async def worker(
                         else None
                     ),
                 )
-                await Runs.set_status(conn, run_id, "timeout")
+                await Threads.set_joint_status(
+                    conn, run["thread_id"], run_id, status, checkpoint=checkpoint
+                )
             elif isinstance(exception, UserRollback):
                 status = "rollback"
                 run_ended_at_dt = datetime.now(UTC)
                 run_ended_at = run_ended_at_dt.isoformat()
                 try:
-                    await Runs.delete(conn, run_id, thread_id=run["thread_id"])
+                    await Threads.set_joint_status(
+                        conn, run["thread_id"], run_id, status, checkpoint=checkpoint
+                    )
                     await logger.ainfo(
                         "Background run rolled back",
                         run_id=str(run_id),
@@ -285,7 +291,9 @@ async def worker(
                         else None
                     ),
                 )
-                await Runs.set_status(conn, run_id, "interrupted")
+                await Threads.set_joint_status(
+                    conn, run["thread_id"], run_id, status, checkpoint, exception
+                )
             elif isinstance(exception, RETRIABLE_EXCEPTIONS):
                 status = "retry"
                 run_ended_at_dt = datetime.now(UTC)
@@ -300,6 +308,7 @@ async def worker(
                     run_ended_at=run_ended_at,
                     run_exec_ms=ms(run_ended_at_dt, run_started_at),
                 )
+                # Don't update thread status yet.
                 await Runs.set_status(conn, run_id, "pending")
             else:
                 status = "error"
@@ -315,7 +324,9 @@ async def worker(
                     run_ended_at=run_ended_at,
                     run_exec_ms=ms(run_ended_at_dt, run_started_at),
                 )
-                await Runs.set_status(conn, run_id, "error")
+                await Threads.set_joint_status(
+                    conn, run["thread_id"], run_id, status, checkpoint, exception
+                )
 
             # delete or set status of thread
             if not isinstance(exception, RETRIABLE_EXCEPTIONS):
@@ -336,6 +347,7 @@ async def worker(
                             raise
 
         if isinstance(exception, RETRIABLE_EXCEPTIONS):
+            await logger.awarning("RETRYING", exc_info=exception)
             # re-raise so Runs.enter knows not to mark as done
             # Runs.enter will catch the exception, but what triggers the retry
             # is setting the status to "pending"

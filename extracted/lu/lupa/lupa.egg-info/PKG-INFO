@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: lupa
-Version: 2.4
+Version: 2.5
 Summary: Python wrapper around Lua and LuaJIT
 Home-page: https://github.com/scoder/lupa
 Author: Stefan Behnel
@@ -11,7 +11,6 @@ License: MIT style
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Lua
@@ -25,6 +24,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: summary
@@ -66,7 +66,7 @@ Major features
 * frees the GIL and supports threading in separate runtimes when
   calling into Lua
 
-* tested with Python 2.7/3.6 and later
+* tested with Python 3.8 and later
 
 * ships with Lua 5.1, 5.2, 5.3 and 5.4
   as well as LuaJIT 2.0 and 2.1 on systems that support it.
@@ -966,7 +966,7 @@ setter function implementations for a ``LuaRuntime``:
         ...     raise AttributeError(
         ...         'not allowed to write attribute "%s"' % attr_name)
 
-        >>> class X(object):
+        >>> class X:
         ...     yes = 123
         ...     put = 'abc'
         ...     noway = 2.1
@@ -1025,7 +1025,7 @@ calculations unless you specify ``total=True``.
 Lua code hitting the memory limit will receive memory errors:
 
 .. code:: python
-      
+
         >>> lua.set_max_memory(100)
         >>> lua.eval("string.rep('a', 1000)")   # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
@@ -1252,6 +1252,19 @@ OS X + Lua 5.2 + Homebrew
 
 Lupa change log
 ===============
+
+2.5 (2025-06-15)
+----------------
+
+* GH#284: Lua uses ``dlopen()`` again, which was lost in Lupa 2.3.
+  Patch by Philipp Krones.
+
+* The bundled Lua 5.4 was updated to 5.4.8.
+
+* The bundled LuaJIT versions were updated to the latest git branches.
+
+* Built with Cython 3.1.2.
+
 
 2.4 (2025-01-10)
 ----------------

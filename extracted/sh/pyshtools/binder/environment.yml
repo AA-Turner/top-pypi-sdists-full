@@ -1,0 +1,7 @@
+name: pyshtools
+channels:
+    - conda-forge
+dependencies:
+    - python=3.12
+    - pyshtools>=4.13.0
+    - palettable>=3.3

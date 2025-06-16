@@ -1,8 +1,0 @@
-parameters:
-  foo: &foo
-    bar: bar
-    baz: baz
-  foo_merge:
-    <<: *foo
-    qux: qux
-  bar_merge: *foo

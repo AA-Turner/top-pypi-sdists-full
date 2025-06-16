@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apify_client"
-version = "1.10.0"
+version = "1.11.0"
 description = "Apify API client for Python"
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
@@ -25,6 +25,7 @@ classifiers = [
 keywords = ["apify", "api", "client", "automation", "crawling", "scraping"]
 dependencies = [
     "apify-shared>=1.4.1",
+    "colorama~=0.4.0",
     "httpx>=0.25",
     "more_itertools>=10.0.0",
 ]
@@ -40,18 +41,19 @@ dependencies = [
 [dependency-groups]
 dev = [
     "griffe~=1.7.0",
-    "mypy~=1.15.0",
+    "mypy~=1.16.0",
     "pre-commit~=4.2.0",
     "pydoc-markdown~=4.8.0",
-    "pytest-asyncio~=0.26.0",
-    "pytest-cov~=6.1.0",
+    "pytest-asyncio~=1.0.0",
+    "pytest-cov~=6.2.0",
     "pytest-only~=2.1.0",
-    "pytest-xdist~=3.6.0",
-    "pytest~=8.3.0",
+    "pytest-xdist~=3.7.0",
+    "pytest~=8.4.0",
     "redbaron~=0.9.0",
     "respx~=0.22.0",
     "ruff~=0.11.0",
     "setuptools",  # setuptools are used by pytest but not explicitly required
+    "types-colorama~=0.4.15.20240106",
 ]
 
 [tool.hatch.build.targets.wheel]

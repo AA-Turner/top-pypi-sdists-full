@@ -1,0 +1,32 @@
+Metadata-Version: 2.1
+Name: suds-bis
+Version: 1.0.1
+Summary: Lightweight SOAP client
+Home-page: https://github.com/jaraco/suds
+Author: Jeff Ortel
+Author-email: jortel@redhat.com
+Maintainer: Jason R. Coombs
+Maintainer-email: jaraco@jaraco.com
+Keywords: SOAP,web,service,client
+Classifier: Development Status :: 7 - Inactive
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.6
+License-File: LICENSE
+Requires-Dist: importlib_metadata
+Provides-Extra: testing
+Requires-Dist: pytest>=4.6; extra == "testing"
+Requires-Dist: pytest-checkdocs>=2.4; extra == "testing"
+Requires-Dist: pytest-flake8; extra == "testing"
+Requires-Dist: pytest-black>=0.3.7; platform_python_implementation != "PyPy" and extra == "testing"
+Requires-Dist: pytest-cov; extra == "testing"
+Requires-Dist: pytest-mypy; platform_python_implementation != "PyPy" and extra == "testing"
+Requires-Dist: pytest-enabler>=1.0.1; extra == "testing"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: jaraco.packaging>=8.2; extra == "docs"
+Requires-Dist: rst.linker>=1.9; extra == "docs"
+
+Don't use this project. Instead use https://pypi.org/project/suds.

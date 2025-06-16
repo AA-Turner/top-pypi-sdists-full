@@ -1,0 +1,72 @@
+Metadata-Version: 1.1
+Name: pyrapidjson
+Version: 0.5.1
+Summary: Python Interface for rapidjson(JSON parser and generator).
+Home-page: https://github.com/hhatto/pyrapidjson
+Author: Hideo Hattori
+Author-email: hhatto.jp@gmail.com
+License: Expat License
+Description: pyrapidjson
+        ===========
+        .. image:: https://travis-ci.org/hhatto/pyrapidjson.png?branch=master
+           :target: https://travis-ci.org/hhatto/pyrapidjson
+           :alt: Build status
+        
+        
+        About
+        -----
+        pyrapidjson is a wrapper for `rapidjson`_ (JSON parser/generator).
+        
+        .. _`rapidjson`: https://github.com/miloyip/rapidjson
+        
+        
+        Installation
+        ------------
+        from pip::
+        
+            $ pip install pyrapidjson
+        
+        from easy_install::
+        
+            easy_install -ZU pyrapidjson
+        
+        
+        Requirements
+        ------------
+        Python2.7+
+        
+        
+        Usage
+        -----
+        
+        basic usage::
+        
+            >>> import rapidjson
+            >>> rapidjson.loads('[1, 2, {"test": "hoge"}]')
+            >>> [1, 2, {"test": "hoge"}]
+            >>> rapidjson.dumps([1, 2, {"foo": "bar"}])
+            '[1,2,{"foo":"bar"}]'
+            >>>
+        
+        
+        Links
+        -----
+        * PyPI_
+        * GitHub_
+        * `Travis-CI`_
+        
+        .. _PyPI: http://pypi.python.org/pypi/pyrapidjson/
+        .. _GitHub: https://github.com/hhatto/pyrapidjson
+        .. _`Travis-CI`: https://travis-ci.org/hhatto/pyrapidjson
+        
+        
+Keywords: json rapidjson
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: C++
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3

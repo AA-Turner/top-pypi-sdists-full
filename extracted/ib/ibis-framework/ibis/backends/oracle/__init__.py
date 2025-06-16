@@ -22,7 +22,12 @@ import ibis.expr.operations as ops
 import ibis.expr.schema as sch
 import ibis.expr.types as ir
 from ibis import util
-from ibis.backends import CanListDatabase, PyArrowExampleLoader
+from ibis.backends import (
+    CanListDatabase,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+    PyArrowExampleLoader,
+)
 from ibis.backends.sql import SQLBackend
 from ibis.backends.sql.compilers.base import STAR, C
 
@@ -68,14 +73,20 @@ def metadata_row_to_type(
         and precision is not None
         and (scale is not None and scale > 0)
     ):
-        typ = dt.Decimal(precision=precision, scale=scale, nullable=nullable)
+        typ = dt.Decimal(precision=int(precision), scale=int(scale), nullable=nullable)
 
     else:
         typ = type_mapper.from_string(type_string, nullable=nullable)
     return typ
 
 
-class Backend(SQLBackend, CanListDatabase, PyArrowExampleLoader):
+class Backend(
+    SQLBackend,
+    CanListDatabase,
+    HasCurrentDatabase,
+    HasCurrentCatalog,
+    PyArrowExampleLoader,
+):
     name = "oracle"
     compiler = sc.oracle.compiler
 
@@ -206,16 +217,21 @@ class Backend(SQLBackend, CanListDatabase, PyArrowExampleLoader):
         # Set to ensure decimals come back as decimals
         oracledb.defaults.fetch_decimals = True
 
-    def _from_url(self, url: ParseResult, **kwargs):
-        self.do_connect(
-            user=url.username,
-            password=unquote_plus(url.password) if url.password is not None else None,
-            database=url.path.removeprefix("/"),
-            port=url.port,
-            **kwargs,
-        )
-
-        return self
+    def _from_url(self, url: ParseResult, **kwarg_overrides):
+        kwargs = {}
+        if url.username:
+            kwargs["user"] = url.username
+        if url.password:
+            kwargs["password"] = unquote_plus(url.password)
+        if url.hostname:
+            kwargs["host"] = url.hostname
+        if database := url.path.removeprefix("/"):
+            kwargs["database"] = database
+        if url.port:
+            kwargs["port"] = url.port
+        kwargs.update(kwarg_overrides)
+        self._convert_kwargs(kwargs)
+        return self.connect(**kwargs)
 
     @property
     def current_catalog(self) -> str:
@@ -270,27 +286,6 @@ class Backend(SQLBackend, CanListDatabase, PyArrowExampleLoader):
     def list_tables(
         self, *, like: str | None = None, database: tuple[str, str] | str | None = None
     ) -> list[str]:
-        """List the tables in the database.
-
-        ::: {.callout-note}
-        ## Ibis does not use the word `schema` to refer to database hierarchy.
-
-        A collection of tables is referred to as a `database`.
-        A collection of `database` is referred to as a `catalog`.
-
-        These terms are mapped onto the corresponding features in each
-        backend (where available), regardless of whether the backend itself
-        uses the same terminology.
-        :::
-
-        Parameters
-        ----------
-        like
-            A pattern to use for listing tables.
-        database
-            Database to list tables from. Default behavior is to show tables in
-            the current database.
-        """
         if database is not None:
             table_loc = database
         else:

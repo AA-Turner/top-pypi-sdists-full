@@ -1,0 +1,45 @@
+[build-system]
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "mergechannels"
+description = "Apply and merge colormaps"
+readme = "README.md"
+authors = [{ name = "Zac Swider", email = "zac.swider@gmail.com" }]
+license = { text = "MIT" }
+requires-python = ">=3.9, <=3.13"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dynamic = ["version"]
+dependencies = ["nptyping==2.5.0", "numpy>1.25.0"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+include = [
+    "python/mergechannels/*.py",
+    "python/mergechannels/*.pyi",
+    "python/mergechannels/py.typed",
+]
+
+[dependency-groups]
+dev = [
+    "cmap>=0.6.1",
+    "matplotlib>=3.7.5",
+    "pooch>=1.8.2",
+    "pre-commit>=3.5.0",
+    "pynvim>=0.5.2",
+    "pytest-benchmark>=4.0.0",
+    "pytest>=8.3.5",
+]

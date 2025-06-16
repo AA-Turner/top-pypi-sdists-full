@@ -1,0 +1,363 @@
+name: Build distributions
+on:
+  push:
+    branches-ignore:
+      - "dependabot/**"
+  pull_request:
+    branches:
+      - main
+  workflow_call:
+    inputs:
+      force_build:
+        description: 'Force build regardless of file changes'
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      valid_event:
+        description: 'Whether the build is allowed to run'
+        value: ${{ jobs.check_event.outputs.valid_event }}
+      should_build:
+        description: 'Whether the build meets the pre-conditions'
+        value: ${{ jobs.check_changes.outputs.should_build }}
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_UNBUFFERED: "1"
+
+jobs:
+  check_event:
+    name: Repo and event checks
+    runs-on: ubuntu-latest
+    outputs:
+      valid_event: ${{ steps.check.outputs.valid_event }}
+    steps:
+      - name: Check if build is allowed
+        id: check
+        # This condition determines if a build should run.
+        # The build proceeds if ANY of the following are true:
+        #
+        # 1. The event is a push to the 'darvid/python-hyperscan'
+        #    (main) repository.
+        # 2. The event is a pull request from a fork
+        #    (i.e., not from 'darvid/python-hyperscan').
+        # 3. The event is a pull request that has been merged
+        #    AND the head ref starts with the release branch prefix
+        #    (e.g., 'create-pull-request/...').
+        # 4. The event is specifically on the 'darvid/python-hyperscan'
+        #    repository AND the commit message contains '[build]'.
+        if: >
+          (github.event_name != 'push' || github.repository == 'darvid/python-hyperscan') &&
+          ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, vars.RELEASE_PR_BRANCH || 'create-pull-request'))) ||
+          (github.repository == 'darvid/python-hyperscan' && contains(github.event.head_commit.message, '[build]'))
+        run: |
+          echo "valid_event=true" >> $GITHUB_OUTPUT
+
+  check_changes:
+    name: Build pre-conditions check
+    runs-on: ubuntu-latest
+    needs: check_event
+    if: needs.check_event.outputs.valid_event == 'true'
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check if build is needed
+        id: check
+        run: |
+          if [[ "${{ inputs.force_build || false }}" == "true" ]]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "Running build because force_build is true"
+            exit 0
+          fi
+
+          # Check for [build] tag in commit messages or PR title
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # For PRs, check if PR title contains [build]
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            if [[ "$PR_TITLE" == *"[build]"* ]]; then
+              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "Running build because PR title contains [build]"
+              exit 0
+            fi
+
+            # Also check all commits in the PR for [build]
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            COMMIT_MSGS=$(git fetch origin $BASE_SHA $HEAD_SHA && git log --format=%B $BASE_SHA..$HEAD_SHA || echo "")
+            if echo "$COMMIT_MSGS" | grep -q "\[build\]"; then
+              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "Running build because a commit in the PR contains [build]"
+              exit 0
+            fi
+          else
+            # For pushes, check if the head commit message contains [build]
+            if [[ "${{ contains(github.event.head_commit.message, '[build]') }}" == "true" ]]; then
+              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "Running build because commit message contains [build]"
+              exit 0
+            fi
+          fi
+
+          # For PRs, compare the PR base with the head
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            CHANGED_FILES=$(git fetch origin $BASE_SHA $HEAD_SHA && git diff --name-only $BASE_SHA $HEAD_SHA || echo "")
+          else
+            # For pushes, use the before/after SHAs or fallback to comparing with parent
+            BEFORE_SHA="${{ github.event.before }}"
+            AFTER_SHA="${{ github.event.after }}"
+
+            # Sometimes github.event.before is not available or is all zeros in the first push to a new branch
+            if [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+              CHANGED_FILES=$(git diff --name-only HEAD^ || echo "")
+            else
+              # Try to fetch the commits first to make sure they exist
+              git fetch --depth=1 origin $BEFORE_SHA || true
+              git fetch --depth=1 origin $AFTER_SHA || true
+
+              # Check if both SHAs exist in the repository
+              if git cat-file -e $BEFORE_SHA 2>/dev/null && git cat-file -e $AFTER_SHA 2>/dev/null; then
+                CHANGED_FILES=$(git diff --name-only $BEFORE_SHA $AFTER_SHA || echo "")
+              else
+                # Fallback to comparing with parent commit
+                echo "Cannot find one of the SHAs, falling back to HEAD^"
+                CHANGED_FILES=$(git diff --name-only HEAD^ || echo "")
+              fi
+            fi
+          fi
+
+          # Check if any of the changed files match our patterns
+          RESULT=1
+          echo "$CHANGED_FILES" | grep -q -E '^(src/hyperscan/|README.md|CMakeLists.txt|pyproject.toml|MANIFEST.in|cmake/|build_tools/)' || RESULT=$?
+
+          if [[ $RESULT -eq 0 ]]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "Running build because relevant files were changed"
+          else
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "Skipping build because no relevant files were changed and commit doesn't have [build] tag"
+          fi
+
+  sdist:
+    name: Source distribution
+    needs: [check_changes, check_event]
+    if: needs.check_event.outputs.valid_event == 'true' && needs.check_changes.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --group build --no-install-project
+
+      - name: Build source distribution
+        run: uvx --from build pyproject-build --installer=uv --sdist --verbose
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: "dist/*.tar.gz"
+          if-no-files-found: error
+
+  wheels:
+    name: Binary wheel (${{ matrix.python_id }}-${{ matrix.platform_id }})
+    runs-on: ${{ matrix.os }}
+    needs: [check_changes, check_event]
+    if: needs.check_event.outputs.valid_event == 'true' && needs.check_changes.outputs.should_build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 🐧 manylinux x86_64
+          - os: ubuntu-24.04
+            python: "3.10"
+            python_id: cp310
+            platform_id: manylinux_x86_64
+          - os: ubuntu-24.04
+            python: "3.11"
+            python_id: cp311
+            platform_id: manylinux_x86_64
+          - os: ubuntu-24.04
+            python: "3.12"
+            python_id: cp312
+            platform_id: manylinux_x86_64
+          - os: ubuntu-24.04
+            python: "3.13"
+            python_id: cp313
+            platform_id: manylinux_x86_64
+
+          # 🐧 manylinux aarch64
+          - os: ubuntu-24.04-arm
+            python: "3.10"
+            python_id: cp310
+            platform_id: manylinux_aarch64
+          - os: ubuntu-24.04-arm
+            python: "3.11"
+            python_id: cp311
+            platform_id: manylinux_aarch64
+          - os: ubuntu-24.04-arm
+            python: "3.12"
+            python_id: cp312
+            platform_id: manylinux_aarch64
+          - os: ubuntu-24.04-arm
+            python: "3.13"
+            python_id: cp313
+            platform_id: manylinux_aarch64
+
+          # 🐧 manylinux2014 PyPy x86_64
+          - os: ubuntu-24.04
+            python: "3.10"
+            python_id: pp310
+            platform_id: manylinux_x86_64
+
+          # 🐧 manylinux2014 PyPy ARM
+          - os: ubuntu-24.04-arm
+            python: "3.10"
+            python_id: pp310
+            platform_id: manylinux_aarch64
+
+          # 🦀 musllinux x86_64
+          - os: ubuntu-24.04
+            python: "3.10"
+            python_id: cp310
+            platform_id: musllinux_x86_64
+          - os: ubuntu-24.04
+            python: "3.11"
+            python_id: cp311
+            platform_id: musllinux_x86_64
+          - os: ubuntu-24.04
+            python: "3.12"
+            python_id: cp312
+            platform_id: musllinux_x86_64
+          - os: ubuntu-24.04
+            python: "3.13"
+            python_id: cp313
+            platform_id: musllinux_x86_64
+
+          # 🦀 musllinux ARM
+          - os: ubuntu-24.04-arm
+            python: "3.10"
+            python_id: cp310
+            platform_id: musllinux_aarch64
+          - os: ubuntu-24.04-arm
+            python: "3.11"
+            python_id: cp311
+            platform_id: musllinux_aarch64
+          - os: ubuntu-24.04-arm
+            python: "3.12"
+            python_id: cp312
+            platform_id: musllinux_aarch64
+          - os: ubuntu-24.04-arm
+            python: "3.13"
+            python_id: cp313
+            platform_id: musllinux_aarch64
+
+          # 🍎 macOS x86_64
+          - os: macos-13
+            python: "3.10"
+            python_id: cp310
+            platform_id: macosx_x86_64
+          - os: macos-13
+            python: "3.11"
+            python_id: cp311
+            platform_id: macosx_x86_64
+          - os: macos-13
+            python: "3.12"
+            python_id: cp312
+            platform_id: macosx_x86_64
+          - os: macos-13
+            python: "3.13"
+            python_id: cp313
+            platform_id: macosx_x86_64
+
+          # 🍎 macOS arm64 (Apple silicon)
+          - os: macos-15
+            python: "3.10"
+            python_id: cp310
+            platform_id: macosx_arm64
+          - os: macos-15
+            python: "3.11"
+            python_id: cp311
+            platform_id: macosx_arm64
+          - os: macos-15
+            python: "3.12"
+            python_id: cp312
+            platform_id: macosx_arm64
+          - os: macos-15
+            python: "3.13"
+            python_id: cp313
+            platform_id: macosx_arm64
+
+          # 🪟 Windows x86_64
+          - os: windows-2025
+            python: "3.10"
+            python_id: cp310
+            platform_id: win_amd64
+          - os: windows-2025
+            python: "3.11"
+            python_id: cp311
+            platform_id: win_amd64
+          - os: windows-2025
+            python: "3.12"
+            python_id: cp312
+            platform_id: win_amd64
+          - os: windows-2025
+            python: "3.13"
+            python_id: cp313
+            platform_id: win_amd64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install build dependencies
+        run: uv sync --group build --no-install-project
+
+      - name: Build and test wheels
+        env:
+          CIBW_ARCHS_MACOS: ${{ matrix.platform_id == 'macosx_arm64' && 'arm64' || 'x86_64' }}
+          CIBW_ARCHS_LINUX: auto aarch64
+          CIBW_BUILD: ${{ matrix.python_id }}-${{ matrix.platform_id }}
+          CIBW_BUILD_VERBOSITY: "1"
+        run: |
+          uv run --no-sync cibuildwheel --output-dir wheelhouse
+
+      - name: Save build artifacts
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ runner.os }}-${{ matrix.python_id }}-${{ matrix.platform_id }}-${{ hashFiles('src/**', 'CMakeLists.txt') }}
+          path: |
+            wheelhouse/*.whl
+
+      - name: Upload wheels to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.python_id }}-${{ matrix.platform_id }}
+          path: |
+            wheelhouse/*.whl

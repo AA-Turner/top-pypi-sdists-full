@@ -1,0 +1,140 @@
+name: build
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, staging]
+  workflow_dispatch:
+
+jobs:
+  pre-filter:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        if: github.event_name != 'push'
+        with:
+          filters: |
+            base:
+              - 'bionty/base/**'
+              - 'tests/base/**'
+
+      - id: set-matrix
+        shell: bash
+        run: |
+          BASE_GROUPS=$(jq -n -c '["bionty-core", "bionty-docs"]')
+
+          if [[ "${{ github.event_name }}" == "push" || "${{ steps.changes.outputs.base }}" == "true" ]]; then
+            # Run everything on push or when base paths change
+            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: ($groups + ["bionty-base"])}')
+          else
+            # Otherwise only run base groups
+            MATRIX=$(jq -n -c --argjson groups "$BASE_GROUPS" '{group: $groups}')
+          fi
+
+          # Output as single line for GitHub Actions
+          echo "matrix=$(echo "$MATRIX" | jq -c .)" >> $GITHUB_OUTPUT
+
+          # Pretty print for debugging
+          echo "Generated matrix:"
+          echo "$MATRIX" | jq .
+
+  test:
+    needs: pre-filter
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.pre-filter.outputs.matrix)}}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Install laminci
+        run: pip install "laminci@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
+
+      - name: Run lint
+        if: matrix.group == 'bionty-core'
+        run: nox -s lint
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
+
+      - name: checkout lndocs
+        uses: actions/checkout@v4
+        if: matrix.group == 'bionty-docs'
+        with:
+          repository: laminlabs/lndocs
+          ssh-key: ${{ secrets.READ_LNDOCS }}
+          path: lndocs
+          ref: main
+
+      - name: Run build
+        run: nox -s "build(group='${{ matrix.group }}')"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage--${{ matrix.group }}
+          path: .coverage
+          include-hidden-files: true
+
+      - uses: nwtgck/actions-netlify@v1.2
+        if: ${{ matrix.group == 'bionty-docs' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) }}
+        with:
+          publish-dir: "_build/html"
+          production-deploy: ${{ github.event_name == 'push' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          enable-commit-comment: false
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+  coverage:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install coverage dependencies
+        run: |
+          pip install -U pip uv
+          uv pip install --system coverage[toml]
+          uv pip install --system --no-deps .
+
+      - uses: actions/download-artifact@v4
+
+      - name: Run coverage
+        run: |
+          coverage combine coverage--*/.coverage*
+          coverage report --fail-under=0
+          coverage xml
+
+      - uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

@@ -2,9 +2,13 @@
 from uplink import decorators
 from uplink.clients.io import RequestTemplate, transitions
 from uplink.retry import (
-    when as when_mod,
-    stop as stop_mod,
     backoff as backoff_mod,
+)
+from uplink.retry import (
+    stop as stop_mod,
+)
+from uplink.retry import (
+    when as when_mod,
 )
 from uplink.retry._helpers import ClientExceptionProxy
 
@@ -17,24 +21,23 @@ class retry(decorators.MethodAnnotation):
     A decorator that adds retry support to a consumer method or to an
     entire consumer.
 
-    Unless you specify the ``when`` or ``on_exception`` argument, all
+    Unless you specify the `when` or `on_exception` argument, all
     failed requests that raise an exception are retried.
 
-    Unless you specify the ``max_attempts`` or ``stop`` argument, this
+    Unless you specify the `max_attempts` or `stop` argument, this
     decorator continues retrying until the server returns a response.
 
-    Unless you specify the ``backoff`` argument, this decorator uses
-    `capped exponential backoff and jitter <https://amzn.to/2xc2nK2>`_,
+    Unless you specify the `backoff` argument, this decorator uses
+    [capped exponential backoff and jitter](https://amzn.to/2xc2nK2),
     which should benefit performance with remote services under high
     contention.
 
-    .. note::
-
-        Response and error handlers (see :ref:`here <custom response
-        handler>`) are invoked after the retry condition breaks or all
+    !!! note
+        Response and error handlers (see [custom response handler](../../user-guide/response-and-error-handling.md))
+        are invoked after the retry condition breaks or all
         retry attempts are exhausted, whatever comes first. These
         handlers will receive the first response/exception that triggers
-        the retry's ``stop`` condition or doesn't match its ``when``
+        the retry's `stop` condition or doesn't match its `when`
         filter.
 
         In other words, responses or exceptions that match
@@ -44,17 +47,16 @@ class retry(decorators.MethodAnnotation):
         after 5 attempts).
 
     Args:
-        when (optional): A predicate that determines when a retry
+        when: A predicate that determines when a retry
             should be attempted.
-        max_attempts (int, optional): The number of retries to attempt.
+        max_attempts: The number of retries to attempt.
             If not specified, requests are retried continuously until
             a response is rendered.
-        on_exception (:class:`Exception`, optional): The exception type
+        on_exception: The exception type
             that should prompt a retry attempt.
-        stop (:obj:`callable`, optional): A function that creates
+        stop: A function that creates
             predicates that decide when to stop retrying a request.
-        backoff (:class:`RetryBackoff`, :obj:`callable`, optional): A
-            backoff strategy or a function that creates an iterator
+        backoff: A backoff strategy or a function that creates an iterator
             over the ordered sequence of timeouts between retries. If
             not specified, exponential backoff is used.
     """
@@ -95,9 +97,7 @@ class retry(decorators.MethodAnnotation):
         self._backoff = backoff
         self._stop = stop
 
-    BASE_CLIENT_EXCEPTION = ClientExceptionProxy(
-        lambda ex: ex.BaseClientException
-    )
+    BASE_CLIENT_EXCEPTION = ClientExceptionProxy(lambda ex: ex.BaseClientException)
     CONNECTION_ERROR = ClientExceptionProxy(lambda ex: ex.ConnectionError)
     CONNECTION_TIMEOUT = ClientExceptionProxy(lambda ex: ex.ConnectionTimeout)
     SERVER_TIMEOUT = ClientExceptionProxy(lambda ex: ex.ServerTimeout)
@@ -136,9 +136,7 @@ class _RetryTemplate(RequestTemplate):
         )
 
     def after_exception(self, request, exc_type, exc_val, exc_tb):
-        if not self._condition.should_retry_after_exception(
-            exc_type, exc_val, exc_tb
-        ):
+        if not self._condition.should_retry_after_exception(exc_type, exc_val, exc_tb):
             return self._process_timeout(None)
         return self._process_timeout(
             self._backoff.get_timeout_after_exception(

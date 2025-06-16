@@ -1,0 +1,279 @@
+---
+# Multipliers
+# -----------
+#
+# Multiplier prefix : Multiplier prefix value
+#
+# Standard multipliers are as documented here:
+#
+# https://en.wikipedia.org/wiki/International_System_of_Units
+#
+# For micro, u is used instead of the Greek letter mu.
+
+multipliers:
+  Y: 1.0e+24
+  Z: 1.0e+21
+  E: 1.0e+18
+  P: 1.0e+15
+  T: 1.0e+12
+  G: 1.0e+09
+  M: 1.0e+06
+  k: 1000
+  h: 100
+  da: 10
+  d: 0.1
+  c: 0.01
+  m: 0.001
+  u: 1.0e-06
+  n: 1.0e-09
+  p: 1.0e-12
+  f: 1.0e-15
+  a: 1.0e-18
+  z: 1.0e-21
+  y: 1.0e-24
+
+# Unit Systems
+# ------------
+#
+# Predefined unit system prefix : Unit system units
+#
+# Unit systems must provide the unit for each base unit.
+
+unit_systems:
+  SI:
+    MASS: kg
+    LENGTH: m
+    TIME: s
+    TEMPERATURE: K
+    TEMPERATURE_DIFFERENCE: delta_K
+    ANGLE: radian
+    CHEMICAL_AMOUNT: mol
+    LIGHT: cd
+    CURRENT: A
+    SOLID_ANGLE: sr
+  CGS:
+    MASS: g
+    LENGTH: cm
+    TIME: s
+    TEMPERATURE: K
+    TEMPERATURE_DIFFERENCE: delta_K
+    ANGLE: radian
+    CHEMICAL_AMOUNT: mol
+    LIGHT: cd
+    CURRENT: A
+    SOLID_ANGLE: sr
+  BT:
+    MASS: slug
+    LENGTH: ft
+    TIME: s
+    TEMPERATURE: R
+    TEMPERATURE_DIFFERENCE: delta_R
+    ANGLE: radian
+    CHEMICAL_AMOUNT: slugmol
+    LIGHT: cd
+    CURRENT: A
+    SOLID_ANGLE: sr
+
+# Base Units
+# ----------
+#
+# Custom units -> Add new units and their associated properties to the list
+# below to use them within a quantity.
+#
+# <unit name>:         Primitive unit composed of `type`, `si_scaling_factor` and `si_offset`
+#   type: <name>       Must be one of the dimension types
+#   si_scaling_factor: <si_scaling_factor>  SI scaling factor
+#   si_offset:         <si_offset>  SI conversion offset
+
+base_units:
+  kg:
+    type: MASS
+    si_scaling_factor: 1
+    si_offset: 0
+  g:
+    type: MASS
+    si_scaling_factor: 0.001
+    si_offset: 0
+  lb:
+    type: MASS
+    si_scaling_factor: 0.45359237
+    si_offset: 0
+  lbm:
+    type: MASS
+    si_scaling_factor: 0.45359237
+    si_offset: 0
+  slug:
+    type: MASS
+    si_scaling_factor: 14.59390293720637
+    si_offset: 0
+  m:
+    type: LENGTH
+    si_scaling_factor: 1
+    si_offset: 0
+  cm:
+    type: LENGTH
+    si_scaling_factor: 0.01
+    si_offset: 0
+  ft:
+    type: LENGTH
+    si_scaling_factor: 0.30479999999999996
+    si_offset: 0
+  inch:
+    type: LENGTH
+    si_scaling_factor: 0.0254
+    si_offset: 0
+  in:
+    type: LENGTH
+    si_scaling_factor: 0.0254
+    si_offset: 0
+  s:
+    type: TIME
+    si_scaling_factor: 1
+    si_offset: 0
+  A:
+    type: CURRENT
+    si_scaling_factor: 1
+    si_offset: 0
+  mol:
+    type: CHEMICAL_AMOUNT
+    si_scaling_factor: 1
+    si_offset: 0
+  slugmol:
+    type: CHEMICAL_AMOUNT
+    si_scaling_factor: 14593.9
+    si_offset: 0
+  cd:
+    type: LIGHT
+    si_scaling_factor: 1
+    si_offset: 0
+  sr:
+    type: SOLID_ANGLE
+    si_scaling_factor: 1
+    si_offset: 0
+  radian:
+    type: ANGLE
+    si_scaling_factor: 1
+    si_offset: 0
+  degree:
+    type: ANGLE
+    si_scaling_factor: 0.017453292519943295
+    si_offset: 0
+  K:
+    type: TEMPERATURE
+    si_scaling_factor: 1
+    si_offset: 0
+  C:
+    type: TEMPERATURE
+    si_scaling_factor: 1
+    si_offset: 273.15
+  F:
+    type: TEMPERATURE
+    si_scaling_factor: 0.5555555555555555
+    si_offset: 459.67
+  R:
+    type: TEMPERATURE
+    si_scaling_factor: 0.5555555555555555
+    si_offset: 0
+  delta_K:
+    type: TEMPERATURE_DIFFERENCE
+    si_scaling_factor: 1
+    si_offset: 0
+  delta_C:
+    type: TEMPERATURE_DIFFERENCE
+    si_scaling_factor: 1
+    si_offset: 0
+  delta_F:
+    type: TEMPERATURE_DIFFERENCE
+    si_scaling_factor: 0.5555555555555555
+    si_offset: 0
+  delta_R:
+    type: TEMPERATURE_DIFFERENCE
+    si_scaling_factor: 0.5555555555555555
+    si_offset: 0
+
+# Derived Units
+# -------------
+# Derived units are composed from base units.  Each derived unit must provide a
+# `composition` and `factor`. The `composition` specifies the unit string with
+# exponents. The `factor` provides the conversion from the composed unit
+# string to the derived unit. The `si_offset` is required for all base units.
+#
+# Specification format:
+#
+# <unit string>:
+#   composition: <units>
+#   factor: <value>
+
+derived_units:
+  N:
+    composition: kg m s^-2
+    factor: 1
+  Pa:
+    composition: N m^-2
+    factor: 1
+  W:
+    composition: N m s^-1
+    factor: 1
+  J:
+    composition: N m
+    factor: 1
+  V:
+    composition: A ohm
+    factor: 1
+  farad:
+    composition: N m V^-2
+    factor: 1
+  H:
+    composition: N m A^-2
+    factor: 1
+  S:
+    composition: ohm^-1
+    factor: 1
+  Wb:
+    composition: N m A^-1
+    factor: 1
+  T:
+    composition: Wb m^-2
+    factor: 1
+  dyne:
+    composition: g cm s^-2
+    factor: 1
+  erg:
+    composition: dyne cm
+    factor: 1
+  h:
+    composition: s
+    factor: 3600
+  pdl:
+    composition: lbm ft s^-2
+    factor: 1
+  psi:
+    composition: lbf inch^-2
+    factor: 1
+  lbf:
+    composition: slug ft s^-2
+    factor: 1
+  psf:
+    composition: lbf ft^-2
+    factor: 1
+  ohm:
+    composition: kg m^2 s^-3 A^-2
+    factor: 1
+  Hz:
+    composition: s^-1
+    factor: 1
+  l:
+    composition: m^3
+    factor: 0.001
+  gal:
+    composition: m^3
+    factor: 0.0037854117839999993
+  BTU:
+    composition: J
+    factor: 1055.056
+  cal:
+    composition: J
+    factor: 4.184
+  coulomb:
+    composition: A s
+    factor: 1

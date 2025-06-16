@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: django-webpack-loader
-Version: 3.2.0
+Version: 3.2.1
 Summary: Transparently use webpack with django
 Home-page: https://github.com/django-webpack/django-webpack-loader
-Download-URL: https://github.com/django-webpack/django-webpack-loader/tarball/3.2.0
+Download-URL: https://github.com/django-webpack/django-webpack-loader/tarball/3.2.1
 Author: Vinta Software
 Author-email: contact@vinta.com.br
 License: MIT License
@@ -14,11 +14,12 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
 Description-Content-Type: text/markdown

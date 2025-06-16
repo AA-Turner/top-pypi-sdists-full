@@ -1,0 +1,34 @@
+fail_fast: true
+repos:
+-   repo: https://github.com/mgedmin/check-manifest
+    rev: "0.49"
+    hooks:
+    -   id: check-manifest
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+    - id: check-toml
+    - id: check-yaml
+    - id: check-ast
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev:  v0.8.4
+  hooks:
+    # Run the linter.
+    - id: ruff
+      files: src/abnf
+- repo: https://github.com/RobertCraigie/pyright-python
+  rev: v1.1.389
+  hooks:
+    - id: pyright
+      additional_dependencies: [pytest]
+
+- repo: local
+  hooks:
+    - id: tox
+      name: tox
+      entry: tox
+      language: system
+      pass_filenames: false
+      always_run: true
+      stages: [pre-push]

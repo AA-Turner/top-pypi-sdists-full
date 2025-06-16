@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: aioftp
-Version: 0.25.1
+Version: 0.25.2
 Summary: ftp client/server for asyncio
-Author: yieyu, rsichnyi, jw4js, oleksandr-kuzmenko, ndhansen, modelmat, greut, PonyPC, jacobtomlinson, bachya, CrafterKolyan, jkr78
+Author: yieyu, rsichnyi, jw4js, oleksandr-kuzmenko, ndhansen, modelmat, greut, PonyPC, jacobtomlinson, bachya, CrafterKolyan, jkr78, sakosha
 Author-email: pohmelie <multisosnooley@gmail.com>, asvetlov <andrew.svetlov@gmail.com>, decaz <decaz89@gmail.com>, janneronkko <janne.ronkko@iki.fi>, thirtyseven <ted@shlashdot.org>, ported-pw <contact@ported.pw>, Olegt0rr <t0rr@mail.ru>, michalc <michal@charemza.name>, ch3pjw <paul@concertdaw.co.uk>, puddly <puddly3@gmail.com>, AMDmi3 <amdmi3@amdmi3.ru>, webknjaz <webknjaz+github/profile@redhat.com>, rcfox <ryan@rcfox.ca>, bellini666 <thiago@bellini.dev>
 License:                                  Apache License
                                    Version 2.0, January 2004

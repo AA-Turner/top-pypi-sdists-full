@@ -42,56 +42,6 @@ class GCSettings(System.Object):
     IS_SERVER_GC: bool
 
 
-class AmbiguousImplementationException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class ProfileOptimization(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def set_profile_root(directory_path: str) -> None:
-        ...
-
-    @staticmethod
-    def start_profile(profile: str) -> None:
-        ...
-
-
-class AssemblyTargetedPatchBandAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def targeted_patch_band(self) -> str:
-        ...
-
-    def __init__(self, targeted_patch_band: str) -> None:
-        ...
-
-
-class TargetedPatchingOptOutAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def reason(self) -> str:
-        ...
-
-    def __init__(self, reason: str) -> None:
-        ...
-
-
 class JitInfo(System.Object):
     """A static class for getting information about the Just In Time compiler."""
 
@@ -129,6 +79,40 @@ class JitInfo(System.Object):
         ...
 
 
+class ProfileOptimization(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def set_profile_root(directory_path: str) -> None:
+        ...
+
+    @staticmethod
+    def start_profile(profile: str) -> None:
+        ...
+
+
+class AssemblyTargetedPatchBandAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def targeted_patch_band(self) -> str:
+        ...
+
+    def __init__(self, targeted_patch_band: str) -> None:
+        ...
+
+
+class TargetedPatchingOptOutAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def reason(self) -> str:
+        ...
+
+    def __init__(self, reason: str) -> None:
+        ...
+
+
 class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
     """This class has no documentation."""
 
@@ -136,6 +120,22 @@ class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObjec
         ...
 
     def dispose(self) -> None:
+        ...
+
+
+class AmbiguousImplementationException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 

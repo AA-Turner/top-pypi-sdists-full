@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: presto-types-parser
+Version: 0.0.2
+Summary: Presto types parser for input rows returned by presto rest api
+Home-page: https://github.com/ofekby/presto-types-parser
+Author: Ofek Ben-Yaish
+License: Apache License, Version 2.0
+Description: # presto-types-parser
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Database :: Front-Ends
+Description-Content-Type: text/markdown

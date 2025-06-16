@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 #ifndef TCOD_CONSOLE_H_
 #define TCOD_CONSOLE_H_
 
@@ -333,6 +334,7 @@ TCOD_PUBLIC void TCOD_console_clear(TCOD_Console* con);
  *  \param col The background color to blend.
  *  \param flag The blend mode to use.
  */
+TCOD_DEPRECATED("Replace with TCOD_console_put_rgb.")
 TCOD_PUBLIC void TCOD_console_set_char_background(
     TCOD_Console* con, int x, int y, TCOD_color_t col, TCOD_bkgnd_flag_t flag);
 /**
@@ -343,6 +345,7 @@ TCOD_PUBLIC void TCOD_console_set_char_background(
  *  \param y The Y coordinate, the top-most position being 0.
  *  \param col The foreground color to set.
  */
+TCOD_DEPRECATED("Replace with TCOD_console_put_rgb.")
 TCOD_PUBLIC void TCOD_console_set_char_foreground(TCOD_Console* con, int x, int y, TCOD_color_t col);
 /**
  *  Change a character on a console tile, without changing its colors.
@@ -352,6 +355,7 @@ TCOD_PUBLIC void TCOD_console_set_char_foreground(TCOD_Console* con, int x, int 
  *  \param y The Y coordinate, the top-most position being 0.
  *  \param c The character code to set.
  */
+TCOD_DEPRECATED("Replace with TCOD_console_put_rgb.")
 TCOD_PUBLIC void TCOD_console_set_char(TCOD_Console* con, int x, int y, int c);
 /**
  *  Draw a character on a console using the default colors.
@@ -362,6 +366,7 @@ TCOD_PUBLIC void TCOD_console_set_char(TCOD_Console* con, int x, int y, int c);
  *  \param c The character code to place.
  *  \param flag A TCOD_bkgnd_flag_t flag.
  */
+TCOD_DEPRECATED("Replace with TCOD_console_put_rgb.")
 TCOD_PUBLIC void TCOD_console_put_char(TCOD_Console* con, int x, int y, int c, TCOD_bkgnd_flag_t flag);
 /**
  *  Draw a character on the console with the given colors.
@@ -373,6 +378,7 @@ TCOD_PUBLIC void TCOD_console_put_char(TCOD_Console* con, int x, int y, int c, T
  *  \param fore The foreground color.
  *  \param back The background color.  This color will not be blended.
  */
+TCOD_DEPRECATED("Replace with TCOD_console_put_rgb.")
 TCOD_PUBLIC void TCOD_console_put_char_ex(TCOD_Console* con, int x, int y, int c, TCOD_color_t fore, TCOD_color_t back);
 /**
  *  Set a consoles default background flag.

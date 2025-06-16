@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: ob-metaflow-stubs
+Version: 6.0.3.178
+Summary: Metaflow Stubs: Stubs for the metaflow package
+Author: Netflix, Outerbounds & the Metaflow Community
+Author-email: help@outerbounds.co
+License: Apache License 2.0
+Requires-Python: >=3.7.0
+Description-Content-Type: text/markdown
+
+# Metaflow Stubs
+
+This package contains stub files for `metaflow` and thus offers type hints for various editors (such as `VSCode`) and language servers (such as `Pylance`).
+
+## Installation
+
+To install Metaflow Stubs in your local environment, you can install from [PyPi](https://pypi.org/project/metaflow-stubs/):
+
+```sh
+pip install metaflow-stubs
+```

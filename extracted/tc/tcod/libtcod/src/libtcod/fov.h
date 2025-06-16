@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_FOV_H
-#define _TCOD_FOV_H
+#pragma once
+#ifndef TCOD_FOV_H_
+#define TCOD_FOV_H_
 
 #include <stdbool.h>
 #ifdef __cplusplus
@@ -126,4 +127,4 @@ struct MapDeleter_ {
 typedef std::unique_ptr<struct TCOD_Map, MapDeleter_> MapPtr_;
 }  // namespace tcod
 #endif  // __cplusplus
-#endif  // _TCOD_FOV_H
+#endif  // TCOD_FOV_H_

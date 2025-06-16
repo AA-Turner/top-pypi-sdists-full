@@ -1,6 +1,6 @@
 #################################################################################################
 #
-# Copyright (c) 2017 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2017 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,10 @@ import sqlite3
 import subprocess
 import tempfile
 
-from cuda import cuda, nvrtc
+from cutlass.utils.lazy_import import lazy_import
+cuda = lazy_import("cuda.cuda")
+cudart = lazy_import("cuda.cudart")
+nvrtc = lazy_import("cuda.nvrtc")
 from cutlass_library import SubstituteTemplate
 
 import cutlass

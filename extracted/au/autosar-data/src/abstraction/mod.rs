@@ -1,4 +1,4 @@
-use crate::{ArxmlFile, AutosarModel, AutosarVersion, Element};
+use crate::{ArxmlFile, AutosarModel, AutosarVersion, Element, iterator_wrapper};
 use pyo3::PyTypeInfo;
 use pyo3::create_exception;
 use pyo3::prelude::*;
@@ -21,47 +21,6 @@ create_exception!(
     AutosarAbstractionError,
     pyo3::exceptions::PyException
 );
-
-//##################################################################
-
-// The autosar_data_abstraction crate returns iterators that are not directly usable in Python.
-// Every one of these iterators follows the same pattern, returning "impl Iterator<Item = T>", so
-// they can all be wrapped using the same method.
-macro_rules! iterator_wrapper {
-    ($iter_name:ident, $item_name:ident) => {
-        #[pyclass(module = "autosar_data._autosar_data._abstraction")]
-        pub(crate) struct $iter_name {
-            iter: Box<dyn Iterator<Item = $item_name> + Sync + Send + 'static>,
-        }
-
-        impl $iter_name {
-            pub(crate) fn new(
-                iter: impl Iterator<Item = $item_name> + Sync + Send + 'static,
-            ) -> Self {
-                Self {
-                    iter: Box::new(iter),
-                }
-            }
-        }
-
-        #[pymethods]
-        impl $iter_name {
-            fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-                slf
-            }
-
-            fn __next__(&mut self) -> Option<$item_name> {
-                self.iter.next()
-            }
-
-            fn __repr__(&self) -> String {
-                format!("Iterator<{}>", stringify!($item_name))
-            }
-        }
-    };
-}
-
-pub(crate) use iterator_wrapper;
 
 //##################################################################
 
@@ -141,9 +100,23 @@ impl AutosarModelAbstraction {
         }
     }
 
+    /// Load a file into the model
+    #[pyo3(signature = (filename, /, *, strict=false))]
+    #[pyo3(text_signature = "(filename: str, /, * strict: bool = False)")]
+    fn load_file(&self, filename: &str, strict: bool) -> PyResult<(ArxmlFile, Vec<String>)> {
+        match self.0.load_file(filename, strict) {
+            Ok((file, warn)) => {
+                let warnstrings: Vec<String> =
+                    warn.iter().map(std::string::ToString::to_string).collect();
+                Ok((ArxmlFile(file), warnstrings))
+            }
+            Err(error) => Err(AutosarAbstractionError::new_err(error.to_string())),
+        }
+    }
+
     /// iterate over all files in the model
-    fn files(&self) -> ModelFilesIterator {
-        ModelFilesIterator::new(self.0.files().map(crate::ArxmlFile))
+    fn files(&self) -> Vec<ArxmlFile> {
+        self.0.files().map(ArxmlFile).collect()
     }
 
     /// write the model to disk, creating or updating all files in the model
@@ -172,7 +145,6 @@ impl AutosarModelAbstraction {
 //##################################################################
 
 iterator_wrapper!(ArPackageIterator, ArPackage);
-iterator_wrapper!(ModelFilesIterator, ArxmlFile);
 
 //##################################################################
 
@@ -392,23 +364,29 @@ pub(crate) fn add_submodules(py: Python<'_>, parent: &Bound<'_, PyModule>) -> Py
     datatype.add_class::<datatype::ApplicationPrimitiveDataType>()?;
     datatype.add_class::<datatype::ApplicationRecordDataType>()?;
     datatype.add_class::<datatype::ApplicationRecordElement>()?;
+    datatype.add_class::<datatype::ApplicationRuleBasedValueSpecification>()?;
+    datatype.add_class::<datatype::ApplicationValueSpecification>()?;
+    datatype.add_class::<datatype::ArrayValueSpecification>()?;
     datatype.add_class::<datatype::BaseTypeEncoding>()?;
     datatype.add_class::<datatype::BitfieldEntry>()?;
+    datatype.add_class::<datatype::CompositeRuleBasedValueSpecification>()?;
     datatype.add_class::<datatype::CompuMethod>()?;
     datatype.add_class::<datatype::CompuMethodCategory>()?;
     datatype.add_class::<datatype::CompuMethodContent>()?;
-    datatype.add_class::<datatype::CompuMethodContent_Linear>()?;
-    datatype.add_class::<datatype::CompuMethodContent_ScaleLinear>()?;
-    datatype.add_class::<datatype::CompuMethodContent_Rational>()?;
-    datatype.add_class::<datatype::CompuMethodContent_ScaleRational>()?;
-    datatype.add_class::<datatype::CompuMethodContent_TextTable>()?;
-    datatype.add_class::<datatype::CompuMethodContent_ScaleLinearAndTextTable>()?;
-    datatype.add_class::<datatype::CompuMethodContent_ScaleRationalAndTextTable>()?;
     datatype.add_class::<datatype::CompuMethodContent_BitfieldTextTable>()?;
+    datatype.add_class::<datatype::CompuMethodContent_Linear>()?;
+    datatype.add_class::<datatype::CompuMethodContent_Rational>()?;
+    datatype.add_class::<datatype::CompuMethodContent_ScaleLinear>()?;
+    datatype.add_class::<datatype::CompuMethodContent_ScaleLinearAndTextTable>()?;
+    datatype.add_class::<datatype::CompuMethodContent_ScaleRational>()?;
+    datatype.add_class::<datatype::CompuMethodContent_ScaleRationalAndTextTable>()?;
     datatype.add_class::<datatype::CompuMethodContent_TabNoInterpretation>()?;
+    datatype.add_class::<datatype::CompuMethodContent_TextTable>()?;
     datatype.add_class::<datatype::CompuScale>()?;
     datatype.add_class::<datatype::CompuScaleDirection>()?;
     datatype.add_class::<datatype::CompuScaleRationalCoefficients>()?;
+    datatype.add_class::<datatype::ConstantReference>()?;
+    datatype.add_class::<datatype::ConstantSpecification>()?;
     datatype.add_class::<datatype::DataConstr>()?;
     datatype.add_class::<datatype::DataConstrRule>()?;
     datatype.add_class::<datatype::DataConstrType>()?;
@@ -426,10 +404,25 @@ pub(crate) fn add_submodules(py: Python<'_>, parent: &Bound<'_, PyModule>) -> Py
     datatype.add_class::<datatype::ImplementationDataTypeSettings_Union>()?;
     datatype.add_class::<datatype::ImplementationDataTypeSettings_Value>()?;
     datatype.add_class::<datatype::LinearConversionParameters>()?;
+    datatype.add_class::<datatype::NotAvailableValueSpecification>()?;
+    datatype.add_class::<datatype::NumericalRuleBasedValueSpecification>()?;
+    datatype.add_class::<datatype::NumericalValueSpecification>()?;
     datatype.add_class::<datatype::RationalConversionParameters>()?;
+    datatype.add_class::<datatype::RecordValueSpecification>()?;
+    datatype.add_class::<datatype::ReferenceValueSpecification>()?;
+    datatype.add_class::<datatype::RuleArgument>()?;
+    datatype.add_class::<datatype::RuleBasedAxisCont>()?;
+    datatype.add_class::<datatype::RuleBasedFillUntil>()?;
+    datatype.add_class::<datatype::RuleBasedValueCont>()?;
+    datatype.add_class::<datatype::RuleBasedValueSpecification>()?;
+    datatype.add_class::<datatype::SwAxisCont>()?;
+    datatype.add_class::<datatype::SwAxisContCategory>()?;
     datatype.add_class::<datatype::SwBaseType>()?;
+    datatype.add_class::<datatype::SwValue>()?;
+    datatype.add_class::<datatype::SwValueCont>()?;
     datatype.add_class::<datatype::TabNoIntpEntry>()?;
     datatype.add_class::<datatype::TextTableEntry>()?;
+    datatype.add_class::<datatype::TextValueSpecification>()?;
     datatype.add_class::<datatype::Unit>()?;
 
     // workaround - pyo3 complex enums do not support setters
@@ -564,13 +557,21 @@ pub(crate) fn add_submodules(py: Python<'_>, parent: &Bound<'_, PyModule>) -> Py
     software_component.add_class::<software_component::ExternalTriggerOccurredEvent>()?;
     software_component.add_class::<software_component::InitEvent>()?;
     software_component.add_class::<software_component::InternalTriggerOccurredEvent>()?;
+    software_component.add_class::<software_component::ModeAccessPoint>()?;
+    software_component.add_class::<software_component::ModeActivationKind>()?;
+    software_component.add_class::<software_component::ModeDeclaration>()?;
+    software_component.add_class::<software_component::ModeDeclarationGroup>()?;
+    software_component.add_class::<software_component::ModeDeclarationGroupCategory>()?;
+    software_component.add_class::<software_component::ModeGroup>()?;
     software_component.add_class::<software_component::ModeSwitchInterface>()?;
     software_component.add_class::<software_component::ModeSwitchedAckEvent>()?;
+    software_component.add_class::<software_component::ModeSwitchPoint>()?;
     software_component.add_class::<software_component::NvDataInterface>()?;
     software_component.add_class::<software_component::OperationInvokedEvent>()?;
     software_component.add_class::<software_component::OsTaskExecutionEvent>()?;
     software_component.add_class::<software_component::PPortPrototype>()?;
     software_component.add_class::<software_component::PRPortPrototype>()?;
+    software_component.add_class::<software_component::ParameterDataPrototype>()?;
     software_component.add_class::<software_component::ParameterInterface>()?;
     software_component.add_class::<software_component::PassThroughSwConnector>()?;
     software_component.add_class::<software_component::PortGroup>()?;
@@ -584,9 +585,11 @@ pub(crate) fn add_submodules(py: Python<'_>, parent: &Bound<'_, PyModule>) -> Py
     software_component.add_class::<software_component::SwcInternalBehavior>()?;
     software_component.add_class::<software_component::SwcModeManagerErrorEvent>()?;
     software_component.add_class::<software_component::SwcModeSwitchEvent>()?;
+    software_component.add_class::<software_component::SynchronousServerCallPoint>()?;
     software_component.add_class::<software_component::TimingEvent>()?;
     software_component.add_class::<software_component::TransformerHardErrorEvent>()?;
     software_component.add_class::<software_component::TriggerInterface>()?;
+    software_component.add_class::<software_component::VariableAccess>()?;
     software_component.add_class::<software_component::VariableDataPrototype>()?;
 
     // Workaround for Pyo3 issue #759 (https://github.com/PyO3/pyo3/issues/759)

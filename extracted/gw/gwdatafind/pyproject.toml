@@ -1,0 +1,154 @@
+[build-system]
+requires = [
+  "setuptools >=70.0.0",
+  "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gwdatafind"
+description = "The GWDataFind data discovery client"
+authors = [
+  { name = "Duncan Macleod", email = "duncan.macleod@ligo.org" },
+]
+license = { text = "GPL-3.0-or-later" }
+readme = "README.md"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Natural Language :: English",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+# requirements
+requires-python = ">=3.9"
+dependencies = [
+  "igwn-auth-utils >=0.3.1",
+  "igwn-segments",
+]
+dynamic = [
+  "version",
+]
+
+[project.optional-dependencies]
+docs = [
+  "furo",
+  "Sphinx >=4.4.0",
+  "sphinx-argparse",
+  "sphinx-automodapi",
+  "sphinx-copybutton",
+  "sphinx-github-style",
+]
+test = [
+  "pytest >=3.9.3",
+  "pytest-cov",
+  "requests-mock",
+]
+
+[project.urls]
+"Homepage" = "https://gwdatafind.readthedocs.io"
+"Bug Tracker" = "https://git.ligo.org/gwdatafind/gwdatafind/-/issues/"
+"Documentation" = "https://gwdatafind.readthedocs.io"
+"Source Code" = "https://git.ligo.org/gwdatafind/gwdatafind.git"
+
+[project.scripts]
+gw_data_find = "gwdatafind.__main__:main"
+
+# -- tools
+
+[tool.build_manpages]
+manpages = [
+  "man/gw_data_find.1:prog=gw_data_find:function=command_line:module=gwdatafind.__main__",
+]
+
+[tool.coverage.paths]
+source = [
+  "gwdatafind/",
+  "*/gwdatafind/",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  # ignore when asked
+  "pragma: no( |-)cover",
+  # don't complain about typing blocks
+  "if (typing\\.)?TYPE_CHECKING",
+]
+precision = 1
+
+[tool.coverage.run]
+source = ["gwdatafind"]
+
+[tool.mypy]
+check_untyped_defs = true
+exclude = [
+  "^docs/",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "3.9.3"
+addopts = "-r a --color=yes"
+filterwarnings = [
+  "error",
+  "ignore:.*pkg_resources"
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "ANN",  # type annotations for **kwargs
+  "D203",  # blank line before class docstring
+  "D213",  # docstring summary on second line
+  "D413",  # blank line after last section
+  "PLR0913",  # too many arguments
+  "SIM108",  # if-else instead of ternary if
+]
+# allow 'mock_...' variables to go unused in tests
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?)|mock_.*)$"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+  "F401",  # unused-import
+  "F403",  # undefined-local-with-import-star
+]
+"*/tests/*" = [
+  "ANN",  # type annotations
+  "B904",  # raise from
+  "EM101",  # string literal in exception
+  "PLR2004",  # magic value used in comparison
+  "S101",  # assert
+]
+"docs/*" = [
+  "A",  # builtins
+  "ANN",  # type annotations
+  "D",  # docstrings
+  "INP001",  # implicit namespace package
+]
+
+[tool.setuptools]
+license-files = [ "LICENSE" ]
+
+[tool.setuptools.dynamic]
+version = { attr = "gwdatafind.__version__" }
+
+[tool.setuptools.packages.find]
+include = [
+  "gwdatafind*",
+]

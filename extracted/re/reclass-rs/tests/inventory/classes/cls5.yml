@@ -1,6 +1,0 @@
-parameters:
-  openshift:
-    baseDomain: ${cluster:name}.example.com
-    appsDomain: apps.${openshift:baseDomain}
-    apiURL: api.${openshift:baseDomain}
-    ssh_key: ""

@@ -1,6 +1,0 @@
-parameters:
-  bar:
-    enabled: true
-  baz:
-    enabled: true
-    experimental: true

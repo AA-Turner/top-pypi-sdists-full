@@ -1,0 +1,544 @@
+Metadata-Version: 2.4
+Name: nagiosplugin
+Version: 1.4.0
+Summary: Class library for writing Nagios (Icinga) plugins
+Home-page: https://nagiosplugin.readthedocs.io/
+Download-URL: https://pypi.org/project/nagiosplugin/
+Author: Matthew Pounsett
+Author-email: matt@conundrum.com
+License: ZPL-2.1
+Project-URL: nagiosplugin source, https://github.com/mpounsett/nagiosplugin
+Project-URL: nagiosplugin issues, https://github.com/mpounsett/nagiosplugin/issues
+Keywords: Nagios Icinga plugin check monitoring
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Plugins
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Zope Public License
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Monitoring
+License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: summary
+
+The nagiosplugin library
+========================
+
+About
+-----
+
+**nagiosplugin** is a Python class library which helps writing Nagios (or Icinga)
+compatible plugins easily in Python. It cares for much of the boilerplate code
+and default logic commonly found in Nagios checks, including:
+
+- Nagios 3 Plugin API compliant parameters and output formatting
+- Full Nagios range syntax support
+- Automatic threshold checking
+- Multiple independend measures
+- Custom status line to communicate the main point quickly
+- Long output and performance data
+- Timeout handling
+- Persistent "cookies" to retain state information between check runs
+- Resume log file processing at the point where the last run left
+- No dependencies beyond the Python standard library (except for Python 2.6).
+
+**nagiosplugin** runs on POSIX and Windows systems. It is compatible with
+Python 2.7, and Python 3.7 through 3.13.
+
+Feedback and Suggestions
+------------------------
+
+nagiosplugin is currently maintained by Matt Pounsett <matt@conundrum.com>.  A
+public issue tracker can be found at
+<https://github.com/mpounsett/nagiosplugin/issues> for bugs, suggestions, and
+patches.
+
+License
+-------
+
+The nagiosplugin package is released under the Zope Public License 2.1 (ZPL), a
+BSD-style Open Source license.
+
+
+Documentation
+-------------
+
+Comprehensive documentation is `available online`_. The examples mentioned in
+the `tutorials`_ can also be found in the `nagiosplugin/examples` directory of
+the source distribution.
+
+.. _available online: https://nagiosplugin.readthedocs.io/
+.. _tutorials: https://nagiosplugin.readthedocs.io/en/stable/tutorial/
+
+Acknowledgements
+----------------
+
+nagiosplugin was originally written and maintained by Christian Kauhaus
+<kc@flyingcircus.io>.  Additional contributions from the community are
+acknowledged in the file CONTRIBUTORS.txt
+
+.. vim: set ft=rst:
+
+
+Contributing to Nagiosplugin
+============================
+
+Getting the source
+------------------
+
+The source can be obtained via git from
+https://github.com/mpounsett/nagiosplugin.git::
+
+   git clone https://github.com/mpounsett/nagiosplugin.git
+
+This package supports installation in a virtualenv::
+
+   python3 -m venv .
+   pip install -e .
+
+
+Making Changes
+--------------
+
+This project uses the `Git-flow workflow`_, approximately as laid out by
+Vincent Driessen in 2010.  New development should be done in feature branches,
+which are branched off of the `develop` branch.  PRs should be sent to
+`upstream:develop`.
+
+.. _Git-flow workflow: https://nvie.com/posts/a-successful-git-branching-model/
+
+Consider whether your change updates or fixes any existing issues.  Include
+the appropriate "fixes" or "updates" entry in your PR description so that the
+issue is updated.   If your change does not reference an existing issue,
+consider creating an issue to link it to.
+
+The project uses PEP8 as its style guide. All changes should be checked
+against PEP8 before committing, and commits **MUST** conform to PEP8 before
+sending a PR.  PEP8 tests can be run with the `tox -e ruff` command (see
+**Tests** below for details on setting up the tox environment).  PRs that
+fail PEP8 compliance will be refused.
+
+Note that, at present, much of the old codebase gets warnings related to
+the `pylint` and `pydocstyle` tests.  Your changes must not introduce any
+**new** warnings from these tests.
+
+If your change is a new feature, or otherwise alters the behaviour of
+`nagiosplugin`, update the relevant section of the documentation and include
+that in your PR.
+
+Tests
+-----
+
+**nagiosplugin** tests are run by `tox`_, which is configured to expect all of
+the supported `python` versions to be present.  The easiest way to accomplish
+this is by installing and using `pyenv`_.  
+
+.. _tox: https://tox.readthedocs.io/en/latest/
+.. _pyenv: https://github.com/pyenv/pyenv
+
+Once you have `pyenv` set up, make sure you have each of the supported
+versions of python specified by the `envlist` in `tox.ini`.  This will likely
+look something like::
+
+   pyenv install 2.7.18
+   pyenv install 3.7.17
+   pyenv install 3.8.20
+   pyenv install 3.9.22
+   pyenv install 3.10.17
+   pyenv install 3.11.12
+   pyenv install 3.12.10
+   pyenv install 3.13.3
+   pyenv global 3.13.3 3.12.10 3.11.12 3.10.17 3.9.22 3.8.20 3.7.17 2.7.18 system
+
+Install test dependencies::
+
+   pip install -r requirements_test.txt
+
+After doing so, run the unit tests::
+
+   tox
+
+To limit tests to a particular python environment::
+
+   tox -e py37
+
+Run only linting tests::
+
+   tox -e ruff
+
+**nagiosplugin** also includes support for test coverage reports. Coverage
+reports are updated automatically by `tox`. Open `htmlcov/index.html` to see
+coverage reports.
+
+You may run the supplied examples with the local interpreter::
+
+   python3 nagiosplugin/examples/check_load.py
+
+
+Documentation
+-------------
+
+The documentation depends on Sphinx.  The Sphinx configuration is tested against
+the latest Python version supported by `nagiosplugin`.  If you are running a
+different Python version in your virtual environment, you may need to update.
+Install the necessary dependencies and then build the documentation::
+
+   pip install -r requirements_docs.txt
+   make docs
+
+HTML documentation will be built and installed in `docs/_build/html/`.  You
+can read the documentation by opening `docs/_build/html/index.html`.
+
+Releasing
+---------
+
+This information will be unnecessary for most contributors.  It is only
+relevant to those actually making releases.
+
+Versioning
+~~~~~~~~~~
+
+**nagiosplugin** obeys the semantic version numbering specification
+published on SemVer_, adapted slightly to be `PEP 440`_ compliant.
+
+.. _SemVer: http://semver.org/
+.. _PEP 440: https://www.python.org/dev/peps/pep-0440/
+
+
+How to release
+~~~~~~~~~~~~~~
+
+Instructions below are for a hypothetical 0.1.2 release.  Make sure you use
+the correct version numbers for your release, and don't copy and paste the
+below examples.
+
+Begin by making sure you have the build prerequisites installed::
+
+   pip install -r requirements_build.txt
+
+Create a release branch from `develop`::
+
+   git checkout develop
+   git checkout -b release/0.1.2
+
+Check that all tests pass.  Apply hotfixes as necessary to pass all tests
+before continuing.
+
+Update the version number in `nagiosplugin/version.py`, and update the version
+release date in the `HISTORY.txt` file::
+
+   sed -i '' -e 's/\(__VERSION__ =\).*/\1 "0.1.2"/' nagiosplugin/version.py
+   sed -i '' -e 's/0.1.2 (unreleased)/0.1.2 (2019-11-07)/' HISTORY.txt
+
+You may need to update the `HISTORY.txt` file with additional changes.  You
+can get a list of commits since the last release by generating a reverse log,
+which you can edit down to just a list of relevant changes::
+
+   git log --reverse --no-merges 0.1.1... > new-changes.txt
+
+Do a test build of the distribution for the PyPi test site::
+
+   python -m build
+
+Check the contents of the packages in `dist/` to ensure they contain all of
+the expected files.
+
+Test your package prior to uploading::
+
+   twine check dist/dist/nagiosplugin-0.1.2.tar.gz
+
+Do a test upload with TestPyPi::
+
+   twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+
+Check on https://test.pypi.org/nagiosplugin that the package metadata looks
+correct.  If everything is fine, proceed with the next steps.
+
+Commit the updated history and version files, making sure both of the file
+changes are in the same commit.  For a new version `0.1.2`::
+
+   git stage HISTORY.txt nagiosplugin/version.py
+   git commit -m "Preparing release 0.1.2"
+
+Merge the release into the `main` branch and tag the release::
+
+   git checkout main
+   git merge release/0.1.2
+   git tag 0.1.2
+   git push
+   git push --tags
+
+Build the final **nagiosplugin** distribution for PyPi, and upload it::
+
+   python -m build
+   twine upload dist/*
+
+Merge the release back into `develop` and then delete the release branch::
+
+   git checkout develop
+   git merge release/0.1.2
+   git push
+   git branch -d release/0.1.2
+
+Go to https://readthedocs.io/ and ensure the new stable and dev releases are
+available.
+
+
+.. vim: set ft=rst sw=3 sts=3 et:
+
+
+Contributors
+============
+
+`nagiosplugin` has become what it is now with the help of many contributors from
+the community. We want to thank everyone who has invested time and energy to
+make `nagiosplugin` better:
+
+* Christian Kauhaus <kc@flyingcircus.io>, the original author and maintainer.
+* Wolfgang Schnerring <wosc@wosc.de> for thoughts on the design.
+* Thomas Lotze <thomas@thomas-lotze.de> for improving the test infrastructure.
+* Christian Theune <ct@flyingcircus.io> for comments and general feedback.
+* Michael Howitz <mh@gocept.com> and Andrei Chirila <andreich@gmail.com> for the
+  Python 3 port.
+* Birger Schmidt <birger.schmidt@netways.de> for bug reports.
+* Florian Lagg <LaggAt@lagg-asus1.lan> for Windows compatibility fixes
+* Jeff Goldschrafe <jeff@holyhandgrenade.org> for the Python 2.6 backport.
+* José Manuel Fardello <jmfardello@gmail.com> for a logging fix.
+* Jordan Metzmeier <jmetzmeier01@gmail.com> for build fixes and Debian
+  packaging.
+* Andrey Panfilov <andrew@panfilov.tel> for a perfdata fix.
+* Mihai Limbășan <mihai@limbasan.ro> for various output formatting fixes.
+
+.. vim: set ft=rst sw=3 sts=3 et:
+
+
+Release History
+===============
+
+1.4.0 (2025-05-19)
+------------------
+
+IMPORTANT NOTE:  Please see the announcement about the new `python release
+support policy`_.
+
+.. _python release support policy: https://github.com/mpounsett/nagiosplugin/discussions/76
+
+- new: add check name to Check constructor (Simon Meggle)
+- change: drop support for Python 3.4, 3.5, and 3.6 (#65)
+- change: add support for Python 3.11, 3.12, and 3.13 (#65)
+- fix: correct reference to class ~.performace.Performance in
+  Context.performance docstring (Josef Friedrich)
+- fix: tests use importlib where available in place of deprecated
+  pkg_resources (#50)
+- fix: build environment updates to support py2.7 (#64)
+- doc: additional text explaining the naming of the Warn state class (#26)
+- doc: updated document building for newer Sphinx (#72)
+- doc: updated document building for new readthedocs.io deployment process
+  (#79)
+- linting: replaced some elif statements occluded by return statements (no-else-return)
+- linting: cleaned up "inconsistent-return-statements" errors
+- linting: replace flake8 with ruff (#60)
+- linting: add security tests with pip-audit and bandit (#61)
+
+1.3.3 (2022-02-07)
+------------------
+
+- new: adding support for newer python releases (3.8, 3.9, 3.10)
+- fix: various typos in docstrings (#39, )
+- fix: change use of deprecated upload-dir to upload_dir in setup.cfg (#34)
+- fix: Runtime class now sets None for stdout by default (#24)
+- fix: corrected argument order in several calls to super() (#18)
+- cleanup: many bits of code tidying to eliminate linter warnings
+
+
+1.3.2 (2019-11-09)
+------------------
+
+- Include `doc` and `tests` directories in source distribution to support
+  Gentoo package building tests (#22)
+- Update official python support to 2.7, 3.4+ in README
+
+
+1.3.1 (2019-11-08)
+------------------
+
+- Fixed a packaging bug
+
+
+1.3.0 (2019-11-08)
+------------------
+
+- New maintainer/contributor information and project home
+
+- Updated tests and package metadata for recent Python 3 versions
+- Newer tooling for tests/documentation
+
+
+1.2.4 (2016-03-12)
+------------------
+
+- Add optional keyword parameter `verbose` to Runtime.guarded(). This parameter
+  allows to set verbose level in the early execution phase (#13).
+- Allow Context.evaluate() return either a Result or ServiceState object. In
+  case the latter is returned, it gets automatically wrapped in a Result object
+  (#6).
+
+
+1.2.3 (2015-10-30)
+------------------
+
+- Fix bug that caused a UnicodeDecodeError when using non-ASCII characters in
+  fmt_metric (#12).
+- Print perfdata always on a single line (even in multi-line mode) to improve
+  compatibility with various monitoring systems (#11).
+
+
+1.2.2 (2014-05-27)
+------------------
+
+- Mention that nagiosplugin also runs with Python 3.4 (no code changes
+  necessary).
+- Make name prefix in status output optional by allowing to assign None to
+  Check.name.
+- Accept bare metric as return value from Resource.probe().
+- Fix bug where Context.describe() was not used to obtain metric description
+  (#13162).
+
+
+1.2.1 (2014-03-19)
+------------------
+
+- Fix build failures with LANG=C (#13140).
+- Remove length limitation of perfdata labels (#13214).
+- Fix formatting of large integers as Metric values (#13287).
+- Range: allow simple numerals as argument to Range() (#12658).
+- Cookie: allow for empty state file specification (#12788).
+
+
+1.2 (2013-11-08)
+----------------
+
+- New `Summary.empty` method is called if there are no results present (#11593).
+- Improve range violation wording (#11597).
+- Ensure that nagiosplugin install correctly with current setuptools (#12660).
+- Behave and do not attach anything to the root logger.
+- Add debugging topic guide. Explain how to disable the timeout when using pdb
+  (#11592).
+
+
+1.1 (2013-06-19)
+----------------
+
+- Identical to 1.1b1.
+
+
+1.1b1 (2013-05-28)
+------------------
+
+- Made compatible with Python 2.6 (#12297).
+- Tutorial #3: check_users (#11539).
+- Minor documentation improvements.
+
+
+1.0.0 (2013-02-05)
+------------------
+
+- LogTail returns lines as byte strings in Python 3 to avoid codec issues
+  (#11564).
+- LogTail gives a line-based iterator instead of a file object (#11564).
+- Basic API docs for the most important classes (#11612).
+- Made compatible with Python 2.7 (#11533).
+- Made compatible with Python 3.3.
+
+
+1.0.0b1 (2012-10-29)
+--------------------
+
+- Improve error reporting for missing contexts.
+- Exit with code 3 if no metrics have been generated.
+- Improve default Summary.verbose() to list all threshold violations.
+- Move main source repository to https://bitbucket.org/gocept/nagiosplugin/
+  (#11561).
+
+
+1.0.0a2 (2012-10-26)
+--------------------
+
+- API docs for the most important classes (#7939).
+- Added two tutorials (#9425).
+- Fix packaging issues.
+
+
+1.0.0a1 (2012-10-25)
+--------------------
+
+- Completely reworked API. The new API is not compatible with the old 0.4 API so
+  you must update your plugins.
+- Python 3 support.
+- The `Cookie` class is now basically a persistent dict and accepts key/value
+  pairs. Cookie are stored as JSON files by default so they can be inspected by
+  the system administrator (#9400).
+- New `LogTail` class which provides convenient access to constantly growing log
+  files which are eventually rotated.
+
+
+0.4.5 (2012-06-18)
+------------------
+
+- Windows port. `nagiosplugin` code now runs under pywin32 (#10899).
+- Include examples in egg release (#9901).
+
+
+0.4.4 (2011-07-18)
+------------------
+
+Bugfix release to fix issues reported by users.
+
+- Improve Mac OS X compatibility (#8755).
+- Include examples in distribution (#8555).
+
+
+0.4.3 (2010-12-17)
+------------------
+
+- Change __str__ representation of large numbers to avoid scientific notation.
+
+
+0.4.2 (2010-10-11)
+------------------
+
+- Packaging issues.
+
+
+0.4.1 (2010-09-21)
+------------------
+
+- Fix distribution to install correctly.
+- Documentation: tutorial and topic guides.
+
+
+0.4 (2010-08-17)
+----------------
+
+- Initial public release.
+
+.. vim: set ft=rst sw=3 sts=3 spell spelllang=en:

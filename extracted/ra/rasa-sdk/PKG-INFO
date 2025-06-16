@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: rasa-sdk
-Version: 3.12.0
+Version: 3.12.1
 Summary: Open source machine learning framework to automate text- and voice-based conversations: NLU, dialogue management, connect to Slack, Facebook, and more - Create chatbots and voice assistants
-Home-page: https://rasa.com
 License: Apache-2.0
 Keywords: nlp,machine-learning,machine-learning-library,bot,bots,botkit,rasa conversational-agents,conversational-ai,chatbot,chatbot-framework,bot-framework
 Author: Rasa Technologies GmbH
@@ -36,6 +35,7 @@ Requires-Dist: sanic (>=22.12,<23.0)
 Requires-Dist: typing-extensions (>=4.1.1,<5.0.0)
 Requires-Dist: websockets (>=10.0,<12.0)
 Project-URL: Documentation, https://rasa.com/docs
+Project-URL: Homepage, https://rasa.com
 Project-URL: Repository, https://github.com/rasahq/rasa-sdk
 Description-Content-Type: text/markdown
 

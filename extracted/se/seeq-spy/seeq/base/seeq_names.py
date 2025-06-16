@@ -172,6 +172,9 @@ class SeeqNames:
         item_id_column = 'item id'
         event_data_column = 'event data'
         context_table_prefix = 'context_'
+        context_creator_id_column = 'creator_id'
+        context_updater_id_column = 'updater_id'
+        context_archiver_column = 'archiver_id'
         created_at_column = 'created at'
         unique_row_id = 'Existing Row Identifier'
         csv_item_id_column = 'csv item id'
@@ -840,6 +843,7 @@ class SeeqNames:
         type_definition = 'TypeDefinition'
         table_definition = 'TableDefinition'
         version_history = 'VersionHistory'
+        model = 'Model'
     
     class TopicDocumentAttributes:
         data_seeq_content = 'data-seeq-content'
@@ -1191,6 +1195,7 @@ class SeeqNames:
         versions = 'Versions'
         inputs = 'Inputs'
         result_type = 'Result Type'
+        features = 'Features'
     
 
 

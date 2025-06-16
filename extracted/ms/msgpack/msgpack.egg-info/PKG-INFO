@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: msgpack
-Version: 1.1.0
+Version: 1.1.1
 Summary: MessagePack serializer
 Author-email: Inada Naoki <songofacandy@gmail.com>
 License: Apache 2.0
@@ -12,20 +12,21 @@ Project-URL: Changelog, https://github.com/msgpack/msgpack-python/blob/main/Chan
 Keywords: msgpack,messagepack,serializer,serialization,binary
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: File Formats
+Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: COPYING
+Dynamic: license-file
 
 # MessagePack for Python
 

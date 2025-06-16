@@ -37,6 +37,7 @@ class _ServiceOptions:
     batch_max_size: typing.Optional[int]
     batch_wait_ms: typing.Optional[int]
 
+    def merge_options(self, new_options: _ServiceOptions) -> _ServiceOptions: ...
     def __init__(
         self,
         secrets: typing.Collection[modal.secret._Secret] = (),

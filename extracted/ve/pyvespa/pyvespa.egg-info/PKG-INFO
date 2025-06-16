@@ -1,8 +1,8 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pyvespa
-Version: 0.55.0
+Version: 0.56.0
 Summary: Python API for vespa.ai
-Author: Thiago G. Martins
+Author: Thiago G. Martins, Thomas Thoresen
 Maintainer-email: Thomas Thoresen <thomas@vespa.ai>
 License:                               Apache License
                                    Version 2.0, January 2004
@@ -240,11 +240,16 @@ Requires-Dist: vespacli; extra == "unittest"
 Requires-Dist: pytest-asyncio; extra == "unittest"
 Requires-Dist: mypy>=1.14.1; extra == "unittest"
 Provides-Extra: docs
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: nbsphinx; extra == "docs"
-Requires-Dist: sphinx-rtd-theme>=0.5.0; extra == "docs"
 Requires-Dist: ipykernel; extra == "docs"
-Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: nbconvert; extra == "docs"
+Requires-Dist: jupyter; extra == "docs"
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: mkdocs-jupyter; extra == "docs"
+Requires-Dist: mkdocstrings[python]; extra == "docs"
+Requires-Dist: mkdocs-autoapi; extra == "docs"
+Requires-Dist: mkdocs-linkcheck; extra == "docs"
+Requires-Dist: mktestdocs; extra == "docs"
+Requires-Dist: pytest; extra == "docs"
 Provides-Extra: feed
 Requires-Dist: PyYAML; extra == "feed"
 Requires-Dist: spacy; extra == "feed"
@@ -277,6 +282,8 @@ Requires-Dist: vespacli; extra == "dev"
 Requires-Dist: datasets>=2.19.1; extra == "dev"
 Requires-Dist: pyvespa[unittest]; extra == "dev"
 Requires-Dist: pyvespa[build]; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Dynamic: license-file
 
 <!-- Copyright Vespa.ai. Licensed under the terms of the Apache 2.0 license. See LICENSE in the project root. -->
 
@@ -288,14 +295,13 @@ Requires-Dist: pyvespa[build]; extra == "dev"
   <img alt="#Vespa" width="200" src="https://assets.vespa.ai/logos/Vespa-logo-dark-RGB.svg" style="margin-bottom: 25px;">
 </picture>
 
-[![Documentation Status](https://readthedocs.org/projects/pyvespa/badge/?version=latest)](https://pyvespa.readthedocs.io/en/latest/?badge=latest)
+[![Docs pages-build-deployment](https://github.com/vespa-engine/pyvespa/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/vespa-engine/pyvespa/actions/workflows/pages/pages-build-deployment)
 
 ![GitHub Release](https://img.shields.io/github/v/release/vespa-engine/pyvespa)
 ![PyPI - Version](https://img.shields.io/pypi/v/pyvespa)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/pyvespa)
 
-
-[pyvespa site / documentation](https://pyvespa.readthedocs.io/en/latest/index.html)
+[pyvespa site / documentation](https://vespa-engine.github.io/pyvespa/index.html)
 
 [Vespa](https://vespa.ai/) is the scalable open-sourced serving engine that enables users to store,
 compute and rank big data at user serving time.
@@ -317,7 +323,7 @@ Code licensed under the Apache 2.0 license. See [LICENSE](LICENSE) for terms.
 To install editable version of the library with dev dependencies, run the following command from the root directory of the repository:
 
 ```python
-pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
 Note that this will enforce linting and formatting with [Ruff](https://github.com/astral-sh/ruff), which also will be triggered by a [pre-commit](https://pre-commit.com/)-hook.

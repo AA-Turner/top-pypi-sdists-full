@@ -32,6 +32,8 @@ export declare class LeafletLocalTileLayerModel extends LeafletTileLayerModel {
         popup_max_height: number | null;
         pane: string;
         subitems: import("leaflet").Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
 export declare class LeafletLocalTileLayerView extends LeafletTileLayerView {

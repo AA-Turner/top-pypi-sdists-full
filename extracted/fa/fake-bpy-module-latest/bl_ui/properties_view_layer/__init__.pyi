@@ -30,7 +30,7 @@ class VIEWLAYER_MT_lightgroup_sync(bpy.types.Menu):
         :param _context:
         """
 
-class VIEWLAYER_PT_eevee_next_layer_passes_data(ViewLayerButtonsPanel, bpy.types.Panel):
+class VIEWLAYER_PT_eevee_layer_passes_data(ViewLayerButtonsPanel, bpy.types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -60,9 +60,7 @@ class VIEWLAYER_PT_eevee_next_layer_passes_data(ViewLayerButtonsPanel, bpy.types
         :param context:
         """
 
-class VIEWLAYER_PT_eevee_next_layer_passes_light(
-    ViewLayerButtonsPanel, bpy.types.Panel
-):
+class VIEWLAYER_PT_eevee_layer_passes_light(ViewLayerButtonsPanel, bpy.types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
@@ -283,6 +281,36 @@ class VIEWLAYER_PT_layer_passes_lightgroups(
 
         :return: The class or default when not found.
         :rtype: typing.Any
+        """
+
+class VIEWLAYER_PT_override(ViewLayerButtonsPanel, bpy.types.Panel):
+    COMPAT_ENGINES: typing.Any
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
         """
 
 class VIEWLAYER_PT_workbench_layer_passes_data(ViewLayerButtonsPanel, bpy.types.Panel):

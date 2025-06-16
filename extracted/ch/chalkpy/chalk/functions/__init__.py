@@ -3731,6 +3731,49 @@ def sklearn_logistic_regression(
     )
 
 
+def xgboost_regressor(
+    *features: Underscore,
+    model_path: str,
+):
+    """
+    Load xgboost regressor into an expression from a joblib or pickle file.
+
+    The model must be trained on the same version of xgboost that is deployed in your
+    Chalk environment. The joblib dependency also needs to be included in your
+    python requirements.
+
+    Currently, only non-null float features are supported.
+
+    Parameters
+    ----------
+    features
+        A list of the features which were used to train the model.
+    model_path
+        A filepath to the xgboost resgressor model.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    a: float
+    ...    b: float
+    ...    c: float
+    ...    d: float
+    ...    e: float
+    ...    prediction: float = F.xgboost_regressor(
+    ...       _.a, _.b, _.c, _.d, _.e,
+    ...       model_path=os.path.join(os.environ.get("TARGET_ROOT", "."), "models", "./xgb_regressor.joblib"),
+    ...    )
+    """
+    return UnderscoreFunction(
+        "xgb_regressor",
+        *features,
+        model_path=model_path,
+    )
+
+
 __all__ = (
     "DayOfWeek",
     "Then",
@@ -3866,6 +3909,7 @@ __all__ = (
     "week_of_year",
     "when",
     "year",
+    "xgboost_regressor",
     "current_bucket_start",
     "current_bucket_end",
     "nth_bucket_start",

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyvespa"
-version = "0.55.0"
+version = "0.56.0"
 description = "Python API for vespa.ai"
 readme = "README.md"
 keywords = ["vespa", "search engine", "data science"]
@@ -30,6 +30,9 @@ requires-python = ">=3.9"
 
 [[project.authors]]
 name = "Thiago G. Martins"
+
+[[project.authors]]
+name = "Thomas Thoresen"
 
 [[project.maintainers]]
 name = "Thomas Thoresen"
@@ -59,11 +62,16 @@ unittest = [
     "mypy>=1.14.1",
 ]
 docs = [
-    "sphinx",
-    "nbsphinx",
-    "sphinx-rtd-theme>=0.5.0",
     "ipykernel",
-    "sphinx-copybutton",
+    "nbconvert",
+    "jupyter",
+    "mkdocs-material",
+    "mkdocs-jupyter",
+    "mkdocstrings[python]",
+    "mkdocs-autoapi",
+    "mkdocs-linkcheck",
+    "mktestdocs",
+    "pytest",
 ]
 feed = [
     "PyYAML",
@@ -99,10 +107,11 @@ dev = [
     "datasets>=2.19.1",
     "pyvespa[unittest]",
     "pyvespa[build]",
+    "ruff",
 ]
 
 [tool.setuptools]
-package-dir = {vespa = "vespa"}
+package-dir = { vespa = "vespa" }
 
 [tool.ruff]
 exclude = [

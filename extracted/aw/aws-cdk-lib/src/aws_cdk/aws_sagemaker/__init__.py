@@ -6395,7 +6395,16 @@ class CfnDomain(
                     r_studio_connect_url="rStudioConnectUrl",
                     r_studio_package_manager_url="rStudioPackageManagerUrl"
                 ),
-                security_group_ids=["securityGroupIds"]
+                security_group_ids=["securityGroupIds"],
+                unified_studio_settings=sagemaker.CfnDomain.UnifiedStudioSettingsProperty(
+                    domain_account_id="domainAccountId",
+                    domain_id="domainId",
+                    domain_region="domainRegion",
+                    environment_id="environmentId",
+                    project_id="projectId",
+                    project_s3_path="projectS3Path",
+                    studio_web_portal_access="studioWebPortalAccess"
+                )
             ),
             kms_key_id="kmsKeyId",
             tag_propagation="tagPropagation",
@@ -7733,6 +7742,7 @@ class CfnDomain(
             "execution_role_identity_config": "executionRoleIdentityConfig",
             "r_studio_server_pro_domain_settings": "rStudioServerProDomainSettings",
             "security_group_ids": "securityGroupIds",
+            "unified_studio_settings": "unifiedStudioSettings",
         },
     )
     class DomainSettingsProperty:
@@ -7743,6 +7753,7 @@ class CfnDomain(
             execution_role_identity_config: typing.Optional[builtins.str] = None,
             r_studio_server_pro_domain_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.RStudioServerProDomainSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            unified_studio_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.UnifiedStudioSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A collection of settings that apply to the ``SageMaker Domain`` .
 
@@ -7752,6 +7763,7 @@ class CfnDomain(
             :param execution_role_identity_config: The configuration for attaching a SageMaker AI user profile name to the execution role as a `sts:SourceIdentity key <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_control-access_monitor.html>`_ .
             :param r_studio_server_pro_domain_settings: A collection of settings that configure the ``RStudioServerPro`` Domain-level app.
             :param security_group_ids: The security groups for the Amazon Virtual Private Cloud that the ``Domain`` uses for communication between Domain-level apps and user apps.
+            :param unified_studio_settings: A collection of settings that apply to an Amazon SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-domainsettings.html
             :exampleMetadata: fixture=_generated
@@ -7781,7 +7793,16 @@ class CfnDomain(
                         r_studio_connect_url="rStudioConnectUrl",
                         r_studio_package_manager_url="rStudioPackageManagerUrl"
                     ),
-                    security_group_ids=["securityGroupIds"]
+                    security_group_ids=["securityGroupIds"],
+                    unified_studio_settings=sagemaker.CfnDomain.UnifiedStudioSettingsProperty(
+                        domain_account_id="domainAccountId",
+                        domain_id="domainId",
+                        domain_region="domainRegion",
+                        environment_id="environmentId",
+                        project_id="projectId",
+                        project_s3_path="projectS3Path",
+                        studio_web_portal_access="studioWebPortalAccess"
+                    )
                 )
             '''
             if __debug__:
@@ -7790,6 +7811,7 @@ class CfnDomain(
                 check_type(argname="argument execution_role_identity_config", value=execution_role_identity_config, expected_type=type_hints["execution_role_identity_config"])
                 check_type(argname="argument r_studio_server_pro_domain_settings", value=r_studio_server_pro_domain_settings, expected_type=type_hints["r_studio_server_pro_domain_settings"])
                 check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument unified_studio_settings", value=unified_studio_settings, expected_type=type_hints["unified_studio_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if docker_settings is not None:
                 self._values["docker_settings"] = docker_settings
@@ -7799,6 +7821,8 @@ class CfnDomain(
                 self._values["r_studio_server_pro_domain_settings"] = r_studio_server_pro_domain_settings
             if security_group_ids is not None:
                 self._values["security_group_ids"] = security_group_ids
+            if unified_studio_settings is not None:
+                self._values["unified_studio_settings"] = unified_studio_settings
 
         @builtins.property
         def docker_settings(
@@ -7839,6 +7863,17 @@ class CfnDomain(
             '''
             result = self._values.get("security_group_ids")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def unified_studio_settings(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.UnifiedStudioSettingsProperty"]]:
+            '''A collection of settings that apply to an Amazon SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-domainsettings.html#cfn-sagemaker-domain-domainsettings-unifiedstudiosettings
+            '''
+            result = self._values.get("unified_studio_settings")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.UnifiedStudioSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9157,6 +9192,168 @@ class CfnDomain(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnDomain.UnifiedStudioSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "domain_account_id": "domainAccountId",
+            "domain_id": "domainId",
+            "domain_region": "domainRegion",
+            "environment_id": "environmentId",
+            "project_id": "projectId",
+            "project_s3_path": "projectS3Path",
+            "studio_web_portal_access": "studioWebPortalAccess",
+        },
+    )
+    class UnifiedStudioSettingsProperty:
+        def __init__(
+            self,
+            *,
+            domain_account_id: typing.Optional[builtins.str] = None,
+            domain_id: typing.Optional[builtins.str] = None,
+            domain_region: typing.Optional[builtins.str] = None,
+            environment_id: typing.Optional[builtins.str] = None,
+            project_id: typing.Optional[builtins.str] = None,
+            project_s3_path: typing.Optional[builtins.str] = None,
+            studio_web_portal_access: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A collection of settings that apply to an Amazon SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
+
+            :param domain_account_id: The ID of the AWS account that has the Amazon SageMaker Unified Studio domain. The default value, if you don't specify an ID, is the ID of the account that has the Amazon SageMaker AI domain.
+            :param domain_id: The ID of the Amazon SageMaker Unified Studio domain associated with this domain.
+            :param domain_region: The AWS Region where the domain is located in Amazon SageMaker Unified Studio. The default value, if you don't specify a Region, is the Region where the Amazon SageMaker AI domain is located.
+            :param environment_id: The ID of the environment that Amazon SageMaker Unified Studio associates with the domain.
+            :param project_id: The ID of the Amazon SageMaker Unified Studio project that corresponds to the domain.
+            :param project_s3_path: The location where Amazon S3 stores temporary execution data and other artifacts for the project that corresponds to the domain.
+            :param studio_web_portal_access: Sets whether you can access the domain in Amazon SageMaker Studio:. ENABLED You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces. DISABLED You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                unified_studio_settings_property = sagemaker.CfnDomain.UnifiedStudioSettingsProperty(
+                    domain_account_id="domainAccountId",
+                    domain_id="domainId",
+                    domain_region="domainRegion",
+                    environment_id="environmentId",
+                    project_id="projectId",
+                    project_s3_path="projectS3Path",
+                    studio_web_portal_access="studioWebPortalAccess"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b4dad77d25b548827f5bcfd63cb5788816c5db5845110e1912053632c788fa19)
+                check_type(argname="argument domain_account_id", value=domain_account_id, expected_type=type_hints["domain_account_id"])
+                check_type(argname="argument domain_id", value=domain_id, expected_type=type_hints["domain_id"])
+                check_type(argname="argument domain_region", value=domain_region, expected_type=type_hints["domain_region"])
+                check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
+                check_type(argname="argument project_id", value=project_id, expected_type=type_hints["project_id"])
+                check_type(argname="argument project_s3_path", value=project_s3_path, expected_type=type_hints["project_s3_path"])
+                check_type(argname="argument studio_web_portal_access", value=studio_web_portal_access, expected_type=type_hints["studio_web_portal_access"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain_account_id is not None:
+                self._values["domain_account_id"] = domain_account_id
+            if domain_id is not None:
+                self._values["domain_id"] = domain_id
+            if domain_region is not None:
+                self._values["domain_region"] = domain_region
+            if environment_id is not None:
+                self._values["environment_id"] = environment_id
+            if project_id is not None:
+                self._values["project_id"] = project_id
+            if project_s3_path is not None:
+                self._values["project_s3_path"] = project_s3_path
+            if studio_web_portal_access is not None:
+                self._values["studio_web_portal_access"] = studio_web_portal_access
+
+        @builtins.property
+        def domain_account_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the AWS account that has the Amazon SageMaker Unified Studio domain.
+
+            The default value, if you don't specify an ID, is the ID of the account that has the Amazon SageMaker AI domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-domainaccountid
+            '''
+            result = self._values.get("domain_account_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def domain_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the Amazon SageMaker Unified Studio domain associated with this domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-domainid
+            '''
+            result = self._values.get("domain_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def domain_region(self) -> typing.Optional[builtins.str]:
+            '''The AWS Region where the domain is located in Amazon SageMaker Unified Studio.
+
+            The default value, if you don't specify a Region, is the Region where the Amazon SageMaker AI domain is located.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-domainregion
+            '''
+            result = self._values.get("domain_region")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def environment_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the environment that Amazon SageMaker Unified Studio associates with the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-environmentid
+            '''
+            result = self._values.get("environment_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def project_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the Amazon SageMaker Unified Studio project that corresponds to the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-projectid
+            '''
+            result = self._values.get("project_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def project_s3_path(self) -> typing.Optional[builtins.str]:
+            '''The location where Amazon S3 stores temporary execution data and other artifacts for the project that corresponds to the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-projects3path
+            '''
+            result = self._values.get("project_s3_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def studio_web_portal_access(self) -> typing.Optional[builtins.str]:
+            '''Sets whether you can access the domain in Amazon SageMaker Studio:.
+
+            ENABLED
+            You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces.
+            DISABLED
+            You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-studiowebportalaccess
+            '''
+            result = self._values.get("studio_web_portal_access")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UnifiedStudioSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnDomain.UserSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -9954,7 +10151,16 @@ class CfnDomainProps:
                         r_studio_connect_url="rStudioConnectUrl",
                         r_studio_package_manager_url="rStudioPackageManagerUrl"
                     ),
-                    security_group_ids=["securityGroupIds"]
+                    security_group_ids=["securityGroupIds"],
+                    unified_studio_settings=sagemaker.CfnDomain.UnifiedStudioSettingsProperty(
+                        domain_account_id="domainAccountId",
+                        domain_id="domainId",
+                        domain_region="domainRegion",
+                        environment_id="environmentId",
+                        project_id="projectId",
+                        project_s3_path="projectS3Path",
+                        studio_web_portal_access="studioWebPortalAccess"
+                    )
                 ),
                 kms_key_id="kmsKeyId",
                 tag_propagation="tagPropagation",
@@ -51181,6 +51387,7 @@ def _typecheckingstub__b23323cc301476d59d77a279da88bfc3d14a3c21fb8709a0ecc6db607
     execution_role_identity_config: typing.Optional[builtins.str] = None,
     r_studio_server_pro_domain_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.RStudioServerProDomainSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    unified_studio_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.UnifiedStudioSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -51299,6 +51506,19 @@ def _typecheckingstub__8a8ec723792b0ed26599d28b5d7a21fbc89e286f4d03c0e5a17ecf559
     hidden_instance_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     hidden_ml_tools: typing.Optional[typing.Sequence[builtins.str]] = None,
     hidden_sage_maker_image_version_aliases: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.HiddenSageMakerImageProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4dad77d25b548827f5bcfd63cb5788816c5db5845110e1912053632c788fa19(
+    *,
+    domain_account_id: typing.Optional[builtins.str] = None,
+    domain_id: typing.Optional[builtins.str] = None,
+    domain_region: typing.Optional[builtins.str] = None,
+    environment_id: typing.Optional[builtins.str] = None,
+    project_id: typing.Optional[builtins.str] = None,
+    project_s3_path: typing.Optional[builtins.str] = None,
+    studio_web_portal_access: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

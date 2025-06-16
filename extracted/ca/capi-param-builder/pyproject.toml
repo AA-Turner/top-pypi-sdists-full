@@ -1,8 +1,0 @@
-[project]
-name = "capi_param_builder"
-version = "5.1.0"
-description = "Sua descrição aqui"
-readme = "README.md"
-authors = [{name = "guispark", email = "xfiltrer@protonmail.com"}]
-
-

@@ -1,0 +1,25 @@
+name: Pokemon Snap
+repo: https://github.com/ethteck/pokemonsnap
+platform: n64
+versions:
+- name: us
+  fullname: US
+  paths:
+    target: "pokemonsnap.z64"
+
+    build_dir: "build"
+    map: "build/pokemonsnap.map"
+    compiled_target: "build/pokemonsnap.z64"
+    elf: "build/pokemonsnap.elf"
+
+    expected_dir: "expected/"
+
+    asm: "asm"
+    nonmatchings: "asm/nonmatchings"
+
+tools:
+  arbitrary_tool:
+    meowp: 125
+    others:
+    - thing: {stuff: 1}
+    - thing2: {stuff: 2}

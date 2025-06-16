@@ -176,13 +176,13 @@ def old_policy(self):
 
 
 # For DPO
-def get_per_token_logps(self,
-                        logits: torch.FloatTensor,
+def get_per_token_logps(logits: torch.FloatTensor,
                         labels: torch.LongTensor,
+                        label_pad_token_id=-100,
                         ulysses=None) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     if labels.shape[1] > logits.shape[1]:
         _, _, labels, _, _, _ = ulysses.pad_and_split_inputs(None, None, labels, None, None, None)
-    loss_mask = labels != self.label_pad_token_id
+    loss_mask = labels != label_pad_token_id
     labels = labels.clone()  # No need to shift, pad and split has shifted the inputs.
     labels[~loss_mask] = 0
     labels = labels.to(logits.device)
@@ -840,12 +840,7 @@ class Ulysses(SequenceParallel):
         elif trainer.__class__.__name__ == 'DPOTrainer':
             trainer._origin_prepare_inputs = trainer._prepare_inputs
             trainer._prepare_inputs = MethodType(partial(_prepare_inputs, ulysses=self), trainer)
-            trainer.get_per_token_logps = MethodType(partial(get_per_token_logps, ulysses=self), trainer)
-
-            def rlhf_loss_scale_sp_func(_, *args, **kwargs):
-                return loss_scale_sp_func(*args, ulysses=self, **kwargs)
-
-            trainer.get_nll_loss = MethodType(rlhf_loss_scale_sp_func, trainer)
+            trainer.get_per_token_logps = partial(get_per_token_logps, ulysses=self)
 
         elif trainer.__class__.__name__ == 'GRPOTrainer':
             assert version.parse(trl.__version__) >= version.parse('0.18.0')
@@ -855,6 +850,27 @@ class Ulysses(SequenceParallel):
             trainer._prepare_inputs = MethodType(_prepare_inputs_grpo, trainer)
             trainer._get_per_token_logps = MethodType(_get_per_token_logps, trainer)
             trainer.split_by_mini_batches = MethodType(split_by_mini_batches, trainer)
+
+            class DataloaderWrap:
+
+                def __init__(self, dataloader):
+                    self.dataloader = dataloader
+
+                def __getattr__(self, item):
+                    return getattr(self.dataloader, item)
+
+                def __len__(wrapped):
+                    return len(wrapped.dataloader) * self.sp_world_size
+
+                def __iter__(self):
+                    yield from self.dataloader
+
+            def get_train_dataloader(trainer):
+                dataloader = trainer.get_origin_train_dataloader()
+                return DataloaderWrap(dataloader)
+
+            trainer.get_origin_train_dataloader = trainer.get_train_dataloader
+            trainer.get_train_dataloader = MethodType(get_train_dataloader, trainer)
 
         from swift.plugin import metric
         from swift.trainers import mixin

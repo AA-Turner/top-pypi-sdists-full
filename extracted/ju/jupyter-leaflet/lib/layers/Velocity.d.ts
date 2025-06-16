@@ -31,6 +31,8 @@ export declare class LeafletVelocityModel extends LeafletLayerModel {
         popup_max_height: number | null;
         pane: string;
         subitems: import("leaflet").Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
 export declare class LeafletVelocityView extends LeafletLayerView {

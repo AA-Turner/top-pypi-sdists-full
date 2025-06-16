@@ -909,7 +909,7 @@ class CfnApp(
 
             For more information about how Amplify applies an optimal cache configuration for your app based on the type of content that is being served, see `Managing cache configuration <https://docs.aws.amazon.com/amplify/latest/userguide/managing-cache-configuration>`_ in the *Amplify User guide* .
 
-            :param type: The type of cache configuration to use for an Amplify app. The ``AMPLIFY_MANAGED`` cache configuration automatically applies an optimized cache configuration for your app based on its platform, routing rules, and rewrite rules. This is the default setting. The ``AMPLIFY_MANAGED_NO_COOKIES`` cache configuration type is the same as ``AMPLIFY_MANAGED`` , except that it excludes all cookies from the cache key.
+            :param type: The type of cache configuration to use for an Amplify app. The ``AMPLIFY_MANAGED`` cache configuration automatically applies an optimized cache configuration for your app based on its platform, routing rules, and rewrite rules. The ``AMPLIFY_MANAGED_NO_COOKIES`` cache configuration type is the same as ``AMPLIFY_MANAGED`` , except that it excludes all cookies from the cache key. This is the default setting.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-cacheconfig.html
             :exampleMetadata: fixture=_generated
@@ -935,9 +935,9 @@ class CfnApp(
         def type(self) -> typing.Optional[builtins.str]:
             '''The type of cache configuration to use for an Amplify app.
 
-            The ``AMPLIFY_MANAGED`` cache configuration automatically applies an optimized cache configuration for your app based on its platform, routing rules, and rewrite rules. This is the default setting.
+            The ``AMPLIFY_MANAGED`` cache configuration automatically applies an optimized cache configuration for your app based on its platform, routing rules, and rewrite rules.
 
-            The ``AMPLIFY_MANAGED_NO_COOKIES`` cache configuration type is the same as ``AMPLIFY_MANAGED`` , except that it excludes all cookies from the cache key.
+            The ``AMPLIFY_MANAGED_NO_COOKIES`` cache configuration type is the same as ``AMPLIFY_MANAGED`` , except that it excludes all cookies from the cache key. This is the default setting.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amplify-app-cacheconfig.html#cfn-amplify-app-cacheconfig-type
             '''

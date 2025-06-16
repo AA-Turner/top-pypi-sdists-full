@@ -22,6 +22,30 @@ chisq = "chisq"
 gsq = "gsq"
 d_separation = "d_separation"
 
+# Registry for custom CI tests
+_custom_ci_tests = {}
+
+def register_ci_test(name, test_class):
+    """
+    Register a custom CI test implementation.
+    
+    Parameters
+    ----------
+    name: str
+        Name of the CI test, used to identify the test in the CIT function
+    test_class: class
+        The CI test class. Must inherit from CIT_Base and implement __call__ method
+        
+    Returns
+    -------
+    test_class: The registered class (for decorator use)
+    """
+    if not issubclass(test_class, CIT_Base):
+        raise TypeError(f"CI test class must inherit from CIT_Base: {test_class.__name__}")
+    
+    _custom_ci_tests[name] = test_class
+    return test_class
+
 
 def CIT(data, method='fisherz', **kwargs):
     '''
@@ -29,10 +53,16 @@ def CIT(data, method='fisherz', **kwargs):
     ----------
     data: numpy.ndarray of shape (n_samples, n_features)
     method: str, in ["fisherz", "mv_fisherz", "mc_fisherz", "kci", "rcit", "fastkci", "chisq", "gsq"]
+            or a custom method registered via register_ci_test
     kwargs: placeholder for future arguments, or for KCI, FastKCI or RCIT specific arguments now
         TODO: utimately kwargs should be replaced by explicit named parameters.
               check https://github.com/cmu-phil/causal-learn/pull/62#discussion_r927239028
     '''
+    # First check if method is a registered custom CI test
+    if method in _custom_ci_tests:
+        return _custom_ci_tests[method](data, **kwargs)
+    
+    # Otherwise use built-in methods
     if method == fisherz:
         return FisherZ(data, **kwargs)
     elif method == kci:
@@ -50,7 +80,7 @@ def CIT(data, method='fisherz', **kwargs):
     elif method == d_separation:
         return D_Separation(data, **kwargs)
     else:
-        raise ValueError("Unknown method: {}".format(method))
+        raise ValueError(f"Unknown method: {method}. If using a custom CI test, make sure it's registered with register_ci_test()")
 
 
 class CIT_Base(object):
@@ -145,6 +175,20 @@ class CIT_Base(object):
                len(set(Ys).intersection(condition_set)) == 0, "X, Y cannot be in condition_set."
         return Xs, Ys, condition_set, _stringize(Xs, Ys, condition_set)
 
+    def __call__(self, X, Y, condition_set=None):
+        """
+        Perform an independence test.
+        
+        Parameters
+        ----------
+        X, Y: column indices of data
+        condition_set: conditioning variables, default None
+        
+        Returns
+        -------
+        p: the p-value of the test
+        """
+        raise NotImplementedError("Subclasses must implement __call__ method")
 class FisherZ(CIT_Base):
     def __init__(self, data, **kwargs):
         super().__init__(data, **kwargs)
@@ -529,8 +573,8 @@ class D_Separation(CIT_Base):
     def __call__(self, X, Y, condition_set=None):
         Xs, Ys, condition_set, cache_key = self.get_formatted_XYZ_and_cachekey(X, Y, condition_set)
         if cache_key in self.pvalue_cache: return self.pvalue_cache[cache_key]
-        p = float(nx.d_separated(self.true_dag, {Xs[0]}, {Ys[0]}, set(condition_set)))
-        # pvalue is bool here: 1 if is_d_separated and 0 otherwise. So heuristic comparison-based uc_rules will not work.
+        p = float(nx.is_d_separator(self.true_dag, {Xs[0]}, {Ys[0]}, set(condition_set)))
+        # pvalue is bool here: 1 if is_d_separator and 0 otherwise. So heuristic comparison-based uc_rules will not work.
 
         # here we use networkx's d_separation implementation.
         # an alternative is to use causal-learn's own d_separation implementation in graph class:
@@ -544,3 +588,4 @@ class D_Separation(CIT_Base):
         # 2. GeneralGraph class will be hugely refactored in the near future.
         self.pvalue_cache[cache_key] = p
         return p
+

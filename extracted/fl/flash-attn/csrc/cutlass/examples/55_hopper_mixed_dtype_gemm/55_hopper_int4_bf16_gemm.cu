@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,11 +103,10 @@
 #include "cutlass/util/tensor_view_io.h"
 #include "cutlass/util/reference/device/tensor_fill.h"
 #include "cutlass/util/reference/device/tensor_compare.h"
+#include "cutlass/util/mixed_dtype_utils.hpp"
 
 #include "helper.h"
 #include "mixed_dtype_utils.hpp"
-#include "packed_scale.hpp"
-#include "reorder_utils.hpp"
 
 using namespace cute;
 
@@ -144,8 +143,8 @@ using StrideB = cutlass::detail::TagToStrideB_t<LayoutB>;
 using ValueShuffle = Layout<Shape<_2,_4>, Stride<_4,_1>>; // order [0,2,4,6,1,3,5,7]
 int constexpr NumShuffleAtoms = 1;
 using MmaAtomShape = Layout<Shape<_1,Int<NumShuffleAtoms>>>;
-using LayoutAtomQuant = decltype(compute_memory_reordering_atom<MmaType, MmaAtomShape, ValueShuffle>());
-using LayoutB_Reordered = decltype(tile_to_shape(LayoutAtomQuant{}, Layout<Shape<int,int,int>, StrideB>{}));
+using LayoutAtomQuant = decltype(cutlass::compute_memory_reordering_atom<MmaType, MmaAtomShape, ValueShuffle>());
+using LayoutB_Reordered = decltype(cute::tile_to_shape(LayoutAtomQuant{}, Layout<Shape<int,int,int>, StrideB>{}));
 
 using ElementScale = MmaType;
 using ElementZero = ElementScale;
@@ -403,7 +402,7 @@ struct Options : MixedDtypeOptions{
 void initialize(Options const& options) {
 
   auto shape_B = cute::make_shape(options.n, options.k, options.l);
-  int const scale_k = (options.k + options.g - 1) / options.g;
+  int const scale_k = cutlass::ceil_div(options.k, options.g);
   stride_A = cutlass::make_cute_packed_stride(StrideA{}, cute::make_shape(options.m, options.k, options.l));
   stride_B = cutlass::make_cute_packed_stride(StrideB{}, shape_B);
   // Reverse stride here due to swap and transpose
@@ -430,7 +429,7 @@ void initialize(Options const& options) {
   block_zero.reset(scale_k * options.l * options.n);
 
   initialize_tensor(block_A, seed + 2022);
-  initialize_quant_tensor(block_B, seed + 2021);
+  initialize_tensor(block_B, seed + 2021);
   initialize_tensor(block_C, seed + 2020);
   initialize_scale(block_scale, options);
   initialize_zero(block_zero, options);
@@ -438,14 +437,15 @@ void initialize(Options const& options) {
   auto shape_scale_zero = cute::make_shape(options.n, scale_k, options.l);
   stride_S = cutlass::make_cute_packed_stride(StrideS{}, cute::make_shape(options.n, scale_k, options.l));
   stride_S_ref = cutlass::make_cute_packed_stride(StrideS_ref{}, cute::make_shape(options.n, scale_k, options.l));
-  auto layout_scale_zero = make_layout(shape_scale_zero, stride_S_ref);
+  auto layout_scale_zero = cute::make_layout(shape_scale_zero, stride_S_ref);
 
-  dequantize_weight(block_B_dq.get(), block_B.get(), layout_B, block_scale.get(), block_zero.get(), layout_scale_zero, options.g);
+  cudaStream_t stream = cudaStreamDefault;
+  cutlass::dequantize(block_B_dq.get(), block_B.get(), layout_B, block_scale.get(), block_zero.get(), layout_scale_zero, options.g, stream);
 
   if (options.shuffle) {
     // Repeat the reorder layout atom to tile the whole tensor shape 
-    layout_B_reordered = tile_to_shape(LayoutAtomQuant{}, shape_B);
-    reorder_tensor(block_B.get(), layout_B, layout_B_reordered);
+    layout_B_reordered = cute::tile_to_shape(LayoutAtomQuant{}, shape_B);
+    cutlass::reorder_tensor(block_B.get(), layout_B, layout_B_reordered);
 
     print("Quantized tensor layout: ");
     print(layout_B_reordered);
@@ -613,12 +613,15 @@ int main(int argc, char const **args) {
   CUDA_CHECK(cudaGetDevice(&current_device_id));
   CUDA_CHECK(cudaGetDeviceProperties(&props, current_device_id));
   cudaError_t error = cudaGetDeviceProperties(&props, 0);
-  if (props.major < 9) {
+  if (props.major != 9 || props.minor != 0) {
     std::cerr
-      << "This example requires a GPU of NVIDIA's Hopper Architecture or "
-      << "later (compute capability 90 or greater).\n";
+      << "This example requires a GPU of NVIDIA's Hopper Architecture (compute capability 90).\n";
     return 0;
   }
+
+  
+  
+
   //
   // Parse options
   //

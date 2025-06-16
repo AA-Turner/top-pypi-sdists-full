@@ -1,0 +1,97 @@
+Metadata-Version: 2.4
+Name: kafe2
+Version: 2.10.0
+Summary: Karlsruhe Fit Environment 2: a package for fitting and elementary data analysis
+Author-email: Johannes Gäßler <johannes.gaessler@cern.ch>, Michael Hohenstein <michael@hohenste.in>, Günter Quast <G.Quast@kit.edu>, Daniel Savoiu <daniel.savoiu@cern.ch>, Cedric Verstege <cedric.verstege@cern.ch>
+License: GPL3
+Project-URL: Homepage, https://philfitters.github.io/kafe2/
+Project-URL: Repository, https://github.com/PhiLFitters/kafe2
+Keywords: kafe2,kit,karlsruhe,data,analysis,lab,laboratory,practical courses,education,university,students,physics,fitting,minimization,minimisation,regression,parametric,parameter,estimation,optimization,optimisation
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Education
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.6
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: iminuit
+Requires-Dist: NumPy
+Requires-Dist: Numdifftools
+Requires-Dist: Scipy
+Requires-Dist: tabulate
+Requires-Dist: matplotlib>=3.4
+Requires-Dist: PyYaml
+Requires-Dist: six
+Requires-Dist: funcsigs
+Requires-Dist: SymPy
+Provides-Extra: dev
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: sphinx-rtd-theme; extra == "dev"
+Requires-Dist: mock; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: tomli; extra == "dev"
+Requires-Dist: jupyterlab; extra == "dev"
+Dynamic: license-file
+
+.. -*- mode: rst -*-
+
+*************************************
+kafe2 - Karlsruhe Fit Environment 2
+*************************************
+.. image:: https://badge.fury.io/py/kafe2.svg
+    :target: https://badge.fury.io/py/kafe2
+
+.. image:: https://readthedocs.org/projects/kafe2/badge/?version=latest
+    :target: https://kafe2.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+
+*kafe2* is an open-source Python package for the likelihood-based estimation of model parameters
+from measured data.
+As the spiritual successor to the original *kafe* package it aims to provide
+state-of-the-art statistical methods in a way that is still easy to use.
+More information `here <https://philfitters.github.io/kafe2/>`__.
+
+If you have installed pip just run
+
+.. code-block:: bash
+
+    pip install kafe2
+
+to install the latest stable version and you're (mostly) ready to go.
+The Python package *iminuit* which *kafe2* uses internally for numerical optimization
+`may fail to be installed automatically if no C++ compiler is available on your system
+<https://iminuit.readthedocs.io/en/stable/install.html>`__ .
+While *iminuit* is strictly speaking not required its use is heavily recommended.
+**Make sure to read the pip installation log.**
+As of *kafe2* v2.4.0 only Python 3 is supported.
+*kafe2* works with matplotlib version 3.4 and newer.
+
+The documentation under `kafe2.readthedocs.io <https://kafe2.readthedocs.io/>`__
+has more detailed installation instructions.
+It also explains *kafe2* usage as well as the mathematical foundations upon which *kafe2* is built.
+
+If you prefer a more practical approach you can instead look at the various
+`examples <https://github.com/PhiLFitters/kafe2/tree/master/examples>`__.
+In addition to the regular Python/kafe2go files there are also Jupyter notebook
+tutorials (in English and in German) that mostly cover the same topics.
+
+If you encounter any bugs or have an improvement proposal, please let us
+know by opening an issue `here <https://github.com/PhiLFitters/kafe2/issues>`__.

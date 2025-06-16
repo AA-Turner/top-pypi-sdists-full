@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-subtests
-Version: 0.14.1
+Version: 0.14.2
 Summary: unittest subTest() support and subtests fixture
 Home-page: https://github.com/pytest-dev/pytest-subtests
 Author: Bruno Oliveira
@@ -26,6 +26,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: attrs>=19.2.0
 Requires-Dist: pytest>=7.4
+Dynamic: license-file
 
 ===============
 pytest-subtests

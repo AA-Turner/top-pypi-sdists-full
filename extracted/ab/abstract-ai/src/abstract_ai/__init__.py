@@ -10,4 +10,4 @@ from .gpt_classes.nogui_selection.nogui_query import nogui_setup_module
 from .gpt_classes.nogui_selection.general_query import make_general_query
 from .abstract_ai_gui import abstract_ai_gui
 from .ai_call_package import make_ai_api_call
-from .specializations import initialize_clipit
+from .specializations import initialize_clipit,get_clipit

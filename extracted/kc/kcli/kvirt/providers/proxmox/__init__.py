@@ -1158,3 +1158,7 @@ class Kproxmox(Kbase):
             if 'image' in description:
                 yamlinfo['image'] = description['image']
         return yamlinfo
+
+    def detach_disks(self, name):
+        print("not implemented")
+        return {'result': 'success'}

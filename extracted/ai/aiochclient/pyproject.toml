@@ -1,0 +1,15 @@
+[tool.black]
+include = '\.py$'
+skip-string-normalization = true
+exclude = '''
+(
+    migrations/
+  | protobuffers/
+  | venv/
+)
+'''
+[tool.pytest.ini_options]
+markers = ["types", "fetching", "client", "record"]
+asyncio_mode = "auto"
+[build-system]
+requires = ["setuptools", "wheel", "Cython"]

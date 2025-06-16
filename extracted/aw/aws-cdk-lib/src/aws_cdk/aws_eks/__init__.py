@@ -1144,6 +1144,12 @@ eks.Cluster(self, "Cluster",
 )
 ```
 
+### Self-Managed Add-ons
+
+Amazon EKS automatically installs self-managed add-ons such as the Amazon VPC CNI plugin for Kubernetes, kube-proxy, and CoreDNS for every cluster. You can change the default configuration of the add-ons and update them when desired. If you wish to create a cluster without the default add-ons, set `bootstrapSelfManagedAddons` as `false`. When this is set to false, make sure to install the necessary alternatives which provide functionality that enables pod and service operations for your EKS cluster.
+
+> Changing the value of `bootstrapSelfManagedAddons` after the EKS cluster creation will result in a replacement of the cluster.
+
 ## Permissions and Security
 
 Amazon EKS provides several mechanism of securing the cluster and granting permissions to specific IAM users and roles.
@@ -6090,7 +6096,7 @@ class CfnCluster(
 
     Amazon EKS nodes run in your AWS account and connect to your cluster's control plane over the Kubernetes API server endpoint and a certificate file that is created for your cluster.
 
-    You can use the ``endpointPublicAccess`` and ``endpointPrivateAccess`` parameters to enable or disable public and private access to your cluster's Kubernetes API server endpoint. By default, public access is enabled, and private access is disabled. For more information, see `Amazon EKS Cluster Endpoint Access Control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
+    You can use the ``endpointPublicAccess`` and ``endpointPrivateAccess`` parameters to enable or disable public and private access to your cluster's Kubernetes API server endpoint. By default, public access is enabled, and private access is disabled. The endpoint domain name and IP address family depends on the value of the ``ipFamily`` for the cluster. For more information, see `Amazon EKS Cluster Endpoint Access Control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
 
     You can use the ``logging`` parameter to enable or disable exporting the Kubernetes control plane logs for your cluster to CloudWatch Logs. By default, cluster control plane logs aren't exported to CloudWatch Logs. For more information, see `Amazon EKS Cluster Control Plane Logs <https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html>`_ in the **Amazon EKS User Guide** .
     .. epigraph::
@@ -7859,9 +7865,9 @@ class CfnCluster(
                - ``PublicAccessCidrs``
 
             :param subnet_ids: Specify subnets for your Amazon EKS nodes. Amazon EKS creates cross-account elastic network interfaces in these subnets to allow communication between your nodes and the Kubernetes control plane.
-            :param endpoint_private_access: Set this value to ``true`` to enable private access for your cluster's Kubernetes API server endpoint. If you enable private access, Kubernetes API requests from within your cluster's VPC use the private VPC endpoint. The default value for this parameter is ``false`` , which disables private access for your Kubernetes API server. If you disable private access and you have nodes or AWS Fargate pods in the cluster, then ensure that ``publicAccessCidrs`` includes the necessary CIDR blocks for communication with the nodes or Fargate pods. For more information, see `Amazon EKS cluster endpoint access control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
-            :param endpoint_public_access: Set this value to ``false`` to disable public access to your cluster's Kubernetes API server endpoint. If you disable public access, your cluster's Kubernetes API server can only receive requests from within the cluster VPC. The default value for this parameter is ``true`` , which enables public access for your Kubernetes API server. For more information, see `Amazon EKS cluster endpoint access control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
-            :param public_access_cidrs: The CIDR blocks that are allowed access to your cluster's public Kubernetes API server endpoint. Communication to the endpoint from addresses outside of the CIDR blocks that you specify is denied. The default value is ``0.0.0.0/0`` . If you've disabled private endpoint access, make sure that you specify the necessary CIDR blocks for every node and AWS Fargate ``Pod`` in the cluster. For more information, see `Amazon EKS cluster endpoint access control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
+            :param endpoint_private_access: Set this value to ``true`` to enable private access for your cluster's Kubernetes API server endpoint. If you enable private access, Kubernetes API requests from within your cluster's VPC use the private VPC endpoint. The default value for this parameter is ``false`` , which disables private access for your Kubernetes API server. If you disable private access and you have nodes or AWS Fargate pods in the cluster, then ensure that ``publicAccessCidrs`` includes the necessary CIDR blocks for communication with the nodes or Fargate pods. For more information, see `Cluster API server endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
+            :param endpoint_public_access: Set this value to ``false`` to disable public access to your cluster's Kubernetes API server endpoint. If you disable public access, your cluster's Kubernetes API server can only receive requests from within the cluster VPC. The default value for this parameter is ``true`` , which enables public access for your Kubernetes API server. The endpoint domain name and IP address family depends on the value of the ``ipFamily`` for the cluster. For more information, see `Cluster API server endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
+            :param public_access_cidrs: The CIDR blocks that are allowed access to your cluster's public Kubernetes API server endpoint. Communication to the endpoint from addresses outside of the CIDR blocks that you specify is denied. The default value is ``0.0.0.0/0`` and additionally ``::/0`` for dual-stack ``IPv6`` clusters. If you've disabled private endpoint access, make sure that you specify the necessary CIDR blocks for every node and AWS Fargate ``Pod`` in the cluster. For more information, see `Cluster API server endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** . Note that the public endpoints are dual-stack for only ``IPv6`` clusters that are made after October 2024. You can't add ``IPv6`` CIDR blocks to ``IPv4`` clusters or ``IPv6`` clusters that were made before October 2024.
             :param security_group_ids: Specify one or more security groups for the cross-account elastic network interfaces that Amazon EKS creates to use that allow communication between your nodes and the Kubernetes control plane. If you don't specify any security groups, then familiarize yourself with the difference between Amazon EKS defaults for clusters deployed with Kubernetes. For more information, see `Amazon EKS security group considerations <https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html>`_ in the **Amazon EKS User Guide** .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-resourcesvpcconfig.html
@@ -7920,7 +7926,7 @@ class CfnCluster(
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
             '''Set this value to ``true`` to enable private access for your cluster's Kubernetes API server endpoint.
 
-            If you enable private access, Kubernetes API requests from within your cluster's VPC use the private VPC endpoint. The default value for this parameter is ``false`` , which disables private access for your Kubernetes API server. If you disable private access and you have nodes or AWS Fargate pods in the cluster, then ensure that ``publicAccessCidrs`` includes the necessary CIDR blocks for communication with the nodes or Fargate pods. For more information, see `Amazon EKS cluster endpoint access control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
+            If you enable private access, Kubernetes API requests from within your cluster's VPC use the private VPC endpoint. The default value for this parameter is ``false`` , which disables private access for your Kubernetes API server. If you disable private access and you have nodes or AWS Fargate pods in the cluster, then ensure that ``publicAccessCidrs`` includes the necessary CIDR blocks for communication with the nodes or Fargate pods. For more information, see `Cluster API server endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-resourcesvpcconfig.html#cfn-eks-cluster-resourcesvpcconfig-endpointprivateaccess
             '''
@@ -7933,7 +7939,7 @@ class CfnCluster(
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
             '''Set this value to ``false`` to disable public access to your cluster's Kubernetes API server endpoint.
 
-            If you disable public access, your cluster's Kubernetes API server can only receive requests from within the cluster VPC. The default value for this parameter is ``true`` , which enables public access for your Kubernetes API server. For more information, see `Amazon EKS cluster endpoint access control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
+            If you disable public access, your cluster's Kubernetes API server can only receive requests from within the cluster VPC. The default value for this parameter is ``true`` , which enables public access for your Kubernetes API server. The endpoint domain name and IP address family depends on the value of the ``ipFamily`` for the cluster. For more information, see `Cluster API server endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-resourcesvpcconfig.html#cfn-eks-cluster-resourcesvpcconfig-endpointpublicaccess
             '''
@@ -7944,7 +7950,9 @@ class CfnCluster(
         def public_access_cidrs(self) -> typing.Optional[typing.List[builtins.str]]:
             '''The CIDR blocks that are allowed access to your cluster's public Kubernetes API server endpoint.
 
-            Communication to the endpoint from addresses outside of the CIDR blocks that you specify is denied. The default value is ``0.0.0.0/0`` . If you've disabled private endpoint access, make sure that you specify the necessary CIDR blocks for every node and AWS Fargate ``Pod`` in the cluster. For more information, see `Amazon EKS cluster endpoint access control <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
+            Communication to the endpoint from addresses outside of the CIDR blocks that you specify is denied. The default value is ``0.0.0.0/0`` and additionally ``::/0`` for dual-stack ``IPv6`` clusters. If you've disabled private endpoint access, make sure that you specify the necessary CIDR blocks for every node and AWS Fargate ``Pod`` in the cluster. For more information, see `Cluster API server endpoint <https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html>`_ in the **Amazon EKS User Guide** .
+
+            Note that the public endpoints are dual-stack for only ``IPv6`` clusters that are made after October 2024. You can't add ``IPv6`` CIDR blocks to ``IPv4`` clusters or ``IPv6`` clusters that were made before October 2024.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-resourcesvpcconfig.html#cfn-eks-cluster-resourcesvpcconfig-publicaccesscidrs
             '''
@@ -11207,10 +11215,12 @@ class CfnPodIdentityAssociation(
             service_account="serviceAccount",
         
             # the properties below are optional
+            disable_session_tags=False,
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            target_role_arn="targetRoleArn"
         )
     '''
 
@@ -11223,7 +11233,9 @@ class CfnPodIdentityAssociation(
         namespace: builtins.str,
         role_arn: builtins.str,
         service_account: builtins.str,
+        disable_session_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -11232,7 +11244,9 @@ class CfnPodIdentityAssociation(
         :param namespace: The name of the Kubernetes namespace inside the cluster to create the association in. The service account and the pods that use the service account must be in this namespace.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the pods that use this service account.
         :param service_account: The name of the Kubernetes service account inside the cluster to associate the IAM credentials with.
+        :param disable_session_tags: The Disable Session Tags of the pod identity association.
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources. The following basic restrictions apply to tags: - Maximum number of tags per resource – 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length – 128 Unicode characters in UTF-8 - Maximum value length – 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
+        :param target_role_arn: The Target Role Arn of the pod identity association.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be8311b6089cea26f85c63a586f0c5b063230a1b4a96ffcd4c6c983a331d8652)
@@ -11243,7 +11257,9 @@ class CfnPodIdentityAssociation(
             namespace=namespace,
             role_arn=role_arn,
             service_account=service_account,
+            disable_session_tags=disable_session_tags,
             tags=tags,
+            target_role_arn=target_role_arn,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -11295,6 +11311,15 @@ class CfnPodIdentityAssociation(
         :cloudformationAttribute: AssociationId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrAssociationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExternalId")
+    def attr_external_id(self) -> builtins.str:
+        '''The External Id of the pod identity association.
+
+        :cloudformationAttribute: ExternalId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExternalId"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -11360,6 +11385,24 @@ class CfnPodIdentityAssociation(
         jsii.set(self, "serviceAccount", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="disableSessionTags")
+    def disable_session_tags(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''The Disable Session Tags of the pod identity association.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "disableSessionTags"))
+
+    @disable_session_tags.setter
+    def disable_session_tags(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb3dbe4cc3b44e9265bbfe13e41235db909b0c1dc0e052b3bdda07fd4b228e8b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "disableSessionTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
         '''Metadata that assists with categorization and organization.'''
@@ -11372,6 +11415,19 @@ class CfnPodIdentityAssociation(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="targetRoleArn")
+    def target_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Target Role Arn of the pod identity association.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "targetRoleArn"))
+
+    @target_role_arn.setter
+    def target_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb6220c6db8cf93a8a307b1ba0630d6bc64b4a09325e7cfe5854228aa75ff833)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "targetRoleArn", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_eks.CfnPodIdentityAssociationProps",
@@ -11381,7 +11437,9 @@ class CfnPodIdentityAssociation(
         "namespace": "namespace",
         "role_arn": "roleArn",
         "service_account": "serviceAccount",
+        "disable_session_tags": "disableSessionTags",
         "tags": "tags",
+        "target_role_arn": "targetRoleArn",
     },
 )
 class CfnPodIdentityAssociationProps:
@@ -11392,7 +11450,9 @@ class CfnPodIdentityAssociationProps:
         namespace: builtins.str,
         role_arn: builtins.str,
         service_account: builtins.str,
+        disable_session_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnPodIdentityAssociation``.
 
@@ -11400,7 +11460,9 @@ class CfnPodIdentityAssociationProps:
         :param namespace: The name of the Kubernetes namespace inside the cluster to create the association in. The service account and the pods that use the service account must be in this namespace.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role to associate with the service account. The EKS Pod Identity agent manages credentials to assume this role for applications in the containers in the pods that use this service account.
         :param service_account: The name of the Kubernetes service account inside the cluster to associate the IAM credentials with.
+        :param disable_session_tags: The Disable Session Tags of the pod identity association.
         :param tags: Metadata that assists with categorization and organization. Each tag consists of a key and an optional value. You define both. Tags don't propagate to any other cluster or AWS resources. The following basic restrictions apply to tags: - Maximum number of tags per resource – 50 - For each resource, each tag key must be unique, and each tag key can have only one value. - Maximum key length – 128 Unicode characters in UTF-8 - Maximum value length – 256 Unicode characters in UTF-8 - If your tagging schema is used across multiple services and resources, remember that other services may have restrictions on allowed characters. Generally allowed characters are: letters, numbers, and spaces representable in UTF-8, and the following characters: + - = . _ : /
+        :param target_role_arn: The Target Role Arn of the pod identity association.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html
         :exampleMetadata: fixture=_generated
@@ -11418,10 +11480,12 @@ class CfnPodIdentityAssociationProps:
                 service_account="serviceAccount",
             
                 # the properties below are optional
+                disable_session_tags=False,
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                target_role_arn="targetRoleArn"
             )
         '''
         if __debug__:
@@ -11430,15 +11494,21 @@ class CfnPodIdentityAssociationProps:
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument service_account", value=service_account, expected_type=type_hints["service_account"])
+            check_type(argname="argument disable_session_tags", value=disable_session_tags, expected_type=type_hints["disable_session_tags"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_role_arn", value=target_role_arn, expected_type=type_hints["target_role_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_name": cluster_name,
             "namespace": namespace,
             "role_arn": role_arn,
             "service_account": service_account,
         }
+        if disable_session_tags is not None:
+            self._values["disable_session_tags"] = disable_session_tags
         if tags is not None:
             self._values["tags"] = tags
+        if target_role_arn is not None:
+            self._values["target_role_arn"] = target_role_arn
 
     @builtins.property
     def cluster_name(self) -> builtins.str:
@@ -11485,6 +11555,17 @@ class CfnPodIdentityAssociationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def disable_session_tags(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''The Disable Session Tags of the pod identity association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html#cfn-eks-podidentityassociation-disablesessiontags
+        '''
+        result = self._values.get("disable_session_tags")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
         '''Metadata that assists with categorization and organization.
 
@@ -11508,6 +11589,15 @@ class CfnPodIdentityAssociationProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def target_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Target Role Arn of the pod identity association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-podidentityassociation.html#cfn-eks-podidentityassociation-targetrolearn
+        '''
+        result = self._values.get("target_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12007,7 +12097,7 @@ class CommonClusterOptions:
         :param version: The Kubernetes version to run in the cluster.
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
         :param output_cluster_name: Determines whether a CloudFormation output with the name of the cluster will be synthesized. Default: false
-        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and, if applicable, the ARN of the masters IAM role. Default: true
+        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and the ARN of the masters IAM role. Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted. Default: true
         :param role: Role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. Default: - A role is automatically created for you
         :param security_group: Security Group to use for Control Plane ENIs. Default: - A security group is automatically created
         :param vpc: The VPC in which to create the Cluster. Default: - a VPC with default configuration will be created and can be accessed through ``cluster.vpc``.
@@ -12108,9 +12198,13 @@ class CommonClusterOptions:
         '''Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized.
 
         This command will include
-        the cluster name and, if applicable, the ARN of the masters IAM role.
+        the cluster name and the ARN of the masters IAM role.
+
+        Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted.
 
         :default: true
+
+        :see: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_eks-readme.html#masters-role
         '''
         result = self._values.get("output_config_command")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -18591,6 +18685,7 @@ class Cluster(
         id: builtins.str,
         *,
         bootstrap_cluster_creator_admin_permissions: typing.Optional[builtins.bool] = None,
+        bootstrap_self_managed_addons: typing.Optional[builtins.bool] = None,
         default_capacity: typing.Optional[jsii.Number] = None,
         default_capacity_instance: typing.Optional[_InstanceType_f64915b9] = None,
         default_capacity_type: typing.Optional[DefaultCapacityType] = None,
@@ -18631,6 +18726,7 @@ class Cluster(
         :param scope: a Construct, most likely a cdk.Stack created.
         :param id: the id of the Construct to create.
         :param bootstrap_cluster_creator_admin_permissions: Whether or not IAM principal of the cluster creator was set as a cluster admin access entry during cluster creation time. Changing this value after the cluster has been created will result in the cluster being replaced. Default: true
+        :param bootstrap_self_managed_addons: If you set this value to False when creating a cluster, the default networking add-ons will not be installed. The default networking addons include vpc-cni, coredns, and kube-proxy. Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons. Changing this value after the cluster has been created will result in the cluster being replaced. Default: true
         :param default_capacity: Number of instances to allocate as an initial capacity for this cluster. Instance type can be configured through ``defaultCapacityInstanceType``, which defaults to ``m5.large``. Use ``cluster.addAutoScalingGroupCapacity`` to add additional customized capacity. Set this to ``0`` is you wish to avoid the initial capacity allocation. Default: 2
         :param default_capacity_instance: The instance type to use for the default capacity. This will only be taken into account if ``defaultCapacity`` is > 0. Default: m5.large
         :param default_capacity_type: The default capacity type for the cluster. Default: NODEGROUP
@@ -18660,7 +18756,7 @@ class Cluster(
         :param version: The Kubernetes version to run in the cluster.
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
         :param output_cluster_name: Determines whether a CloudFormation output with the name of the cluster will be synthesized. Default: false
-        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and, if applicable, the ARN of the masters IAM role. Default: true
+        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and the ARN of the masters IAM role. Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted. Default: true
         :param role: Role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. Default: - A role is automatically created for you
         :param security_group: Security Group to use for Control Plane ENIs. Default: - A security group is automatically created
         :param vpc: The VPC in which to create the Cluster. Default: - a VPC with default configuration will be created and can be accessed through ``cluster.vpc``.
@@ -18672,6 +18768,7 @@ class Cluster(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ClusterProps(
             bootstrap_cluster_creator_admin_permissions=bootstrap_cluster_creator_admin_permissions,
+            bootstrap_self_managed_addons=bootstrap_self_managed_addons,
             default_capacity=default_capacity,
             default_capacity_instance=default_capacity_instance,
             default_capacity_type=default_capacity_type,
@@ -19686,7 +19783,7 @@ class ClusterOptions(CommonClusterOptions):
         :param version: The Kubernetes version to run in the cluster.
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
         :param output_cluster_name: Determines whether a CloudFormation output with the name of the cluster will be synthesized. Default: false
-        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and, if applicable, the ARN of the masters IAM role. Default: true
+        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and the ARN of the masters IAM role. Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted. Default: true
         :param role: Role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. Default: - A role is automatically created for you
         :param security_group: Security Group to use for Control Plane ENIs. Default: - A security group is automatically created
         :param vpc: The VPC in which to create the Cluster. Default: - a VPC with default configuration will be created and can be accessed through ``cluster.vpc``.
@@ -19920,9 +20017,13 @@ class ClusterOptions(CommonClusterOptions):
         '''Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized.
 
         This command will include
-        the cluster name and, if applicable, the ARN of the masters IAM role.
+        the cluster name and the ARN of the masters IAM role.
+
+        Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted.
 
         :default: true
+
+        :see: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_eks-readme.html#masters-role
         '''
         result = self._values.get("output_config_command")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -20262,6 +20363,7 @@ class ClusterOptions(CommonClusterOptions):
         "secrets_encryption_key": "secretsEncryptionKey",
         "service_ipv4_cidr": "serviceIpv4Cidr",
         "bootstrap_cluster_creator_admin_permissions": "bootstrapClusterCreatorAdminPermissions",
+        "bootstrap_self_managed_addons": "bootstrapSelfManagedAddons",
         "default_capacity": "defaultCapacity",
         "default_capacity_instance": "defaultCapacityInstance",
         "default_capacity_type": "defaultCapacityType",
@@ -20303,6 +20405,7 @@ class ClusterProps(ClusterOptions):
         secrets_encryption_key: typing.Optional[_IKey_5f11635f] = None,
         service_ipv4_cidr: typing.Optional[builtins.str] = None,
         bootstrap_cluster_creator_admin_permissions: typing.Optional[builtins.bool] = None,
+        bootstrap_self_managed_addons: typing.Optional[builtins.bool] = None,
         default_capacity: typing.Optional[jsii.Number] = None,
         default_capacity_instance: typing.Optional[_InstanceType_f64915b9] = None,
         default_capacity_type: typing.Optional[DefaultCapacityType] = None,
@@ -20314,7 +20417,7 @@ class ClusterProps(ClusterOptions):
         :param version: The Kubernetes version to run in the cluster.
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
         :param output_cluster_name: Determines whether a CloudFormation output with the name of the cluster will be synthesized. Default: false
-        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and, if applicable, the ARN of the masters IAM role. Default: true
+        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and the ARN of the masters IAM role. Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted. Default: true
         :param role: Role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. Default: - A role is automatically created for you
         :param security_group: Security Group to use for Control Plane ENIs. Default: - A security group is automatically created
         :param vpc: The VPC in which to create the Cluster. Default: - a VPC with default configuration will be created and can be accessed through ``cluster.vpc``.
@@ -20341,6 +20444,7 @@ class ClusterProps(ClusterOptions):
         :param secrets_encryption_key: KMS secret for envelope encryption for Kubernetes secrets. Default: - By default, Kubernetes stores all secret object data within etcd and all etcd volumes used by Amazon EKS are encrypted at the disk-level using AWS-Managed encryption keys.
         :param service_ipv4_cidr: The CIDR block to assign Kubernetes service IP addresses from. Default: - Kubernetes assigns addresses from either the 10.100.0.0/16 or 172.20.0.0/16 CIDR blocks
         :param bootstrap_cluster_creator_admin_permissions: Whether or not IAM principal of the cluster creator was set as a cluster admin access entry during cluster creation time. Changing this value after the cluster has been created will result in the cluster being replaced. Default: true
+        :param bootstrap_self_managed_addons: If you set this value to False when creating a cluster, the default networking add-ons will not be installed. The default networking addons include vpc-cni, coredns, and kube-proxy. Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons. Changing this value after the cluster has been created will result in the cluster being replaced. Default: true
         :param default_capacity: Number of instances to allocate as an initial capacity for this cluster. Instance type can be configured through ``defaultCapacityInstanceType``, which defaults to ``m5.large``. Use ``cluster.addAutoScalingGroupCapacity`` to add additional customized capacity. Set this to ``0`` is you wish to avoid the initial capacity allocation. Default: 2
         :param default_capacity_instance: The instance type to use for the default capacity. This will only be taken into account if ``defaultCapacity`` is > 0. Default: m5.large
         :param default_capacity_type: The default capacity type for the cluster. Default: NODEGROUP
@@ -20402,6 +20506,7 @@ class ClusterProps(ClusterOptions):
             check_type(argname="argument secrets_encryption_key", value=secrets_encryption_key, expected_type=type_hints["secrets_encryption_key"])
             check_type(argname="argument service_ipv4_cidr", value=service_ipv4_cidr, expected_type=type_hints["service_ipv4_cidr"])
             check_type(argname="argument bootstrap_cluster_creator_admin_permissions", value=bootstrap_cluster_creator_admin_permissions, expected_type=type_hints["bootstrap_cluster_creator_admin_permissions"])
+            check_type(argname="argument bootstrap_self_managed_addons", value=bootstrap_self_managed_addons, expected_type=type_hints["bootstrap_self_managed_addons"])
             check_type(argname="argument default_capacity", value=default_capacity, expected_type=type_hints["default_capacity"])
             check_type(argname="argument default_capacity_instance", value=default_capacity_instance, expected_type=type_hints["default_capacity_instance"])
             check_type(argname="argument default_capacity_type", value=default_capacity_type, expected_type=type_hints["default_capacity_type"])
@@ -20467,6 +20572,8 @@ class ClusterProps(ClusterOptions):
             self._values["service_ipv4_cidr"] = service_ipv4_cidr
         if bootstrap_cluster_creator_admin_permissions is not None:
             self._values["bootstrap_cluster_creator_admin_permissions"] = bootstrap_cluster_creator_admin_permissions
+        if bootstrap_self_managed_addons is not None:
+            self._values["bootstrap_self_managed_addons"] = bootstrap_self_managed_addons
         if default_capacity is not None:
             self._values["default_capacity"] = default_capacity
         if default_capacity_instance is not None:
@@ -20508,9 +20615,13 @@ class ClusterProps(ClusterOptions):
         '''Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized.
 
         This command will include
-        the cluster name and, if applicable, the ARN of the masters IAM role.
+        the cluster name and the ARN of the masters IAM role.
+
+        Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted.
 
         :default: true
+
+        :see: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_eks-readme.html#masters-role
         '''
         result = self._values.get("output_config_command")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -20818,6 +20929,20 @@ class ClusterProps(ClusterOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def bootstrap_self_managed_addons(self) -> typing.Optional[builtins.bool]:
+        '''If you set this value to False when creating a cluster, the default networking add-ons will not be installed.
+
+        The default networking addons include vpc-cni, coredns, and kube-proxy.
+        Use this option when you plan to install third-party alternative add-ons or self-manage the default networking add-ons.
+
+        Changing this value after the cluster has been created will result in the cluster being replaced.
+
+        :default: true
+        '''
+        result = self._values.get("bootstrap_self_managed_addons")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def default_capacity(self) -> typing.Optional[jsii.Number]:
         '''Number of instances to allocate as an initial capacity for this cluster.
 
@@ -20971,7 +21096,7 @@ class FargateCluster(
         :param version: The Kubernetes version to run in the cluster.
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
         :param output_cluster_name: Determines whether a CloudFormation output with the name of the cluster will be synthesized. Default: false
-        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and, if applicable, the ARN of the masters IAM role. Default: true
+        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and the ARN of the masters IAM role. Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted. Default: true
         :param role: Role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. Default: - A role is automatically created for you
         :param security_group: Security Group to use for Control Plane ENIs. Default: - A security group is automatically created
         :param vpc: The VPC in which to create the Cluster. Default: - a VPC with default configuration will be created and can be accessed through ``cluster.vpc``.
@@ -21105,7 +21230,7 @@ class FargateClusterProps(ClusterOptions):
         :param version: The Kubernetes version to run in the cluster.
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
         :param output_cluster_name: Determines whether a CloudFormation output with the name of the cluster will be synthesized. Default: false
-        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and, if applicable, the ARN of the masters IAM role. Default: true
+        :param output_config_command: Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized. This command will include the cluster name and the ARN of the masters IAM role. Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted. Default: true
         :param role: Role that provides permissions for the Kubernetes control plane to make calls to AWS API operations on your behalf. Default: - A role is automatically created for you
         :param security_group: Security Group to use for Control Plane ENIs. Default: - A security group is automatically created
         :param vpc: The VPC in which to create the Cluster. Default: - a VPC with default configuration will be created and can be accessed through ``cluster.vpc``.
@@ -21272,9 +21397,13 @@ class FargateClusterProps(ClusterOptions):
         '''Determines whether a CloudFormation output with the ``aws eks update-kubeconfig`` command will be synthesized.
 
         This command will include
-        the cluster name and, if applicable, the ARN of the masters IAM role.
+        the cluster name and the ARN of the masters IAM role.
+
+        Note: If mastersRole is not specified, this property will be ignored and no config command will be emitted.
 
         :default: true
+
+        :see: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_eks-readme.html#masters-role
         '''
         result = self._values.get("output_config_command")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -22950,7 +23079,9 @@ def _typecheckingstub__be8311b6089cea26f85c63a586f0c5b063230a1b4a96ffcd4c6c983a3
     namespace: builtins.str,
     role_arn: builtins.str,
     service_account: builtins.str,
+    disable_session_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22991,8 +23122,20 @@ def _typecheckingstub__ea3bb34348aff57e29a5352e7460510bda8dd51720dbf7d275297137f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cb3dbe4cc3b44e9265bbfe13e41235db909b0c1dc0e052b3bdda07fd4b228e8b(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b0e0a0551adefc10761733af04b8c51e7dad6b483be9252882ecff10539c7dcc(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb6220c6db8cf93a8a307b1ba0630d6bc64b4a09325e7cfe5854228aa75ff833(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23003,7 +23146,9 @@ def _typecheckingstub__40e8da56b529234cdbb596fa46af952a935adf744e907347861dfc232
     namespace: builtins.str,
     role_arn: builtins.str,
     service_account: builtins.str,
+    disable_session_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_role_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23644,6 +23789,7 @@ def _typecheckingstub__786576ad54eacdb9ab8e92277c0fd07f813bc56d4243937f3b5a85c0c
     id: builtins.str,
     *,
     bootstrap_cluster_creator_admin_permissions: typing.Optional[builtins.bool] = None,
+    bootstrap_self_managed_addons: typing.Optional[builtins.bool] = None,
     default_capacity: typing.Optional[jsii.Number] = None,
     default_capacity_instance: typing.Optional[_InstanceType_f64915b9] = None,
     default_capacity_type: typing.Optional[DefaultCapacityType] = None,
@@ -23946,6 +24092,7 @@ def _typecheckingstub__ce7a73a63de29ba5e5b5cd5cabde7aca1c4bc7d119de52fc4c0f11d99
     secrets_encryption_key: typing.Optional[_IKey_5f11635f] = None,
     service_ipv4_cidr: typing.Optional[builtins.str] = None,
     bootstrap_cluster_creator_admin_permissions: typing.Optional[builtins.bool] = None,
+    bootstrap_self_managed_addons: typing.Optional[builtins.bool] = None,
     default_capacity: typing.Optional[jsii.Number] = None,
     default_capacity_instance: typing.Optional[_InstanceType_f64915b9] = None,
     default_capacity_type: typing.Optional[DefaultCapacityType] = None,

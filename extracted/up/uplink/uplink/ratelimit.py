@@ -1,15 +1,15 @@
 # Standard library imports
 import contextlib
 import math
+import sys
 import threading
 import time
-import sys
 
 # Local imports
 from uplink import decorators, utils
 from uplink.clients.io import RequestTemplate, transitions
 
-__all__ = ["ratelimit", "RateLimitExceeded"]
+__all__ = ["RateLimitExceeded", "ratelimit"]
 
 # Use monotonic time if available, otherwise fall back to the system clock.
 now = time.monotonic if hasattr(time, "monotonic") else time.time
@@ -24,13 +24,12 @@ class RateLimitExceeded(RuntimeError):
     """A request failed because it exceeded the client-side rate limit."""
 
     def __init__(self, calls, period):
-        super(RateLimitExceeded, self).__init__(
-            "Exceeded rate limit of [%s] calls every [%s] seconds."
-            % (calls, period)
+        super().__init__(
+            f"Exceeded rate limit of [{calls}] calls every [{period}] seconds."
         )
 
 
-class Limiter(object):
+class Limiter:
     _last_reset = _num_calls = None
 
     def __init__(self, max_calls, period, clock):
@@ -65,11 +64,10 @@ class RateLimiterTemplate(RequestTemplate):
     def before_request(self, request):
         with self._limiter.check() as ok:
             if ok:
-                return  # Fallback to default behavior
-            elif self._create_limit_reached_exception is not None:
+                return None  # Fallback to default behavior
+            if self._create_limit_reached_exception is not None:
                 raise self._create_limit_reached_exception()
-            else:
-                return transitions.sleep(self._limiter.period_remaining)
+            return transitions.sleep(self._limiter.period_remaining)
 
 
 # noinspection PyPep8Naming
@@ -79,7 +77,7 @@ class ratelimit(decorators.MethodAnnotation):
     consumer to making a specified maximum number of requests within a
     defined time period (e.g., 15 calls every 15 minutes).
 
-    Note:
+    !!! note
         The rate limit is enforced separately for each host-port
         combination. Logically, requests are grouped by host and port,
         and the number of requests within a time period are counted and
@@ -88,16 +86,15 @@ class ratelimit(decorators.MethodAnnotation):
     By default, when the limit is reached, the client will wait until
     the current period is over before executing any subsequent
     requests. If you'd prefer the client to raise an exception when the
-    limit is exceeded, set the ``raise_on_limit`` argument.
+    limit is exceeded, set the `raise_on_limit` argument.
 
     Args:
-        calls (int): The maximum number of allowed calls that the
+        calls: The maximum number of allowed calls that the
             consumer can make within the time period.
-        period (float): The duration of each time period in seconds.
-        raise_on_limit (:class:`Exception` or bool, optional): Either an
-            exception to raise when the client exceeds the rate limit or
-            a :class:`bool`. If :obj:`True`, a
-            :class:`~uplink.ratelimit.RateLimitExceeded` exception is
+        period: The duration of each time period in seconds.
+        raise_on_limit: Either an exception to raise when the client
+            exceeds the rate limit or a boolean. If `True`, a
+            [`RateLimitExceeded`][uplink.ratelimit.RateLimitExceeded] exception is
             raised.
     """
 
@@ -122,9 +119,7 @@ class ratelimit(decorators.MethodAnnotation):
         ):
             self._create_limit_reached_exception = raise_on_limit
         elif raise_on_limit:
-            self._create_limit_reached_exception = (
-                self._create_rate_limit_exceeded
-            )
+            self._create_limit_reached_exception = self._create_rate_limit_exceeded
         else:
             self._create_limit_reached_exception = None
 

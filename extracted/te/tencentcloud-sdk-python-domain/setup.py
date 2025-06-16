@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-domain',
-    install_requires=["tencentcloud-sdk-python-common==3.0.1394"],
+    install_requires=["tencentcloud-sdk-python-common==3.0.1402"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Domain SDK for Python',
     long_description=open('README.rst').read(),

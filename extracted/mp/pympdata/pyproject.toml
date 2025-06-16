@@ -1,0 +1,9 @@
+[tool.isort]
+profile = "black"
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+version_scheme = "post-release"
+
+[build-system]
+requires = ['setuptools==80.3.1', 'setuptools-scm==8.3.1']

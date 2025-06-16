@@ -327,9 +327,8 @@ class TestGroundConjunctiveCondition(unittest.TestCase):
         problem = Problem(domain, problem_path)
         initial_state = problem.get_initial_state()
         pickup_condition = domain.get_action('pick').get_precondition()
-        grounder = ConjunctiveConditionGrounder(pickup_condition, problem)
-        all_groundings = grounder.ground(initial_state)
-        single_grounding = grounder.ground(initial_state, 1)
+        all_groundings = pickup_condition.ground(initial_state)
+        single_grounding = pickup_condition.ground(initial_state, 1)
         assert len(all_groundings) == 4
         assert len(single_grounding) == 1
 
@@ -346,6 +345,15 @@ class TestGroundConjunctiveCondition(unittest.TestCase):
         assert lifted_goal.get_literals()[0].get_atom().get_terms()[1] == lifted_goal.get_parameters()[1]
         assert lifted_goal.get_literals()[1].get_atom().get_terms()[0] == lifted_goal.get_parameters()[2]
         assert lifted_goal.get_literals()[1].get_atom().get_terms()[1] == lifted_goal.get_parameters()[1]
+
+    def test_new_grounded_condition(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        problem_path = DATA_DIR / 'blocks_4' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        ground_literals = [GroundLiteral.new(atom, True, problem) for atom in problem.get_initial_atoms(ignore_static=True, ignore_derived=True)]
+        ground_condition = GroundConjunctiveCondition.new(ground_literals, problem)
+        assert ground_condition.holds(problem.get_initial_state())
 
 
 class TestSearchAlgorithms(unittest.TestCase):
@@ -458,6 +466,87 @@ class TestSearchAlgorithms(unittest.TestCase):
         assert heuristic.compute_value(initial_state, True) == 0.0
         assert heuristic.compute_value(initial_state, False) == 4.0
         assert len(heuristic.get_preferred_actions()) == 2
+
+
+class TestStateSpaceSampler(unittest.TestCase):
+    def test_sample_state(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        problem_path = DATA_DIR / 'blocks_4' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        sampler = StateSpaceSampler.new(problem)
+        sampler.set_seed(0)
+        assert sampler is not None
+        state = sampler.sample_state()
+        assert state is not None
+        state_label = sampler.get_state_label(state)
+        assert state_label is not None
+        assert isinstance(state_label, StateLabel)
+        assert state_label.steps_to_goal >= 0
+        assert isinstance(state_label.is_initial, bool)
+        assert isinstance(state_label.is_goal, bool)
+        assert isinstance(state_label.is_dead_end, bool)
+        labeled_states = list(sampler.sample_states(10))
+        assert len(labeled_states) == 10
+
+    def test_forward_transitions(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        problem_path = DATA_DIR / 'blocks_4' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        sampler = StateSpaceSampler.new(problem)
+        sampler.set_seed(0)
+        assert sampler is not None
+        state = sampler.sample_state_n_steps_from_goal(1)
+        assert state is not None
+        state_label = sampler.get_state_label(state)
+        assert state_label is not None
+        assert state_label.steps_to_goal == 1
+        forward_transitions = list(sampler.get_forward_transitions(state))
+        assert len(forward_transitions) > 0
+        for ground_action, successor_state in forward_transitions:
+            assert isinstance(ground_action, GroundAction)
+            assert isinstance(successor_state, State)
+            assert ground_action.get_index() is not None
+            assert successor_state.get_index() is not None
+
+    def test_backward_transitions(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        problem_path = DATA_DIR / 'blocks_4' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        sampler = StateSpaceSampler.new(problem)
+        sampler.set_seed(0)
+        assert sampler is not None
+        state = sampler.sample_state_n_steps_from_goal(2)
+        assert state is not None
+        state_label = sampler.get_state_label(state)
+        assert state_label is not None
+        assert state_label.steps_to_goal == 2
+        backward_transitions = list(sampler.get_backward_transitions(state))
+        assert len(backward_transitions) > 0
+        for ground_action, predecessor_state in backward_transitions:
+            assert isinstance(ground_action, GroundAction)
+            assert isinstance(predecessor_state, State)
+            assert ground_action.get_index() is not None
+            assert predecessor_state.get_index() is not None
+
+    def test_sample_dead_end_state(self):
+        domain_path = DATA_DIR / 'spanner' / 'domain.pddl'
+        problem_path = DATA_DIR / 'spanner' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        sampler = StateSpaceSampler.new(problem)
+        sampler.set_seed(0)
+        assert sampler is not None
+        dead_end_state = sampler.sample_dead_end_state()
+        assert dead_end_state is not None
+        state_label = sampler.get_state_label(dead_end_state)
+        assert state_label is not None
+        assert state_label.is_dead_end is True
+        assert state_label.steps_to_goal >= 2_000_000_000
+        dead_end_states = list(sampler.sample_dead_end_states(10))
+        assert len(dead_end_states) == 10
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meltanolabs-target-postgres
-Version: 0.4.2
+Version: 0.4.3
 Summary: Singer target for Postgres, built with the Meltano SDK for Singer Targets.
 Project-URL: Homepage, https://meltano.com
 Project-URL: Repository, https://github.com/MeltanoLabs/target-postgres
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.9
 Requires-Dist: psycopg2-binary==2.9.10
 Requires-Dist: psycopg[binary]==3.2.9
-Requires-Dist: singer-sdk~=0.46.0
+Requires-Dist: singer-sdk~=0.47.0
 Requires-Dist: sqlalchemy~=2.0
 Requires-Dist: sshtunnel==0.4.0
 Provides-Extra: faker

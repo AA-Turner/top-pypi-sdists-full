@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_SYS_H
-#define _TCOD_SYS_H
+#pragma once
+#ifndef TCOD_SYS_H_
+#define TCOD_SYS_H_
 
 #include "image.h"
 #include "list.h"
@@ -190,7 +191,7 @@ TCODLIB_API void TCOD_sys_set_fps(int val);
 TCOD_DEPRECATED("This function is not compatible with contexts.  Use tcod::Timer or SDL timing functions instead.")
 TCODLIB_API int TCOD_sys_get_fps(void);
 /***************************************************************************
-    @brief Get the delta time between the last two frames.
+    @brief Get the delta time between the last two frames. (in seconds)
 
     \rst
     .. deprecated:: 1.19
@@ -230,7 +231,7 @@ TCODLIB_API void TCOD_sys_get_char_size(int* w, int* h);
  *
  *  `x` and `y` are the upper-left pixel-coordinates of the tile on the `img`.
  */
-TCODLIB_API void TCOD_sys_update_char(int asciiCode, int font_x, int font_y, TCOD_image_t img, int x, int y);
+TCODLIB_API void TCOD_sys_update_char(int asciiCode, int font_x, int font_y, const TCOD_Image* img, int x, int y);
 
 TCODLIB_API struct SDL_Window* TCOD_sys_get_SDL_window(void);
 TCODLIB_API struct SDL_Renderer* TCOD_sys_get_SDL_renderer(void);
@@ -241,9 +242,9 @@ TCOD_DEPRECATED("This API is deprecated, use SDL_PollEvent instead.")
 TCODLIB_API TCOD_event_t TCOD_sys_check_for_event(int eventMask, TCOD_key_t* key, TCOD_mouse_t* mouse);
 
 /* clipboard */
-TCOD_DEPRECATED("Use the SDL2 API to handle the clipboard.")
+TCOD_DEPRECATED("Use the SDL API to handle the clipboard.")
 TCODLIB_API bool TCOD_sys_clipboard_set(const char* value);
-TCOD_DEPRECATED("Use the SDL2 API to handle the clipboard.")
+TCOD_DEPRECATED("Use the SDL API to handle the clipboard.")
 TCODLIB_API char* TCOD_sys_clipboard_get(void);
 
 /* SDL renderer callback */
@@ -253,4 +254,4 @@ TCODLIB_API void TCOD_sys_register_SDL_renderer(SDL_renderer_t renderer);
 #ifdef __cplusplus
 }  // extern "C"
 #endif
-#endif
+#endif  // TCOD_SYS_H_

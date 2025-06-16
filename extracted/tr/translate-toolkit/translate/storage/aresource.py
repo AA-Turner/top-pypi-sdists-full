@@ -24,6 +24,7 @@ from __future__ import annotations
 import copy
 import os
 import re
+from typing import ClassVar, overload
 from xml.parsers.expat import XML_PARAM_ENTITY_PARSING_NEVER, ParserCreate
 
 from lxml import etree
@@ -42,16 +43,6 @@ UNICODE_ESCAPE = re.compile(r"\\u([a-fA-F0-9]{4})")
 CHAR_ESCAPE = re.compile(r"\\(.)")
 WHITESPACE_RE = re.compile(r"\s+")
 
-ESCAPE_TRANSLATE = str.maketrans(
-    {
-        "\\": "\\\\",
-        "\n": "\\n",
-        "\t": "\\t",
-        "'": "\\'",
-        '"': '\\"',
-    }
-)
-
 
 class DecodingXMLParser:
     """
@@ -67,9 +58,8 @@ class DecodingXMLParser:
 
     def __init__(self, text: str):
         self.text = text.encode("utf-8")
-        self.output = []
-        self.emit_start = None
-        self.decoded_emit = None
+        self.output: list[str] = []
+        self.emit_start: int | None = None
         self.character_data = False
         self.raw_string = True
         self.in_string = False
@@ -249,6 +239,15 @@ class AndroidResourceUnit(base.TranslationUnit):
 
     SINGULAR_TAG = "string"
     PLURAL_TAG = "plurals"
+    ESCAPE_TRANSLATE: ClassVar = str.maketrans(
+        {
+            "\\": "\\\\",
+            "\n": "\\n",
+            "\t": "\\t",
+            "'": "\\'",
+            '"': '\\"',
+        }
+    )
 
     @classmethod
     def createfromxmlElement(cls, element):
@@ -291,10 +290,14 @@ class AndroidResourceUnit(base.TranslationUnit):
     def xml_escape_space(matchobj):
         return matchobj.group(0).replace("  ", r" \u0020")
 
+    @overload
     @classmethod
-    def escape(
-        cls, text: str | None, quote_wrapping_whitespaces: bool = True
-    ) -> str | None:
+    def escape(cls, text: str, quote_wrapping_whitespaces: bool = True) -> str: ...
+    @overload
+    @classmethod
+    def escape(cls, text: None, quote_wrapping_whitespaces: bool = True) -> None: ...
+    @classmethod
+    def escape(cls, text, quote_wrapping_whitespaces=True):
         """
         Escape all the characters which need to be escaped in an Android XML
         file.
@@ -310,7 +313,7 @@ class AndroidResourceUnit(base.TranslationUnit):
             return ""
 
         # Escape XML chars and whitespace
-        text = text.translate(ESCAPE_TRANSLATE)
+        text = text.translate(cls.ESCAPE_TRANSLATE)
 
         # @ and ? needs to be escaped at start as this would be interpreted
         # as string/style references
@@ -619,9 +622,25 @@ class AndroidResourceFile(lisa.LISAfile):
         super().removeunit(unit)
 
 
-class MOKOResourceUnit(AndroidResourceUnit):
+class CMPResourceUnit(AndroidResourceUnit):
+    ESCAPE_TRANSLATE = str.maketrans(
+        {
+            "\\": "\\\\",
+            "\n": "\\n",
+            "\t": "\\t",
+        }
+    )
+
+
+class CMPResourceFile(AndroidResourceFile):
+    UnitClass = CMPResourceUnit
+    Name = "Compose Multiplatform Resources"
+
+
+class MOKOResourceUnit(CMPResourceUnit):
     PLURAL_TAG = "plural"
 
 
 class MOKOResourceFile(AndroidResourceFile):
     UnitClass = MOKOResourceUnit
+    Name = "Mobile Kotlin Resources"

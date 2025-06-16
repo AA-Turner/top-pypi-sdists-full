@@ -1,0 +1,76 @@
+# Quantity Map
+# ------------
+#
+# Quantity: units
+
+quantity_units_table:
+  Mass: g
+  Length: cm
+  Time: s
+  Temperature: K
+  Current: A
+  SubstanceAmount: mol
+  Light: cd
+  Angle: radian
+  SolidAngle: sr
+  Acceleration: cm s^-2
+  AngularAcceleration: radian s^-2
+  AngularVelocity: radian s^-1
+  Area: cm^2
+  Compressibility: cm^2 dyne^-1
+  Concentration: cm^-3
+  DecayConstant: s^-1
+  Density: g cm^-3
+  DynamicViscosity: dyne cm^-2 s
+  ElectricCharge: A s
+  ElectricChargeDensity: A s cm^-3
+  ElectricCurrentDensity: A cm^-2
+  ElectricCurrentSource: A cm^-3
+  ElectricFluxDensity: coulomb cm^-2
+  Enthalpy: erg
+  Force: dyne
+  ForceDensity: dyne cm^-3
+  Frequency: Hz
+  HeatFlux: dyne s^-1 cm^-1
+  HeatGeneration: erg s^-1 cm^-3
+  HeatTransferCoefficient: erg s^-1 cm^-2 K^-1
+  Impulse: dyne s
+  MagneticFieldIntensity: A cm^-1
+  MassFlowRate: g s^-1
+  MassFlux: g s^-1 cm^-2
+  MolarConcentration: mol cm^-3
+  MolarEnergy: erg mol^-1
+  MolarEnthalpy: erg mol^-1
+  MolarEntropy: erg mol^-1 K^-1
+  MolarMass: g mol^-1
+  MolarVolume: cm^3 mol^-1
+  Moment: dyne cm
+  MomentOfInertiaOfArea: cm^2 cm^2
+  MomentOfInertiaOfMass: g cm^2
+  Momentum: g cm s^-1
+  Pressure: dyne cm^-2
+  ShearStrain: radian
+  ShearStrainRate: radian s^-1
+  SpecificConcentration: mol g^-1
+  SpecificEnergy: erg g^-1
+  SpecificEnthalpy: erg g^-1
+  SpecificEntropy: erg g^-1 K^-1
+  SpecificFlameSurfaceDensity: cm^2 g^-1
+  SpecificHeatCapacity: erg g^-1 K^-1
+  SpecificVolume: g^-1 cm^3
+  Stiffness: dyne cm^-1
+  Strain: cm cm^-1
+  SurfaceChargeDensity: A s cm^-2
+  SurfaceForceDensity: dyne cm^-2
+  SurfacePowerDensity: erg s^-1 cm^-2
+  SurfaceTension: dyne cm^-1
+  TemperatureGradient: K cm^-1
+  ThermalCapacitance: erg K^-1
+  ThermalConductance: erg s^-1 K^-1
+  ThermalConductivity: erg s^-1 cm^-1 K^-1
+  ThermalContactResistance: W^-1 cm^2 K
+  ThermalExpansionCoefficient: K^-1
+  Torque: dyne cm
+  Velocity: cm s^-1
+  Volume: cm^3
+  VolumetricFlowRate: cm^3 s^-1

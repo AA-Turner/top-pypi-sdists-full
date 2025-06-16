@@ -614,8 +614,10 @@ async def send_file(
         elif file_extension == "001":
             content_type = "text/plain"
         elif file_extension == "xls":
+            filename = desArquivo
             content_type = "application/vnd.ms-excel"
         elif file_extension == "xlsx":
+            filename = desArquivo
             content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         else:
             raise ValueError(f"Extensão de arquivo não suportada: {file_extension}")

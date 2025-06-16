@@ -1,0 +1,60 @@
+[package]
+name = "mdka"
+version = "1.5.4"
+edition = "2021"
+
+description = "HTML to Markdown converter"
+authors = ["nabbisen <nabbisen@scqr.net>"]
+license = "Apache-2.0"
+categories = ["development-tools", "parsing", "parser-implementations"]
+keywords = ["html", "markdown", "parser", "conversion"]
+repository = "https://github.com/nabbisen/mdka-rs"
+readme = "README.md"
+
+rust-version = "1.74.0"
+
+[lib]
+name = "mdka"
+crate-type = ["rlib", "cdylib"]
+
+[profile.release]     # shrink executable size
+opt-level = "z"
+lto = true
+# panic = "abort"
+strip = true
+codegen-units = 1
+
+[profile.dev]         # to reasonably improve productivity
+opt-level = 1         # slightly optimize
+lto = false           # disable link-time optimizations
+# strip = "debuginfo" # reduce size
+incremental = true
+
+[features]
+default = []
+pyo3 = ["dep:pyo3"]
+napi = ["dep:napi", "dep:napi-derive", "dep:napi-build"]
+
+[dependencies]
+html5ever = "^0.27"
+markup5ever_rcdom = "^0.3"
+# binding for python
+pyo3 = { version = "^0.25", features = ["extension-module"], optional = true }
+# binding for node.js
+napi = { version = "2", default-features = false, features = ["napi5", "async"], optional = true }
+napi-derive = { version = "2", optional = true }
+
+[dev-dependencies]
+criterion = "0"
+maturin = "1"
+
+[build-dependencies]
+napi-build = { version = "=2.2.0", optional = true }
+
+[[example]]
+name = "trial"
+path = "examples/trial.rs"
+
+[[bench]]
+name = "benchmark"
+harness = false

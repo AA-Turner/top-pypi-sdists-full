@@ -97,7 +97,9 @@ class MechDriverSetupBase(abc.ABC):
         self.mech_driver.nb_ovn = fakes.FakeOvsdbNbOvnIdl()
         self.mech_driver.sb_ovn = fakes.FakeOvsdbSbOvnIdl()
         self.mech_driver._post_fork_event.set()
-        self.mech_driver._ovn_client._qos_driver = mock.Mock()
+        self.mech_driver._ovn_client._qos_driver = mock.Mock(
+            get_lsp_options_qos=mock.Mock(return_value={})
+        )
         self._agent_cache = neutron_agent.AgentCache(self.mech_driver)
         agent1 = self._add_agent('agent1')
         neutron_agent.AgentCache().get_agents = mock.Mock()
@@ -187,6 +189,8 @@ class TestOVNMechanismDriverBase(MechDriverSetupBase,
         self.rp_ns = self.mech_driver.resource_provider_uuid5_namespace
         self.placement_ext = self.mech_driver._ovn_client.placement_extension
         self.placement_ext._reset(self.placement_ext._driver)
+        mock.patch.object(self.mech_driver._ovn_client._qos_driver,
+                          'get_lsp_options_qos', return_value={}).start()
 
         self.fake_subnet = fakes.FakeSubnet.create_one_subnet().info()
 
@@ -1232,8 +1236,8 @@ class TestOVNMechanismDriver(TestOVNMechanismDriverBase):
             else:
                 self.mech_driver._plugin.nova_notifier.\
                     record_port_status_changed.assert_called_once_with(
-                        mock.ANY, const.PORT_STATUS_ACTIVE,
-                        const.PORT_STATUS_DOWN, None)
+                        mock.ANY, const.PORT_STATUS_DOWN,
+                        const.PORT_STATUS_ACTIVE, None)
                 self.mech_driver._plugin.nova_notifier.\
                     send_port_status.assert_called_once_with(
                         None, None, mock.ANY)
@@ -2970,7 +2974,7 @@ class TestOVNMechanismDriver(TestOVNMechanismDriverBase):
     @mock.patch.object(ml2_plugin.Ml2Plugin, 'get_network', return_value={})
     @mock.patch.object(ovn_utils, '_filter_candidates_for_ha_chassis_group')
     def test_sync_ha_chassis_group_network(self, mock_candidates, *args):
-        self.nb_ovn.ha_chassis_group_get.side_effect = idlutils.RowNotFound
+        self.nb_ovn.lookup.return_value = None
         fake_txn = mock.Mock()
         hcg_info = self._build_hcg_info(network_id='fake-net-id')
         mock_candidates.return_value = {'ch0', 'ch1', 'ch2', 'ch3'}
@@ -3016,8 +3020,8 @@ class TestOVNMechanismDriver(TestOVNMechanismDriverBase):
             'ha_chassis': [hc0, hc1, hc2, hc3]}
         fake_ha_chassis_group = fakes.FakeOvsdbRow.create_one_ovsdb_row(
             attrs=hcg_attrs)
-        self.nb_ovn.ha_chassis_group_get().execute.return_value = (
-            fake_ha_chassis_group)
+        # HA_Chassis_Group lookup.
+        self.nb_ovn.lookup.return_value = fake_ha_chassis_group
         self.sb_ovn.get_gateway_chassis_from_cms_options.return_value = (
             hcg_info.chassis_list)
 

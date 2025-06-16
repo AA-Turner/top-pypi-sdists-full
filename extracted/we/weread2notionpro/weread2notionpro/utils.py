@@ -18,7 +18,9 @@ from weread2notionpro.config  import (
     SELECT,
 )
 import pendulum
+from dotenv import load_dotenv
 
+load_dotenv()
 MAX_LENGTH = (
     1024  # NOTION 2000个字符限制https://developers.notion.com/reference/request-limits
 )
@@ -368,4 +370,6 @@ def get_embed(url):
 
 
 def get_complete_status():
-    return os.getenv("status_complete", "已读")
+    status = os.getenv("STATUS_COMPLETE")
+    if status is None or status.strip()=="":
+        return "已读"

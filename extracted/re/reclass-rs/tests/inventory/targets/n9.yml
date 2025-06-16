@@ -1,6 +1,0 @@
-classes:
-  - cls12
-  - nested.a_sub
-
-parameters:
-  target: n5

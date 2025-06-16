@@ -1,0 +1,27 @@
+[project]
+name = "pycatch22"
+version = "0.4.5"
+authors = [
+    {name = "Carl H Lubba"},
+    {email = "carl.lubba@gmx.de"},
+]
+maintainers = [
+    {name = "Ben D Fulcher"},
+    {email = "ben.fulcher@sydney.edu.au"},
+]
+description = "22 CAnonical Time-series Features"
+readme = "README.md"
+license = {text = "GNU General Public License v3 (GPLv3)"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"GitHub Repository (pycatch22)" = "https://github.com/DynamicsAndNeuralSystems/pycatch22"
+"Mother Repository (catch22)" = "https://github.com/DynamicsAndNeuralSystems/catch22"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

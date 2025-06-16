@@ -1,9 +1,0 @@
-[tool.usort]
-
-first_party_detection = false
-
-[tool.pytest.ini_options]
-markers =[
-    "cpu_and_gpu",
-    "gpu_only",
-]

@@ -5483,7 +5483,7 @@ class CfnInsightRule(
         :param rule_body: The definition of the rule, as a JSON object. For details about the syntax, see `Contributor Insights Rule Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContributorInsights-RuleSyntax.html>`_ in the *Amazon CloudWatch User Guide* .
         :param rule_name: The name of the rule.
         :param rule_state: The current state of the rule. Valid values are ``ENABLED`` and ``DISABLED`` .
-        :param apply_on_transformed_logs: 
+        :param apply_on_transformed_logs: Determines whether the rules is evaluated on transformed versions of logs. Valid values are ``TRUE`` and ``FALSE`` .
         :param tags: A list of key-value pairs to associate with the Contributor Insights rule. You can associate as many as 50 tags with a rule. Tags can help you organize and categorize your resources. For more information, see `Tagging Your Amazon CloudWatch Resources <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Tagging.html>`_ . To be able to associate tags with a rule, you must have the ``cloudwatch:TagResource`` permission in addition to the ``cloudwatch:PutInsightRule`` permission.
         '''
         if __debug__:
@@ -5611,6 +5611,7 @@ class CfnInsightRule(
     def apply_on_transformed_logs(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Determines whether the rules is evaluated on transformed versions of logs.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "applyOnTransformedLogs"))
 
     @apply_on_transformed_logs.setter
@@ -5663,7 +5664,7 @@ class CfnInsightRuleProps:
         :param rule_body: The definition of the rule, as a JSON object. For details about the syntax, see `Contributor Insights Rule Syntax <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContributorInsights-RuleSyntax.html>`_ in the *Amazon CloudWatch User Guide* .
         :param rule_name: The name of the rule.
         :param rule_state: The current state of the rule. Valid values are ``ENABLED`` and ``DISABLED`` .
-        :param apply_on_transformed_logs: 
+        :param apply_on_transformed_logs: Determines whether the rules is evaluated on transformed versions of logs. Valid values are ``TRUE`` and ``FALSE`` .
         :param tags: A list of key-value pairs to associate with the Contributor Insights rule. You can associate as many as 50 tags with a rule. Tags can help you organize and categorize your resources. For more information, see `Tagging Your Amazon CloudWatch Resources <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Tagging.html>`_ . To be able to associate tags with a rule, you must have the ``cloudwatch:TagResource`` permission in addition to the ``cloudwatch:PutInsightRule`` permission.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-insightrule.html
@@ -5743,7 +5744,10 @@ class CfnInsightRuleProps:
     def apply_on_transformed_logs(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''
+        '''Determines whether the rules is evaluated on transformed versions of logs.
+
+        Valid values are ``TRUE`` and ``FALSE`` .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-insightrule.html#cfn-cloudwatch-insightrule-applyontransformedlogs
         '''
         result = self._values.get("apply_on_transformed_logs")

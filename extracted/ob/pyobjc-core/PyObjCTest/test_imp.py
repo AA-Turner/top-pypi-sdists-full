@@ -1,5 +1,6 @@
 import objc
 import inspect
+import warnings
 from PyObjCTools.TestSupport import TestCase
 from PyObjCTest.test_metadata import OC_MetaDataTest
 
@@ -29,6 +30,9 @@ class TestBasicIMP(TestCase):
         )
         self.assertEqual(m.selector, b"alloc")
 
+        with self.assertRaisesRegex(TypeError, "Missing argument: self"):
+            m()
+
         o = m(cls).init()
         self.assertIsInstance(o, cls)
 
@@ -45,10 +49,11 @@ class TestBasicIMP(TestCase):
         self.assertEqual(o2, [])
         self.assertIsInstance(o2, NSArray)
 
-        with self.assertRaisesRegex(
-            AttributeError, "cannot access attribute 'init' of NIL"
-        ):
-            o.init()
+        o = NSObject.alloc().init()
+        i = NSObject.methodForSelector_(b"alloc")
+        o2 = i(o).init()
+        self.assertIsInstance(o2, NSObject)
+        self.assertIsNot(o, o2)
 
     def testInit1(self):
         cls = NSObject
@@ -171,19 +176,15 @@ class TestBasicIMP(TestCase):
         self.assertIsInstance(p, NSArray)
         self.assertIsNot(o, p)
 
-        # Make sure the pointer to ObjC is cleared:
-        with self.assertRaisesRegex(
-            AttributeError, "cannot access attribute '__c_void_p__' of NIL "
-        ):
-            o.__c_void_p__
-
     def test_imp_attributes(self):
         o = NSMutableArray.alloc().init()
         imp = o.methodForSelector_(b"addObject:")
         alloc_imp = NSMutableArray.methodForSelector_(b"alloc")
         cls_imp = NSMutableArray.methodForSelector_(b"array")
 
-        self.assertFalse(imp.isAlloc)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=objc.ApiDeprecationWarning)
+            self.assertFalse(imp.isAlloc)
         self.assertFalse(imp.isClassMethod)
         self.assertEqual(
             objc.splitSignature(imp.signature), objc.splitSignature(b"v@:@")
@@ -196,10 +197,21 @@ class TestBasicIMP(TestCase):
         self.assertIsInstance(sig, inspect.Signature)
         self.assertEqual(str(sig), "(arg0, arg1, /)")
 
-        self.assertFalse(cls_imp.isAlloc)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=objc.ApiDeprecationWarning)
+            self.assertFalse(cls_imp.isAlloc)
         self.assertTrue(cls_imp.isClassMethod)
 
-        self.assertTrue(alloc_imp.isAlloc)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=objc.ApiDeprecationWarning)
+            self.assertFalse(alloc_imp.isAlloc)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", category=objc.ApiDeprecationWarning)
+            with self.assertRaisesRegex(
+                objc.ApiDeprecationWarning, "isAlloc is always false"
+            ):
+                self.assertFalse(alloc_imp.isAlloc)
         self.assertTrue(alloc_imp.isClassMethod)
 
 

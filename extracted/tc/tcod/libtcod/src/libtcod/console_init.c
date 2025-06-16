@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 #include "console_init.h"
 
 #ifndef NO_SDL
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #endif  // NO_SDL
 #include <stdbool.h>
 #include <string.h>
@@ -61,14 +61,13 @@ TCOD_Error TCOD_console_init_root_(
   strncpy(TCOD_ctx.window_title, title ? title : "", sizeof(TCOD_ctx.window_title) - 1);
   TCOD_ctx.fullscreen = fullscreen;
   struct TCOD_ContextParams params = {
-      .tcod_version = TCOD_COMPILEDVERSION,
+      .tcod_version = 0,
       .window_x = SDL_WINDOWPOS_UNDEFINED,
       .window_y = SDL_WINDOWPOS_UNDEFINED,
       .columns = w,
       .rows = h,
       .vsync = vsync,
-      .sdl_window_flags =
-          SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI | (fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0),
+      .sdl_window_flags = SDL_WINDOW_RESIZABLE | (fullscreen ? SDL_WINDOW_FULLSCREEN : 0),
       .window_title = title,
       .renderer_type = renderer,
       .window_xy_defined = true,
@@ -88,7 +87,7 @@ void TCOD_console_set_fullscreen(bool fullscreen) {
   TCOD_ctx.fullscreen = fullscreen;
   struct SDL_Window* window = TCOD_sys_get_sdl_window();
   if (window) {
-    SDL_SetWindowFullscreen(window, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    SDL_SetWindowFullscreen(window, fullscreen);
   }
 }
 bool TCOD_console_is_fullscreen(void) {
@@ -96,7 +95,7 @@ bool TCOD_console_is_fullscreen(void) {
   if (!window) {
     return TCOD_ctx.fullscreen;
   }
-  return (SDL_GetWindowFlags(window) & (SDL_WINDOW_FULLSCREEN | SDL_WINDOW_FULLSCREEN_DESKTOP)) != 0;
+  return (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) != 0;
 }
 bool TCOD_console_has_mouse_focus(void) {
   struct SDL_Window* window = TCOD_sys_get_sdl_window();

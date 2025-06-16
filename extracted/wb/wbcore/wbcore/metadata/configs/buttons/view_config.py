@@ -1,8 +1,6 @@
-from contextlib import suppress
-from typing import Generator
+from typing import Generator, Iterable
 
 from wbcore.contrib.icons import WBIcon
-from wbcore.enums import Button
 from wbcore.metadata.configs.buttons.buttons import DropDownButton
 from wbcore.signals.instance_buttons import (
     add_button,
@@ -12,6 +10,7 @@ from wbcore.signals.instance_buttons import (
 from wbcore.utils.importlib import parse_signal_received_for_module
 
 from ..base import WBCoreViewConfig
+from .enums import Button
 
 
 class ButtonViewConfig(WBCoreViewConfig):
@@ -67,45 +66,8 @@ class ButtonViewConfig(WBCoreViewConfig):
             }
         return getattr(self.view, "FSM_BUTTONS", set())
 
-    # list Button Configuration
-    LIST_BUTTONS = frozenset({Button.NEW.value, Button.REFRESH.value})
-    LIST_BUTTONS_ORDERING = [Button.NEW.value, Button.REFRESH.value]
-
-    def get_list_buttons(self) -> Generator[None, str, None]:
-        if content_type := self.view.get_content_type():
-            buttons = set(self.LIST_BUTTONS)
-            add_permission = f"{content_type.app_label}.add_{content_type.model}"
-
-            if not self.request.user.has_perm(add_permission):
-                with suppress(KeyError):
-                    buttons.remove(Button.NEW.value)
-
-            yield from self.order_buttons(buttons, self.LIST_BUTTONS_ORDERING)
-
-    # Instance Button Configuration
-    INSTANCE_BUTTONS = frozenset({Button.SAVE.value, Button.REFRESH.value, Button.DELETE.value})
-    INSTANCE_BUTTONS_ORDERING = [Button.SAVE.value, Button.REFRESH.value, Button.DELETE.value]
-
-    def get_instance_buttons(self) -> Generator[None, str, None]:
-        if content_type := self.view.get_content_type():
-            buttons = set(self.INSTANCE_BUTTONS)
-            change_permission = f"{content_type.app_label}.change_{content_type.model}"
-            delete_permission = f"{content_type.app_label}.delete_{content_type.model}"
-
-            if not self.request.user.has_perm(change_permission):
-                with suppress(KeyError):
-                    buttons.remove(Button.SAVE.value)
-
-            if not self.request.user.has_perm(delete_permission):
-                with suppress(KeyError):
-                    buttons.remove(Button.DELETE.value)
-
-            yield from self.order_buttons(buttons, self.INSTANCE_BUTTONS_ORDERING)
-
     # Create Button Configuration
-    CREATE_BUTTONS = frozenset(
-        {Button.SAVE.value, Button.SAVE_AND_CLOSE.value, Button.SAVE_AND_NEW.value, Button.RESET.value}
-    )
+    CREATE_BUTTONS = frozenset({Button.SAVE.value})
     CREATE_BUTTONS_ORDERING = [
         Button.SAVE.value,
         Button.SAVE_AND_CLOSE.value,
@@ -113,7 +75,7 @@ class ButtonViewConfig(WBCoreViewConfig):
         Button.RESET.value,
     ]
 
-    def get_create_buttons(self) -> Generator[None, str, None]:
+    def get_create_buttons(self) -> Iterable:
         buttons = set(self.CREATE_BUTTONS)
         yield from self.order_buttons(buttons, self.CREATE_BUTTONS_ORDERING)
 
@@ -177,4 +139,5 @@ class ButtonViewConfig(WBCoreViewConfig):
             if (not self.view.inline or self.SHOW_INLINE)
             else [],  # we do not show button for list display generated through inline
             "extra": self._get_custom_extra_buttons(),
+            "save": self.get_create_buttons(),
         }

@@ -8,7 +8,6 @@ import objc
 from functools import partial
 from objc import simd
 
-
 # Tests use CGColorRef and CGColorSpaceRef. Try to import Quartz
 # to get proper definitions for these types, otherwise fall back
 # to minimal definitions (those aren't 100% correct, but good enough
@@ -39,6 +38,10 @@ NoObjCValueObject = NoObjCClass()
 
 # Register full signatures for the helper methods
 
+objc.registerMetaDataForSelector(b"NSObject", b"v16C", {"full_signature": b"<16C>@:"})
+objc.registerMetaDataForSelector(
+    b"NSObject", b"clsv16C", {"full_signature": b"<16C>@:"}
+)
 objc.registerMetaDataForSelector(b"NSObject", b"v2d", {"full_signature": b"<2d>@:"})
 objc.registerMetaDataForSelector(b"NSObject", b"clsv2d", {"full_signature": b"<2d>@:"})
 objc.registerMetaDataForSelector(b"NSObject", b"v2dd:", {"full_signature": b"<2d>@:d"})
@@ -760,6 +763,26 @@ objc.registerMetaDataForSelector(
     {"full_signature": b"{MDLVoxelIndexExtent=<4i><4i>}@:"},
 )
 objc.registerMetaDataForSelector(
+    b"NSObject",
+    b"MPSImageHistogramInfo",
+    {"full_signature": b"{MPSImageHistogramInfo=QZ<4f><4f>}@:"},
+)
+objc.registerMetaDataForSelector(
+    b"NSObject",
+    b"clsMPSImageHistogramInfo",
+    {"full_signature": b"{MPSImageHistogramInfo=QZ<4f><4f>}@:"},
+)
+objc.registerMetaDataForSelector(
+    b"NSObject",
+    b"MPSAxisAlignedBoundingBox",
+    {"full_signature": b"{_MPSAxisAlignedBoundingBox=<3f><3f>}@:"},
+)
+objc.registerMetaDataForSelector(
+    b"NSObject",
+    b"clsMPSAxisAlignedBoundingBox",
+    {"full_signature": b"{_MPSAxisAlignedBoundingBox=<3f><3f>}@:"},
+)
+objc.registerMetaDataForSelector(
     b"NSObject", b"simddouble4x4", {"full_signature": b"{simd_double4x4=[4<4d>]}@:"}
 )
 objc.registerMetaDataForSelector(
@@ -784,6 +807,12 @@ objc.registerMetaDataForSelector(
 )
 objc.registerMetaDataForSelector(
     b"NSObject", b"clssimdfloat3x3", {"full_signature": b"{simd_float3x3=[3<3f>]}@:"}
+)
+objc.registerMetaDataForSelector(
+    b"NSObject", b"simdfloat4x3", {"full_signature": b"{simd_float4x3=[4<3f>]}@:"}
+)
+objc.registerMetaDataForSelector(
+    b"NSObject", b"clssimdfloat4x3", {"full_signature": b"{simd_float4x3=[4<3f>]}@:"}
 )
 objc.registerMetaDataForSelector(
     b"NSObject", b"simdfloat4x4", {"full_signature": b"{simd_float4x4=[4<4f>]}@:"}
@@ -835,85 +864,89 @@ objc.registerMetaDataForSelector(
 objc.registerMetaDataForSelector(
     b"NSObject", b"clssimdquatfd:", {"full_signature": b"{simd_quatf=<4f>}@:d"}
 )
-objc.registerMetaDataForSelector(b"NSObject", b"v16C", {"full_signature": b"<16C>@:"})
-objc.registerMetaDataForSelector(
-    b"NSObject", b"clsv16C", {"full_signature": b"<16C>@:"}
-)
-objc.registerMetaDataForSelector(
-    b"NSObject",
-    b"MPSImageHistogramInfo",
-    {"full_signature": b"{MPSImageHistogramInfo=QZ<4f><4f>}@:"},
-)
-objc.registerMetaDataForSelector(
-    b"NSObject",
-    b"clsMPSImageHistogramInfo",
-    {"full_signature": b"{MPSImageHistogramInfo=QZ<4f><4f>}@:"},
-)
-objc.registerMetaDataForSelector(
-    b"NSObject",
-    b"MPSAxisAlignedBoundingBox",
-    {"full_signature": b"{_MPSAxisAlignedBoundingBox=<3f><3f>}@:"},
-)
-objc.registerMetaDataForSelector(
-    b"NSObject",
-    b"clsMPSAxisAlignedBoundingBox",
-    {"full_signature": b"{_MPSAxisAlignedBoundingBox=<3f><3f>}@:"},
-)
 
 
 class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
+    def v16C(self):
+        self.argvalues = None
+        if getattr(self, "shouldRaise", False):
+            raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
+        return objc.simd.vector_uchar16(
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+        )
+
     def v2d(self):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_double2(0.0, 1.5)
 
     def v2dd_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_double2(0.0, 1.5)
 
     def v2f(self):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float2(0.0, 1.5)
 
     def v2fQ_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float2(0.0, 1.5)
 
     def v2fd_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float2(0.0, 1.5)
 
     def v2fq_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float2(0.0, 1.5)
 
     def v2i(self):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_int2(0, 1)
 
     def v3dd_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_double3(0.0, 1.5, 3.0)
 
     def v3f(self):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     def v3fv2i_v2i_(self, arg0, arg1):
@@ -923,12 +956,16 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     def v3fv3f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     def v3fv3f_id_(self, arg0, arg1):
@@ -938,48 +975,64 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     def v3fv4i_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     def v3fQ_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     def v3fd_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     def v4dd_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5)
 
     def v4f(self):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)
 
     def v4fd_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)
 
     def v4iv3f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_int4(0, 1, 2, 3)
 
     def idv2d_id_(self, arg0, arg1):
@@ -989,6 +1042,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv2d_q_(self, arg0, arg1):
@@ -998,12 +1053,16 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv2f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv2f_v2I_q_id_(self, arg0, arg1, arg2, arg3):
@@ -1015,6 +1074,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv2f_v2f_(self, arg0, arg1):
@@ -1024,12 +1085,16 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv2i_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv2i_i_i_Z_(self, arg0, arg1, arg2, arg3):
@@ -1041,6 +1106,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv2i_i_i_Z_Class_(self, arg0, arg1, arg2, arg3, arg4):
@@ -1053,12 +1120,16 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_v2I_Z_Z_Z_q_id_(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6):
@@ -1073,6 +1144,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_v2I_Z_Z_q_id_(self, arg0, arg1, arg2, arg3, arg4, arg5):
@@ -1086,6 +1159,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_v2I_Z_q_id_(self, arg0, arg1, arg2, arg3, arg4):
@@ -1098,6 +1173,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_v2I_i_Z_q_id_(self, arg0, arg1, arg2, arg3, arg4, arg5):
@@ -1111,6 +1188,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_v2I_q_id_(self, arg0, arg1, arg2, arg3):
@@ -1122,6 +1201,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_v3I_Z_q_id_(self, arg0, arg1, arg2, arg3, arg4):
@@ -1134,6 +1215,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_v3I_q_Z_id_(self, arg0, arg1, arg2, arg3, arg4):
@@ -1146,6 +1229,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_Q_Q_q_Z_Z_id_(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6):
@@ -1160,6 +1245,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv3f_Z_q_id_(self, arg0, arg1, arg2, arg3):
@@ -1171,12 +1258,16 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idv4f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_v2d_v2d_v2i_Z_(self, arg0, arg1, arg2, arg3, arg4):
@@ -1189,6 +1280,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_v2f_(self, arg0, arg1):
@@ -1198,6 +1291,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_v3f_(self, arg0, arg1):
@@ -1207,6 +1302,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_v4f_(self, arg0, arg1):
@@ -1216,6 +1313,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_id_v2i_(self, arg0, arg1, arg2):
@@ -1226,6 +1325,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_id_v2i_f_(self, arg0, arg1, arg2, arg3):
@@ -1237,6 +1338,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_Q_v2f_(self, arg0, arg1, arg2):
@@ -1247,6 +1350,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_Q_v3f_(self, arg0, arg1, arg2):
@@ -1257,6 +1362,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_Q_v4f_(self, arg0, arg1, arg2):
@@ -1267,6 +1374,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_Q_simdfloat4x4_(self, arg0, arg1, arg2):
@@ -1277,6 +1386,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_Z_id_v2i_q_Q_q_Z_(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7):
@@ -1292,6 +1403,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_q_v2i_f_f_f_f_(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6):
@@ -1306,6 +1419,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_q_v2i_f_f_f_f_f_(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7):
@@ -1321,6 +1436,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     if objc.macos_available(10, 12):
@@ -1332,6 +1449,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 12):
@@ -1343,6 +1462,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 11):
@@ -1355,6 +1476,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     def idid_simdfloat2x2_(self, arg0, arg1):
@@ -1364,6 +1487,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_simdfloat3x3_(self, arg0, arg1):
@@ -1373,6 +1498,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idid_simdfloat4x4_(self, arg0, arg1):
@@ -1382,6 +1509,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     if objc.macos_available(10, 13):
@@ -1393,6 +1522,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 13):
@@ -1405,6 +1536,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     def idCGColor_CGColor_id_v2i_(self, arg0, arg1, arg2, arg3):
@@ -1416,6 +1549,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idf_v2f_v2f_(self, arg0, arg1, arg2):
@@ -1426,6 +1561,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idf_v2f_v2f_Class_(self, arg0, arg1, arg2, arg3):
@@ -1437,6 +1574,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idf_v2f_Q_Q_Q_q_Z_id_(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7):
@@ -1452,6 +1591,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idf_v2f_Q_Q_q_Z_id_(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6):
@@ -1466,6 +1607,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idf_id_v2i_i_q_Z_(self, arg0, arg1, arg2, arg3, arg4, arg5):
@@ -1479,6 +1622,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idf_id_v2i_i_q_CGColor_CGColor_(self, arg0, arg1, arg2, arg3, arg4, arg5, arg6):
@@ -1493,6 +1638,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idf_id_v2i_q_(self, arg0, arg1, arg2, arg3):
@@ -1504,6 +1651,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idf_f_id_v2i_(self, arg0, arg1, arg2, arg3):
@@ -1515,6 +1664,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     if objc.macos_available(10, 12):
@@ -1523,6 +1674,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 12):
@@ -1534,6 +1687,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 12):
@@ -1542,6 +1697,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 12):
@@ -1553,6 +1710,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 11):
@@ -1561,12 +1720,16 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     def idsimdfloat4x4_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def idsimdfloat4x4_Z_(self, arg0, arg1):
@@ -1576,6 +1739,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     def Zv2i_id_id_id_id_(self, arg0, arg1, arg2, arg3, arg4):
@@ -1588,6 +1753,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return False
 
     def Zv2i_q_f_id_id_id_(self, arg0, arg1, arg2, arg3, arg4, arg5):
@@ -1601,6 +1768,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return False
 
     def Zv4i_Z_Z_Z_Z_(self, arg0, arg1, arg2, arg3, arg4):
@@ -1613,12 +1782,16 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return False
 
     def CGColorv3f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "color!"
 
     def CGColorv3f_CGColorSpace_(self, arg0, arg1):
@@ -1628,24 +1801,32 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "color!"
 
     def fv2f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return 2500000000.0
 
     def fv2i_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return 2500000000.0
 
     def vv2d_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv2d_d_(self, arg0, arg1):
         self.argvalues = (
@@ -1654,11 +1835,15 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv2f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv2f_d_(self, arg0, arg1):
         self.argvalues = (
@@ -1667,11 +1852,15 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv3d_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv3d_d_(self, arg0, arg1):
         self.argvalues = (
@@ -1680,11 +1869,15 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv3f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv3f_v3f_(self, arg0, arg1):
         self.argvalues = (
@@ -1693,6 +1886,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv3f_v3f_v3f_(self, arg0, arg1, arg2):
         self.argvalues = (
@@ -1702,6 +1897,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv3f_d_(self, arg0, arg1):
         self.argvalues = (
@@ -1710,6 +1907,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv4d_d_(self, arg0, arg1):
         self.argvalues = (
@@ -1718,11 +1917,15 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv4f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv4f_d_(self, arg0, arg1):
         self.argvalues = (
@@ -1731,11 +1934,15 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vv4i_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vid_v2f_v2f_(self, arg0, arg1, arg2):
         self.argvalues = (
@@ -1745,6 +1952,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vid_v2f_v2f_q_(self, arg0, arg1, arg2, arg3):
         self.argvalues = (
@@ -1755,6 +1964,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vf_v2i_(self, arg0, arg1):
         self.argvalues = (
@@ -1763,6 +1974,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     if objc.macos_available(10, 11):
 
@@ -1770,6 +1983,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 11):
 
@@ -1780,11 +1995,15 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     def vsimddouble4x4_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vsimddouble4x4_d_(self, arg0, arg1):
         self.argvalues = (
@@ -1793,21 +2012,29 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vsimdfloat2x2_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vsimdfloat3x3_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vsimdfloat4x4_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     def vsimdfloat4x4_d_(self, arg0, arg1):
         self.argvalues = (
@@ -1816,6 +2043,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     if objc.macos_available(10, 13):
 
@@ -1826,6 +2055,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 13):
 
@@ -1833,6 +2064,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 13):
 
@@ -1843,6 +2076,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 13):
 
@@ -1853,6 +2088,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 12):
 
@@ -1860,6 +2097,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float3(1.0, 2.0, 3.0),
                 objc.simd.vector_float3(4.0, 5.0, 6.0),
@@ -1871,6 +2110,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float2(9.0, 10.0),
                 objc.simd.vector_float2(11.0, 12.0),
@@ -1882,6 +2123,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 (
                     objc.simd.vector_float3(-18.5, -19.5, -110.5),
@@ -1896,6 +2139,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float3(-8.0, -9.0, -10.0),
                 objc.simd.vector_float3(-11.0, -12.0, -13.0),
@@ -1907,6 +2152,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float3(-8.0, -9.0, -10.0),
                 objc.simd.vector_float3(-11.0, -12.0, -13.0),
@@ -1918,6 +2165,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float3(-8.0, -9.0, -10.0),
                 objc.simd.vector_float3(-11.0, -12.0, -13.0),
@@ -1929,15 +2178,47 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_int4(100, 101, 102, 103),
                 objc.simd.vector_int4(-20, -21, -22, -23),
+            )
+
+    if objc.macos_available(10, 13):
+
+        def MPSImageHistogramInfo(self):
+            self.argvalues = None
+            if getattr(self, "shouldRaise", False):
+                raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
+            return (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            )
+
+    if objc.macos_available(10, 14):
+
+        def MPSAxisAlignedBoundingBox(self):
+            self.argvalues = None
+            if getattr(self, "shouldRaise", False):
+                raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
+            return (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
             )
 
     def simddouble4x4(self):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_double4x4(
             (
                 objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
@@ -1951,6 +2232,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_double4x4(
             (
                 objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
@@ -1964,6 +2247,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float2x2(
             (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
         )
@@ -1972,8 +2257,25 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float3x3(
             (
+                objc.simd.vector_float3(0.0, 1.5, 3.0),
+                objc.simd.vector_float3(0.0, 1.5, 3.0),
+                objc.simd.vector_float3(0.0, 1.5, 3.0),
+            )
+        )
+
+    def simdfloat4x3(self):
+        self.argvalues = None
+        if getattr(self, "shouldRaise", False):
+            raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
+        return simd.simd_float4x3(
+            (
+                objc.simd.vector_float3(0.0, 1.5, 3.0),
                 objc.simd.vector_float3(0.0, 1.5, 3.0),
                 objc.simd.vector_float3(0.0, 1.5, 3.0),
                 objc.simd.vector_float3(0.0, 1.5, 3.0),
@@ -1984,6 +2286,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float4x4(
             (
                 objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -2000,6 +2304,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float4x4(
             (
                 objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -2013,6 +2319,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float4x4(
             (
                 objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -2029,6 +2337,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float4x4(
             (
                 objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -2044,6 +2354,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return simd.simd_quatd(objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5))
 
     if objc.macos_available(10, 13):
@@ -2052,6 +2364,8 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
 
     if objc.macos_available(10, 13):
@@ -2060,47 +2374,30 @@ class OC_VectorCallInstance(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
-
-    def v16C(self):
-        self.argvalues = None
-        if getattr(self, "shouldRaise", False):
-            raise RuntimeError("failure!")
-        return objc.simd.vector_uchar16(
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-        )
-
-    if objc.macos_available(10, 13):
-
-        def MPSImageHistogramInfo(self):
-            self.argvalues = None
-            if getattr(self, "shouldRaise", False):
-                raise RuntimeError("failure!")
-            return (
-                4398046511104,
-                True,
-                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
-                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
-            )
-
-    if objc.macos_available(10, 14):
-
-        def MPSAxisAlignedBoundingBox(self):
-            self.argvalues = None
-            if getattr(self, "shouldRaise", False):
-                raise RuntimeError("failure!")
-            return (
-                objc.simd.vector_float3(1.5, 2.5, 3.5),
-                objc.simd.vector_float3(4.5, 5.5, 6.5),
-            )
 
 
 class OC_VectorCallClass(objc.lookUpClass("NSObject")):
     @classmethod
+    def v16C(self):
+        self.argvalues = None
+        if getattr(self, "shouldRaise", False):
+            raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
+        return objc.simd.vector_uchar16(
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+        )
+
+    @classmethod
     def v2d(self):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_double2(0.0, 1.5)
 
     @classmethod
@@ -2108,6 +2405,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_double2(0.0, 1.5)
 
     @classmethod
@@ -2115,6 +2414,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float2(0.0, 1.5)
 
     @classmethod
@@ -2122,6 +2423,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float2(0.0, 1.5)
 
     @classmethod
@@ -2129,6 +2432,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float2(0.0, 1.5)
 
     @classmethod
@@ -2136,6 +2441,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float2(0.0, 1.5)
 
     @classmethod
@@ -2143,6 +2450,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_int2(0, 1)
 
     @classmethod
@@ -2150,6 +2459,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_double3(0.0, 1.5, 3.0)
 
     @classmethod
@@ -2157,6 +2468,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     @classmethod
@@ -2167,6 +2480,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     @classmethod
@@ -2174,6 +2489,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     @classmethod
@@ -2184,6 +2501,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     @classmethod
@@ -2191,6 +2510,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     @classmethod
@@ -2198,6 +2519,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     @classmethod
@@ -2205,6 +2528,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float3(0.0, 1.5, 3.0)
 
     @classmethod
@@ -2212,6 +2537,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5)
 
     @classmethod
@@ -2219,6 +2546,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)
 
     @classmethod
@@ -2226,6 +2555,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)
 
     @classmethod
@@ -2233,6 +2564,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return objc.simd.vector_int4(0, 1, 2, 3)
 
     @classmethod
@@ -2243,6 +2576,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2253,6 +2588,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2260,6 +2597,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2272,6 +2611,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2282,6 +2623,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2289,6 +2632,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2301,6 +2646,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2314,6 +2661,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2321,6 +2670,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2336,6 +2687,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2350,6 +2703,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2363,6 +2718,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2377,6 +2734,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2389,6 +2748,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2402,6 +2763,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2415,6 +2778,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2430,6 +2795,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2442,6 +2809,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2449,6 +2818,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2462,6 +2833,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2472,6 +2845,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2482,6 +2857,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2492,6 +2869,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2503,6 +2882,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2515,6 +2896,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2526,6 +2909,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2537,6 +2922,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2548,6 +2935,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2559,6 +2948,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2575,6 +2966,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2590,6 +2983,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2606,6 +3001,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     if objc.macos_available(10, 12):
@@ -2618,6 +3015,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 12):
@@ -2630,6 +3029,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 11):
@@ -2643,6 +3044,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     @classmethod
@@ -2653,6 +3056,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2663,6 +3068,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2673,6 +3080,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     if objc.macos_available(10, 13):
@@ -2685,6 +3094,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 13):
@@ -2698,6 +3109,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     @classmethod
@@ -2710,6 +3123,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2721,6 +3136,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2733,6 +3150,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2749,6 +3168,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2764,6 +3185,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2778,6 +3201,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2793,6 +3218,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2805,6 +3232,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2817,6 +3246,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     if objc.macos_available(10, 12):
@@ -2826,6 +3257,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 12):
@@ -2838,6 +3271,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 12):
@@ -2847,6 +3282,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 12):
@@ -2859,6 +3296,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     if objc.macos_available(10, 11):
@@ -2868,6 +3307,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return "hello"
 
     @classmethod
@@ -2875,6 +3316,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2885,6 +3328,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "hello"
 
     @classmethod
@@ -2898,6 +3343,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return False
 
     @classmethod
@@ -2912,6 +3359,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return False
 
     @classmethod
@@ -2925,6 +3374,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return False
 
     @classmethod
@@ -2932,6 +3383,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "color!"
 
     @classmethod
@@ -2942,6 +3395,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return "color!"
 
     @classmethod
@@ -2949,6 +3404,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return 2500000000.0
 
     @classmethod
@@ -2956,6 +3413,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return 2500000000.0
 
     @classmethod
@@ -2963,6 +3422,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv2d_d_(self, arg0, arg1):
@@ -2972,12 +3433,16 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv2f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv2f_d_(self, arg0, arg1):
@@ -2987,12 +3452,16 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv3d_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv3d_d_(self, arg0, arg1):
@@ -3002,12 +3471,16 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv3f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv3f_v3f_(self, arg0, arg1):
@@ -3017,6 +3490,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv3f_v3f_v3f_(self, arg0, arg1, arg2):
@@ -3027,6 +3502,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv3f_d_(self, arg0, arg1):
@@ -3036,6 +3513,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv4d_d_(self, arg0, arg1):
@@ -3045,12 +3524,16 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv4f_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv4f_d_(self, arg0, arg1):
@@ -3060,12 +3543,16 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vv4i_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vid_v2f_v2f_(self, arg0, arg1, arg2):
@@ -3076,6 +3563,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vid_v2f_v2f_q_(self, arg0, arg1, arg2, arg3):
@@ -3087,6 +3576,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vf_v2i_(self, arg0, arg1):
@@ -3096,6 +3587,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     if objc.macos_available(10, 11):
 
@@ -3104,6 +3597,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 11):
 
@@ -3115,12 +3610,16 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     @classmethod
     def vsimddouble4x4_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vsimddouble4x4_d_(self, arg0, arg1):
@@ -3130,24 +3629,32 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vsimdfloat2x2_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vsimdfloat3x3_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vsimdfloat4x4_(self, arg0):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     @classmethod
     def vsimdfloat4x4_d_(self, arg0, arg1):
@@ -3157,6 +3664,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
 
     if objc.macos_available(10, 13):
 
@@ -3168,6 +3677,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 13):
 
@@ -3176,6 +3687,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 13):
 
@@ -3187,6 +3700,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 13):
 
@@ -3198,6 +3713,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             )
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
 
     if objc.macos_available(10, 12):
 
@@ -3206,6 +3723,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float3(1.0, 2.0, 3.0),
                 objc.simd.vector_float3(4.0, 5.0, 6.0),
@@ -3218,6 +3737,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float2(9.0, 10.0),
                 objc.simd.vector_float2(11.0, 12.0),
@@ -3230,6 +3751,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 (
                     objc.simd.vector_float3(-18.5, -19.5, -110.5),
@@ -3245,6 +3768,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float3(-8.0, -9.0, -10.0),
                 objc.simd.vector_float3(-11.0, -12.0, -13.0),
@@ -3257,6 +3782,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float3(-8.0, -9.0, -10.0),
                 objc.simd.vector_float3(-11.0, -12.0, -13.0),
@@ -3269,6 +3796,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_float3(-8.0, -9.0, -10.0),
                 objc.simd.vector_float3(-11.0, -12.0, -13.0),
@@ -3281,9 +3810,41 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return (
                 objc.simd.vector_int4(100, 101, 102, 103),
                 objc.simd.vector_int4(-20, -21, -22, -23),
+            )
+
+    if objc.macos_available(10, 13):
+
+        @classmethod
+        def MPSImageHistogramInfo(self):
+            self.argvalues = None
+            if getattr(self, "shouldRaise", False):
+                raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
+            return (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            )
+
+    if objc.macos_available(10, 14):
+
+        @classmethod
+        def MPSAxisAlignedBoundingBox(self):
+            self.argvalues = None
+            if getattr(self, "shouldRaise", False):
+                raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
+            return (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
             )
 
     @classmethod
@@ -3291,6 +3852,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_double4x4(
             (
                 objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
@@ -3305,6 +3868,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_double4x4(
             (
                 objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
@@ -3319,6 +3884,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float2x2(
             (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
         )
@@ -3328,8 +3895,26 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float3x3(
             (
+                objc.simd.vector_float3(0.0, 1.5, 3.0),
+                objc.simd.vector_float3(0.0, 1.5, 3.0),
+                objc.simd.vector_float3(0.0, 1.5, 3.0),
+            )
+        )
+
+    @classmethod
+    def simdfloat4x3(self):
+        self.argvalues = None
+        if getattr(self, "shouldRaise", False):
+            raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
+        return simd.simd_float4x3(
+            (
+                objc.simd.vector_float3(0.0, 1.5, 3.0),
                 objc.simd.vector_float3(0.0, 1.5, 3.0),
                 objc.simd.vector_float3(0.0, 1.5, 3.0),
                 objc.simd.vector_float3(0.0, 1.5, 3.0),
@@ -3341,6 +3926,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = None
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float4x4(
             (
                 objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -3358,6 +3945,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float4x4(
             (
                 objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -3372,6 +3961,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         self.argvalues = (arg0,)
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float4x4(
             (
                 objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -3389,6 +3980,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
         )
         if getattr(self, "shouldRaise", False):
             raise RuntimeError("failure!")
+        if getattr(self, "returnInvalid", False):
+            return NoObjCClass()
         return simd.simd_float4x4(
             (
                 objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -3405,6 +3998,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return simd.simd_quatd(objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5))
 
     if objc.macos_available(10, 13):
@@ -3414,6 +4009,8 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = None
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
 
     if objc.macos_available(10, 13):
@@ -3423,42 +4020,9 @@ class OC_VectorCallClass(objc.lookUpClass("NSObject")):
             self.argvalues = (arg0,)
             if getattr(self, "shouldRaise", False):
                 raise RuntimeError("failure!")
+            if getattr(self, "returnInvalid", False):
+                return NoObjCClass()
             return simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
-
-    @classmethod
-    def v16C(self):
-        self.argvalues = None
-        if getattr(self, "shouldRaise", False):
-            raise RuntimeError("failure!")
-        return objc.simd.vector_uchar16(
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-        )
-
-    if objc.macos_available(10, 13):
-
-        @classmethod
-        def MPSImageHistogramInfo(self):
-            self.argvalues = None
-            if getattr(self, "shouldRaise", False):
-                raise RuntimeError("failure!")
-            return (
-                4398046511104,
-                True,
-                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
-                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
-            )
-
-    if objc.macos_available(10, 14):
-
-        @classmethod
-        def MPSAxisAlignedBoundingBox(self):
-            self.argvalues = None
-            if getattr(self, "shouldRaise", False):
-                raise RuntimeError("failure!")
-            return (
-                objc.simd.vector_float3(1.5, 2.5, 3.5),
-                objc.simd.vector_float3(4.5, 5.5, 6.5),
-            )
 
 
 class TestVectorCall(TestCase):
@@ -3485,10 +4049,264 @@ class TestVectorCall(TestCase):
         else:
             self.assertSequenceEqual(first.columns, second.columns, msg)
 
+    def test_v16C(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertFalse(OC_VectorCall.v16C.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v16C)
+        # Check that the signature is as expected
+        self.assertResultHasType(OC_VectorCall.v16C, b"<16C>")
+
+        # Create test object
+        oc = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        caller = oc.v16C
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            objc.simd.vector_uchar16(
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+    def test_clsv16C(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertTrue(OC_VectorCall.clsv16C.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv16C)
+        # Check that the signature is as expected
+        self.assertResultHasType(OC_VectorCall.clsv16C, b"<16C>")
+
+        # Create test object
+        oc = OC_VectorCall
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        caller = oc.clsv16C
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            objc.simd.vector_uchar16(
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+    def test_v16C_imp(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertFalse(OC_VectorCall.v16C.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v16C)
+        # Check that the signature is as expected
+        self.assertResultHasType(OC_VectorCall.v16C, b"<16C>")
+
+        # Create test object
+        oc = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        imp = oc.methodForSelector_(b"v16C")
+        self.assertIsInstance(imp, objc.IMP)
+        caller = partial(imp, oc)
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            objc.simd.vector_uchar16(
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+        # Call with invalid type for self
+        with self.assertRaisesRegex(ValueError, "unrecognized selector"):
+            imp(
+                42,
+            )
+
+        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
+            imp(
+                NoObjCValueObject,
+            )
+
+    def test_clsv16C_imp(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertTrue(OC_VectorCall.clsv16C.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv16C)
+        # Check that the signature is as expected
+        self.assertResultHasType(OC_VectorCall.clsv16C, b"<16C>")
+
+        # Create test object
+        oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        imp = oc.methodForSelector_(b"clsv16C")
+        self.assertIsInstance(imp, objc.IMP)
+        caller = partial(imp, oc)
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            objc.simd.vector_uchar16(
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            objc.simd.vector_uchar16(
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
+        self.assertEqual(
+            rv,
+            objc.simd.vector_uchar16(
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+        # Call with invalid type for self
+        with self.assertRaisesRegex(
+            TypeError, "Need Objective-C object or class as self"
+        ):
+            imp(
+                42,
+            )
+
+    def test_imp_v16C(self):
+        value = OC_VectorCallInstance.alloc().init()
+        value.argvalues = 1
+        result = OC_VectorCallInvoke.v16COn_(value)
+        self.assertEqual(
+            result,
+            objc.simd.vector_uchar16(
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+            ),
+        )
+        self.assertIs(value.argvalues, None)
+
+        # Test raising an exception
+        value.shouldRaise = True
+        try:
+            with self.assertRaisesRegex(RuntimeError, "failure"):
+                OC_VectorCallInvoke.v16COn_(value)
+        finally:
+            del value.shouldRaise
+
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v16COn_(value)
+        finally:
+            del value.returnInvalid
+
+    def test_imp_v16C_cls(self):
+        value = OC_VectorCallClass
+        value.argvalues = 1
+        result = OC_VectorCallInvoke.v16COn_(value)
+        self.assertEqual(
+            result,
+            objc.simd.vector_uchar16(
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+            ),
+        )
+        self.assertIs(value.argvalues, None)
+
+        # Test raising an exception
+        value.shouldRaise = True
+        try:
+            with self.assertRaisesRegex(RuntimeError, "failure"):
+                OC_VectorCallInvoke.v16COn_(value)
+        finally:
+            del value.shouldRaise
+
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v16COn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v2d(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2d.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2d)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2d, b"<2d>")
 
@@ -3520,6 +4338,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2d.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2d)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2d, b"<2d>")
 
@@ -3551,6 +4371,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2d.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2d)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2d, b"<2d>")
 
@@ -3595,11 +4417,14 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2d.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2d)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2d, b"<2d>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -3609,6 +4434,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(rv, objc.simd.vector_double2(0.0, 1.5))
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(rv, objc.simd.vector_double2(0.0, 1.5))
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(rv, objc.simd.vector_double2(0.0, 1.5))
 
         stored = oc.storedvalue()
@@ -3647,6 +4484,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v2d_cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -3662,10 +4506,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v2dd_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2dd_, b"<2d>")
         self.assertArgHasType(OC_VectorCall.v2dd_, 0, b"d")
@@ -3707,6 +4560,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2dd_, b"<2d>")
         self.assertArgHasType(OC_VectorCall.clsv2dd_, 0, b"d")
@@ -3748,6 +4603,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2dd_, b"<2d>")
         self.assertArgHasType(OC_VectorCall.v2dd_, 0, b"d")
@@ -3798,12 +4655,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2dd_, b"<2d>")
         self.assertArgHasType(OC_VectorCall.clsv2dd_, 0, b"d")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -3813,6 +4673,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_double2(0.0, 1.5))
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_double2(0.0, 1.5))
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(rv, objc.simd.vector_double2(0.0, 1.5))
 
         stored = oc.storedvalue()
@@ -3858,6 +4726,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v2dd__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -3873,10 +4748,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v2f(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2f, b"<2f>")
 
@@ -3908,6 +4792,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2f, b"<2f>")
 
@@ -3939,6 +4825,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2f, b"<2f>")
 
@@ -3983,11 +4871,14 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2f, b"<2f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -3997,6 +4888,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
 
         stored = oc.storedvalue()
@@ -4035,6 +4938,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v2f_cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -4050,10 +4960,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v2fQ_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2fQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2fQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2fQ_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.v2fQ_, 0, b"Q")
@@ -4095,6 +5014,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2fQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2fQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2fQ_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.clsv2fQ_, 0, b"Q")
@@ -4136,6 +5057,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2fQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2fQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2fQ_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.v2fQ_, 0, b"Q")
@@ -4186,12 +5109,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2fQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2fQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2fQ_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.clsv2fQ_, 0, b"Q")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -4201,6 +5127,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(35184372088832)
+        self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
+
+        # Valid call through instance
+        rv = imp(oc_inst, 35184372088832)
+        self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
+
+        # Valid call through meta
+        rv = imp(type(oc), 35184372088832)
         self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
 
         stored = oc.storedvalue()
@@ -4246,6 +5180,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2fQOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v2fQ__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -4261,10 +5202,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2fQOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v2fd_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2fd_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.v2fd_, 0, b"d")
@@ -4306,6 +5256,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2fd_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.clsv2fd_, 0, b"d")
@@ -4347,6 +5299,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2fd_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.v2fd_, 0, b"d")
@@ -4397,12 +5351,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2fd_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.clsv2fd_, 0, b"d")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -4412,6 +5369,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
 
         stored = oc.storedvalue()
@@ -4457,6 +5422,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v2fd__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -4472,10 +5444,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v2fq_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2fq_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2fq_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2fq_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.v2fq_, 0, b"q")
@@ -4517,6 +5498,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2fq_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2fq_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2fq_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.clsv2fq_, 0, b"q")
@@ -4558,6 +5541,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2fq_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2fq_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2fq_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.v2fq_, 0, b"q")
@@ -4608,12 +5593,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2fq_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2fq_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2fq_, b"<2f>")
         self.assertArgHasType(OC_VectorCall.clsv2fq_, 0, b"q")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -4623,6 +5611,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-17592186044416)
+        self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
+
+        # Valid call through instance
+        rv = imp(oc_inst, -17592186044416)
+        self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
+
+        # Valid call through meta
+        rv = imp(type(oc), -17592186044416)
         self.assertEqual(rv, objc.simd.vector_float2(0.0, 1.5))
 
         stored = oc.storedvalue()
@@ -4668,6 +5664,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2fqOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v2fq__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -4683,10 +5686,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2fqOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v2i(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2i.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2i)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2i, b"<2i>")
 
@@ -4718,6 +5730,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2i.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2i)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2i, b"<2i>")
 
@@ -4749,6 +5763,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v2i.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v2i)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v2i, b"<2i>")
 
@@ -4793,11 +5809,14 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv2i.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv2i)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv2i, b"<2i>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -4807,6 +5826,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(rv, objc.simd.vector_int2(0, 1))
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(rv, objc.simd.vector_int2(0, 1))
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(rv, objc.simd.vector_int2(0, 1))
 
         stored = oc.storedvalue()
@@ -4845,6 +5876,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v2i_cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -4860,10 +5898,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v3dd_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3dd_, b"<3d>")
         self.assertArgHasType(OC_VectorCall.v3dd_, 0, b"d")
@@ -4905,6 +5952,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3dd_, b"<3d>")
         self.assertArgHasType(OC_VectorCall.clsv3dd_, 0, b"d")
@@ -4946,6 +5995,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3dd_, b"<3d>")
         self.assertArgHasType(OC_VectorCall.v3dd_, 0, b"d")
@@ -4996,12 +6047,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3dd_, b"<3d>")
         self.assertArgHasType(OC_VectorCall.clsv3dd_, 0, b"d")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -5011,6 +6065,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_double3(0.0, 1.5, 3.0))
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_double3(0.0, 1.5, 3.0))
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(rv, objc.simd.vector_double3(0.0, 1.5, 3.0))
 
         stored = oc.storedvalue()
@@ -5056,6 +6118,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v3dd__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -5071,10 +6140,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v3f(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3f, b"<3f>")
 
@@ -5106,6 +6184,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3f, b"<3f>")
 
@@ -5137,6 +6217,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3f, b"<3f>")
 
@@ -5181,11 +6263,14 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3f, b"<3f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -5195,6 +6280,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
 
         stored = oc.storedvalue()
@@ -5233,6 +6330,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v3f_cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -5248,10 +6352,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v3fv2i_v2i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fv2i_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fv2i_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fv2i_v2i_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fv2i_v2i_, 0, b"<2i>")
@@ -5298,6 +6411,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fv2i_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fv2i_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fv2i_v2i_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fv2i_v2i_, 0, b"<2i>")
@@ -5344,6 +6459,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fv2i_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fv2i_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fv2i_v2i_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fv2i_v2i_, 0, b"<2i>")
@@ -5403,6 +6520,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fv2i_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fv2i_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fv2i_v2i_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fv2i_v2i_, 0, b"<2i>")
@@ -5410,6 +6529,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -5419,6 +6539,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_int2(0, 1), objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_int2(0, 1), objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_int2(0, 1), objc.simd.vector_int2(0, 1))
         self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
 
         stored = oc.storedvalue()
@@ -5474,6 +6602,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fv2iv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v3fv2i_v2i__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -5495,10 +6630,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fv2iv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v3fv3f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fv3f_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fv3f_, 0, b"<3f>")
@@ -5540,6 +6684,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fv3f_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fv3f_, 0, b"<3f>")
@@ -5581,6 +6727,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fv3f_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fv3f_, 0, b"<3f>")
@@ -5631,12 +6779,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fv3f_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fv3f_, 0, b"<3f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -5646,6 +6797,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float3(0.0, 1.5, 3.0))
         self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
 
         stored = oc.storedvalue()
@@ -5691,6 +6850,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v3fv3f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -5706,10 +6872,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v3fv3f_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fv3f_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fv3f_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fv3f_id_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fv3f_id_, 0, b"<3f>")
@@ -5756,6 +6931,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fv3f_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fv3f_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fv3f_id_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fv3f_id_, 0, b"<3f>")
@@ -5802,6 +6979,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fv3f_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fv3f_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fv3f_id_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fv3f_id_, 0, b"<3f>")
@@ -5857,6 +7036,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fv3f_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fv3f_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fv3f_id_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fv3f_id_, 0, b"<3f>")
@@ -5864,6 +7045,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -5873,6 +7055,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float3(0.0, 1.5, 3.0), "hello")
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float3(0.0, 1.5, 3.0), "hello")
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float3(0.0, 1.5, 3.0), "hello")
         self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
 
         stored = oc.storedvalue()
@@ -5928,6 +7118,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fv3fidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v3fv3f_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -5949,10 +7146,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fv3fidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v3fv4i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fv4i_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fv4i_, 0, b"<4i>")
@@ -5994,6 +7200,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fv4i_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fv4i_, 0, b"<4i>")
@@ -6035,6 +7243,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fv4i_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fv4i_, 0, b"<4i>")
@@ -6085,12 +7295,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fv4i_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fv4i_, 0, b"<4i>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -6100,6 +7313,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_int4(0, 1, 2, 3))
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_int4(0, 1, 2, 3))
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_int4(0, 1, 2, 3))
         self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
 
         stored = oc.storedvalue()
@@ -6145,6 +7366,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fv4iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v3fv4i__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -6160,10 +7388,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fv4iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v3fQ_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fQ_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fQ_, 0, b"Q")
@@ -6205,6 +7442,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fQ_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fQ_, 0, b"Q")
@@ -6246,6 +7485,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fQ_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fQ_, 0, b"Q")
@@ -6296,12 +7537,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fQ_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fQ_, 0, b"Q")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -6311,6 +7555,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(35184372088832)
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through instance
+        rv = imp(oc_inst, 35184372088832)
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through meta
+        rv = imp(type(oc), 35184372088832)
         self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
 
         stored = oc.storedvalue()
@@ -6356,6 +7608,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fQOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v3fQ__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -6371,10 +7630,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fQOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v3fd_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fd_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fd_, 0, b"d")
@@ -6416,6 +7684,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fd_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fd_, 0, b"d")
@@ -6457,6 +7727,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v3fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v3fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v3fd_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.v3fd_, 0, b"d")
@@ -6507,12 +7779,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv3fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv3fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv3fd_, b"<3f>")
         self.assertArgHasType(OC_VectorCall.clsv3fd_, 0, b"d")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -6522,6 +7797,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(rv, objc.simd.vector_float3(0.0, 1.5, 3.0))
 
         stored = oc.storedvalue()
@@ -6567,6 +7850,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v3fd__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -6582,10 +7872,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v3fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v4dd_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v4dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v4dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v4dd_, b"<4d>")
         self.assertArgHasType(OC_VectorCall.v4dd_, 0, b"d")
@@ -6627,6 +7926,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv4dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv4dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv4dd_, b"<4d>")
         self.assertArgHasType(OC_VectorCall.clsv4dd_, 0, b"d")
@@ -6668,6 +7969,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v4dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v4dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v4dd_, b"<4d>")
         self.assertArgHasType(OC_VectorCall.v4dd_, 0, b"d")
@@ -6718,12 +8021,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv4dd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv4dd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv4dd_, b"<4d>")
         self.assertArgHasType(OC_VectorCall.clsv4dd_, 0, b"d")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -6733,6 +8039,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5))
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5))
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(rv, objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5))
 
         stored = oc.storedvalue()
@@ -6778,6 +8092,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v4ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v4dd__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -6793,10 +8114,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v4ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v4f(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v4f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v4f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v4f, b"<4f>")
 
@@ -6828,6 +8158,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv4f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv4f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv4f, b"<4f>")
 
@@ -6859,6 +8191,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v4f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v4f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v4f, b"<4f>")
 
@@ -6903,11 +8237,14 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv4f.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv4f)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv4f, b"<4f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -6917,6 +8254,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(rv, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(rv, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(rv, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
 
         stored = oc.storedvalue()
@@ -6955,6 +8304,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v4f_cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -6970,10 +8326,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v4fd_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v4fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v4fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v4fd_, b"<4f>")
         self.assertArgHasType(OC_VectorCall.v4fd_, 0, b"d")
@@ -7015,6 +8380,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv4fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv4fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv4fd_, b"<4f>")
         self.assertArgHasType(OC_VectorCall.clsv4fd_, 0, b"d")
@@ -7056,6 +8423,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v4fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v4fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v4fd_, b"<4f>")
         self.assertArgHasType(OC_VectorCall.v4fd_, 0, b"d")
@@ -7106,12 +8475,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv4fd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv4fd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv4fd_, b"<4f>")
         self.assertArgHasType(OC_VectorCall.clsv4fd_, 0, b"d")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -7121,6 +8493,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(rv, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(rv, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
 
         stored = oc.storedvalue()
@@ -7166,6 +8546,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v4fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v4fd__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -7181,10 +8568,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v4fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_v4iv3f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v4iv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v4iv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v4iv3f_, b"<4i>")
         self.assertArgHasType(OC_VectorCall.v4iv3f_, 0, b"<3f>")
@@ -7226,6 +8622,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv4iv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv4iv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv4iv3f_, b"<4i>")
         self.assertArgHasType(OC_VectorCall.clsv4iv3f_, 0, b"<3f>")
@@ -7267,6 +8665,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.v4iv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.v4iv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.v4iv3f_, b"<4i>")
         self.assertArgHasType(OC_VectorCall.v4iv3f_, 0, b"<3f>")
@@ -7317,12 +8717,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsv4iv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsv4iv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsv4iv3f_, b"<4i>")
         self.assertArgHasType(OC_VectorCall.clsv4iv3f_, 0, b"<3f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -7332,6 +8735,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, objc.simd.vector_int4(0, 1, 2, 3))
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, objc.simd.vector_int4(0, 1, 2, 3))
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float3(0.0, 1.5, 3.0))
         self.assertEqual(rv, objc.simd.vector_int4(0, 1, 2, 3))
 
         stored = oc.storedvalue()
@@ -7377,6 +8788,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v4iv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_v4iv3f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -7392,10 +8810,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.v4iv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv2d_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2d_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2d_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2d_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2d_id_, 0, b"<2d>")
@@ -7442,6 +8869,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2d_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2d_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2d_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2d_id_, 0, b"<2d>")
@@ -7488,6 +8917,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2d_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2d_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2d_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2d_id_, 0, b"<2d>")
@@ -7543,6 +8974,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2d_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2d_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2d_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2d_id_, 0, b"<2d>")
@@ -7550,6 +8983,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -7559,6 +8993,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_double2(0.0, 1.5), "hello")
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_double2(0.0, 1.5), "hello")
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_double2(0.0, 1.5), "hello")
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -7614,6 +9056,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2didOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv2d_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -7635,10 +9084,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2didOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv2d_q_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2d_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2d_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2d_q_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2d_q_, 0, b"<2d>")
@@ -7685,6 +9143,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2d_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2d_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2d_q_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2d_q_, 0, b"<2d>")
@@ -7731,6 +9191,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2d_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2d_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2d_q_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2d_q_, 0, b"<2d>")
@@ -7786,6 +9248,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2d_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2d_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2d_q_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2d_q_, 0, b"<2d>")
@@ -7793,6 +9257,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -7802,6 +9267,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_double2(0.0, 1.5), -17592186044416)
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_double2(0.0, 1.5), -17592186044416)
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_double2(0.0, 1.5), -17592186044416)
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -7857,6 +9330,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2dqOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv2d_q__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -7878,10 +9358,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2dqOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv2f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2f_, 0, b"<2f>")
@@ -7923,6 +9412,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2f_, 0, b"<2f>")
@@ -7964,6 +9455,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2f_, 0, b"<2f>")
@@ -8014,12 +9507,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2f_, 0, b"<2f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -8029,6 +9525,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float2(0.0, 1.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float2(0.0, 1.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float2(0.0, 1.5))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -8074,6 +9578,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv2f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -8089,10 +9600,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv2f_v2I_q_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2f_v2I_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2f_v2I_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2f_v2I_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2f_v2I_q_id_, 0, b"<2f>")
@@ -8179,6 +9699,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2f_v2I_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2f_v2I_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2f_v2I_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2f_v2I_q_id_, 0, b"<2f>")
@@ -8265,6 +9787,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2f_v2I_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2f_v2I_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2f_v2I_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2f_v2I_q_id_, 0, b"<2f>")
@@ -8372,6 +9896,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2f_v2I_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2f_v2I_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2f_v2I_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2f_v2I_q_id_, 0, b"<2f>")
@@ -8381,6 +9907,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -8390,6 +9917,26 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_uint2(0, 1),
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_uint2(0, 1),
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float2(0.0, 1.5),
             objc.simd.vector_uint2(0, 1),
             -17592186044416,
@@ -8491,6 +10038,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2fv2IqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv2f_v2I_q_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -8514,10 +10068,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2fv2IqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv2f_v2f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2f_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2f_v2f_, 0, b"<2f>")
@@ -8570,6 +10133,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2f_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2f_v2f_, 0, b"<2f>")
@@ -8622,6 +10187,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2f_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2f_v2f_, 0, b"<2f>")
@@ -8689,6 +10256,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2f_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2f_v2f_, 0, b"<2f>")
@@ -8696,6 +10265,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -8706,6 +10276,22 @@ class TestVectorCall(TestCase):
         # Valid call
         rv = caller(
             objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5)
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
         )
         self.assertEqual(rv, "hello")
 
@@ -8768,6 +10354,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2fv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv2f_v2f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -8789,10 +10382,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2fv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv2i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2i_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2i_, 0, b"<2i>")
@@ -8834,6 +10436,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2i_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2i_, 0, b"<2i>")
@@ -8875,6 +10479,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2i_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2i_, 0, b"<2i>")
@@ -8925,12 +10531,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2i_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2i_, 0, b"<2i>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -8940,6 +10549,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_int2(0, 1))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -8985,6 +10602,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv2i__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -9000,10 +10624,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv2i_i_i_Z_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2i_i_i_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2i_i_i_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2i_i_i_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2i_i_i_Z_, 0, b"<2i>")
@@ -9060,6 +10693,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2i_i_i_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2i_i_i_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2i_i_i_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2i_i_i_Z_, 0, b"<2i>")
@@ -9116,6 +10751,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2i_i_i_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2i_i_i_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2i_i_i_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2i_i_i_Z_, 0, b"<2i>")
@@ -9181,6 +10818,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2i_i_i_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2i_i_i_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2i_i_i_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2i_i_i_Z_, 0, b"<2i>")
@@ -9190,6 +10829,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -9199,6 +10839,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_int2(0, 1), -42, -42, False)
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_int2(0, 1), -42, -42, False)
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_int2(0, 1), -42, -42, False)
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -9264,6 +10912,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2iiiZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv2i_i_i_Z__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -9287,10 +10942,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2iiiZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv2i_i_i_Z_Class_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2i_i_i_Z_Class_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2i_i_i_Z_Class_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2i_i_i_Z_Class_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2i_i_i_Z_Class_, 0, b"<2i>")
@@ -9385,6 +11049,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2i_i_i_Z_Class_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2i_i_i_Z_Class_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2i_i_i_Z_Class_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2i_i_i_Z_Class_, 0, b"<2i>")
@@ -9479,6 +11145,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv2i_i_i_Z_Class_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv2i_i_i_Z_Class_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv2i_i_i_Z_Class_, b"@")
         self.assertArgHasType(OC_VectorCall.idv2i_i_i_Z_Class_, 0, b"<2i>")
@@ -9596,6 +11264,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv2i_i_i_Z_Class_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv2i_i_i_Z_Class_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv2i_i_i_Z_Class_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv2i_i_i_Z_Class_, 0, b"<2i>")
@@ -9606,6 +11276,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -9616,6 +11287,28 @@ class TestVectorCall(TestCase):
         # Valid call
         rv = caller(
             objc.simd.vector_int2(0, 1), -42, -42, False, objc.lookUpClass("NSObject")
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_int2(0, 1),
+            -42,
+            -42,
+            False,
+            objc.lookUpClass("NSObject"),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            objc.simd.vector_int2(0, 1),
+            -42,
+            -42,
+            False,
+            objc.lookUpClass("NSObject"),
         )
         self.assertEqual(rv, "hello")
 
@@ -9725,6 +11418,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2iiiZClassOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv2i_i_i_Z_Class__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -9749,10 +11449,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv2iiiZClassOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_, 0, b"<3f>")
@@ -9794,6 +11503,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_, 0, b"<3f>")
@@ -9835,6 +11546,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_, 0, b"<3f>")
@@ -9885,12 +11598,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_, 0, b"<3f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -9900,6 +11616,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float3(0.0, 1.5, 3.0))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -9945,6 +11669,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -9960,10 +11691,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_v2I_Z_Z_Z_q_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_Z_Z_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_Z_Z_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_Z_Z_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_Z_Z_Z_q_id_, 0, b"<3f>")
@@ -10123,6 +11863,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_Z_Z_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_Z_Z_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_Z_Z_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_Z_Z_Z_q_id_, 0, b"<3f>")
@@ -10282,6 +12024,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_Z_Z_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_Z_Z_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_Z_Z_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_Z_Z_Z_q_id_, 0, b"<3f>")
@@ -10468,6 +12212,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_Z_Z_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_Z_Z_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_Z_Z_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_Z_Z_Z_q_id_, 0, b"<3f>")
@@ -10480,6 +12226,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -10489,6 +12236,32 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            False,
+            False,
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            False,
+            False,
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_uint2(0, 1),
             False,
@@ -10666,6 +12439,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IZZZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f_v2I_Z_Z_Z_q_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -10692,10 +12472,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IZZZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_v2I_Z_Z_q_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_Z_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_Z_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_Z_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_Z_Z_q_id_, 0, b"<3f>")
@@ -10832,6 +12621,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_Z_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_Z_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_Z_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_Z_Z_q_id_, 0, b"<3f>")
@@ -10968,6 +12759,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_Z_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_Z_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_Z_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_Z_Z_q_id_, 0, b"<3f>")
@@ -11129,6 +12922,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_Z_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_Z_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_Z_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_Z_Z_q_id_, 0, b"<3f>")
@@ -11140,6 +12935,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -11149,6 +12945,30 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            False,
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            False,
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_uint2(0, 1),
             False,
@@ -11302,6 +13122,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IZZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f_v2I_Z_Z_q_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -11327,10 +13154,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IZZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_v2I_Z_q_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_Z_q_id_, 0, b"<3f>")
@@ -11440,6 +13276,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_Z_q_id_, 0, b"<3f>")
@@ -11549,6 +13387,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_Z_q_id_, 0, b"<3f>")
@@ -11681,6 +13521,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_Z_q_id_, 0, b"<3f>")
@@ -11691,6 +13533,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -11700,6 +13543,28 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_uint2(0, 1),
             False,
@@ -11825,6 +13690,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f_v2I_Z_q_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -11849,10 +13721,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_v2I_i_Z_q_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_i_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_i_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_i_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_i_Z_q_id_, 0, b"<3f>")
@@ -11984,6 +13865,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_i_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_i_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_i_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_i_Z_q_id_, 0, b"<3f>")
@@ -12115,6 +13998,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_i_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_i_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_i_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_i_Z_q_id_, 0, b"<3f>")
@@ -12271,6 +14156,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_i_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_i_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_i_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_i_Z_q_id_, 0, b"<3f>")
@@ -12282,6 +14169,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -12291,6 +14179,30 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            -42,
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            -42,
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_uint2(0, 1),
             -42,
@@ -12439,6 +14351,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IiZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f_v2I_i_Z_q_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -12464,10 +14383,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IiZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_v2I_q_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_q_id_, 0, b"<3f>")
@@ -12556,6 +14484,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_q_id_, 0, b"<3f>")
@@ -12644,6 +14574,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v2I_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v2I_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v2I_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v2I_q_id_, 0, b"<3f>")
@@ -12753,6 +14685,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v2I_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v2I_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v2I_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v2I_q_id_, 0, b"<3f>")
@@ -12762,6 +14696,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -12771,6 +14706,26 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint2(0, 1),
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_uint2(0, 1),
             -17592186044416,
@@ -12874,6 +14829,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f_v2I_q_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -12897,10 +14859,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv2IqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_v3I_Z_q_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v3I_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v3I_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v3I_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v3I_Z_q_id_, 0, b"<3f>")
@@ -13012,6 +14983,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v3I_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v3I_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v3I_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v3I_Z_q_id_, 0, b"<3f>")
@@ -13123,6 +15096,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v3I_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v3I_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v3I_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v3I_Z_q_id_, 0, b"<3f>")
@@ -13257,6 +15232,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v3I_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v3I_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v3I_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v3I_Z_q_id_, 0, b"<3f>")
@@ -13267,6 +15244,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -13276,6 +15254,28 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint3(0, 1, 2),
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint3(0, 1, 2),
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_uint3(0, 1, 2),
             False,
@@ -13403,6 +15403,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv3IZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f_v3I_Z_q_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -13427,10 +15434,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv3IZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_v3I_q_Z_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v3I_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v3I_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v3I_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v3I_q_Z_id_, 0, b"<3f>")
@@ -13542,6 +15558,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v3I_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v3I_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v3I_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v3I_q_Z_id_, 0, b"<3f>")
@@ -13653,6 +15671,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_v3I_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_v3I_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_v3I_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_v3I_q_Z_id_, 0, b"<3f>")
@@ -13787,6 +15807,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_v3I_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_v3I_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_v3I_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_v3I_q_Z_id_, 0, b"<3f>")
@@ -13797,6 +15819,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -13806,6 +15829,28 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint3(0, 1, 2),
+            -17592186044416,
+            False,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_uint3(0, 1, 2),
+            -17592186044416,
+            False,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_uint3(0, 1, 2),
             -17592186044416,
@@ -13933,6 +15978,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv3IqZidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f_v3I_q_Z_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -13957,10 +16009,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fv3IqZidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_Q_Q_q_Z_Z_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_Q_Q_q_Z_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_Q_Q_q_Z_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_Q_Q_q_Z_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_Q_Q_q_Z_Z_id_, 0, b"<3f>")
@@ -14120,6 +16181,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_Q_Q_q_Z_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_Q_Q_q_Z_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_Q_Q_q_Z_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_Q_Q_q_Z_Z_id_, 0, b"<3f>")
@@ -14279,6 +16342,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_Q_Q_q_Z_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_Q_Q_q_Z_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_Q_Q_q_Z_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_Q_Q_q_Z_Z_id_, 0, b"<3f>")
@@ -14465,6 +16530,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_Q_Q_q_Z_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_Q_Q_q_Z_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_Q_Q_q_Z_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_Q_Q_q_Z_Z_id_, 0, b"<3f>")
@@ -14477,6 +16544,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -14486,6 +16554,32 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            35184372088832,
+            35184372088832,
+            -17592186044416,
+            False,
+            False,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            35184372088832,
+            35184372088832,
+            -17592186044416,
+            False,
+            False,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             35184372088832,
             35184372088832,
@@ -14663,6 +16757,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fQQqZZidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f_Q_Q_q_Z_Z_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -14689,10 +16790,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fQQqZZidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv3f_Z_q_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_Z_q_id_, 0, b"<3f>")
@@ -14769,6 +16879,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_Z_q_id_, 0, b"<3f>")
@@ -14845,6 +16957,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv3f_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv3f_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv3f_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idv3f_Z_q_id_, 0, b"<3f>")
@@ -14942,6 +17056,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv3f_Z_q_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv3f_Z_q_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv3f_Z_q_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv3f_Z_q_id_, 0, b"<3f>")
@@ -14951,6 +17067,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -14961,6 +17078,26 @@ class TestVectorCall(TestCase):
         # Valid call
         rv = caller(
             objc.simd.vector_float3(0.0, 1.5, 3.0), False, -17592186044416, "hello"
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            False,
+            -17592186044416,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            False,
+            -17592186044416,
+            "hello",
         )
         self.assertEqual(rv, "hello")
 
@@ -15051,6 +17188,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv3f_Z_q_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -15074,10 +17218,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv3fZqidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idv4f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv4f_, b"@")
         self.assertArgHasType(OC_VectorCall.idv4f_, 0, b"<4f>")
@@ -15119,6 +17272,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv4f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv4f_, 0, b"<4f>")
@@ -15160,6 +17315,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idv4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idv4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idv4f_, b"@")
         self.assertArgHasType(OC_VectorCall.idv4f_, 0, b"<4f>")
@@ -15210,12 +17367,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidv4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidv4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidv4f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidv4f_, 0, b"<4f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -15225,6 +17385,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -15272,6 +17440,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idv4f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -15289,10 +17464,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idv4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_v2d_v2d_v2i_Z_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_v2d_v2d_v2i_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_v2d_v2d_v2i_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_v2d_v2d_v2i_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_v2d_v2d_v2i_Z_, 0, b"@")
@@ -15408,6 +17592,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_v2d_v2d_v2i_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_v2d_v2d_v2i_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_v2d_v2d_v2i_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_v2d_v2d_v2i_Z_, 0, b"@")
@@ -15523,6 +17709,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_v2d_v2d_v2i_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_v2d_v2d_v2i_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_v2d_v2d_v2i_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_v2d_v2d_v2i_Z_, 0, b"@")
@@ -15661,6 +17849,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_v2d_v2d_v2i_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_v2d_v2d_v2i_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_v2d_v2d_v2i_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_v2d_v2d_v2i_Z_, 0, b"@")
@@ -15671,6 +17861,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -15680,6 +17871,28 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            objc.simd.vector_double2(0.0, 1.5),
+            objc.simd.vector_double2(0.0, 1.5),
+            objc.simd.vector_int2(0, 1),
+            False,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            objc.simd.vector_double2(0.0, 1.5),
+            objc.simd.vector_double2(0.0, 1.5),
+            objc.simd.vector_int2(0, 1),
+            False,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             objc.simd.vector_double2(0.0, 1.5),
             objc.simd.vector_double2(0.0, 1.5),
@@ -15811,6 +18024,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididv2dv2dv2iZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_v2d_v2d_v2i_Z__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -15835,10 +18055,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididv2dv2dv2iZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_v2f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_v2f_, 0, b"@")
@@ -15885,6 +18114,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_v2f_, 0, b"@")
@@ -15931,6 +18162,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_v2f_, 0, b"@")
@@ -15986,6 +18219,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_v2f_, 0, b"@")
@@ -15993,6 +18228,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -16002,6 +18238,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller("hello", objc.simd.vector_float2(0.0, 1.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, "hello", objc.simd.vector_float2(0.0, 1.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), "hello", objc.simd.vector_float2(0.0, 1.5))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -16057,6 +18301,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_v2f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -16078,10 +18329,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_v3f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_v3f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_v3f_, 0, b"@")
@@ -16128,6 +18388,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_v3f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_v3f_, 0, b"@")
@@ -16174,6 +18436,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_v3f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_v3f_, 0, b"@")
@@ -16229,6 +18493,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_v3f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_v3f_, 0, b"@")
@@ -16236,6 +18502,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -16245,6 +18512,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller("hello", objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, "hello", objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), "hello", objc.simd.vector_float3(0.0, 1.5, 3.0))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -16300,6 +18575,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_v3f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -16321,10 +18603,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_v4f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_v4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_v4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_v4f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_v4f_, 0, b"@")
@@ -16371,6 +18662,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_v4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_v4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_v4f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_v4f_, 0, b"@")
@@ -16417,6 +18710,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_v4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_v4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_v4f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_v4f_, 0, b"@")
@@ -16472,6 +18767,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_v4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_v4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_v4f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_v4f_, 0, b"@")
@@ -16479,6 +18776,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -16488,6 +18786,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller("hello", objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, "hello", objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), "hello", objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -16543,6 +18849,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididv4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_v4f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -16564,10 +18877,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididv4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_id_v2i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_id_v2i_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_id_v2i_, 0, b"@")
@@ -16619,6 +18941,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_id_v2i_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_id_v2i_, 0, b"@")
@@ -16670,6 +18994,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_id_v2i_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_id_v2i_, 0, b"@")
@@ -16730,6 +19056,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_id_v2i_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_id_v2i_, 0, b"@")
@@ -16738,6 +19066,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -16747,6 +19076,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller("hello", "hello", objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, "hello", "hello", objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), "hello", "hello", objc.simd.vector_int2(0, 1))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -16807,6 +19144,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idididv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_id_v2i__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -16829,10 +19173,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idididv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_id_v2i_f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_id_v2i_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_id_v2i_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_id_v2i_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_id_v2i_f_, 0, b"@")
@@ -16893,6 +19246,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_id_v2i_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_id_v2i_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_id_v2i_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_id_v2i_f_, 0, b"@")
@@ -16953,6 +19308,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_id_v2i_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_id_v2i_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_id_v2i_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_id_v2i_f_, 0, b"@")
@@ -17028,6 +19385,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_id_v2i_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_id_v2i_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_id_v2i_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_id_v2i_f_, 0, b"@")
@@ -17037,6 +19396,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -17046,6 +19406,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller("hello", "hello", objc.simd.vector_int2(0, 1), 2500000000.0)
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, "hello", "hello", objc.simd.vector_int2(0, 1), 2500000000.0)
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), "hello", "hello", objc.simd.vector_int2(0, 1), 2500000000.0)
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -17115,6 +19483,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idididv2ifOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_id_v2i_f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -17138,10 +19513,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idididv2ifOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_Q_v2f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Q_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Q_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Q_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Q_v2f_, 0, b"@")
@@ -17193,6 +19577,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Q_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Q_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Q_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Q_v2f_, 0, b"@")
@@ -17244,6 +19630,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Q_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Q_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Q_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Q_v2f_, 0, b"@")
@@ -17309,6 +19697,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Q_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Q_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Q_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Q_v2f_, 0, b"@")
@@ -17317,6 +19707,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -17326,6 +19717,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller("hello", 35184372088832, objc.simd.vector_float2(0.0, 1.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, "hello", 35184372088832, objc.simd.vector_float2(0.0, 1.5))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), "hello", 35184372088832, objc.simd.vector_float2(0.0, 1.5))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -17386,6 +19785,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididQv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_Q_v2f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -17408,10 +19814,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididQv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_Q_v3f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Q_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Q_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Q_v3f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Q_v3f_, 0, b"@")
@@ -17469,6 +19884,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Q_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Q_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Q_v3f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Q_v3f_, 0, b"@")
@@ -17526,6 +19943,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Q_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Q_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Q_v3f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Q_v3f_, 0, b"@")
@@ -17597,6 +20016,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Q_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Q_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Q_v3f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Q_v3f_, 0, b"@")
@@ -17605,6 +20026,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -17614,6 +20036,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller("hello", 35184372088832, objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst, "hello", 35184372088832, objc.simd.vector_float3(0.0, 1.5, 3.0)
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc), "hello", 35184372088832, objc.simd.vector_float3(0.0, 1.5, 3.0)
+        )
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -17680,6 +20114,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididQv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_Q_v3f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -17702,10 +20143,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididQv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_Q_v4f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Q_v4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Q_v4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Q_v4f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Q_v4f_, 0, b"@")
@@ -17768,6 +20218,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Q_v4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Q_v4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Q_v4f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Q_v4f_, 0, b"@")
@@ -17830,6 +20282,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Q_v4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Q_v4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Q_v4f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Q_v4f_, 0, b"@")
@@ -17908,6 +20362,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Q_v4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Q_v4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Q_v4f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Q_v4f_, 0, b"@")
@@ -17916,6 +20372,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -17926,6 +20383,24 @@ class TestVectorCall(TestCase):
         # Valid call
         rv = caller(
             "hello", 35184372088832, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            35184372088832,
+            objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            "hello",
+            35184372088832,
+            objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
         )
         self.assertEqual(rv, "hello")
 
@@ -17998,6 +20473,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididQv4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_Q_v4f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -18020,10 +20502,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididQv4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_Q_simdfloat4x4_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Q_simdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Q_simdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Q_simdfloat4x4_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Q_simdfloat4x4_, 0, b"@")
@@ -18143,6 +20634,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Q_simdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Q_simdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Q_simdfloat4x4_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Q_simdfloat4x4_, 0, b"@")
@@ -18262,6 +20755,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Q_simdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Q_simdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Q_simdfloat4x4_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Q_simdfloat4x4_, 0, b"@")
@@ -18414,6 +20909,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Q_simdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Q_simdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Q_simdfloat4x4_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Q_simdfloat4x4_, 0, b"@")
@@ -18424,6 +20921,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -18433,6 +20931,38 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            35184372088832,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            35184372088832,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             35184372088832,
             simd.simd_float4x4(
@@ -18578,6 +21108,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididQsimdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_Q_simdfloat4x4__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -18607,10 +21144,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididQsimdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_Z_id_v2i_q_Q_q_Z_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Z_id_v2i_q_Q_q_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Z_id_v2i_q_Q_q_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Z_id_v2i_q_Q_q_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Z_id_v2i_q_Q_q_Z_, 0, b"@")
@@ -18795,6 +21341,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Z_id_v2i_q_Q_q_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Z_id_v2i_q_Q_q_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Z_id_v2i_q_Q_q_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Z_id_v2i_q_Q_q_Z_, 0, b"@")
@@ -18979,6 +21527,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_Z_id_v2i_q_Q_q_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_Z_id_v2i_q_Q_q_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_Z_id_v2i_q_Q_q_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_Z_id_v2i_q_Q_q_Z_, 0, b"@")
@@ -19192,6 +21742,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_Z_id_v2i_q_Q_q_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_Z_id_v2i_q_Q_q_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_Z_id_v2i_q_Q_q_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_Z_id_v2i_q_Q_q_Z_, 0, b"@")
@@ -19205,6 +21757,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -19214,6 +21767,34 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            False,
+            "hello",
+            objc.simd.vector_int2(0, 1),
+            -17592186044416,
+            35184372088832,
+            -17592186044416,
+            False,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            False,
+            "hello",
+            objc.simd.vector_int2(0, 1),
+            -17592186044416,
+            35184372088832,
+            -17592186044416,
+            False,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             False,
             "hello",
@@ -19417,6 +21998,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididZidv2iqQqZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_Z_id_v2i_q_Q_q_Z__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -19444,10 +22032,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididZidv2iqQqZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_q_v2i_f_f_f_f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_q_v2i_f_f_f_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_q_v2i_f_f_f_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_q_v2i_f_f_f_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_q_v2i_f_f_f_f_, 0, b"@")
@@ -19607,6 +22204,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_q_v2i_f_f_f_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_q_v2i_f_f_f_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_q_v2i_f_f_f_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_q_v2i_f_f_f_f_, 0, b"@")
@@ -19766,6 +22365,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_q_v2i_f_f_f_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_q_v2i_f_f_f_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_q_v2i_f_f_f_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_q_v2i_f_f_f_f_, 0, b"@")
@@ -19952,6 +22553,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_q_v2i_f_f_f_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_q_v2i_f_f_f_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_q_v2i_f_f_f_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_q_v2i_f_f_f_f_, 0, b"@")
@@ -19964,6 +22567,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -19973,6 +22577,32 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            -17592186044416,
+            objc.simd.vector_int2(0, 1),
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            -17592186044416,
+            objc.simd.vector_int2(0, 1),
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             -17592186044416,
             objc.simd.vector_int2(0, 1),
@@ -20150,6 +22780,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididqv2iffffOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_q_v2i_f_f_f_f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -20176,10 +22813,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididqv2iffffOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_q_v2i_f_f_f_f_f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_q_v2i_f_f_f_f_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_q_v2i_f_f_f_f_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_q_v2i_f_f_f_f_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_q_v2i_f_f_f_f_f_, 0, b"@")
@@ -20364,6 +23010,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_q_v2i_f_f_f_f_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_q_v2i_f_f_f_f_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_q_v2i_f_f_f_f_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_q_v2i_f_f_f_f_f_, 0, b"@")
@@ -20548,6 +23196,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_q_v2i_f_f_f_f_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_q_v2i_f_f_f_f_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_q_v2i_f_f_f_f_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_q_v2i_f_f_f_f_f_, 0, b"@")
@@ -20761,6 +23411,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_q_v2i_f_f_f_f_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_q_v2i_f_f_f_f_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_q_v2i_f_f_f_f_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_q_v2i_f_f_f_f_f_, 0, b"@")
@@ -20774,6 +23426,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -20783,6 +23436,34 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            -17592186044416,
+            objc.simd.vector_int2(0, 1),
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            -17592186044416,
+            objc.simd.vector_int2(0, 1),
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             -17592186044416,
             objc.simd.vector_int2(0, 1),
@@ -20986,6 +23667,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididqv2ifffffOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_q_v2i_f_f_f_f_f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -21013,11 +23701,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididqv2ifffffOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_idid_GKBox_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_GKBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_GKBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_GKBox_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_GKBox_, 0, b"@")
@@ -21096,6 +23793,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_GKBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_GKBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_GKBox_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_GKBox_, 0, b"@")
@@ -21174,6 +23873,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_GKBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_GKBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_GKBox_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_GKBox_, 0, b"@")
@@ -21275,6 +23976,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_GKBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_GKBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_GKBox_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_GKBox_, 0, b"@")
@@ -21282,6 +23985,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -21291,6 +23995,28 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            (
+                objc.simd.vector_float3(1.0, 2.0, 3.0),
+                objc.simd.vector_float3(4.0, 5.0, 6.0),
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            (
+                objc.simd.vector_float3(1.0, 2.0, 3.0),
+                objc.simd.vector_float3(4.0, 5.0, 6.0),
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             (
                 objc.simd.vector_float3(1.0, 2.0, 3.0),
@@ -21388,6 +24114,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididGKBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_imp_idid_GKBox__cls(self):
         value = OC_VectorCallClass
@@ -21413,11 +24146,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididGKBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_idid_GKQuad_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_GKQuad_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_GKQuad_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_GKQuad_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_GKQuad_, 0, b"@")
@@ -21490,6 +24232,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_GKQuad_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_GKQuad_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_GKQuad_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_GKQuad_, 0, b"@")
@@ -21562,6 +24306,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_GKQuad_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_GKQuad_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_GKQuad_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_GKQuad_, 0, b"@")
@@ -21657,6 +24403,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_GKQuad_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_GKQuad_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_GKQuad_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_GKQuad_, 0, b"@")
@@ -21664,6 +24412,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -21673,6 +24422,22 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
         )
@@ -21764,6 +24529,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididGKQuadOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_imp_idid_GKQuad__cls(self):
         value = OC_VectorCallClass
@@ -21789,11 +24561,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididGKQuadOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_idid_MDLAxisAlignedBoundingBox_f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_MDLAxisAlignedBoundingBox_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_MDLAxisAlignedBoundingBox_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_MDLAxisAlignedBoundingBox_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_MDLAxisAlignedBoundingBox_f_, 0, b"@")
@@ -21900,6 +24681,8 @@ class TestVectorCall(TestCase):
         self.assertTrue(
             OC_VectorCall.clsidid_MDLAxisAlignedBoundingBox_f_.isClassMethod
         )
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_MDLAxisAlignedBoundingBox_f_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsidid_MDLAxisAlignedBoundingBox_f_, b"@"
@@ -22010,6 +24793,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_MDLAxisAlignedBoundingBox_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_MDLAxisAlignedBoundingBox_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_MDLAxisAlignedBoundingBox_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_MDLAxisAlignedBoundingBox_f_, 0, b"@")
@@ -22141,6 +24926,8 @@ class TestVectorCall(TestCase):
         self.assertTrue(
             OC_VectorCall.clsidid_MDLAxisAlignedBoundingBox_f_.isClassMethod
         )
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_MDLAxisAlignedBoundingBox_f_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsidid_MDLAxisAlignedBoundingBox_f_, b"@"
@@ -22159,6 +24946,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -22168,6 +24956,30 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             (
                 objc.simd.vector_float3(-8.0, -9.0, -10.0),
@@ -22288,6 +25100,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididMDLAxisAlignedBoundingBoxfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_imp_idid_MDLAxisAlignedBoundingBox_f__cls(self):
         value = OC_VectorCallClass
@@ -22314,10 +25133,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididMDLAxisAlignedBoundingBoxfOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_simdfloat2x2_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdfloat2x2_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdfloat2x2_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdfloat2x2_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdfloat2x2_, 0, b"@")
@@ -22401,6 +25229,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdfloat2x2_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdfloat2x2_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdfloat2x2_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdfloat2x2_, 0, b"@")
@@ -22484,6 +25314,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdfloat2x2_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdfloat2x2_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdfloat2x2_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdfloat2x2_, 0, b"@")
@@ -22594,6 +25426,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdfloat2x2_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdfloat2x2_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdfloat2x2_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdfloat2x2_, 0, b"@")
@@ -22603,6 +25437,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -22612,6 +25447,26 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            simd.simd_float2x2(
+                (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            simd.simd_float2x2(
+                (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             simd.simd_float2x2(
                 (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
@@ -22716,6 +25571,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdfloat2x2On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_simdfloat2x2__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -22742,10 +25604,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdfloat2x2On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_simdfloat3x3_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdfloat3x3_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdfloat3x3_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdfloat3x3_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdfloat3x3_, 0, b"@")
@@ -22840,6 +25711,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdfloat3x3_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdfloat3x3_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdfloat3x3_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdfloat3x3_, 0, b"@")
@@ -22934,6 +25807,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdfloat3x3_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdfloat3x3_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdfloat3x3_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdfloat3x3_, 0, b"@")
@@ -23057,6 +25932,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdfloat3x3_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdfloat3x3_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdfloat3x3_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdfloat3x3_, 0, b"@")
@@ -23066,6 +25943,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -23075,6 +25953,34 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            simd.simd_float3x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            simd.simd_float3x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             simd.simd_float3x3(
                 (
@@ -23192,6 +26098,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdfloat3x3On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_simdfloat3x3__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -23219,10 +26132,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdfloat3x3On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idid_simdfloat4x4_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdfloat4x4_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdfloat4x4_, 0, b"@")
@@ -23322,6 +26244,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdfloat4x4_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdfloat4x4_, 0, b"@")
@@ -23421,6 +26345,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdfloat4x4_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdfloat4x4_, 0, b"@")
@@ -23551,6 +26477,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdfloat4x4_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdfloat4x4_, 0, b"@")
@@ -23560,6 +26488,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -23569,6 +26498,36 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             simd.simd_float4x4(
                 (
@@ -23693,6 +26652,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idid_simdfloat4x4__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -23721,11 +26687,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_idid_simdquatf_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdquatf_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdquatf_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdquatf_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdquatf_, 0, b"@")
@@ -23786,6 +26761,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdquatf_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdquatf_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdquatf_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdquatf_, 0, b"@")
@@ -23846,6 +26823,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdquatf_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdquatf_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdquatf_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdquatf_, 0, b"@")
@@ -23923,6 +26902,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdquatf_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdquatf_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdquatf_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdquatf_, 0, b"@")
@@ -23930,6 +26911,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -23940,6 +26922,22 @@ class TestVectorCall(TestCase):
         # Valid call
         rv = caller(
             "hello", simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            "hello",
+            simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
         )
         self.assertEqual(rv, "hello")
 
@@ -24012,6 +27010,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdquatfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_imp_idid_simdquatf__cls(self):
         value = OC_VectorCallClass
@@ -24034,11 +27039,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdquatfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_idid_simdquatf_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdquatf_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdquatf_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdquatf_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdquatf_id_, 0, b"@")
@@ -24116,6 +27130,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdquatf_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdquatf_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdquatf_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdquatf_id_, 0, b"@")
@@ -24195,6 +27211,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idid_simdquatf_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idid_simdquatf_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idid_simdquatf_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idid_simdquatf_id_, 0, b"@")
@@ -24291,6 +27309,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidid_simdquatf_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidid_simdquatf_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidid_simdquatf_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidid_simdquatf_id_, 0, b"@")
@@ -24301,6 +27321,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -24310,6 +27331,24 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
             "hello",
@@ -24401,6 +27440,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdquatfidOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_imp_idid_simdquatf_id__cls(self):
         value = OC_VectorCallClass
@@ -24424,10 +27470,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.ididsimdquatfidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idCGColor_CGColor_id_v2i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idCGColor_CGColor_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idCGColor_CGColor_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idCGColor_CGColor_id_v2i_, b"@")
         self.assertArgHasType(
@@ -24488,6 +27543,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidCGColor_CGColor_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidCGColor_CGColor_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidCGColor_CGColor_id_v2i_, b"@")
         self.assertArgHasType(
@@ -24548,6 +27605,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idCGColor_CGColor_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idCGColor_CGColor_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idCGColor_CGColor_id_v2i_, b"@")
         self.assertArgHasType(
@@ -24623,6 +27682,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidCGColor_CGColor_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidCGColor_CGColor_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidCGColor_CGColor_id_v2i_, b"@")
         self.assertArgHasType(
@@ -24636,6 +27697,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -24645,6 +27707,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller("color!", "color!", "hello", objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(oc_inst, "color!", "color!", "hello", objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(type(oc), "color!", "color!", "hello", objc.simd.vector_int2(0, 1))
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -24710,6 +27780,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idCGColorCGColoridv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idCGColor_CGColor_id_v2i__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -24733,10 +27810,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idCGColorCGColoridv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idf_v2f_v2f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_v2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_v2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_v2f_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_v2f_v2f_, 0, b"f")
@@ -24805,6 +27891,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_v2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_v2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_v2f_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_v2f_v2f_, 0, b"f")
@@ -24873,6 +27961,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_v2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_v2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_v2f_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_v2f_v2f_, 0, b"f")
@@ -24960,6 +28050,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_v2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_v2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_v2f_v2f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_v2f_v2f_, 0, b"f")
@@ -24968,6 +28060,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -24977,6 +28070,24 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            2500000000.0,
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            2500000000.0,
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             2500000000.0,
             objc.simd.vector_float2(0.0, 1.5),
             objc.simd.vector_float2(0.0, 1.5),
@@ -25059,6 +28170,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfv2fv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idf_v2f_v2f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -25081,10 +28199,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfv2fv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idf_v2f_v2f_Class_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_v2f_v2f_Class_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_v2f_v2f_Class_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_v2f_v2f_Class_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_v2f_v2f_Class_, 0, b"f")
@@ -25181,6 +28308,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_v2f_v2f_Class_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_v2f_v2f_Class_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_v2f_v2f_Class_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_v2f_v2f_Class_, 0, b"f")
@@ -25277,6 +28406,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_v2f_v2f_Class_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_v2f_v2f_Class_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_v2f_v2f_Class_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_v2f_v2f_Class_, 0, b"f")
@@ -25394,6 +28525,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_v2f_v2f_Class_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_v2f_v2f_Class_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_v2f_v2f_Class_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_v2f_v2f_Class_, 0, b"f")
@@ -25403,6 +28536,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -25412,6 +28546,26 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            2500000000.0,
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.lookUpClass("NSObject"),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            2500000000.0,
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.lookUpClass("NSObject"),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             2500000000.0,
             objc.simd.vector_float2(0.0, 1.5),
             objc.simd.vector_float2(0.0, 1.5),
@@ -25523,6 +28677,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfv2fv2fClassOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idf_v2f_v2f_Class__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -25546,10 +28707,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfv2fv2fClassOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idf_v2f_Q_Q_Q_q_Z_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_v2f_Q_Q_Q_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_v2f_Q_Q_Q_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_v2f_Q_Q_Q_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_v2f_Q_Q_Q_q_Z_id_, 0, b"f")
@@ -25734,6 +28904,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_v2f_Q_Q_Q_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_v2f_Q_Q_Q_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_v2f_Q_Q_Q_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_v2f_Q_Q_Q_q_Z_id_, 0, b"f")
@@ -25918,6 +29090,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_v2f_Q_Q_Q_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_v2f_Q_Q_Q_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_v2f_Q_Q_Q_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_v2f_Q_Q_Q_q_Z_id_, 0, b"f")
@@ -26131,6 +29305,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_v2f_Q_Q_Q_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_v2f_Q_Q_Q_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_v2f_Q_Q_Q_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_v2f_Q_Q_Q_q_Z_id_, 0, b"f")
@@ -26144,6 +29320,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -26153,6 +29330,34 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            2500000000.0,
+            objc.simd.vector_float2(0.0, 1.5),
+            35184372088832,
+            35184372088832,
+            35184372088832,
+            -17592186044416,
+            False,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            2500000000.0,
+            objc.simd.vector_float2(0.0, 1.5),
+            35184372088832,
+            35184372088832,
+            35184372088832,
+            -17592186044416,
+            False,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             2500000000.0,
             objc.simd.vector_float2(0.0, 1.5),
             35184372088832,
@@ -26356,6 +29561,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfv2fQQQqZidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idf_v2f_Q_Q_Q_q_Z_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -26383,10 +29595,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfv2fQQQqZidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idf_v2f_Q_Q_q_Z_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_v2f_Q_Q_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_v2f_Q_Q_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_v2f_Q_Q_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_v2f_Q_Q_q_Z_id_, 0, b"f")
@@ -26546,6 +29767,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_v2f_Q_Q_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_v2f_Q_Q_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_v2f_Q_Q_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_v2f_Q_Q_q_Z_id_, 0, b"f")
@@ -26705,6 +29928,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_v2f_Q_Q_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_v2f_Q_Q_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_v2f_Q_Q_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_v2f_Q_Q_q_Z_id_, 0, b"f")
@@ -26891,6 +30116,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_v2f_Q_Q_q_Z_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_v2f_Q_Q_q_Z_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_v2f_Q_Q_q_Z_id_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_v2f_Q_Q_q_Z_id_, 0, b"f")
@@ -26903,6 +30130,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -26912,6 +30140,32 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            2500000000.0,
+            objc.simd.vector_float2(0.0, 1.5),
+            35184372088832,
+            35184372088832,
+            -17592186044416,
+            False,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            2500000000.0,
+            objc.simd.vector_float2(0.0, 1.5),
+            35184372088832,
+            35184372088832,
+            -17592186044416,
+            False,
+            "hello",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             2500000000.0,
             objc.simd.vector_float2(0.0, 1.5),
             35184372088832,
@@ -27089,6 +30343,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfv2fQQqZidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idf_v2f_Q_Q_q_Z_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -27115,10 +30376,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfv2fQQqZidOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idf_id_v2i_i_q_Z_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_id_v2i_i_q_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_id_v2i_i_q_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_id_v2i_i_q_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_id_v2i_i_q_Z_, 0, b"f")
@@ -27232,6 +30502,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_id_v2i_i_q_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_id_v2i_i_q_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_id_v2i_i_q_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_id_v2i_i_q_Z_, 0, b"f")
@@ -27345,6 +30617,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_id_v2i_i_q_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_id_v2i_i_q_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_id_v2i_i_q_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_id_v2i_i_q_Z_, 0, b"f")
@@ -27483,6 +30757,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_id_v2i_i_q_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_id_v2i_i_q_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_id_v2i_i_q_Z_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_id_v2i_i_q_Z_, 0, b"f")
@@ -27494,6 +30770,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -27503,6 +30780,30 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            2500000000.0,
+            "hello",
+            objc.simd.vector_int2(0, 1),
+            -42,
+            -17592186044416,
+            False,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            2500000000.0,
+            "hello",
+            objc.simd.vector_int2(0, 1),
+            -42,
+            -17592186044416,
+            False,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             2500000000.0,
             "hello",
             objc.simd.vector_int2(0, 1),
@@ -27633,6 +30934,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfidv2iiqZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idf_id_v2i_i_q_Z__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -27658,10 +30966,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfidv2iiqZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idf_id_v2i_i_q_CGColor_CGColor_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_id_v2i_i_q_CGColor_CGColor_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_id_v2i_i_q_CGColor_CGColor_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_id_v2i_i_q_CGColor_CGColor_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_id_v2i_i_q_CGColor_CGColor_, 0, b"f")
@@ -27819,6 +31136,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_id_v2i_i_q_CGColor_CGColor_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_id_v2i_i_q_CGColor_CGColor_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_id_v2i_i_q_CGColor_CGColor_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_id_v2i_i_q_CGColor_CGColor_, 0, b"f")
@@ -27978,6 +31297,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_id_v2i_i_q_CGColor_CGColor_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_id_v2i_i_q_CGColor_CGColor_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_id_v2i_i_q_CGColor_CGColor_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_id_v2i_i_q_CGColor_CGColor_, 0, b"f")
@@ -28162,6 +31483,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_id_v2i_i_q_CGColor_CGColor_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_id_v2i_i_q_CGColor_CGColor_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_id_v2i_i_q_CGColor_CGColor_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_id_v2i_i_q_CGColor_CGColor_, 0, b"f")
@@ -28180,6 +31503,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -28189,6 +31513,32 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            2500000000.0,
+            "hello",
+            objc.simd.vector_int2(0, 1),
+            -42,
+            -17592186044416,
+            "color!",
+            "color!",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            2500000000.0,
+            "hello",
+            objc.simd.vector_int2(0, 1),
+            -42,
+            -17592186044416,
+            "color!",
+            "color!",
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             2500000000.0,
             "hello",
             objc.simd.vector_int2(0, 1),
@@ -28360,6 +31710,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfidv2iiqCGColorCGColorOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idf_id_v2i_i_q_CGColor_CGColor__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -28386,10 +31743,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfidv2iiqCGColorCGColorOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idf_id_v2i_q_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_id_v2i_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_id_v2i_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_id_v2i_q_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_id_v2i_q_, 0, b"f")
@@ -28457,6 +31823,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_id_v2i_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_id_v2i_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_id_v2i_q_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_id_v2i_q_, 0, b"f")
@@ -28524,6 +31892,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_id_v2i_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_id_v2i_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_id_v2i_q_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_id_v2i_q_, 0, b"f")
@@ -28606,6 +31976,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_id_v2i_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_id_v2i_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_id_v2i_q_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_id_v2i_q_, 0, b"f")
@@ -28615,6 +31987,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -28624,6 +31997,22 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(2500000000.0, "hello", objc.simd.vector_int2(0, 1), -17592186044416)
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst, 2500000000.0, "hello", objc.simd.vector_int2(0, 1), -17592186044416
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            2500000000.0,
+            "hello",
+            objc.simd.vector_int2(0, 1),
+            -17592186044416,
+        )
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -28700,6 +32089,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfidv2iqOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idf_id_v2i_q__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -28723,10 +32119,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idfidv2iqOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idf_f_id_v2i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_f_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_f_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_f_id_v2i_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_f_id_v2i_, 0, b"f")
@@ -28794,6 +32199,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_f_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_f_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_f_id_v2i_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_f_id_v2i_, 0, b"f")
@@ -28861,6 +32268,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idf_f_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idf_f_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idf_f_id_v2i_, b"@")
         self.assertArgHasType(OC_VectorCall.idf_f_id_v2i_, 0, b"f")
@@ -28943,6 +32352,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidf_f_id_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidf_f_id_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidf_f_id_v2i_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidf_f_id_v2i_, 0, b"f")
@@ -28952,6 +32363,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -28961,6 +32373,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(2500000000.0, 2500000000.0, "hello", objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst, 2500000000.0, 2500000000.0, "hello", objc.simd.vector_int2(0, 1)
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc), 2500000000.0, 2500000000.0, "hello", objc.simd.vector_int2(0, 1)
+        )
         self.assertEqual(rv, "hello")
 
         stored = oc.storedvalue()
@@ -29037,6 +32461,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idffidv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idf_f_id_v2i__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -29060,11 +32491,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idffidv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_idGKBox_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idGKBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idGKBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idGKBox_, b"@")
         self.assertArgHasType(OC_VectorCall.idGKBox_, 0, b"{GKBox=<3f><3f>}")
@@ -29129,6 +32569,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidGKBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidGKBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidGKBox_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidGKBox_, 0, b"{GKBox=<3f><3f>}")
@@ -29193,6 +32635,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idGKBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idGKBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idGKBox_, b"@")
         self.assertArgHasType(OC_VectorCall.idGKBox_, 0, b"{GKBox=<3f><3f>}")
@@ -29278,12 +32722,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidGKBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidGKBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidGKBox_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidGKBox_, 0, b"{GKBox=<3f><3f>}")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -29297,6 +32744,26 @@ class TestVectorCall(TestCase):
                 objc.simd.vector_float3(1.0, 2.0, 3.0),
                 objc.simd.vector_float3(4.0, 5.0, 6.0),
             )
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            (
+                objc.simd.vector_float3(1.0, 2.0, 3.0),
+                objc.simd.vector_float3(4.0, 5.0, 6.0),
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            (
+                objc.simd.vector_float3(1.0, 2.0, 3.0),
+                objc.simd.vector_float3(4.0, 5.0, 6.0),
+            ),
         )
         self.assertEqual(rv, "hello")
 
@@ -29375,6 +32842,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idGKBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_imp_idGKBox__cls(self):
         value = OC_VectorCallClass
@@ -29399,11 +32873,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idGKBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_idGKBox_f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idGKBox_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idGKBox_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idGKBox_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idGKBox_f_, 0, b"{GKBox=<3f><3f>}")
@@ -29487,6 +32970,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidGKBox_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidGKBox_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidGKBox_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidGKBox_f_, 0, b"{GKBox=<3f><3f>}")
@@ -29570,6 +33055,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idGKBox_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idGKBox_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idGKBox_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idGKBox_f_, 0, b"{GKBox=<3f><3f>}")
@@ -29676,6 +33163,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidGKBox_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidGKBox_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidGKBox_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidGKBox_f_, 0, b"{GKBox=<3f><3f>}")
@@ -29683,6 +33172,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -29692,6 +33182,28 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            (
+                objc.simd.vector_float3(1.0, 2.0, 3.0),
+                objc.simd.vector_float3(4.0, 5.0, 6.0),
+            ),
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            (
+                objc.simd.vector_float3(1.0, 2.0, 3.0),
+                objc.simd.vector_float3(4.0, 5.0, 6.0),
+            ),
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             (
                 objc.simd.vector_float3(1.0, 2.0, 3.0),
                 objc.simd.vector_float3(4.0, 5.0, 6.0),
@@ -29794,6 +33306,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idGKBoxfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_imp_idGKBox_f__cls(self):
         value = OC_VectorCallClass
@@ -29819,11 +33338,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idGKBoxfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_idGKQuad_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idGKQuad_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idGKQuad_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idGKQuad_, b"@")
         self.assertArgHasType(OC_VectorCall.idGKQuad_, 0, b"{GKQuad=<2f><2f>}")
@@ -29882,6 +33410,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidGKQuad_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidGKQuad_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidGKQuad_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidGKQuad_, 0, b"{GKQuad=<2f><2f>}")
@@ -29940,6 +33470,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idGKQuad_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idGKQuad_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idGKQuad_, b"@")
         self.assertArgHasType(OC_VectorCall.idGKQuad_, 0, b"{GKQuad=<2f><2f>}")
@@ -30019,12 +33551,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidGKQuad_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidGKQuad_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidGKQuad_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidGKQuad_, 0, b"{GKQuad=<2f><2f>}")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -30035,6 +33570,20 @@ class TestVectorCall(TestCase):
         # Valid call
         rv = caller(
             (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0))
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
         )
         self.assertEqual(rv, "hello")
 
@@ -30110,6 +33659,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idGKQuadOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_imp_idGKQuad__cls(self):
         value = OC_VectorCallClass
@@ -30134,11 +33690,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idGKQuadOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_idGKQuad_f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idGKQuad_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idGKQuad_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idGKQuad_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idGKQuad_f_, 0, b"{GKQuad=<2f><2f>}")
@@ -30216,6 +33781,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidGKQuad_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidGKQuad_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidGKQuad_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidGKQuad_f_, 0, b"{GKQuad=<2f><2f>}")
@@ -30293,6 +33860,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idGKQuad_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idGKQuad_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idGKQuad_f_, b"@")
         self.assertArgHasType(OC_VectorCall.idGKQuad_f_, 0, b"{GKQuad=<2f><2f>}")
@@ -30393,6 +33962,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidGKQuad_f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidGKQuad_f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidGKQuad_f_, b"@")
         self.assertArgHasType(OC_VectorCall.clsidGKQuad_f_, 0, b"{GKQuad=<2f><2f>}")
@@ -30400,6 +33971,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -30409,6 +33981,22 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
+            2500000000.0,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
             2500000000.0,
         )
@@ -30505,6 +34093,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idGKQuadfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_imp_idGKQuad_f__cls(self):
         value = OC_VectorCallClass
@@ -30530,11 +34125,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idGKQuadfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_idMDLVoxelIndexExtent_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idMDLVoxelIndexExtent_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idMDLVoxelIndexExtent_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idMDLVoxelIndexExtent_, b"@")
         self.assertArgHasType(
@@ -30601,6 +34205,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidMDLVoxelIndexExtent_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidMDLVoxelIndexExtent_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidMDLVoxelIndexExtent_, b"@")
         self.assertArgHasType(
@@ -30669,6 +34275,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idMDLVoxelIndexExtent_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idMDLVoxelIndexExtent_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idMDLVoxelIndexExtent_, b"@")
         self.assertArgHasType(
@@ -30756,6 +34364,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidMDLVoxelIndexExtent_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidMDLVoxelIndexExtent_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidMDLVoxelIndexExtent_, b"@")
         self.assertArgHasType(
@@ -30766,6 +34376,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -30779,6 +34390,26 @@ class TestVectorCall(TestCase):
                 objc.simd.vector_int4(100, 101, 102, 103),
                 objc.simd.vector_int4(-20, -21, -22, -23),
             )
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            (
+                objc.simd.vector_int4(100, 101, 102, 103),
+                objc.simd.vector_int4(-20, -21, -22, -23),
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            (
+                objc.simd.vector_int4(100, 101, 102, 103),
+                objc.simd.vector_int4(-20, -21, -22, -23),
+            ),
         )
         self.assertEqual(rv, "hello")
 
@@ -30857,6 +34488,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idMDLVoxelIndexExtentOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_imp_idMDLVoxelIndexExtent__cls(self):
         value = OC_VectorCallClass
@@ -30881,10 +34519,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idMDLVoxelIndexExtentOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idsimdfloat4x4_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idsimdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idsimdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idsimdfloat4x4_, b"@")
         self.assertArgHasType(
@@ -30966,6 +34613,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidsimdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidsimdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidsimdfloat4x4_, b"@")
         self.assertArgHasType(
@@ -31047,6 +34696,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idsimdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idsimdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idsimdfloat4x4_, b"@")
         self.assertArgHasType(
@@ -31157,6 +34808,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidsimdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidsimdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidsimdfloat4x4_, b"@")
         self.assertArgHasType(
@@ -31165,6 +34818,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -31182,6 +34836,34 @@ class TestVectorCall(TestCase):
                     objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
                 )
             )
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
         )
         self.assertEqual(rv, "hello")
 
@@ -31279,6 +34961,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idsimdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idsimdfloat4x4__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -31306,10 +34995,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idsimdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_idsimdfloat4x4_Z_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idsimdfloat4x4_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idsimdfloat4x4_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idsimdfloat4x4_Z_, b"@")
         self.assertArgHasType(
@@ -31418,6 +35116,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidsimdfloat4x4_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidsimdfloat4x4_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidsimdfloat4x4_Z_, b"@")
         self.assertArgHasType(
@@ -31526,6 +35226,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.idsimdfloat4x4_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.idsimdfloat4x4_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.idsimdfloat4x4_Z_, b"@")
         self.assertArgHasType(
@@ -31665,6 +35367,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsidsimdfloat4x4_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsidsimdfloat4x4_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsidsimdfloat4x4_Z_, b"@")
         self.assertArgHasType(
@@ -31674,6 +35378,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -31683,6 +35388,36 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+            False,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+            False,
+        )
+        self.assertEqual(rv, "hello")
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             simd.simd_float4x4(
                 (
                     objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -31816,6 +35551,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idsimdfloat4x4ZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_idsimdfloat4x4_Z__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -31844,10 +35586,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.idsimdfloat4x4ZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_Zv2i_id_id_id_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.Zv2i_id_id_id_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.Zv2i_id_id_id_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.Zv2i_id_id_id_id_, b"Z")
         self.assertArgHasType(OC_VectorCall.Zv2i_id_id_id_id_, 0, b"<2i>")
@@ -31935,6 +35686,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsZv2i_id_id_id_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsZv2i_id_id_id_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsZv2i_id_id_id_id_, b"Z")
         self.assertArgHasType(OC_VectorCall.clsZv2i_id_id_id_id_, 0, b"<2i>")
@@ -32022,6 +35775,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.Zv2i_id_id_id_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.Zv2i_id_id_id_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.Zv2i_id_id_id_id_, b"Z")
         self.assertArgHasType(OC_VectorCall.Zv2i_id_id_id_id_, 0, b"<2i>")
@@ -32125,6 +35880,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsZv2i_id_id_id_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsZv2i_id_id_id_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsZv2i_id_id_id_id_, b"Z")
         self.assertArgHasType(OC_VectorCall.clsZv2i_id_id_id_id_, 0, b"<2i>")
@@ -32135,6 +35892,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -32144,6 +35902,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_int2(0, 1), "hello", "hello", "hello", "hello")
+        self.assertEqual(rv, False)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst, objc.simd.vector_int2(0, 1), "hello", "hello", "hello", "hello"
+        )
+        self.assertEqual(rv, False)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc), objc.simd.vector_int2(0, 1), "hello", "hello", "hello", "hello"
+        )
         self.assertEqual(rv, False)
 
         stored = oc.storedvalue()
@@ -32268,6 +36038,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.Zv2i_q_f_id_id_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.Zv2i_q_f_id_id_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.Zv2i_q_f_id_id_id_, b"Z")
         self.assertArgHasType(OC_VectorCall.Zv2i_q_f_id_id_id_, 0, b"<2i>")
@@ -32397,6 +36169,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsZv2i_q_f_id_id_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsZv2i_q_f_id_id_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsZv2i_q_f_id_id_id_, b"Z")
         self.assertArgHasType(OC_VectorCall.clsZv2i_q_f_id_id_id_, 0, b"<2i>")
@@ -32526,6 +36300,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.Zv2i_q_f_id_id_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.Zv2i_q_f_id_id_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.Zv2i_q_f_id_id_id_, b"Z")
         self.assertArgHasType(OC_VectorCall.Zv2i_q_f_id_id_id_, 0, b"<2i>")
@@ -32680,6 +36456,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsZv2i_q_f_id_id_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsZv2i_q_f_id_id_id_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsZv2i_q_f_id_id_id_, b"Z")
         self.assertArgHasType(OC_VectorCall.clsZv2i_q_f_id_id_id_, 0, b"<2i>")
@@ -32691,6 +36469,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -32700,6 +36479,30 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_int2(0, 1),
+            -17592186044416,
+            2500000000.0,
+            "hello",
+            "hello",
+            "hello",
+        )
+        self.assertEqual(rv, False)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_int2(0, 1),
+            -17592186044416,
+            2500000000.0,
+            "hello",
+            "hello",
+            "hello",
+        )
+        self.assertEqual(rv, False)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_int2(0, 1),
             -17592186044416,
             2500000000.0,
@@ -32875,6 +36678,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.Zv4i_Z_Z_Z_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.Zv4i_Z_Z_Z_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.Zv4i_Z_Z_Z_Z_, b"Z")
         self.assertArgHasType(OC_VectorCall.Zv4i_Z_Z_Z_Z_, 0, b"<4i>")
@@ -32938,6 +36743,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsZv4i_Z_Z_Z_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsZv4i_Z_Z_Z_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsZv4i_Z_Z_Z_Z_, b"Z")
         self.assertArgHasType(OC_VectorCall.clsZv4i_Z_Z_Z_Z_, 0, b"<4i>")
@@ -33001,6 +36808,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.Zv4i_Z_Z_Z_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.Zv4i_Z_Z_Z_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.Zv4i_Z_Z_Z_Z_, b"Z")
         self.assertArgHasType(OC_VectorCall.Zv4i_Z_Z_Z_Z_, 0, b"<4i>")
@@ -33080,6 +36889,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsZv4i_Z_Z_Z_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsZv4i_Z_Z_Z_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsZv4i_Z_Z_Z_Z_, b"Z")
         self.assertArgHasType(OC_VectorCall.clsZv4i_Z_Z_Z_Z_, 0, b"<4i>")
@@ -33090,6 +36901,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -33099,6 +36911,16 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_int4(0, 1, 2, 3), False, False, False, False)
+        self.assertEqual(rv, False)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_int4(0, 1, 2, 3), False, False, False, False)
+        self.assertEqual(rv, False)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc), objc.simd.vector_int4(0, 1, 2, 3), False, False, False, False
+        )
         self.assertEqual(rv, False)
 
         stored = oc.storedvalue()
@@ -33199,6 +37021,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.CGColorv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.CGColorv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.CGColorv3f_, b"^{CGColor=}")
         self.assertArgHasType(OC_VectorCall.CGColorv3f_, 0, b"<3f>")
@@ -33240,6 +37064,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsCGColorv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsCGColorv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsCGColorv3f_, b"^{CGColor=}")
         self.assertArgHasType(OC_VectorCall.clsCGColorv3f_, 0, b"<3f>")
@@ -33281,6 +37107,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.CGColorv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.CGColorv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.CGColorv3f_, b"^{CGColor=}")
         self.assertArgHasType(OC_VectorCall.CGColorv3f_, 0, b"<3f>")
@@ -33331,12 +37159,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsCGColorv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsCGColorv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsCGColorv3f_, b"^{CGColor=}")
         self.assertArgHasType(OC_VectorCall.clsCGColorv3f_, 0, b"<3f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -33346,6 +37177,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, "color!")
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertEqual(rv, "color!")
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float3(0.0, 1.5, 3.0))
         self.assertEqual(rv, "color!")
 
         stored = oc.storedvalue()
@@ -33410,6 +37249,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.CGColorv3f_CGColorSpace_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.CGColorv3f_CGColorSpace_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.CGColorv3f_CGColorSpace_, b"^{CGColor=}")
         self.assertArgHasType(OC_VectorCall.CGColorv3f_CGColorSpace_, 0, b"<3f>")
@@ -33458,6 +37299,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsCGColorv3f_CGColorSpace_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsCGColorv3f_CGColorSpace_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsCGColorv3f_CGColorSpace_, b"^{CGColor=}"
@@ -33508,6 +37351,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.CGColorv3f_CGColorSpace_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.CGColorv3f_CGColorSpace_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.CGColorv3f_CGColorSpace_, b"^{CGColor=}")
         self.assertArgHasType(OC_VectorCall.CGColorv3f_CGColorSpace_, 0, b"<3f>")
@@ -33567,6 +37412,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsCGColorv3f_CGColorSpace_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsCGColorv3f_CGColorSpace_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsCGColorv3f_CGColorSpace_, b"^{CGColor=}"
@@ -33578,6 +37425,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -33587,6 +37435,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float3(0.0, 1.5, 3.0), "colorspace!")
+        self.assertEqual(rv, "color!")
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float3(0.0, 1.5, 3.0), "colorspace!")
+        self.assertEqual(rv, "color!")
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float3(0.0, 1.5, 3.0), "colorspace!")
         self.assertEqual(rv, "color!")
 
         stored = oc.storedvalue()
@@ -33667,6 +37523,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.fv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.fv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.fv2f_, b"f")
         self.assertArgHasType(OC_VectorCall.fv2f_, 0, b"<2f>")
@@ -33708,6 +37566,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsfv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsfv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsfv2f_, b"f")
         self.assertArgHasType(OC_VectorCall.clsfv2f_, 0, b"<2f>")
@@ -33749,6 +37609,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.fv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.fv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.fv2f_, b"f")
         self.assertArgHasType(OC_VectorCall.fv2f_, 0, b"<2f>")
@@ -33799,12 +37661,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsfv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsfv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsfv2f_, b"f")
         self.assertArgHasType(OC_VectorCall.clsfv2f_, 0, b"<2f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -33814,6 +37679,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float2(0.0, 1.5))
+        self.assertEqual(rv, 2500000000.0)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float2(0.0, 1.5))
+        self.assertEqual(rv, 2500000000.0)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float2(0.0, 1.5))
         self.assertEqual(rv, 2500000000.0)
 
         stored = oc.storedvalue()
@@ -33859,6 +37732,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.fv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_fv2f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -33874,10 +37754,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.fv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_fv2i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.fv2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.fv2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.fv2i_, b"f")
         self.assertArgHasType(OC_VectorCall.fv2i_, 0, b"<2i>")
@@ -33919,6 +37808,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsfv2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsfv2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsfv2i_, b"f")
         self.assertArgHasType(OC_VectorCall.clsfv2i_, 0, b"<2i>")
@@ -33960,6 +37851,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.fv2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.fv2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.fv2i_, b"f")
         self.assertArgHasType(OC_VectorCall.fv2i_, 0, b"<2i>")
@@ -34010,12 +37903,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsfv2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsfv2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsfv2i_, b"f")
         self.assertArgHasType(OC_VectorCall.clsfv2i_, 0, b"<2i>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -34025,6 +37921,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, 2500000000.0)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_int2(0, 1))
+        self.assertEqual(rv, 2500000000.0)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_int2(0, 1))
         self.assertEqual(rv, 2500000000.0)
 
         stored = oc.storedvalue()
@@ -34070,6 +37974,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.fv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_fv2i__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -34085,10 +37996,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.fv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv2d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv2d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv2d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv2d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv2d_, 0, b"<2d>")
@@ -34130,6 +38050,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv2d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv2d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv2d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv2d_, 0, b"<2d>")
@@ -34171,6 +38093,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv2d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv2d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv2d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv2d_, 0, b"<2d>")
@@ -34221,12 +38145,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv2d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv2d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv2d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv2d_, 0, b"<2d>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -34236,6 +38163,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_double2(0.0, 1.5))
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_double2(0.0, 1.5))
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_double2(0.0, 1.5))
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -34281,6 +38216,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv2dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv2d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -34296,10 +38238,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv2dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv2d_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv2d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv2d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv2d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv2d_d_, 0, b"<2d>")
@@ -34346,6 +38297,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv2d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv2d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv2d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv2d_d_, 0, b"<2d>")
@@ -34392,6 +38345,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv2d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv2d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv2d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv2d_d_, 0, b"<2d>")
@@ -34447,6 +38402,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv2d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv2d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv2d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv2d_d_, 0, b"<2d>")
@@ -34454,6 +38411,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -34463,6 +38421,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_double2(0.0, 1.5), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_double2(0.0, 1.5), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_double2(0.0, 1.5), -557000000000.0)
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -34518,6 +38484,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv2ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv2d_d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -34539,10 +38512,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv2ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv2f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv2f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv2f_, 0, b"<2f>")
@@ -34584,6 +38566,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv2f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv2f_, 0, b"<2f>")
@@ -34625,6 +38609,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv2f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv2f_, 0, b"<2f>")
@@ -34675,12 +38661,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv2f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv2f_, 0, b"<2f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -34690,6 +38679,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float2(0.0, 1.5))
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float2(0.0, 1.5))
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float2(0.0, 1.5))
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -34735,6 +38732,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv2f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -34750,10 +38754,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv2f_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv2f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv2f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv2f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv2f_d_, 0, b"<2f>")
@@ -34800,6 +38813,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv2f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv2f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv2f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv2f_d_, 0, b"<2f>")
@@ -34846,6 +38861,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv2f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv2f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv2f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv2f_d_, 0, b"<2f>")
@@ -34901,6 +38918,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv2f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv2f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv2f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv2f_d_, 0, b"<2f>")
@@ -34908,6 +38927,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -34917,6 +38937,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float2(0.0, 1.5), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float2(0.0, 1.5), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float2(0.0, 1.5), -557000000000.0)
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -34972,6 +39000,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv2fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv2f_d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -34993,10 +39028,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv2fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv3d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3d_, 0, b"<3d>")
@@ -35038,6 +39082,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3d_, 0, b"<3d>")
@@ -35079,6 +39125,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3d_, 0, b"<3d>")
@@ -35129,12 +39177,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3d_, 0, b"<3d>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -35144,6 +39195,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_double3(0.0, 1.5, 3.0))
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_double3(0.0, 1.5, 3.0))
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_double3(0.0, 1.5, 3.0))
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -35189,6 +39248,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv3d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -35204,10 +39270,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv3d_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3d_d_, 0, b"<3d>")
@@ -35254,6 +39329,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3d_d_, 0, b"<3d>")
@@ -35300,6 +39377,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3d_d_, 0, b"<3d>")
@@ -35359,6 +39438,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3d_d_, 0, b"<3d>")
@@ -35366,6 +39447,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -35375,6 +39457,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_double3(0.0, 1.5, 3.0), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_double3(0.0, 1.5, 3.0), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_double3(0.0, 1.5, 3.0), -557000000000.0)
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -35430,6 +39520,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv3d_d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -35451,10 +39548,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv3f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3f_, 0, b"<3f>")
@@ -35496,6 +39602,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3f_, 0, b"<3f>")
@@ -35537,6 +39645,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3f_, 0, b"<3f>")
@@ -35587,12 +39697,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3f_, 0, b"<3f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -35602,6 +39715,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float3(0.0, 1.5, 3.0))
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float3(0.0, 1.5, 3.0))
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -35647,6 +39768,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv3f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -35662,10 +39790,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv3f_v3f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3f_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3f_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3f_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3f_v3f_, 0, b"<3f>")
@@ -35722,6 +39859,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3f_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3f_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3f_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3f_v3f_, 0, b"<3f>")
@@ -35778,6 +39917,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3f_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3f_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3f_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3f_v3f_, 0, b"<3f>")
@@ -35851,6 +39992,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3f_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3f_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3f_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3f_v3f_, 0, b"<3f>")
@@ -35858,6 +40001,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -35867,6 +40011,22 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
         )
@@ -35936,6 +40096,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3fv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv3f_v3f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -35957,10 +40124,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3fv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv3f_v3f_v3f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3f_v3f_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3f_v3f_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3f_v3f_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3f_v3f_v3f_, 0, b"<3f>")
@@ -36040,6 +40216,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3f_v3f_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3f_v3f_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3f_v3f_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3f_v3f_v3f_, 0, b"<3f>")
@@ -36119,6 +40297,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3f_v3f_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3f_v3f_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3f_v3f_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3f_v3f_v3f_, 0, b"<3f>")
@@ -36217,6 +40397,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3f_v3f_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3f_v3f_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3f_v3f_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3f_v3f_v3f_, 0, b"<3f>")
@@ -36225,6 +40407,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -36234,6 +40417,24 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
@@ -36327,6 +40528,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3fv3fv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv3f_v3f_v3f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -36349,10 +40557,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3fv3fv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv3f_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3f_d_, 0, b"<3f>")
@@ -36399,6 +40616,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3f_d_, 0, b"<3f>")
@@ -36445,6 +40664,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv3f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv3f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv3f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv3f_d_, 0, b"<3f>")
@@ -36504,6 +40725,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv3f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv3f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv3f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv3f_d_, 0, b"<3f>")
@@ -36511,6 +40734,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -36520,6 +40744,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float3(0.0, 1.5, 3.0), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float3(0.0, 1.5, 3.0), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float3(0.0, 1.5, 3.0), -557000000000.0)
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -36575,6 +40807,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv3f_d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -36596,10 +40835,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv3fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv4d_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv4d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv4d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv4d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv4d_d_, 0, b"<4d>")
@@ -36648,6 +40896,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv4d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv4d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv4d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv4d_d_, 0, b"<4d>")
@@ -36696,6 +40946,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv4d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv4d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv4d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv4d_d_, 0, b"<4d>")
@@ -36757,6 +41009,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv4d_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv4d_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv4d_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv4d_d_, 0, b"<4d>")
@@ -36764,6 +41018,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -36773,6 +41028,16 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc), objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5), -557000000000.0
+        )
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -36830,6 +41095,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv4ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv4d_d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -36851,10 +41123,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv4ddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv4f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv4f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv4f_, 0, b"<4f>")
@@ -36896,6 +41177,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv4f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv4f_, 0, b"<4f>")
@@ -36937,6 +41220,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv4f_, b"v")
         self.assertArgHasType(OC_VectorCall.vv4f_, 0, b"<4f>")
@@ -36987,12 +41272,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv4f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv4f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv4f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv4f_, 0, b"<4f>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -37002,6 +41290,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -37049,6 +41345,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv4f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -37066,10 +41369,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv4fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv4f_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv4f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv4f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv4f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv4f_d_, 0, b"<4f>")
@@ -37118,6 +41430,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv4f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv4f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv4f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv4f_d_, 0, b"<4f>")
@@ -37166,6 +41480,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv4f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv4f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv4f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vv4f_d_, 0, b"<4f>")
@@ -37227,6 +41543,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv4f_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv4f_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv4f_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv4f_d_, 0, b"<4f>")
@@ -37234,6 +41552,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -37243,6 +41562,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5), -557000000000.0)
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5), -557000000000.0)
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -37300,6 +41627,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv4fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv4f_d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -37321,10 +41655,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv4fdOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vv4i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv4i_, b"v")
         self.assertArgHasType(OC_VectorCall.vv4i_, 0, b"<4i>")
@@ -37366,6 +41709,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv4i_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv4i_, 0, b"<4i>")
@@ -37407,6 +41752,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vv4i_, b"v")
         self.assertArgHasType(OC_VectorCall.vv4i_, 0, b"<4i>")
@@ -37457,12 +41804,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvv4i_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvv4i_, 0, b"<4i>")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -37472,6 +41822,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_int4(0, 1, 2, 3))
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_int4(0, 1, 2, 3))
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_int4(0, 1, 2, 3))
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -37517,6 +41875,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv4iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vv4i__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -37532,10 +41897,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vv4iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vid_v2f_v2f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vid_v2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vid_v2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vid_v2f_v2f_, b"v")
         self.assertArgHasType(OC_VectorCall.vid_v2f_v2f_, 0, b"@")
@@ -37604,6 +41978,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvid_v2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvid_v2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvid_v2f_v2f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvid_v2f_v2f_, 0, b"@")
@@ -37672,6 +42048,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vid_v2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vid_v2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vid_v2f_v2f_, b"v")
         self.assertArgHasType(OC_VectorCall.vid_v2f_v2f_, 0, b"@")
@@ -37759,6 +42137,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvid_v2f_v2f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvid_v2f_v2f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvid_v2f_v2f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvid_v2f_v2f_, 0, b"@")
@@ -37767,6 +42147,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -37776,6 +42157,24 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             objc.simd.vector_float2(0.0, 1.5),
             objc.simd.vector_float2(0.0, 1.5),
@@ -37858,6 +42257,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vidv2fv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vid_v2f_v2f__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -37880,10 +42286,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vidv2fv2fOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vid_v2f_v2f_q_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vid_v2f_v2f_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vid_v2f_v2f_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vid_v2f_v2f_q_, b"v")
         self.assertArgHasType(OC_VectorCall.vid_v2f_v2f_q_, 0, b"@")
@@ -37970,6 +42385,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvid_v2f_v2f_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvid_v2f_v2f_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvid_v2f_v2f_q_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvid_v2f_v2f_q_, 0, b"@")
@@ -38056,6 +42473,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vid_v2f_v2f_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vid_v2f_v2f_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vid_v2f_v2f_q_, b"v")
         self.assertArgHasType(OC_VectorCall.vid_v2f_v2f_q_, 0, b"@")
@@ -38163,6 +42582,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvid_v2f_v2f_q_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvid_v2f_v2f_q_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvid_v2f_v2f_q_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvid_v2f_v2f_q_, 0, b"@")
@@ -38172,6 +42593,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -38181,6 +42603,26 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            "hello",
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
+            -17592186044416,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            "hello",
+            objc.simd.vector_float2(0.0, 1.5),
+            objc.simd.vector_float2(0.0, 1.5),
+            -17592186044416,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             "hello",
             objc.simd.vector_float2(0.0, 1.5),
             objc.simd.vector_float2(0.0, 1.5),
@@ -38282,6 +42724,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vidv2fv2fqOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vid_v2f_v2f_q__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -38305,10 +42754,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vidv2fv2fqOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vf_v2i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vf_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vf_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vf_v2i_, b"v")
         self.assertArgHasType(OC_VectorCall.vf_v2i_, 0, b"f")
@@ -38355,6 +42813,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvf_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvf_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvf_v2i_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvf_v2i_, 0, b"f")
@@ -38401,6 +42861,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vf_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vf_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vf_v2i_, b"v")
         self.assertArgHasType(OC_VectorCall.vf_v2i_, 0, b"f")
@@ -38456,6 +42918,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvf_v2i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvf_v2i_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvf_v2i_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvf_v2i_, 0, b"f")
@@ -38463,6 +42927,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -38472,6 +42937,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(2500000000.0, objc.simd.vector_int2(0, 1))
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, 2500000000.0, objc.simd.vector_int2(0, 1))
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), 2500000000.0, objc.simd.vector_int2(0, 1))
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -38527,6 +43000,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vfv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vf_v2i__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -38548,11 +43028,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vfv2iOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_vMDLAxisAlignedBoundingBox_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vMDLAxisAlignedBoundingBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vMDLAxisAlignedBoundingBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vMDLAxisAlignedBoundingBox_, b"v")
         self.assertArgHasType(
@@ -38621,6 +43110,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_, b"v")
         self.assertArgHasType(
@@ -38689,6 +43180,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vMDLAxisAlignedBoundingBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vMDLAxisAlignedBoundingBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vMDLAxisAlignedBoundingBox_, b"v")
         self.assertArgHasType(
@@ -38778,6 +43271,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_, b"v")
         self.assertArgHasType(
@@ -38788,6 +43283,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -38801,6 +43297,26 @@ class TestVectorCall(TestCase):
                 objc.simd.vector_float3(-8.0, -9.0, -10.0),
                 objc.simd.vector_float3(-11.0, -12.0, -13.0),
             )
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
         )
         self.assertIs(rv, None)
 
@@ -38879,6 +43395,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vMDLAxisAlignedBoundingBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_imp_vMDLAxisAlignedBoundingBox__cls(self):
         value = OC_VectorCallClass
@@ -38903,11 +43426,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vMDLAxisAlignedBoundingBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_vMDLAxisAlignedBoundingBox_Z_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vMDLAxisAlignedBoundingBox_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vMDLAxisAlignedBoundingBox_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vMDLAxisAlignedBoundingBox_Z_, b"v")
         self.assertArgHasType(
@@ -38995,6 +43527,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_Z_, b"v")
         self.assertArgHasType(
@@ -39082,6 +43616,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vMDLAxisAlignedBoundingBox_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vMDLAxisAlignedBoundingBox_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vMDLAxisAlignedBoundingBox_Z_, b"v")
         self.assertArgHasType(
@@ -39192,6 +43728,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_Z_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_Z_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvMDLAxisAlignedBoundingBox_Z_, b"v")
         self.assertArgHasType(
@@ -39203,6 +43741,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -39212,6 +43751,28 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+            False,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+            False,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             (
                 objc.simd.vector_float3(-8.0, -9.0, -10.0),
                 objc.simd.vector_float3(-11.0, -12.0, -13.0),
@@ -39314,6 +43875,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vMDLAxisAlignedBoundingBoxZOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_imp_vMDLAxisAlignedBoundingBox_Z__cls(self):
         value = OC_VectorCallClass
@@ -39339,10 +43907,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vMDLAxisAlignedBoundingBoxZOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vsimddouble4x4_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimddouble4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimddouble4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimddouble4x4_, b"v")
         self.assertArgHasType(
@@ -39424,6 +44001,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimddouble4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimddouble4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimddouble4x4_, b"v")
         self.assertArgHasType(
@@ -39505,6 +44084,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimddouble4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimddouble4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimddouble4x4_, b"v")
         self.assertArgHasType(
@@ -39615,6 +44196,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimddouble4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimddouble4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimddouble4x4_, b"v")
         self.assertArgHasType(
@@ -39623,6 +44206,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -39640,6 +44224,34 @@ class TestVectorCall(TestCase):
                     objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
                 )
             )
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_double4x4(
+                (
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            simd.simd_double4x4(
+                (
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
         )
         self.assertIs(rv, None)
 
@@ -39737,6 +44349,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimddouble4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vsimddouble4x4__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -39764,10 +44383,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimddouble4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vsimddouble4x4_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimddouble4x4_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimddouble4x4_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimddouble4x4_d_, b"v")
         self.assertArgHasType(
@@ -39876,6 +44504,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimddouble4x4_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimddouble4x4_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimddouble4x4_d_, b"v")
         self.assertArgHasType(
@@ -39984,6 +44614,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimddouble4x4_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimddouble4x4_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimddouble4x4_d_, b"v")
         self.assertArgHasType(
@@ -40123,6 +44755,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimddouble4x4_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimddouble4x4_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimddouble4x4_d_, b"v")
         self.assertArgHasType(
@@ -40132,6 +44766,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -40141,6 +44776,36 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            simd.simd_double4x4(
+                (
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+            -557000000000.0,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_double4x4(
+                (
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+            -557000000000.0,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             simd.simd_double4x4(
                 (
                     objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
@@ -40274,6 +44939,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimddouble4x4dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vsimddouble4x4_d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -40302,10 +44974,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimddouble4x4dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vsimdfloat2x2_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdfloat2x2_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdfloat2x2_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdfloat2x2_, b"v")
         self.assertArgHasType(
@@ -40373,6 +45054,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdfloat2x2_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdfloat2x2_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdfloat2x2_, b"v")
         self.assertArgHasType(
@@ -40440,6 +45123,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdfloat2x2_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdfloat2x2_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdfloat2x2_, b"v")
         self.assertArgHasType(
@@ -40532,6 +45217,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdfloat2x2_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdfloat2x2_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdfloat2x2_, b"v")
         self.assertArgHasType(
@@ -40540,6 +45227,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -40552,6 +45240,24 @@ class TestVectorCall(TestCase):
             simd.simd_float2x2(
                 (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
             )
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_float2x2(
+                (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
+            ),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            simd.simd_float2x2(
+                (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
+            ),
         )
         self.assertIs(rv, None)
 
@@ -40636,6 +45342,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdfloat2x2On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vsimdfloat2x2__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -40661,10 +45374,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdfloat2x2On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vsimdfloat3x3_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdfloat3x3_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdfloat3x3_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdfloat3x3_, b"v")
         self.assertArgHasType(
@@ -40742,6 +45464,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdfloat3x3_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdfloat3x3_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdfloat3x3_, b"v")
         self.assertArgHasType(
@@ -40819,6 +45543,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdfloat3x3_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdfloat3x3_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdfloat3x3_, b"v")
         self.assertArgHasType(
@@ -40923,6 +45649,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdfloat3x3_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdfloat3x3_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdfloat3x3_, b"v")
         self.assertArgHasType(
@@ -40931,6 +45659,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -40947,6 +45676,32 @@ class TestVectorCall(TestCase):
                     objc.simd.vector_float3(0.0, 1.5, 3.0),
                 )
             )
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_float3x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            simd.simd_float3x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
         )
         self.assertIs(rv, None)
 
@@ -41039,6 +45794,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdfloat3x3On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vsimdfloat3x3__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -41065,10 +45827,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdfloat3x3On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vsimdfloat4x4_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdfloat4x4_, b"v")
         self.assertArgHasType(
@@ -41150,6 +45921,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdfloat4x4_, b"v")
         self.assertArgHasType(
@@ -41231,6 +46004,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdfloat4x4_, b"v")
         self.assertArgHasType(
@@ -41341,6 +46116,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdfloat4x4_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdfloat4x4_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdfloat4x4_, b"v")
         self.assertArgHasType(
@@ -41349,6 +46126,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -41366,6 +46144,34 @@ class TestVectorCall(TestCase):
                     objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
                 )
             )
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
         )
         self.assertIs(rv, None)
 
@@ -41463,6 +46269,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vsimdfloat4x4__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -41490,10 +46303,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_vsimdfloat4x4_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdfloat4x4_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdfloat4x4_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdfloat4x4_d_, b"v")
         self.assertArgHasType(
@@ -41602,6 +46424,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdfloat4x4_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdfloat4x4_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdfloat4x4_d_, b"v")
         self.assertArgHasType(
@@ -41710,6 +46534,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdfloat4x4_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdfloat4x4_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdfloat4x4_d_, b"v")
         self.assertArgHasType(
@@ -41849,6 +46675,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdfloat4x4_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdfloat4x4_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdfloat4x4_d_, b"v")
         self.assertArgHasType(
@@ -41858,6 +46686,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -41867,6 +46696,36 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+            -557000000000.0,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+            -557000000000.0,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             simd.simd_float4x4(
                 (
                     objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -42000,6 +46859,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdfloat4x4dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_vsimdfloat4x4_d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -42028,11 +46894,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdfloat4x4dOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_vsimdquatd_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdquatd_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdquatd_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdquatd_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vsimdquatd_d_, 0, b"{simd_quatd=<4d>}")
@@ -42092,6 +46967,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdquatd_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdquatd_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdquatd_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvsimdquatd_d_, 0, b"{simd_quatd=<4d>}")
@@ -42151,6 +47028,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdquatd_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdquatd_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdquatd_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vsimdquatd_d_, 0, b"{simd_quatd=<4d>}")
@@ -42227,6 +47106,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdquatd_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdquatd_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdquatd_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvsimdquatd_d_, 0, b"{simd_quatd=<4d>}")
@@ -42234,6 +47115,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -42243,6 +47125,22 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            simd.simd_quatd(objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5)),
+            -557000000000.0,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_quatd(objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5)),
+            -557000000000.0,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             simd.simd_quatd(objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5)),
             -557000000000.0,
         )
@@ -42315,6 +47213,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdquatddOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_imp_vsimdquatd_d__cls(self):
         value = OC_VectorCallClass
@@ -42337,11 +47242,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdquatddOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_vsimdquatf_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdquatf_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdquatf_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdquatf_, b"v")
         self.assertArgHasType(OC_VectorCall.vsimdquatf_, 0, b"{simd_quatf=<4f>}")
@@ -42388,6 +47302,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdquatf_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdquatf_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdquatf_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvsimdquatf_, 0, b"{simd_quatf=<4f>}")
@@ -42434,6 +47350,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdquatf_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdquatf_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdquatf_, b"v")
         self.assertArgHasType(OC_VectorCall.vsimdquatf_, 0, b"{simd_quatf=<4f>}")
@@ -42492,12 +47410,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdquatf_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdquatf_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdquatf_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvsimdquatf_, 0, b"{simd_quatf=<4f>}")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -42507,6 +47428,14 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)))
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(oc_inst, simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)))
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(type(oc), simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)))
         self.assertIs(rv, None)
 
         stored = oc.storedvalue()
@@ -42560,6 +47489,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdquatfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_imp_vsimdquatf__cls(self):
         value = OC_VectorCallClass
@@ -42579,11 +47515,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdquatfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_vsimdquatf_v3f_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdquatf_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdquatf_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdquatf_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.vsimdquatf_v3f_, 0, b"{simd_quatf=<4f>}")
@@ -42643,6 +47588,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdquatf_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdquatf_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdquatf_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvsimdquatf_v3f_, 0, b"{simd_quatf=<4f>}")
@@ -42702,6 +47649,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdquatf_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdquatf_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdquatf_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.vsimdquatf_v3f_, 0, b"{simd_quatf=<4f>}")
@@ -42778,6 +47727,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdquatf_v3f_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdquatf_v3f_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdquatf_v3f_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvsimdquatf_v3f_, 0, b"{simd_quatf=<4f>}")
@@ -42785,6 +47736,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -42794,6 +47746,22 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
+            objc.simd.vector_float3(0.0, 1.5, 3.0),
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
             objc.simd.vector_float3(0.0, 1.5, 3.0),
         )
@@ -42866,6 +47834,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdquatfv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_imp_vsimdquatf_v3f__cls(self):
         value = OC_VectorCallClass
@@ -42888,11 +47863,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdquatfv3fOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_vsimdquatf_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdquatf_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdquatf_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdquatf_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vsimdquatf_d_, 0, b"{simd_quatf=<4f>}")
@@ -42952,6 +47936,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdquatf_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdquatf_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdquatf_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvsimdquatf_d_, 0, b"{simd_quatf=<4f>}")
@@ -43011,6 +47997,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.vsimdquatf_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.vsimdquatf_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.vsimdquatf_d_, b"v")
         self.assertArgHasType(OC_VectorCall.vsimdquatf_d_, 0, b"{simd_quatf=<4f>}")
@@ -43087,6 +48075,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsvsimdquatf_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsvsimdquatf_d_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsvsimdquatf_d_, b"v")
         self.assertArgHasType(OC_VectorCall.clsvsimdquatf_d_, 0, b"{simd_quatf=<4f>}")
@@ -43094,6 +48084,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -43103,6 +48094,22 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
+            -557000000000.0,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
+            -557000000000.0,
+        )
+        self.assertIs(rv, None)
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5)),
             -557000000000.0,
         )
@@ -43175,6 +48182,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdquatfdOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_imp_vsimdquatf_d__cls(self):
         value = OC_VectorCallClass
@@ -43197,11 +48211,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.vsimdquatfdOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_GKBox(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.GKBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.GKBox)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.GKBox, b"{GKBox=<3f><3f>}")
 
@@ -43240,6 +48263,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsGKBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsGKBox)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsGKBox, b"{GKBox=<3f><3f>}")
 
@@ -43278,6 +48303,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.GKBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.GKBox)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.GKBox, b"{GKBox=<3f><3f>}")
 
@@ -43329,11 +48356,14 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsGKBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsGKBox)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsGKBox, b"{GKBox=<3f><3f>}")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -43343,6 +48373,30 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(1.0, 2.0, 3.0),
+                objc.simd.vector_float3(4.0, 5.0, 6.0),
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(1.0, 2.0, 3.0),
+                objc.simd.vector_float3(4.0, 5.0, 6.0),
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(
             rv,
             (
@@ -43394,6 +48448,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.GKBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_imp_GKBox_cls(self):
         value = OC_VectorCallClass
@@ -43416,11 +48477,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.GKBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_GKQuad(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.GKQuad.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.GKQuad)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.GKQuad, b"{GKQuad=<2f><2f>}")
 
@@ -43456,6 +48526,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsGKQuad.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsGKQuad)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsGKQuad, b"{GKQuad=<2f><2f>}")
 
@@ -43491,6 +48563,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.GKQuad.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.GKQuad)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.GKQuad, b"{GKQuad=<2f><2f>}")
 
@@ -43539,11 +48613,14 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsGKQuad.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsGKQuad)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsGKQuad, b"{GKQuad=<2f><2f>}")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -43553,6 +48630,24 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(
+            rv,
+            (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(
             rv,
             (objc.simd.vector_float2(9.0, 10.0), objc.simd.vector_float2(11.0, 12.0)),
@@ -43598,6 +48693,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.GKQuadOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_imp_GKQuad_cls(self):
         value = OC_VectorCallClass
@@ -43617,11 +48719,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.GKQuadOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_GKTriangleQ_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.GKTriangleQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.GKTriangleQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.GKTriangleQ_, b"{GKTriangle=[3<3f>]}")
         self.assertArgHasType(OC_VectorCall.GKTriangleQ_, 0, b"Q")
@@ -43673,6 +48784,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsGKTriangleQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsGKTriangleQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsGKTriangleQ_, b"{GKTriangle=[3<3f>]}")
         self.assertArgHasType(OC_VectorCall.clsGKTriangleQ_, 0, b"Q")
@@ -43724,6 +48837,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.GKTriangleQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.GKTriangleQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.GKTriangleQ_, b"{GKTriangle=[3<3f>]}")
         self.assertArgHasType(OC_VectorCall.GKTriangleQ_, 0, b"Q")
@@ -43784,12 +48899,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsGKTriangleQ_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsGKTriangleQ_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clsGKTriangleQ_, b"{GKTriangle=[3<3f>]}")
         self.assertArgHasType(OC_VectorCall.clsGKTriangleQ_, 0, b"Q")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -43799,6 +48917,32 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(35184372088832)
+        self.assertEqual(
+            rv,
+            (
+                (
+                    objc.simd.vector_float3(-18.5, -19.5, -110.5),
+                    objc.simd.vector_float3(-111.5, -112.5, -113.5),
+                    objc.simd.vector_float3(-17.5, 11.5, 122.5),
+                ),
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(oc_inst, 35184372088832)
+        self.assertEqual(
+            rv,
+            (
+                (
+                    objc.simd.vector_float3(-18.5, -19.5, -110.5),
+                    objc.simd.vector_float3(-111.5, -112.5, -113.5),
+                    objc.simd.vector_float3(-17.5, 11.5, 122.5),
+                ),
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(type(oc), 35184372088832)
         self.assertEqual(
             rv,
             (
@@ -43863,6 +49007,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.GKTriangleQOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.12")
     def test_imp_GKTriangleQ__cls(self):
         value = OC_VectorCallClass
@@ -43888,11 +49039,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.GKTriangleQOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_MDLAxisAlignedBoundingBox(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.MDLAxisAlignedBoundingBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MDLAxisAlignedBoundingBox)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.MDLAxisAlignedBoundingBox,
@@ -43934,6 +49094,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsMDLAxisAlignedBoundingBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMDLAxisAlignedBoundingBox)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsMDLAxisAlignedBoundingBox,
@@ -43975,6 +49137,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.MDLAxisAlignedBoundingBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MDLAxisAlignedBoundingBox)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.MDLAxisAlignedBoundingBox,
@@ -44029,6 +49193,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsMDLAxisAlignedBoundingBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMDLAxisAlignedBoundingBox)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsMDLAxisAlignedBoundingBox,
@@ -44037,6 +49203,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -44046,6 +49213,30 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(
             rv,
             (
@@ -44097,6 +49288,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MDLAxisAlignedBoundingBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_imp_MDLAxisAlignedBoundingBox_cls(self):
         value = OC_VectorCallClass
@@ -44119,11 +49317,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MDLAxisAlignedBoundingBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_MDLAxisAlignedBoundingBoxv4i_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.MDLAxisAlignedBoundingBoxv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MDLAxisAlignedBoundingBoxv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.MDLAxisAlignedBoundingBoxv4i_,
@@ -44175,6 +49382,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsMDLAxisAlignedBoundingBoxv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMDLAxisAlignedBoundingBoxv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsMDLAxisAlignedBoundingBoxv4i_,
@@ -44228,6 +49437,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.MDLAxisAlignedBoundingBoxv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MDLAxisAlignedBoundingBoxv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.MDLAxisAlignedBoundingBoxv4i_,
@@ -44288,6 +49499,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsMDLAxisAlignedBoundingBoxv4i_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMDLAxisAlignedBoundingBoxv4i_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsMDLAxisAlignedBoundingBoxv4i_,
@@ -44299,6 +49512,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -44308,6 +49522,26 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(objc.simd.vector_int4(0, 1, 2, 3))
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(oc_inst, objc.simd.vector_int4(0, 1, 2, 3))
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(type(oc), objc.simd.vector_int4(0, 1, 2, 3))
         self.assertEqual(
             rv,
             (
@@ -44366,6 +49600,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MDLAxisAlignedBoundingBoxv4iOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_imp_MDLAxisAlignedBoundingBoxv4i__cls(self):
         value = OC_VectorCallClass
@@ -44388,11 +49629,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MDLAxisAlignedBoundingBoxv4iOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_MDLAxisAlignedBoundingBoxd_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.MDLAxisAlignedBoundingBoxd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MDLAxisAlignedBoundingBoxd_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.MDLAxisAlignedBoundingBoxd_,
@@ -44444,6 +49694,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsMDLAxisAlignedBoundingBoxd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMDLAxisAlignedBoundingBoxd_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsMDLAxisAlignedBoundingBoxd_,
@@ -44495,6 +49747,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.MDLAxisAlignedBoundingBoxd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MDLAxisAlignedBoundingBoxd_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.MDLAxisAlignedBoundingBoxd_,
@@ -44555,6 +49809,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsMDLAxisAlignedBoundingBoxd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMDLAxisAlignedBoundingBoxd_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsMDLAxisAlignedBoundingBoxd_,
@@ -44564,6 +49820,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -44573,6 +49830,26 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(-8.0, -9.0, -10.0),
+                objc.simd.vector_float3(-11.0, -12.0, -13.0),
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(
             rv,
             (
@@ -44631,6 +49908,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MDLAxisAlignedBoundingBoxdOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_imp_MDLAxisAlignedBoundingBoxd__cls(self):
         value = OC_VectorCallClass
@@ -44653,11 +49937,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MDLAxisAlignedBoundingBoxdOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_MDLVoxelIndexExtent(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.MDLVoxelIndexExtent.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MDLVoxelIndexExtent)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.MDLVoxelIndexExtent, b"{MDLVoxelIndexExtent=<4i><4i>}"
@@ -44698,6 +49991,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsMDLVoxelIndexExtent.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMDLVoxelIndexExtent)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsMDLVoxelIndexExtent, b"{MDLVoxelIndexExtent=<4i><4i>}"
@@ -44738,6 +50033,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.MDLVoxelIndexExtent.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MDLVoxelIndexExtent)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.MDLVoxelIndexExtent, b"{MDLVoxelIndexExtent=<4i><4i>}"
@@ -44791,6 +50088,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clsMDLVoxelIndexExtent.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMDLVoxelIndexExtent)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clsMDLVoxelIndexExtent, b"{MDLVoxelIndexExtent=<4i><4i>}"
@@ -44798,6 +50097,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -44807,6 +50107,30 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_int4(100, 101, 102, 103),
+                objc.simd.vector_int4(-20, -21, -22, -23),
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_int4(100, 101, 102, 103),
+                objc.simd.vector_int4(-20, -21, -22, -23),
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(
             rv,
             (
@@ -44858,6 +50182,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MDLVoxelIndexExtentOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.11")
     def test_imp_MDLVoxelIndexExtent_cls(self):
         value = OC_VectorCallClass
@@ -44880,10 +50211,589 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MDLVoxelIndexExtentOn_(value)
+        finally:
+            del value.returnInvalid
+
+    @min_os_level("10.13")
+    def test_MPSImageHistogramInfo(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertFalse(OC_VectorCall.MPSImageHistogramInfo.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MPSImageHistogramInfo)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.MPSImageHistogramInfo, b"{MPSImageHistogramInfo=QZ<4f><4f>}"
+        )
+
+        # Create test object
+        oc = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        caller = oc.MPSImageHistogramInfo
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+    @min_os_level("10.13")
+    def test_clsMPSImageHistogramInfo(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertTrue(OC_VectorCall.clsMPSImageHistogramInfo.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMPSImageHistogramInfo)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.clsMPSImageHistogramInfo,
+            b"{MPSImageHistogramInfo=QZ<4f><4f>}",
+        )
+
+        # Create test object
+        oc = OC_VectorCall
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        caller = oc.clsMPSImageHistogramInfo
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+    @min_os_level("10.13")
+    def test_MPSImageHistogramInfo_imp(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertFalse(OC_VectorCall.MPSImageHistogramInfo.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MPSImageHistogramInfo)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.MPSImageHistogramInfo, b"{MPSImageHistogramInfo=QZ<4f><4f>}"
+        )
+
+        # Create test object
+        oc = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        imp = oc.methodForSelector_(b"MPSImageHistogramInfo")
+        self.assertIsInstance(imp, objc.IMP)
+        caller = partial(imp, oc)
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+        # Call with invalid type for self
+        with self.assertRaisesRegex(ValueError, "unrecognized selector"):
+            imp(
+                42,
+            )
+
+        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
+            imp(
+                NoObjCValueObject,
+            )
+
+    @min_os_level("10.13")
+    def test_clsMPSImageHistogramInfo_imp(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertTrue(OC_VectorCall.clsMPSImageHistogramInfo.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMPSImageHistogramInfo)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.clsMPSImageHistogramInfo,
+            b"{MPSImageHistogramInfo=QZ<4f><4f>}",
+        )
+
+        # Create test object
+        oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        imp = oc.methodForSelector_(b"clsMPSImageHistogramInfo")
+        self.assertIsInstance(imp, objc.IMP)
+        caller = partial(imp, oc)
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
+        self.assertEqual(
+            rv,
+            (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+        # Call with invalid type for self
+        with self.assertRaisesRegex(
+            TypeError, "Need Objective-C object or class as self"
+        ):
+            imp(
+                42,
+            )
+
+    @min_os_level("10.13")
+    def test_imp_MPSImageHistogramInfo(self):
+        value = OC_VectorCallInstance.alloc().init()
+        value.argvalues = 1
+        result = OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
+        self.assertEqual(
+            result,
+            (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            ),
+        )
+        self.assertIs(value.argvalues, None)
+
+        # Test raising an exception
+        value.shouldRaise = True
+        try:
+            with self.assertRaisesRegex(RuntimeError, "failure"):
+                OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
+        finally:
+            del value.shouldRaise
+
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
+        finally:
+            del value.returnInvalid
+
+    @min_os_level("10.13")
+    def test_imp_MPSImageHistogramInfo_cls(self):
+        value = OC_VectorCallClass
+        value.argvalues = 1
+        result = OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
+        self.assertEqual(
+            result,
+            (
+                4398046511104,
+                True,
+                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
+                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
+            ),
+        )
+        self.assertIs(value.argvalues, None)
+
+        # Test raising an exception
+        value.shouldRaise = True
+        try:
+            with self.assertRaisesRegex(RuntimeError, "failure"):
+                OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
+        finally:
+            del value.shouldRaise
+
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
+        finally:
+            del value.returnInvalid
+
+    @min_os_level("10.14")
+    def test_MPSAxisAlignedBoundingBox(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertFalse(OC_VectorCall.MPSAxisAlignedBoundingBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MPSAxisAlignedBoundingBox)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.MPSAxisAlignedBoundingBox,
+            b"{_MPSAxisAlignedBoundingBox=<3f><3f>}",
+        )
+
+        # Create test object
+        oc = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        caller = oc.MPSAxisAlignedBoundingBox
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+    @min_os_level("10.14")
+    def test_clsMPSAxisAlignedBoundingBox(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertTrue(OC_VectorCall.clsMPSAxisAlignedBoundingBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMPSAxisAlignedBoundingBox)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.clsMPSAxisAlignedBoundingBox,
+            b"{_MPSAxisAlignedBoundingBox=<3f><3f>}",
+        )
+
+        # Create test object
+        oc = OC_VectorCall
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        caller = oc.clsMPSAxisAlignedBoundingBox
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+    @min_os_level("10.14")
+    def test_MPSAxisAlignedBoundingBox_imp(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertFalse(OC_VectorCall.MPSAxisAlignedBoundingBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.MPSAxisAlignedBoundingBox)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.MPSAxisAlignedBoundingBox,
+            b"{_MPSAxisAlignedBoundingBox=<3f><3f>}",
+        )
+
+        # Create test object
+        oc = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        imp = oc.methodForSelector_(b"MPSAxisAlignedBoundingBox")
+        self.assertIsInstance(imp, objc.IMP)
+        caller = partial(imp, oc)
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+        # Call with invalid type for self
+        with self.assertRaisesRegex(ValueError, "unrecognized selector"):
+            imp(
+                42,
+            )
+
+        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
+            imp(
+                NoObjCValueObject,
+            )
+
+    @min_os_level("10.14")
+    def test_clsMPSAxisAlignedBoundingBox_imp(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertTrue(OC_VectorCall.clsMPSAxisAlignedBoundingBox.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clsMPSAxisAlignedBoundingBox)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.clsMPSAxisAlignedBoundingBox,
+            b"{_MPSAxisAlignedBoundingBox=<3f><3f>}",
+        )
+
+        # Create test object
+        oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        imp = oc.methodForSelector_(b"clsMPSAxisAlignedBoundingBox")
+        self.assertIsInstance(imp, objc.IMP)
+        caller = partial(imp, oc)
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
+        self.assertEqual(
+            rv,
+            (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+        # Call with invalid type for self
+        with self.assertRaisesRegex(
+            TypeError, "Need Objective-C object or class as self"
+        ):
+            imp(
+                42,
+            )
+
+    @min_os_level("10.14")
+    def test_imp_MPSAxisAlignedBoundingBox(self):
+        value = OC_VectorCallInstance.alloc().init()
+        value.argvalues = 1
+        result = OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
+        self.assertEqual(
+            result,
+            (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
+            ),
+        )
+        self.assertIs(value.argvalues, None)
+
+        # Test raising an exception
+        value.shouldRaise = True
+        try:
+            with self.assertRaisesRegex(RuntimeError, "failure"):
+                OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
+        finally:
+            del value.shouldRaise
+
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
+    @min_os_level("10.14")
+    def test_imp_MPSAxisAlignedBoundingBox_cls(self):
+        value = OC_VectorCallClass
+        value.argvalues = 1
+        result = OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
+        self.assertEqual(
+            result,
+            (
+                objc.simd.vector_float3(1.5, 2.5, 3.5),
+                objc.simd.vector_float3(4.5, 5.5, 6.5),
+            ),
+        )
+        self.assertIs(value.argvalues, None)
+
+        # Test raising an exception
+        value.shouldRaise = True
+        try:
+            with self.assertRaisesRegex(RuntimeError, "failure"):
+                OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
+        finally:
+            del value.shouldRaise
+
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_simddouble4x4(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simddouble4x4.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simddouble4x4)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simddouble4x4, b"{simd_double4x4=[4<4d>]}"
@@ -44927,6 +50837,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimddouble4x4.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimddouble4x4)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimddouble4x4, b"{simd_double4x4=[4<4d>]}"
@@ -44970,6 +50882,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simddouble4x4.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simddouble4x4)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simddouble4x4, b"{simd_double4x4=[4<4d>]}"
@@ -45026,6 +50940,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimddouble4x4.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimddouble4x4)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimddouble4x4, b"{simd_double4x4=[4<4d>]}"
@@ -45033,6 +50949,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -45042,6 +50959,38 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(
+            rv,
+            simd.simd_double4x4(
+                (
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            simd.simd_double4x4(
+                (
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(
             rv,
             simd.simd_double4x4(
@@ -45100,6 +51049,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simddouble4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_simddouble4x4_cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -45125,10 +51081,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simddouble4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_simddouble4x4d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simddouble4x4d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simddouble4x4d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simddouble4x4d_, b"{simd_double4x4=[4<4d>]}"
@@ -45182,6 +51147,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimddouble4x4d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimddouble4x4d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimddouble4x4d_, b"{simd_double4x4=[4<4d>]}"
@@ -45235,6 +51202,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simddouble4x4d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simddouble4x4d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simddouble4x4d_, b"{simd_double4x4=[4<4d>]}"
@@ -45297,6 +51266,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimddouble4x4d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimddouble4x4d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimddouble4x4d_, b"{simd_double4x4=[4<4d>]}"
@@ -45305,6 +51276,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -45314,6 +51286,34 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(
+            rv,
+            simd.simd_double4x4(
+                (
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(
+            rv,
+            simd.simd_double4x4(
+                (
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(
             rv,
             simd.simd_double4x4(
@@ -45379,6 +51379,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simddouble4x4dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_simddouble4x4d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -45404,10 +51411,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simddouble4x4dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_simdfloat2x2(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat2x2.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat2x2)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdfloat2x2, b"{simd_float2x2=[2<2f>]}")
 
@@ -45444,6 +51460,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat2x2.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat2x2)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat2x2, b"{simd_float2x2=[2<2f>]}"
@@ -45482,6 +51500,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat2x2.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat2x2)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdfloat2x2, b"{simd_float2x2=[2<2f>]}")
 
@@ -45531,6 +51551,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat2x2.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat2x2)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat2x2, b"{simd_float2x2=[2<2f>]}"
@@ -45538,6 +51560,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -45547,6 +51570,28 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(
+            rv,
+            simd.simd_float2x2(
+                (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            simd.simd_float2x2(
+                (objc.simd.vector_float2(0.0, 1.5), objc.simd.vector_float2(0.0, 1.5))
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(
             rv,
             simd.simd_float2x2(
@@ -45595,6 +51640,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat2x2On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_simdfloat2x2_cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -45615,10 +51667,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat2x2On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_simdfloat3x3(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat3x3.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat3x3)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdfloat3x3, b"{simd_float3x3=[3<3f>]}")
 
@@ -45659,6 +51720,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat3x3.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat3x3)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat3x3, b"{simd_float3x3=[3<3f>]}"
@@ -45701,6 +51764,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat3x3.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat3x3)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdfloat3x3, b"{simd_float3x3=[3<3f>]}")
 
@@ -45754,6 +51819,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat3x3.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat3x3)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat3x3, b"{simd_float3x3=[3<3f>]}"
@@ -45761,6 +51828,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -45770,6 +51838,36 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(
+            rv,
+            simd.simd_float3x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            simd.simd_float3x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(
             rv,
             simd.simd_float3x3(
@@ -45826,6 +51924,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat3x3On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_simdfloat3x3_cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -45850,10 +51955,315 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat3x3On_(value)
+        finally:
+            del value.returnInvalid
+
+    def test_simdfloat4x3(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertFalse(OC_VectorCall.simdfloat4x3.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x3)
+        # Check that the signature is as expected
+        self.assertResultHasType(OC_VectorCall.simdfloat4x3, b"{simd_float4x3=[4<3f>]}")
+
+        # Create test object
+        oc = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        caller = oc.simdfloat4x3
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            simd.simd_float4x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+    def test_clssimdfloat4x3(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertTrue(OC_VectorCall.clssimdfloat4x3.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x3)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.clssimdfloat4x3, b"{simd_float4x3=[4<3f>]}"
+        )
+
+        # Create test object
+        oc = OC_VectorCall
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        caller = oc.clssimdfloat4x3
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            simd.simd_float4x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+    def test_simdfloat4x3_imp(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertFalse(OC_VectorCall.simdfloat4x3.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x3)
+        # Check that the signature is as expected
+        self.assertResultHasType(OC_VectorCall.simdfloat4x3, b"{simd_float4x3=[4<3f>]}")
+
+        # Create test object
+        oc = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        imp = oc.methodForSelector_(b"simdfloat4x3")
+        self.assertIsInstance(imp, objc.IMP)
+        caller = partial(imp, oc)
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            simd.simd_float4x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+        # Call with invalid type for self
+        with self.assertRaisesRegex(ValueError, "unrecognized selector"):
+            imp(
+                42,
+            )
+
+        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
+            imp(
+                NoObjCValueObject,
+            )
+
+    def test_clssimdfloat4x3_imp(self):
+        OC_VectorCall.clearRaise()
+        # Verify method type
+        self.assertTrue(OC_VectorCall.clssimdfloat4x3.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x3)
+        # Check that the signature is as expected
+        self.assertResultHasType(
+            OC_VectorCall.clssimdfloat4x3, b"{simd_float4x3=[4<3f>]}"
+        )
+
+        # Create test object
+        oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
+        self.assertIsNot(oc, None)
+
+        # Set caller to the selector/IMP to call (With bound self)
+        imp = oc.methodForSelector_(b"clssimdfloat4x3")
+        self.assertIsInstance(imp, objc.IMP)
+        caller = partial(imp, oc)
+
+        # Valid call
+        rv = caller()
+        self.assertEqual(
+            rv,
+            simd.simd_float4x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            simd.simd_float4x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
+        self.assertEqual(
+            rv,
+            simd.simd_float4x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+
+        stored = oc.storedvalue()
+        self.assertIsInstance(stored, (list, tuple))
+        self.assertEqual(len(stored), 0)
+
+        # Too many arguments call
+        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
+            caller("hello")
+
+        # Exception handling
+        OC_VectorCall.setRaise()
+        with self.assertRaisesRegex(objc.error, "SimpleException"):
+            caller()
+
+        # Call with invalid type for self
+        with self.assertRaisesRegex(
+            TypeError, "Need Objective-C object or class as self"
+        ):
+            imp(
+                42,
+            )
+
+    def test_imp_simdfloat4x3(self):
+        value = OC_VectorCallInstance.alloc().init()
+        value.argvalues = 1
+        result = OC_VectorCallInvoke.simdfloat4x3On_(value)
+        self.assertEqual(
+            result,
+            simd.simd_float4x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+        self.assertIs(value.argvalues, None)
+
+        # Test raising an exception
+        value.shouldRaise = True
+        try:
+            with self.assertRaisesRegex(RuntimeError, "failure"):
+                OC_VectorCallInvoke.simdfloat4x3On_(value)
+        finally:
+            del value.shouldRaise
+
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x3On_(value)
+        finally:
+            del value.returnInvalid
+
+    def test_imp_simdfloat4x3_cls(self):
+        value = OC_VectorCallClass
+        value.argvalues = 1
+        result = OC_VectorCallInvoke.simdfloat4x3On_(value)
+        self.assertEqual(
+            result,
+            simd.simd_float4x3(
+                (
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                    objc.simd.vector_float3(0.0, 1.5, 3.0),
+                )
+            ),
+        )
+        self.assertIs(value.argvalues, None)
+
+        # Test raising an exception
+        value.shouldRaise = True
+        try:
+            with self.assertRaisesRegex(RuntimeError, "failure"):
+                OC_VectorCallInvoke.simdfloat4x3On_(value)
+        finally:
+            del value.shouldRaise
+
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x3On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_simdfloat4x4(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat4x4.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x4)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdfloat4x4, b"{simd_float4x4=[4<4f>]}")
 
@@ -45895,6 +52305,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat4x4.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x4)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat4x4, b"{simd_float4x4=[4<4f>]}"
@@ -45938,6 +52350,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat4x4.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x4)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdfloat4x4, b"{simd_float4x4=[4<4f>]}")
 
@@ -45992,6 +52406,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat4x4.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x4)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat4x4, b"{simd_float4x4=[4<4f>]}"
@@ -45999,6 +52415,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -46008,6 +52425,38 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(
+            rv,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(
             rv,
             simd.simd_float4x4(
@@ -46066,6 +52515,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_simdfloat4x4_cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -46091,10 +52547,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x4On_(value)
+        finally:
+            del value.returnInvalid
+
     def test_simdfloat4x4id_d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat4x4id_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x4id_d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simdfloat4x4id_d_, b"{simd_float4x4=[4<4f>]}"
@@ -46153,6 +52618,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat4x4id_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x4id_d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat4x4id_d_, b"{simd_float4x4=[4<4f>]}"
@@ -46211,6 +52678,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat4x4id_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x4id_d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simdfloat4x4id_d_, b"{simd_float4x4=[4<4f>]}"
@@ -46278,6 +52747,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat4x4id_d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x4id_d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat4x4id_d_, b"{simd_float4x4=[4<4f>]}"
@@ -46287,6 +52758,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -46296,6 +52768,34 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller("hello", -557000000000.0)
+        self.assertEqual(
+            rv,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(oc_inst, "hello", -557000000000.0)
+        self.assertEqual(
+            rv,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(type(oc), "hello", -557000000000.0)
         self.assertEqual(
             rv,
             simd.simd_float4x4(
@@ -46371,6 +52871,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x4iddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_simdfloat4x4id_d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -46402,10 +52909,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x4iddOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_simdfloat4x4d_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat4x4d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x4d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simdfloat4x4d_, b"{simd_float4x4=[4<4f>]}"
@@ -46459,6 +52975,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat4x4d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x4d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat4x4d_, b"{simd_float4x4=[4<4f>]}"
@@ -46512,6 +53030,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat4x4d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x4d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simdfloat4x4d_, b"{simd_float4x4=[4<4f>]}"
@@ -46574,6 +53094,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat4x4d_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x4d_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat4x4d_, b"{simd_float4x4=[4<4f>]}"
@@ -46582,6 +53104,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -46591,6 +53114,34 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(
+            rv,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(
+            rv,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(
             rv,
             simd.simd_float4x4(
@@ -46656,6 +53207,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x4dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_simdfloat4x4d__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -46681,10 +53239,19 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x4dOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_simdfloat4x4simdfloat4x4_id_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat4x4simdfloat4x4_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x4simdfloat4x4_id_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simdfloat4x4simdfloat4x4_id_, b"{simd_float4x4=[4<4f>]}"
@@ -46805,6 +53372,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat4x4simdfloat4x4_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x4simdfloat4x4_id_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat4x4simdfloat4x4_id_, b"{simd_float4x4=[4<4f>]}"
@@ -46925,6 +53494,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdfloat4x4simdfloat4x4_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdfloat4x4simdfloat4x4_id_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.simdfloat4x4simdfloat4x4_id_, b"{simd_float4x4=[4<4f>]}"
@@ -47076,6 +53647,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdfloat4x4simdfloat4x4_id_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdfloat4x4simdfloat4x4_id_)
         # Check that the signature is as expected
         self.assertResultHasType(
             OC_VectorCall.clssimdfloat4x4simdfloat4x4_id_, b"{simd_float4x4=[4<4f>]}"
@@ -47087,6 +53660,7 @@ class TestVectorCall(TestCase):
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -47096,6 +53670,56 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+            "hello",
+        )
+        self.assertEqual(
+            rv,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+            "hello",
+        )
+        self.assertEqual(
+            rv,
+            simd.simd_float4x4(
+                (
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                    objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
+                )
+            ),
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
             simd.simd_float4x4(
                 (
                     objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5),
@@ -47249,6 +53873,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x4simdfloat4x4idOn_(value)
+        finally:
+            del value.returnInvalid
+
     def test_imp_simdfloat4x4simdfloat4x4_id__cls(self):
         value = OC_VectorCallClass
         value.argvalues = 1
@@ -47287,11 +53918,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdfloat4x4simdfloat4x4idOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_simdquatdd_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdquatdd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdquatdd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdquatdd_, b"{simd_quatd=<4d>}")
         self.assertArgHasType(OC_VectorCall.simdquatdd_, 0, b"d")
@@ -47336,6 +53976,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdquatdd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdquatdd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clssimdquatdd_, b"{simd_quatd=<4d>}")
         self.assertArgHasType(OC_VectorCall.clssimdquatdd_, 0, b"d")
@@ -47380,6 +54022,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdquatdd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdquatdd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdquatdd_, b"{simd_quatd=<4d>}")
         self.assertArgHasType(OC_VectorCall.simdquatdd_, 0, b"d")
@@ -47433,12 +54077,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdquatdd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdquatdd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clssimdquatdd_, b"{simd_quatd=<4d>}")
         self.assertArgHasType(OC_VectorCall.clssimdquatdd_, 0, b"d")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -47448,6 +54095,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(
+            rv, simd.simd_quatd(objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5))
+        )
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(
+            rv, simd.simd_quatd(objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5))
+        )
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(
             rv, simd.simd_quatd(objc.simd.vector_double4(0.0, 1.5, 3.0, 4.5))
         )
@@ -47498,6 +54157,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdquatddOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_imp_simdquatdd__cls(self):
         value = OC_VectorCallClass
@@ -47516,11 +54182,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdquatddOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_simdquatf(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdquatf.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdquatf)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdquatf, b"{simd_quatf=<4f>}")
 
@@ -47555,6 +54230,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdquatf.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdquatf)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clssimdquatf, b"{simd_quatf=<4f>}")
 
@@ -47589,6 +54266,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdquatf.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdquatf)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdquatf, b"{simd_quatf=<4f>}")
 
@@ -47636,11 +54315,14 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdquatf.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdquatf)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clssimdquatf, b"{simd_quatf=<4f>}")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -47650,6 +54332,22 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller()
+        self.assertEqual(
+            rv, simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        )
+
+        # Valid call through instance
+        rv = imp(
+            oc_inst,
+        )
+        self.assertEqual(
+            rv, simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        )
+
+        # Valid call through meta
+        rv = imp(
+            type(oc),
+        )
         self.assertEqual(
             rv, simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
         )
@@ -47693,6 +54391,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdquatfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_imp_simdquatf_cls(self):
         value = OC_VectorCallClass
@@ -47711,11 +54416,20 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdquatfOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_simdquatfd_(self):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdquatfd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdquatfd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdquatfd_, b"{simd_quatf=<4f>}")
         self.assertArgHasType(OC_VectorCall.simdquatfd_, 0, b"d")
@@ -47760,6 +54474,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdquatfd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdquatfd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clssimdquatfd_, b"{simd_quatf=<4f>}")
         self.assertArgHasType(OC_VectorCall.clssimdquatfd_, 0, b"d")
@@ -47804,6 +54520,8 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertFalse(OC_VectorCall.simdquatfd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.simdquatfd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.simdquatfd_, b"{simd_quatf=<4f>}")
         self.assertArgHasType(OC_VectorCall.simdquatfd_, 0, b"d")
@@ -47857,12 +54575,15 @@ class TestVectorCall(TestCase):
         OC_VectorCall.clearRaise()
         # Verify method type
         self.assertTrue(OC_VectorCall.clssimdquatfd_.isClassMethod)
+        # Verify that method is not an initializer
+        self.assertIsNotInitializer(OC_VectorCall.clssimdquatfd_)
         # Check that the signature is as expected
         self.assertResultHasType(OC_VectorCall.clssimdquatfd_, b"{simd_quatf=<4f>}")
         self.assertArgHasType(OC_VectorCall.clssimdquatfd_, 0, b"d")
 
         # Create test object
         oc = OC_VectorCall
+        oc_inst = OC_VectorCall.alloc().init()
         self.assertIsNot(oc, None)
 
         # Set caller to the selector/IMP to call (With bound self)
@@ -47872,6 +54593,18 @@ class TestVectorCall(TestCase):
 
         # Valid call
         rv = caller(-557000000000.0)
+        self.assertEqual(
+            rv, simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        )
+
+        # Valid call through instance
+        rv = imp(oc_inst, -557000000000.0)
+        self.assertEqual(
+            rv, simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
+        )
+
+        # Valid call through meta
+        rv = imp(type(oc), -557000000000.0)
         self.assertEqual(
             rv, simd.simd_quatf(objc.simd.vector_float4(0.0, 1.5, 3.0, 4.5))
         )
@@ -47922,6 +54655,13 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
+        value.returnInvalid = True
+        try:
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdquatfdOn_(value)
+        finally:
+            del value.returnInvalid
+
     @min_os_level("10.13")
     def test_imp_simdquatfd__cls(self):
         value = OC_VectorCallClass
@@ -47940,681 +54680,9 @@ class TestVectorCall(TestCase):
         finally:
             del value.shouldRaise
 
-    def test_v16C(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertFalse(OC_VectorCall.v16C.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(OC_VectorCall.v16C, b"<16C>")
-
-        # Create test object
-        oc = OC_VectorCall.alloc().init()
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        caller = oc.v16C
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            objc.simd.vector_uchar16(
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-    def test_clsv16C(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertTrue(OC_VectorCall.clsv16C.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(OC_VectorCall.clsv16C, b"<16C>")
-
-        # Create test object
-        oc = OC_VectorCall
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        caller = oc.clsv16C
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            objc.simd.vector_uchar16(
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-    def test_v16C_imp(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertFalse(OC_VectorCall.v16C.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(OC_VectorCall.v16C, b"<16C>")
-
-        # Create test object
-        oc = OC_VectorCall.alloc().init()
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        imp = oc.methodForSelector_(b"v16C")
-        self.assertIsInstance(imp, objc.IMP)
-        caller = partial(imp, oc)
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            objc.simd.vector_uchar16(
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-        # Call with invalid type for self
-        with self.assertRaisesRegex(ValueError, "unrecognized selector"):
-            imp(
-                42,
-            )
-
-        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
-            imp(
-                NoObjCValueObject,
-            )
-
-    def test_clsv16C_imp(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertTrue(OC_VectorCall.clsv16C.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(OC_VectorCall.clsv16C, b"<16C>")
-
-        # Create test object
-        oc = OC_VectorCall
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        imp = oc.methodForSelector_(b"clsv16C")
-        self.assertIsInstance(imp, objc.IMP)
-        caller = partial(imp, oc)
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            objc.simd.vector_uchar16(
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-        # Call with invalid type for self
-        with self.assertRaisesRegex(
-            TypeError, "Need Objective-C object or class as self"
-        ):
-            imp(
-                42,
-            )
-
-    def test_imp_v16C(self):
-        value = OC_VectorCallInstance.alloc().init()
-        value.argvalues = 1
-        result = OC_VectorCallInvoke.v16COn_(value)
-        self.assertEqual(
-            result,
-            objc.simd.vector_uchar16(
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-            ),
-        )
-        self.assertIs(value.argvalues, None)
-
-        # Test raising an exception
-        value.shouldRaise = True
+        value.returnInvalid = True
         try:
-            with self.assertRaisesRegex(RuntimeError, "failure"):
-                OC_VectorCallInvoke.v16COn_(value)
+            with self.assertRaises((ValueError, TypeError)):
+                OC_VectorCallInvoke.simdquatfdOn_(value)
         finally:
-            del value.shouldRaise
-
-    def test_imp_v16C_cls(self):
-        value = OC_VectorCallClass
-        value.argvalues = 1
-        result = OC_VectorCallInvoke.v16COn_(value)
-        self.assertEqual(
-            result,
-            objc.simd.vector_uchar16(
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-            ),
-        )
-        self.assertIs(value.argvalues, None)
-
-        # Test raising an exception
-        value.shouldRaise = True
-        try:
-            with self.assertRaisesRegex(RuntimeError, "failure"):
-                OC_VectorCallInvoke.v16COn_(value)
-        finally:
-            del value.shouldRaise
-
-    @min_os_level("10.13")
-    def test_MPSImageHistogramInfo(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertFalse(OC_VectorCall.MPSImageHistogramInfo.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(
-            OC_VectorCall.MPSImageHistogramInfo, b"{MPSImageHistogramInfo=QZ<4f><4f>}"
-        )
-
-        # Create test object
-        oc = OC_VectorCall.alloc().init()
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        caller = oc.MPSImageHistogramInfo
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            (
-                4398046511104,
-                True,
-                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
-                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-    @min_os_level("10.13")
-    def test_clsMPSImageHistogramInfo(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertTrue(OC_VectorCall.clsMPSImageHistogramInfo.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(
-            OC_VectorCall.clsMPSImageHistogramInfo,
-            b"{MPSImageHistogramInfo=QZ<4f><4f>}",
-        )
-
-        # Create test object
-        oc = OC_VectorCall
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        caller = oc.clsMPSImageHistogramInfo
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            (
-                4398046511104,
-                True,
-                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
-                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-    @min_os_level("10.13")
-    def test_MPSImageHistogramInfo_imp(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertFalse(OC_VectorCall.MPSImageHistogramInfo.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(
-            OC_VectorCall.MPSImageHistogramInfo, b"{MPSImageHistogramInfo=QZ<4f><4f>}"
-        )
-
-        # Create test object
-        oc = OC_VectorCall.alloc().init()
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        imp = oc.methodForSelector_(b"MPSImageHistogramInfo")
-        self.assertIsInstance(imp, objc.IMP)
-        caller = partial(imp, oc)
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            (
-                4398046511104,
-                True,
-                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
-                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-        # Call with invalid type for self
-        with self.assertRaisesRegex(ValueError, "unrecognized selector"):
-            imp(
-                42,
-            )
-
-        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
-            imp(
-                NoObjCValueObject,
-            )
-
-    @min_os_level("10.13")
-    def test_clsMPSImageHistogramInfo_imp(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertTrue(OC_VectorCall.clsMPSImageHistogramInfo.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(
-            OC_VectorCall.clsMPSImageHistogramInfo,
-            b"{MPSImageHistogramInfo=QZ<4f><4f>}",
-        )
-
-        # Create test object
-        oc = OC_VectorCall
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        imp = oc.methodForSelector_(b"clsMPSImageHistogramInfo")
-        self.assertIsInstance(imp, objc.IMP)
-        caller = partial(imp, oc)
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            (
-                4398046511104,
-                True,
-                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
-                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-        # Call with invalid type for self
-        with self.assertRaisesRegex(
-            TypeError, "Need Objective-C object or class as self"
-        ):
-            imp(
-                42,
-            )
-
-    @min_os_level("10.13")
-    def test_imp_MPSImageHistogramInfo(self):
-        value = OC_VectorCallInstance.alloc().init()
-        value.argvalues = 1
-        result = OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
-        self.assertEqual(
-            result,
-            (
-                4398046511104,
-                True,
-                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
-                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
-            ),
-        )
-        self.assertIs(value.argvalues, None)
-
-        # Test raising an exception
-        value.shouldRaise = True
-        try:
-            with self.assertRaisesRegex(RuntimeError, "failure"):
-                OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
-        finally:
-            del value.shouldRaise
-
-    @min_os_level("10.13")
-    def test_imp_MPSImageHistogramInfo_cls(self):
-        value = OC_VectorCallClass
-        value.argvalues = 1
-        result = OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
-        self.assertEqual(
-            result,
-            (
-                4398046511104,
-                True,
-                objc.simd.vector_float4(1.0, 2.0, 3.0, 4.0),
-                objc.simd.vector_float4(-1.0, -2.0, -3.0, -4.0),
-            ),
-        )
-        self.assertIs(value.argvalues, None)
-
-        # Test raising an exception
-        value.shouldRaise = True
-        try:
-            with self.assertRaisesRegex(RuntimeError, "failure"):
-                OC_VectorCallInvoke.MPSImageHistogramInfoOn_(value)
-        finally:
-            del value.shouldRaise
-
-    @min_os_level("10.14")
-    def test_MPSAxisAlignedBoundingBox(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertFalse(OC_VectorCall.MPSAxisAlignedBoundingBox.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(
-            OC_VectorCall.MPSAxisAlignedBoundingBox,
-            b"{_MPSAxisAlignedBoundingBox=<3f><3f>}",
-        )
-
-        # Create test object
-        oc = OC_VectorCall.alloc().init()
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        caller = oc.MPSAxisAlignedBoundingBox
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            (
-                objc.simd.vector_float3(1.5, 2.5, 3.5),
-                objc.simd.vector_float3(4.5, 5.5, 6.5),
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-    @min_os_level("10.14")
-    def test_clsMPSAxisAlignedBoundingBox(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertTrue(OC_VectorCall.clsMPSAxisAlignedBoundingBox.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(
-            OC_VectorCall.clsMPSAxisAlignedBoundingBox,
-            b"{_MPSAxisAlignedBoundingBox=<3f><3f>}",
-        )
-
-        # Create test object
-        oc = OC_VectorCall
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        caller = oc.clsMPSAxisAlignedBoundingBox
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            (
-                objc.simd.vector_float3(1.5, 2.5, 3.5),
-                objc.simd.vector_float3(4.5, 5.5, 6.5),
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-    @min_os_level("10.14")
-    def test_MPSAxisAlignedBoundingBox_imp(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertFalse(OC_VectorCall.MPSAxisAlignedBoundingBox.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(
-            OC_VectorCall.MPSAxisAlignedBoundingBox,
-            b"{_MPSAxisAlignedBoundingBox=<3f><3f>}",
-        )
-
-        # Create test object
-        oc = OC_VectorCall.alloc().init()
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        imp = oc.methodForSelector_(b"MPSAxisAlignedBoundingBox")
-        self.assertIsInstance(imp, objc.IMP)
-        caller = partial(imp, oc)
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            (
-                objc.simd.vector_float3(1.5, 2.5, 3.5),
-                objc.simd.vector_float3(4.5, 5.5, 6.5),
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-        # Call with invalid type for self
-        with self.assertRaisesRegex(ValueError, "unrecognized selector"):
-            imp(
-                42,
-            )
-
-        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
-            imp(
-                NoObjCValueObject,
-            )
-
-    @min_os_level("10.14")
-    def test_clsMPSAxisAlignedBoundingBox_imp(self):
-        OC_VectorCall.clearRaise()
-        # Verify method type
-        self.assertTrue(OC_VectorCall.clsMPSAxisAlignedBoundingBox.isClassMethod)
-        # Check that the signature is as expected
-        self.assertResultHasType(
-            OC_VectorCall.clsMPSAxisAlignedBoundingBox,
-            b"{_MPSAxisAlignedBoundingBox=<3f><3f>}",
-        )
-
-        # Create test object
-        oc = OC_VectorCall
-        self.assertIsNot(oc, None)
-
-        # Set caller to the selector/IMP to call (With bound self)
-        imp = oc.methodForSelector_(b"clsMPSAxisAlignedBoundingBox")
-        self.assertIsInstance(imp, objc.IMP)
-        caller = partial(imp, oc)
-
-        # Valid call
-        rv = caller()
-        self.assertEqual(
-            rv,
-            (
-                objc.simd.vector_float3(1.5, 2.5, 3.5),
-                objc.simd.vector_float3(4.5, 5.5, 6.5),
-            ),
-        )
-
-        stored = oc.storedvalue()
-        self.assertIsInstance(stored, (list, tuple))
-        self.assertEqual(len(stored), 0)
-
-        # Too many arguments call
-        with self.assertRaisesRegex(TypeError, "expected.*arguments.*got"):
-            caller("hello")
-
-        # Exception handling
-        OC_VectorCall.setRaise()
-        with self.assertRaisesRegex(objc.error, "SimpleException"):
-            caller()
-
-        # Call with invalid type for self
-        with self.assertRaisesRegex(
-            TypeError, "Need Objective-C object or class as self"
-        ):
-            imp(
-                42,
-            )
-
-    @min_os_level("10.14")
-    def test_imp_MPSAxisAlignedBoundingBox(self):
-        value = OC_VectorCallInstance.alloc().init()
-        value.argvalues = 1
-        result = OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
-        self.assertEqual(
-            result,
-            (
-                objc.simd.vector_float3(1.5, 2.5, 3.5),
-                objc.simd.vector_float3(4.5, 5.5, 6.5),
-            ),
-        )
-        self.assertIs(value.argvalues, None)
-
-        # Test raising an exception
-        value.shouldRaise = True
-        try:
-            with self.assertRaisesRegex(RuntimeError, "failure"):
-                OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
-        finally:
-            del value.shouldRaise
-
-    @min_os_level("10.14")
-    def test_imp_MPSAxisAlignedBoundingBox_cls(self):
-        value = OC_VectorCallClass
-        value.argvalues = 1
-        result = OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
-        self.assertEqual(
-            result,
-            (
-                objc.simd.vector_float3(1.5, 2.5, 3.5),
-                objc.simd.vector_float3(4.5, 5.5, 6.5),
-            ),
-        )
-        self.assertIs(value.argvalues, None)
-
-        # Test raising an exception
-        value.shouldRaise = True
-        try:
-            with self.assertRaisesRegex(RuntimeError, "failure"):
-                OC_VectorCallInvoke.MPSAxisAlignedBoundingBoxOn_(value)
-        finally:
-            del value.shouldRaise
+            del value.returnInvalid

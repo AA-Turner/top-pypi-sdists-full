@@ -20,16 +20,6 @@ class ExtendedProtectionPolicyTypeConverter(System.ComponentModel.TypeConverter)
         ...
 
 
-class ChannelBindingKind(Enum):
-    """This class has no documentation."""
-
-    UNKNOWN = 0
-
-    UNIQUE = ...
-
-    ENDPOINT = ...
-
-
 class ChannelBinding(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -47,5 +37,15 @@ class ChannelBinding(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
     def __init__(self, owns_handle: bool) -> None:
         """This method is protected."""
         ...
+
+
+class ChannelBindingKind(Enum):
+    """This class has no documentation."""
+
+    UNKNOWN = 0
+
+    UNIQUE = ...
+
+    ENDPOINT = ...
 
 

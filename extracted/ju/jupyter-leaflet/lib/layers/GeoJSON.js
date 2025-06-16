@@ -26,7 +26,9 @@ export class LeafletGeoJSONView extends LeafletFeatureGroupView {
                 ...model_style,
             };
         };
-        const options = {
+        // Use get_options to trigger default option fetch behaviour
+        let options = this.get_options();
+        const geojson_options = {
             style: style,
             onEachFeature: (feature, layer) => {
                 const mouseevent = (e) => {
@@ -41,14 +43,24 @@ export class LeafletGeoJSONView extends LeafletFeatureGroupView {
                         feature: feature,
                         properties: feature.properties,
                         id: feature.id,
+                        coordinates: [e.latlng.lat, e.latlng.lng],
                     });
                 };
+                const pmIgnore = this.model.get('pm_ignore');
+                if (pmIgnore !== undefined) {
+                    layer.pmIgnore = pmIgnore;
+                    if (pmIgnore && layer.pm) {
+                        layer.pm.disable();
+                        delete layer.pm;
+                    }
+                }
                 layer.on({
                     mouseover: mouseevent,
                     click: mouseevent,
                 });
             },
         };
+        options = { ...options, ...geojson_options };
         const point_style = this.model.get('point_style');
         if (Object.keys(point_style).length !== 0) {
             options.pointToLayer = function (feature, latlng) {
@@ -58,6 +70,7 @@ export class LeafletGeoJSONView extends LeafletFeatureGroupView {
         this.obj = L.geoJson(this.model.get('data'), options);
     }
     model_events() {
+        super.model_events();
         this.listenTo(this.model, 'change:style', () => {
             this.obj.setStyle(this.model.get('style'));
         });
@@ -65,6 +78,10 @@ export class LeafletGeoJSONView extends LeafletFeatureGroupView {
             this.obj.clearLayers();
             this.obj.addData(this.model.get('data'));
         });
+        // TODO this "visible" toggle is misleading, it suggests that there is
+        //  a visibility flag available in leaflet but actually it just doesn't add data.
+        //  This can lead to wasteful usage since it's the same as simply not adding geojson data
+        //  on the python side, except that in this case data will be transfered and then not used.
         this.listenTo(this.model, 'change:visible', () => {
             if (this.model.get('visible')) {
                 this.obj.addData(this.model.get('data'));

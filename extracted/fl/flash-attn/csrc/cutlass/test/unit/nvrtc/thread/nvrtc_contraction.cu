@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2017 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2017 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,9 @@ TEST(SM90_nvrtc_kernel, Contraction) {
     "-std=c++17",
     "-arch=sm_90",
     "-I" CUDA_INCLUDE_DIR,
+#if (__CUDACC_VER_MAJOR__ >= 13)
+    "-I" CUDA_INCLUDE_DIR "/cccl",
+#endif // __CUDACC_VER_MAJOR__ >= 13
   };
 
   EXPECT_TRUE(test::nvrtc::thread::TestbedKernel::compile(
@@ -60,7 +63,7 @@ TEST(SM90_nvrtc_kernel, Contraction) {
         "cute::Shape<cute::_1, cute::_2, cute::_1>,"
         "true, true,"
         "10, 10, 10, 10>::Kernel",
-    { nvrtc_opts, nvrtc_opts + 5 }
+    { std::begin(nvrtc_opts), std::end(nvrtc_opts) }
   ));
 }
 #endif

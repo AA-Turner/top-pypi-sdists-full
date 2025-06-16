@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2017 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2017 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -253,7 +253,7 @@ struct ExampleRunner
 
   using EpilogueRef = cutlass::epilogue::collective::detail::Sm90TmaWarpSpecializedAdapter<
     cutlass::epilogue::collective::DefaultEpilogue<
-      StrideC, StrideD,
+      ElementC, StrideC, StrideD,
       typename Epilogue::ThreadEpilogueOp,
       typename Epilogue::EpilogueSchedule
     >
@@ -626,6 +626,13 @@ int main(int argc, const char ** argv) {
     std::cerr << "This example requires a device with compute capability 90 or higher.\n";
     notSupported = true;
   }
+  
+  else if (props.major != 9 || props.minor != 0) {
+    std::cerr << "This example requires a GPU of NVIDIA's Hopper Architecture (compute capability 90).\n";
+    notSupported = true;
+  }
+  
+
   if (notSupported) {
     return EXIT_SUCCESS; // Do not fail CI checks on unsupported systems
   }

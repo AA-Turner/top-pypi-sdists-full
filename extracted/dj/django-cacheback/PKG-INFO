@@ -1,0 +1,99 @@
+Metadata-Version: 2.1
+Name: django-cacheback
+Version: 3.0.0
+Summary: Caching library for Django that uses Celery or RQ to refresh cache items asynchronously
+Home-page: https://github.com/codeinthehole/django-cacheback
+License: MIT
+Keywords: flake8,markdown,lint
+Author: David Winterbottom
+Author-email: david.winterbottom@gmail.com
+Requires-Python: >=3.6,<4
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Provides-Extra: celery
+Provides-Extra: docs
+Provides-Extra: rq
+Requires-Dist: Sphinx (>=3.3.0,<4); extra == "docs"
+Requires-Dist: celery (>=4); extra == "celery"
+Requires-Dist: django (>=2)
+Requires-Dist: django-rq (>=2); extra == "rq"
+Requires-Dist: importlib-metadata; python_version < "3.8"
+Project-URL: Repository, https://github.com/codeinthehole/django-cacheback
+Description-Content-Type: text/x-rst
+
+=========
+Cacheback
+=========
+
+----------------------------------------
+Asynchronous cache refreshing for Django
+----------------------------------------
+
+What does this library do?
+--------------------------
+
+It's an extensible caching library that refreshes stale cache items
+asynchronously using a Celery_ or rq_ task (utilizing django-rq). The key
+idea being that it's better to serve a stale item (and populate the cache
+asynchronously) than block the response process in order to populate the cache
+synchronously.
+
+.. _Celery: http://celeryproject.org/
+.. _rq: http://python-rq.org/
+
+Using this library, you can rework your views so that all reads are from
+cache - which can be a significant performance boost.
+
+A corollary of this technique is that cache hammering can be handled simply and
+elegantly, avoiding sudden surges of expensive reads when a cached item becomes stale.
+
+
+Do you have good docs?
+----------------------
+
+Yup - `over on readthedocs.org`_.
+
+.. _`over on readthedocs.org`: http://django-cacheback.readthedocs.org/en/latest/
+
+
+Supported versions
+------------------
+
+Python 3.6+ is supported. Django 2.0+ is supported.
+
+
+Do you have tests?
+------------------
+
+You betcha!
+
+.. image:: https://github.com/codeinthehole/django-cacheback/workflows/CI/badge.svg?branch=master
+     :target: https://github.com/codeinthehole/django-cacheback/actions?workflow=CI
+     :alt: CI Status
+
+
+Can I use this in my project?
+-----------------------------
+
+Probably - subject to the `MIT license`_.
+
+.. _`MIT license`: https://github.com/codeinthehole/django-cacheback/blob/master/LICENSE
+
+
+I want to contribute!
+---------------------
+
+Brilliant!  Here are the `contributing guidelines`_.
+
+.. _`contributing guidelines`: http://django-cacheback.readthedocs.org/en/latest/contributing.html
+

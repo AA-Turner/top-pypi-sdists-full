@@ -1,0 +1,147 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools-scm[toml]>=7.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lakefs-spec"
+description = "An fsspec implementation for lakeFS."
+keywords = ["lakeFS", "fsspec"]
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "appliedAI Institute for Europe", email = "lakefs-spec@appliedai-institute.de" },
+]
+maintainers = [
+    { name = "Nicholas Junge", email = "n.junge@appliedai-institute.de" },
+    { name = "Max Mynter", email = "m.mynter@appliedai-institute.de" },
+    { name = "Adrian Rumpold", email = "a.rumpold@appliedai-institute.de" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Version Control",
+    "Topic :: System :: Filesystems",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "fsspec>=2023.12.0",
+    "lakefs>=0.2.0",
+]
+
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/aai-institute/lakefs-spec"
+Repository = "https://github.com/aai-institute/lakefs-spec.git"
+Issues = "https://github.com/aai-institute/lakefs-spec/issues"
+Discussions = "https://github.com/aai-institute/lakefs-spec/discussions"
+Documentation = "https://lakefs-spec.org/latest"
+
+[dependency-groups]
+dev = [
+    "build>=0.10.0",
+    "pre-commit>=3.3.3",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pydoclint",
+    # for integration tests.
+    "pandas[parquet]",
+    "polars",
+    "duckdb",
+    "pytest-asyncio>=0.24.0",
+]
+docs = [
+    "mkdocs",
+    "mkdocs-callouts",
+    "mkdocs-gen-files",
+    "mkdocs-literate-nav",
+    "mkdocs-section-index",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "mkdocs-git-revision-date-localized-plugin",
+    "mkdocs-include-dir-to-nav",
+    "neoteroi-mkdocs",
+    "mknotebooks",
+    "jupyter",
+    "jupytext",                                  # conversion between Jupytext and ipynb notebooks
+    "black",                                     # formatting of signatures in docs
+    "mike",
+    "docstring-parser",
+    "scikit-learn",                              # for the data science demo.
+    "pandas",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+lakefs_spec = ["py.typed"]
+
+# Automatically determine version number from Git tags
+[tool.setuptools_scm]
+
+[tool.mypy]
+allow_redefinition = true
+check_untyped_defs = true
+disallow_incomplete_defs = true
+pretty = true
+python_version = "3.10"
+strict_optional = false
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["yaml"]
+ignore_missing_imports = true
+
+[tool.ruff]
+# explicitly set src folder for isort to understand first-party imports correctly.
+src = ["src"]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# Enable pycodestyle errors & warnings (`E`, `W`), bandit (`S`), Pyflakes (`F`),
+# isort (`I`), and pyupgrade (`UP`) by default.
+select = ["E", "F", "I", "S", "W", "UP"]
+ignore = [
+    # Line too long
+    "E501",
+    # Allow capitalized variable names
+    "F841",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore unused imports in all `__init__.py` files
+"__init__.py" = ["F401"]
+"docs/tutorials/*.py" = [
+    "E402",
+    "S",
+] # Imports may appear anywhere in Jupytext notebooks
+"tests/**/*.py" = ["S"]  # Tests are not security-critical.
+
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "WARNING"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.pydoclint]
+style = 'numpy'
+exclude = '\.git|venv'
+
+[tool.coverage.report]
+exclude_also = ["@overload", "raise NotImplementedError"]

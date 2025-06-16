@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: tcod
-Version: 18.1.0
+Version: 19.0.0
 Summary: The official Python port of libtcod.
 Author-email: Kyle Benesch <4b796c65+tcod@gmail.com>
-License: Simplified BSD License
+License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://github.com/libtcod/python-tcod
 Project-URL: Documentation, https://python-tcod.readthedocs.io
 Project-URL: Changelog, https://github.com/libtcod/python-tcod/blob/main/CHANGELOG.md
@@ -19,26 +19,26 @@ Classifier: Environment :: Win32 (MS Windows)
 Classifier: Environment :: MacOS X
 Classifier: Environment :: X11 Applications
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Games/Entertainment
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+License-File: libtcod/LICENSE.txt
+License-File: libtcod/LIBTCOD-CREDITS.txt
 Requires-Dist: cffi>=1.15
 Requires-Dist: numpy>=1.21.4; implementation_name != "pypy"
 Requires-Dist: typing_extensions>=4.12.2
@@ -93,9 +93,9 @@ For the most part it's just::
 ==============
  Requirements
 ==============
-* Python 3.8+
+* Python 3.10+
 * Windows, Linux, or MacOS X 10.9+.
-* On Linux, requires libsdl2 (2.0.10+).
+* On Linux, requires libsdl3
 
 ===========
  Changelog

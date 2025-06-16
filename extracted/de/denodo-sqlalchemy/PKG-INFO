@@ -1,0 +1,135 @@
+Metadata-Version: 2.4
+Name: denodo-sqlalchemy
+Version: 2.0.4
+Summary: Denodo Dialect for SQLAlchemy
+Author-email: Denodo Research Labs <research.labs@denodo.com>
+License: This is the MIT license: http://www.opensource.org/licenses/mit-license.php
+        
+        Copyright (c) 2022-2025 denodo (https://www.denodo.com)
+        
+        Copyright (c) 2005-2025 the SQLAlchemy authors and contributors <see AUTHORS file>.
+        SQLAlchemy is a trademark of Michael Bayer.
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy of this
+        software and associated documentation files (the "Software"), to deal in the Software
+        without restriction, including without limitation the rights to use, copy, modify, merge,
+        publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+        to whom the Software is furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all copies or
+        substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+        INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+        PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+        FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+        OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+        DEALINGS IN THE SOFTWARE.
+        
+Keywords: sqlalchemy,denodo,database,data,data analysis,data science
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Database
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE.txt
+License-File: AUTHORS
+License-File: AUTHORS-denodo
+Requires-Dist: sqlalchemy>=1.4.36
+Requires-Dist: psycopg2-binary>=2.9.6
+Provides-Extra: flightsql
+Requires-Dist: sqlalchemy>=2.0.0; extra == "flightsql"
+Requires-Dist: adbc-driver-flightsql~=1.3.0; extra == "flightsql"
+Requires-Dist: pyarrow~=19.0.0; extra == "flightsql"
+Dynamic: license-file
+
+This package includes the Denodo Dialect for SQLAlchemy, which offers an easy way to connect to Denodo databases from SQLAlchemy https://www.sqlalchemy.org/
+
+Denodo documentation and software resources are available at https://community.denodo.com
+
+This dialect supports Denodo 8.0 and higher.
+
+
+## Pre-requisites
+
+Python 3.9 or newer is needed.
+
+This dialect requires the following Python modules:
+   * SQLAlchemy 1.4.36 or higher. SQLAlchemy 2.0.x is recommended.
+   * psycopg2 version 2.9.6 or higher.
+
+These Python modules are also required dependencies in order to use Denodo Virtual DataPort's Flight SQL interface
+(available since Denodo 9.1):
+   * SQLAlchemy 2.0.0 or higher.
+   * adbc-driver-flightsql version 1.3.0.
+   * pyarrow version 19.0.0.
+ 
+Required dependencies will be installed automatically, in order to install dependencies for Flight SQL 
+the `flightsql` extras package needs to be installed:
+
+```shell        
+pip install denodo-sqlalchemy[flightsql]
+```
+
+Alternatively, dependency packages can be installed manually:
+
+```shell        
+pip install sqlalchemy~=2.0.0
+pip install psycopg2-binary>=2.9.6
+pip install adbc-driver-flightsql~=1.3.0
+pip install pyarrow~=19.0.0
+```
+
+Important: note also that psycopg2 has its own requirements for installation which need to be satisfied: https://www.psycopg.org/docs/install.html#prerequisites
+
+
+## Installation
+
+The Denodo Dialect for SQLAlchemy can be installed from the public PyPI repository using `pip`:
+
+```shell        
+pip install --upgrade denodo-sqlalchemy
+```
+Or (only for Denodo 9.1+):
+```shell        
+pip install --upgrade denodo-sqlalchemy[flightsql]
+```
+
+`pip` automatically installs all required dependencies.
+
+
+## Usage
+
+To connect to Denodo VDP Server with SQLAlchemy, the following URL pattern can be used:
+
+```
+denodo://<username>:<password>@<host>:<port[9996]>/<database>
+```
+
+This will create a connection using the default driver `psycopg2`, so it is equivalent to:
+
+```
+denodo+psycopg2://<username>:<password>@<host>:<port[9996]>/<database>
+```
+
+In order to create a connection using Flight SQL, you would need: 
+
+```
+denodo+flightsql://<username>:<password>@<host>:<port[9994]>/<database>
+```
+
+Please note that Flight SQL connections assume SSL is enabled at the server. If not, you would need to add the `use_encryption` parameter set to `False`, like:
+
+```
+engine = sqlalchemy.create_engine("denodo+flightsql://<username>:<password>@<host>:<port[9994]>/<database>", connect_args={"use_encryption":"false"})
+```

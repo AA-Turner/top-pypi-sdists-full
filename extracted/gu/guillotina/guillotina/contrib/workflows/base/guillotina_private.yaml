@@ -1,5 +1,0 @@
-initial_state: private
-states:
-  private:
-    set_permission: {}
-    actions: {}

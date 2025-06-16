@@ -1,0 +1,105 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hdmf_docutils"
+authors = [
+    { name = "Oliver Ruebel", email = "oruebel@lbl.gov" },
+    { name = "Ryan Ly", email = "rly@lbl.gov" },
+]
+description = "Collection of CLIs, scripts and modules useful to generate the NWB documentation"
+readme = "README.rst"
+requires-python = ">=3.8"
+license = "BSD-3-Clause-LBNL"
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: BSD License",
+    "Development Status :: 2 - Pre-Alpha",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Documentation :: Sphinx",
+]
+keywords = [
+    "Neuroscience",
+    "python",
+    "HDF",
+    "HDF5", 
+    "cross-platform",
+    "open-data",
+    "data-format",
+    "open-source",
+    "open-science",
+    "reproducible-research",
+    "NWB",
+    "NWB:N",
+    "NeurodataWithoutBorders"
+]
+dependencies = [
+    "matplotlib",
+    "networkx",
+    "hdmf",
+    "pillow",
+    "sphinx",
+    "sphinx-gallery",
+    "sphinx_rtd_theme",
+    "ruamel.yaml",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "codespell",
+    "ruff",
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/hdmf-dev/hdmf-docutils"
+
+[project.scripts]
+hdmf_generate_format_docs = "hdmf_docutils.generate_format_docs:main"
+nwb_generate_format_docs = "hdmf_docutils.generate_format_docs:nwb_main"
+hdmf_init_sphinx_extension_doc = "hdmf_docutils.init_sphinx_extension_doc:main"
+nwb_init_sphinx_extension_doc = "hdmf_docutils.init_sphinx_extension_doc:nwb_main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+# this file is created/updated when the package is installed and used in
+# hdmf_docutils/__init__.py to set `hdmf_docutils.__version__`
+version-file = "hdmf_docutils/_version.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ".git*",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["hdmf_docutils"]
+
+[tool.codespell]
+skip = "htmlcov,.git,.mypy_cache,.pytest_cache,.coverage,*.pdf,*.svg,venvs,.tox,hdmf-common-schema,./docs/_build/*,*.ipynb"
+ignore-words-list = "datas,assertIn"
+
+[tool.ruff]
+# TODO: Add C901. Some of the functions are too complex.
+lint.select = ["E", "F"]
+
+# Same as Black.
+line-length = 88
+
+# Ignore specific rules that were ignored in flake8
+lint.ignore = [
+    "E101",  # Mixed spaces and tabs
+    "E501",  # Line too long
+    "E722",  # Do not use bare 'except'
+]

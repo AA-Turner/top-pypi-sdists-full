@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::iter::zip;
 use std::path::Path;
-use csv::Reader;
+use csv::{Reader, ReaderBuilder};
 use flate2::bufread::GzDecoder;
 use log::{debug, error, info};
 use pyo3::exceptions::{PyRuntimeError};
@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::Validation::{RegularExpression};
 
 const MAX_SAMPLE_SIZE:u16 = 10;
+const DEFAULT_COLUMN_SEPARATOR:u8 = b',';
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 enum Validation {
@@ -121,16 +122,20 @@ fn get_regex_string_for_values(values: &Vec<String>) -> String {
 }
 
 /// Infers the file compression type and returns the corresponding buffered reader
-fn get_reader_from(path: &str) -> PyResult<Reader<Box<dyn Read>>> {
+fn get_reader_from(path: &str, separator: u8) -> PyResult<Reader<Box<dyn Read>>> {
     let buf_reader = BufReader::new(File::open(Path::new(path))?);
     if is_gzip_file(path)? {
         debug!("File is gzipped");
         let read_capacity = 10 * 1024_usize.pow(2);
         let reader = BufReader::with_capacity(read_capacity, GzDecoder::new(buf_reader));
-        Ok(Reader::from_reader(Box::new(reader)))
+        Ok(ReaderBuilder::new()
+            .delimiter(separator)
+            .from_reader(Box::new(reader)))
     }
     else {
-        Ok(Reader::from_reader(Box::new(buf_reader)))
+        Ok(ReaderBuilder::new()
+            .delimiter(separator)
+            .from_reader(Box::new(buf_reader)))
     }
 }
 
@@ -258,7 +263,8 @@ fn get_regex_for_format(format: &str) -> PyResult<String> {
         "integer" => Ok(String::from("^$|^-?\\d+$")),
         "positive integer" => Ok(String::from("^$|^\\d+$")),
         "decimal" => Ok(String::from("^$|^-?\\d+(\\.\\d+)?$")),
-        "positive decimal" => Ok(String::from("^$|^\\d+(\\.\\d+)?$")),
+        "positive decimal point" | "positive decimal" => Ok(String::from("^$|^\\d+(\\.\\d+)?$")),
+        "positive decimal comma" => Ok(String::from("^$|^\\d+(,\\d+)?$")),
         "decimal scientific" => Ok(String::from("^$|^-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?$")),
         "non_empty" => Ok(String::from("^.+$")),
         _ => Err(PyRuntimeError::new_err(format!("Unknown format: {format}")))
@@ -276,15 +282,17 @@ fn validate_column_names(reader: &mut Reader<Box<dyn Read>>, validations: &Vec<C
 
     if expected_column_names != headers {
         if expected_column_names.len() != headers.len() {
+            info!("The number of columns in the CSV file doesn't match the validations:");
             let expected_columns_set: HashSet<String> = expected_column_names.iter().cloned().collect();
             let headers_set: HashSet<String> = headers.iter().cloned().collect();
-            debug!("These column names in the CSV file were not expected: {:?}", headers_set.difference(&expected_columns_set));
-            debug!("These expected column names were missing in the CSV file: {:?}", expected_columns_set.difference(&headers_set));
+            info!("These column names in the CSV file were not expected: {:?}", headers_set.difference(&expected_columns_set));
+            info!("These expected column names were missing in the CSV file: {:?}", expected_columns_set.difference(&headers_set));
         }
         else {
+            info!("The CSV file has the same number of columns than the validations but some names are different:");
             for (expected_column, header) in zip(expected_column_names, headers) {
                 if expected_column != header {
-                    debug!("{:?} != {:?}", expected_column, header);
+                    info!("{:?} != {:?}", expected_column, header);
                 }
             }
         }
@@ -296,7 +304,8 @@ fn validate_column_names(reader: &mut Reader<Box<dyn Read>>, validations: &Vec<C
 #[pyclass]
 struct CSVValidator {
     validations: Vec<ColumnValidations>,
-    regex_map: HashMap<String, Regex>
+    regex_map: HashMap<String, Regex>,
+    separator: u8
 }
 
 #[pymethods]
@@ -305,7 +314,8 @@ impl CSVValidator {
     fn new() -> Self {
         CSVValidator {
             validations: Vec::new(),
-            regex_map: HashMap::new()
+            regex_map: HashMap::new(),
+            separator: DEFAULT_COLUMN_SEPARATOR
         }
     }
 
@@ -336,12 +346,22 @@ impl CSVValidator {
             }
         }
 
-        Ok(CSVValidator { validations, regex_map })
+        Ok(CSVValidator { validations, regex_map, separator: DEFAULT_COLUMN_SEPARATOR })
+    }
+
+    fn set_separator(&mut self, separator: String)  -> PyResult<()> {
+        if separator.len() == 1 {
+            self.separator = separator.chars().next().unwrap() as u8;
+            Ok(())
+        }
+        else {
+            Err(PyRuntimeError::new_err(format!("Wrong separator {separator}. It can only have one character")))
+        }
     }
 
     fn validate(&self, file_path: &str) -> PyResult<bool> {
         // Build the CSV reader
-        let mut rdr = get_reader_from(file_path)?;
+        let mut rdr = get_reader_from(file_path, self.separator)?;
 
         // First validation: Ensure column names and order are exactly as expected
         if validate_column_names(&mut rdr, &self.validations)? {
@@ -396,6 +416,7 @@ impl CSVValidator {
         // TODO: Decide how to return the results of the validations
         let _validation_result_json = serde_json::to_string(&column_validation_summaries).unwrap();
 
+        let mut failed_columns = HashMap::new();
         info!("VALIDATIONS SUMMARY");
         info!("==================================================================================");
         info!("Rows: {} | Columns: {}", validated_rows, column_validation_summaries.len());
@@ -409,6 +430,13 @@ impl CSVValidator {
                 };
                 info!("\tValidation {:?} => Wrong Rows: {}{}", validation_summary.validation,
                     validation_summary.wrong_rows, wrong_values_sample);
+                if validation_summary.wrong_rows > 0 {
+                    let column_name = &column_validation_summary.column_name;
+                    if !failed_columns.contains_key(column_name) {
+                        failed_columns.insert(column_name.clone(), vec!());
+                    }
+                    failed_columns.get_mut(column_name).unwrap().push(validation_summary);
+                }
             }
         }
 
@@ -416,7 +444,13 @@ impl CSVValidator {
             info!("OK: File matches the validations");
         }
         else {
-            info!("NO OK: File DOESN'T match validations");
+            info!("NO OK: File DOESN'T match validations. Failed Validations:");
+            for (column_name, failed_validations) in failed_columns.into_iter() {
+                info!("COLUMN '{}' :", column_name);
+                for validation_summary in failed_validations {
+                    info!("\tValidation {:?} => Wrong Rows: {}", validation_summary.validation, validation_summary.wrong_rows)
+                }
+            }
         }
         Ok(is_valid_file)
     }

@@ -9,9 +9,12 @@ import sys
 import test.pickletester
 import collections
 import pathlib
+import datetime
+from unittest import mock, SkipTest
 
 import objc
 import objc._pycoder as pycoder
+from PyObjCTest.objectint import OC_NoPythonRepresentation
 from PyObjCTest.fnd import (
     NSArchiver,
     NSArray,
@@ -74,6 +77,15 @@ class frozenset_subclass(frozenset):
     pass
 
 
+class key_class:
+    def __hash__(self):
+        return 42
+
+
+class custom_date(datetime.date):
+    pass
+
+
 class with_getstate:
     def __init__(self, value=None):
         self.value = value
@@ -110,6 +122,20 @@ class reduce_global:
 reduce_global = reduce_global()
 
 
+class cannot_pickle:
+    def __reduce__(self):
+        raise RuntimeError("cannot reduce")
+
+
+class cannot_pickle_number(int):
+    def __reduce__(self):
+        raise RuntimeError("cannot reduce")
+
+
+class some_object:
+    pass
+
+
 def C__repr__(self):
     # Quick hack to add a proper __repr__ to class C in
     # pickletester, makes it a lot easier to debug.
@@ -142,6 +168,10 @@ class mystr(str):
 
 
 class myint(int):
+    __slots__ = ()
+
+
+class myfloat(int):
     __slots__ = ()
 
 
@@ -663,11 +693,24 @@ class TestKeyedArchiveSimple(TestCase):
         self.assertIsInstance(v, mystr)
         self.assertEqual(o, v)
 
+        with pyobjc_options(_nscoding_decoder=None):
+            with self.assertRaisesRegex(
+                ValueError, "decoding Python objects is not supported"
+            ):
+                self.unarchiverClass.unarchiveObjectWithData_(buf)
+
         o = myint(4)
         buf = self.archiverClass.archivedDataWithRootObject_(o)
         self.assertIsInstance(buf, NSData)
         v = self.unarchiverClass.unarchiveObjectWithData_(buf)
         self.assertIsInstance(v, myint)
+        self.assertEqual(o, v)
+
+        o = myfloat(4.5)
+        buf = self.archiverClass.archivedDataWithRootObject_(o)
+        self.assertIsInstance(buf, NSData)
+        v = self.unarchiverClass.unarchiveObjectWithData_(buf)
+        self.assertIsInstance(v, myfloat)
         self.assertEqual(o, v)
 
         o = 42.5
@@ -718,6 +761,16 @@ class TestKeyedArchiveSimple(TestCase):
             self.assertIsInstance(v, NSMutableArray)
             self.assertEqual(list(v), o)
 
+    def test_list_nopython(self):
+        if self.archiverClass != NSKeyedArchiver:
+            raise SkipTest("only usefull for NSKeyedArchiver")
+        o = [OC_NoPythonRepresentation.alloc().initAllowPython_(True)]
+        buf = self.archiverClass.archivedDataWithRootObject_(o)
+        self.assertIsInstance(buf, NSData)
+
+        with self.assertRaisesRegex(ValueError, "cannot have Python representation"):
+            self.unarchiverClass.unarchiveObjectWithData_(buf)
+
     def testSimpleListSubclass(self):
         o = list_subclass([])
         buf = self.archiverClass.archivedDataWithRootObject_(o)
@@ -732,6 +785,12 @@ class TestKeyedArchiveSimple(TestCase):
         v = self.unarchiverClass.unarchiveObjectWithData_(buf)
         self.assertIsInstance(v, list_subclass)
         self.assertEqual(v, o)
+
+        with pyobjc_options(_nscoding_decoder=None):
+            with self.assertRaisesRegex(
+                ValueError, "decoding Python objects is not supported"
+            ):
+                self.unarchiverClass.unarchiveObjectWithData_(buf)
 
     def testSimpleTuples(self):
         o = ()
@@ -755,6 +814,16 @@ class TestKeyedArchiveSimple(TestCase):
         else:
             self.assertIsInstance(v, NSArray)
             self.assertEqual(tuple(v), o)
+
+    def test_tuple_nopython(self):
+        if self.archiverClass != NSKeyedArchiver:
+            raise SkipTest("only usefull for NSKeyedArchiver")
+        o = (OC_NoPythonRepresentation.alloc().initAllowPython_(True),)
+        buf = self.archiverClass.archivedDataWithRootObject_(o)
+        self.assertIsInstance(buf, NSData)
+
+        with self.assertRaisesRegex(ValueError, "cannot have Python representation"):
+            self.unarchiverClass.unarchiveObjectWithData_(buf)
 
     def testSimpleTupleSubclass(self):
         o = tuple_subclass()
@@ -783,12 +852,31 @@ class TestKeyedArchiveSimple(TestCase):
         self.assertIsInstance(v, dict if self.isKeyed else NSDictionary)
         self.assertEqual(dict(v), o)
 
-        o = {"hello": "bar", 42: 1.5}
+        o = {"hello": "bar", 42: 1.5, None: b"A"}
         buf = self.archiverClass.archivedDataWithRootObject_(o)
         self.assertIsInstance(buf, NSData)
         v = self.unarchiverClass.unarchiveObjectWithData_(buf)
         self.assertIsInstance(v, dict if self.isKeyed else NSDictionary)
         self.assertEqual(dict(v), o)
+
+    def test_dict_nopython(self):
+        if self.archiverClass != NSKeyedArchiver:
+            raise SkipTest("only usefull for NSKeyedArchiver")
+        o = {
+            42: OC_NoPythonRepresentation.alloc().initAllowPython_(True),
+        }
+        buf = self.archiverClass.archivedDataWithRootObject_(o)
+        self.assertIsInstance(buf, NSData)
+
+        with self.assertRaisesRegex(ValueError, "cannot have Python representation"):
+            self.unarchiverClass.unarchiveObjectWithData_(buf)
+
+        o = {OC_NoPythonRepresentation.alloc().initAllowPython_(True): 42}
+        buf = self.archiverClass.archivedDataWithRootObject_(o)
+        self.assertIsInstance(buf, NSData)
+
+        with self.assertRaisesRegex(ValueError, "cannot have Python representation"):
+            self.unarchiverClass.unarchiveObjectWithData_(buf)
 
     def testSimpleDictSubclass(self):
         o = dict_subclass({})
@@ -809,6 +897,50 @@ class TestKeyedArchiveSimple(TestCase):
         self.assertEqual(v, o)
         self.assertEqual(v.a, o.a)
 
+        def encoder(value, coder):
+            raise RuntimeError("encoding is broken")
+
+        with pyobjc_options(_nscoding_encoder=encoder):
+            with self.assertRaisesRegex(RuntimeError, "encoding is broken"):
+                self.archiverClass.archivedDataWithRootObject_(o)
+
+    def test_object_value_not_pythonifyable_when_unarchiving(self):
+        o = [some_object()]
+
+        buf = self.archiverClass.archivedDataWithRootObject_(o)
+        self.assertIsInstance(buf, NSData)
+        v = self.unarchiverClass.unarchiveObjectWithData_(buf)
+        self.assertIsInstance(v[0], some_object)
+
+        def faker(self):
+            raise TypeError("cannot proxy")
+
+        try:
+            some_object.__pyobjc_object__ = property(faker)
+            with self.assertRaisesRegex(TypeError, "cannot proxy"):
+                self.unarchiverClass.unarchiveObjectWithData_(buf)
+
+        finally:
+            del some_object.__pyobjc_object__
+
+    def test_archive_dict_unhashable_key_when_unarchiving(self):
+        if self.archiverClass != NSKeyedArchiver:
+            raise SkipTest("only usefull for NSKeyedArchiver")
+
+        o = {key_class(): "hello"}
+
+        buf = self.archiverClass.archivedDataWithRootObject_(o)
+        self.assertIsInstance(buf, NSData)
+        v = self.unarchiverClass.unarchiveObjectWithData_(buf)
+
+        self.assertIsInstance(v, dict)
+        self.assertEqual(len(v), 1)
+        self.assertIsInstance(list(v.keys())[0], key_class)
+
+        with mock.patch.object(key_class, "__hash__", new_callable=None):
+            with self.assertRaisesRegex(TypeError, "__hash__"):
+                self.unarchiverClass.unarchiveObjectWithData_(buf)
+
     def testSimpleSetSubclass(self):
         o = set_subclass({1, 2, 3})
         o.a = 1
@@ -821,6 +953,30 @@ class TestKeyedArchiveSimple(TestCase):
         self.assertIsInstance(v, set_subclass)
         self.assertEqual(v, o)
         self.assertEqual(v.a, o.a)
+
+        with pyobjc_options(_nscoding_decoder=None):
+            with self.assertRaisesRegex(
+                ValueError, "decoding Python objects is not supported"
+            ):
+                self.unarchiverClass.unarchiveObjectWithData_(buf)
+
+        def encoder(value, coder):
+            raise RuntimeError("encoding is broken")
+
+        with pyobjc_options(_nscoding_encoder=encoder):
+            with self.assertRaisesRegex(RuntimeError, "encoding is broken"):
+                self.archiverClass.archivedDataWithRootObject_(o)
+
+    def test_set_nopython(self):
+        if self.archiverClass != NSKeyedArchiver:
+            raise SkipTest("only usefull for NSKeyedArchiver")
+        o = {OC_NoPythonRepresentation.alloc().initAllowPython_(True)}
+        buf = self.archiverClass.archivedDataWithRootObject_(o)
+        self.assertIsInstance(buf, NSData)
+        del o
+
+        with self.assertRaisesRegex(ValueError, "cannot have Python representation"):
+            self.unarchiverClass.unarchiveObjectWithData_(buf)
 
     def testNestedDicts(self):
         o = {"hello": {1: 2}, "world": "foobar"}
@@ -947,6 +1103,22 @@ class TestKeyedArchiveSimple(TestCase):
         self.assertIs(v[0], v[1])
         self.assertIs(v[0], v[2])
 
+    def test_custom_date(self):
+        o = custom_date.today()
+        self.assertIsInstance(o, custom_date)
+
+        buf = self.archiverClass.archivedDataWithRootObject_(o)
+        self.assertIsInstance(buf, NSData)
+        v = self.unarchiverClass.unarchiveObjectWithData_(buf)
+        self.assertIsInstance(v, custom_date)
+        self.assertEqual(v, o)
+
+        with pyobjc_options(_nscoding_decoder=None):
+            with self.assertRaisesRegex(
+                ValueError, "decoding Python objects is not supported"
+            ):
+                v = self.unarchiverClass.unarchiveObjectWithData_(buf)
+
 
 class TestArchiveSimple(TestKeyedArchiveSimple):
     def setUp(self):
@@ -973,6 +1145,31 @@ class TestKeyedArchivePlainPython(TestCase, test.pickletester.AbstractPickleTest
 
     def loads(self, buf):
         return NSKeyedUnarchiver.unarchiveObjectWithData_(buf)
+
+    def test_set_element_cannot_be_pickled(self):
+        s = {cannot_pickle()}
+
+        with self.assertRaisesRegex(RuntimeError, "cannot reduce"):
+            self.dumps(s)
+
+    def test_dict_element_cannot_be_pickled(self):
+        s = {cannot_pickle(): 42}
+        with self.assertRaisesRegex(RuntimeError, "cannot reduce"):
+            self.dumps(s)
+
+        s = {42: cannot_pickle()}
+        with self.assertRaisesRegex(RuntimeError, "cannot reduce"):
+            self.dumps(s)
+
+    def test_list_element_cannot_be_pickled(self):
+        s = [cannot_pickle()]
+        with self.assertRaisesRegex(RuntimeError, "cannot reduce"):
+            self.dumps(s)
+
+    def test_number__cannot_be_pickled(self):
+        s = cannot_pickle_number(0)
+        with self.assertRaisesRegex(RuntimeError, "cannot reduce"):
+            self.dumps(s)
 
     # Disable a number of methods, these test things we're not interested in.
     # (Most of these look at the generated byte-stream, as we're not writing data in pickle's
@@ -1223,30 +1420,30 @@ class TestKeyedArchivePlainPython(TestCase, test.pickletester.AbstractPickleTest
                 u = self.loads(s)
                 self.assertIs(u, t)
 
-    @expectedFailure
-    def test_newobj_not_class(self):
-        # Exception handling in NSCoder is dodgy
-        test.pickletester.AbstractPickleTests.test_newobj_not_class(self)
+    # @expectedFailure
+    # def test_newobj_not_class(self):
+    #     # Exception handling in NSCoder is dodgy
+    #     test.pickletester.AbstractPickleTests.test_newobj_not_class(self)
 
-    @expectedFailure
-    def test_recursive_list_and_inst(self):
-        test.pickletester.AbstractPickleTests.test_recursive_list_and_inst(self)
+    # @expectedFailure
+    # def test_recursive_list_and_inst(self):
+    #     test.pickletester.AbstractPickleTests.test_recursive_list_and_inst(self)
 
-    @expectedFailure
-    def test_recursive_tuple_and_list(self):
-        test.pickletester.AbstractPickleTests.test_recursive_tuple_and_list(self)
+    # @expectedFailure
+    # def test_recursive_tuple_and_list(self):
+    #     test.pickletester.AbstractPickleTests.test_recursive_tuple_and_list(self)
 
-    @expectedFailure
-    def test_recursive_tuple_and_inst(self):
-        test.pickletester.AbstractPickleTests.test_recursive_tuple_and_inst(self)
+    # @expectedFailure
+    # def test_recursive_tuple_and_inst(self):
+    #     test.pickletester.AbstractPickleTests.test_recursive_tuple_and_inst(self)
 
-    @expectedFailure
-    def test_recursive_dict_and_inst(self):
-        test.pickletester.AbstractPickleTests.test_recursive_dict_and_inst(self)
+    # @expectedFailure
+    # def test_recursive_dict_and_inst(self):
+    #     test.pickletester.AbstractPickleTests.test_recursive_dict_and_inst(self)
 
-    @expectedFailure
-    def test_recursive_set_and_inst(self):
-        test.pickletester.AbstractPickleTests.test_recursive_set_and_inst(self)
+    # @expectedFailure
+    # def test_recursive_set_and_inst(self):
+    #     test.pickletester.AbstractPickleTests.test_recursive_set_and_inst(self)
 
     @expectedFailure
     def test_recursive_set(self):
@@ -1257,11 +1454,11 @@ class TestKeyedArchivePlainPython(TestCase, test.pickletester.AbstractPickleTest
     def test_recursive_frozenset_and_inst(self):
         test.pickletester.AbstractPickleTests.test_recursive_frozenset_and_inst(self)
 
-    @expectedFailure
-    def test_recursive_list_subclass_and_inst(self):
-        test.pickletester.AbstractPickleTests.test_recursive_list_subclass_and_inst(
-            self
-        )
+    # @expectedFailure
+    # def test_recursive_list_subclass_and_inst(self):
+    #    test.pickletester.AbstractPickleTests.test_recursive_list_subclass_and_inst(
+    #        self
+    #    )
 
     @expectedFailure
     def test_recursive_tuple_subclass_and_inst(self):
@@ -1269,11 +1466,11 @@ class TestKeyedArchivePlainPython(TestCase, test.pickletester.AbstractPickleTest
             self
         )
 
-    @expectedFailure
-    def test_recursive_dict_subclass_and_inst(self):
-        test.pickletester.AbstractPickleTests.test_recursive_dict_subclass_and_inst(
-            self
-        )
+    # @expectedFailure
+    # def test_recursive_dict_subclass_and_inst(self):
+    #     test.pickletester.AbstractPickleTests.test_recursive_dict_subclass_and_inst(
+    #         self
+    #     )
 
     @expectedFailure
     def test_recursive_set_subclass_and_inst(self):
@@ -1600,11 +1797,11 @@ class TestArchivePlainPython(TestKeyedArchivePlainPython):
     def test_recursive_frozenset_and_inst(self):
         test.pickletester.AbstractPickleTests.test_recursive_frozenset_and_inst(self)
 
-    @expectedFailure
-    def test_recursive_list_subclass_and_inst(self):
-        test.pickletester.AbstractPickleTests.test_recursive_list_subclass_and_inst(
-            self
-        )
+    # @expectedFailure
+    # def test_recursive_list_subclass_and_inst(self):
+    # test.pickletester.AbstractPickleTests.test_recursive_list_subclass_and_inst(
+    # self
+    # )
 
     @expectedFailure
     def test_recursive_tuple_subclass_and_inst(self):
@@ -1894,6 +2091,22 @@ class TestSecureArchivingPython(TestCase):
             "Class 'OC_PythonSet' disallows secure coding. It must return YES from supportsSecureCoding",
         ):
             archive.encodeObject_forKey_(bag, "bag")
+
+        archive.finishEncoding()
+
+    @min_os_level("10.13")
+    def test_secure_archive_int(self):
+        archive = NSKeyedArchiver.alloc().initRequiringSecureCoding_(True)
+
+        archive.encodeObject_forKey_(1, "builtin")
+
+        class myint(int):
+            pass
+
+        with self.assertRaisesRegex(
+            objc.error, "Class 'OC_PythonNumber' disallows secure coding."
+        ):
+            archive.encodeObject_forKey_(myint(1), "subclass")
 
         archive.finishEncoding()
 

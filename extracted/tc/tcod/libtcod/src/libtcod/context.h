@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 #ifndef LIBTCOD_CONTEXT_H_
 #define LIBTCOD_CONTEXT_H_
 
@@ -65,10 +66,11 @@ typedef struct TCOD_Context TCOD_Context;
     \endrst
  */
 typedef struct TCOD_ContextParams {
-  /**
-      Must be `TCOD_COMPILEDVERSION`.
-   */
+  /// @brief Compiled libtcod version for ABI compatiblity with older versions of libtcod
+  /// @deprecated
+  /// Deprecated since 2.0. You must no longer assign anything to this.
   int tcod_version;
+
   /**
       `window_x` and `window_y` are the starting position of the window.
       These are SDL parameters so values like `SDL_WINDOWPOS_UNDEFINED` and

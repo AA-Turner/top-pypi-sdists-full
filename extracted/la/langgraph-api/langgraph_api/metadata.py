@@ -1,5 +1,6 @@
 import asyncio
 import os
+import uuid
 from datetime import UTC, datetime
 
 import langgraph.version
@@ -26,6 +27,20 @@ REVISION = os.getenv("LANGSMITH_LANGGRAPH_API_REVISION")
 VARIANT = os.getenv("LANGSMITH_LANGGRAPH_API_VARIANT")
 PROJECT_ID = os.getenv("LANGSMITH_HOST_PROJECT_ID")
 TENANT_ID = os.getenv("LANGSMITH_TENANT_ID")
+if PROJECT_ID:
+    try:
+        uuid.UUID(PROJECT_ID)
+    except ValueError:
+        raise ValueError(
+            f"Invalid project ID: {PROJECT_ID}. Must be a valid UUID"
+        ) from None
+if TENANT_ID:
+    try:
+        uuid.UUID(TENANT_ID)
+    except ValueError:
+        raise ValueError(
+            f"Invalid tenant ID: {TENANT_ID}. Must be a valid UUID"
+        ) from None
 if VARIANT == "cloud":
     HOST = "saas"
 elif PROJECT_ID:

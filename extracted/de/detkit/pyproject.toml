@@ -1,3 +1,0 @@
-[build-system]
-build-backend = "setuptools.build_meta"
-requires = ["setuptools", "scipy>=1.5", "cython>=0.29"]

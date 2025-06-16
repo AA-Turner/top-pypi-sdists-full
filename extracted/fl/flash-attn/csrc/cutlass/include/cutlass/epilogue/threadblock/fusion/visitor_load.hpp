@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -542,12 +542,8 @@ struct VisitorColBroadcast {
         }
       }
       clear(tC_rCol);
-      Tensor pred = make_tensor<bool>(shape(tC_gCol));
-      CUTLASS_PRAGMA_UNROLL
-      for (int i = 0; i < size(pred); ++i) {
-        pred(i) = get<0>(tC_cCol(i)) < m;
-      }
-      copy_if(pred, tC_gCol, tC_rCol);
+      Tensor tC_pCol = cute::lazy::transform(tC_cCol, [&] (auto const& c) { return get<0>(c) < m; });
+      copy_if(tC_pCol, tC_gCol, tC_rCol);
     }
 
     template <class ElementAccumulator, int FragmentSize>

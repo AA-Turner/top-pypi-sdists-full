@@ -7,47 +7,6 @@ import System
 import System.Collections.Generic
 
 
-class ReportArgumentParser(System.Object):
-    """Command Line arguments parser for Report Creator"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Parse and construct the args."""
-        ...
-
-
-class OptimizerArgumentParser(System.Object):
-    """Command Line arguments parser for Lean Optimizer"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Parse and construct the args"""
-        ...
-
-
-class CommandLineOption(System.Object):
-    """Auxiliary class to keep information about a specific command line option"""
-
-    @property
-    def type(self) -> typing.Any:
-        """Command line option type"""
-        ...
-
-    @property
-    def description(self) -> str:
-        """Command line option description"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Command line option name"""
-        ...
-
-    def __init__(self, name: str, type: typing.Any, description: str = ...) -> None:
-        """Command line option contructor"""
-        ...
-
-
 class Config(System.Object):
     """Configuration class loads the required external setup variables to launch the Lean engine."""
 
@@ -170,26 +129,26 @@ class Config(System.Object):
         ...
 
 
-class ToolboxArgumentParser(System.Object):
-    """Command Line arguments parser for Toolbox configuration"""
+class CommandLineOption(System.Object):
+    """Auxiliary class to keep information about a specific command line option"""
 
-    @staticmethod
-    def get_tickers(options_object: System.Collections.Generic.Dictionary[str, System.Object]) -> typing.List[str]:
-        """Helper method to get the tickers from the provided options"""
+    @property
+    def type(self) -> typing.Any:
+        """Command line option type"""
         ...
 
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Argument parser contructor"""
+    @property
+    def description(self) -> str:
+        """Command line option description"""
         ...
 
+    @property
+    def name(self) -> str:
+        """Command line option name"""
+        ...
 
-class LeanArgumentParser(System.Object):
-    """Command Line arguments parser for Lean configuration"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Argument parser contructor"""
+    def __init__(self, name: str, type: typing.Any, description: str = ...) -> None:
+        """Command line option contructor"""
         ...
 
 
@@ -224,6 +183,47 @@ class ApplicationParser(System.Object):
     @staticmethod
     def print_message_and_exit(exit_code: int = 0, message: str = ...) -> None:
         """Prints a message advising the user to use the --help parameter for more information"""
+        ...
+
+
+class LeanArgumentParser(System.Object):
+    """Command Line arguments parser for Lean configuration"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Argument parser contructor"""
+        ...
+
+
+class OptimizerArgumentParser(System.Object):
+    """Command Line arguments parser for Lean Optimizer"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Parse and construct the args"""
+        ...
+
+
+class ReportArgumentParser(System.Object):
+    """Command Line arguments parser for Report Creator"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Parse and construct the args."""
+        ...
+
+
+class ToolboxArgumentParser(System.Object):
+    """Command Line arguments parser for Toolbox configuration"""
+
+    @staticmethod
+    def get_tickers(options_object: System.Collections.Generic.Dictionary[str, System.Object]) -> typing.List[str]:
+        """Helper method to get the tickers from the provided options"""
+        ...
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Argument parser contructor"""
         ...
 
 

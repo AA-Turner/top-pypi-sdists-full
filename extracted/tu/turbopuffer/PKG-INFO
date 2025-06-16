@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: turbopuffer
-Version: 0.5.3
+Version: 0.5.6
 Summary: The official Python library for the turbopuffer API
 Project-URL: Homepage, https://github.com/turbopuffer/turbopuffer-python
 Project-URL: Repository, https://github.com/turbopuffer/turbopuffer-python
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
-Requires-Dist: aiohttp<4,>=3.12.11
+Requires-Dist: aiohttp<4,>=3.10.11
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
@@ -30,9 +30,9 @@ Requires-Dist: pydantic<3,>=1.9.0
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.13
 Provides-Extra: fast
-Requires-Dist: orjson<4,>=3.10.18; extra == 'fast'
+Requires-Dist: orjson<4,>=3.10.15; extra == 'fast'
 Provides-Extra: urllib3
-Requires-Dist: urllib3<3,>=2.4.0; extra == 'urllib3'
+Requires-Dist: urllib3<3,>=2.2.3; extra == 'urllib3'
 Description-Content-Type: text/markdown
 
 # Turbopuffer Python API library  <a href="https://turbopuffer.com"><img src="https://github.com/user-attachments/assets/8d6cca4c-10b7-4d3a-9782-696053baf44e" align="right"></a>

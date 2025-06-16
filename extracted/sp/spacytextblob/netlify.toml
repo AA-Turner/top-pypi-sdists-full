@@ -1,4 +1,0 @@
-[build]
-  base = "."
-  publish = "site/"
-  command = 'pip install uv && uv run --python 3.12 mkdocs build'

@@ -1,0 +1,86 @@
+# -- igwn-segments test configuration
+
+include:
+  - component: git.ligo.org/computing/gitlab/components/python/test@1
+    inputs:
+      job_name: .pytest
+      coverage: false
+      python: "python3"
+      install_extra: test
+      install_target: "*.whl"
+      pytest_options: &pytest_options >-
+        --cov=igwn_segments
+        --durations=0
+        --numprocesses=2
+        -ra
+        --verbose
+        test/
+
+# generic test template (should work on all platforms)
+.test:
+  extends: .pytest
+  parallel: null
+  interruptible: true
+  before_script:
+    - python3 -m pip install pytest-xdist
+
+# template for Debian/RedHat tests
+.system_test:
+  extends: .test
+  variables:
+    PYTEST_ADDOPTS: *pytest_options
+  script:
+    # manually update pytest and coverage on EL8
+    - if [[ "${CI_JOB_NAME}" == "redhat_test_el8" ]]; then
+      dnf install -y -q python3-pip &&
+      python3 -m pip install
+        --upgrade-strategy=only-if-needed
+        "pytest==3.9.1"
+        "coverage[toml]>=5"
+      ; fi
+    - python3 --version --version
+    - python3 -m pip list installed
+    - python3 -m pip show igwn-segments
+    - python3 -m pytest --junit-xml=junit.xml
+    - python3 -m coverage xml -o coverage.xml --ignore-errors
+
+# -- Python-specific tests
+
+.python_test_without_lal:
+  extends:
+    - .test
+
+.python_test_with_lal:
+  extends:
+    - .test
+  before_script:
+    - !reference [.test, before_script]
+    - python -m pip install lalsuite
+
+# gitlab CI/CD YAML can't handle variables in needs: or proper job
+# matrices, so we have to copy things out here for each Python version.
+
+python_test_manylinux_x86_64_3.9:
+  extends: .python_test_with_lal
+  image: "python:3.9"
+  needs: ["wheel_manylinux_x86_64: [3.9]"]
+
+python_test_manylinux_x86_64_3.10:
+  extends: .python_test_with_lal
+  image: "python:3.10"
+  needs: ["wheel_manylinux_x86_64: [3.10]"]
+
+python_test_manylinux_x86_64_3.11:
+  extends: .python_test_with_lal
+  image: "python:3.11"
+  needs: ["wheel_manylinux_x86_64: [3.11]"]
+
+python_test_manylinux_x86_64_3.12:
+  extends: .python_test_with_lal
+  image: "python:3.12"
+  needs: ["wheel_manylinux_x86_64: [3.12]"]
+
+python_test_manylinux_x86_64_3.13:
+  extends: .python_test_without_lal
+  image: "python:3.13"
+  needs: ["wheel_manylinux_x86_64: [3.13]"]

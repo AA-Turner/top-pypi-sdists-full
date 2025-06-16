@@ -682,7 +682,7 @@ class App(Generic[ReturnType], DOMNode):
         will be ignored.
         """
 
-        self._logger = Logger(self._log)
+        self._logger = Logger(self._log, app=self)
 
         self._css_has_errors = False
 
@@ -842,6 +842,11 @@ class App(Generic[ReturnType], DOMNode):
                     )
                 )
 
+    @property
+    def _is_devtools_connected(self) -> bool:
+        """Is the app connected to the devtools?"""
+        return self.devtools is not None and self.devtools.is_connected
+
     @cached_property
     def _exception_event(self) -> asyncio.Event:
         """An event that will be set when the first exception is encountered."""
@@ -864,6 +869,17 @@ class App(Generic[ReturnType], DOMNode):
                     )
 
         return super().__init_subclass__(*args, **kwargs)
+
+    def _thread_init(self):
+        """Initialize threading primitives for the current thread.
+
+        https://github.com/Textualize/textual/issues/5845
+
+        """
+        self._message_queue
+        self._mounted_event
+        self._exception_event
+        self._thread_id = threading.get_ident()
 
     def _get_dom_base(self) -> DOMNode:
         """When querying from the app, we want to query the default screen."""
@@ -2094,8 +2110,9 @@ class App(Generic[ReturnType], DOMNode):
                     run_auto_pilot(auto_pilot, pilot), name=repr(pilot)
                 )
 
+        self._thread_init()
+
         app._loop = asyncio.get_running_loop()
-        app._thread_id = threading.get_ident()
         with app._context():
             try:
                 await app._process_messages(
@@ -3120,6 +3137,9 @@ class App(Generic[ReturnType], DOMNode):
         terminal_size: tuple[int, int] | None = None,
         message_hook: Callable[[Message], None] | None = None,
     ) -> None:
+
+        self._thread_init()
+
         async def app_prelude() -> bool:
             """Work required before running the app.
 

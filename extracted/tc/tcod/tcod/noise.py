@@ -36,10 +36,10 @@ from __future__ import annotations
 
 import enum
 import warnings
-from typing import TYPE_CHECKING, Any, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
-from typing_extensions import Literal
 
 import tcod.constants
 import tcod.random
@@ -247,13 +247,16 @@ class Noise:
             indexes[i] = np.ascontiguousarray(index, dtype=np.float32)
             c_input[i] = ffi.from_buffer("float*", indexes[i])
 
+        c_input_tuple = tuple(c_input)
+        assert len(c_input_tuple) == 4  # noqa: PLR2004
+
         out: NDArray[np.float32] = np.empty(indexes[0].shape, dtype=np.float32)
         if self.implementation == Implementation.SIMPLE:
             lib.TCOD_noise_get_vectorized(
                 self.noise_c,
                 self.algorithm,
                 out.size,
-                *c_input,
+                *c_input_tuple,
                 ffi.from_buffer("float*", out),
             )
         elif self.implementation == Implementation.FBM:
@@ -262,7 +265,7 @@ class Noise:
                 self.algorithm,
                 self.octaves,
                 out.size,
-                *c_input,
+                *c_input_tuple,
                 ffi.from_buffer("float*", out),
             )
         elif self.implementation == Implementation.TURBULENCE:
@@ -271,7 +274,7 @@ class Noise:
                 self.algorithm,
                 self.octaves,
                 out.size,
-                *c_input,
+                *c_input_tuple,
                 ffi.from_buffer("float*", out),
             )
         else:
@@ -459,5 +462,7 @@ def grid(
     if len(shape) != len(origin):
         msg = "shape must have the same length as origin"
         raise TypeError(msg)
-    indexes = (np.arange(i_shape) * i_scale + i_origin for i_shape, i_scale, i_origin in zip(shape, scale, origin))
+    indexes = (
+        np.arange(i_shape) * i_scale + i_origin for i_shape, i_scale, i_origin in zip(shape, scale, origin, strict=True)
+    )
     return tuple(np.meshgrid(*indexes, copy=False, sparse=True, indexing=indexing))

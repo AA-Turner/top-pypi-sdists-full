@@ -1,0 +1,5 @@
+project_name: Lamin Utils
+description: Utils for LaminDB and Bionty
+project_slug: lamin-utils
+repository_name: lamin-utils
+package_name: lamin_utils

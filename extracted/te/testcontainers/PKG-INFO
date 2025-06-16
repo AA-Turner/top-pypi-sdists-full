@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: testcontainers
-Version: 4.10.0
+Version: 4.11.0
 Summary: Python library for throwaway instances of anything that can run in a Docker container
 Keywords: testing,logging,docker,test automation
 Author: Sergey Pirogov
@@ -71,14 +71,14 @@ Requires-Dist: azure-storage-blob (>=12.19,<13.0) ; extra == "azurite"
 Requires-Dist: bcrypt ; extra == "registry"
 Requires-Dist: boto3 ; extra == "aws" or extra == "localstack"
 Requires-Dist: cassandra-driver (==3.29.1) ; extra == "scylla"
-Requires-Dist: chromadb-client ; extra == "chroma"
+Requires-Dist: chromadb-client (>=1.0.0,<2.0.0) ; extra == "chroma"
 Requires-Dist: clickhouse-driver ; extra == "clickhouse"
 Requires-Dist: cryptography ; extra == "mailpit" or extra == "sftp"
 Requires-Dist: docker
 Requires-Dist: google-cloud-datastore (>=2) ; extra == "google"
 Requires-Dist: google-cloud-pubsub (>=2) ; extra == "google"
 Requires-Dist: httpx ; extra == "aws" or extra == "generic" or extra == "test-module-import"
-Requires-Dist: ibm_db_sa ; extra == "db2"
+Requires-Dist: ibm_db_sa ; (platform_machine != "aarch64" and platform_machine != "arm64") and (extra == "db2")
 Requires-Dist: influxdb ; extra == "influxdb"
 Requires-Dist: influxdb-client ; extra == "influxdb"
 Requires-Dist: kubernetes ; extra == "k3s"

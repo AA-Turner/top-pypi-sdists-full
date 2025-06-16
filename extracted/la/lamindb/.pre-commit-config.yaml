@@ -1,0 +1,66 @@
+fail_fast: false
+default_language_version:
+  python: python3
+default_stages:
+  - pre-commit
+  - pre-push
+minimum_pre_commit_version: 2.16.0
+repos:
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.5.1
+    hooks:
+      - id: prettier
+        exclude: |
+          (?x)(
+            docs/changelog.md|.github/ISSUE_TEMPLATE/config.yml|tests/core/notebooks/basic-r-notebook.Rmd.cleaned.html
+          )
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout
+        exclude: |
+          (?x)(
+              docs/examples/|
+              docs/notes/
+          )
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.2
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix, --unsafe-fixes]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: detect-private-key
+      - id: check-ast
+      - id: end-of-file-fixer
+        exclude: |
+          (?x)(
+              .github/workflows/latest-changes.jinja2
+            )
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+        exclude: |
+          (?x)(
+              tests/core/notebooks/basic-r-notebook.Rmd.cleaned.html
+            )
+      - id: check-case-conflict
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        args: [--no-strict-optional, --ignore-missing-imports]
+        additional_dependencies: ["types-requests", "types-attrs"]
+        exclude: |
+          (?x)(
+              test_notebooks.py|
+              script-to-test-versioning.py|
+              tests/storage/conftest.py|
+              tests/curators/conftest.py|
+              tests/permissions/conftest.py|
+              tests/writelog/conftest.py|
+              tests/writelog_sqlite/conftest.py|
+              tests/curators/test_curators_examples.py
+          )

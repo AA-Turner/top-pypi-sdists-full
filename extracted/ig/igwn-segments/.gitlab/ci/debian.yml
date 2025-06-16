@@ -1,0 +1,27 @@
+include:
+  - local: .gitlab/ci/test.yml
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/debian/all/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/debian/all@2
+    inputs:
+      needs: [sdist]
+      debian_versions:
+        - bullseye
+        - bookworm
+        # test next debian release (can't install LAL)
+        - testing
+      test_install: >-
+        python3-igwn-segments
+        python3-packaging
+        python3-pip
+        python3-pytest
+        python3-pytest-cov
+        python3-pytest-xdist
+        $(test "$DEBIAN_VERSION" != "testing" && echo python3-lal)
+
+# -- overwrite test jobs to use sections from the .system_test template
+
+debian_test:
+  variables: !reference [.system_test, variables]
+  script: !reference [.system_test, script]
+  artifacts: !reference [.system_test, artifacts]

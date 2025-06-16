@@ -1,0 +1,14 @@
+name = "SHTOOLS"
+version = "4.13"
+license = "BSD-3-Clause"
+author = "Mark A. Wieczorek"
+maintainer = "mark.a.wieczorek@gmail.com"
+copyright = "2020 SHTOOLS"
+description = "Tools for working with spherical harmonics"
+categories = ["science"]
+keywords = ["spherical harmonics"]
+homepage = "https://shtools.github.io/SHTOOLS/"
+
+[library]
+source-dir = "src"
+build-script = "make all F95=$FC LIBPATH=$BUILD_DIR MODPATH=$BUILD_DIR"

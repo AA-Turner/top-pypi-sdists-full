@@ -48,6 +48,7 @@ from letta.schemas.job import Job, JobUpdate
 from letta.schemas.letta_message import LegacyLettaMessage, LettaMessage, MessageType, ToolReturnMessage
 from letta.schemas.letta_message_content import TextContent
 from letta.schemas.letta_response import LettaResponse
+from letta.schemas.letta_stop_reason import LettaStopReason, StopReasonType
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.memory import ArchivalMemorySummary, Memory, RecallMemorySummary
 from letta.schemas.message import Message, MessageCreate, MessageUpdate
@@ -80,6 +81,7 @@ from letta.server.rest_api.interface import StreamingServerInterface
 from letta.server.rest_api.utils import sse_async_generator
 from letta.services.agent_manager import AgentManager
 from letta.services.block_manager import BlockManager
+from letta.services.file_manager import FileManager
 from letta.services.files_agents_manager import FileAgentManager
 from letta.services.group_manager import GroupManager
 from letta.services.helpers.tool_execution_helper import prepare_local_sandbox
@@ -219,6 +221,7 @@ class SyncServer(Server):
         self.batch_manager = LLMBatchManager()
         self.telemetry_manager = TelemetryManager()
         self.file_agent_manager = FileAgentManager()
+        self.file_manager = FileManager()
 
         # A resusable httpx client
         timeout = httpx.Timeout(connect=10.0, read=20.0, write=10.0, pool=10.0)
@@ -1507,7 +1510,7 @@ class SyncServer(Server):
             raise ValueError(f"Data source {source_name} does not exist for user {user_id}")
 
         # load data into the document store
-        passage_count, document_count = await load_data(connector, source, self.passage_manager, self.source_manager, actor=actor)
+        passage_count, document_count = await load_data(connector, source, self.passage_manager, self.file_manager, actor=actor)
         return passage_count, document_count
 
     def list_data_source_passages(self, user_id: str, source_id: str) -> List[Passage]:
@@ -2026,7 +2029,8 @@ class SyncServer(Server):
             )
 
     # Composio wrappers
-    def get_composio_client(self, api_key: Optional[str] = None):
+    @staticmethod
+    def get_composio_client(api_key: Optional[str] = None):
         if api_key:
             return Composio(api_key=api_key)
         elif tool_settings.composio_api_key:
@@ -2034,9 +2038,10 @@ class SyncServer(Server):
         else:
             return Composio()
 
-    def get_composio_apps(self, api_key: Optional[str] = None) -> List["AppModel"]:
+    @staticmethod
+    def get_composio_apps(api_key: Optional[str] = None) -> List["AppModel"]:
         """Get a list of all Composio apps with actions"""
-        apps = self.get_composio_client(api_key=api_key).apps.get()
+        apps = SyncServer.get_composio_client(api_key=api_key).apps.get()
         apps_with_actions = []
         for app in apps:
             # A bit of hacky logic until composio patches this
@@ -2047,7 +2052,8 @@ class SyncServer(Server):
 
     def get_composio_actions_from_app_name(self, composio_app_name: str, api_key: Optional[str] = None) -> List["ActionModel"]:
         actions = self.get_composio_client(api_key=api_key).actions.get(apps=[composio_app_name])
-        return actions
+        # Filter out deprecated composio actions
+        return [action for action in actions if "deprecated" not in action.description.lower()]
 
     # MCP wrappers
     # TODO support both command + SSE servers (via config)
@@ -2354,7 +2360,11 @@ class SyncServer(Server):
                 # If we want to convert these to Message, we can use the attached IDs
                 # NOTE: we will need to de-duplicate the Messsage IDs though (since Assistant->Inner+Func_Call)
                 # TODO: eventually update the interface to use `Message` and `MessageChunk` (new) inside the deque instead
-                return LettaResponse(messages=filtered_stream, usage=usage)
+                return LettaResponse(
+                    messages=filtered_stream,
+                    stop_reason=LettaStopReason(stop_reason=StopReasonType.end_turn.value),
+                    usage=usage,
+                )
 
         except HTTPException:
             raise
@@ -2456,4 +2466,8 @@ class SyncServer(Server):
             # If we want to convert these to Message, we can use the attached IDs
             # NOTE: we will need to de-duplicate the Messsage IDs though (since Assistant->Inner+Func_Call)
             # TODO: eventually update the interface to use `Message` and `MessageChunk` (new) inside the deque instead
-            return LettaResponse(messages=filtered_stream, usage=usage)
+            return LettaResponse(
+                messages=filtered_stream,
+                stop_reason=LettaStopReason(stop_reason=StopReasonType.end_turn.value),
+                usage=usage,
+            )

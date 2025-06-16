@@ -1,0 +1,57 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+strategy:
+  matrix:
+    'Python 3.11':
+      python.version: '3.11'
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '$(python.version)'
+  displayName: 'Use Python $(python.version)'
+
+- script: |
+    python -m pip install --upgrade pip
+    pip install pytest pytest-cov pytest-azurepipelines bandit
+    pip install -e '.[dev]'
+  displayName: 'Install dependencies'
+
+- script: |
+    bandit -c pyproject.toml -r .
+  displayName: 'Analyze code security with Bandit'
+
+- script: |
+    pytest --cov=pycnpj_cpf --cov-report=xml --junitxml=results.xml -vv
+  displayName: 'Run tests with pytest and collect code coverage'
+
+- task: PublishCodeCoverageResults@2
+  inputs:
+    codeCoverageTool: 'Cobertura'
+    summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage.xml'
+    reportDirectory: '$(System.DefaultWorkingDirectory)/coverage'
+    failIfCoverageEmpty: true
+
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/results.xml'
+    mergeTestResults: true
+    failTaskOnFailedTests: true
+
+- script: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    uv build --wheel
+    mv dist/*.whl $(Build.ArtifactStagingDirectory)/
+  displayName: 'Build Python package'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)'
+    artifactName: 'whlPackage'
+    publishLocation: 'Container'
+  displayName: 'Publish .whl artifact'

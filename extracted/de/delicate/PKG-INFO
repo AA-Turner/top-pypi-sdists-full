@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: delicate
+Version: 1.0.3
+Summary: Printing colored messages to the CLI
+Home-page: https://github.com/adventgroup/delicate
+Author: Advent Group
+Author-email: development@adventgroup.net
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+## Colored Messages
+
+delicate is a minimalist python library which gives you the possibility to print in color in the CLI.
+
+## Install
+
+`pip3 install delicate`
+
+## Usage
+
+```python
+from delicate import messages
+messages.log('This is my log message', 'RED')

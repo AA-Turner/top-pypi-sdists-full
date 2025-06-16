@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2017 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2017 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -545,6 +545,7 @@ bool cublasLtGemmExDispatcher::get_cublaslt_algo(cublasLtHandle_t handle,
   cublasLtMatmulAlgoGetHeuristic(handle, operationDesc, Adesc, Bdesc, Cdesc, Ddesc, preference, requestedAlgoCount, heuristicResult, &returnedResults);
 
   if (returnedResults == 0) {
+    cudaFree(workspaceHeuristic);
     return false;
   }
 
@@ -589,6 +590,7 @@ bool cublasLtGemmExDispatcher::get_cublaslt_algo(cublasLtHandle_t handle,
         // Handle errors
         if (status != CUBLAS_STATUS_SUCCESS) {
           std::cerr << "cublasLtMatmul AutoTuning failed with status: " << cublasLtGetStatusName(status) << std::endl;
+          cudaFree(workspaceHeuristic);
           return false;
         }
   
@@ -653,6 +655,7 @@ bool cublasLtGemmExDispatcher::get_cublaslt_algo(cublasLtHandle_t handle,
     throw std::bad_alloc();
   }
   
+  cudaFree(workspaceHeuristic);
   return true;
 }
 

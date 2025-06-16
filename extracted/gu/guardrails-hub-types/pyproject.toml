@@ -1,0 +1,30 @@
+[project]
+name = "guardrails_hub_types"
+version = "0.0.4"
+description = "Guardrails Hub Types."
+authors = [
+    {name = "Guardrails AI", email = "contact@guardrailsai.com"}
+]
+license = {file = "LICENSE"}
+readme = "README.md"
+keywords = ["Guardrails", "Guardrails AI", "Guardrails Hub", "Guardrails Hub Types"]
+requires-python = ">= 3.8.1"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pyright",
+    "pytest",
+    "pytest-cov",
+    "ruff"
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-rP"
+testpaths = [
+    "test"
+]
+
+[tool.pyright]
+include = ["guardrails_hub_types"]

@@ -1,0 +1,103 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kafe2"
+description = "Karlsruhe Fit Environment 2: a package for fitting and elementary data analysis"
+# the list of authors is ordered alphabetically by last name
+authors = [
+	{ name="Johannes Gäßler", email="johannes.gaessler@cern.ch" },
+	{ name="Michael Hohenstein", email="michael@hohenste.in" },
+	{ name="Günter Quast", email="G.Quast@kit.edu" },
+	{ name="Daniel Savoiu", email="daniel.savoiu@cern.ch" },
+	{ name="Cedric Verstege", email="cedric.verstege@cern.ch" },
+]
+readme = "README.rst"
+requires-python= ">=3.6"
+keywords = ["kafe2", "kit", "karlsruhe", "data", "analysis", "lab", "laboratory", "practical courses", "education", "university", "students", "physics", "fitting", "minimization", "minimisation", "regression", "parametric", "parameter", "estimation", "optimization", "optimisation"]
+
+license = {text = "GPL3"}
+classifiers = [
+        "Development Status :: 5 - Production/Stable",
+        "Intended Audience :: Education",
+        "Intended Audience :: Science/Research",
+        "Topic :: Education",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Physics",
+        "Topic :: Scientific/Engineering :: Information Analysis",
+        "Topic :: Scientific/Engineering :: Visualization",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+]
+#TODO dependency versions
+dependencies = [
+        "iminuit",
+        "NumPy",
+        "Numdifftools",
+        "Scipy",
+        "tabulate",
+        "matplotlib>=3.4",
+        "PyYaml",
+        "six",
+        "funcsigs",
+        "SymPy",
+]
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = {attr = "kafe2.__version__"}
+
+[project.optional-dependencies]
+dev = [
+    "coverage",
+    "sphinx",
+    "sphinx-rtd-theme",
+    "mock",
+    "pytest",
+    "flake8",
+    "black",
+    "isort",
+    "build",
+    "twine",
+    "tomli",  # required for Py<3.11, otherwise tomllib is present
+    "jupyterlab",
+]
+
+[project.urls]
+"Homepage" = "https://philfitters.github.io/kafe2/"
+"Repository" = "https://github.com/PhiLFitters/kafe2"
+
+[tool.setuptools.packages.find]
+include = ["kafe2*"]
+
+[project.scripts]
+kafe2go = "kafe2.fit.tools.kafe2go:kafe2go"
+
+[tool.setuptools.package-data]
+kafe2 = ["config/*.conf", "config/*.yaml", "config/*.yml", "fit/tools/kafe2go"]
+
+[tool.pytest.ini_options]
+testpaths = "kafe2/test"
+python_files = "test*.py"
+
+[tool.coverage.run]
+source = [
+	"kafe2",
+]
+omit = [
+	"kafe2/test/*",
+]
+command_line= '-m unittest discover -v -s kafe2/test -p "*.py"'
+
+[tool.black]
+line-length = 150
+
+[tool.isort]
+profile = "black"
+

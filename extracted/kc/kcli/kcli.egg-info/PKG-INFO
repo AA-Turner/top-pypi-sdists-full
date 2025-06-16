@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kcli
-Version: 99.0.202506121336
+Version: 99.0.202506141510
 Summary: Provisioner/Manager for Libvirt/Vsphere/Aws/Gcp/Hcloud/Kubevirt/Ovirt/Openstack/IBM Cloud and containers
 Home-page: http://github.com/karmab/kcli
 Author: Karim Boumedhel
@@ -30,7 +30,6 @@ Requires-Dist: python-keystoneclient; extra == "all"
 Requires-Dist: python-novaclient; extra == "all"
 Requires-Dist: python-swiftclient; extra == "all"
 Requires-Dist: ovirt-engine-sdk-python; extra == "all"
-Requires-Dist: packet-python; extra == "all"
 Requires-Dist: pyvmomi; extra == "all"
 Requires-Dist: cryptography; extra == "all"
 Requires-Dist: google-crc32c==1.1.2; extra == "all"
@@ -92,8 +91,6 @@ Requires-Dist: python-novaclient; extra == "openstack"
 Requires-Dist: python-swiftclient; extra == "openstack"
 Provides-Extra: ovirt
 Requires-Dist: ovirt-engine-sdk-python; extra == "ovirt"
-Provides-Extra: packet
-Requires-Dist: packet-python; extra == "packet"
 Provides-Extra: proxmox
 Requires-Dist: proxmoxer; extra == "proxmox"
 Provides-Extra: vsphere

@@ -1,0 +1,55 @@
+name: pygeoutils-tests
+channels:
+- conda-forge
+- nodefaults
+dependencies:
+# async-retriever deps
+- aiodns
+- aiohttp-client-cache >=0.8.1
+- brotli
+- cytoolz
+- nest-asyncio
+- ujson
+
+# pygeoogc deps
+# - async-retriever>=0.15,<0.16
+- cytoolz
+- defusedxml
+- joblib
+- multidict
+- owslib>=0.27.2
+- pyproj>=3.0.1
+- requests
+- requests-cache>=0.9.6
+- shapely>=2.0.0
+- ujson
+- url-normalize>=1.4
+- urllib3
+- yarl
+
+# pygeoutils deps
+- cytoolz
+- geopandas-base >=0.7
+- fiona
+- netcdf4
+- numpy >=1.21
+- pyproj >=2.2
+- rasterio >=1.2
+- rioxarray >=0.11
+- scipy
+- shapely >=2.0
+- ujson
+- xarray >=2023.01.0
+
+  # optional deps to speed up xarray
+- bottleneck
+
+  # test deps
+- pytest-cov
+- pytest-xdist
+- psutil
+
+- pip
+- pip:
+  - git+https://github.com/hyriver/async-retriever.git
+  - git+https://github.com/hyriver/pygeoogc.git

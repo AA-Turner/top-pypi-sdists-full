@@ -1,0 +1,22 @@
+dist: trusty
+sudo: required
+language: python
+python:
+- '2.7'
+- '3.5'
+cache: pip
+before_install: 
+install: pip install tox-travis
+script: make tox
+deploy:
+  provider: pypi
+  user: reece
+  skip_upload_docs: true
+  skip_cleanup: true
+  distributions: sdist bdist_egg bdist_wheel
+  on:
+    tags: true
+    repo: reece/et
+    branch: master
+  password:
+    secure: NnwgIDpyir/7W88dp998p7LxXK0FrEvBNlSZMaWeIsxR/lFkE0zfXMRWqwkT63p+wbOkATJk/M1cQ2fUzR/wHHUyysvPTAeVayJF3P9Ocr7NsqQBTa7x9sBAGo/zd333zvVUdWpN2thG9gYch9Sd/z5HvcqRsLZY7clsQse1SKfHbKBDNkZNdj0kiVIGq4CSyOIk98EGafsJQQSnqe6JoVkMxuKCyTI+TZ/ZZpmTxJxGjMKjZmGx9z7Y1Sc1+2q68lSf10tR48bKML0AgsLkM4B1HEXJtdLtPGlGCu5U1kSg8dxVhxkKbkAKgyk/1io/wIhnOtK49r1b+4RalQMJgPcD47anPPh5TOXSENIDx9DhS2TIWqDOqL+Jpha3LSuMwawYDHDR+uCjYVw0mkD/a4bYojCgw6Lar4ASlAVmoLFaVHV5xjv167tt3G0VybMOudzzCa0acDgwKnGOvT0Wn2w3J7u/YXPCbh4FjjhU0969gPXf4rJMRUlVXdTcYcRGMyh302ezRVC75cIzo9cjGFsDk15DNh4lUbnC3F9YOJt84b7SoXazAjs4EkiL1eY2ysgFRJXMy76y/QcblhIVCSonXOHAksc9kiPOKB2yUZ5Do4NLenGt7uQI1dsDklfzkOMUzSFvILluJx5LzCA/hk/gdzkrTccaSAa5ORTraDM=

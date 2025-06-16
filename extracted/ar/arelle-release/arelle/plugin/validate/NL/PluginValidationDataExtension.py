@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, TYPE_CHECKING, cast, Iterable
+from typing import Any, cast, Iterable
 
 import regex as re
 from lxml.etree import _Comment, _ElementTree, _Entity, _ProcessingInstruction, _Element
@@ -15,8 +15,9 @@ from lxml.etree import _Comment, _ElementTree, _Entity, _ProcessingInstruction, 
 from arelle import XbrlConst
 from arelle.FunctionIxt import ixtNamespaces
 from arelle.ModelDocument import ModelDocument, Type as ModelDocumentType
-from arelle.ModelDtsObject import ModelConcept
+from arelle.ModelDtsObject import ModelConcept, ModelRelationship
 from arelle.ModelInstanceObject import ModelContext, ModelFact, ModelInlineFootnote, ModelUnit, ModelInlineFact
+from arelle.ModelRelationshipSet import ModelRelationshipSet
 from arelle.ModelObject import ModelObject
 from arelle.ModelValue import QName, qname
 from arelle.ModelXbrl import ModelXbrl
@@ -68,6 +69,10 @@ EFFECTIVE_KVK_GAAP_OTHER_ENTRYPOINT_FILES = frozenset((
     'https://www.nltaxonomie.nl/kvk/2024-12-31/kvk-annual-report-other-gaap.xsd',
 ))
 
+NON_DIMENSIONALIZED_LINE_ITEM_LINKROLES = frozenset((
+    'https://www.nltaxonomie.nl/kvk/role/lineitems-nondimensional-usage',
+))
+
 TAXONOMY_URLS_BY_YEAR = {
     '2024': {
         'https://www.nltaxonomie.nl/kvk/2024-12-31/kvk-annual-report-nlgaap-ext.xsd',
@@ -103,6 +108,21 @@ QN_DOMAIN_ITEM_TYPES = frozenset((
     qname("{http://www.xbrl.org/dtr/type/2022-03-31}nonnum:domainItemType"),
 ))
 
+SUPPORTED_IMAGE_TYPES_BY_IS_FILE = {
+    True: ('gif', 'jpg', 'jpeg', 'png'),
+    False: ('gif', 'jpeg', 'png'),
+}
+
+
+@dataclass(frozen=True)
+class AnchorData:
+    anchorsInDimensionalElrs: dict[str, frozenset[ModelRelationship]]
+    anchorsNotInBase: frozenset[ModelRelationship]
+    anchorsWithDimensionItem: frozenset[ModelRelationship]
+    anchorsWithDomainItem: frozenset[ModelRelationship]
+    extLineItemsNotAnchored: frozenset[ModelConcept]
+    extLineItemsWronglyAnchored: frozenset[ModelConcept]
+
 
 @dataclass(frozen=True)
 class ContextData:
@@ -110,6 +130,13 @@ class ContextData:
     contextsWithPeriodTime: list[ModelContext | None]
     contextsWithPeriodTimeZone: list[ModelContext | None]
     contextsWithSegments: list[ModelContext | None]
+
+
+@dataclass(frozen=True)
+class DimensionalData:
+    domainMembers: frozenset[ModelConcept]
+    elrPrimaryItems: dict[str, set[ModelConcept]]
+    primaryItems: frozenset[ModelConcept]
 
 
 @dataclass(frozen=True)
@@ -249,6 +276,23 @@ class PluginValidationDataExtension(PluginData):
             contextsWithSegments=contextsWithSegments,
         )
 
+    def checkLabels(self, issues: set[ModelConcept| None], modelXbrl: ModelXbrl, parent: ModelConcept, relSet: ModelRelationshipSet, labelrole: str | None, visited: set[ModelConcept]) -> set[ModelConcept| None]:
+        visited.add(parent)
+        conceptRels = defaultdict(list) # counts for concepts without preferred label role
+        for rel in relSet.fromModelObject(parent):
+            child = rel.toModelObject
+            if child is not None:
+                labelrole = rel.preferredLabel
+                if not labelrole:
+                    conceptRels[child].append(rel)
+                if child not in visited:
+                    self.checkLabels(issues, modelXbrl, child, relSet, labelrole, visited)
+        for concept, rels in conceptRels.items():
+            if len(rels) > 1:
+                issues.add(concept)
+        visited.remove(parent)
+        return issues
+
     @lru_cache(1)
     def checkHiddenElements(self, modelXbrl: ModelXbrl) -> HiddenElementsData:
         cssHiddenFacts = set()
@@ -366,6 +410,70 @@ class PluginValidationDataExtension(PluginData):
                 factLangs.add(fact.xmlLang)
         return factLangs
 
+    @lru_cache(1)
+    def getAnchorData(self, modelXbrl: ModelXbrl) -> AnchorData:
+        extLineItemsNotAnchored = set()
+        extLineItemsWronglyAnchored = set()
+        widerNarrowerRelSet = modelXbrl.relationshipSet(XbrlConst.widerNarrower)
+        generalSpecialRelSet = modelXbrl.relationshipSet(XbrlConst.generalSpecial)
+        calcRelSet = modelXbrl.relationshipSet(XbrlConst.summationItems)
+        dimensionalData = self.getDimensionalData(modelXbrl)
+        primaryItems = dimensionalData.primaryItems
+        domainMembers = dimensionalData.domainMembers
+        extensionData = self.getExtensionData(modelXbrl)
+        for concept in extensionData.extensionConcepts:
+            extLineItem = False
+            if concept.isPrimaryItem and \
+                    not concept.isAbstract and \
+                    concept in primaryItems and \
+                    not widerNarrowerRelSet.contains(concept) and \
+                    not calcRelSet.fromModelObject(concept):
+                extLineItem = True
+            elif concept.isAbstract and \
+                    concept not in domainMembers and \
+                    concept.type is not None and \
+                    not concept.type.isDomainItemType and \
+                    not concept.isHypercubeItem and \
+                    not concept.isDimensionItem and \
+                    not widerNarrowerRelSet.contains(concept):
+                extLineItem = True
+            if extLineItem:
+                if not generalSpecialRelSet.contains(concept):
+                    extLineItemsNotAnchored.add(concept)
+                else:
+                    extLineItemsWronglyAnchored.add(concept)
+        elrsContainingDimensionalRelationships = set(
+            ELR
+            for arcrole, ELR, linkqname, arcqname in modelXbrl.baseSets.keys()
+            if arcrole == "XBRL-dimensions" and ELR is not None)
+        anchorsNotInBase = set()
+        anchorsWithDomainItem = set()
+        anchorsWithDimensionItem = set()
+        anchorsInDimensionalElrs = defaultdict(set)
+        for anchoringRel in widerNarrowerRelSet.modelRelationships:
+            elr = anchoringRel.linkrole
+            fromObj = anchoringRel.fromModelObject
+            toObj = anchoringRel.toModelObject
+            if fromObj is not None and toObj is not None and fromObj.type is not None and toObj.type is not None:
+                if not ((not self.isExtensionUri(fromObj.modelDocument.uri, modelXbrl)) ^ (not self.isExtensionUri(toObj.modelDocument.uri, modelXbrl))):
+                    anchorsNotInBase.add(anchoringRel)
+                if fromObj.type.isDomainItemType or toObj.type.isDomainItemType:
+                    anchorsWithDomainItem.add(anchoringRel)
+                elif fromObj.isDimensionItem or toObj.isDimensionItem:
+                    anchorsWithDimensionItem.add(anchoringRel)
+                else:
+                    if elr in elrsContainingDimensionalRelationships:
+                        anchorsInDimensionalElrs[elr].add(anchoringRel)
+        return AnchorData(
+            anchorsInDimensionalElrs={x: frozenset(y) for x, y in anchorsInDimensionalElrs.items()},
+            anchorsNotInBase=frozenset(anchorsNotInBase),
+            anchorsWithDimensionItem=frozenset(anchorsWithDimensionItem),
+            anchorsWithDomainItem=frozenset(anchorsWithDomainItem),
+            extLineItemsNotAnchored=frozenset(extLineItemsNotAnchored),
+            extLineItemsWronglyAnchored=frozenset(extLineItemsWronglyAnchored),
+        )
+
+
     def getBaseElements(self, modelXbrl: ModelXbrl) -> set[Any | None]:
         return self.checkInlineHTMLElements(modelXbrl).baseElements
 
@@ -399,10 +507,13 @@ class PluginValidationDataExtension(PluginData):
         _getDocumentsInDts(modelXbrl.modelDocument)
         return modelDocuments
 
-    def getDomainMembers(self, modelXbrl: ModelXbrl) -> set[ModelConcept]:
+    @lru_cache(1)
+    def getDimensionalData(self, modelXbrl: ModelXbrl) -> DimensionalData:
         domainMembers = set()  # concepts which are dimension domain members
+        elrPrimaryItems = defaultdict(set)
         hcPrimaryItems: set[ModelConcept] = set()
         hcMembers: set[Any] = set()
+        primaryItems: set[ModelConcept] = set()
         for hasHypercubeArcrole in (XbrlConst.all, XbrlConst.notAll):
             hasHypercubeRelationships = modelXbrl.relationshipSet(hasHypercubeArcrole).fromModelObjects()
             for hasHcRels in hasHypercubeRelationships.values():
@@ -413,6 +524,7 @@ class PluginValidationDataExtension(PluginData):
                     for domMbrRel in modelXbrl.relationshipSet(XbrlConst.domainMember).fromModelObject(sourceConcept):
                         if domMbrRel.consecutiveLinkrole == hasHcRel.linkrole: # only those related to this hc
                             self.addDomMbrs(modelXbrl, domMbrRel.toModelObject, domMbrRel.consecutiveLinkrole, hcPrimaryItems)
+                    primaryItems.update(hcPrimaryItems)
                     hc = hasHcRel.toModelObject
                     for hcDimRel in modelXbrl.relationshipSet(XbrlConst.hypercubeDimension, hasHcRel.consecutiveLinkrole).fromModelObject(hc):
                         dim = hcDimRel.toModelObject
@@ -422,7 +534,18 @@ class PluginValidationDataExtension(PluginData):
                                 if isinstance(dom, ModelConcept):
                                     self.addDomMbrs(modelXbrl, dom, dimDomRel.consecutiveLinkrole, hcMembers)
                     domainMembers.update(hcMembers)
-        return domainMembers
+                    if hasHcRel.linkrole in NON_DIMENSIONALIZED_LINE_ITEM_LINKROLES or hcMembers:
+                        for hcPrimaryItem in hcPrimaryItems:
+                            if not hcPrimaryItem.isAbstract:
+                                elrPrimaryItems[hasHcRel.linkrole].add(hcPrimaryItem)
+                                elrPrimaryItems["*"].add(hcPrimaryItem) # members of any ELR
+                    hcPrimaryItems.clear()
+                    hcMembers.clear()
+        return DimensionalData(
+            domainMembers=frozenset(domainMembers),
+            elrPrimaryItems=elrPrimaryItems,
+            primaryItems=frozenset(primaryItems),
+        )
 
     def getEligibleForTransformHiddenFacts(self, modelXbrl: ModelXbrl) -> set[ModelInlineFact]:
         return self.checkHiddenElements(modelXbrl).eligibleForTransformHiddenFacts
@@ -475,6 +598,7 @@ class PluginValidationDataExtension(PluginData):
     def getIxdsDocBasenames(self, modelXbrl: ModelXbrl) -> set[str]:
         return set(Path(url).name for url in getattr(modelXbrl, "ixdsDocUrls", []))
 
+    @lru_cache(1)
     def getExtensionConcepts(self, modelXbrl: ModelXbrl) -> list[ModelConcept]:
         """
         Returns a list of extension concepts in the DTS.

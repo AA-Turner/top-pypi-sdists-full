@@ -1,0 +1,7 @@
+Metadata-Version: 1.1
+Name: bcp
+Version: 0.4.0
+Summary: This is a python utility that allows users to import/export data to/from a database.
+Home-page: https://github.com/fivestack/bcp
+Author: Mike Alfare
+Author-email: alfare@gmail.com

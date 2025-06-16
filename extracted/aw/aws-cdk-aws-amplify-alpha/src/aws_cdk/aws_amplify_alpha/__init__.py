@@ -297,6 +297,21 @@ import aws_cdk.aws_s3_assets as assets
 
 branch = amplify_app.add_branch("dev", asset=asset)
 ```
+
+## Skew protection for Amplify Deployments
+
+Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications.
+When you apply skew protection to an Amplify application, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs.
+
+For more information, see [Skew protection for Amplify deployments](https://docs.aws.amazon.com/amplify/latest/userguide/skew-protection.html).
+
+To enable skew protection, set the `skewProtection` property to `true`:
+
+```python
+# amplify_app: amplify.App
+
+branch = amplify_app.add_branch("dev", skew_protection=True)
+```
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -1149,6 +1164,7 @@ class BasicAuthProps:
         "performance_mode": "performanceMode",
         "pull_request_environment_name": "pullRequestEnvironmentName",
         "pull_request_preview": "pullRequestPreview",
+        "skew_protection": "skewProtection",
         "stage": "stage",
     },
 )
@@ -1166,6 +1182,7 @@ class BranchOptions:
         performance_mode: typing.Optional[builtins.bool] = None,
         pull_request_environment_name: typing.Optional[builtins.str] = None,
         pull_request_preview: typing.Optional[builtins.bool] = None,
+        skew_protection: typing.Optional[builtins.bool] = None,
         stage: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Options to add a branch to an application.
@@ -1180,6 +1197,7 @@ class BranchOptions:
         :param performance_mode: (experimental) Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out. Default: false
         :param pull_request_environment_name: (experimental) The dedicated backend environment for the pull request previews. Default: - automatically provision a temporary backend
         :param pull_request_preview: (experimental) Whether to enable pull request preview for the branch. Default: true
+        :param skew_protection: (experimental) Specifies whether the skew protection feature is enabled for the branch. Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications. When you apply skew protection to a branch, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs. Default: None - Default setting is no skew protection.
         :param stage: (experimental) Stage for the branch. Default: - no stage
 
         :stability: experimental
@@ -1189,12 +1207,9 @@ class BranchOptions:
 
             # amplify_app: amplify.App
             
-            
-            main = amplify_app.add_branch("main") # `id` will be used as repo branch name
-            dev = amplify_app.add_branch("dev",
-                performance_mode=True
+            amplify_app.add_branch("feature/next",
+                basic_auth=amplify.BasicAuth.from_generated_password("username")
             )
-            dev.add_environment("STAGE", "dev")
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b000a0021ff86c948a7f1d5b6d9915b3dd9424861178bf3ab8c784feb250caeb)
@@ -1208,6 +1223,7 @@ class BranchOptions:
             check_type(argname="argument performance_mode", value=performance_mode, expected_type=type_hints["performance_mode"])
             check_type(argname="argument pull_request_environment_name", value=pull_request_environment_name, expected_type=type_hints["pull_request_environment_name"])
             check_type(argname="argument pull_request_preview", value=pull_request_preview, expected_type=type_hints["pull_request_preview"])
+            check_type(argname="argument skew_protection", value=skew_protection, expected_type=type_hints["skew_protection"])
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if asset is not None:
@@ -1230,6 +1246,8 @@ class BranchOptions:
             self._values["pull_request_environment_name"] = pull_request_environment_name
         if pull_request_preview is not None:
             self._values["pull_request_preview"] = pull_request_preview
+        if skew_protection is not None:
+            self._values["skew_protection"] = skew_protection
         if stage is not None:
             self._values["stage"] = stage
 
@@ -1357,6 +1375,22 @@ class BranchOptions:
         :stability: experimental
         '''
         result = self._values.get("pull_request_preview")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def skew_protection(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Specifies whether the skew protection feature is enabled for the branch.
+
+        Deployment skew protection is available to Amplify applications to eliminate version skew issues
+        between client and servers in web applications.
+        When you apply skew protection to a branch, you can ensure that your clients always interact
+        with the correct version of server-side assets, regardless of when a deployment occurs.
+
+        :default: None - Default setting is no skew protection.
+
+        :stability: experimental
+        '''
+        result = self._values.get("skew_protection")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -1396,6 +1430,7 @@ class BranchOptions:
         "performance_mode": "performanceMode",
         "pull_request_environment_name": "pullRequestEnvironmentName",
         "pull_request_preview": "pullRequestPreview",
+        "skew_protection": "skewProtection",
         "stage": "stage",
         "app": "app",
     },
@@ -1414,6 +1449,7 @@ class BranchProps(BranchOptions):
         performance_mode: typing.Optional[builtins.bool] = None,
         pull_request_environment_name: typing.Optional[builtins.str] = None,
         pull_request_preview: typing.Optional[builtins.bool] = None,
+        skew_protection: typing.Optional[builtins.bool] = None,
         stage: typing.Optional[builtins.str] = None,
         app: "IApp",
     ) -> None:
@@ -1429,6 +1465,7 @@ class BranchProps(BranchOptions):
         :param performance_mode: (experimental) Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out. Default: false
         :param pull_request_environment_name: (experimental) The dedicated backend environment for the pull request previews. Default: - automatically provision a temporary backend
         :param pull_request_preview: (experimental) Whether to enable pull request preview for the branch. Default: true
+        :param skew_protection: (experimental) Specifies whether the skew protection feature is enabled for the branch. Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications. When you apply skew protection to a branch, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs. Default: None - Default setting is no skew protection.
         :param stage: (experimental) Stage for the branch. Default: - no stage
         :param app: (experimental) The application within which the branch must be created.
 
@@ -1464,6 +1501,7 @@ class BranchProps(BranchOptions):
                 performance_mode=False,
                 pull_request_environment_name="pullRequestEnvironmentName",
                 pull_request_preview=False,
+                skew_protection=False,
                 stage="stage"
             )
         '''
@@ -1479,6 +1517,7 @@ class BranchProps(BranchOptions):
             check_type(argname="argument performance_mode", value=performance_mode, expected_type=type_hints["performance_mode"])
             check_type(argname="argument pull_request_environment_name", value=pull_request_environment_name, expected_type=type_hints["pull_request_environment_name"])
             check_type(argname="argument pull_request_preview", value=pull_request_preview, expected_type=type_hints["pull_request_preview"])
+            check_type(argname="argument skew_protection", value=skew_protection, expected_type=type_hints["skew_protection"])
             check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
             check_type(argname="argument app", value=app, expected_type=type_hints["app"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1504,6 +1543,8 @@ class BranchProps(BranchOptions):
             self._values["pull_request_environment_name"] = pull_request_environment_name
         if pull_request_preview is not None:
             self._values["pull_request_preview"] = pull_request_preview
+        if skew_protection is not None:
+            self._values["skew_protection"] = skew_protection
         if stage is not None:
             self._values["stage"] = stage
 
@@ -1631,6 +1672,22 @@ class BranchProps(BranchOptions):
         :stability: experimental
         '''
         result = self._values.get("pull_request_preview")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def skew_protection(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Specifies whether the skew protection feature is enabled for the branch.
+
+        Deployment skew protection is available to Amplify applications to eliminate version skew issues
+        between client and servers in web applications.
+        When you apply skew protection to a branch, you can ensure that your clients always interact
+        with the correct version of server-side assets, regardless of when a deployment occurs.
+
+        :default: None - Default setting is no skew protection.
+
+        :stability: experimental
+        '''
+        result = self._values.get("skew_protection")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -3277,6 +3334,7 @@ class App(
         performance_mode: typing.Optional[builtins.bool] = None,
         pull_request_environment_name: typing.Optional[builtins.str] = None,
         pull_request_preview: typing.Optional[builtins.bool] = None,
+        skew_protection: typing.Optional[builtins.bool] = None,
         stage: typing.Optional[builtins.str] = None,
     ) -> "Branch":
         '''(experimental) Adds a branch to this application.
@@ -3292,6 +3350,7 @@ class App(
         :param performance_mode: (experimental) Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out. Default: false
         :param pull_request_environment_name: (experimental) The dedicated backend environment for the pull request previews. Default: - automatically provision a temporary backend
         :param pull_request_preview: (experimental) Whether to enable pull request preview for the branch. Default: true
+        :param skew_protection: (experimental) Specifies whether the skew protection feature is enabled for the branch. Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications. When you apply skew protection to a branch, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs. Default: None - Default setting is no skew protection.
         :param stage: (experimental) Stage for the branch. Default: - no stage
 
         :stability: experimental
@@ -3310,6 +3369,7 @@ class App(
             performance_mode=performance_mode,
             pull_request_environment_name=pull_request_environment_name,
             pull_request_preview=pull_request_preview,
+            skew_protection=skew_protection,
             stage=stage,
         )
 
@@ -3461,14 +3521,12 @@ class Branch(
 
     Example::
 
+        import aws_cdk.aws_s3_assets as assets
+        
+        # asset: assets.Asset
         # amplify_app: amplify.App
         
-        
-        main = amplify_app.add_branch("main") # `id` will be used as repo branch name
-        dev = amplify_app.add_branch("dev",
-            performance_mode=True
-        )
-        dev.add_environment("STAGE", "dev")
+        branch = amplify_app.add_branch("dev", asset=asset)
     '''
 
     def __init__(
@@ -3487,6 +3545,7 @@ class Branch(
         performance_mode: typing.Optional[builtins.bool] = None,
         pull_request_environment_name: typing.Optional[builtins.str] = None,
         pull_request_preview: typing.Optional[builtins.bool] = None,
+        skew_protection: typing.Optional[builtins.bool] = None,
         stage: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -3503,6 +3562,7 @@ class Branch(
         :param performance_mode: (experimental) Enables performance mode for the branch. Performance mode optimizes for faster hosting performance by keeping content cached at the edge for a longer interval. When performance mode is enabled, hosting configuration or code changes can take up to 10 minutes to roll out. Default: false
         :param pull_request_environment_name: (experimental) The dedicated backend environment for the pull request previews. Default: - automatically provision a temporary backend
         :param pull_request_preview: (experimental) Whether to enable pull request preview for the branch. Default: true
+        :param skew_protection: (experimental) Specifies whether the skew protection feature is enabled for the branch. Deployment skew protection is available to Amplify applications to eliminate version skew issues between client and servers in web applications. When you apply skew protection to a branch, you can ensure that your clients always interact with the correct version of server-side assets, regardless of when a deployment occurs. Default: None - Default setting is no skew protection.
         :param stage: (experimental) Stage for the branch. Default: - no stage
 
         :stability: experimental
@@ -3523,6 +3583,7 @@ class Branch(
             performance_mode=performance_mode,
             pull_request_environment_name=pull_request_environment_name,
             pull_request_preview=pull_request_preview,
+            skew_protection=skew_protection,
             stage=stage,
         )
 
@@ -3882,6 +3943,7 @@ def _typecheckingstub__b000a0021ff86c948a7f1d5b6d9915b3dd9424861178bf3ab8c784feb
     performance_mode: typing.Optional[builtins.bool] = None,
     pull_request_environment_name: typing.Optional[builtins.str] = None,
     pull_request_preview: typing.Optional[builtins.bool] = None,
+    skew_protection: typing.Optional[builtins.bool] = None,
     stage: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3899,6 +3961,7 @@ def _typecheckingstub__529d2fd3c9613ce4eb269675040b4e50e2005444ff5b8d0f0cf4702ad
     performance_mode: typing.Optional[builtins.bool] = None,
     pull_request_environment_name: typing.Optional[builtins.str] = None,
     pull_request_preview: typing.Optional[builtins.bool] = None,
+    skew_protection: typing.Optional[builtins.bool] = None,
     stage: typing.Optional[builtins.str] = None,
     app: IApp,
 ) -> None:
@@ -4073,6 +4136,7 @@ def _typecheckingstub__e2df726a9de1c19f40cb6ef900a079002cd8f15beecdff87621764c6d
     performance_mode: typing.Optional[builtins.bool] = None,
     pull_request_environment_name: typing.Optional[builtins.str] = None,
     pull_request_preview: typing.Optional[builtins.bool] = None,
+    skew_protection: typing.Optional[builtins.bool] = None,
     stage: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4118,6 +4182,7 @@ def _typecheckingstub__85d9ca053e5c72ede5db7f548cddd267aa4e3612c2ede03b31b18efcb
     performance_mode: typing.Optional[builtins.bool] = None,
     pull_request_environment_name: typing.Optional[builtins.str] = None,
     pull_request_preview: typing.Optional[builtins.bool] = None,
+    skew_protection: typing.Optional[builtins.bool] = None,
     stage: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

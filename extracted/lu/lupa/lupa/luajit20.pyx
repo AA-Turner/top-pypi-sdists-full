@@ -1,12 +1,12 @@
 #######  DO NOT EDIT - BUILD TIME COPY OF "_lupa.pyx" #######
 
-# cython: embedsignature=True, binding=True, language_level=3str
+# cython: embedsignature=True
+# cython: binding=True
+# cython: language_level=3
 
 """
 A fast Python wrapper around Lua and LuaJIT2.
 """
-
-from __future__ import absolute_import
 
 cimport cython
 
@@ -940,7 +940,7 @@ cdef class _LuaObject:
             lua.lua_settop(L, old_top)
             unlock_runtime(self._runtime)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return True
 
     def __iter__(self):

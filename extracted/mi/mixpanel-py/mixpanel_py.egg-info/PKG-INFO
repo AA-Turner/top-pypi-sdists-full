@@ -1,0 +1,23 @@
+Metadata-Version: 1.1
+Name: mixpanel-py
+Version: 4.0.3
+Summary: Official Mixpanel library for Python
+Home-page: https://github.com/mixpanel/mixpanel-python
+Author: Mixpanel, Inc.
+Author-email: dev@mixpanel.com
+License: Apache
+Description: mixpanel-python
+        ===============
+        
+        Moved
+        -----
+        
+        The official Mixpanel Python library is now called "`mixpanel`_".
+        
+        .. _mixpanel: https://pypi.python.org/pypi/mixpanel
+        
+Keywords: mixpanel analytics
+Platform: UNKNOWN
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2 :: Only

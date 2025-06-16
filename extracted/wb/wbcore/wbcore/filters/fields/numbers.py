@@ -1,6 +1,7 @@
 import django_filters
 
 from wbcore.filters.mixins import WBCoreFilterMixin
+from wbcore.serializers import WBCoreType
 
 
 class NumberFilter(WBCoreFilterMixin, django_filters.NumberFilter):
@@ -18,6 +19,9 @@ class NumberFilter(WBCoreFilterMixin, django_filters.NumberFilter):
         representation["precision"] = self.precision
         representation["delimiter"] = self.delimiter
         representation["decimal_mark"] = self.decimal_mark
+        if self.percent:  # TODO: Discuss with Christoph if this is necessary like this
+            lookup_expr["input_properties"]["type"] = WBCoreType.PERCENT.value
+            representation["precision"] = max(self.precision - 2, 0)
         return representation, lookup_expr
 
     def filter(self, qs, value):

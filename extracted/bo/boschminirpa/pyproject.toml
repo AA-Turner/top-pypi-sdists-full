@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", 'wheel', 'BoschRpaMagicBox', 'opencv-python', 'pillow', 'pandas', 'openpyxl', 'XlsxWriter','natsort']
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "BoschMiniRpa"
+version = "0.1.92"
+authors = [
+    { name = "LV Zhichao", email = "zhichao.lv@cn.bosch.com" },
+]
+description = "This package is used for building low code or no code RPA solutions within Bosch."
+readme = "README.md"
+requires-python = ">=3.6"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "selenium==4.8.0",
+    'BoschRpaMagicBox',
+    'opencv-python',
+    'pillow',
+    'pandas',
+    'openpyxl',
+    'XlsxWriter',
+    'natsort'
+]
+
+[project.urls]
+"Homepage" = "https://github.boschdevcloud.com/LZV2SZH/BoschMiniRpa"
+"Bug Tracker" = "https://github.boschdevcloud.com/LZV2SZH/BoschMiniRpa/issues"

@@ -1,0 +1,441 @@
+Metadata-Version: 2.4
+Name: warp_beacon
+Version: 2.8.20
+Summary: Telegram bot for expanding external media links
+Home-page: https://github.com/sb0y/warp_beacon
+Author: Andrey Bagrintsev
+Author-email: "Andrey (Sb0y) Bagrintsev" <andrey@bagrintsev.me>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+        
+Project-URL: Homepage, https://github.com/sb0y/warp_beacon
+Project-URL: Issues, https://github.com/sb0y/warp_beacon/issues
+Keywords: bot,telegram,instagram,export
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Topic :: Sociology
+Classifier: Topic :: Communications :: File Sharing
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Scientific/Engineering :: Image Processing
+Classifier: Topic :: Multimedia :: Video
+Classifier: Topic :: Multimedia
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: ffmpeg-python
+Requires-Dist: uvloop
+Requires-Dist: tgcrypto
+Requires-Dist: pyrogram
+Requires-Dist: pillow-heif
+Requires-Dist: pytubefix
+Requires-Dist: av==12.3.0
+Requires-Dist: urlextract
+Requires-Dist: pillow
+Requires-Dist: pymongo
+Requires-Dist: instagrapi==2.0.0
+Requires-Dist: bs4
+Requires-Dist: yt_dlp
+Requires-Dist: pydub
+Requires-Dist: SpeechRecognition
+Requires-Dist: playwright
+Requires-Dist: fake-useragent
+Requires-Dist: pyotp
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+
+# warp_beacon [![Upload Python Package](https://github.com/sb0y/warp_beacon/actions/workflows/python-publish.yml/badge.svg)](https://github.com/sb0y/warp_beacon/actions/workflows/python-publish.yml) [![Docker Image CI](https://github.com/sb0y/warp_beacon/actions/workflows/docker-image.yml/badge.svg)](https://github.com/sb0y/warp_beacon/actions/workflows/docker-image.yml) [![Build DEB package](https://github.com/sb0y/warp_beacon/actions/workflows/build-deb.yml/badge.svg)](https://github.com/sb0y/warp_beacon/actions/workflows/build-deb.yml)
+> because content should travel freely
+
+Telegram bot that expands media links from external social networks.
+Works with links sent in private messages or group chats.
+
+Just send a media link to the bot, and it will reply with a video or audio file.
+
+| | | |
+|:-------------------------:|:-------------------------:|:-------------------------:|
+|<img width="700" alt="Yotube Video usage example" src="https://github.com/user-attachments/assets/280b058f-325b-4386-9556-f145f6db9cfa"> Yotube Video usage example |<img width="700" alt="Youtube Music usage example" src="https://github.com/user-attachments/assets/3a462a3b-8c80-460f-aa66-c39db24f7a24"> Youtube Music usage example|<img width="703" alt="image" src="https://github.com/user-attachments/assets/384206ea-1371-48d5-a717-92aff06fa339"> Instagram Reels usage example |
+|<img width="700" alt="Instagram Photo post usage example" src="https://github.com/user-attachments/assets/29324b94-7314-4a38-8790-3483011d355d"> Instagram Photo post usage example|<img width="700" alt="Instagram Photo Carousel usage" src="https://github.com/user-attachments/assets/2598e329-e16e-455e-91e9-a027e8994283"> Instagram Photo Carousel usage example|<img width="757" alt="Instagram Photo bulk Strories download usage example" src="https://github.com/user-attachments/assets/2c8c91ac-6ade-4d1d-a677-2b36bb40ff39"> Instagram Photo bulk Strories download usage example|
+|<img width="700" alt="Instagram specific Story download usage example" src="https://github.com/user-attachments/assets/03dc70c5-6933-4122-9c7c-5f7d734d117b"> Instagram specific Story download usage example|<img width="700" alt="Group chat usage example" src="https://github.com/user-attachments/assets/649fcb1e-785b-4efd-9153-69644c6d898b"> Group chat usage example|
+
+### **Warp Beacon manifesto**
+
+> Once, the Internet was built as a borderless network — a space where knowledge, culture, and ideas could flow freely across the globe.  
+> But over time, freedom gave way to artificial walls, anti-bot shields, and region locks.
+>
+> **warp_beacon** is our answer to that shift.
+>
+> This is a tool for those who refuse to accept "access denied by geolocation" or "content unavailable in your region."  
+> It is a bridge over ML filters, CAPTCHAs, and man-made barriers.
+>
+> We don’t break the rules — we restore the original spirit of the Internet:  
+> 📡 **free exchange of information**,  
+> 🌍 **unrestricted access to global content**,  
+> 🤖 **tools that serve the user**, not the platform.
+>
+> **warp_beacon** — the freedom to deliver content where it’s needed most.
+
+## Configuration example ##
+
+In order to setup your own instance, you will need:
+
+1. Obtain your own brand new `TG_TOKEN`. To do that, write to [@BotFather](https://t.me/BotFather).
+2. Obtain `TG_API_ID`, `TG_API_HASH`, `TG_BOT_NAME`. Learn more [here](https://core.telegram.org/api/obtaining_api_id).
+
+All bot configuration stored in [warp_beacon.conf](https://github.com/sb0y/warp_beacon/blob/main/etc/warp_beacon.conf) file.
+
+```env
+TG_TOKEN="you telegram token received from @BotFather"
+# these 3 settings should be obtained at https://my.telegram.org/apps
+# learn more: https://core.telegram.org/api/obtaining_api_id
+###
+TG_API_ID=""
+TG_API_HASH=""
+TG_BOT_NAME=""
+# bot admin username, e.g.: @BelisariusCawl
+# Used for communication between the bot and the administrator.
+# For example, if authorization is required for YouTube, bot can send an authorization code via message to this address.
+TG_BOT_ADMIN_USERNAME=""
+###
+INSTAGRAM_LOGIN="instagram login (email or cell phone)"
+INSTAGRAM_PASSWORD="instgram password"
+MONGODB_HOST="mongodb"
+MONGODB_PORT="27017"
+MONGODB_USER="root"
+MONGODB_PASSWORD="changeme"
+# more information about accounts.json and proxies.json
+# can be found in project wiki
+# https://github.com/sb0y/warp_beacon/wiki/Introduction-in-account.json-file
+SERVICE_ACCOUNTS_FILE=/var/warp_beacon/accounts.json
+PROXY_FILE=/var/warp_beacon/proxies.json
+
+# workers settings
+# default: min(32, os.cpu_count() + 4)
+#TG_WORKERS_POOL_SIZE=3
+#UPLOAD_POOL_SIZE=3
+#WORKERS_POOL_SIZE=3
+ENABLE_DONATES=true
+DONATE_LINK="your donate link which will be shown if ENABLE_DONATES where set"
+```
+## Deployed example bot ##
+[Try it 🚀](https://t.me/anus_sebe_zablokiruy_bot)
+
+## How to run ##
+Any Linux machine will suit in.
+
+Install docker and git
+```bash
+sudo apt update
+# uninstall old docker packages
+for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt-get remove $pkg; done
+sudo apt install ca-certificates curl git
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin git
+```
+
+Download sources
+```bash
+git clone https://github.com/sb0y/warp_beacon.git
+```
+Go to sources directory
+```bash
+cd warp_beacon
+```
+
+Run app
+```bash
+sudo docker compose up -d
+```
+
+Check logs
+```bash
+sudo docker compose logs warp_beacon -f
+```
+## Upgrading ##
+If you are using `image-prod` (set in `docker-compose.yml` by default), just rebuild your image:
+```bash
+cd your_warp_beacon_sources_directory/
+sudo docker compose build --no-cache
+```
+Recreate existing container:
+```bash
+sudo docker compose up -d
+```
+
+## How to install from PIP ##
+
+```bash
+sudo apt update
+sudo apt install python3-pip
+sudo pip install warp-beacon
+```
+
+Your configuration file will be located at `/usr/local/lib/python3.10/dist-packages/etc/warp_beacon/warp_beacon.conf`.
+For convenience, we will copy it to a common directory:
+
+```bash
+mkdir /etc/warp_beacon
+cp /usr/local/lib/python3.10/dist-packages/etc/warp_beacon/warp_beacon.conf /etc/warp_beacon/warp_beacon.conf
+```
+
+Run the app
+
+```bash
+source /etc/warp_beacon/warp_beacon.conf && /usr/local/bin/warp_beacon
+```
+
+Most likely you will need a systemd service so that you don't have to start the service manually and don't have to worry about service start on server reboot.
+
+```bash
+cp /usr/local/lib/python3.10/dist-packages/lib/systemd/system/warp_beacon.service /lib/systemd/system
+systemctl unmask warp_beacon.service
+systemctl enable warp_beacon.service
+# start the service app
+systemctl start warp_beacon.service
+```
+
+## How to build Python whl package ##
+```bash
+sudo apt install python3-pip python3-build python3-virtualenv dh-virtualenv
+# If you are getting build errors you probably need the latest version of python3-build
+sudo python3 -m pip install --upgrade build
+python3 -m build
+```
+
+## How to build Ubuntu deb package ##
+
+```bash
+sudo apt update
+sudo apt install debhelper python3-pip python3-build python3-virtualenv dh-virtualenv dh-python
+# If you are getting build errors you probably need the latest version of python3-build
+sudo python3 -m pip install --upgrade build
+```
+
+build deb file
+
+```bash
+dpkg-buildpackage -us -uc -b
+```
+
+# Wiki
+* [MongoDB backup and restore](https://github.com/sb0y/warp_beacon/wiki/MongoDB-backup-and-restore)
+* [Introduction in account.json file](https://github.com/sb0y/warp_beacon/wiki/Introduction-in-account.json-file)
+
+# Support Warp Beacon project
+
+[<img src="https://opencollective.com/webpack/donate/button@2x.png?color=blue" alt="Donate" width="300px">](https://opencollective.com/warp_beacon) [<img src="https://raw.githubusercontent.com/sb0y/warp_beacon/refs/heads/main/assets/cc-group-black.png?raw=true" alt="CryptoCloud Accepted" width="250px">](https://pay.cryptocloud.plus/pos/W5BMtNQt5bJFoW2E)
+
+<!-- [![Backers on Open Collective](https://opencollective.com/warp_beacon/backers/badge.svg)](https://opencollective.com/warp_beacon) -->
+<!-- #[![Sponsors on Open Collective](https://opencollective.com/warp_beacon/sponsors/badge.svg)](https://opencollective.com/warp_beacon) -->
+

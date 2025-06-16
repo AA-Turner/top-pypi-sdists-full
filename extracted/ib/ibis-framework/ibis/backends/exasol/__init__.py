@@ -151,21 +151,20 @@ class Backend(SQLBackend, CanCreateDatabase, NoExampleLoader):
         with self.begin() as con:
             con.execute(f"ALTER SESSION SET TIME_ZONE = {timezone!r}")
 
-    def _from_url(self, url: ParseResult, **kwargs) -> BaseBackend:
-        """Construct an ibis backend from a URL."""
-        kwargs = {
-            "user": url.username,
-            "password": unquote_plus(url.password)
-            if url.password is not None
-            else None,
-            "schema": url.path[1:] or None,
-            "host": url.hostname,
-            "port": url.port,
-            **kwargs,
-        }
-
+    def _from_url(self, url: ParseResult, **kwarg_overrides) -> BaseBackend:
+        kwargs = {}
+        if url.username:
+            kwargs["user"] = url.username
+        if url.password:
+            kwargs["password"] = unquote_plus(url.password)
+        if url.hostname:
+            kwargs["host"] = url.hostname
+        if schema := url.path[1:]:
+            kwargs["schema"] = schema
+        if url.port:
+            kwargs["port"] = url.port
+        kwargs.update(kwarg_overrides)
         self._convert_kwargs(kwargs)
-
         return self.connect(**kwargs)
 
     @contextlib.contextmanager
@@ -191,16 +190,6 @@ class Backend(SQLBackend, CanCreateDatabase, NoExampleLoader):
     def list_tables(
         self, *, like: str | None = None, database: str | tuple[str, str] | None = None
     ) -> list[str]:
-        """List the tables in the database.
-
-        Parameters
-        ----------
-        like
-            A pattern to use for listing tables.
-        database
-            Database to list tables from. Default behavior is to show tables in
-            the current database.
-        """
         tables = sg.select("table_name").from_(
             sg.table("EXA_ALL_TABLES", catalog="SYS")
         )

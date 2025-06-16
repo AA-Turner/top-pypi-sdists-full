@@ -20,48 +20,6 @@ class SafeHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandl
         ...
 
 
-class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
-    """This class has no documentation."""
-
-    @property
-    def is_async(self) -> bool:
-        ...
-
-    @property
-    def is_invalid(self) -> bool:
-        ...
-
-    @overload
-    def __init__(self, preexisting_handle: System.IntPtr, owns_handle: bool) -> None:
-        """
-        Creates a Microsoft.Win32.SafeHandles.SafeFileHandle around a file handle.
-        
-        :param preexisting_handle: Handle to wrap
-        :param owns_handle: Whether to control the handle lifetime
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    def release_handle(self) -> bool:
-        """This method is protected."""
-        ...
-
-
-class SafeHandleMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def is_invalid(self) -> bool:
-        ...
-
-    def __init__(self, owns_handle: bool) -> None:
-        """This method is protected."""
-        ...
-
-
 class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
     """This class has no documentation."""
 
@@ -76,6 +34,36 @@ class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
         Creates a Microsoft.Win32.SafeHandles.SafeWaitHandle around a wait handle.
         
         :param existing_handle: Handle to wrap
+        :param owns_handle: Whether to control the handle lifetime
+        """
+        ...
+
+    def release_handle(self) -> bool:
+        """This method is protected."""
+        ...
+
+
+class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
+    """This class has no documentation."""
+
+    @property
+    def is_async(self) -> bool:
+        ...
+
+    @property
+    def is_invalid(self) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, preexisting_handle: System.IntPtr, owns_handle: bool) -> None:
+        """
+        Creates a Microsoft.Win32.SafeHandles.SafeFileHandle around a file handle.
+        
+        :param preexisting_handle: Handle to wrap
         :param owns_handle: Whether to control the handle lifetime
         """
         ...
@@ -105,6 +93,18 @@ class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHan
         ...
 
     def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+
+class SafeHandleMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def is_invalid(self) -> bool:
+        ...
+
+    def __init__(self, owns_handle: bool) -> None:
         """This method is protected."""
         ...
 

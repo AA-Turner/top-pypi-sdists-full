@@ -130,7 +130,6 @@ from .letta_request import LettaRequest
 from .letta_request_config import LettaRequestConfig
 from .letta_response import LettaResponse
 from .letta_stop_reason import LettaStopReason
-from .letta_stop_reason_stop_reason import LettaStopReasonStopReason
 from .letta_streaming_request import LettaStreamingRequest
 from .letta_usage_statistics import LettaUsageStatistics
 from .letta_user_message_content_union import LettaUserMessageContentUnion
@@ -200,6 +199,7 @@ from .source import Source
 from .sse_server_config import SseServerConfig
 from .stdio_server_config import StdioServerConfig
 from .step import Step
+from .stop_reason_type import StopReasonType
 from .supervisor_manager import SupervisorManager
 from .supervisor_manager_update import SupervisorManagerUpdate
 from .system_message import SystemMessage
@@ -208,6 +208,7 @@ from .terminal_tool_rule import TerminalToolRule
 from .text_content import TextContent
 from .text_response_format import TextResponseFormat
 from .tool import Tool
+from .tool_annotations import ToolAnnotations
 from .tool_call import ToolCall
 from .tool_call_content import ToolCallContent
 from .tool_call_delta import ToolCallDelta
@@ -378,7 +379,6 @@ __all__ = [
     "LettaRequestConfig",
     "LettaResponse",
     "LettaStopReason",
-    "LettaStopReasonStopReason",
     "LettaStreamingRequest",
     "LettaUsageStatistics",
     "LettaUserMessageContentUnion",
@@ -444,6 +444,7 @@ __all__ = [
     "SseServerConfig",
     "StdioServerConfig",
     "Step",
+    "StopReasonType",
     "SupervisorManager",
     "SupervisorManagerUpdate",
     "SystemMessage",
@@ -452,6 +453,7 @@ __all__ = [
     "TextContent",
     "TextResponseFormat",
     "Tool",
+    "ToolAnnotations",
     "ToolCall",
     "ToolCallContent",
     "ToolCallDelta",

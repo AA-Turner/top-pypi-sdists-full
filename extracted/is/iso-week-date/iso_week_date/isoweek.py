@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Generator
+from collections.abc import Iterable
 from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Generator
-from typing import Iterable
 from typing import Literal
 from typing import overload
 
@@ -16,6 +16,8 @@ from iso_week_date._patterns import ISOWEEK__FORMAT
 from iso_week_date._patterns import ISOWEEK_PATTERN
 
 if TYPE_CHECKING:
+    from datetime import tzinfo
+
     from typing_extensions import Self
 
 
@@ -365,7 +367,7 @@ class IsoWeek(BaseIsoWeek):
     # from_* methods
 
     @classmethod
-    def from_string(cls: type[Self], _str: str) -> Self:
+    def from_string(cls: type[Self], _str: str, /) -> Self:
         """Create an IsoWeek instance from a string in YYYY-WNN format.
 
         Arguments:
@@ -390,7 +392,7 @@ class IsoWeek(BaseIsoWeek):
         return super().from_string(_str)
 
     @classmethod
-    def from_compact(cls: type[Self], _str: str) -> Self:
+    def from_compact(cls: type[Self], _str: str, /) -> Self:
         """Create an IsoWeek instance from a compact string in YYYYNN format.
 
         Arguments:
@@ -415,7 +417,7 @@ class IsoWeek(BaseIsoWeek):
         return super().from_compact(_str)
 
     @classmethod
-    def from_date(cls: type[Self], _date: date) -> Self:
+    def from_date(cls: type[Self], _date: date, /) -> Self:
         """Create an IsoWeek instance from a date object.
 
         Arguments:
@@ -437,7 +439,7 @@ class IsoWeek(BaseIsoWeek):
         return super().from_date(_date)
 
     @classmethod
-    def from_datetime(cls: type[Self], _datetime: datetime) -> Self:
+    def from_datetime(cls: type[Self], _datetime: datetime, /) -> Self:
         """Create an IsoWeek instance from a datetime object.
 
         Arguments:
@@ -459,7 +461,7 @@ class IsoWeek(BaseIsoWeek):
         return super().from_datetime(_datetime)
 
     @classmethod
-    def from_today(cls: type[Self]) -> Self:
+    def from_today(cls: type[Self], time_zone: tzinfo | None = None) -> Self:
         """Create an IsoWeek instance from the current date.
 
         Returns:
@@ -472,7 +474,7 @@ class IsoWeek(BaseIsoWeek):
             >>> IsoWeek.from_today() == IsoWeek.from_date(datetime.now().date())
             True
         """
-        return cls.from_date(date.today())
+        return cls.from_datetime(datetime.now(tz=time_zone))
 
     @classmethod
     def from_values(cls: type[Self], year: int, week: int) -> Self:

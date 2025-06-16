@@ -1,0 +1,617 @@
+Metadata-Version: 2.4
+Name: msticpy
+Version: 2.16.2
+Summary: MSTIC Security Tools
+Home-page: https://github.com/microsoft/msticpy
+Author: Ian Hellen
+Author-email: ianhelle@microsoft.com
+Maintainer: Pete Bryan
+Maintainer-email: peter.bryan@microsoft.com
+License: MIT License
+Project-URL: Documentation, https://msticpy.readthedocs.io
+Project-URL: Code, https://github.com/microsoft/msticpy
+Project-URL: Issue tracker, https://github.com/microsoft/msticpy/issues
+Keywords: security,azure,sentinel,mstic,cybersec,infosec,cyber,cybersecurity,jupyter,notebooks,SOC,hunting
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: IPython
+Classifier: Framework :: Jupyter
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Topic :: Security
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE.txt
+Requires-Dist: attrs>=18.2.0
+Requires-Dist: azure-common>=1.1.18
+Requires-Dist: azure-core>=1.24.0
+Requires-Dist: azure-identity>=1.16.1
+Requires-Dist: azure-keyvault-secrets>=4.0.0
+Requires-Dist: azure-kusto-data<=5.0.0,>=4.4.0
+Requires-Dist: azure-mgmt-keyvault>=2.0.0
+Requires-Dist: azure-mgmt-subscription>=3.0.0
+Requires-Dist: azure-monitor-query<=2.0.0,>=1.0.0
+Requires-Dist: beautifulsoup4>=4.0.0
+Requires-Dist: bokeh>=3.0.0
+Requires-Dist: cryptography>=43.0.1
+Requires-Dist: deprecated>=1.2.4
+Requires-Dist: dnspython<3.0.0,>=2.0.0
+Requires-Dist: folium>=0.9.0
+Requires-Dist: geoip2>=2.9.0
+Requires-Dist: httpx<1.0.0,>=0.23.0
+Requires-Dist: html5lib
+Requires-Dist: importlib-resources>=6.4.0; python_version <= "3.8"
+Requires-Dist: ipython>=7.1.1; python_version < "3.8"
+Requires-Dist: ipython>=7.23.1; python_version >= "3.8"
+Requires-Dist: ipywidgets<9.0.0,>=7.4.2
+Requires-Dist: jinja2>=3.1.5
+Requires-Dist: keyring>=13.2.1
+Requires-Dist: lxml>=4.6.5
+Requires-Dist: msal>=1.12.0
+Requires-Dist: msal_extensions>=0.3.0
+Requires-Dist: msrest>=0.6.0
+Requires-Dist: msrestazure>=0.6.0
+Requires-Dist: nest_asyncio>=1.4.0
+Requires-Dist: networkx>=2.2
+Requires-Dist: numpy>=1.15.4
+Requires-Dist: packaging>=24.0
+Requires-Dist: pandas<3.0.0,>=1.4.0
+Requires-Dist: panel>=1.2.1
+Requires-Dist: pydantic<3.0.0,>=1.8.0
+Requires-Dist: pygments>=2.0.0
+Requires-Dist: pyjwt>=2.3.0
+Requires-Dist: python-dateutil>=2.8.1
+Requires-Dist: pytz>=2019.2
+Requires-Dist: pyyaml>=3.13
+Requires-Dist: setuptools>=40.6.3
+Requires-Dist: tldextract>=2.2.2
+Requires-Dist: tornado>=6.4.2
+Requires-Dist: tqdm>=4.36.1
+Requires-Dist: typing-extensions>=4.2.0
+Requires-Dist: urllib3>=1.23
+Provides-Extra: dev
+Requires-Dist: aiohttp>=3.7.4; extra == "dev"
+Requires-Dist: async-cache>=1.1.1; extra == "dev"
+Requires-Dist: bandit>=1.7.0; extra == "dev"
+Requires-Dist: beautifulsoup4>=4.0.0; extra == "dev"
+Requires-Dist: black<25.0.0,>=20.8b1; extra == "dev"
+Requires-Dist: coverage>=5.5; extra == "dev"
+Requires-Dist: docutils<0.22.0; extra == "dev"
+Requires-Dist: filelock>=3.0.0; extra == "dev"
+Requires-Dist: flake8>=3.8.4; extra == "dev"
+Requires-Dist: httpx<0.28.0,>=0.23.0; extra == "dev"
+Requires-Dist: isort>=5.10.1; extra == "dev"
+Requires-Dist: jsonschema>=4.17.3; extra == "dev"
+Requires-Dist: markdown>=3.3.4; extra == "dev"
+Requires-Dist: mccabe>=0.6.1; extra == "dev"
+Requires-Dist: mypy>=0.812; extra == "dev"
+Requires-Dist: nbdime>=2.1.0; extra == "dev"
+Requires-Dist: nbconvert>=6.1.0; extra == "dev"
+Requires-Dist: pandas<3.0.0,>=1.4.0; extra == "dev"
+Requires-Dist: pep8-naming>=0.10.0; extra == "dev"
+Requires-Dist: pep8>=1.7.1; extra == "dev"
+Requires-Dist: pipreqs>=0.4.9; extra == "dev"
+Requires-Dist: pre-commit>=2.7.1; extra == "dev"
+Requires-Dist: pycodestyle>=2.6.0; extra == "dev"
+Requires-Dist: pydocstyle>=6.0.0; extra == "dev"
+Requires-Dist: pyflakes>=2.2.0; extra == "dev"
+Requires-Dist: pygeohash>=1.2.0; extra == "dev"
+Requires-Dist: pylint>=2.5.3; extra == "dev"
+Requires-Dist: pyroma>=3.1; extra == "dev"
+Requires-Dist: pytest-check>=1.0.1; extra == "dev"
+Requires-Dist: pytest-cov>=2.11.1; extra == "dev"
+Requires-Dist: pytest-env>=1.1.0; extra == "dev"
+Requires-Dist: pytest-xdist>=2.5.0; extra == "dev"
+Requires-Dist: pytest>=5.0.1; extra == "dev"
+Requires-Dist: readthedocs-sphinx-ext==2.2.5; extra == "dev"
+Requires-Dist: responses>=0.13.2; extra == "dev"
+Requires-Dist: respx>=0.20.1; extra == "dev"
+Requires-Dist: ruff>=0.6.6; extra == "dev"
+Requires-Dist: sphinx-rtd-theme>=1.0.0; extra == "dev"
+Requires-Dist: sphinx<8.0.0,>=5.0.1; extra == "dev"
+Requires-Dist: types-attrs>=19.0.0; extra == "dev"
+Requires-Dist: types-requests>=2.32.0; extra == "dev"
+Provides-Extra: vt3
+Requires-Dist: vt-py>=0.18.0; extra == "vt3"
+Requires-Dist: vt-graph-api>=2.0; extra == "vt3"
+Provides-Extra: splunk
+Requires-Dist: splunk-sdk!=2.0.0,>=1.6.0; extra == "splunk"
+Provides-Extra: sumologic
+Requires-Dist: sumologic-sdk>=0.1.11; extra == "sumologic"
+Requires-Dist: openpyxl>=3.0; extra == "sumologic"
+Provides-Extra: kql
+Requires-Dist: KqlmagicCustom[jupyter-extended]>=0.1.114.post22; extra == "kql"
+Provides-Extra: azure
+Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "azure"
+Requires-Dist: azure-mgmt-core>=1.2.1; extra == "azure"
+Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "azure"
+Requires-Dist: azure-mgmt-network>=2.7.0; extra == "azure"
+Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "azure"
+Requires-Dist: azure-storage-blob>=12.5.0; extra == "azure"
+Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "azure"
+Provides-Extra: azure-query
+Provides-Extra: keyvault
+Provides-Extra: ml
+Requires-Dist: scikit-learn>=1.0.0; extra == "ml"
+Requires-Dist: scipy>=1.1.0; extra == "ml"
+Requires-Dist: statsmodels>=0.11.1; extra == "ml"
+Requires-Dist: matplotlib>=3.0.0; extra == "ml"
+Provides-Extra: sql2kql
+Requires-Dist: mo-sql-parsing<9.0.0,>=8; extra == "sql2kql"
+Provides-Extra: riskiq
+Requires-Dist: passivetotal>=2.5.3; extra == "riskiq"
+Requires-Dist: requests>=2.31.0; extra == "riskiq"
+Provides-Extra: panel
+Provides-Extra: aiagents
+Requires-Dist: autogen-agentchat[retrievechat]~=0.2.0; extra == "aiagents"
+Provides-Extra: all
+Requires-Dist: KqlmagicCustom[jupyter-extended]>=0.1.114.post22; extra == "all"
+Requires-Dist: autogen-agentchat[retrievechat]~=0.2.0; extra == "all"
+Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "all"
+Requires-Dist: azure-mgmt-core>=1.2.1; extra == "all"
+Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "all"
+Requires-Dist: azure-mgmt-network>=2.7.0; extra == "all"
+Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "all"
+Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "all"
+Requires-Dist: azure-storage-blob>=12.5.0; extra == "all"
+Requires-Dist: matplotlib>=3.0.0; extra == "all"
+Requires-Dist: mo-sql-parsing<9.0.0,>=8; extra == "all"
+Requires-Dist: openpyxl>=3.0; extra == "all"
+Requires-Dist: passivetotal>=2.5.3; extra == "all"
+Requires-Dist: requests>=2.31.0; extra == "all"
+Requires-Dist: scikit-learn>=1.0.0; extra == "all"
+Requires-Dist: scipy>=1.1.0; extra == "all"
+Requires-Dist: splunk-sdk!=2.0.0,>=1.6.0; extra == "all"
+Requires-Dist: statsmodels>=0.11.1; extra == "all"
+Requires-Dist: sumologic-sdk>=0.1.11; extra == "all"
+Requires-Dist: vt-graph-api>=2.0; extra == "all"
+Requires-Dist: vt-py>=0.18.0; extra == "all"
+Provides-Extra: test
+Requires-Dist: KqlmagicCustom[jupyter-extended]>=0.1.114.post22; extra == "test"
+Requires-Dist: aiohttp>=3.7.4; extra == "test"
+Requires-Dist: async-cache>=1.1.1; extra == "test"
+Requires-Dist: autogen-agentchat[retrievechat]~=0.2.0; extra == "test"
+Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "test"
+Requires-Dist: azure-mgmt-core>=1.2.1; extra == "test"
+Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "test"
+Requires-Dist: azure-mgmt-network>=2.7.0; extra == "test"
+Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "test"
+Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "test"
+Requires-Dist: azure-storage-blob>=12.5.0; extra == "test"
+Requires-Dist: bandit>=1.7.0; extra == "test"
+Requires-Dist: beautifulsoup4>=4.0.0; extra == "test"
+Requires-Dist: black<25.0.0,>=20.8b1; extra == "test"
+Requires-Dist: coverage>=5.5; extra == "test"
+Requires-Dist: docutils<0.22.0; extra == "test"
+Requires-Dist: filelock>=3.0.0; extra == "test"
+Requires-Dist: flake8>=3.8.4; extra == "test"
+Requires-Dist: httpx<0.28.0,>=0.23.0; extra == "test"
+Requires-Dist: isort>=5.10.1; extra == "test"
+Requires-Dist: jsonschema>=4.17.3; extra == "test"
+Requires-Dist: markdown>=3.3.4; extra == "test"
+Requires-Dist: matplotlib>=3.0.0; extra == "test"
+Requires-Dist: mccabe>=0.6.1; extra == "test"
+Requires-Dist: mo-sql-parsing<9.0.0,>=8; extra == "test"
+Requires-Dist: mypy>=0.812; extra == "test"
+Requires-Dist: nbconvert>=6.1.0; extra == "test"
+Requires-Dist: nbdime>=2.1.0; extra == "test"
+Requires-Dist: openpyxl>=3.0; extra == "test"
+Requires-Dist: pandas<3.0.0,>=1.4.0; extra == "test"
+Requires-Dist: passivetotal>=2.5.3; extra == "test"
+Requires-Dist: pep8-naming>=0.10.0; extra == "test"
+Requires-Dist: pep8>=1.7.1; extra == "test"
+Requires-Dist: pipreqs>=0.4.9; extra == "test"
+Requires-Dist: pre-commit>=2.7.1; extra == "test"
+Requires-Dist: pycodestyle>=2.6.0; extra == "test"
+Requires-Dist: pydocstyle>=6.0.0; extra == "test"
+Requires-Dist: pyflakes>=2.2.0; extra == "test"
+Requires-Dist: pygeohash>=1.2.0; extra == "test"
+Requires-Dist: pylint>=2.5.3; extra == "test"
+Requires-Dist: pyroma>=3.1; extra == "test"
+Requires-Dist: pytest-check>=1.0.1; extra == "test"
+Requires-Dist: pytest-cov>=2.11.1; extra == "test"
+Requires-Dist: pytest-env>=1.1.0; extra == "test"
+Requires-Dist: pytest-xdist>=2.5.0; extra == "test"
+Requires-Dist: pytest>=5.0.1; extra == "test"
+Requires-Dist: readthedocs-sphinx-ext==2.2.5; extra == "test"
+Requires-Dist: requests>=2.31.0; extra == "test"
+Requires-Dist: responses>=0.13.2; extra == "test"
+Requires-Dist: respx>=0.20.1; extra == "test"
+Requires-Dist: ruff>=0.6.6; extra == "test"
+Requires-Dist: scikit-learn>=1.0.0; extra == "test"
+Requires-Dist: scipy>=1.1.0; extra == "test"
+Requires-Dist: sphinx-rtd-theme>=1.0.0; extra == "test"
+Requires-Dist: sphinx<8.0.0,>=5.0.1; extra == "test"
+Requires-Dist: splunk-sdk!=2.0.0,>=1.6.0; extra == "test"
+Requires-Dist: statsmodels>=0.11.1; extra == "test"
+Requires-Dist: sumologic-sdk>=0.1.11; extra == "test"
+Requires-Dist: types-attrs>=19.0.0; extra == "test"
+Requires-Dist: types-requests>=2.32.0; extra == "test"
+Requires-Dist: vt-graph-api>=2.0; extra == "test"
+Requires-Dist: vt-py>=0.18.0; extra == "test"
+Provides-Extra: sentinel
+Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "sentinel"
+Requires-Dist: azure-mgmt-core>=1.2.1; extra == "sentinel"
+Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "sentinel"
+Requires-Dist: azure-mgmt-network>=2.7.0; extra == "sentinel"
+Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "sentinel"
+Requires-Dist: azure-storage-blob>=12.5.0; extra == "sentinel"
+Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "sentinel"
+Provides-Extra: azsentinel
+Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "azsentinel"
+Requires-Dist: azure-mgmt-core>=1.2.1; extra == "azsentinel"
+Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "azsentinel"
+Requires-Dist: azure-mgmt-network>=2.7.0; extra == "azsentinel"
+Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "azsentinel"
+Requires-Dist: azure-storage-blob>=12.5.0; extra == "azsentinel"
+Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "azsentinel"
+Provides-Extra: azuresentinel
+Requires-Dist: azure-mgmt-compute>=4.6.2; extra == "azuresentinel"
+Requires-Dist: azure-mgmt-core>=1.2.1; extra == "azuresentinel"
+Requires-Dist: azure-mgmt-monitor>=2.0.0; extra == "azuresentinel"
+Requires-Dist: azure-mgmt-network>=2.7.0; extra == "azuresentinel"
+Requires-Dist: azure-mgmt-resource>=16.1.0; extra == "azuresentinel"
+Requires-Dist: azure-storage-blob>=12.5.0; extra == "azuresentinel"
+Requires-Dist: azure-mgmt-resourcegraph>=8.0.0; extra == "azuresentinel"
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+
+# MSTIC Jupyter and Python Security Tools
+
+![GitHub Actions build](https://github.com/microsoft/msticpy/actions/workflows/python-package.yml/badge.svg)
+[![Azure Pipelines build](https://dev.azure.com/mstic-detections/mstic-jupyter/_apis/build/status/microsoft.msticpy?branchName=main)](https://dev.azure.com/mstic-detections/mstic-jupyter/_build/latest?definitionId=14&branchName=main)
+[![Downloads](https://pepy.tech/badge/msticpy)](https://pepy.tech/project/msticpy)
+[![BlackHat Arsenal 2020](https://raw.githubusercontent.com/toolswatch/badges/master/arsenal/usa/2020.svg)](https://www.blackhat.com/us-20/arsenal/schedule/#msticpy-the-security-analysis-swiss-army-knife-19872)
+
+Microsoft Threat Intelligence Python Security Tools.
+
+**msticpy** is a library for InfoSec investigation and hunting
+in Jupyter Notebooks. It includes functionality to:
+
+- query log data from multiple sources
+- enrich the data with Threat Intelligence, geolocations and Azure
+  resource data
+- extract Indicators of Activity (IoA) from logs and unpack encoded data
+- perform sophisticated analysis such as anomalous session detection and
+  time series decomposition
+- visualize data using interactive timelines, process trees and
+  multi-dimensional Morph Charts
+
+It also includes some time-saving notebook tools such as widgets to
+set query time boundaries, select and display items from lists, and
+configure the notebook environment.
+
+<img src="./docs/source/visualization/_static/Timeline-08.png"
+alt="Timeline" title="Msticpy Timeline Control" height="300" />
+
+The **msticpy** package was initially developed to support
+[Jupyter Notebooks](https://jupyter-notebook-beginner-guide.readthedocs.io/en/latest/)
+authoring for
+[Azure Sentinel](https://azure.microsoft.com/en-us/services/azure-sentinel/).
+While Azure Sentinel is still a big focus of our work, we are
+extending the data query/acquisition components to pull log data from
+other sources (currently Splunk, Microsoft Defender for Endpoint and
+Microsoft Graph are supported but we
+are actively working on support for data from other SIEM platforms).
+Most of the components can also be used with data from any source. Pandas
+DataFrames are used as the ubiquitous input and output format of almost
+all components. There is also a data provider to make it easy to and process
+data from local CSV files and pickled DataFrames.
+
+The package addresses three central needs for security investigators
+and hunters:
+
+- Acquiring and enriching data
+- Analyzing data
+- Visualizing data
+
+We welcome feedback, bug reports, suggestions for new features and contributions.
+
+## Installing
+
+For core install:
+
+`pip install msticpy`
+
+If you are using *MSTICPy* with Azure Sentinel you should install with
+the "azsentinel" extra package:
+
+`pip install msticpy[azsentinel]`
+
+or for the latest dev build
+
+`pip install git+https://github.com/microsoft/msticpy`
+
+## Upgrading
+
+To upgrade msticpy to the latest public non-beta release, run:
+
+`pip install --upgrade msticpy`
+
+Note it is good practice to copy your msticpyconfig.yaml and store it on your disk but outside of your msticpy folder, referencing it in an environment variable. This prevents you from losing your configurations every time you update your msticpy installation.
+
+## Documentation
+
+Full documentation is at [ReadTheDocs](https://msticpy.readthedocs.io/en/latest/)
+
+Sample notebooks for many of the modules are in the
+[docs/notebooks](https://github.com/microsoft/msticpy/blob/master/docs/notebooks)
+folder and accompanying notebooks.
+
+You can also browse through the sample notebooks referenced at the end of this document
+to see some of the functionality used in context. You can play with some of the package
+functions in this interactive demo on mybinder.org.
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Azure/Azure-Sentinel-Notebooks/master?filepath=A%20Tour%20of%20Cybersec%20notebook%20features.ipynb)
+
+---
+
+## Log Data Acquisition
+
+QueryProvider is an extensible query library targeting Azure Sentinel/Log Analytics,
+Splunk, OData
+and other log data sources. It also has special support for
+[Mordor](https://github.com/OTRF/mordor) data sets and using local data.
+
+Built-in parameterized queries allow complex queries to be run
+from a single function call. Add your own queries using a simple YAML
+schema.
+
+[Data Queries Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/Data_Queries.ipynb)
+
+## Data Enrichment
+
+### Threat Intelligence providers
+
+The TILookup class can lookup IoCs across multiple TI providers. built-in
+providers include AlienVault OTX, IBM XForce, VirusTotal and Azure Sentinel.
+
+The input can be a single IoC observable or a pandas DataFrame containing
+multiple observables. Depending on the provider, you may require an account
+and an API key. Some providers also enforce throttling (especially for free
+tiers), which might affect performing bulk lookups.
+
+[TIProviders](https://msticpy.readthedocs.io/en/latest/data_acquisition/TIProviders.html)
+and
+[TILookup Usage Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/TIProviders.ipynb)
+
+### GeoLocation Data
+
+The GeoIP lookup classes allow you to match the geo-locations of IP addresses
+using either:
+
+- GeoLiteLookup - Maxmind Geolite (see <https://www.maxmind.com>)
+- IPStackLookup  - IPStack (see <https://ipstack.com>)
+
+<img src="./docs/source/visualization/_static/folium_sf_zoom.png"
+  alt="Folium map"
+  title="Plotting Geo IP Location" height="200" />
+
+[GeoIP Lookup](https://msticpy.readthedocs.io/en/latest/data_acquisition/GeoIPLookups.html)
+and
+[GeoIP Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/GeoIPLookups.ipynb)
+
+### Azure Resource Data, Storage and Azure Sentinel API
+
+The AzureData module contains functionality for enriching data regarding Azure host
+details with additional host details exposed via the Azure API. The AzureSentinel
+module allows you to query incidents, retrieve detector and hunting
+queries. AzureBlogStorage lets you read and write data from blob storage.
+
+[Azure Resource APIs](https://msticpy.readthedocs.io/en/latest/data_acquisition/AzureData.html),
+[Azure Sentinel APIs](https://msticpy.readthedocs.io/en/latest/data_acquisition/Sentinel.html),
+[Azure Storage](https://msticpy.readthedocs.io/en/latest/data_acquisition/AzureBlobStorage.html)
+
+## Security Analysis
+
+This subpackage contains several modules helpful for working on security investigations and hunting:
+
+### Anomalous Sequence Detection
+
+Detect unusual sequences of events in your Office, Active Directory or other log data.
+You can extract sessions (e.g. activity initiated by the same account) and identify and
+visualize unusual sequences of activity. For example, detecting an attacker setting
+a mail forwarding rule on someone's mailbox.
+
+[Anomalous Sessions](https://msticpy.readthedocs.io/en/latest/data_analysis/AnomalousSequence.html)
+and
+[Anomalous Sequence Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/AnomalousSequence.ipynb)
+
+### Time Series Analysis
+
+Time series analysis allows you to identify unusual patterns in your log data
+taking into account normal seasonal variations (e.g. the regular ebb and flow of
+events over hours of the day, days of the week, etc.). Using both analysis and
+visualization highlights unusual traffic flows or event activity for any data
+set.
+
+<img src="./docs/source/visualization/_static/TimeSeriesAnomalieswithRangeTool.png"
+alt="Time Series anomalies" title="Time Series anomalies" height="300" />
+
+[Time Series](https://msticpy.readthedocs.io/en/latest/visualization/TimeSeriesAnomalies.html)
+
+## Visualization
+
+### Event Timelines
+
+Display any log events on an interactive timeline. Using the
+[Bokeh Visualization Library](https://bokeh.org/) the timeline control enables
+you to visualize one or more event streams, interactively zoom into specific time
+slots and view event details for plotted events.
+
+<img src="./docs/source/visualization/_static/TimeLine-01.png"
+alt="Timeline" title="Msticpy Timeline Control" height="300" />
+
+[Timeline](https://msticpy.readthedocs.io/en/latest/visualization/EventTimeline.html)
+and
+[Timeline Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/EventTimeline.ipynb)
+
+### Process Trees
+
+The process tree functionality has two main components:
+
+- Process Tree creation - taking a process creation log from a host and building
+  the parent-child relationships between processes in the data set.
+- Process Tree visualization - this takes the processed output displays an interactive process tree using Bokeh plots.
+
+There are a set of utility functions to extract individual and partial trees from the processed data set.
+
+<img src="./docs/source/visualization/_static/process_tree3.png"
+alt="Process Tree"
+title="Interactive Process Tree" height="400" />
+
+[Process Tree](https://msticpy.readthedocs.io/en/latest/visualization/ProcessTree.html)
+and
+[Process Tree Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/ProcessTree.ipynb)
+
+## Data Manipulation and Utility functions
+
+### Pivot Functions
+
+Lets you use *MSTICPy* functionality in an "entity-centric" way.
+All functions, queries and lookups that relate to a particular entity type
+(e.g. Host, IpAddress, Url) are collected together as methods of that
+entity class. So, if you want to do things with an IP address, just load
+the IpAddress entity and browse its methods.
+
+[Pivot Functions](https://msticpy.readthedocs.io/en/latest/data_analysis/PivotFunctions.html)
+and
+[Pivot Functions Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/PivotFunctions.ipynb)
+
+### base64unpack
+
+Base64 and archive (gz, zip, tar) extractor. It will try to identify any base64 encoded
+strings and try decode them. If the result looks like one of the supported archive types it
+will unpack the contents. The results of each decode/unpack are rechecked for further
+base64 content and up to a specified depth.
+
+[Base64 Decoding](https://msticpy.readthedocs.io/en/latest/data_analysis/Base64Unpack.html)
+and
+[Base64Unpack Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/Base64Unpack.ipynb)
+
+### iocextract
+
+Uses regular expressions to look for Indicator of Compromise (IoC) patterns - IP Addresses, URLs,
+DNS domains, Hashes, file paths.
+Input can be a single string or a pandas dataframe.
+
+[IoC Extraction](https://msticpy.readthedocs.io/en/latest/data_analysis/IoCExtract.html)
+and
+[IoCExtract Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/IoCExtract.ipynb)
+
+### eventcluster (experimental)
+
+This module is intended to be used to summarize large numbers of
+events into clusters of different patterns. High volume repeating
+events can often make it difficult to see unique and interesting items.
+
+<img src="./docs/source/data_analysis/_static/EventClustering_2a.png"
+  alt="Clustering"
+  title="Clustering based on command-line variability" height="400" />
+
+This is an unsupervised learning module implemented using SciKit Learn DBScan.
+
+[Event Clustering](https://msticpy.readthedocs.io/en/latest/data_analysis/EventClustering.html)
+and
+[Event Clustering Notebook](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/EventClustering.ipynb)
+
+### auditdextract
+
+Module to load and decode Linux audit logs. It collapses messages sharing the same
+message ID into single events, decodes hex-encoded data fields and performs some
+event-specific formatting and normalization (e.g. for process start events it will
+re-assemble the process command line arguments into a single string).
+
+### syslog_utils
+
+Module to support an investigation of a Linux host with only syslog logging enabled.
+This includes functions for collating host data, clustering logon events and detecting
+user sessions containing suspicious activity.
+
+### cmd_line
+
+A module to support the detection of known malicious command line activity or suspicious
+patterns of command line activity.
+
+### domain_utils
+
+A module to support investigation of domain names and URLs with functions to
+validate a domain name and screenshot a URL.
+
+### Notebook widgets
+
+These are built from the [Jupyter ipywidgets](https://ipywidgets.readthedocs.io/) collection
+and group common functionality useful in InfoSec tasks such as list pickers,
+query time boundary settings and event display into an easy-to-use format.
+
+<img src="./docs/source/visualization/_static/Widgets1.png"
+  alt="Time span Widget"
+  title="Query time setter" height="100" />
+
+<img src="./docs/source/visualization/_static/Widgets4.png"
+  alt="Alert browser"
+  title="Alert browser" height="300" />
+
+---
+
+## Example MSTICPy notebooks
+
+[MSTICPy Notebooks](https://github.com/microsoft/msticpy/blob/master/docs/notebooks/)
+
+## More Notebooks on Azure Sentinel Notebooks GitHub
+
+[Azure Sentinel Notebooks](https://github.com/Azure/Azure-Sentinel-Notebooks)
+
+Example notebooks:
+
+- [Tour of MSTICPy Features](https://github.com/Azure/Azure-Sentinel-Notebooks/blob/master/A%20Tour%20of%20Cybersec%20notebook%20features.ipynb)
+- [Account Explorer](https://github.com/Azure/Azure-Sentinel-Notebooks/blob/master/Entity%20Explorer%20-%20Account.ipynb)
+- [Domain and URL Explorer](https://github.com/Azure/Azure-Sentinel-Notebooks/blob/master/Entity%20Explorer%20-%20Domain%20and%20URL.ipynb)
+- [IP Explorer](https://github.com/Azure/Azure-Sentinel-Notebooks/blob/master/Entity%20Explorer%20-%20IP%20Address.ipynb)
+- [Linux Host Explorer](https://github.com/Azure/Azure-Sentinel-Notebooks/blob/master/Entity%20Explorer%20-%20Linux%20Host.ipynb)
+- [Windows Host Explorer](https://github.com/Azure/Azure-Sentinel-Notebooks/blob/master/Entity%20Explorer%20-%20Windows%20Host.ipynb)
+- [Getting started in Azure Sentinel notebooks](https://github.com/Azure/Azure-Sentinel-Notebooks/blob/master/A%20Getting%20Started%20Guide%20For%20Azure%20Sentinel%20ML%20Notebooks.ipynb)
+
+View directly on GitHub or copy and paste the link into [nbviewer.org](https://nbviewer.jupyter.org/)
+
+## Notebook examples with saved data
+
+See the following notebooks for more examples of the use of this package in practice:
+
+- [Simple Machine Learning](https://github.com/Azure/Azure-Sentinel-Notebooks/blob/master/Machine%20Learning%20in%20Notebooks%20Examples.ipynb)
+
+## Supported Platforms and Packages
+
+- msticpy is OS-independent
+- Requires [Python 3.8 or later](https://www.python.org/dev/peps/pep-0494/)
+- See [requirements.txt](requirements.txt) for more details and version requirements.
+
+---
+
+## Contributing
+
+For (brief) developer guidelines, see this wiki article
+[Contributor Guidelines](https://github.com/microsoft/msticpy/wiki/Contributor-guidelines)
+
+This project welcomes contributions and suggestions.  Most contributions require you to agree to a
+Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
+the rights to use your contribution. For details, visit <https://cla.microsoft.com>.
+
+When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
+a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
+provided by the bot. You will only need to do this once across all repos using our CLA.
+
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
+For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
+contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.

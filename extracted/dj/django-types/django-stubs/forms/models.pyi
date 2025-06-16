@@ -7,8 +7,7 @@ from collections.abc import (
     Sequence,
 )
 from datetime import datetime
-from typing import Any, ClassVar, Protocol, TypeVar
-from typing_extensions import Literal
+from typing import Any, ClassVar, Literal, Protocol, TypeVar
 from unittest.mock import MagicMock
 from uuid import UUID
 
@@ -258,7 +257,7 @@ class ModelChoiceField(ChoiceField):
     empty_label: str | None = ...
     queryset: Any = ...
     limit_choices_to: dict[str, Any] | Callable[[], Any] | None = ...
-    to_field_name: None = ...
+    to_field_name: str | None = ...
     def __init__(
         self,
         queryset: Manager[Any] | QuerySet[Any] | None,
@@ -269,7 +268,7 @@ class ModelChoiceField(ChoiceField):
         label: Any | None = ...,
         initial: Any | None = ...,
         help_text: str = ...,
-        to_field_name: Any | None = ...,
+        to_field_name: str | None = ...,
         limit_choices_to: dict[str, Any] | Callable[[], Any] | None = ...,
         **kwargs: Any
     ) -> None: ...

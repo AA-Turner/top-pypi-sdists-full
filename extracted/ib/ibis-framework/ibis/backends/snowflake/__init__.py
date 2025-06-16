@@ -26,7 +26,13 @@ import ibis.expr.operations as ops
 import ibis.expr.schema as sch
 import ibis.expr.types as ir
 from ibis import util
-from ibis.backends import CanCreateCatalog, CanCreateDatabase, DirectExampleLoader
+from ibis.backends import (
+    CanCreateCatalog,
+    CanCreateDatabase,
+    DirectExampleLoader,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+)
 from ibis.backends.snowflake.converter import SnowflakePandasData
 from ibis.backends.sql import SQLBackend
 from ibis.backends.sql.compilers.base import STAR
@@ -146,7 +152,14 @@ return count !== 0 ? true : null;""",
 }
 
 
-class Backend(SQLBackend, CanCreateCatalog, CanCreateDatabase, DirectExampleLoader):
+class Backend(
+    SQLBackend,
+    CanCreateCatalog,
+    CanCreateDatabase,
+    HasCurrentDatabase,
+    HasCurrentCatalog,
+    DirectExampleLoader,
+):
     name = "snowflake"
     compiler = sc.snowflake.compiler
     supports_python_udfs = True
@@ -161,53 +174,23 @@ class Backend(SQLBackend, CanCreateCatalog, CanCreateDatabase, DirectExampleLoad
         with contextlib.suppress(KeyError):
             kwargs["account"] = kwargs.pop("host")
 
-    def _from_url(self, url: ParseResult, **kwargs):
-        """Connect to a backend using a URL `url`.
-
-        Parameters
-        ----------
-        url
-            URL with which to connect to a backend.
-        kwargs
-            Additional keyword arguments
-
-        Returns
-        -------
-        BaseBackend
-            A backend instance
-
-        """
-        if url.path:
-            database, schema = url.path[1:].split("/", 1)
-            warehouse = kwargs.pop("warehouse", None)
-            connect_args = {
-                "user": url.username,
-                "password": unquote_plus(url.password or ""),
-                "account": url.hostname,
-                "warehouse": warehouse,
-                "database": database or "",
-                "schema": schema or "",
-            }
-        else:
-            connect_args = {}
-
-        session_parameters = kwargs.setdefault("session_parameters", {})
-
-        session_parameters["MULTI_STATEMENT_COUNT"] = 0
-        session_parameters["JSON_INDENT"] = 0
-        session_parameters["PYTHON_CONNECTOR_QUERY_RESULT_FORMAT"] = "arrow_force"
-
-        kwargs.update(connect_args)
+    def _from_url(self, url: ParseResult, **kwarg_overrides):
+        kwargs = {}
+        database, *schema = url.path[1:].split("/", 1)
+        if url.username:
+            kwargs["user"] = url.username
+        if url.password:
+            kwargs["password"] = unquote_plus(url.password)
+        if url.hostname:
+            kwargs["account"] = url.hostname
+        if database:
+            kwargs["database"] = database
+        if url.port:
+            kwargs["port"] = url.port
+        if schema:
+            kwargs["schema"] = schema[0]
+        kwargs.update(kwarg_overrides)
         self._convert_kwargs(kwargs)
-
-        if "database" in kwargs and not kwargs["database"]:
-            del kwargs["database"]
-
-        if "schema" in kwargs and not kwargs["schema"]:
-            del kwargs["schema"]
-
-        if "password" in kwargs and kwargs["password"] is None:
-            kwargs["password"] = ""
         return self.connect(**kwargs)
 
     @property
@@ -631,30 +614,6 @@ $$ {defn["source"]} $$"""
     def list_tables(
         self, *, like: str | None = None, database: tuple[str, str] | str | None = None
     ) -> list[str]:
-        """List the tables in the database.
-
-        ::: {.callout-note}
-        ## Ibis does not use the word `schema` to refer to database hierarchy.
-
-        A collection of tables is referred to as a `database`.
-        A collection of `database` is referred to as a `catalog`.
-
-        These terms are mapped onto the corresponding features in each
-        backend (where available), regardless of whether the backend itself
-        uses the same terminology.
-        :::
-
-        Parameters
-        ----------
-        like
-            A pattern to use for listing tables.
-        database
-            Table location. If not passed, uses the current catalog and database.
-
-            To specify a table in a separate Snowflake catalog, you can pass in the
-            catalog and database as a string `"catalog.database"`, or as a tuple of
-            strings `("catalog", "database")`.
-        """
         table_loc = self._to_sqlglot_table(database)
 
         tables_query = "SHOW TABLES"

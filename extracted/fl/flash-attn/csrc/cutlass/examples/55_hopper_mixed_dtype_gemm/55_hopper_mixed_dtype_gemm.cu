@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,6 +100,7 @@
 #include "cutlass/util/tensor_view_io.h"
 #include "cutlass/util/reference/device/tensor_fill.h"
 #include "cutlass/util/reference/device/tensor_compare.h"
+#include "cutlass/util/mixed_dtype_utils.hpp"
 
 #include "helper.h"
 #include "mixed_dtype_utils.hpp"
@@ -287,7 +288,7 @@ cutlass::DeviceAllocation<typename GemmScaleWithZeroPoint::EpilogueOutputOp::Ele
 void initialize(MixedDtypeOptions const& options) {
 
   auto shape_b = cute::make_shape(options.n, options.k, options.l);
-  int const scale_k = (options.k + options.g - 1) / options.g;
+  int const scale_k = cutlass::ceil_div(options.k, options.g);
   stride_A = cutlass::make_cute_packed_stride(StrideA{}, cute::make_shape(options.m, options.k, options.l));
   stride_B = cutlass::make_cute_packed_stride(StrideB{}, shape_b);
   // Reverse stride here due to swap and transpose
@@ -312,7 +313,7 @@ void initialize(MixedDtypeOptions const& options) {
   block_zero.reset(scale_k * options.l * options.n);
 
   initialize_tensor(block_A, seed + 2022);
-  initialize_quant_tensor(block_B, seed + 2021);
+  initialize_tensor(block_B, seed + 2021);
   initialize_tensor(block_C, seed + 2020);
   initialize_scale(block_scale, options);
   initialize_zero(block_zero, options);
@@ -322,9 +323,10 @@ void initialize(MixedDtypeOptions const& options) {
   auto shape_scale_zero = cute::make_shape(options.n, scale_k, options.l);
   stride_S = cutlass::make_cute_packed_stride(StrideS{}, cute::make_shape(options.n, scale_k, options.l));
   stride_S_ref = cutlass::make_cute_packed_stride(StrideS_ref{}, cute::make_shape(options.n, scale_k, options.l));
-  auto layout_scale_zero = make_layout(shape_scale_zero, stride_S_ref);
+  auto layout_scale_zero = cute::make_layout(shape_scale_zero, stride_S_ref);
 
-  dequantize_weight(block_B_dq.get(), block_B.get(), layout_B, block_scale.get(), block_zero.get(), layout_scale_zero, options.g);
+  cudaStream_t stream = cudaStreamDefault;
+  cutlass::dequantize(block_B_dq.get(), block_B.get(), layout_B, block_scale.get(), block_zero.get(), layout_scale_zero, options.g, stream);
 }
 
 /// Populates a Gemm::Arguments structure from the given commandline options
@@ -483,12 +485,15 @@ int main(int argc, char const **args) {
   CUDA_CHECK(cudaGetDevice(&current_device_id));
   CUDA_CHECK(cudaGetDeviceProperties(&props, current_device_id));
   cudaError_t error = cudaGetDeviceProperties(&props, 0);
-  if (props.major < 9) {
+  if (props.major != 9 || props.minor != 0) {
     std::cerr
-      << "This example requires a GPU of NVIDIA's Hopper Architecture or "
-      << "later (compute capability 90 or greater).\n";
+      << "This example requires a GPU of NVIDIA's Hopper Architecture (compute capability 90).\n";
     return 0;
   }
+
+  
+  
+
   //
   // Parse options
   //

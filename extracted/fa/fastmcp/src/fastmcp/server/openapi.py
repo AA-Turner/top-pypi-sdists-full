@@ -13,9 +13,10 @@ from re import Pattern
 from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
-from mcp.types import EmbeddedResource, ImageContent, TextContent, ToolAnnotations
+from mcp.types import ToolAnnotations
 from pydantic.networks import AnyUrl
 
+import fastmcp
 from fastmcp.exceptions import ToolError
 from fastmcp.resources import Resource, ResourceTemplate
 from fastmcp.server.dependencies import get_http_headers
@@ -28,6 +29,7 @@ from fastmcp.utilities.openapi import (
     _combine_schemas,
     format_description_with_responses,
 )
+from fastmcp.utilities.types import MCPContent
 
 if TYPE_CHECKING:
     from fastmcp.server import Context
@@ -129,27 +131,30 @@ class RouteMap:
         """Validate and process the route map after initialization."""
         # Handle backward compatibility for route_type, deprecated in 2.5.0
         if self.mcp_type is None and self.route_type is not None:
-            warnings.warn(
-                "The 'route_type' parameter is deprecated and will be removed in a future version. "
-                "Use 'mcp_type' instead with the appropriate MCPType value.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            if isinstance(self.route_type, RouteType):
+            if fastmcp.settings.deprecation_warnings:
                 warnings.warn(
-                    "The RouteType class is deprecated and will be removed in a future version. "
-                    "Use MCPType instead.",
+                    "The 'route_type' parameter is deprecated and will be removed in a future version. "
+                    "Use 'mcp_type' instead with the appropriate MCPType value.",
                     DeprecationWarning,
                     stacklevel=2,
                 )
+            if isinstance(self.route_type, RouteType):
+                if fastmcp.settings.deprecation_warnings:
+                    warnings.warn(
+                        "The RouteType class is deprecated and will be removed in a future version. "
+                        "Use MCPType instead.",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
             # Check for the deprecated IGNORE value
             if self.route_type == RouteType.IGNORE:
-                warnings.warn(
-                    "RouteType.IGNORE is deprecated and will be removed in a future version. "
-                    "Use MCPType.EXCLUDE instead.",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
+                if fastmcp.settings.deprecation_warnings:
+                    warnings.warn(
+                        "RouteType.IGNORE is deprecated and will be removed in a future version. "
+                        "Use MCPType.EXCLUDE instead.",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
 
             # Convert from RouteType to MCPType if needed
             if isinstance(self.route_type, RouteType):
@@ -250,9 +255,7 @@ class OpenAPITool(Tool):
         """Custom representation to prevent recursion errors when printing."""
         return f"OpenAPITool(name={self.name!r}, method={self._route.method}, path={self._route.path})"
 
-    async def run(
-        self, arguments: dict[str, Any]
-    ) -> list[TextContent | ImageContent | EmbeddedResource]:
+    async def run(self, arguments: dict[str, Any]) -> list[MCPContent]:
         """Execute the HTTP request based on the route configuration."""
 
         # Prepare URL

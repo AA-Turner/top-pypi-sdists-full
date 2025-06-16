@@ -1,0 +1,22 @@
+Metadata-Version: 2.3
+Name: trollsift
+Version: 0.5.3
+Summary: String parser/formatter
+Author-email: The Pytroll Team <pytroll@googlegroups.com>
+Keywords: pytroll,string formatting,string parsing
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+
+Trollsift
+=========
+
+Trollsift is a collection of modules that assist with formatting,
+parsing and filtering satellite granule file names.
+
+For documentation, see http://trollsift.readthedocs.org/

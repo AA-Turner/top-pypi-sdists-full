@@ -57,6 +57,49 @@ class ArmBase(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class Aes(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """Provides access to the ARM AES hardware instructions via intrinsics."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """Provides access to the ARM AES hardware instructions, that are only available to 64-bit processes, via intrinsics."""
+
+        IS_SUPPORTED: bool
+        """Gets a value that indicates whether the APIs in this class are supported."""
+
+    IS_SUPPORTED: bool
+    """Gets a value that indicates whether the APIs in this class are supported."""
+
+    @staticmethod
+    def decrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """uint8x16_t vaesdq_u8 (uint8x16_t data, uint8x16_t key)  A32: AESD.8 Qd, Qm  A64: AESD Vd.16B, Vn.16B"""
+        ...
+
+    @staticmethod
+    def encrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """uint8x16_t vaeseq_u8 (uint8x16_t data, uint8x16_t key)  A32: AESE.8 Qd, Qm  A64: AESE Vd.16B, Vn.16B"""
+        ...
+
+    @staticmethod
+    def inverse_mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """uint8x16_t vaesimcq_u8 (uint8x16_t data)  A32: AESIMC.8 Qd, Qm  A64: AESIMC Vd.16B, Vn.16B"""
+        ...
+
+    @staticmethod
+    def mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """uint8x16_t vaesmcq_u8 (uint8x16_t data)  A32: AESMC.8 Qd, Qm  A64: AESMC V>.16B, Vn.16B"""
+        ...
+
+    @staticmethod
+    def polynomial_multiply_widening_lower(left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """poly128_t vmull_p64 (poly64_t a, poly64_t b)  A32: VMULL.P8 Qd, Dn, Dm  A64: PMULL Vd.1Q, Vn.1D, Vm.1D"""
+        ...
+
+    @staticmethod
+    def polynomial_multiply_widening_upper(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """poly128_t vmull_high_p64 (poly64x2_t a, poly64x2_t b)  A32: VMULL.P8 Qd, Dn+1, Dm+1  A64: PMULL2 Vd.1Q, Vn.2D, Vm.2D"""
+        ...
+
+
 class AdvSimd(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
     """Provides access to the ARM AdvSIMD hardware instructions via intrinsics."""
 
@@ -4808,6 +4851,39 @@ class Sha1(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
         ...
 
 
+class Crc32(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
+    """Provides access to the ARM Crc32 hardware instructions via intrinsics."""
+
+    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
+        """Provides access to the ARM Crc32 hardware instructions, that are only available to 64-bit processes, via intrinsics."""
+
+        IS_SUPPORTED: bool
+        """Gets a value that indicates whether the APIs in this class are supported."""
+
+        @staticmethod
+        def compute_crc_32(crc: int, data: int) -> int:
+            """uint32_t __crc32d (uint32_t a, uint64_t b)  A64: CRC32X Wd, Wn, Xm"""
+            ...
+
+        @staticmethod
+        def compute_crc_32c(crc: int, data: int) -> int:
+            """uint32_t __crc32cd (uint32_t a, uint64_t b)  A64: CRC32CX Wd, Wn, Xm"""
+            ...
+
+    IS_SUPPORTED: bool
+    """Gets a value that indicates whether the APIs in this class are supported."""
+
+    @staticmethod
+    def compute_crc_32(crc: int, data: int) -> int:
+        """uint32_t __crc32b (uint32_t a, uint8_t b)  A32: CRC32B Rd, Rn, Rm  A64: CRC32B Wd, Wn, Wm"""
+        ...
+
+    @staticmethod
+    def compute_crc_32c(crc: int, data: int) -> int:
+        """uint32_t __crc32cb (uint32_t a, uint8_t b)  A32: CRC32CB Rd, Rn, Rm  A64: CRC32CB Wd, Wn, Wm"""
+        ...
+
+
 class SveMaskPattern(Enum):
     """This class has no documentation."""
 
@@ -5129,74 +5205,74 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
 
     @staticmethod
     @overload
-    def conditional_extract_after_last_active_element(mask: System.Numerics.Vector[int], default_value: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """svuint8_t svclasta[_u8](svbool_t pg, svuint8_t fallback, svuint8_t data)  CLASTA Btied, Pg, Btied, Zdata.B"""
+    def conditional_extract_after_last_active_element(mask: System.Numerics.Vector[int], default_scalar: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """svuint8_t svclasta[_u8](svbool_t pg, svuint8_t default_scalar, svuint8_t data)  CLASTA Btied, Pg, Btied, Zdata.B"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_after_last_active_element(mask: System.Numerics.Vector[int], default_values: int, data: System.Numerics.Vector[int]) -> int:
-        """uint8_t svclasta[_n_u8](svbool_t pg, uint8_t fallback, svuint8_t data)  CLASTA Wtied, Pg, Wtied, Zdata.B"""
+    def conditional_extract_after_last_active_element(mask: System.Numerics.Vector[int], default_value: int, data: System.Numerics.Vector[int]) -> int:
+        """uint8_t svclasta[_n_u8](svbool_t pg, uint8_t default_value, svuint8_t data)  CLASTA Wtied, Pg, Wtied, Zdata.B"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_after_last_active_element(mask: System.Numerics.Vector[float], default_value: System.Numerics.Vector[float], data: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """svfloat64_t svclasta[_f64](svbool_t pg, svfloat64_t fallback, svfloat64_t data)  CLASTA Dtied, Pg, Dtied, Zdata.D"""
+    def conditional_extract_after_last_active_element(mask: System.Numerics.Vector[float], default_scalar: System.Numerics.Vector[float], data: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """svfloat64_t svclasta[_f64](svbool_t pg, svfloat64_t default_scalar, svfloat64_t data)  CLASTA Dtied, Pg, Dtied, Zdata.D"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_after_last_active_element(mask: System.Numerics.Vector[float], default_values: float, data: System.Numerics.Vector[float]) -> float:
-        """float64_t svclasta[_n_f64](svbool_t pg, float64_t fallback, svfloat64_t data)  CLASTA Dtied, Pg, Dtied, Zdata.D"""
+    def conditional_extract_after_last_active_element(mask: System.Numerics.Vector[float], default_value: float, data: System.Numerics.Vector[float]) -> float:
+        """float64_t svclasta[_n_f64](svbool_t pg, float64_t default_value, svfloat64_t data)  CLASTA Dtied, Pg, Dtied, Zdata.D"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_after_last_active_element_and_replicate(mask: System.Numerics.Vector[int], default_scalar: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """svuint8_t svclasta[_u8](svbool_t pg, svuint8_t fallback, svuint8_t data)  CLASTA Ztied.B, Pg, Ztied.B, Zdata.B"""
+    def conditional_extract_after_last_active_element_and_replicate(mask: System.Numerics.Vector[int], default_values: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """svuint8_t svclasta[_u8](svbool_t pg, svuint8_t default_values, svuint8_t data)  CLASTA Ztied.B, Pg, Ztied.B, Zdata.B"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_after_last_active_element_and_replicate(mask: System.Numerics.Vector[float], default_scalar: System.Numerics.Vector[float], data: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """svfloat64_t svclasta[_f64](svbool_t pg, svfloat64_t fallback, svfloat64_t data)  CLASTA Ztied.D, Pg, Ztied.D, Zdata.D"""
+    def conditional_extract_after_last_active_element_and_replicate(mask: System.Numerics.Vector[float], default_values: System.Numerics.Vector[float], data: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """svfloat64_t svclasta[_f64](svbool_t pg, svfloat64_t default_values, svfloat64_t data)  CLASTA Ztied.D, Pg, Ztied.D, Zdata.D"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_last_active_element(mask: System.Numerics.Vector[int], default_value: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """svuint8_t svclastb[_u8](svbool_t pg, svuint8_t fallback, svuint8_t data)  CLASTB Btied, Pg, Btied, Zdata.B"""
+    def conditional_extract_last_active_element(mask: System.Numerics.Vector[int], default_scalar: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """svuint8_t svclastb[_u8](svbool_t pg, svuint8_t default_scalar, svuint8_t data)  CLASTB Btied, Pg, Btied, Zdata.B"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_last_active_element(mask: System.Numerics.Vector[int], default_values: int, data: System.Numerics.Vector[int]) -> int:
-        """uint8_t svclastb[_n_u8](svbool_t pg, uint8_t fallback, svuint8_t data)  CLASTB Wtied, Pg, Wtied, Zdata.B"""
+    def conditional_extract_last_active_element(mask: System.Numerics.Vector[int], default_value: int, data: System.Numerics.Vector[int]) -> int:
+        """uint8_t svclastb[_n_u8](svbool_t pg, uint8_t default_value, svuint8_t data)  CLASTB Wtied, Pg, Wtied, Zdata.B"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_last_active_element(mask: System.Numerics.Vector[float], default_value: System.Numerics.Vector[float], data: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """svfloat64_t svclastb[_f64](svbool_t pg, svfloat64_t fallback, svfloat64_t data)  CLASTB Dtied, Pg, Dtied, Zdata.D"""
+    def conditional_extract_last_active_element(mask: System.Numerics.Vector[float], default_scalar: System.Numerics.Vector[float], data: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """svfloat64_t svclastb[_f64](svbool_t pg, svfloat64_t default_scalar, svfloat64_t data)  CLASTB Dtied, Pg, Dtied, Zdata.D"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_last_active_element(mask: System.Numerics.Vector[float], default_values: float, data: System.Numerics.Vector[float]) -> float:
-        """float64_t svclastb[_n_f64](svbool_t pg, float64_t fallback, svfloat64_t data)  CLASTB Dtied, Pg, Dtied, Zdata.D"""
+    def conditional_extract_last_active_element(mask: System.Numerics.Vector[float], default_value: float, data: System.Numerics.Vector[float]) -> float:
+        """float64_t svclastb[_n_f64](svbool_t pg, float64_t default_value, svfloat64_t data)  CLASTB Dtied, Pg, Dtied, Zdata.D"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_last_active_element_and_replicate(mask: System.Numerics.Vector[int], fallback: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """svuint8_t svclastb[_u8](svbool_t pg, svuint8_t fallback, svuint8_t data)  CLASTB Ztied.B, Pg, Ztied.B, Zdata.B"""
+    def conditional_extract_last_active_element_and_replicate(mask: System.Numerics.Vector[int], default_values: System.Numerics.Vector[int], data: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """svuint8_t svclastb[_u8](svbool_t pg, svuint8_t default_values, svuint8_t data)  CLASTB Ztied.B, Pg, Ztied.B, Zdata.B"""
         ...
 
     @staticmethod
     @overload
-    def conditional_extract_last_active_element_and_replicate(mask: System.Numerics.Vector[float], fallback: System.Numerics.Vector[float], data: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
-        """svfloat64_t svclastb[_f64](svbool_t pg, svfloat64_t fallback, svfloat64_t data)  CLASTB Ztied.D, Pg, Ztied.D, Zdata.D"""
+    def conditional_extract_last_active_element_and_replicate(mask: System.Numerics.Vector[float], default_values: System.Numerics.Vector[float], data: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """svfloat64_t svclastb[_f64](svbool_t pg, svfloat64_t default_values, svfloat64_t data)  CLASTB Ztied.D, Pg, Ztied.D, Zdata.D"""
         ...
 
     @staticmethod
@@ -5276,7 +5352,7 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def create_break_after_mask(mask: System.Numerics.Vector[int], src_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def create_break_after_mask(total_mask: System.Numerics.Vector[int], from_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """svbool_t svbrka[_b]_z(svbool_t pg, svbool_t op)  BRKA Presult.B, Pg/Z, Pop.B"""
         ...
 
@@ -5286,7 +5362,7 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def create_break_before_mask(mask: System.Numerics.Vector[int], src_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def create_break_before_mask(total_mask: System.Numerics.Vector[int], from_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """svbool_t svbrkb[_b]_z(svbool_t pg, svbool_t op)  BRKB Presult.B, Pg/Z, Pop.B"""
         ...
 
@@ -5351,12 +5427,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def create_mask_for_first_active_element(mask: System.Numerics.Vector[int], src_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def create_mask_for_first_active_element(total_mask: System.Numerics.Vector[int], from_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """svbool_t svpfirst[_b](svbool_t pg, svbool_t op)  PFIRST Ptied.B, Pg, Ptied.B"""
         ...
 
     @staticmethod
-    def create_mask_for_next_active_element(mask: System.Numerics.Vector[int], src_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def create_mask_for_next_active_element(total_mask: System.Numerics.Vector[int], from_mask: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """svbool_t svpnext_b8(svbool_t pg, svbool_t op)  PNEXT Ptied.B, Pg, Ptied.B"""
         ...
 
@@ -6875,17 +6951,17 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def test_any_true(mask: System.Numerics.Vector[int], src_mask: System.Numerics.Vector[int]) -> bool:
+    def test_any_true(mask: System.Numerics.Vector[int], right_mask: System.Numerics.Vector[int]) -> bool:
         """bool svptest_any(svbool_t pg, svbool_t op)  PTEST"""
         ...
 
     @staticmethod
-    def test_first_true(mask: System.Numerics.Vector[int], src_mask: System.Numerics.Vector[int]) -> bool:
+    def test_first_true(left_mask: System.Numerics.Vector[int], right_mask: System.Numerics.Vector[int]) -> bool:
         """bool svptest_first(svbool_t pg, svbool_t op)  PTEST"""
         ...
 
     @staticmethod
-    def test_last_true(mask: System.Numerics.Vector[int], src_mask: System.Numerics.Vector[int]) -> bool:
+    def test_last_true(left_mask: System.Numerics.Vector[int], right_mask: System.Numerics.Vector[int]) -> bool:
         """bool svptest_last(svbool_t pg, svbool_t op)  PTEST"""
         ...
 
@@ -7107,6 +7183,22 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def interleaving_xor_even_odd(odd: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint8_t sveorbt[_s8](svint8_t odd, svint8_t op1, svint8_t op2)
+          EORBT Zd.B, Zn.B, Zm.B
+        """
+        ...
+
+    @staticmethod
+    def interleaving_xor_odd_even(even: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint8_t sveortb[_s8](svint8_t even, svint8_t op1, svint8_t op2)
+          EORTB Zd.B, Zn.B, Zm.B
+        """
+        ...
+
+    @staticmethod
     def shift_arithmetic_rounded(value: System.Numerics.Vector[int], count: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svint16_t svrshl[_s16]_m(svbool_t pg, svint16_t op1, svint16_t op2)
@@ -7188,39 +7280,6 @@ class Sha256(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
         ...
 
 
-class Crc32(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
-    """Provides access to the ARM Crc32 hardware instructions via intrinsics."""
-
-    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
-        """Provides access to the ARM Crc32 hardware instructions, that are only available to 64-bit processes, via intrinsics."""
-
-        IS_SUPPORTED: bool
-        """Gets a value that indicates whether the APIs in this class are supported."""
-
-        @staticmethod
-        def compute_crc_32(crc: int, data: int) -> int:
-            """uint32_t __crc32d (uint32_t a, uint64_t b)  A64: CRC32X Wd, Wn, Xm"""
-            ...
-
-        @staticmethod
-        def compute_crc_32c(crc: int, data: int) -> int:
-            """uint32_t __crc32cd (uint32_t a, uint64_t b)  A64: CRC32CX Wd, Wn, Xm"""
-            ...
-
-    IS_SUPPORTED: bool
-    """Gets a value that indicates whether the APIs in this class are supported."""
-
-    @staticmethod
-    def compute_crc_32(crc: int, data: int) -> int:
-        """uint32_t __crc32b (uint32_t a, uint8_t b)  A32: CRC32B Rd, Rn, Rm  A64: CRC32B Wd, Wn, Wm"""
-        ...
-
-    @staticmethod
-    def compute_crc_32c(crc: int, data: int) -> int:
-        """uint32_t __crc32cb (uint32_t a, uint8_t b)  A32: CRC32CB Rd, Rn, Rm  A64: CRC32CB Wd, Wn, Wm"""
-        ...
-
-
 class Dp(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
     """Provides access to the ARMv8.2-DotProd hardware instructions via intrinsics."""
 
@@ -7267,49 +7326,6 @@ class Dp(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
     @overload
     def dot_product_by_selected_quadruplet(addend: System.Runtime.Intrinsics.Vector128[int], left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector64[int], right_scaled_index: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """int32x4_t vdotq_lane_s32 (int32x4_t r, int8x16_t a, int8x8_t b, const int lane)  A32: VSDOT.S8 Qd, Qn, Dm[lane]  A64: SDOT Vd.4S, Vn.16B, Vm.4B[lane]"""
-        ...
-
-
-class Aes(System.Runtime.Intrinsics.Arm.ArmBase, metaclass=abc.ABCMeta):
-    """Provides access to the ARM AES hardware instructions via intrinsics."""
-
-    class Arm64(System.Runtime.Intrinsics.Arm.ArmBase.Arm64, metaclass=abc.ABCMeta):
-        """Provides access to the ARM AES hardware instructions, that are only available to 64-bit processes, via intrinsics."""
-
-        IS_SUPPORTED: bool
-        """Gets a value that indicates whether the APIs in this class are supported."""
-
-    IS_SUPPORTED: bool
-    """Gets a value that indicates whether the APIs in this class are supported."""
-
-    @staticmethod
-    def decrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """uint8x16_t vaesdq_u8 (uint8x16_t data, uint8x16_t key)  A32: AESD.8 Qd, Qm  A64: AESD Vd.16B, Vn.16B"""
-        ...
-
-    @staticmethod
-    def encrypt(value: System.Runtime.Intrinsics.Vector128[int], round_key: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """uint8x16_t vaeseq_u8 (uint8x16_t data, uint8x16_t key)  A32: AESE.8 Qd, Qm  A64: AESE Vd.16B, Vn.16B"""
-        ...
-
-    @staticmethod
-    def inverse_mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """uint8x16_t vaesimcq_u8 (uint8x16_t data)  A32: AESIMC.8 Qd, Qm  A64: AESIMC Vd.16B, Vn.16B"""
-        ...
-
-    @staticmethod
-    def mix_columns(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """uint8x16_t vaesmcq_u8 (uint8x16_t data)  A32: AESMC.8 Qd, Qm  A64: AESMC V>.16B, Vn.16B"""
-        ...
-
-    @staticmethod
-    def polynomial_multiply_widening_lower(left: System.Runtime.Intrinsics.Vector64[int], right: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """poly128_t vmull_p64 (poly64_t a, poly64_t b)  A32: VMULL.P8 Qd, Dn, Dm  A64: PMULL Vd.1Q, Vn.1D, Vm.1D"""
-        ...
-
-    @staticmethod
-    def polynomial_multiply_widening_upper(left: System.Runtime.Intrinsics.Vector128[int], right: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """poly128_t vmull_high_p64 (poly64x2_t a, poly64x2_t b)  A32: VMULL.P8 Qd, Dn+1, Dm+1  A64: PMULL2 Vd.1Q, Vn.2D, Vm.2D"""
         ...
 
 

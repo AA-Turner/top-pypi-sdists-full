@@ -1,0 +1,18 @@
+Metadata-Version: 1.1
+Name: mastercard_api_core
+Version: 1.4.12
+Summary: MasterCard API Python Core SDK
+Home-page: https://www.developer.mastercard.com
+Author: MasterCard Worldwide
+Author-email: APISupport@mastercard.com
+License: BSD2
+Description-Content-Type: UNKNOWN
+Description: MasterCard API Python Core SDK
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

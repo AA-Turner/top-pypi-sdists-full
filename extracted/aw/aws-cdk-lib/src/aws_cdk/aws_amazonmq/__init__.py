@@ -1382,7 +1382,7 @@ class CfnBroker(
             :param username: The username of the broker user. For Amazon MQ for ActiveMQ brokers, this value can contain only alphanumeric characters, dashes, periods, underscores, and tildes (- . _ ~). For Amazon MQ for RabbitMQ brokers, this value can contain only alphanumeric characters, dashes, periods, underscores (- . _). This value must not contain a tilde (~) character. Amazon MQ prohibts using guest as a valid usename. This value must be 2-100 characters long. .. epigraph:: Do not add personally identifiable information (PII) or other confidential or sensitive information in broker usernames. Broker usernames are accessible to other AWS services, including CloudWatch Logs . Broker usernames are not intended to be used for private or sensitive data.
             :param console_access: Enables access to the ActiveMQ web console for the ActiveMQ user. Does not apply to RabbitMQ brokers.
             :param groups: The list of groups (20 maximum) to which the ActiveMQ user belongs. This value can contain only alphanumeric characters, dashes, periods, underscores, and tildes (- . _ ~). This value must be 2-100 characters long. Does not apply to RabbitMQ brokers.
-            :param jolokia_api_access: Enables Jolokia access to the ActiveMQ broker for the ActiveMQ user (Does not apply to RabbitMQ brokers).
+            :param jolokia_api_access: 
             :param replication_user: Defines if this user is intended for CRDR replication purposes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amazonmq-broker-user.html
@@ -1479,8 +1479,7 @@ class CfnBroker(
 
         @builtins.property
         def jolokia_api_access(self) -> typing.Optional[builtins.str]:
-            '''Enables Jolokia access to the ActiveMQ broker for the ActiveMQ user (Does not apply to RabbitMQ brokers).
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-amazonmq-broker-user.html#cfn-amazonmq-broker-user-jolokiaapiaccess
             '''
             result = self._values.get("jolokia_api_access")

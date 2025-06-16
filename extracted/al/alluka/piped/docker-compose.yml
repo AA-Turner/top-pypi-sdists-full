@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  piped-bot:
+    container_name: piped_bot
+    env_file: .env
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    expose:
+      - "80:80"
+    networks:
+      - "piped"
+
+networks:
+  piped:
+    name: piped

@@ -1,2 +1,0 @@
-option('use_openmp', type : 'feature', value : 'auto',
-       description : 'force enable/disable the usage of OpenMP')

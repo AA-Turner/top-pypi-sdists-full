@@ -12067,9 +12067,12 @@ class CfnFlow(
         # The values are placeholders you should change.
         from aws_cdk import aws_bedrock as bedrock
         
+        # additional_model_request_fields: Any
         # collector: Any
+        # flow_definition_property_: bedrock.CfnFlow.FlowDefinitionProperty
         # input: Any
         # iterator: Any
+        # loop_input: Any
         # output: Any
         
         cfn_flow = bedrock.CfnFlow(self, "MyCfnFlow",
@@ -12128,7 +12131,65 @@ class CfnFlow(
                                 guardrail_identifier="guardrailIdentifier",
                                 guardrail_version="guardrailVersion"
                             ),
-                            model_id="modelId"
+                            inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                    max_tokens=123,
+                                    stop_sequences=["stopSequences"],
+                                    temperature=123,
+                                    top_p=123
+                                )
+                            ),
+                            model_id="modelId",
+                            number_of_results=123,
+                            orchestration_configuration=bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
+                                additional_model_request_fields=additional_model_request_fields,
+                                inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                    text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                        max_tokens=123,
+                                        stop_sequences=["stopSequences"],
+                                        temperature=123,
+                                        top_p=123
+                                    )
+                                ),
+                                performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
+                                    latency="latency"
+                                ),
+                                prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                    text_prompt_template="textPromptTemplate"
+                                )
+                            ),
+                            prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                text_prompt_template="textPromptTemplate"
+                            ),
+                            reranking_configuration=bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
+                                type="type",
+        
+                                # the properties below are optional
+                                bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                                    model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                        model_arn="modelArn",
+        
+                                        # the properties below are optional
+                                        additional_model_request_fields=additional_model_request_fields
+                                    ),
+        
+                                    # the properties below are optional
+                                    metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                                        selection_mode="selectionMode",
+        
+                                        # the properties below are optional
+                                        selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                                            fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                field_name="fieldName"
+                                            )],
+                                            fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                field_name="fieldName"
+                                            )]
+                                        )
+                                    ),
+                                    number_of_reranked_results=123
+                                )
+                            )
                         ),
                         lambda_function=bedrock.CfnFlow.LambdaFunctionFlowNodeConfigurationProperty(
                             lambda_arn="lambdaArn"
@@ -12137,6 +12198,21 @@ class CfnFlow(
                             bot_alias_arn="botAliasArn",
                             locale_id="localeId"
                         ),
+                        loop=bedrock.CfnFlow.LoopFlowNodeConfigurationProperty(
+                            definition=flow_definition_property_
+                        ),
+                        loop_controller=bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty(
+                            continue_condition=bedrock.CfnFlow.FlowConditionProperty(
+                                name="name",
+        
+                                # the properties below are optional
+                                expression="expression"
+                            ),
+        
+                            # the properties below are optional
+                            max_iterations=123
+                        ),
+                        loop_input=loop_input,
                         output=output,
                         prompt=bedrock.CfnFlow.PromptFlowNodeConfigurationProperty(
                             source_configuration=bedrock.CfnFlow.PromptFlowNodeSourceConfigurationProperty(
@@ -12193,7 +12269,10 @@ class CfnFlow(
                     inputs=[bedrock.CfnFlow.FlowNodeInputProperty(
                         expression="expression",
                         name="name",
-                        type="type"
+                        type="type",
+        
+                        # the properties below are optional
+                        category="category"
                     )],
                     outputs=[bedrock.CfnFlow.FlowNodeOutputProperty(
                         name="name",
@@ -12658,6 +12737,58 @@ class CfnFlow(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.FieldForRerankingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"field_name": "fieldName"},
+    )
+    class FieldForRerankingProperty:
+        def __init__(self, *, field_name: builtins.str) -> None:
+            '''Contains information for a metadata field to include in or exclude from consideration when reranking.
+
+            :param field_name: The name of a metadata field to include in or exclude from consideration when reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-fieldforreranking.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                field_for_reranking_property = bedrock.CfnFlow.FieldForRerankingProperty(
+                    field_name="fieldName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b37b221e79625e2a59b4d27c53c7942817157d752fa363fd988eae57ff4386ed)
+                check_type(argname="argument field_name", value=field_name, expected_type=type_hints["field_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field_name": field_name,
+            }
+
+        @builtins.property
+        def field_name(self) -> builtins.str:
+            '''The name of a metadata field to include in or exclude from consideration when reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-fieldforreranking.html#cfn-bedrock-flow-fieldforreranking-fieldname
+            '''
+            result = self._values.get("field_name")
+            assert result is not None, "Required property 'field_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FieldForRerankingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.FlowConditionProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name", "expression": "expression"},
@@ -13096,9 +13227,12 @@ class CfnFlow(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # additional_model_request_fields: Any
                 # collector: Any
+                # flow_definition_property_: bedrock.CfnFlow.FlowDefinitionProperty
                 # input: Any
                 # iterator: Any
+                # loop_input: Any
                 # output: Any
                 
                 flow_definition_property = bedrock.CfnFlow.FlowDefinitionProperty(
@@ -13151,7 +13285,65 @@ class CfnFlow(
                                     guardrail_identifier="guardrailIdentifier",
                                     guardrail_version="guardrailVersion"
                                 ),
-                                model_id="modelId"
+                                inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                    text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                        max_tokens=123,
+                                        stop_sequences=["stopSequences"],
+                                        temperature=123,
+                                        top_p=123
+                                    )
+                                ),
+                                model_id="modelId",
+                                number_of_results=123,
+                                orchestration_configuration=bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
+                                    additional_model_request_fields=additional_model_request_fields,
+                                    inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                        text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                            max_tokens=123,
+                                            stop_sequences=["stopSequences"],
+                                            temperature=123,
+                                            top_p=123
+                                        )
+                                    ),
+                                    performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
+                                        latency="latency"
+                                    ),
+                                    prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                        text_prompt_template="textPromptTemplate"
+                                    )
+                                ),
+                                prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                    text_prompt_template="textPromptTemplate"
+                                ),
+                                reranking_configuration=bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                                        model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                            model_arn="modelArn",
+                
+                                            # the properties below are optional
+                                            additional_model_request_fields=additional_model_request_fields
+                                        ),
+                
+                                        # the properties below are optional
+                                        metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                                            selection_mode="selectionMode",
+                
+                                            # the properties below are optional
+                                            selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                                                fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                    field_name="fieldName"
+                                                )],
+                                                fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                    field_name="fieldName"
+                                                )]
+                                            )
+                                        ),
+                                        number_of_reranked_results=123
+                                    )
+                                )
                             ),
                             lambda_function=bedrock.CfnFlow.LambdaFunctionFlowNodeConfigurationProperty(
                                 lambda_arn="lambdaArn"
@@ -13160,6 +13352,21 @@ class CfnFlow(
                                 bot_alias_arn="botAliasArn",
                                 locale_id="localeId"
                             ),
+                            loop=bedrock.CfnFlow.LoopFlowNodeConfigurationProperty(
+                                definition=flow_definition_property_
+                            ),
+                            loop_controller=bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty(
+                                continue_condition=bedrock.CfnFlow.FlowConditionProperty(
+                                    name="name",
+                
+                                    # the properties below are optional
+                                    expression="expression"
+                                ),
+                
+                                # the properties below are optional
+                                max_iterations=123
+                            ),
+                            loop_input=loop_input,
                             output=output,
                             prompt=bedrock.CfnFlow.PromptFlowNodeConfigurationProperty(
                                 source_configuration=bedrock.CfnFlow.PromptFlowNodeSourceConfigurationProperty(
@@ -13216,7 +13423,10 @@ class CfnFlow(
                         inputs=[bedrock.CfnFlow.FlowNodeInputProperty(
                             expression="expression",
                             name="name",
-                            type="type"
+                            type="type",
+                
+                            # the properties below are optional
+                            category="category"
                         )],
                         outputs=[bedrock.CfnFlow.FlowNodeOutputProperty(
                             name="name",
@@ -13281,6 +13491,9 @@ class CfnFlow(
             "knowledge_base": "knowledgeBase",
             "lambda_function": "lambdaFunction",
             "lex": "lex",
+            "loop": "loop",
+            "loop_controller": "loopController",
+            "loop_input": "loopInput",
             "output": "output",
             "prompt": "prompt",
             "retrieval": "retrieval",
@@ -13300,6 +13513,9 @@ class CfnFlow(
             knowledge_base: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.KnowledgeBaseFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.LambdaFunctionFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             lex: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.LexFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            loop: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.LoopFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            loop_controller: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.LoopControllerFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            loop_input: typing.Any = None,
             output: typing.Any = None,
             prompt: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.PromptFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retrieval: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.RetrievalFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -13318,6 +13534,9 @@ class CfnFlow(
             :param knowledge_base: Contains configurations for a knowledge base node in your flow. Queries a knowledge base and returns the retrieved results or generated response.
             :param lambda_function: Contains configurations for a Lambda function node in your flow. Invokes an AWS Lambda function.
             :param lex: Contains configurations for a Lex node in your flow. Invokes an Amazon Lex bot to identify the intent of the input and return the intent as the output.
+            :param loop: Contains configurations for a DoWhile loop in your flow.
+            :param loop_controller: Contains controller node configurations for a DoWhile loop in your flow.
+            :param loop_input: Contains input node configurations for a DoWhile loop in your flow.
             :param output: Contains configurations for an output flow node in your flow. The last node in the flow. ``outputs`` can't be specified for this node.
             :param prompt: Contains configurations for a prompt node in your flow. Runs a prompt and generates the model response as the output. You can use a prompt from Prompt management or you can configure one in this node.
             :param retrieval: Contains configurations for a retrieval node in your flow. Retrieves data from an Amazon S3 location and returns it as the output.
@@ -13332,9 +13551,12 @@ class CfnFlow(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # additional_model_request_fields: Any
                 # collector: Any
+                # flow_node_configuration_property_: bedrock.CfnFlow.FlowNodeConfigurationProperty
                 # input: Any
                 # iterator: Any
+                # loop_input: Any
                 # output: Any
                 
                 flow_node_configuration_property = bedrock.CfnFlow.FlowNodeConfigurationProperty(
@@ -13364,7 +13586,65 @@ class CfnFlow(
                             guardrail_identifier="guardrailIdentifier",
                             guardrail_version="guardrailVersion"
                         ),
-                        model_id="modelId"
+                        inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                            text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                max_tokens=123,
+                                stop_sequences=["stopSequences"],
+                                temperature=123,
+                                top_p=123
+                            )
+                        ),
+                        model_id="modelId",
+                        number_of_results=123,
+                        orchestration_configuration=bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
+                            additional_model_request_fields=additional_model_request_fields,
+                            inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                    max_tokens=123,
+                                    stop_sequences=["stopSequences"],
+                                    temperature=123,
+                                    top_p=123
+                                )
+                            ),
+                            performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
+                                latency="latency"
+                            ),
+                            prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                text_prompt_template="textPromptTemplate"
+                            )
+                        ),
+                        prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                            text_prompt_template="textPromptTemplate"
+                        ),
+                        reranking_configuration=bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
+                            type="type",
+                
+                            # the properties below are optional
+                            bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                                model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                    model_arn="modelArn",
+                
+                                    # the properties below are optional
+                                    additional_model_request_fields=additional_model_request_fields
+                                ),
+                
+                                # the properties below are optional
+                                metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                                    selection_mode="selectionMode",
+                
+                                    # the properties below are optional
+                                    selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                                        fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                            field_name="fieldName"
+                                        )],
+                                        fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                            field_name="fieldName"
+                                        )]
+                                    )
+                                ),
+                                number_of_reranked_results=123
+                            )
+                        )
                     ),
                     lambda_function=bedrock.CfnFlow.LambdaFunctionFlowNodeConfigurationProperty(
                         lambda_arn="lambdaArn"
@@ -13373,6 +13653,58 @@ class CfnFlow(
                         bot_alias_arn="botAliasArn",
                         locale_id="localeId"
                     ),
+                    loop=bedrock.CfnFlow.LoopFlowNodeConfigurationProperty(
+                        definition=bedrock.CfnFlow.FlowDefinitionProperty(
+                            connections=[bedrock.CfnFlow.FlowConnectionProperty(
+                                name="name",
+                                source="source",
+                                target="target",
+                                type="type",
+                
+                                # the properties below are optional
+                                configuration=bedrock.CfnFlow.FlowConnectionConfigurationProperty(
+                                    conditional=bedrock.CfnFlow.FlowConditionalConnectionConfigurationProperty(
+                                        condition="condition"
+                                    ),
+                                    data=bedrock.CfnFlow.FlowDataConnectionConfigurationProperty(
+                                        source_output="sourceOutput",
+                                        target_input="targetInput"
+                                    )
+                                )
+                            )],
+                            nodes=[bedrock.CfnFlow.FlowNodeProperty(
+                                name="name",
+                                type="type",
+                
+                                # the properties below are optional
+                                configuration=flow_node_configuration_property_,
+                                inputs=[bedrock.CfnFlow.FlowNodeInputProperty(
+                                    expression="expression",
+                                    name="name",
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    category="category"
+                                )],
+                                outputs=[bedrock.CfnFlow.FlowNodeOutputProperty(
+                                    name="name",
+                                    type="type"
+                                )]
+                            )]
+                        )
+                    ),
+                    loop_controller=bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty(
+                        continue_condition=bedrock.CfnFlow.FlowConditionProperty(
+                            name="name",
+                
+                            # the properties below are optional
+                            expression="expression"
+                        ),
+                
+                        # the properties below are optional
+                        max_iterations=123
+                    ),
+                    loop_input=loop_input,
                     output=output,
                     prompt=bedrock.CfnFlow.PromptFlowNodeConfigurationProperty(
                         source_configuration=bedrock.CfnFlow.PromptFlowNodeSourceConfigurationProperty(
@@ -13438,6 +13770,9 @@ class CfnFlow(
                 check_type(argname="argument knowledge_base", value=knowledge_base, expected_type=type_hints["knowledge_base"])
                 check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
                 check_type(argname="argument lex", value=lex, expected_type=type_hints["lex"])
+                check_type(argname="argument loop", value=loop, expected_type=type_hints["loop"])
+                check_type(argname="argument loop_controller", value=loop_controller, expected_type=type_hints["loop_controller"])
+                check_type(argname="argument loop_input", value=loop_input, expected_type=type_hints["loop_input"])
                 check_type(argname="argument output", value=output, expected_type=type_hints["output"])
                 check_type(argname="argument prompt", value=prompt, expected_type=type_hints["prompt"])
                 check_type(argname="argument retrieval", value=retrieval, expected_type=type_hints["retrieval"])
@@ -13461,6 +13796,12 @@ class CfnFlow(
                 self._values["lambda_function"] = lambda_function
             if lex is not None:
                 self._values["lex"] = lex
+            if loop is not None:
+                self._values["loop"] = loop
+            if loop_controller is not None:
+                self._values["loop_controller"] = loop_controller
+            if loop_input is not None:
+                self._values["loop_input"] = loop_input
             if output is not None:
                 self._values["output"] = output
             if prompt is not None:
@@ -13584,6 +13925,37 @@ class CfnFlow(
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.LexFlowNodeConfigurationProperty"]], result)
 
         @builtins.property
+        def loop(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.LoopFlowNodeConfigurationProperty"]]:
+            '''Contains configurations for a DoWhile loop in your flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flownodeconfiguration.html#cfn-bedrock-flow-flownodeconfiguration-loop
+            '''
+            result = self._values.get("loop")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.LoopFlowNodeConfigurationProperty"]], result)
+
+        @builtins.property
+        def loop_controller(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.LoopControllerFlowNodeConfigurationProperty"]]:
+            '''Contains controller node configurations for a DoWhile loop in your flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flownodeconfiguration.html#cfn-bedrock-flow-flownodeconfiguration-loopcontroller
+            '''
+            result = self._values.get("loop_controller")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.LoopControllerFlowNodeConfigurationProperty"]], result)
+
+        @builtins.property
+        def loop_input(self) -> typing.Any:
+            '''Contains input node configurations for a DoWhile loop in your flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flownodeconfiguration.html#cfn-bedrock-flow-flownodeconfiguration-loopinput
+            '''
+            result = self._values.get("loop_input")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
         def output(self) -> typing.Any:
             '''Contains configurations for an output flow node in your flow.
 
@@ -13647,7 +14019,12 @@ class CfnFlow(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.FlowNodeInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"expression": "expression", "name": "name", "type": "type"},
+        name_mapping={
+            "expression": "expression",
+            "name": "name",
+            "type": "type",
+            "category": "category",
+        },
     )
     class FlowNodeInputProperty:
         def __init__(
@@ -13656,12 +14033,14 @@ class CfnFlow(
             expression: builtins.str,
             name: builtins.str,
             type: builtins.str,
+            category: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains configurations for an input in an Amazon Bedrock Flows node.
 
             :param expression: An expression that formats the input for the node. For an explanation of how to create expressions, see `Expressions in Prompt flows in Amazon Bedrock <https://docs.aws.amazon.com/bedrock/latest/userguide/flows-expressions.html>`_ .
             :param name: Specifies a name for the input that you can reference.
             :param type: Specifies the data type of the input. If the input doesn't match this type at runtime, a validation error will be thrown.
+            :param category: Specifies how input data flows between iterations in a DoWhile loop. - ``LoopCondition`` - Controls whether the loop continues by evaluating condition expressions against the input data. Use this category to define the condition that determines if the loop should continue. - ``ReturnValueToLoopStart`` - Defines data to pass back to the start of the loop's next iteration. Use this category for variables that you want to update for each loop iteration. - ``ExitLoop`` - Defines the value that's available once the loop ends. Use this category to expose loop results to nodes outside the loop.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flownodeinput.html
             :exampleMetadata: fixture=_generated
@@ -13675,7 +14054,10 @@ class CfnFlow(
                 flow_node_input_property = bedrock.CfnFlow.FlowNodeInputProperty(
                     expression="expression",
                     name="name",
-                    type="type"
+                    type="type",
+                
+                    # the properties below are optional
+                    category="category"
                 )
             '''
             if __debug__:
@@ -13683,11 +14065,14 @@ class CfnFlow(
                 check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument category", value=category, expected_type=type_hints["category"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "expression": expression,
                 "name": name,
                 "type": type,
             }
+            if category is not None:
+                self._values["category"] = category
 
         @builtins.property
         def expression(self) -> builtins.str:
@@ -13722,6 +14107,19 @@ class CfnFlow(
             result = self._values.get("type")
             assert result is not None, "Required property 'type' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def category(self) -> typing.Optional[builtins.str]:
+            '''Specifies how input data flows between iterations in a DoWhile loop.
+
+            - ``LoopCondition`` - Controls whether the loop continues by evaluating condition expressions against the input data. Use this category to define the condition that determines if the loop should continue.
+            - ``ReturnValueToLoopStart`` - Defines data to pass back to the start of the loop's next iteration. Use this category for variables that you want to update for each loop iteration.
+            - ``ExitLoop`` - Defines the value that's available once the loop ends. Use this category to expose loop results to nodes outside the loop.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-flownodeinput.html#cfn-bedrock-flow-flownodeinput-category
+            '''
+            result = self._values.get("category")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13840,9 +14238,12 @@ class CfnFlow(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # additional_model_request_fields: Any
                 # collector: Any
+                # flow_node_property_: bedrock.CfnFlow.FlowNodeProperty
                 # input: Any
                 # iterator: Any
+                # loop_input: Any
                 # output: Any
                 
                 flow_node_property = bedrock.CfnFlow.FlowNodeProperty(
@@ -13877,7 +14278,65 @@ class CfnFlow(
                                 guardrail_identifier="guardrailIdentifier",
                                 guardrail_version="guardrailVersion"
                             ),
-                            model_id="modelId"
+                            inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                    max_tokens=123,
+                                    stop_sequences=["stopSequences"],
+                                    temperature=123,
+                                    top_p=123
+                                )
+                            ),
+                            model_id="modelId",
+                            number_of_results=123,
+                            orchestration_configuration=bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
+                                additional_model_request_fields=additional_model_request_fields,
+                                inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                    text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                        max_tokens=123,
+                                        stop_sequences=["stopSequences"],
+                                        temperature=123,
+                                        top_p=123
+                                    )
+                                ),
+                                performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
+                                    latency="latency"
+                                ),
+                                prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                    text_prompt_template="textPromptTemplate"
+                                )
+                            ),
+                            prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                text_prompt_template="textPromptTemplate"
+                            ),
+                            reranking_configuration=bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
+                                type="type",
+                
+                                # the properties below are optional
+                                bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                                    model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                        model_arn="modelArn",
+                
+                                        # the properties below are optional
+                                        additional_model_request_fields=additional_model_request_fields
+                                    ),
+                
+                                    # the properties below are optional
+                                    metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                                        selection_mode="selectionMode",
+                
+                                        # the properties below are optional
+                                        selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                                            fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                field_name="fieldName"
+                                            )],
+                                            fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                field_name="fieldName"
+                                            )]
+                                        )
+                                    ),
+                                    number_of_reranked_results=123
+                                )
+                            )
                         ),
                         lambda_function=bedrock.CfnFlow.LambdaFunctionFlowNodeConfigurationProperty(
                             lambda_arn="lambdaArn"
@@ -13886,6 +14345,40 @@ class CfnFlow(
                             bot_alias_arn="botAliasArn",
                             locale_id="localeId"
                         ),
+                        loop=bedrock.CfnFlow.LoopFlowNodeConfigurationProperty(
+                            definition=bedrock.CfnFlow.FlowDefinitionProperty(
+                                connections=[bedrock.CfnFlow.FlowConnectionProperty(
+                                    name="name",
+                                    source="source",
+                                    target="target",
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    configuration=bedrock.CfnFlow.FlowConnectionConfigurationProperty(
+                                        conditional=bedrock.CfnFlow.FlowConditionalConnectionConfigurationProperty(
+                                            condition="condition"
+                                        ),
+                                        data=bedrock.CfnFlow.FlowDataConnectionConfigurationProperty(
+                                            source_output="sourceOutput",
+                                            target_input="targetInput"
+                                        )
+                                    )
+                                )],
+                                nodes=[flow_node_property_]
+                            )
+                        ),
+                        loop_controller=bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty(
+                            continue_condition=bedrock.CfnFlow.FlowConditionProperty(
+                                name="name",
+                
+                                # the properties below are optional
+                                expression="expression"
+                            ),
+                
+                            # the properties below are optional
+                            max_iterations=123
+                        ),
+                        loop_input=loop_input,
                         output=output,
                         prompt=bedrock.CfnFlow.PromptFlowNodeConfigurationProperty(
                             source_configuration=bedrock.CfnFlow.PromptFlowNodeSourceConfigurationProperty(
@@ -13942,7 +14435,10 @@ class CfnFlow(
                     inputs=[bedrock.CfnFlow.FlowNodeInputProperty(
                         expression="expression",
                         name="name",
-                        type="type"
+                        type="type",
+                
+                        # the properties below are optional
+                        category="category"
                     )],
                     outputs=[bedrock.CfnFlow.FlowNodeOutputProperty(
                         name="name",
@@ -14244,7 +14740,12 @@ class CfnFlow(
         name_mapping={
             "knowledge_base_id": "knowledgeBaseId",
             "guardrail_configuration": "guardrailConfiguration",
+            "inference_configuration": "inferenceConfiguration",
             "model_id": "modelId",
+            "number_of_results": "numberOfResults",
+            "orchestration_configuration": "orchestrationConfiguration",
+            "prompt_template": "promptTemplate",
+            "reranking_configuration": "rerankingConfiguration",
         },
     )
     class KnowledgeBaseFlowNodeConfigurationProperty:
@@ -14253,7 +14754,12 @@ class CfnFlow(
             *,
             knowledge_base_id: builtins.str,
             guardrail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.GuardrailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            inference_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.PromptInferenceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             model_id: typing.Optional[builtins.str] = None,
+            number_of_results: typing.Optional[jsii.Number] = None,
+            orchestration_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            prompt_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.KnowledgeBasePromptTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.VectorSearchRerankingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains configurations for a knowledge base node in a flow.
 
@@ -14261,7 +14767,12 @@ class CfnFlow(
 
             :param knowledge_base_id: The unique identifier of the knowledge base to query.
             :param guardrail_configuration: Contains configurations for a guardrail to apply during query and response generation for the knowledge base in this configuration.
+            :param inference_configuration: Contains inference configurations for the prompt.
             :param model_id: The unique identifier of the model or `inference profile <https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html>`_ to use to generate a response from the query results. Omit this field if you want to return the retrieved results as an array.
+            :param number_of_results: The number of results to retrieve from the knowledge base.
+            :param orchestration_configuration: The configuration for orchestrating the retrieval and generation process in the knowledge base node.
+            :param prompt_template: A custom prompt template to use with the knowledge base for generating responses.
+            :param reranking_configuration: The configuration for reranking the retrieved results from the knowledge base to improve relevance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseflownodeconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -14272,6 +14783,8 @@ class CfnFlow(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # additional_model_request_fields: Any
+                
                 knowledge_base_flow_node_configuration_property = bedrock.CfnFlow.KnowledgeBaseFlowNodeConfigurationProperty(
                     knowledge_base_id="knowledgeBaseId",
                 
@@ -14280,21 +14793,94 @@ class CfnFlow(
                         guardrail_identifier="guardrailIdentifier",
                         guardrail_version="guardrailVersion"
                     ),
-                    model_id="modelId"
+                    inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                        text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                            max_tokens=123,
+                            stop_sequences=["stopSequences"],
+                            temperature=123,
+                            top_p=123
+                        )
+                    ),
+                    model_id="modelId",
+                    number_of_results=123,
+                    orchestration_configuration=bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
+                        additional_model_request_fields=additional_model_request_fields,
+                        inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                            text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                max_tokens=123,
+                                stop_sequences=["stopSequences"],
+                                temperature=123,
+                                top_p=123
+                            )
+                        ),
+                        performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
+                            latency="latency"
+                        ),
+                        prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                            text_prompt_template="textPromptTemplate"
+                        )
+                    ),
+                    prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                        text_prompt_template="textPromptTemplate"
+                    ),
+                    reranking_configuration=bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
+                        type="type",
+                
+                        # the properties below are optional
+                        bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                            model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                model_arn="modelArn",
+                
+                                # the properties below are optional
+                                additional_model_request_fields=additional_model_request_fields
+                            ),
+                
+                            # the properties below are optional
+                            metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                                selection_mode="selectionMode",
+                
+                                # the properties below are optional
+                                selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                                    fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                        field_name="fieldName"
+                                    )],
+                                    fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                        field_name="fieldName"
+                                    )]
+                                )
+                            ),
+                            number_of_reranked_results=123
+                        )
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__004ed148a98b01e41f3efd077553224d0e5ce97fd3842fc0c6be6c28accdc6cc)
                 check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
                 check_type(argname="argument guardrail_configuration", value=guardrail_configuration, expected_type=type_hints["guardrail_configuration"])
+                check_type(argname="argument inference_configuration", value=inference_configuration, expected_type=type_hints["inference_configuration"])
                 check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+                check_type(argname="argument number_of_results", value=number_of_results, expected_type=type_hints["number_of_results"])
+                check_type(argname="argument orchestration_configuration", value=orchestration_configuration, expected_type=type_hints["orchestration_configuration"])
+                check_type(argname="argument prompt_template", value=prompt_template, expected_type=type_hints["prompt_template"])
+                check_type(argname="argument reranking_configuration", value=reranking_configuration, expected_type=type_hints["reranking_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "knowledge_base_id": knowledge_base_id,
             }
             if guardrail_configuration is not None:
                 self._values["guardrail_configuration"] = guardrail_configuration
+            if inference_configuration is not None:
+                self._values["inference_configuration"] = inference_configuration
             if model_id is not None:
                 self._values["model_id"] = model_id
+            if number_of_results is not None:
+                self._values["number_of_results"] = number_of_results
+            if orchestration_configuration is not None:
+                self._values["orchestration_configuration"] = orchestration_configuration
+            if prompt_template is not None:
+                self._values["prompt_template"] = prompt_template
+            if reranking_configuration is not None:
+                self._values["reranking_configuration"] = reranking_configuration
 
         @builtins.property
         def knowledge_base_id(self) -> builtins.str:
@@ -14318,6 +14904,17 @@ class CfnFlow(
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.GuardrailConfigurationProperty"]], result)
 
         @builtins.property
+        def inference_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.PromptInferenceConfigurationProperty"]]:
+            '''Contains inference configurations for the prompt.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flow-knowledgebaseflownodeconfiguration-inferenceconfiguration
+            '''
+            result = self._values.get("inference_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.PromptInferenceConfigurationProperty"]], result)
+
+        @builtins.property
         def model_id(self) -> typing.Optional[builtins.str]:
             '''The unique identifier of the model or `inference profile <https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html>`_ to use to generate a response from the query results. Omit this field if you want to return the retrieved results as an array.
 
@@ -14325,6 +14922,48 @@ class CfnFlow(
             '''
             result = self._values.get("model_id")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def number_of_results(self) -> typing.Optional[jsii.Number]:
+            '''The number of results to retrieve from the knowledge base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flow-knowledgebaseflownodeconfiguration-numberofresults
+            '''
+            result = self._values.get("number_of_results")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def orchestration_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty"]]:
+            '''The configuration for orchestrating the retrieval and generation process in the knowledge base node.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flow-knowledgebaseflownodeconfiguration-orchestrationconfiguration
+            '''
+            result = self._values.get("orchestration_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty"]], result)
+
+        @builtins.property
+        def prompt_template(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.KnowledgeBasePromptTemplateProperty"]]:
+            '''A custom prompt template to use with the knowledge base for generating responses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flow-knowledgebaseflownodeconfiguration-prompttemplate
+            '''
+            result = self._values.get("prompt_template")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.KnowledgeBasePromptTemplateProperty"]], result)
+
+        @builtins.property
+        def reranking_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.VectorSearchRerankingConfigurationProperty"]]:
+            '''The configuration for reranking the retrieved results from the knowledge base to improve relevance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flow-knowledgebaseflownodeconfiguration-rerankingconfiguration
+            '''
+            result = self._values.get("reranking_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.VectorSearchRerankingConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14334,6 +14973,182 @@ class CfnFlow(
 
         def __repr__(self) -> str:
             return "KnowledgeBaseFlowNodeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "additional_model_request_fields": "additionalModelRequestFields",
+            "inference_config": "inferenceConfig",
+            "performance_config": "performanceConfig",
+            "prompt_template": "promptTemplate",
+        },
+    )
+    class KnowledgeBaseOrchestrationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            additional_model_request_fields: typing.Any = None,
+            inference_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.PromptInferenceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            performance_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.PerformanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            prompt_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.KnowledgeBasePromptTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configures how the knowledge base orchestrates the retrieval and generation process, allowing for customization of prompts, inference parameters, and performance settings.
+
+            :param additional_model_request_fields: The additional model-specific request parameters as key-value pairs to be included in the request to the foundation model.
+            :param inference_config: Contains inference configurations for the prompt.
+            :param performance_config: The performance configuration options for the knowledge base retrieval and generation process.
+            :param prompt_template: A custom prompt template for orchestrating the retrieval and generation process.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseorchestrationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                
+                knowledge_base_orchestration_configuration_property = bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
+                    additional_model_request_fields=additional_model_request_fields,
+                    inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                        text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                            max_tokens=123,
+                            stop_sequences=["stopSequences"],
+                            temperature=123,
+                            top_p=123
+                        )
+                    ),
+                    performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
+                        latency="latency"
+                    ),
+                    prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                        text_prompt_template="textPromptTemplate"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__18eebae023ada8dcacaf58e0670c730be4cd568a21c1d6cb6c4c80f248b5c6df)
+                check_type(argname="argument additional_model_request_fields", value=additional_model_request_fields, expected_type=type_hints["additional_model_request_fields"])
+                check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+                check_type(argname="argument performance_config", value=performance_config, expected_type=type_hints["performance_config"])
+                check_type(argname="argument prompt_template", value=prompt_template, expected_type=type_hints["prompt_template"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if additional_model_request_fields is not None:
+                self._values["additional_model_request_fields"] = additional_model_request_fields
+            if inference_config is not None:
+                self._values["inference_config"] = inference_config
+            if performance_config is not None:
+                self._values["performance_config"] = performance_config
+            if prompt_template is not None:
+                self._values["prompt_template"] = prompt_template
+
+        @builtins.property
+        def additional_model_request_fields(self) -> typing.Any:
+            '''The additional model-specific request parameters as key-value pairs to be included in the request to the foundation model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseorchestrationconfiguration.html#cfn-bedrock-flow-knowledgebaseorchestrationconfiguration-additionalmodelrequestfields
+            '''
+            result = self._values.get("additional_model_request_fields")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def inference_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.PromptInferenceConfigurationProperty"]]:
+            '''Contains inference configurations for the prompt.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseorchestrationconfiguration.html#cfn-bedrock-flow-knowledgebaseorchestrationconfiguration-inferenceconfig
+            '''
+            result = self._values.get("inference_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.PromptInferenceConfigurationProperty"]], result)
+
+        @builtins.property
+        def performance_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.PerformanceConfigurationProperty"]]:
+            '''The performance configuration options for the knowledge base retrieval and generation process.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseorchestrationconfiguration.html#cfn-bedrock-flow-knowledgebaseorchestrationconfiguration-performanceconfig
+            '''
+            result = self._values.get("performance_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.PerformanceConfigurationProperty"]], result)
+
+        @builtins.property
+        def prompt_template(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.KnowledgeBasePromptTemplateProperty"]]:
+            '''A custom prompt template for orchestrating the retrieval and generation process.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseorchestrationconfiguration.html#cfn-bedrock-flow-knowledgebaseorchestrationconfiguration-prompttemplate
+            '''
+            result = self._values.get("prompt_template")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.KnowledgeBasePromptTemplateProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KnowledgeBaseOrchestrationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"text_prompt_template": "textPromptTemplate"},
+    )
+    class KnowledgeBasePromptTemplateProperty:
+        def __init__(self, *, text_prompt_template: builtins.str) -> None:
+            '''Defines a custom prompt template for orchestrating the retrieval and generation process.
+
+            :param text_prompt_template: The text of the prompt template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseprompttemplate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                knowledge_base_prompt_template_property = bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                    text_prompt_template="textPromptTemplate"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a9a0bd34e5e9fad9a0fa939315a299c268aa78f4686265d2ebdd98f150a9d92e)
+                check_type(argname="argument text_prompt_template", value=text_prompt_template, expected_type=type_hints["text_prompt_template"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "text_prompt_template": text_prompt_template,
+            }
+
+        @builtins.property
+        def text_prompt_template(self) -> builtins.str:
+            '''The text of the prompt template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-knowledgebaseprompttemplate.html#cfn-bedrock-flow-knowledgebaseprompttemplate-textprompttemplate
+            '''
+            result = self._values.get("text_prompt_template")
+            assert result is not None, "Required property 'text_prompt_template' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KnowledgeBasePromptTemplateProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -14461,6 +15276,502 @@ class CfnFlow(
 
         def __repr__(self) -> str:
             return "LexFlowNodeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "continue_condition": "continueCondition",
+            "max_iterations": "maxIterations",
+        },
+    )
+    class LoopControllerFlowNodeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            continue_condition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.FlowConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+            max_iterations: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Contains configurations for the controller node of a DoWhile loop in the flow.
+
+            :param continue_condition: Specifies the condition that determines when the flow exits the DoWhile loop. The loop executes until this condition evaluates to true.
+            :param max_iterations: Specifies the maximum number of times the DoWhile loop can iterate before the flow exits the loop. Default: - 10
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-loopcontrollerflownodeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                loop_controller_flow_node_configuration_property = bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty(
+                    continue_condition=bedrock.CfnFlow.FlowConditionProperty(
+                        name="name",
+                
+                        # the properties below are optional
+                        expression="expression"
+                    ),
+                
+                    # the properties below are optional
+                    max_iterations=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8b678349c7620b286061758949b288b2721ebbfec82cf342b86b25d9d8d2ac40)
+                check_type(argname="argument continue_condition", value=continue_condition, expected_type=type_hints["continue_condition"])
+                check_type(argname="argument max_iterations", value=max_iterations, expected_type=type_hints["max_iterations"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "continue_condition": continue_condition,
+            }
+            if max_iterations is not None:
+                self._values["max_iterations"] = max_iterations
+
+        @builtins.property
+        def continue_condition(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnFlow.FlowConditionProperty"]:
+            '''Specifies the condition that determines when the flow exits the DoWhile loop.
+
+            The loop executes until this condition evaluates to true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-loopcontrollerflownodeconfiguration.html#cfn-bedrock-flow-loopcontrollerflownodeconfiguration-continuecondition
+            '''
+            result = self._values.get("continue_condition")
+            assert result is not None, "Required property 'continue_condition' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFlow.FlowConditionProperty"], result)
+
+        @builtins.property
+        def max_iterations(self) -> typing.Optional[jsii.Number]:
+            '''Specifies the maximum number of times the DoWhile loop can iterate before the flow exits the loop.
+
+            :default: - 10
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-loopcontrollerflownodeconfiguration.html#cfn-bedrock-flow-loopcontrollerflownodeconfiguration-maxiterations
+            '''
+            result = self._values.get("max_iterations")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoopControllerFlowNodeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.LoopFlowNodeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"definition": "definition"},
+    )
+    class LoopFlowNodeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            definition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.FlowDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Contains configurations for the nodes of a DoWhile loop in your flow.
+
+            A DoWhile loop is made up of the following nodes:
+
+            - ``Loop`` - The container node that holds the loop's flow definition. This node encompasses the entire loop structure.
+            - ``LoopInput`` - The entry point node for the loop. This node receives inputs from nodes outside the loop and from previous loop iterations.
+            - Body nodes - The processing nodes that execute within each loop iteration. These can be nodes for handling data in your flow, such as a prompt or Lambda function nodes. Some node types aren't supported inside a DoWhile loop body. For more information, see `LoopIncompatibleNodeTypeFlowValidationDetails <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_LoopIncompatibleNodeTypeFlowValidationDetails.html>`_ .
+            - ``LoopController`` - The node that evaluates whether the loop should continue or exit based on a condition.
+
+            These nodes work together to create a loop that runs at least once and continues until a specified condition is met or a maximum number of iterations is reached.
+
+            :param definition: The definition of the DoWhile loop nodes and connections between nodes in the flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-loopflownodeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                # collector: Any
+                # input: Any
+                # iterator: Any
+                # loop_flow_node_configuration_property_: bedrock.CfnFlow.LoopFlowNodeConfigurationProperty
+                # loop_input: Any
+                # output: Any
+                
+                loop_flow_node_configuration_property = bedrock.CfnFlow.LoopFlowNodeConfigurationProperty(
+                    definition=bedrock.CfnFlow.FlowDefinitionProperty(
+                        connections=[bedrock.CfnFlow.FlowConnectionProperty(
+                            name="name",
+                            source="source",
+                            target="target",
+                            type="type",
+                
+                            # the properties below are optional
+                            configuration=bedrock.CfnFlow.FlowConnectionConfigurationProperty(
+                                conditional=bedrock.CfnFlow.FlowConditionalConnectionConfigurationProperty(
+                                    condition="condition"
+                                ),
+                                data=bedrock.CfnFlow.FlowDataConnectionConfigurationProperty(
+                                    source_output="sourceOutput",
+                                    target_input="targetInput"
+                                )
+                            )
+                        )],
+                        nodes=[bedrock.CfnFlow.FlowNodeProperty(
+                            name="name",
+                            type="type",
+                
+                            # the properties below are optional
+                            configuration=bedrock.CfnFlow.FlowNodeConfigurationProperty(
+                                agent=bedrock.CfnFlow.AgentFlowNodeConfigurationProperty(
+                                    agent_alias_arn="agentAliasArn"
+                                ),
+                                collector=collector,
+                                condition=bedrock.CfnFlow.ConditionFlowNodeConfigurationProperty(
+                                    conditions=[bedrock.CfnFlow.FlowConditionProperty(
+                                        name="name",
+                
+                                        # the properties below are optional
+                                        expression="expression"
+                                    )]
+                                ),
+                                inline_code=bedrock.CfnFlow.InlineCodeFlowNodeConfigurationProperty(
+                                    code="code",
+                                    language="language"
+                                ),
+                                input=input,
+                                iterator=iterator,
+                                knowledge_base=bedrock.CfnFlow.KnowledgeBaseFlowNodeConfigurationProperty(
+                                    knowledge_base_id="knowledgeBaseId",
+                
+                                    # the properties below are optional
+                                    guardrail_configuration=bedrock.CfnFlow.GuardrailConfigurationProperty(
+                                        guardrail_identifier="guardrailIdentifier",
+                                        guardrail_version="guardrailVersion"
+                                    ),
+                                    inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                        text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                            max_tokens=123,
+                                            stop_sequences=["stopSequences"],
+                                            temperature=123,
+                                            top_p=123
+                                        )
+                                    ),
+                                    model_id="modelId",
+                                    number_of_results=123,
+                                    orchestration_configuration=bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
+                                        additional_model_request_fields=additional_model_request_fields,
+                                        inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                            text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                                max_tokens=123,
+                                                stop_sequences=["stopSequences"],
+                                                temperature=123,
+                                                top_p=123
+                                            )
+                                        ),
+                                        performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
+                                            latency="latency"
+                                        ),
+                                        prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                            text_prompt_template="textPromptTemplate"
+                                        )
+                                    ),
+                                    prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                        text_prompt_template="textPromptTemplate"
+                                    ),
+                                    reranking_configuration=bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
+                                        type="type",
+                
+                                        # the properties below are optional
+                                        bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                                            model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                                model_arn="modelArn",
+                
+                                                # the properties below are optional
+                                                additional_model_request_fields=additional_model_request_fields
+                                            ),
+                
+                                            # the properties below are optional
+                                            metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                                                selection_mode="selectionMode",
+                
+                                                # the properties below are optional
+                                                selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                                                    fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                        field_name="fieldName"
+                                                    )],
+                                                    fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                        field_name="fieldName"
+                                                    )]
+                                                )
+                                            ),
+                                            number_of_reranked_results=123
+                                        )
+                                    )
+                                ),
+                                lambda_function=bedrock.CfnFlow.LambdaFunctionFlowNodeConfigurationProperty(
+                                    lambda_arn="lambdaArn"
+                                ),
+                                lex=bedrock.CfnFlow.LexFlowNodeConfigurationProperty(
+                                    bot_alias_arn="botAliasArn",
+                                    locale_id="localeId"
+                                ),
+                                loop=loop_flow_node_configuration_property_,
+                                loop_controller=bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty(
+                                    continue_condition=bedrock.CfnFlow.FlowConditionProperty(
+                                        name="name",
+                
+                                        # the properties below are optional
+                                        expression="expression"
+                                    ),
+                
+                                    # the properties below are optional
+                                    max_iterations=123
+                                ),
+                                loop_input=loop_input,
+                                output=output,
+                                prompt=bedrock.CfnFlow.PromptFlowNodeConfigurationProperty(
+                                    source_configuration=bedrock.CfnFlow.PromptFlowNodeSourceConfigurationProperty(
+                                        inline=bedrock.CfnFlow.PromptFlowNodeInlineConfigurationProperty(
+                                            model_id="modelId",
+                                            template_configuration=bedrock.CfnFlow.PromptTemplateConfigurationProperty(
+                                                text=bedrock.CfnFlow.TextPromptTemplateConfigurationProperty(
+                                                    text="text",
+                
+                                                    # the properties below are optional
+                                                    input_variables=[bedrock.CfnFlow.PromptInputVariableProperty(
+                                                        name="name"
+                                                    )]
+                                                )
+                                            ),
+                                            template_type="templateType",
+                
+                                            # the properties below are optional
+                                            inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                                text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                                    max_tokens=123,
+                                                    stop_sequences=["stopSequences"],
+                                                    temperature=123,
+                                                    top_p=123
+                                                )
+                                            )
+                                        ),
+                                        resource=bedrock.CfnFlow.PromptFlowNodeResourceConfigurationProperty(
+                                            prompt_arn="promptArn"
+                                        )
+                                    ),
+                
+                                    # the properties below are optional
+                                    guardrail_configuration=bedrock.CfnFlow.GuardrailConfigurationProperty(
+                                        guardrail_identifier="guardrailIdentifier",
+                                        guardrail_version="guardrailVersion"
+                                    )
+                                ),
+                                retrieval=bedrock.CfnFlow.RetrievalFlowNodeConfigurationProperty(
+                                    service_configuration=bedrock.CfnFlow.RetrievalFlowNodeServiceConfigurationProperty(
+                                        s3=bedrock.CfnFlow.RetrievalFlowNodeS3ConfigurationProperty(
+                                            bucket_name="bucketName"
+                                        )
+                                    )
+                                ),
+                                storage=bedrock.CfnFlow.StorageFlowNodeConfigurationProperty(
+                                    service_configuration=bedrock.CfnFlow.StorageFlowNodeServiceConfigurationProperty(
+                                        s3=bedrock.CfnFlow.StorageFlowNodeS3ConfigurationProperty(
+                                            bucket_name="bucketName"
+                                        )
+                                    )
+                                )
+                            ),
+                            inputs=[bedrock.CfnFlow.FlowNodeInputProperty(
+                                expression="expression",
+                                name="name",
+                                type="type",
+                
+                                # the properties below are optional
+                                category="category"
+                            )],
+                            outputs=[bedrock.CfnFlow.FlowNodeOutputProperty(
+                                name="name",
+                                type="type"
+                            )]
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__95d1b365a5069a8f909e47d6dec4c6924178d7bd497e230f31ce17ab6f9f6bf3)
+                check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "definition": definition,
+            }
+
+        @builtins.property
+        def definition(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnFlow.FlowDefinitionProperty"]:
+            '''The definition of the DoWhile loop nodes and connections between nodes in the flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-loopflownodeconfiguration.html#cfn-bedrock-flow-loopflownodeconfiguration-definition
+            '''
+            result = self._values.get("definition")
+            assert result is not None, "Required property 'definition' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFlow.FlowDefinitionProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoopFlowNodeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.MetadataConfigurationForRerankingProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "selection_mode": "selectionMode",
+            "selective_mode_configuration": "selectiveModeConfiguration",
+        },
+    )
+    class MetadataConfigurationForRerankingProperty:
+        def __init__(
+            self,
+            *,
+            selection_mode: builtins.str,
+            selective_mode_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Contains configurations for the metadata to use in reranking.
+
+            :param selection_mode: Specifies whether to consider all metadata when reranking, or only the metadata that you select. If you specify ``SELECTIVE`` , include the ``selectiveModeConfiguration`` field.
+            :param selective_mode_configuration: Contains configurations for the metadata fields to include or exclude when considering reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-metadataconfigurationforreranking.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                metadata_configuration_for_reranking_property = bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                    selection_mode="selectionMode",
+                
+                    # the properties below are optional
+                    selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                        fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                            field_name="fieldName"
+                        )],
+                        fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                            field_name="fieldName"
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__69dc4528015629b5836ac38861e80ce62eb11525f59d4000bd3ae9103f6d0872)
+                check_type(argname="argument selection_mode", value=selection_mode, expected_type=type_hints["selection_mode"])
+                check_type(argname="argument selective_mode_configuration", value=selective_mode_configuration, expected_type=type_hints["selective_mode_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "selection_mode": selection_mode,
+            }
+            if selective_mode_configuration is not None:
+                self._values["selective_mode_configuration"] = selective_mode_configuration
+
+        @builtins.property
+        def selection_mode(self) -> builtins.str:
+            '''Specifies whether to consider all metadata when reranking, or only the metadata that you select.
+
+            If you specify ``SELECTIVE`` , include the ``selectiveModeConfiguration`` field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-metadataconfigurationforreranking.html#cfn-bedrock-flow-metadataconfigurationforreranking-selectionmode
+            '''
+            result = self._values.get("selection_mode")
+            assert result is not None, "Required property 'selection_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def selective_mode_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty"]]:
+            '''Contains configurations for the metadata fields to include or exclude when considering reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-metadataconfigurationforreranking.html#cfn-bedrock-flow-metadataconfigurationforreranking-selectivemodeconfiguration
+            '''
+            result = self._values.get("selective_mode_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetadataConfigurationForRerankingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.PerformanceConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"latency": "latency"},
+    )
+    class PerformanceConfigurationProperty:
+        def __init__(self, *, latency: typing.Optional[builtins.str] = None) -> None:
+            '''Performance settings for a model.
+
+            :param latency: To use a latency-optimized version of the model, set to ``optimized`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-performanceconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                performance_configuration_property = bedrock.CfnFlow.PerformanceConfigurationProperty(
+                    latency="latency"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7ca2b136172ac3771a0b9fc0285abd3c026a57bd8a807c7cd7bfefd8cdc4c00e)
+                check_type(argname="argument latency", value=latency, expected_type=type_hints["latency"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if latency is not None:
+                self._values["latency"] = latency
+
+        @builtins.property
+        def latency(self) -> typing.Optional[builtins.str]:
+            '''To use a latency-optimized version of the model, set to ``optimized`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-performanceconfiguration.html#cfn-bedrock-flow-performanceconfiguration-latency
+            '''
+            result = self._values.get("latency")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PerformanceConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -15147,6 +16458,91 @@ class CfnFlow(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "fields_to_exclude": "fieldsToExclude",
+            "fields_to_include": "fieldsToInclude",
+        },
+    )
+    class RerankingMetadataSelectiveModeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            fields_to_exclude: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.FieldForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            fields_to_include: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.FieldForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Contains configurations for the metadata fields to include or exclude when considering reranking.
+
+            If you include the ``fieldsToExclude`` field, the reranker ignores all the metadata fields that you specify. If you include the ``fieldsToInclude`` field, the reranker uses only the metadata fields that you specify and ignores all others. You can include only one of these fields.
+
+            :param fields_to_exclude: An array of objects, each of which specifies a metadata field to exclude from consideration when reranking.
+            :param fields_to_include: An array of objects, each of which specifies a metadata field to include in consideration when reranking. The remaining metadata fields are ignored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-rerankingmetadataselectivemodeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                reranking_metadata_selective_mode_configuration_property = bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                    fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                        field_name="fieldName"
+                    )],
+                    fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                        field_name="fieldName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8ad952ed67e429a80c5dd15a26a64972ae3faaa078bfcb23ba6c4d5091501d7c)
+                check_type(argname="argument fields_to_exclude", value=fields_to_exclude, expected_type=type_hints["fields_to_exclude"])
+                check_type(argname="argument fields_to_include", value=fields_to_include, expected_type=type_hints["fields_to_include"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if fields_to_exclude is not None:
+                self._values["fields_to_exclude"] = fields_to_exclude
+            if fields_to_include is not None:
+                self._values["fields_to_include"] = fields_to_include
+
+        @builtins.property
+        def fields_to_exclude(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.FieldForRerankingProperty"]]]]:
+            '''An array of objects, each of which specifies a metadata field to exclude from consideration when reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-rerankingmetadataselectivemodeconfiguration.html#cfn-bedrock-flow-rerankingmetadataselectivemodeconfiguration-fieldstoexclude
+            '''
+            result = self._values.get("fields_to_exclude")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.FieldForRerankingProperty"]]]], result)
+
+        @builtins.property
+        def fields_to_include(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.FieldForRerankingProperty"]]]]:
+            '''An array of objects, each of which specifies a metadata field to include in consideration when reranking.
+
+            The remaining metadata fields are ignored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-rerankingmetadataselectivemodeconfiguration.html#cfn-bedrock-flow-rerankingmetadataselectivemodeconfiguration-fieldstoinclude
+            '''
+            result = self._values.get("fields_to_include")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.FieldForRerankingProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RerankingMetadataSelectiveModeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.RetrievalFlowNodeConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"service_configuration": "serviceConfiguration"},
@@ -15660,6 +17056,302 @@ class CfnFlow(
 
         def __repr__(self) -> str:
             return "TextPromptTemplateConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "model_configuration": "modelConfiguration",
+            "metadata_configuration": "metadataConfiguration",
+            "number_of_reranked_results": "numberOfRerankedResults",
+        },
+    )
+    class VectorSearchBedrockRerankingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.MetadataConfigurationForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            number_of_reranked_results: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Contains configurations for reranking with an Amazon Bedrock reranker model.
+
+            :param model_configuration: Contains configurations for the reranker model.
+            :param metadata_configuration: Contains configurations for the metadata to use in reranking.
+            :param number_of_reranked_results: The number of results to return after reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                
+                vector_search_bedrock_reranking_configuration_property = bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                    model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                        model_arn="modelArn",
+                
+                        # the properties below are optional
+                        additional_model_request_fields=additional_model_request_fields
+                    ),
+                
+                    # the properties below are optional
+                    metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                        selection_mode="selectionMode",
+                
+                        # the properties below are optional
+                        selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                            fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                field_name="fieldName"
+                            )],
+                            fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                field_name="fieldName"
+                            )]
+                        )
+                    ),
+                    number_of_reranked_results=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5d72f2b90f1b829fa1095e85074ad0dcbd0ea2536f0aadd883705a35c4a160a8)
+                check_type(argname="argument model_configuration", value=model_configuration, expected_type=type_hints["model_configuration"])
+                check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
+                check_type(argname="argument number_of_reranked_results", value=number_of_reranked_results, expected_type=type_hints["number_of_reranked_results"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "model_configuration": model_configuration,
+            }
+            if metadata_configuration is not None:
+                self._values["metadata_configuration"] = metadata_configuration
+            if number_of_reranked_results is not None:
+                self._values["number_of_reranked_results"] = number_of_reranked_results
+
+        @builtins.property
+        def model_configuration(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty"]:
+            '''Contains configurations for the reranker model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingconfiguration-modelconfiguration
+            '''
+            result = self._values.get("model_configuration")
+            assert result is not None, "Required property 'model_configuration' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty"], result)
+
+        @builtins.property
+        def metadata_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.MetadataConfigurationForRerankingProperty"]]:
+            '''Contains configurations for the metadata to use in reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingconfiguration-metadataconfiguration
+            '''
+            result = self._values.get("metadata_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.MetadataConfigurationForRerankingProperty"]], result)
+
+        @builtins.property
+        def number_of_reranked_results(self) -> typing.Optional[jsii.Number]:
+            '''The number of results to return after reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingconfiguration-numberofrerankedresults
+            '''
+            result = self._values.get("number_of_reranked_results")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorSearchBedrockRerankingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "model_arn": "modelArn",
+            "additional_model_request_fields": "additionalModelRequestFields",
+        },
+    )
+    class VectorSearchBedrockRerankingModelConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            model_arn: builtins.str,
+            additional_model_request_fields: typing.Any = None,
+        ) -> None:
+            '''Contains configurations for an Amazon Bedrock reranker model.
+
+            :param model_arn: The ARN of the reranker model to use.
+            :param additional_model_request_fields: A JSON object whose keys are request fields for the model and whose values are values for those fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                
+                vector_search_bedrock_reranking_model_configuration_property = bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                    model_arn="modelArn",
+                
+                    # the properties below are optional
+                    additional_model_request_fields=additional_model_request_fields
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3e9612b76807c86b9f5363441d474bf474082f33bacaf226f61b65d511453584)
+                check_type(argname="argument model_arn", value=model_arn, expected_type=type_hints["model_arn"])
+                check_type(argname="argument additional_model_request_fields", value=additional_model_request_fields, expected_type=type_hints["additional_model_request_fields"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "model_arn": model_arn,
+            }
+            if additional_model_request_fields is not None:
+                self._values["additional_model_request_fields"] = additional_model_request_fields
+
+        @builtins.property
+        def model_arn(self) -> builtins.str:
+            '''The ARN of the reranker model to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration-modelarn
+            '''
+            result = self._values.get("model_arn")
+            assert result is not None, "Required property 'model_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def additional_model_request_fields(self) -> typing.Any:
+            '''A JSON object whose keys are request fields for the model and whose values are values for those fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration-additionalmodelrequestfields
+            '''
+            result = self._values.get("additional_model_request_fields")
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorSearchBedrockRerankingModelConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "type": "type",
+            "bedrock_reranking_configuration": "bedrockRerankingConfiguration",
+        },
+    )
+    class VectorSearchRerankingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            bedrock_reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.VectorSearchBedrockRerankingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Contains configurations for reranking the retrieved results.
+
+            :param type: The type of reranker model.
+            :param bedrock_reranking_configuration: Contains configurations for an Amazon Bedrock reranker model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchrerankingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                
+                vector_search_reranking_configuration_property = bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                        model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                            model_arn="modelArn",
+                
+                            # the properties below are optional
+                            additional_model_request_fields=additional_model_request_fields
+                        ),
+                
+                        # the properties below are optional
+                        metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                            selection_mode="selectionMode",
+                
+                            # the properties below are optional
+                            selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                                fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                    field_name="fieldName"
+                                )],
+                                fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                    field_name="fieldName"
+                                )]
+                            )
+                        ),
+                        number_of_reranked_results=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__25a2840096c4dc42205309ca1246a66be39cca0a766ad959b62049f92fa6ed30)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument bedrock_reranking_configuration", value=bedrock_reranking_configuration, expected_type=type_hints["bedrock_reranking_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if bedrock_reranking_configuration is not None:
+                self._values["bedrock_reranking_configuration"] = bedrock_reranking_configuration
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of reranker model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchrerankingconfiguration-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def bedrock_reranking_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.VectorSearchBedrockRerankingConfigurationProperty"]]:
+            '''Contains configurations for an Amazon Bedrock reranker model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchrerankingconfiguration-bedrockrerankingconfiguration
+            '''
+            result = self._values.get("bedrock_reranking_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.VectorSearchBedrockRerankingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorSearchRerankingConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -16268,9 +17960,12 @@ class CfnFlowProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_bedrock as bedrock
             
+            # additional_model_request_fields: Any
             # collector: Any
+            # flow_definition_property_: bedrock.CfnFlow.FlowDefinitionProperty
             # input: Any
             # iterator: Any
+            # loop_input: Any
             # output: Any
             
             cfn_flow_props = bedrock.CfnFlowProps(
@@ -16329,7 +18024,65 @@ class CfnFlowProps:
                                     guardrail_identifier="guardrailIdentifier",
                                     guardrail_version="guardrailVersion"
                                 ),
-                                model_id="modelId"
+                                inference_configuration=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                    text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                        max_tokens=123,
+                                        stop_sequences=["stopSequences"],
+                                        temperature=123,
+                                        top_p=123
+                                    )
+                                ),
+                                model_id="modelId",
+                                number_of_results=123,
+                                orchestration_configuration=bedrock.CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty(
+                                    additional_model_request_fields=additional_model_request_fields,
+                                    inference_config=bedrock.CfnFlow.PromptInferenceConfigurationProperty(
+                                        text=bedrock.CfnFlow.PromptModelInferenceConfigurationProperty(
+                                            max_tokens=123,
+                                            stop_sequences=["stopSequences"],
+                                            temperature=123,
+                                            top_p=123
+                                        )
+                                    ),
+                                    performance_config=bedrock.CfnFlow.PerformanceConfigurationProperty(
+                                        latency="latency"
+                                    ),
+                                    prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                        text_prompt_template="textPromptTemplate"
+                                    )
+                                ),
+                                prompt_template=bedrock.CfnFlow.KnowledgeBasePromptTemplateProperty(
+                                    text_prompt_template="textPromptTemplate"
+                                ),
+                                reranking_configuration=bedrock.CfnFlow.VectorSearchRerankingConfigurationProperty(
+                                    type="type",
+            
+                                    # the properties below are optional
+                                    bedrock_reranking_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingConfigurationProperty(
+                                        model_configuration=bedrock.CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                            model_arn="modelArn",
+            
+                                            # the properties below are optional
+                                            additional_model_request_fields=additional_model_request_fields
+                                        ),
+            
+                                        # the properties below are optional
+                                        metadata_configuration=bedrock.CfnFlow.MetadataConfigurationForRerankingProperty(
+                                            selection_mode="selectionMode",
+            
+                                            # the properties below are optional
+                                            selective_mode_configuration=bedrock.CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty(
+                                                fields_to_exclude=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                    field_name="fieldName"
+                                                )],
+                                                fields_to_include=[bedrock.CfnFlow.FieldForRerankingProperty(
+                                                    field_name="fieldName"
+                                                )]
+                                            )
+                                        ),
+                                        number_of_reranked_results=123
+                                    )
+                                )
                             ),
                             lambda_function=bedrock.CfnFlow.LambdaFunctionFlowNodeConfigurationProperty(
                                 lambda_arn="lambdaArn"
@@ -16338,6 +18091,21 @@ class CfnFlowProps:
                                 bot_alias_arn="botAliasArn",
                                 locale_id="localeId"
                             ),
+                            loop=bedrock.CfnFlow.LoopFlowNodeConfigurationProperty(
+                                definition=flow_definition_property_
+                            ),
+                            loop_controller=bedrock.CfnFlow.LoopControllerFlowNodeConfigurationProperty(
+                                continue_condition=bedrock.CfnFlow.FlowConditionProperty(
+                                    name="name",
+            
+                                    # the properties below are optional
+                                    expression="expression"
+                                ),
+            
+                                # the properties below are optional
+                                max_iterations=123
+                            ),
+                            loop_input=loop_input,
                             output=output,
                             prompt=bedrock.CfnFlow.PromptFlowNodeConfigurationProperty(
                                 source_configuration=bedrock.CfnFlow.PromptFlowNodeSourceConfigurationProperty(
@@ -16394,7 +18162,10 @@ class CfnFlowProps:
                         inputs=[bedrock.CfnFlow.FlowNodeInputProperty(
                             expression="expression",
                             name="name",
-                            type="type"
+                            type="type",
+            
+                            # the properties below are optional
+                            category="category"
                         )],
                         outputs=[bedrock.CfnFlow.FlowNodeOutputProperty(
                             name="name",
@@ -16885,6 +18656,58 @@ class CfnFlowVersion(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.FieldForRerankingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"field_name": "fieldName"},
+    )
+    class FieldForRerankingProperty:
+        def __init__(self, *, field_name: builtins.str) -> None:
+            '''Contains information for a metadata field to include in or exclude from consideration when reranking.
+
+            :param field_name: The name of a metadata field to include in or exclude from consideration when reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-fieldforreranking.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                field_for_reranking_property = bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                    field_name="fieldName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__25c1720c275cabd4ed4663344c816dd822f2d9a9e0cd5cdc88660196fbdd29d7)
+                check_type(argname="argument field_name", value=field_name, expected_type=type_hints["field_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "field_name": field_name,
+            }
+
+        @builtins.property
+        def field_name(self) -> builtins.str:
+            '''The name of a metadata field to include in or exclude from consideration when reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-fieldforreranking.html#cfn-bedrock-flowversion-fieldforreranking-fieldname
+            '''
+            result = self._values.get("field_name")
+            assert result is not None, "Required property 'field_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FieldForRerankingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.FlowConditionProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name", "expression": "expression"},
@@ -17323,9 +19146,12 @@ class CfnFlowVersion(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # additional_model_request_fields: Any
                 # collector: Any
+                # flow_definition_property_: bedrock.CfnFlowVersion.FlowDefinitionProperty
                 # input: Any
                 # iterator: Any
+                # loop_input: Any
                 # output: Any
                 
                 flow_definition_property = bedrock.CfnFlowVersion.FlowDefinitionProperty(
@@ -17378,7 +19204,65 @@ class CfnFlowVersion(
                                     guardrail_identifier="guardrailIdentifier",
                                     guardrail_version="guardrailVersion"
                                 ),
-                                model_id="modelId"
+                                inference_configuration=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                                    text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                        max_tokens=123,
+                                        stop_sequences=["stopSequences"],
+                                        temperature=123,
+                                        top_p=123
+                                    )
+                                ),
+                                model_id="modelId",
+                                number_of_results=123,
+                                orchestration_configuration=bedrock.CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty(
+                                    additional_model_request_fields=additional_model_request_fields,
+                                    inference_config=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                                        text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                            max_tokens=123,
+                                            stop_sequences=["stopSequences"],
+                                            temperature=123,
+                                            top_p=123
+                                        )
+                                    ),
+                                    performance_config=bedrock.CfnFlowVersion.PerformanceConfigurationProperty(
+                                        latency="latency"
+                                    ),
+                                    prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                                        text_prompt_template="textPromptTemplate"
+                                    )
+                                ),
+                                prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                                    text_prompt_template="textPromptTemplate"
+                                ),
+                                reranking_configuration=bedrock.CfnFlowVersion.VectorSearchRerankingConfigurationProperty(
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    bedrock_reranking_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty(
+                                        model_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                            model_arn="modelArn",
+                
+                                            # the properties below are optional
+                                            additional_model_request_fields=additional_model_request_fields
+                                        ),
+                
+                                        # the properties below are optional
+                                        metadata_configuration=bedrock.CfnFlowVersion.MetadataConfigurationForRerankingProperty(
+                                            selection_mode="selectionMode",
+                
+                                            # the properties below are optional
+                                            selective_mode_configuration=bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty(
+                                                fields_to_exclude=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                                    field_name="fieldName"
+                                                )],
+                                                fields_to_include=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                                    field_name="fieldName"
+                                                )]
+                                            )
+                                        ),
+                                        number_of_reranked_results=123
+                                    )
+                                )
                             ),
                             lambda_function=bedrock.CfnFlowVersion.LambdaFunctionFlowNodeConfigurationProperty(
                                 lambda_arn="lambdaArn"
@@ -17387,6 +19271,21 @@ class CfnFlowVersion(
                                 bot_alias_arn="botAliasArn",
                                 locale_id="localeId"
                             ),
+                            loop=bedrock.CfnFlowVersion.LoopFlowNodeConfigurationProperty(
+                                definition=flow_definition_property_
+                            ),
+                            loop_controller=bedrock.CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty(
+                                continue_condition=bedrock.CfnFlowVersion.FlowConditionProperty(
+                                    name="name",
+                
+                                    # the properties below are optional
+                                    expression="expression"
+                                ),
+                
+                                # the properties below are optional
+                                max_iterations=123
+                            ),
+                            loop_input=loop_input,
                             output=output,
                             prompt=bedrock.CfnFlowVersion.PromptFlowNodeConfigurationProperty(
                                 source_configuration=bedrock.CfnFlowVersion.PromptFlowNodeSourceConfigurationProperty(
@@ -17508,6 +19407,9 @@ class CfnFlowVersion(
             "knowledge_base": "knowledgeBase",
             "lambda_function": "lambdaFunction",
             "lex": "lex",
+            "loop": "loop",
+            "loop_controller": "loopController",
+            "loop_input": "loopInput",
             "output": "output",
             "prompt": "prompt",
             "retrieval": "retrieval",
@@ -17527,6 +19429,9 @@ class CfnFlowVersion(
             knowledge_base: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.KnowledgeBaseFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.LambdaFunctionFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             lex: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.LexFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            loop: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.LoopFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            loop_controller: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            loop_input: typing.Any = None,
             output: typing.Any = None,
             prompt: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.PromptFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             retrieval: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.RetrievalFlowNodeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -17545,6 +19450,9 @@ class CfnFlowVersion(
             :param knowledge_base: Contains configurations for a knowledge base node in your flow. Queries a knowledge base and returns the retrieved results or generated response.
             :param lambda_function: Contains configurations for a Lambda function node in your flow. Invokes an AWS Lambda function.
             :param lex: Contains configurations for a Lex node in your flow. Invokes an Amazon Lex bot to identify the intent of the input and return the intent as the output.
+            :param loop: Contains configurations for a DoWhile loop in your flow.
+            :param loop_controller: Contains controller node configurations for a DoWhile loop in your flow.
+            :param loop_input: Contains input node configurations for a DoWhile loop in your flow.
             :param output: Contains configurations for an output flow node in your flow. The last node in the flow. ``outputs`` can't be specified for this node.
             :param prompt: Contains configurations for a prompt node in your flow. Runs a prompt and generates the model response as the output. You can use a prompt from Prompt management or you can configure one in this node.
             :param retrieval: Contains configurations for a retrieval node in your flow. Retrieves data from an Amazon S3 location and returns it as the output.
@@ -17559,9 +19467,12 @@ class CfnFlowVersion(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # additional_model_request_fields: Any
                 # collector: Any
+                # flow_node_configuration_property_: bedrock.CfnFlowVersion.FlowNodeConfigurationProperty
                 # input: Any
                 # iterator: Any
+                # loop_input: Any
                 # output: Any
                 
                 flow_node_configuration_property = bedrock.CfnFlowVersion.FlowNodeConfigurationProperty(
@@ -17591,7 +19502,65 @@ class CfnFlowVersion(
                             guardrail_identifier="guardrailIdentifier",
                             guardrail_version="guardrailVersion"
                         ),
-                        model_id="modelId"
+                        inference_configuration=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                            text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                max_tokens=123,
+                                stop_sequences=["stopSequences"],
+                                temperature=123,
+                                top_p=123
+                            )
+                        ),
+                        model_id="modelId",
+                        number_of_results=123,
+                        orchestration_configuration=bedrock.CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty(
+                            additional_model_request_fields=additional_model_request_fields,
+                            inference_config=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                                text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                    max_tokens=123,
+                                    stop_sequences=["stopSequences"],
+                                    temperature=123,
+                                    top_p=123
+                                )
+                            ),
+                            performance_config=bedrock.CfnFlowVersion.PerformanceConfigurationProperty(
+                                latency="latency"
+                            ),
+                            prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                                text_prompt_template="textPromptTemplate"
+                            )
+                        ),
+                        prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                            text_prompt_template="textPromptTemplate"
+                        ),
+                        reranking_configuration=bedrock.CfnFlowVersion.VectorSearchRerankingConfigurationProperty(
+                            type="type",
+                
+                            # the properties below are optional
+                            bedrock_reranking_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty(
+                                model_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                    model_arn="modelArn",
+                
+                                    # the properties below are optional
+                                    additional_model_request_fields=additional_model_request_fields
+                                ),
+                
+                                # the properties below are optional
+                                metadata_configuration=bedrock.CfnFlowVersion.MetadataConfigurationForRerankingProperty(
+                                    selection_mode="selectionMode",
+                
+                                    # the properties below are optional
+                                    selective_mode_configuration=bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty(
+                                        fields_to_exclude=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                            field_name="fieldName"
+                                        )],
+                                        fields_to_include=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                            field_name="fieldName"
+                                        )]
+                                    )
+                                ),
+                                number_of_reranked_results=123
+                            )
+                        )
                     ),
                     lambda_function=bedrock.CfnFlowVersion.LambdaFunctionFlowNodeConfigurationProperty(
                         lambda_arn="lambdaArn"
@@ -17600,6 +19569,55 @@ class CfnFlowVersion(
                         bot_alias_arn="botAliasArn",
                         locale_id="localeId"
                     ),
+                    loop=bedrock.CfnFlowVersion.LoopFlowNodeConfigurationProperty(
+                        definition=bedrock.CfnFlowVersion.FlowDefinitionProperty(
+                            connections=[bedrock.CfnFlowVersion.FlowConnectionProperty(
+                                name="name",
+                                source="source",
+                                target="target",
+                                type="type",
+                
+                                # the properties below are optional
+                                configuration=bedrock.CfnFlowVersion.FlowConnectionConfigurationProperty(
+                                    conditional=bedrock.CfnFlowVersion.FlowConditionalConnectionConfigurationProperty(
+                                        condition="condition"
+                                    ),
+                                    data=bedrock.CfnFlowVersion.FlowDataConnectionConfigurationProperty(
+                                        source_output="sourceOutput",
+                                        target_input="targetInput"
+                                    )
+                                )
+                            )],
+                            nodes=[bedrock.CfnFlowVersion.FlowNodeProperty(
+                                name="name",
+                                type="type",
+                
+                                # the properties below are optional
+                                configuration=flow_node_configuration_property_,
+                                inputs=[bedrock.CfnFlowVersion.FlowNodeInputProperty(
+                                    expression="expression",
+                                    name="name",
+                                    type="type"
+                                )],
+                                outputs=[bedrock.CfnFlowVersion.FlowNodeOutputProperty(
+                                    name="name",
+                                    type="type"
+                                )]
+                            )]
+                        )
+                    ),
+                    loop_controller=bedrock.CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty(
+                        continue_condition=bedrock.CfnFlowVersion.FlowConditionProperty(
+                            name="name",
+                
+                            # the properties below are optional
+                            expression="expression"
+                        ),
+                
+                        # the properties below are optional
+                        max_iterations=123
+                    ),
+                    loop_input=loop_input,
                     output=output,
                     prompt=bedrock.CfnFlowVersion.PromptFlowNodeConfigurationProperty(
                         source_configuration=bedrock.CfnFlowVersion.PromptFlowNodeSourceConfigurationProperty(
@@ -17665,6 +19683,9 @@ class CfnFlowVersion(
                 check_type(argname="argument knowledge_base", value=knowledge_base, expected_type=type_hints["knowledge_base"])
                 check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
                 check_type(argname="argument lex", value=lex, expected_type=type_hints["lex"])
+                check_type(argname="argument loop", value=loop, expected_type=type_hints["loop"])
+                check_type(argname="argument loop_controller", value=loop_controller, expected_type=type_hints["loop_controller"])
+                check_type(argname="argument loop_input", value=loop_input, expected_type=type_hints["loop_input"])
                 check_type(argname="argument output", value=output, expected_type=type_hints["output"])
                 check_type(argname="argument prompt", value=prompt, expected_type=type_hints["prompt"])
                 check_type(argname="argument retrieval", value=retrieval, expected_type=type_hints["retrieval"])
@@ -17688,6 +19709,12 @@ class CfnFlowVersion(
                 self._values["lambda_function"] = lambda_function
             if lex is not None:
                 self._values["lex"] = lex
+            if loop is not None:
+                self._values["loop"] = loop
+            if loop_controller is not None:
+                self._values["loop_controller"] = loop_controller
+            if loop_input is not None:
+                self._values["loop_input"] = loop_input
             if output is not None:
                 self._values["output"] = output
             if prompt is not None:
@@ -17809,6 +19836,37 @@ class CfnFlowVersion(
             '''
             result = self._values.get("lex")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.LexFlowNodeConfigurationProperty"]], result)
+
+        @builtins.property
+        def loop(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.LoopFlowNodeConfigurationProperty"]]:
+            '''Contains configurations for a DoWhile loop in your flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-flownodeconfiguration.html#cfn-bedrock-flowversion-flownodeconfiguration-loop
+            '''
+            result = self._values.get("loop")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.LoopFlowNodeConfigurationProperty"]], result)
+
+        @builtins.property
+        def loop_controller(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty"]]:
+            '''Contains controller node configurations for a DoWhile loop in your flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-flownodeconfiguration.html#cfn-bedrock-flowversion-flownodeconfiguration-loopcontroller
+            '''
+            result = self._values.get("loop_controller")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty"]], result)
+
+        @builtins.property
+        def loop_input(self) -> typing.Any:
+            '''Contains input node configurations for a DoWhile loop in your flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-flownodeconfiguration.html#cfn-bedrock-flowversion-flownodeconfiguration-loopinput
+            '''
+            result = self._values.get("loop_input")
+            return typing.cast(typing.Any, result)
 
         @builtins.property
         def output(self) -> typing.Any:
@@ -18067,9 +20125,12 @@ class CfnFlowVersion(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # additional_model_request_fields: Any
                 # collector: Any
+                # flow_node_property_: bedrock.CfnFlowVersion.FlowNodeProperty
                 # input: Any
                 # iterator: Any
+                # loop_input: Any
                 # output: Any
                 
                 flow_node_property = bedrock.CfnFlowVersion.FlowNodeProperty(
@@ -18104,7 +20165,65 @@ class CfnFlowVersion(
                                 guardrail_identifier="guardrailIdentifier",
                                 guardrail_version="guardrailVersion"
                             ),
-                            model_id="modelId"
+                            inference_configuration=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                                text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                    max_tokens=123,
+                                    stop_sequences=["stopSequences"],
+                                    temperature=123,
+                                    top_p=123
+                                )
+                            ),
+                            model_id="modelId",
+                            number_of_results=123,
+                            orchestration_configuration=bedrock.CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty(
+                                additional_model_request_fields=additional_model_request_fields,
+                                inference_config=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                                    text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                        max_tokens=123,
+                                        stop_sequences=["stopSequences"],
+                                        temperature=123,
+                                        top_p=123
+                                    )
+                                ),
+                                performance_config=bedrock.CfnFlowVersion.PerformanceConfigurationProperty(
+                                    latency="latency"
+                                ),
+                                prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                                    text_prompt_template="textPromptTemplate"
+                                )
+                            ),
+                            prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                                text_prompt_template="textPromptTemplate"
+                            ),
+                            reranking_configuration=bedrock.CfnFlowVersion.VectorSearchRerankingConfigurationProperty(
+                                type="type",
+                
+                                # the properties below are optional
+                                bedrock_reranking_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty(
+                                    model_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                        model_arn="modelArn",
+                
+                                        # the properties below are optional
+                                        additional_model_request_fields=additional_model_request_fields
+                                    ),
+                
+                                    # the properties below are optional
+                                    metadata_configuration=bedrock.CfnFlowVersion.MetadataConfigurationForRerankingProperty(
+                                        selection_mode="selectionMode",
+                
+                                        # the properties below are optional
+                                        selective_mode_configuration=bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty(
+                                            fields_to_exclude=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                                field_name="fieldName"
+                                            )],
+                                            fields_to_include=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                                field_name="fieldName"
+                                            )]
+                                        )
+                                    ),
+                                    number_of_reranked_results=123
+                                )
+                            )
                         ),
                         lambda_function=bedrock.CfnFlowVersion.LambdaFunctionFlowNodeConfigurationProperty(
                             lambda_arn="lambdaArn"
@@ -18113,6 +20232,40 @@ class CfnFlowVersion(
                             bot_alias_arn="botAliasArn",
                             locale_id="localeId"
                         ),
+                        loop=bedrock.CfnFlowVersion.LoopFlowNodeConfigurationProperty(
+                            definition=bedrock.CfnFlowVersion.FlowDefinitionProperty(
+                                connections=[bedrock.CfnFlowVersion.FlowConnectionProperty(
+                                    name="name",
+                                    source="source",
+                                    target="target",
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    configuration=bedrock.CfnFlowVersion.FlowConnectionConfigurationProperty(
+                                        conditional=bedrock.CfnFlowVersion.FlowConditionalConnectionConfigurationProperty(
+                                            condition="condition"
+                                        ),
+                                        data=bedrock.CfnFlowVersion.FlowDataConnectionConfigurationProperty(
+                                            source_output="sourceOutput",
+                                            target_input="targetInput"
+                                        )
+                                    )
+                                )],
+                                nodes=[flow_node_property_]
+                            )
+                        ),
+                        loop_controller=bedrock.CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty(
+                            continue_condition=bedrock.CfnFlowVersion.FlowConditionProperty(
+                                name="name",
+                
+                                # the properties below are optional
+                                expression="expression"
+                            ),
+                
+                            # the properties below are optional
+                            max_iterations=123
+                        ),
+                        loop_input=loop_input,
                         output=output,
                         prompt=bedrock.CfnFlowVersion.PromptFlowNodeConfigurationProperty(
                             source_configuration=bedrock.CfnFlowVersion.PromptFlowNodeSourceConfigurationProperty(
@@ -18414,7 +20567,12 @@ class CfnFlowVersion(
         name_mapping={
             "knowledge_base_id": "knowledgeBaseId",
             "guardrail_configuration": "guardrailConfiguration",
+            "inference_configuration": "inferenceConfiguration",
             "model_id": "modelId",
+            "number_of_results": "numberOfResults",
+            "orchestration_configuration": "orchestrationConfiguration",
+            "prompt_template": "promptTemplate",
+            "reranking_configuration": "rerankingConfiguration",
         },
     )
     class KnowledgeBaseFlowNodeConfigurationProperty:
@@ -18423,7 +20581,12 @@ class CfnFlowVersion(
             *,
             knowledge_base_id: builtins.str,
             guardrail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.GuardrailConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            inference_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.PromptInferenceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             model_id: typing.Optional[builtins.str] = None,
+            number_of_results: typing.Optional[jsii.Number] = None,
+            orchestration_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            prompt_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.KnowledgeBasePromptTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.VectorSearchRerankingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains configurations for a knowledge base node in a flow.
 
@@ -18431,7 +20594,12 @@ class CfnFlowVersion(
 
             :param knowledge_base_id: The unique identifier of the knowledge base to query.
             :param guardrail_configuration: Contains configurations for a guardrail to apply during query and response generation for the knowledge base in this configuration.
+            :param inference_configuration: Contains inference configurations for the prompt.
             :param model_id: The unique identifier of the model or `inference profile <https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html>`_ to use to generate a response from the query results. Omit this field if you want to return the retrieved results as an array.
+            :param number_of_results: The number of results to retrieve from the knowledge base.
+            :param orchestration_configuration: The configuration for orchestrating the retrieval and generation process in the knowledge base node.
+            :param prompt_template: A custom prompt template to use with the knowledge base for generating responses.
+            :param reranking_configuration: The configuration for reranking the retrieved results from the knowledge base to improve relevance.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseflownodeconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -18442,6 +20610,8 @@ class CfnFlowVersion(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_bedrock as bedrock
                 
+                # additional_model_request_fields: Any
+                
                 knowledge_base_flow_node_configuration_property = bedrock.CfnFlowVersion.KnowledgeBaseFlowNodeConfigurationProperty(
                     knowledge_base_id="knowledgeBaseId",
                 
@@ -18450,21 +20620,94 @@ class CfnFlowVersion(
                         guardrail_identifier="guardrailIdentifier",
                         guardrail_version="guardrailVersion"
                     ),
-                    model_id="modelId"
+                    inference_configuration=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                        text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                            max_tokens=123,
+                            stop_sequences=["stopSequences"],
+                            temperature=123,
+                            top_p=123
+                        )
+                    ),
+                    model_id="modelId",
+                    number_of_results=123,
+                    orchestration_configuration=bedrock.CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty(
+                        additional_model_request_fields=additional_model_request_fields,
+                        inference_config=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                            text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                max_tokens=123,
+                                stop_sequences=["stopSequences"],
+                                temperature=123,
+                                top_p=123
+                            )
+                        ),
+                        performance_config=bedrock.CfnFlowVersion.PerformanceConfigurationProperty(
+                            latency="latency"
+                        ),
+                        prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                            text_prompt_template="textPromptTemplate"
+                        )
+                    ),
+                    prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                        text_prompt_template="textPromptTemplate"
+                    ),
+                    reranking_configuration=bedrock.CfnFlowVersion.VectorSearchRerankingConfigurationProperty(
+                        type="type",
+                
+                        # the properties below are optional
+                        bedrock_reranking_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty(
+                            model_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                model_arn="modelArn",
+                
+                                # the properties below are optional
+                                additional_model_request_fields=additional_model_request_fields
+                            ),
+                
+                            # the properties below are optional
+                            metadata_configuration=bedrock.CfnFlowVersion.MetadataConfigurationForRerankingProperty(
+                                selection_mode="selectionMode",
+                
+                                # the properties below are optional
+                                selective_mode_configuration=bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty(
+                                    fields_to_exclude=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                        field_name="fieldName"
+                                    )],
+                                    fields_to_include=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                        field_name="fieldName"
+                                    )]
+                                )
+                            ),
+                            number_of_reranked_results=123
+                        )
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__17b9fe30408d688aaf08f87e21950af81c63d804d7021f8f66de0b47e6aa51be)
                 check_type(argname="argument knowledge_base_id", value=knowledge_base_id, expected_type=type_hints["knowledge_base_id"])
                 check_type(argname="argument guardrail_configuration", value=guardrail_configuration, expected_type=type_hints["guardrail_configuration"])
+                check_type(argname="argument inference_configuration", value=inference_configuration, expected_type=type_hints["inference_configuration"])
                 check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+                check_type(argname="argument number_of_results", value=number_of_results, expected_type=type_hints["number_of_results"])
+                check_type(argname="argument orchestration_configuration", value=orchestration_configuration, expected_type=type_hints["orchestration_configuration"])
+                check_type(argname="argument prompt_template", value=prompt_template, expected_type=type_hints["prompt_template"])
+                check_type(argname="argument reranking_configuration", value=reranking_configuration, expected_type=type_hints["reranking_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "knowledge_base_id": knowledge_base_id,
             }
             if guardrail_configuration is not None:
                 self._values["guardrail_configuration"] = guardrail_configuration
+            if inference_configuration is not None:
+                self._values["inference_configuration"] = inference_configuration
             if model_id is not None:
                 self._values["model_id"] = model_id
+            if number_of_results is not None:
+                self._values["number_of_results"] = number_of_results
+            if orchestration_configuration is not None:
+                self._values["orchestration_configuration"] = orchestration_configuration
+            if prompt_template is not None:
+                self._values["prompt_template"] = prompt_template
+            if reranking_configuration is not None:
+                self._values["reranking_configuration"] = reranking_configuration
 
         @builtins.property
         def knowledge_base_id(self) -> builtins.str:
@@ -18488,6 +20731,17 @@ class CfnFlowVersion(
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.GuardrailConfigurationProperty"]], result)
 
         @builtins.property
+        def inference_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.PromptInferenceConfigurationProperty"]]:
+            '''Contains inference configurations for the prompt.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flowversion-knowledgebaseflownodeconfiguration-inferenceconfiguration
+            '''
+            result = self._values.get("inference_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.PromptInferenceConfigurationProperty"]], result)
+
+        @builtins.property
         def model_id(self) -> typing.Optional[builtins.str]:
             '''The unique identifier of the model or `inference profile <https://docs.aws.amazon.com/bedrock/latest/userguide/cross-region-inference.html>`_ to use to generate a response from the query results. Omit this field if you want to return the retrieved results as an array.
 
@@ -18495,6 +20749,48 @@ class CfnFlowVersion(
             '''
             result = self._values.get("model_id")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def number_of_results(self) -> typing.Optional[jsii.Number]:
+            '''The number of results to retrieve from the knowledge base.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flowversion-knowledgebaseflownodeconfiguration-numberofresults
+            '''
+            result = self._values.get("number_of_results")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def orchestration_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty"]]:
+            '''The configuration for orchestrating the retrieval and generation process in the knowledge base node.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flowversion-knowledgebaseflownodeconfiguration-orchestrationconfiguration
+            '''
+            result = self._values.get("orchestration_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty"]], result)
+
+        @builtins.property
+        def prompt_template(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.KnowledgeBasePromptTemplateProperty"]]:
+            '''A custom prompt template to use with the knowledge base for generating responses.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flowversion-knowledgebaseflownodeconfiguration-prompttemplate
+            '''
+            result = self._values.get("prompt_template")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.KnowledgeBasePromptTemplateProperty"]], result)
+
+        @builtins.property
+        def reranking_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.VectorSearchRerankingConfigurationProperty"]]:
+            '''The configuration for reranking the retrieved results from the knowledge base to improve relevance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseflownodeconfiguration.html#cfn-bedrock-flowversion-knowledgebaseflownodeconfiguration-rerankingconfiguration
+            '''
+            result = self._values.get("reranking_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.VectorSearchRerankingConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18504,6 +20800,182 @@ class CfnFlowVersion(
 
         def __repr__(self) -> str:
             return "KnowledgeBaseFlowNodeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "additional_model_request_fields": "additionalModelRequestFields",
+            "inference_config": "inferenceConfig",
+            "performance_config": "performanceConfig",
+            "prompt_template": "promptTemplate",
+        },
+    )
+    class KnowledgeBaseOrchestrationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            additional_model_request_fields: typing.Any = None,
+            inference_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.PromptInferenceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            performance_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.PerformanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            prompt_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.KnowledgeBasePromptTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configures how the knowledge base orchestrates the retrieval and generation process, allowing for customization of prompts, inference parameters, and performance settings.
+
+            :param additional_model_request_fields: The additional model-specific request parameters as key-value pairs to be included in the request to the foundation model.
+            :param inference_config: Contains inference configurations for the prompt.
+            :param performance_config: The performance configuration options for the knowledge base retrieval and generation process.
+            :param prompt_template: A custom prompt template for orchestrating the retrieval and generation process.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseorchestrationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                
+                knowledge_base_orchestration_configuration_property = bedrock.CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty(
+                    additional_model_request_fields=additional_model_request_fields,
+                    inference_config=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                        text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                            max_tokens=123,
+                            stop_sequences=["stopSequences"],
+                            temperature=123,
+                            top_p=123
+                        )
+                    ),
+                    performance_config=bedrock.CfnFlowVersion.PerformanceConfigurationProperty(
+                        latency="latency"
+                    ),
+                    prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                        text_prompt_template="textPromptTemplate"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0a9fce4a02f3e91886b3992e2265feaeb0515fc4a55f4133bd3f8ef143461c68)
+                check_type(argname="argument additional_model_request_fields", value=additional_model_request_fields, expected_type=type_hints["additional_model_request_fields"])
+                check_type(argname="argument inference_config", value=inference_config, expected_type=type_hints["inference_config"])
+                check_type(argname="argument performance_config", value=performance_config, expected_type=type_hints["performance_config"])
+                check_type(argname="argument prompt_template", value=prompt_template, expected_type=type_hints["prompt_template"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if additional_model_request_fields is not None:
+                self._values["additional_model_request_fields"] = additional_model_request_fields
+            if inference_config is not None:
+                self._values["inference_config"] = inference_config
+            if performance_config is not None:
+                self._values["performance_config"] = performance_config
+            if prompt_template is not None:
+                self._values["prompt_template"] = prompt_template
+
+        @builtins.property
+        def additional_model_request_fields(self) -> typing.Any:
+            '''The additional model-specific request parameters as key-value pairs to be included in the request to the foundation model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseorchestrationconfiguration.html#cfn-bedrock-flowversion-knowledgebaseorchestrationconfiguration-additionalmodelrequestfields
+            '''
+            result = self._values.get("additional_model_request_fields")
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def inference_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.PromptInferenceConfigurationProperty"]]:
+            '''Contains inference configurations for the prompt.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseorchestrationconfiguration.html#cfn-bedrock-flowversion-knowledgebaseorchestrationconfiguration-inferenceconfig
+            '''
+            result = self._values.get("inference_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.PromptInferenceConfigurationProperty"]], result)
+
+        @builtins.property
+        def performance_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.PerformanceConfigurationProperty"]]:
+            '''The performance configuration options for the knowledge base retrieval and generation process.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseorchestrationconfiguration.html#cfn-bedrock-flowversion-knowledgebaseorchestrationconfiguration-performanceconfig
+            '''
+            result = self._values.get("performance_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.PerformanceConfigurationProperty"]], result)
+
+        @builtins.property
+        def prompt_template(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.KnowledgeBasePromptTemplateProperty"]]:
+            '''A custom prompt template for orchestrating the retrieval and generation process.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseorchestrationconfiguration.html#cfn-bedrock-flowversion-knowledgebaseorchestrationconfiguration-prompttemplate
+            '''
+            result = self._values.get("prompt_template")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.KnowledgeBasePromptTemplateProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KnowledgeBaseOrchestrationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty",
+        jsii_struct_bases=[],
+        name_mapping={"text_prompt_template": "textPromptTemplate"},
+    )
+    class KnowledgeBasePromptTemplateProperty:
+        def __init__(self, *, text_prompt_template: builtins.str) -> None:
+            '''Defines a custom prompt template for orchestrating the retrieval and generation process.
+
+            :param text_prompt_template: The text of the prompt template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseprompttemplate.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                knowledge_base_prompt_template_property = bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                    text_prompt_template="textPromptTemplate"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5d955ff1ba565efbe01e3add88001576719966a068120ad46619585218ad782f)
+                check_type(argname="argument text_prompt_template", value=text_prompt_template, expected_type=type_hints["text_prompt_template"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "text_prompt_template": text_prompt_template,
+            }
+
+        @builtins.property
+        def text_prompt_template(self) -> builtins.str:
+            '''The text of the prompt template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-knowledgebaseprompttemplate.html#cfn-bedrock-flowversion-knowledgebaseprompttemplate-textprompttemplate
+            '''
+            result = self._values.get("text_prompt_template")
+            assert result is not None, "Required property 'text_prompt_template' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KnowledgeBasePromptTemplateProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -18631,6 +21103,499 @@ class CfnFlowVersion(
 
         def __repr__(self) -> str:
             return "LexFlowNodeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "continue_condition": "continueCondition",
+            "max_iterations": "maxIterations",
+        },
+    )
+    class LoopControllerFlowNodeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            continue_condition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.FlowConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+            max_iterations: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Contains configurations for the controller node of a DoWhile loop in the flow.
+
+            :param continue_condition: Specifies the condition that determines when the flow exits the DoWhile loop. The loop executes until this condition evaluates to true.
+            :param max_iterations: Specifies the maximum number of times the DoWhile loop can iterate before the flow exits the loop. Default: - 10
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-loopcontrollerflownodeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                loop_controller_flow_node_configuration_property = bedrock.CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty(
+                    continue_condition=bedrock.CfnFlowVersion.FlowConditionProperty(
+                        name="name",
+                
+                        # the properties below are optional
+                        expression="expression"
+                    ),
+                
+                    # the properties below are optional
+                    max_iterations=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5dd52e320e5dc0c35425f24266f3844fe89a3598963187e4d058245880133188)
+                check_type(argname="argument continue_condition", value=continue_condition, expected_type=type_hints["continue_condition"])
+                check_type(argname="argument max_iterations", value=max_iterations, expected_type=type_hints["max_iterations"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "continue_condition": continue_condition,
+            }
+            if max_iterations is not None:
+                self._values["max_iterations"] = max_iterations
+
+        @builtins.property
+        def continue_condition(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FlowConditionProperty"]:
+            '''Specifies the condition that determines when the flow exits the DoWhile loop.
+
+            The loop executes until this condition evaluates to true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-loopcontrollerflownodeconfiguration.html#cfn-bedrock-flowversion-loopcontrollerflownodeconfiguration-continuecondition
+            '''
+            result = self._values.get("continue_condition")
+            assert result is not None, "Required property 'continue_condition' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FlowConditionProperty"], result)
+
+        @builtins.property
+        def max_iterations(self) -> typing.Optional[jsii.Number]:
+            '''Specifies the maximum number of times the DoWhile loop can iterate before the flow exits the loop.
+
+            :default: - 10
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-loopcontrollerflownodeconfiguration.html#cfn-bedrock-flowversion-loopcontrollerflownodeconfiguration-maxiterations
+            '''
+            result = self._values.get("max_iterations")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoopControllerFlowNodeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.LoopFlowNodeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"definition": "definition"},
+    )
+    class LoopFlowNodeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            definition: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.FlowDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Contains configurations for the nodes of a DoWhile loop in your flow.
+
+            A DoWhile loop is made up of the following nodes:
+
+            - ``Loop`` - The container node that holds the loop's flow definition. This node encompasses the entire loop structure.
+            - ``LoopInput`` - The entry point node for the loop. This node receives inputs from nodes outside the loop and from previous loop iterations.
+            - Body nodes - The processing nodes that execute within each loop iteration. These can be nodes for handling data in your flow, such as a prompt or Lambda function nodes. Some node types aren't supported inside a DoWhile loop body. For more information, see `LoopIncompatibleNodeTypeFlowValidationDetails <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_agent_LoopIncompatibleNodeTypeFlowValidationDetails.html>`_ .
+            - ``LoopController`` - The node that evaluates whether the loop should continue or exit based on a condition.
+
+            These nodes work together to create a loop that runs at least once and continues until a specified condition is met or a maximum number of iterations is reached.
+
+            :param definition: The definition of the DoWhile loop nodes and connections between nodes in the flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-loopflownodeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                # collector: Any
+                # input: Any
+                # iterator: Any
+                # loop_flow_node_configuration_property_: bedrock.CfnFlowVersion.LoopFlowNodeConfigurationProperty
+                # loop_input: Any
+                # output: Any
+                
+                loop_flow_node_configuration_property = bedrock.CfnFlowVersion.LoopFlowNodeConfigurationProperty(
+                    definition=bedrock.CfnFlowVersion.FlowDefinitionProperty(
+                        connections=[bedrock.CfnFlowVersion.FlowConnectionProperty(
+                            name="name",
+                            source="source",
+                            target="target",
+                            type="type",
+                
+                            # the properties below are optional
+                            configuration=bedrock.CfnFlowVersion.FlowConnectionConfigurationProperty(
+                                conditional=bedrock.CfnFlowVersion.FlowConditionalConnectionConfigurationProperty(
+                                    condition="condition"
+                                ),
+                                data=bedrock.CfnFlowVersion.FlowDataConnectionConfigurationProperty(
+                                    source_output="sourceOutput",
+                                    target_input="targetInput"
+                                )
+                            )
+                        )],
+                        nodes=[bedrock.CfnFlowVersion.FlowNodeProperty(
+                            name="name",
+                            type="type",
+                
+                            # the properties below are optional
+                            configuration=bedrock.CfnFlowVersion.FlowNodeConfigurationProperty(
+                                agent=bedrock.CfnFlowVersion.AgentFlowNodeConfigurationProperty(
+                                    agent_alias_arn="agentAliasArn"
+                                ),
+                                collector=collector,
+                                condition=bedrock.CfnFlowVersion.ConditionFlowNodeConfigurationProperty(
+                                    conditions=[bedrock.CfnFlowVersion.FlowConditionProperty(
+                                        name="name",
+                
+                                        # the properties below are optional
+                                        expression="expression"
+                                    )]
+                                ),
+                                inline_code=bedrock.CfnFlowVersion.InlineCodeFlowNodeConfigurationProperty(
+                                    code="code",
+                                    language="language"
+                                ),
+                                input=input,
+                                iterator=iterator,
+                                knowledge_base=bedrock.CfnFlowVersion.KnowledgeBaseFlowNodeConfigurationProperty(
+                                    knowledge_base_id="knowledgeBaseId",
+                
+                                    # the properties below are optional
+                                    guardrail_configuration=bedrock.CfnFlowVersion.GuardrailConfigurationProperty(
+                                        guardrail_identifier="guardrailIdentifier",
+                                        guardrail_version="guardrailVersion"
+                                    ),
+                                    inference_configuration=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                                        text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                            max_tokens=123,
+                                            stop_sequences=["stopSequences"],
+                                            temperature=123,
+                                            top_p=123
+                                        )
+                                    ),
+                                    model_id="modelId",
+                                    number_of_results=123,
+                                    orchestration_configuration=bedrock.CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty(
+                                        additional_model_request_fields=additional_model_request_fields,
+                                        inference_config=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                                            text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                                max_tokens=123,
+                                                stop_sequences=["stopSequences"],
+                                                temperature=123,
+                                                top_p=123
+                                            )
+                                        ),
+                                        performance_config=bedrock.CfnFlowVersion.PerformanceConfigurationProperty(
+                                            latency="latency"
+                                        ),
+                                        prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                                            text_prompt_template="textPromptTemplate"
+                                        )
+                                    ),
+                                    prompt_template=bedrock.CfnFlowVersion.KnowledgeBasePromptTemplateProperty(
+                                        text_prompt_template="textPromptTemplate"
+                                    ),
+                                    reranking_configuration=bedrock.CfnFlowVersion.VectorSearchRerankingConfigurationProperty(
+                                        type="type",
+                
+                                        # the properties below are optional
+                                        bedrock_reranking_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty(
+                                            model_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty(
+                                                model_arn="modelArn",
+                
+                                                # the properties below are optional
+                                                additional_model_request_fields=additional_model_request_fields
+                                            ),
+                
+                                            # the properties below are optional
+                                            metadata_configuration=bedrock.CfnFlowVersion.MetadataConfigurationForRerankingProperty(
+                                                selection_mode="selectionMode",
+                
+                                                # the properties below are optional
+                                                selective_mode_configuration=bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty(
+                                                    fields_to_exclude=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                                        field_name="fieldName"
+                                                    )],
+                                                    fields_to_include=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                                        field_name="fieldName"
+                                                    )]
+                                                )
+                                            ),
+                                            number_of_reranked_results=123
+                                        )
+                                    )
+                                ),
+                                lambda_function=bedrock.CfnFlowVersion.LambdaFunctionFlowNodeConfigurationProperty(
+                                    lambda_arn="lambdaArn"
+                                ),
+                                lex=bedrock.CfnFlowVersion.LexFlowNodeConfigurationProperty(
+                                    bot_alias_arn="botAliasArn",
+                                    locale_id="localeId"
+                                ),
+                                loop=loop_flow_node_configuration_property_,
+                                loop_controller=bedrock.CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty(
+                                    continue_condition=bedrock.CfnFlowVersion.FlowConditionProperty(
+                                        name="name",
+                
+                                        # the properties below are optional
+                                        expression="expression"
+                                    ),
+                
+                                    # the properties below are optional
+                                    max_iterations=123
+                                ),
+                                loop_input=loop_input,
+                                output=output,
+                                prompt=bedrock.CfnFlowVersion.PromptFlowNodeConfigurationProperty(
+                                    source_configuration=bedrock.CfnFlowVersion.PromptFlowNodeSourceConfigurationProperty(
+                                        inline=bedrock.CfnFlowVersion.PromptFlowNodeInlineConfigurationProperty(
+                                            model_id="modelId",
+                                            template_configuration=bedrock.CfnFlowVersion.PromptTemplateConfigurationProperty(
+                                                text=bedrock.CfnFlowVersion.TextPromptTemplateConfigurationProperty(
+                                                    text="text",
+                
+                                                    # the properties below are optional
+                                                    input_variables=[bedrock.CfnFlowVersion.PromptInputVariableProperty(
+                                                        name="name"
+                                                    )]
+                                                )
+                                            ),
+                                            template_type="templateType",
+                
+                                            # the properties below are optional
+                                            inference_configuration=bedrock.CfnFlowVersion.PromptInferenceConfigurationProperty(
+                                                text=bedrock.CfnFlowVersion.PromptModelInferenceConfigurationProperty(
+                                                    max_tokens=123,
+                                                    stop_sequences=["stopSequences"],
+                                                    temperature=123,
+                                                    top_p=123
+                                                )
+                                            )
+                                        ),
+                                        resource=bedrock.CfnFlowVersion.PromptFlowNodeResourceConfigurationProperty(
+                                            prompt_arn="promptArn"
+                                        )
+                                    ),
+                
+                                    # the properties below are optional
+                                    guardrail_configuration=bedrock.CfnFlowVersion.GuardrailConfigurationProperty(
+                                        guardrail_identifier="guardrailIdentifier",
+                                        guardrail_version="guardrailVersion"
+                                    )
+                                ),
+                                retrieval=bedrock.CfnFlowVersion.RetrievalFlowNodeConfigurationProperty(
+                                    service_configuration=bedrock.CfnFlowVersion.RetrievalFlowNodeServiceConfigurationProperty(
+                                        s3=bedrock.CfnFlowVersion.RetrievalFlowNodeS3ConfigurationProperty(
+                                            bucket_name="bucketName"
+                                        )
+                                    )
+                                ),
+                                storage=bedrock.CfnFlowVersion.StorageFlowNodeConfigurationProperty(
+                                    service_configuration=bedrock.CfnFlowVersion.StorageFlowNodeServiceConfigurationProperty(
+                                        s3=bedrock.CfnFlowVersion.StorageFlowNodeS3ConfigurationProperty(
+                                            bucket_name="bucketName"
+                                        )
+                                    )
+                                )
+                            ),
+                            inputs=[bedrock.CfnFlowVersion.FlowNodeInputProperty(
+                                expression="expression",
+                                name="name",
+                                type="type"
+                            )],
+                            outputs=[bedrock.CfnFlowVersion.FlowNodeOutputProperty(
+                                name="name",
+                                type="type"
+                            )]
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__af0b8c5f494ce3809fa0d9887b515b238c4a551bd4d61d70684c36e25e092ba5)
+                check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "definition": definition,
+            }
+
+        @builtins.property
+        def definition(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FlowDefinitionProperty"]:
+            '''The definition of the DoWhile loop nodes and connections between nodes in the flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-loopflownodeconfiguration.html#cfn-bedrock-flowversion-loopflownodeconfiguration-definition
+            '''
+            result = self._values.get("definition")
+            assert result is not None, "Required property 'definition' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FlowDefinitionProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoopFlowNodeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.MetadataConfigurationForRerankingProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "selection_mode": "selectionMode",
+            "selective_mode_configuration": "selectiveModeConfiguration",
+        },
+    )
+    class MetadataConfigurationForRerankingProperty:
+        def __init__(
+            self,
+            *,
+            selection_mode: builtins.str,
+            selective_mode_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Contains configurations for the metadata to use in reranking.
+
+            :param selection_mode: Specifies whether to consider all metadata when reranking, or only the metadata that you select. If you specify ``SELECTIVE`` , include the ``selectiveModeConfiguration`` field.
+            :param selective_mode_configuration: Contains configurations for the metadata fields to include or exclude when considering reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-metadataconfigurationforreranking.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                metadata_configuration_for_reranking_property = bedrock.CfnFlowVersion.MetadataConfigurationForRerankingProperty(
+                    selection_mode="selectionMode",
+                
+                    # the properties below are optional
+                    selective_mode_configuration=bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty(
+                        fields_to_exclude=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                            field_name="fieldName"
+                        )],
+                        fields_to_include=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                            field_name="fieldName"
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a49ddb07ddfa1287f05a659223e05a4fdf79af1f2f09c04f2a27fa908c302431)
+                check_type(argname="argument selection_mode", value=selection_mode, expected_type=type_hints["selection_mode"])
+                check_type(argname="argument selective_mode_configuration", value=selective_mode_configuration, expected_type=type_hints["selective_mode_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "selection_mode": selection_mode,
+            }
+            if selective_mode_configuration is not None:
+                self._values["selective_mode_configuration"] = selective_mode_configuration
+
+        @builtins.property
+        def selection_mode(self) -> builtins.str:
+            '''Specifies whether to consider all metadata when reranking, or only the metadata that you select.
+
+            If you specify ``SELECTIVE`` , include the ``selectiveModeConfiguration`` field.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-metadataconfigurationforreranking.html#cfn-bedrock-flowversion-metadataconfigurationforreranking-selectionmode
+            '''
+            result = self._values.get("selection_mode")
+            assert result is not None, "Required property 'selection_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def selective_mode_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty"]]:
+            '''Contains configurations for the metadata fields to include or exclude when considering reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-metadataconfigurationforreranking.html#cfn-bedrock-flowversion-metadataconfigurationforreranking-selectivemodeconfiguration
+            '''
+            result = self._values.get("selective_mode_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetadataConfigurationForRerankingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.PerformanceConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"latency": "latency"},
+    )
+    class PerformanceConfigurationProperty:
+        def __init__(self, *, latency: typing.Optional[builtins.str] = None) -> None:
+            '''Performance settings for a model.
+
+            :param latency: To use a latency-optimized version of the model, set to ``optimized`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-performanceconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                performance_configuration_property = bedrock.CfnFlowVersion.PerformanceConfigurationProperty(
+                    latency="latency"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__37012d90bccc248d9a8ff66e1f21e41e70adea11d5a7f419ef7cd76219ba1105)
+                check_type(argname="argument latency", value=latency, expected_type=type_hints["latency"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if latency is not None:
+                self._values["latency"] = latency
+
+        @builtins.property
+        def latency(self) -> typing.Optional[builtins.str]:
+            '''To use a latency-optimized version of the model, set to ``optimized`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-performanceconfiguration.html#cfn-bedrock-flowversion-performanceconfiguration-latency
+            '''
+            result = self._values.get("latency")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PerformanceConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -19317,6 +22282,91 @@ class CfnFlowVersion(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "fields_to_exclude": "fieldsToExclude",
+            "fields_to_include": "fieldsToInclude",
+        },
+    )
+    class RerankingMetadataSelectiveModeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            fields_to_exclude: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.FieldForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            fields_to_include: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.FieldForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Contains configurations for the metadata fields to include or exclude when considering reranking.
+
+            If you include the ``fieldsToExclude`` field, the reranker ignores all the metadata fields that you specify. If you include the ``fieldsToInclude`` field, the reranker uses only the metadata fields that you specify and ignores all others. You can include only one of these fields.
+
+            :param fields_to_exclude: An array of objects, each of which specifies a metadata field to exclude from consideration when reranking.
+            :param fields_to_include: An array of objects, each of which specifies a metadata field to include in consideration when reranking. The remaining metadata fields are ignored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                reranking_metadata_selective_mode_configuration_property = bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty(
+                    fields_to_exclude=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                        field_name="fieldName"
+                    )],
+                    fields_to_include=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                        field_name="fieldName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__104d13d4969e13562eba564901851762fb12ecf8304ab6f5bf7ac447eb41a619)
+                check_type(argname="argument fields_to_exclude", value=fields_to_exclude, expected_type=type_hints["fields_to_exclude"])
+                check_type(argname="argument fields_to_include", value=fields_to_include, expected_type=type_hints["fields_to_include"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if fields_to_exclude is not None:
+                self._values["fields_to_exclude"] = fields_to_exclude
+            if fields_to_include is not None:
+                self._values["fields_to_include"] = fields_to_include
+
+        @builtins.property
+        def fields_to_exclude(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FieldForRerankingProperty"]]]]:
+            '''An array of objects, each of which specifies a metadata field to exclude from consideration when reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration.html#cfn-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration-fieldstoexclude
+            '''
+            result = self._values.get("fields_to_exclude")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FieldForRerankingProperty"]]]], result)
+
+        @builtins.property
+        def fields_to_include(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FieldForRerankingProperty"]]]]:
+            '''An array of objects, each of which specifies a metadata field to include in consideration when reranking.
+
+            The remaining metadata fields are ignored.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration.html#cfn-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration-fieldstoinclude
+            '''
+            result = self._values.get("fields_to_include")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FieldForRerankingProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RerankingMetadataSelectiveModeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.RetrievalFlowNodeConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"service_configuration": "serviceConfiguration"},
@@ -19742,6 +22792,302 @@ class CfnFlowVersion(
 
         def __repr__(self) -> str:
             return "TextPromptTemplateConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "model_configuration": "modelConfiguration",
+            "metadata_configuration": "metadataConfiguration",
+            "number_of_reranked_results": "numberOfRerankedResults",
+        },
+    )
+    class VectorSearchBedrockRerankingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.MetadataConfigurationForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            number_of_reranked_results: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Contains configurations for reranking with an Amazon Bedrock reranker model.
+
+            :param model_configuration: Contains configurations for the reranker model.
+            :param metadata_configuration: Contains configurations for the metadata to use in reranking.
+            :param number_of_reranked_results: The number of results to return after reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                
+                vector_search_bedrock_reranking_configuration_property = bedrock.CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty(
+                    model_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty(
+                        model_arn="modelArn",
+                
+                        # the properties below are optional
+                        additional_model_request_fields=additional_model_request_fields
+                    ),
+                
+                    # the properties below are optional
+                    metadata_configuration=bedrock.CfnFlowVersion.MetadataConfigurationForRerankingProperty(
+                        selection_mode="selectionMode",
+                
+                        # the properties below are optional
+                        selective_mode_configuration=bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty(
+                            fields_to_exclude=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                field_name="fieldName"
+                            )],
+                            fields_to_include=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                field_name="fieldName"
+                            )]
+                        )
+                    ),
+                    number_of_reranked_results=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f443068c4d5e403b9d9a16ffc38b18f47c43aa16667569ce42526fd3e84546c3)
+                check_type(argname="argument model_configuration", value=model_configuration, expected_type=type_hints["model_configuration"])
+                check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
+                check_type(argname="argument number_of_reranked_results", value=number_of_reranked_results, expected_type=type_hints["number_of_reranked_results"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "model_configuration": model_configuration,
+            }
+            if metadata_configuration is not None:
+                self._values["metadata_configuration"] = metadata_configuration
+            if number_of_reranked_results is not None:
+                self._values["number_of_reranked_results"] = number_of_reranked_results
+
+        @builtins.property
+        def model_configuration(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty"]:
+            '''Contains configurations for the reranker model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration-modelconfiguration
+            '''
+            result = self._values.get("model_configuration")
+            assert result is not None, "Required property 'model_configuration' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty"], result)
+
+        @builtins.property
+        def metadata_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.MetadataConfigurationForRerankingProperty"]]:
+            '''Contains configurations for the metadata to use in reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration-metadataconfiguration
+            '''
+            result = self._values.get("metadata_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.MetadataConfigurationForRerankingProperty"]], result)
+
+        @builtins.property
+        def number_of_reranked_results(self) -> typing.Optional[jsii.Number]:
+            '''The number of results to return after reranking.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration-numberofrerankedresults
+            '''
+            result = self._values.get("number_of_reranked_results")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorSearchBedrockRerankingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "model_arn": "modelArn",
+            "additional_model_request_fields": "additionalModelRequestFields",
+        },
+    )
+    class VectorSearchBedrockRerankingModelConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            model_arn: builtins.str,
+            additional_model_request_fields: typing.Any = None,
+        ) -> None:
+            '''Contains configurations for an Amazon Bedrock reranker model.
+
+            :param model_arn: The ARN of the reranker model to use.
+            :param additional_model_request_fields: A JSON object whose keys are request fields for the model and whose values are values for those fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                
+                vector_search_bedrock_reranking_model_configuration_property = bedrock.CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty(
+                    model_arn="modelArn",
+                
+                    # the properties below are optional
+                    additional_model_request_fields=additional_model_request_fields
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d7eb3092c12da3d78fe57988c14c29706d7a8b39dcbdd5c48ec4902714197c64)
+                check_type(argname="argument model_arn", value=model_arn, expected_type=type_hints["model_arn"])
+                check_type(argname="argument additional_model_request_fields", value=additional_model_request_fields, expected_type=type_hints["additional_model_request_fields"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "model_arn": model_arn,
+            }
+            if additional_model_request_fields is not None:
+                self._values["additional_model_request_fields"] = additional_model_request_fields
+
+        @builtins.property
+        def model_arn(self) -> builtins.str:
+            '''The ARN of the reranker model to use.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration-modelarn
+            '''
+            result = self._values.get("model_arn")
+            assert result is not None, "Required property 'model_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def additional_model_request_fields(self) -> typing.Any:
+            '''A JSON object whose keys are request fields for the model and whose values are values for those fields.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration-additionalmodelrequestfields
+            '''
+            result = self._values.get("additional_model_request_fields")
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorSearchBedrockRerankingModelConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnFlowVersion.VectorSearchRerankingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "type": "type",
+            "bedrock_reranking_configuration": "bedrockRerankingConfiguration",
+        },
+    )
+    class VectorSearchRerankingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            type: builtins.str,
+            bedrock_reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Contains configurations for reranking the retrieved results.
+
+            :param type: The type of reranker model.
+            :param bedrock_reranking_configuration: Contains configurations for an Amazon Bedrock reranker model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchrerankingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                # additional_model_request_fields: Any
+                
+                vector_search_reranking_configuration_property = bedrock.CfnFlowVersion.VectorSearchRerankingConfigurationProperty(
+                    type="type",
+                
+                    # the properties below are optional
+                    bedrock_reranking_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty(
+                        model_configuration=bedrock.CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty(
+                            model_arn="modelArn",
+                
+                            # the properties below are optional
+                            additional_model_request_fields=additional_model_request_fields
+                        ),
+                
+                        # the properties below are optional
+                        metadata_configuration=bedrock.CfnFlowVersion.MetadataConfigurationForRerankingProperty(
+                            selection_mode="selectionMode",
+                
+                            # the properties below are optional
+                            selective_mode_configuration=bedrock.CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty(
+                                fields_to_exclude=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                    field_name="fieldName"
+                                )],
+                                fields_to_include=[bedrock.CfnFlowVersion.FieldForRerankingProperty(
+                                    field_name="fieldName"
+                                )]
+                            )
+                        ),
+                        number_of_reranked_results=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__22dcdcca4fd22712dd1e018aab8cdc1d772b263b31a53f582a450726018842d8)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument bedrock_reranking_configuration", value=bedrock_reranking_configuration, expected_type=type_hints["bedrock_reranking_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "type": type,
+            }
+            if bedrock_reranking_configuration is not None:
+                self._values["bedrock_reranking_configuration"] = bedrock_reranking_configuration
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''The type of reranker model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchrerankingconfiguration-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def bedrock_reranking_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty"]]:
+            '''Contains configurations for an Amazon Bedrock reranker model.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchrerankingconfiguration-bedrockrerankingconfiguration
+            '''
+            result = self._values.get("bedrock_reranking_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VectorSearchRerankingConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -34610,6 +37956,13 @@ def _typecheckingstub__dda3f0b71fa4dedd72606bcb4dc1b235e5e8f33ebe66758c36774f374
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b37b221e79625e2a59b4d27c53c7942817157d752fa363fd988eae57ff4386ed(
+    *,
+    field_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d3a9f020a1b372979f9d1ec6b911d2295cf1eb524904677904d64a3f6a35055a(
     *,
     name: builtins.str,
@@ -34671,6 +38024,9 @@ def _typecheckingstub__425c904db23b9629fe6a830be94d214d112c1a6206b762478fd9e04b5
     knowledge_base: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.KnowledgeBaseFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.LambdaFunctionFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lex: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.LexFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    loop: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.LoopFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    loop_controller: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.LoopControllerFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    loop_input: typing.Any = None,
     output: typing.Any = None,
     prompt: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.PromptFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retrieval: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.RetrievalFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -34684,6 +38040,7 @@ def _typecheckingstub__bf2833359a5be50f82721be153d18c7eabc0e144d9d6ae37d71e8ac91
     expression: builtins.str,
     name: builtins.str,
     type: builtins.str,
+    category: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34734,7 +38091,29 @@ def _typecheckingstub__004ed148a98b01e41f3efd077553224d0e5ce97fd3842fc0c6be6c28a
     *,
     knowledge_base_id: builtins.str,
     guardrail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.GuardrailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    inference_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.PromptInferenceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     model_id: typing.Optional[builtins.str] = None,
+    number_of_results: typing.Optional[jsii.Number] = None,
+    orchestration_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.KnowledgeBaseOrchestrationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    prompt_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.KnowledgeBasePromptTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VectorSearchRerankingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18eebae023ada8dcacaf58e0670c730be4cd568a21c1d6cb6c4c80f248b5c6df(
+    *,
+    additional_model_request_fields: typing.Any = None,
+    inference_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.PromptInferenceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    performance_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.PerformanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    prompt_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.KnowledgeBasePromptTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9a0bd34e5e9fad9a0fa939315a299c268aa78f4686265d2ebdd98f150a9d92e(
+    *,
+    text_prompt_template: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34750,6 +38129,36 @@ def _typecheckingstub__38478491ab5facb49d25af7399145bf3032f8b76fc619392d4da744bd
     *,
     bot_alias_arn: builtins.str,
     locale_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b678349c7620b286061758949b288b2721ebbfec82cf342b86b25d9d8d2ac40(
+    *,
+    continue_condition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FlowConditionProperty, typing.Dict[builtins.str, typing.Any]]],
+    max_iterations: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95d1b365a5069a8f909e47d6dec4c6924178d7bd497e230f31ce17ab6f9f6bf3(
+    *,
+    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FlowDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69dc4528015629b5836ac38861e80ce62eb11525f59d4000bd3ae9103f6d0872(
+    *,
+    selection_mode: builtins.str,
+    selective_mode_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ca2b136172ac3771a0b9fc0285abd3c026a57bd8a807c7cd7bfefd8cdc4c00e(
+    *,
+    latency: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34818,6 +38227,14 @@ def _typecheckingstub__5bf1f973d583ea4ef1d4bc5b39d3ee1b4725beaa6d0ec7ffb982b4315
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8ad952ed67e429a80c5dd15a26a64972ae3faaa078bfcb23ba6c4d5091501d7c(
+    *,
+    fields_to_exclude: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FieldForRerankingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    fields_to_include: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.FieldForRerankingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__982db19983467a9d8b437235c39ed6a0fbf0e08458563d3e8f78d9a7de277861(
     *,
     service_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.RetrievalFlowNodeServiceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -34873,6 +38290,31 @@ def _typecheckingstub__a1164d8b76fe518886244583bdf3b7b3822830d9f1ee7bc6beec54ce3
     *,
     text: builtins.str,
     input_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.PromptInputVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d72f2b90f1b829fa1095e85074ad0dcbd0ea2536f0aadd883705a35c4a160a8(
+    *,
+    model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.MetadataConfigurationForRerankingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    number_of_reranked_results: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e9612b76807c86b9f5363441d474bf474082f33bacaf226f61b65d511453584(
+    *,
+    model_arn: builtins.str,
+    additional_model_request_fields: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25a2840096c4dc42205309ca1246a66be39cca0a766ad959b62049f92fa6ed30(
+    *,
+    type: builtins.str,
+    bedrock_reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlow.VectorSearchBedrockRerankingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35030,6 +38472,13 @@ def _typecheckingstub__58998504af7a39c970b789ec28fb7e3afe8c42041c2bad9381d2fc98e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__25c1720c275cabd4ed4663344c816dd822f2d9a9e0cd5cdc88660196fbdd29d7(
+    *,
+    field_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cadc2588fff4a1e90fc2faf2b9d50c41f5b49d11d87f84d8448ccf279aee1969(
     *,
     name: builtins.str,
@@ -35091,6 +38540,9 @@ def _typecheckingstub__f9cd0cd05b1dd568a6031e23179baa28ec1045e1a40b1eda1f4240278
     knowledge_base: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.KnowledgeBaseFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lambda_function: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.LambdaFunctionFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lex: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.LexFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    loop: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.LoopFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    loop_controller: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.LoopControllerFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    loop_input: typing.Any = None,
     output: typing.Any = None,
     prompt: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.PromptFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     retrieval: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.RetrievalFlowNodeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -35147,7 +38599,29 @@ def _typecheckingstub__17b9fe30408d688aaf08f87e21950af81c63d804d7021f8f66de0b47e
     *,
     knowledge_base_id: builtins.str,
     guardrail_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.GuardrailConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    inference_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.PromptInferenceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     model_id: typing.Optional[builtins.str] = None,
+    number_of_results: typing.Optional[jsii.Number] = None,
+    orchestration_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.KnowledgeBaseOrchestrationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    prompt_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.KnowledgeBasePromptTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.VectorSearchRerankingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a9fce4a02f3e91886b3992e2265feaeb0515fc4a55f4133bd3f8ef143461c68(
+    *,
+    additional_model_request_fields: typing.Any = None,
+    inference_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.PromptInferenceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    performance_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.PerformanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    prompt_template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.KnowledgeBasePromptTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d955ff1ba565efbe01e3add88001576719966a068120ad46619585218ad782f(
+    *,
+    text_prompt_template: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35163,6 +38637,36 @@ def _typecheckingstub__5ed3b9d7d58ce0e3983c2d3d2353ab30d7ce6785a86992996e15622f2
     *,
     bot_alias_arn: builtins.str,
     locale_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5dd52e320e5dc0c35425f24266f3844fe89a3598963187e4d058245880133188(
+    *,
+    continue_condition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.FlowConditionProperty, typing.Dict[builtins.str, typing.Any]]],
+    max_iterations: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af0b8c5f494ce3809fa0d9887b515b238c4a551bd4d61d70684c36e25e092ba5(
+    *,
+    definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.FlowDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a49ddb07ddfa1287f05a659223e05a4fdf79af1f2f09c04f2a27fa908c302431(
+    *,
+    selection_mode: builtins.str,
+    selective_mode_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37012d90bccc248d9a8ff66e1f21e41e70adea11d5a7f419ef7cd76219ba1105(
+    *,
+    latency: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35231,6 +38735,14 @@ def _typecheckingstub__cdae5ed58ab50ea65740dfb331694cb5fd8ad547ccbbbedbe809c7f9f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__104d13d4969e13562eba564901851762fb12ecf8304ab6f5bf7ac447eb41a619(
+    *,
+    fields_to_exclude: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.FieldForRerankingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    fields_to_include: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.FieldForRerankingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1b2ccf635b97ea636e11b91f8e9192a84ab3e4b666d226ecff9668ddba28f3fc(
     *,
     service_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.RetrievalFlowNodeServiceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -35277,6 +38789,31 @@ def _typecheckingstub__ae71846b7aa0cb96d488de8fb8524f13a8239cc97cfb519c31e546c95
     *,
     text: builtins.str,
     input_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.PromptInputVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f443068c4d5e403b9d9a16ffc38b18f47c43aa16667569ce42526fd3e84546c3(
+    *,
+    model_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.MetadataConfigurationForRerankingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    number_of_reranked_results: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7eb3092c12da3d78fe57988c14c29706d7a8b39dcbdd5c48ec4902714197c64(
+    *,
+    model_arn: builtins.str,
+    additional_model_request_fields: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22dcdcca4fd22712dd1e018aab8cdc1d772b263b31a53f582a450726018842d8(
+    *,
+    type: builtins.str,
+    bedrock_reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

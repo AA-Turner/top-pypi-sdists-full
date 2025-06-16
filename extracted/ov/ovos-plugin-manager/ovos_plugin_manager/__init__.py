@@ -1,0 +1,2 @@
+from ovos_plugin_manager.utils import PluginTypes
+from ovos_plugin_manager.plugin_entry import OpenVoiceOSPlugin

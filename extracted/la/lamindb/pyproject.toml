@@ -1,0 +1,232 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "lamindb"
+requires-python = ">=3.10,<3.14"
+authors = [{name = "Lamin Labs", email = "open-source@lamin.ai"}]
+readme = "README.md"
+dynamic = ["version", "description"]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    # Lamin PINNED packages
+    "lamin_utils==0.14.0",
+    "lamin_cli==1.4.2",
+    "lamindb_setup[aws]==1.6.1",
+    # others
+    "pyyaml",
+    "pyarrow",
+    "pandera>=0.24.0",
+    "typing_extensions!=4.6.0",
+    "python-dateutil",
+    "pandas>=2.0.0", # for .infer_objects(copy=False) in lamin-utils
+    # backed sparse is incompatible with 1.15.0 for anndata 1.11.1
+    # vitessce requires anndata<=1.11.0 now
+    "scipy<1.15.0",
+    "anndata>=0.8.0,<=0.11.4",  # will upgrade to new anndata releases
+    "fsspec",
+    "graphviz",
+    "psycopg2-binary",
+]
+
+[project.urls]
+Home = "https://github.com/laminlabs/lamindb"
+
+[project.optional-dependencies]
+bionty = [
+    "bionty>=1.5.0",   # do NOT pin, is bounded in bionty
+]
+gcp = [
+    "lamindb_setup[gcp]",
+]
+jupyter = [
+    "nbproject==0.11.1",  # keep pinning
+    "jupytext",
+    "nbconvert>=7.2.1", # avoid lxml[html_clean] dependency
+    "mistune!=3.1.0",  # there is a bug in it
+]
+zarr = [
+    "numcodecs<0.16.0", # 0.16.0 breaks zarr<3.0.*
+    "zarr>=2.16.0,<3.0.0a0", # not yet compatible with 3.0.*
+]
+fcs = [
+    "readfcs>=2.0.1",
+]
+wetlab = [
+    "wetlab>=1.3.1"  # do NOT pin, is bounded in wetlab
+]
+clinicore = [
+    "clinicore"   # do NOT pin, is bounded in clinicore
+]
+omop = [
+    "omop"
+]
+dev = [
+    # basic test
+    "tomlkit",
+    "line_profiler",
+    "pre-commit",
+    "nox",
+    "laminci>=0.3",
+    "pytest>=6.0",
+    "coverage",
+    "pytest-cov",
+    "mudata",
+    # others
+    "nbproject_test>=0.6.0",
+    # biology
+    "faker-biology",
+    # bionty
+    "pronto",
+]
+
+[tool.ruff]
+src = ["src"]
+line-length = 88
+lint.select = [
+    "F",  # Errors detected by Pyflakes
+    "E",  # Error detected by Pycodestyle
+    "W",  # Warning detected by Pycodestyle
+    "I",  # isort
+    "D",  # pydocstyle
+    "B",  # flake8-bugbear
+    "TID",  # flake8-tidy-imports
+    "C4",  # flake8-comprehensions
+    "BLE",  # flake8-blind-except
+    "UP",  # pyupgrade
+    "RUF100",  # Report unused noqa directives
+    "TCH",  # Typing imports
+    "NPY",  # Numpy specific rules
+    "PTH",  # Use pathlib
+    "S"  # Security
+]
+lint.ignore = [
+    # Do not catch blind exception: `Exception`
+    "BLE001",
+    # Errors from function calls in argument defaults. These are fine when the result is immutable.
+    "B008",
+    # line too long -> we accept long comment lines; black gets rid of long code lines
+    "E501",
+    # Do not assign a lambda expression, use a def -> lambda expression assignments are convenient
+    "E731",
+    # allow I, O, l as variable names -> I is the identity matrix
+    "E741",
+    # Missing docstring in public module
+    "D100",
+    # undocumented-public-class
+    "D101",
+    # Missing docstring in public method
+    "D102",
+    # Missing docstring in public function
+    "D103",
+    # Missing docstring in public package
+    "D104",
+    # __magic__ methods are are often self-explanatory, allow missing docstrings
+    "D105",
+    # Missing docstring in public nested class
+    "D106",
+    # Missing docstring in __init__
+    "D107",
+    "D405",
+    "D214",
+    "D416",
+    ## Disable one in each pair of mutually incompatible rules
+    # We don’t want a blank line before a class docstring
+    "D203",
+    # 1 blank line required after class docstring
+    "D204",
+    # first line should end with a period [Bug: doesn't work with single-line docstrings]
+    # We want docstrings to start immediately after the opening triple quote
+    "D213",
+    # Section underline is over-indented ("{name}")
+    "D215",
+    # First line should be in imperative mood; try rephrasing
+    "D401",
+    # First word of the first line should be capitalized: {} -> {}
+    "D403",
+    # First word of the docstring should not be "This"
+    "D404",
+    # Section name should end with a newline ("{name}")
+    "D406",
+    # Missing dashed underline after section ("{name}")
+    "D407",
+    # Section underline should be in the line following the section's name ("{name}")
+    "D408",
+    # Section underline should match the length of its name ("{name}")
+    "D409",
+    # No blank lines allowed between a section header and its content ("{name}")
+    "D412",
+    # Missing blank line after last section ("{name}")
+    "D413",
+    # Missing argument description in the docstring
+    "D417",
+    # camcelcase imported as lowercase
+    "N813",
+    # module import not at top level of file
+    "E402",
+    # open()` should be replaced by `Path.open()
+    "PTH123",
+    # subprocess` call: check for execution of untrusted input - https://github.com/PyCQA/bandit/issues/333
+    "S603",
+    # Starting a process with a partial executable path
+    "S607",
+    # Prefer absolute imports over relative imports from parent modules
+    "TID252",
+    # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "S311",
+    # All of the below TODO 3.10 refactor, temporarily disable
+    "UP007",
+    "UP038",
+    "B905",
+    "UP035",
+    "RUF100",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"docs/*" = ["I", "S101"]
+"tests/**/*.py" = [
+    "D",  # docstrings are allowed to look a bit off
+    "S101", # asserts allowed in tests...
+    "ARG", # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT", # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "PLR2004", # Magic value used in comparison, ...
+    "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
+]
+"tests/**/*.ipynb" = ["S101"]
+"*/__init__.py" = ["F401"]
+"lamindb/core/types.py" = ["F401"]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+filterwarnings = [
+    "ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning"
+]
+markers = [
+    "pg_integration: tests that require an external PostgreSQL instance"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod"
+]
+
+[tool.coverage.run]
+omit = ["**/core/datasets/*", "**/migrations/*", "**/core/_compat.py", "**/core/types.py"]
+
+[tool.flit.sdist]
+exclude = [
+    "sub/"
+]

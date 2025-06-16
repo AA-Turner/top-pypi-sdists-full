@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-tat',
-    install_requires=["tencentcloud-sdk-python-common==3.0.1401"],
+    install_requires=["tencentcloud-sdk-python-common==3.0.1402"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Tat SDK for Python',
     long_description=open('README.rst').read(),

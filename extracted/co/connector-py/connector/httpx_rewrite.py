@@ -161,8 +161,7 @@ def log_response(response: httpx.Response):
         level=response_logger.level,
         pathname="",
         lineno=0,
-        msg="Got an external response: "
-        f"[{response.request.method}][{response.status_code}] {url}",
+        msg=f"Got an external response: [{response.request.method}][{response.status_code}] {url}",
         args=(),
         exc_info=None,
     )

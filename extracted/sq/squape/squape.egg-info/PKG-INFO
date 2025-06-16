@@ -1,0 +1,55 @@
+Metadata-Version: 2.1
+Name: squape
+Version: 1.1
+Summary: Python utilities for the Squish GUI Tester
+Author-email: Cyber Alpaca <contact@cyberalpaca.com>
+Project-URL: Homepage, https://github.com/CyberAlpaca/squish-api-python-extension
+Project-URL: Documentation, https://squape.cyberalpaca.com
+Project-URL: Changelog, https://github.com/CyberAlpaca/squish-api-python-extension/blob/main/HISTORY.md
+Project-URL: Cyber Alpaca, https://cyberalpaca.com
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.10
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+![Squish - version](https://img.shields.io/badge/Squish-v6.7.0+-brightgreen)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/squape)
+![PyPI - License](https://img.shields.io/pypi/l/SQUAPE)
+# SQUAPE - Squish API Python Extension
+Python package that extends Squish Python API. It provides tools for everyday automated test cases development.
+
+### Requirements
+The minimal requirement for the SQUAPE package is Squish version 6.7.0. Individual features may require a more recent Squish package.  
+
+### Installation
+The package is available on the Python Package Index (PyPI).
+You can install it via `pip` with the following commands:
+```sh
+pip install squape
+```
+
+### Content
+The package consists of several modules:
+- object_tree - seamless object tree navigation and search capabilities
+- report - adds features to enhance the reporting capabilities of Squish
+- settings - makes using various test settings easier and cleaner
+- squishserver - managing squishservers and (un)registering AUTs
+- video - adds features to enhance video capture capabilities of Squish
+- vps - extension of Squish verification points
+
+## Contribution
+The package is created and maintained by [Cyber Alpaca](https://cyberalpaca.com/)  
+Pull requests for any issues are welcome.  
+In case where you would like to introduce a new feature or a major change, please open an issue first and discuss it with our team.
+
+## License
+The packages are available under The 3-Clause BSD License
+
+## References
+- [Squish by the Qt Group](https://www.qt.io/product/quality-assurance/squish)  
+
+[![Cyber Alpaca](https://cyberalpaca.com/static/media/cyberalpaca-logo.60f51a65.svg)](https://cyberalpaca.com)

@@ -109,7 +109,7 @@ class SCENE_PT_custom_props(
         :rtype: typing.Any
         """
 
-class SCENE_PT_eevee_next_light_probes(SceneButtonsPanel, bpy.types.Panel):
+class SCENE_PT_eevee_light_probes(SceneButtonsPanel, bpy.types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any

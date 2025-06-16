@@ -1,5 +1,0 @@
-parameters:
-  foo:
-    enabled: true
-  bar:
-    enabled: false

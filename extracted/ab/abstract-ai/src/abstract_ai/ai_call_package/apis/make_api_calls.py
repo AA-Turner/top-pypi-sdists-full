@@ -26,9 +26,9 @@ def extract_content(data):
     try:
         # Navigate to the content field
         content = data[0]['response']['choices'][0]['message']['content']
-        content = content.replace('\n','')        
+        content = content      
         # Parse the content string into a Python dictionary
-        content_dict = json.loads(content)
+        content_dict = safe_json_loads(content)
         
         # Ensure the result is a dictionary
         if not isinstance(content_dict, dict):
@@ -148,3 +148,4 @@ def make_ai_api_call(ai=None,
         else:
             result = make_list(get_any_value(response,'content'))[-1]
     return result
+

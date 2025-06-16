@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: stac_validator
-Version: 3.9.0
+Version: 3.9.1
 Summary: A package to validate STAC files
 Home-page: https://github.com/stac-utils/stac-validator
 Author: James Banting, Jonathan Healy

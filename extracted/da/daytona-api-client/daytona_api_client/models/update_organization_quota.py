@@ -1,4 +1,7 @@
 # coding: utf-8
+# Copyright 2025 Daytona Platforms Inc.
+# SPDX-License-Identifier: Apache-2.0
+
 
 """
     Daytona
@@ -23,28 +26,39 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
+
 class UpdateOrganizationQuota(BaseModel):
     """
     UpdateOrganizationQuota
-    """ # noqa: E501
+    """  # noqa: E501
+
     total_cpu_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="totalCpuQuota")
     total_memory_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="totalMemoryQuota")
     total_disk_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="totalDiskQuota")
-    max_cpu_per_workspace: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxCpuPerWorkspace")
-    max_memory_per_workspace: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxMemoryPerWorkspace")
-    max_disk_per_workspace: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxDiskPerWorkspace")
-    image_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="imageQuota")
-    max_image_size: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxImageSize")
+    max_cpu_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxCpuPerSandbox")
+    max_memory_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxMemoryPerSandbox")
+    max_disk_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxDiskPerSandbox")
+    snapshot_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="snapshotQuota")
+    max_snapshot_size: Optional[Union[StrictFloat, StrictInt]] = Field(alias="maxSnapshotSize")
     volume_quota: Optional[Union[StrictFloat, StrictInt]] = Field(alias="volumeQuota")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["totalCpuQuota", "totalMemoryQuota", "totalDiskQuota", "maxCpuPerWorkspace", "maxMemoryPerWorkspace", "maxDiskPerWorkspace", "imageQuota", "maxImageSize", "volumeQuota"]
+    __properties: ClassVar[List[str]] = [
+        "totalCpuQuota",
+        "totalMemoryQuota",
+        "totalDiskQuota",
+        "maxCpuPerSandbox",
+        "maxMemoryPerSandbox",
+        "maxDiskPerSandbox",
+        "snapshotQuota",
+        "maxSnapshotSize",
+        "volumeQuota",
+    ]
 
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -71,9 +85,11 @@ class UpdateOrganizationQuota(BaseModel):
           are ignored.
         * Fields in `self.additional_properties` are added to the output dict.
         """
-        excluded_fields: Set[str] = set([
-            "additional_properties",
-        ])
+        excluded_fields: Set[str] = set(
+            [
+                "additional_properties",
+            ]
+        )
 
         _dict = self.model_dump(
             by_alias=True,
@@ -88,47 +104,47 @@ class UpdateOrganizationQuota(BaseModel):
         # set to None if total_cpu_quota (nullable) is None
         # and model_fields_set contains the field
         if self.total_cpu_quota is None and "total_cpu_quota" in self.model_fields_set:
-            _dict['totalCpuQuota'] = None
+            _dict["totalCpuQuota"] = None
 
         # set to None if total_memory_quota (nullable) is None
         # and model_fields_set contains the field
         if self.total_memory_quota is None and "total_memory_quota" in self.model_fields_set:
-            _dict['totalMemoryQuota'] = None
+            _dict["totalMemoryQuota"] = None
 
         # set to None if total_disk_quota (nullable) is None
         # and model_fields_set contains the field
         if self.total_disk_quota is None and "total_disk_quota" in self.model_fields_set:
-            _dict['totalDiskQuota'] = None
+            _dict["totalDiskQuota"] = None
 
-        # set to None if max_cpu_per_workspace (nullable) is None
+        # set to None if max_cpu_per_sandbox (nullable) is None
         # and model_fields_set contains the field
-        if self.max_cpu_per_workspace is None and "max_cpu_per_workspace" in self.model_fields_set:
-            _dict['maxCpuPerWorkspace'] = None
+        if self.max_cpu_per_sandbox is None and "max_cpu_per_sandbox" in self.model_fields_set:
+            _dict["maxCpuPerSandbox"] = None
 
-        # set to None if max_memory_per_workspace (nullable) is None
+        # set to None if max_memory_per_sandbox (nullable) is None
         # and model_fields_set contains the field
-        if self.max_memory_per_workspace is None and "max_memory_per_workspace" in self.model_fields_set:
-            _dict['maxMemoryPerWorkspace'] = None
+        if self.max_memory_per_sandbox is None and "max_memory_per_sandbox" in self.model_fields_set:
+            _dict["maxMemoryPerSandbox"] = None
 
-        # set to None if max_disk_per_workspace (nullable) is None
+        # set to None if max_disk_per_sandbox (nullable) is None
         # and model_fields_set contains the field
-        if self.max_disk_per_workspace is None and "max_disk_per_workspace" in self.model_fields_set:
-            _dict['maxDiskPerWorkspace'] = None
+        if self.max_disk_per_sandbox is None and "max_disk_per_sandbox" in self.model_fields_set:
+            _dict["maxDiskPerSandbox"] = None
 
-        # set to None if image_quota (nullable) is None
+        # set to None if snapshot_quota (nullable) is None
         # and model_fields_set contains the field
-        if self.image_quota is None and "image_quota" in self.model_fields_set:
-            _dict['imageQuota'] = None
+        if self.snapshot_quota is None and "snapshot_quota" in self.model_fields_set:
+            _dict["snapshotQuota"] = None
 
-        # set to None if max_image_size (nullable) is None
+        # set to None if max_snapshot_size (nullable) is None
         # and model_fields_set contains the field
-        if self.max_image_size is None and "max_image_size" in self.model_fields_set:
-            _dict['maxImageSize'] = None
+        if self.max_snapshot_size is None and "max_snapshot_size" in self.model_fields_set:
+            _dict["maxSnapshotSize"] = None
 
         # set to None if volume_quota (nullable) is None
         # and model_fields_set contains the field
         if self.volume_quota is None and "volume_quota" in self.model_fields_set:
-            _dict['volumeQuota'] = None
+            _dict["volumeQuota"] = None
 
         return _dict
 
@@ -141,22 +157,22 @@ class UpdateOrganizationQuota(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "totalCpuQuota": obj.get("totalCpuQuota"),
-            "totalMemoryQuota": obj.get("totalMemoryQuota"),
-            "totalDiskQuota": obj.get("totalDiskQuota"),
-            "maxCpuPerWorkspace": obj.get("maxCpuPerWorkspace"),
-            "maxMemoryPerWorkspace": obj.get("maxMemoryPerWorkspace"),
-            "maxDiskPerWorkspace": obj.get("maxDiskPerWorkspace"),
-            "imageQuota": obj.get("imageQuota"),
-            "maxImageSize": obj.get("maxImageSize"),
-            "volumeQuota": obj.get("volumeQuota")
-        })
+        _obj = cls.model_validate(
+            {
+                "totalCpuQuota": obj.get("totalCpuQuota"),
+                "totalMemoryQuota": obj.get("totalMemoryQuota"),
+                "totalDiskQuota": obj.get("totalDiskQuota"),
+                "maxCpuPerSandbox": obj.get("maxCpuPerSandbox"),
+                "maxMemoryPerSandbox": obj.get("maxMemoryPerSandbox"),
+                "maxDiskPerSandbox": obj.get("maxDiskPerSandbox"),
+                "snapshotQuota": obj.get("snapshotQuota"),
+                "maxSnapshotSize": obj.get("maxSnapshotSize"),
+                "volumeQuota": obj.get("volumeQuota"),
+            }
+        )
         # store additional fields in additional_properties
         for _key in obj.keys():
             if _key not in cls.__properties:
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
-
-

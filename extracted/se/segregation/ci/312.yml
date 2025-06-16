@@ -1,0 +1,45 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - deprecation
+  - geopandas>=0.9
+  - joblib
+  - libpysal
+  - mapclassify
+  - matplotlib
+  - numpy
+  - pandana
+  - pandas
+  - pip
+  - quilt3
+  - scikit-learn
+  - scipy
+  - seaborn
+  - tqdm
+  - urbanaccess
+  - numba
+  - pyproj >=3
+
+  # testing, etc
+  - codecov
+  - pytest
+  - pytest-mpl
+  - pytest-cov
+  - pytest-xdist
+  - twine
+
+  # docs
+  - ipywidgets
+  - nbsphinx
+  - numpydoc
+  - pandana
+  - quilt3
+  - sphinx
+  - sphinxcontrib-napoleon
+  - sphinx-gallery
+  - sphinxcontrib-bibtex
+  - sphinx_bootstrap_theme
+  - watermark
+  - black

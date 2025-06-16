@@ -1,6 +1,7 @@
 import pytest
 
-from wbcore.enums import Button, Unit
+from wbcore.enums import Unit
+from wbcore.metadata.configs.buttons.enums import Button
 
 
 class TestUnit:

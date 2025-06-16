@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from apify_shared.utils import (
     filter_out_none_values_recursively,
@@ -27,6 +27,7 @@ from apify_client.clients.resource_clients.webhook_collection import (
 
 if TYPE_CHECKING:
     from decimal import Decimal
+    from logging import Logger
 
     from apify_shared.consts import ActorJobStatus, MetaOrigin
 
@@ -289,6 +290,7 @@ class ActorClient(ResourceClient):
         timeout_secs: int | None = None,
         webhooks: list[dict] | None = None,
         wait_secs: int | None = None,
+        logger: Logger | None | Literal['default'] = 'default',
     ) -> dict | None:
         """Start the Actor and wait for it to finish before returning the Run object.
 
@@ -313,6 +315,10 @@ class ActorClient(ResourceClient):
                 a webhook set up for the Actor, you do not have to add it again here.
             wait_secs: The maximum number of seconds the server waits for the run to finish. If not provided,
                 waits indefinitely.
+            logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
+                default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
+                will redirect logs to the provided logger. The logger is also used to capture status and status message
+                of the other Actor run.
 
         Returns:
             The run object.
@@ -327,8 +333,16 @@ class ActorClient(ResourceClient):
             timeout_secs=timeout_secs,
             webhooks=webhooks,
         )
+        if not logger:
+            return self.root_client.run(started_run['id']).wait_for_finish(wait_secs=wait_secs)
 
-        return self.root_client.run(started_run['id']).wait_for_finish(wait_secs=wait_secs)
+        run_client = self.root_client.run(run_id=started_run['id'])
+
+        if logger == 'default':
+            logger = None
+
+        with run_client.get_status_message_watcher(to_logger=logger), run_client.get_streamed_log(to_logger=logger):
+            return self.root_client.run(started_run['id']).wait_for_finish(wait_secs=wait_secs)
 
     def build(
         self,
@@ -458,6 +472,31 @@ class ActorClient(ResourceClient):
     def webhooks(self) -> WebhookCollectionClient:
         """Retrieve a client for webhooks associated with this Actor."""
         return WebhookCollectionClient(**self._sub_resource_init_options())
+
+    def validate_input(
+        self, run_input: Any = None, *, build_tag: str | None = None, content_type: str | None = None
+    ) -> bool:
+        """Validate an input for the Actor that defines an input schema.
+
+        Args:
+            run_input: The input to validate.
+            build_tag: The actor's build tag.
+            content_type: The content type of the input.
+
+        Returns:
+            True if the input is valid, else raise an exception with validation error details.
+        """
+        run_input, content_type = encode_key_value_store_record_value(run_input, content_type)
+
+        self.http_client.call(
+            url=self._url('validate-input'),
+            method='POST',
+            headers={'content-type': content_type},
+            data=run_input,
+            params=self._params(build=build_tag),
+        )
+
+        return True
 
 
 class ActorClientAsync(ResourceClientAsync):
@@ -656,6 +695,7 @@ class ActorClientAsync(ResourceClientAsync):
         timeout_secs: int | None = None,
         webhooks: list[dict] | None = None,
         wait_secs: int | None = None,
+        logger: Logger | None | Literal['default'] = 'default',
     ) -> dict | None:
         """Start the Actor and wait for it to finish before returning the Run object.
 
@@ -680,6 +720,10 @@ class ActorClientAsync(ResourceClientAsync):
                 a webhook set up for the Actor, you do not have to add it again here.
             wait_secs: The maximum number of seconds the server waits for the run to finish. If not provided,
                 waits indefinitely.
+            logger: Logger used to redirect logs from the Actor run. Using "default" literal means that a predefined
+                default logger will be used. Setting `None` will disable any log propagation. Passing custom logger
+                will redirect logs to the provided logger. The logger is also used to capture status and status message
+                of the other Actor run.
 
         Returns:
             The run object.
@@ -695,7 +739,19 @@ class ActorClientAsync(ResourceClientAsync):
             webhooks=webhooks,
         )
 
-        return await self.root_client.run(started_run['id']).wait_for_finish(wait_secs=wait_secs)
+        if not logger:
+            return await self.root_client.run(started_run['id']).wait_for_finish(wait_secs=wait_secs)
+
+        run_client = self.root_client.run(run_id=started_run['id'])
+
+        if logger == 'default':
+            logger = None
+
+        status_redirector = await run_client.get_status_message_watcher(to_logger=logger)
+        streamed_log = await run_client.get_streamed_log(to_logger=logger)
+
+        async with status_redirector, streamed_log:
+            return await self.root_client.run(started_run['id']).wait_for_finish(wait_secs=wait_secs)
 
     async def build(
         self,
@@ -829,3 +885,28 @@ class ActorClientAsync(ResourceClientAsync):
     def webhooks(self) -> WebhookCollectionClientAsync:
         """Retrieve a client for webhooks associated with this Actor."""
         return WebhookCollectionClientAsync(**self._sub_resource_init_options())
+
+    async def validate_input(
+        self, run_input: Any = None, *, build_tag: str | None = None, content_type: str | None = None
+    ) -> bool:
+        """Validate an input for the Actor that defines an input schema.
+
+        Args:
+            run_input: The input to validate.
+            build_tag: The actor's build tag.
+            content_type: The content type of the input.
+
+        Returns:
+            True if the input is valid, else raise an exception with validation error details.
+        """
+        run_input, content_type = encode_key_value_store_record_value(run_input, content_type)
+
+        await self.http_client.call(
+            url=self._url('validate-input'),
+            method='POST',
+            headers={'content-type': content_type},
+            data=run_input,
+            params=self._params(build=build_tag),
+        )
+
+        return True

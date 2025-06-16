@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import gc
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 import torch
 import torch.nn as nn
@@ -231,6 +231,10 @@ class MaisiConvolution(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.print_info:
             logger.info(f"Number of splits: {self.num_splits}")
+
+        if self.dim_split <= 1 and self.num_splits <= 1:
+            x = self.conv(x)
+            return x
 
         # compute size of splits
         l = x.size(self.dim_split + 2)

@@ -1,3 +1,0 @@
-from quantify_scheduler.compatibility_check import check_zhinst_compatibility
-
-check_zhinst_compatibility()

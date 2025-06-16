@@ -1,0 +1,35 @@
+stages:
+  - lint
+  - test
+  - build
+  - deploy
+
+include:
+  - component: $CI_SERVER_FQDN/thht-ci-components/python/test@1.4.0
+    inputs:
+      job_name: lint
+      test_stage: lint
+      test_cmd: pixi run lint_ci
+
+  - component: $CI_SERVER_FQDN/thht-ci-components/python/test@1.4.0
+    inputs:
+      job_name: check_types
+      test_stage: lint
+      test_cmd: pixi run check_types
+
+  - component: $CI_SERVER_FQDN/thht-ci-components/python/test@1.4.0
+    inputs:
+      job_name: test
+      test_environments: ['testpy39np1', 'testpy310np1', 'testpy311np1', 'testpy312np1',
+        'testpy39np2', 'testpy310np2', 'testpy311np2', 'testpy312np2']
+      coverage_folder: "pymatreader"
+
+  - component: $CI_SERVER_FQDN/thht-ci-components/python/test@1.4.0
+    inputs:
+      job_name: test_docs
+      run_before_script: |
+        apt-get update
+        apt-get install -y make
+      test_cmd: pixi run build_docs
+
+  - component: $CI_SERVER_FQDN/thht-ci-components/python/build_distribute@1.4.0

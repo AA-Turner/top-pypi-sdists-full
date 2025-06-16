@@ -7728,6 +7728,7 @@ class Sandbox(google.protobuf.message.Message):
     CLOUD_PROVIDER_STR_FIELD_NUMBER: builtins.int
     RUNSC_RUNTIME_VERSION_FIELD_NUMBER: builtins.int
     RUNTIME_FIELD_NUMBER: builtins.int
+    VERBOSE_FIELD_NUMBER: builtins.int
     @property
     def entrypoint_args(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
@@ -7781,6 +7782,8 @@ class Sandbox(google.protobuf.message.Message):
     """
     runtime: builtins.str
     """If set, overrides the runtime used by the function, either "runc" or "gvisor"."""
+    verbose: builtins.bool
+    """If set, the sandbox will be created with verbose logging enabled."""
     def __init__(
         self,
         *,
@@ -7810,9 +7813,10 @@ class Sandbox(google.protobuf.message.Message):
         cloud_provider_str: builtins.str = ...,
         runsc_runtime_version: builtins.str | None = ...,
         runtime: builtins.str | None = ...,
+        verbose: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "network_access", b"network_access", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "scheduler_placement", b"scheduler_placement", "snapshot_version", b"snapshot_version", "workdir", b"workdir"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "block_network", b"block_network", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "enable_snapshot", b"enable_snapshot", "entrypoint_args", b"entrypoint_args", "i6pn_enabled", b"i6pn_enabled", "image_id", b"image_id", "mount_ids", b"mount_ids", "network_access", b"network_access", "nfs_mounts", b"nfs_mounts", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "s3_mounts", b"s3_mounts", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "snapshot_version", b"snapshot_version", "timeout_secs", b"timeout_secs", "volume_mounts", b"volume_mounts", "workdir", b"workdir", "worker_id", b"worker_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_proxy_id", b"_proxy_id", "_runsc_runtime_version", b"_runsc_runtime_version", "_runtime", b"_runtime", "_scheduler_placement", b"_scheduler_placement", "_snapshot_version", b"_snapshot_version", "_workdir", b"_workdir", "block_network", b"block_network", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider", b"cloud_provider", "cloud_provider_str", b"cloud_provider_str", "enable_snapshot", b"enable_snapshot", "entrypoint_args", b"entrypoint_args", "i6pn_enabled", b"i6pn_enabled", "image_id", b"image_id", "mount_ids", b"mount_ids", "network_access", b"network_access", "nfs_mounts", b"nfs_mounts", "open_ports", b"open_ports", "open_ports_oneof", b"open_ports_oneof", "proxy_id", b"proxy_id", "pty_info", b"pty_info", "resources", b"resources", "runsc_runtime_version", b"runsc_runtime_version", "runtime", b"runtime", "runtime_debug", b"runtime_debug", "s3_mounts", b"s3_mounts", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "snapshot_version", b"snapshot_version", "timeout_secs", b"timeout_secs", "verbose", b"verbose", "volume_mounts", b"volume_mounts", "workdir", b"workdir", "worker_id", b"worker_id"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_proxy_id", b"_proxy_id"]) -> typing_extensions.Literal["proxy_id"] | None: ...
     @typing.overload
@@ -9054,6 +9058,7 @@ class TaskInfo(google.protobuf.message.Message):
     RESULT_FIELD_NUMBER: builtins.int
     ENQUEUED_AT_FIELD_NUMBER: builtins.int
     GPU_TYPE_FIELD_NUMBER: builtins.int
+    SANDBOX_ID_FIELD_NUMBER: builtins.int
     id: builtins.str
     started_at: builtins.float
     finished_at: builtins.float
@@ -9061,6 +9066,7 @@ class TaskInfo(google.protobuf.message.Message):
     def result(self) -> global___GenericResult: ...
     enqueued_at: builtins.float
     gpu_type: builtins.str
+    sandbox_id: builtins.str
     def __init__(
         self,
         *,
@@ -9070,9 +9076,10 @@ class TaskInfo(google.protobuf.message.Message):
         result: global___GenericResult | None = ...,
         enqueued_at: builtins.float = ...,
         gpu_type: builtins.str = ...,
+        sandbox_id: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["result", b"result"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["enqueued_at", b"enqueued_at", "finished_at", b"finished_at", "gpu_type", b"gpu_type", "id", b"id", "result", b"result", "started_at", b"started_at"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["enqueued_at", b"enqueued_at", "finished_at", b"finished_at", "gpu_type", b"gpu_type", "id", b"id", "result", b"result", "sandbox_id", b"sandbox_id", "started_at", b"started_at"]) -> None: ...
 
 global___TaskInfo = TaskInfo
 

@@ -1,4 +1,3 @@
-use crate::Element;
 use crate::abstraction::{
     AutosarAbstractionError, ByteOrder, System, abstraction_err_to_pyerr,
     communication::{
@@ -9,22 +8,24 @@ use crate::abstraction::{
     datatype::{
         ApplicationArrayDataType, ApplicationArraySize, ApplicationPrimitiveCategory,
         ApplicationPrimitiveDataType, ApplicationRecordDataType, BaseTypeEncoding, CompuMethod,
-        DataConstr, DataTypeMappingSet, ImplementationDataType, SwBaseType, Unit,
-        pyany_to_implmentation_settings, pyobject_to_compu_method_content,
+        ConstantSpecification, DataConstr, DataTypeMappingSet, ImplementationDataType, SwBaseType,
+        Unit, pyany_to_implmentation_settings, pyobject_to_compu_method_content,
+        pyobject_to_value_specification,
     },
     ecu_configuration::{
         EcucDefinitionCollection, EcucDestinationUriDefSet, EcucModuleConfigurationValues,
         EcucModuleDef, EcucValueCollection,
     },
-    iterator_wrapper,
     software_component::{
         ApplicationSwComponentType, ClientServerInterface, ComplexDeviceDriverSwComponentType,
-        CompositionSwComponentType, EcuAbstractionSwComponentType, ModeSwitchInterface,
-        NvDataInterface, ParameterInterface, SenderReceiverInterface,
-        SensorActuatorSwComponentType, ServiceSwComponentType, TriggerInterface,
+        CompositionSwComponentType, EcuAbstractionSwComponentType, ModeDeclarationGroup,
+        ModeDeclarationGroupCategory, ModeSwitchInterface, NvDataInterface, ParameterInterface,
+        SenderReceiverInterface, SensorActuatorSwComponentType, ServiceSwComponentType,
+        TriggerInterface,
     },
     system::SystemCategory,
 };
+use crate::{Element, iterator_wrapper};
 use autosar_data_abstraction::AbstractionElement;
 use autosar_data_abstraction::{self, IdentifiableAbstractionElement};
 use pyo3::prelude::*;
@@ -191,6 +192,20 @@ impl ArPackage {
         }
     }
 
+    /// create a new `ConstantSpecification` in the package
+    #[pyo3(text_signature = "(self, name: str, value: ValueSpecification)")]
+    pub fn create_constant_specification(
+        &self,
+        name: &str,
+        value: &Bound<'_, PyAny>,
+    ) -> PyResult<ConstantSpecification> {
+        let value = pyobject_to_value_specification(value)?;
+        match self.0.create_constant_specification(name, value) {
+            Ok(value) => Ok(ConstantSpecification(value)),
+            Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
+        }
+    }
+
     /// create a new `DataConstr` in the package
     #[pyo3(text_signature = "(self, name: str)")]
     fn create_data_constr(&self, name: &str) -> PyResult<DataConstr> {
@@ -294,6 +309,25 @@ impl ArPackage {
         let settings = pyany_to_implmentation_settings(settings)?;
         match self.0.create_implementation_data_type(&settings) {
             Ok(value) => Ok(ImplementationDataType(value)),
+            Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
+        }
+    }
+
+    /// create a new `ModeDeclarationGroup` in the package
+    #[pyo3(signature = (name, *, category=None))]
+    #[pyo3(
+        text_signature = "(self, name: str, *, category: Optional[ModeDeclarationGroupCategory] = None)"
+    )]
+    fn create_mode_declaration_group(
+        &self,
+        name: &str,
+        category: Option<ModeDeclarationGroupCategory>,
+    ) -> PyResult<ModeDeclarationGroup> {
+        match self
+            .0
+            .create_mode_declaration_group(name, category.map(Into::into))
+        {
+            Ok(value) => Ok(ModeDeclarationGroup(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
     }
@@ -501,11 +535,18 @@ impl ArPackage {
         }
     }
 
+    /// iterate over all sub-packages in the package
+    #[pyo3(text_signature = "(self, /)")]
+    fn sub_packages(&self) -> ArPackagesIterator {
+        ArPackagesIterator::new(self.0.sub_packages().map(ArPackage))
+    }
+
     /// iterate over all elements in the package
     #[pyo3(text_signature = "(self)")]
-    fn elements(&self) -> ArPackageElementsIterator {
-        ArPackageElementsIterator::new(self.0.elements().map(Element))
+    fn elements(&self) -> ElementsIterator {
+        ElementsIterator::new(self.0.elements().map(Element))
     }
 }
 
-iterator_wrapper!(ArPackageElementsIterator, Element);
+iterator_wrapper!(ElementsIterator, Element);
+iterator_wrapper!(ArPackagesIterator, ArPackage);

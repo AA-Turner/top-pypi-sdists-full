@@ -564,6 +564,8 @@ class OvnNbSynchronizer(OvnDbSynchronizer):
         db_extends = {}
         db_router_ports = {}
         for router in self.l3_plugin.get_routers(ctx):
+            if not utils.is_ovn_provider_router(router):
+                continue
             db_routers[router['id']] = router
             db_extends[router['id']] = {}
             db_extends[router['id']]['routes'] = []
@@ -1351,9 +1353,6 @@ class OvnSbSynchronizer(OvnDbSynchronizer):
         self.sync_hostname_and_physical_networks(ctx)
         if utils.is_ovn_l3(self.l3_plugin):
             self.l3_plugin.schedule_unhosted_gateways()
-        # NOTE(ralonsoh): this could be called using a resource event.
-        self.ovn_driver._ovn_client.placement_extension.\
-            read_initial_chassis_config()
 
         LOG.debug("OVN-Southbound DB sync process completed @ %s",
                   str(datetime.now()))

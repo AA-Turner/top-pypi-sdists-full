@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,6 +67,19 @@ public:
   using RasterOrder = UnderlyingScheduler::RasterOrder;
   using RasterOrderOptions = UnderlyingScheduler::RasterOrderOptions;
   static constexpr bool IsDynamicPersistent = false;
+
+  using Pipeline = PipelineEmpty;
+  using PipelineStorage = typename Pipeline::SharedStorage;
+  using ThrottlePipeline = PipelineEmpty;
+  using ThrottlePipelineStorage = typename ThrottlePipeline::SharedStorage;
+  struct CLCResponse {};
+
+  class SharedStorage {
+  public:
+    CUTLASS_DEVICE PipelineStorage pipeline() { return PipelineStorage{}; }
+    CUTLASS_DEVICE ThrottlePipelineStorage throttle_pipeline() { return ThrottlePipelineStorage{}; }
+    CUTLASS_DEVICE CLCResponse* data() { return nullptr; }
+  };
 
   // Use a dummy barrier manager to simply get the type used to store the barrier
   using BarrierType = typename NamedBarrierManager<1>::T;
@@ -412,7 +425,8 @@ public:
     FrgTensorC& accumulators,
     uint32_t num_barriers,
     uint32_t barrier_idx,
-    uint32_t num_accumulator_mtxs = 1) {
+    uint32_t num_accumulator_mtxs = 1,
+    uint32_t idx_accumulator_mtxs = 0) {
 
     using ElementAccumulator = typename FrgTensorC::value_type;
 
@@ -443,7 +457,8 @@ public:
     // Reductions use BlockStripedReduce with a width of BarrierManager::ThreadCount under the hood.
     // Thus, the start of the reduction space is the same across all threads in a warp group.
     uint64_t reduction_offset_base = (static_cast<uint64_t>(cute::size<0>(TileShape{})) * static_cast<uint64_t>(cute::size<1>(TileShape{})) * reduction_tile_idx * num_accumulator_mtxs) +
-      (static_cast<uint64_t>(size(accumulators)) * barrier_idx * BarrierManager::ThreadCount);
+      (static_cast<uint64_t>(size(accumulators)) * barrier_idx * BarrierManager::ThreadCount * num_accumulator_mtxs)
+      + static_cast<uint64_t>(size(accumulators)) * BarrierManager::ThreadCount * idx_accumulator_mtxs;
     uint64_t reduction_offset = reduction_offset_base + reduction_peer_offset;
 
     ElementAccumulator* group_reduction_workspace = reinterpret_cast<ElementAccumulator*>(params.reduction_workspace_) + reduction_offset;
@@ -497,8 +512,18 @@ public:
         BlockStripedReduceT::store(reduction_workspace_array, *accumulator_array, barrier_group_thread_idx);
       }
       else {
-        // Wait until the preceding split added its accumulators
-        BarrierManager::wait_eq(barrier_idx, lock_workspace, barrier_group_thread_idx, lock_idx, work_tile_info.K_idx);
+        if (params.reduction_mode_ == ReductionMode::Deterministic) {
+          // Wait until the preceding split added its accumulators
+          BarrierManager::wait_eq(barrier_idx, lock_workspace, barrier_group_thread_idx, lock_idx, work_tile_info.K_idx);
+        }
+        else {
+          // Wait until the first split has stored its accumulators. Note that the first split will have
+          // accumulated a value into the lock potentially greater than one (since the locked value is
+          // incremented by work_tile_info.k_tile_count below for both the deterministic and non-deterministic)
+          // cases. For non-deterministic reductions, all that non-first or last splits care about is whether
+          // the first split has been written, so we only wait while the locked value is less than 1.
+          BarrierManager::wait_lt(barrier_idx, lock_workspace, barrier_group_thread_idx, lock_idx, 1);
+        }
 
         // Perform reduction in workspace
         BlockStripedReduceT::reduce(reduction_workspace_array, *accumulator_array, barrier_group_thread_idx);
@@ -509,21 +534,13 @@ public:
       uint32_t increment = params.requires_separate_reduction() ? 1 : work_tile_info.k_tile_count;
 
       // Signal our arrival
-      BarrierManager::arrive_inc(barrier_idx, lock_workspace, barrier_group_thread_idx, lock_idx, increment);
+      if (idx_accumulator_mtxs == (num_accumulator_mtxs - 1)) {
+        BarrierManager::arrive_inc(barrier_idx, lock_workspace, barrier_group_thread_idx, lock_idx, increment);
+      }
     }
     else {
-      if (
-        params.reduction_mode_ == ReductionMode::Deterministic
-      ) {
-
-        // Wait until the preceding split added its accumulators
-        BarrierManager::wait_eq(barrier_idx, lock_workspace, barrier_group_thread_idx, lock_idx, work_tile_info.K_idx);
-
-      }
-      else {
-        // Wait until the first split has stored its accumulators
-        BarrierManager::wait_lt(barrier_idx, lock_workspace, barrier_group_thread_idx, lock_idx, 1);
-      }
+      // Wait until the preceding split added its accumulators
+      BarrierManager::wait_eq(barrier_idx, lock_workspace, barrier_group_thread_idx, lock_idx, work_tile_info.K_idx);
 
       // The block computing the final split for the tile adds previously-reduced partials
       // to its accumulators and computes the epilogue.
@@ -554,10 +571,7 @@ public:
       AccumulatorArrayT addend_fragment;
       auto peer_reduction_workspace = reinterpret_cast<AccumulatorArrayT*>(reduction_workspace + (i * peer_offset));
 
-      BlockStripedReduceT::load(addend_fragment, peer_reduction_workspace, thread_idx);
-
-      // Add peer fragment
-      *accumulator_array = add_fragments(*accumulator_array, addend_fragment);
+      BlockStripedReduceT::load_add(*accumulator_array, peer_reduction_workspace, thread_idx);
     }
   }
 
@@ -696,6 +710,17 @@ public:
     return cute::make_tuple(get_current_work(), true);
   }
 
+  // Kernel helper function to get next work tile
+  template <class TileSchedulerPipeline, class TileSchedulerPipelineState>
+  CUTLASS_DEVICE
+  auto
+  fetch_next_work(
+      WorkTileInfo work_tile_info,
+      TileSchedulerPipeline& scheduler_pipeline,
+      TileSchedulerPipelineState scheduler_pipe_consumer_state) {
+    return fetch_next_work(work_tile_info);
+  }
+
   // Returns the initial work tile info that will be computed over
   CUTLASS_DEVICE
   WorkTileInfo
@@ -713,6 +738,19 @@ public:
     auto [cta_m_in_cluster_, cta_n_in_cluster_, _] = block_id_in_cluster;
     uint64_t cta_m_in_cluster = static_cast<uint64_t>(cta_m_in_cluster_);
     uint64_t cta_n_in_cluster = static_cast<uint64_t>(cta_n_in_cluster_);
+    
+    // Determine the CTA's M and N offsets within the preferred cluster
+    // This simply finds the linear offset of the CTA within the cluster, and takes a divmod
+    // on it depending on the rasterization order used by the scheduler.
+    uint64_t cluster_linear_work_idx_tmp = params.div_cluster_size(linear_idx) * params.get_cluster_size();
+
+    if (params.raster_order_ == RasterOrder::AlongN) {
+      params.divmod_cluster_shape_minor_(cta_n_in_cluster, cta_m_in_cluster, linear_idx - cluster_linear_work_idx_tmp);
+    }
+    else {
+      params.divmod_cluster_shape_minor_(cta_m_in_cluster, cta_n_in_cluster, linear_idx - cluster_linear_work_idx_tmp);
+    }
+    
     return {static_cast<uint32_t>(cta_m_in_cluster), static_cast<uint32_t>(cta_n_in_cluster), _};
   }
 
@@ -945,6 +983,8 @@ private:
                                           params.divmod_cluster_blk_major_,
                                           params.log_swizzle_size_,
                                           params.raster_order_
+                                          , cta_m_in_cluster  
+                                          , cta_n_in_cluster  
                                         );
 
     // Set the M, N, and L block offsets
@@ -1043,7 +1083,6 @@ private:
         // output tile. This work will thus be subsumed by the previous stream-K unit.
         --unit_idx;
       }
-
       return unit_idx;
     };
 

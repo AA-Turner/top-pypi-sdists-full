@@ -1,0 +1,93 @@
+Metadata-Version: 2.1
+Name: craft-providers
+Version: 2.3.0
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: packaging>=14.1
+Requires-Dist: pydantic~=2.4
+Requires-Dist: pyyaml
+Requires-Dist: requests>=2.31
+Requires-Dist: requests_unixsocket2>=0.4.0
+Provides-Extra: dev
+Requires-Dist: coverage[toml]==7.6.4; extra == "dev"
+Requires-Dist: freezegun==1.5.1; extra == "dev"
+Requires-Dist: logassert==7; extra == "dev"
+Requires-Dist: pyfakefs==5.7.1; extra == "dev"
+Requires-Dist: pytest==8.3.3; extra == "dev"
+Requires-Dist: pytest-cov==5.0.0; extra == "dev"
+Requires-Dist: pytest-mock==3.14.0; extra == "dev"
+Requires-Dist: pytest-rerunfailures==14.0; extra == "dev"
+Requires-Dist: pytest-subprocess==1.5.2; extra == "dev"
+Requires-Dist: pytest-xdist==3.6.1; extra == "dev"
+Requires-Dist: pytest-time==0.3.2; extra == "dev"
+Requires-Dist: responses==0.25.3; extra == "dev"
+Requires-Dist: types-requests==2.32.0.20241016; extra == "dev"
+Requires-Dist: types-setuptools==75.2.0.20241019; extra == "dev"
+Requires-Dist: types-pyyaml==6.0.12.20240917; extra == "dev"
+Provides-Extra: lint
+Requires-Dist: codespell[toml]==2.3.0; extra == "lint"
+Requires-Dist: yamllint==1.35.1; extra == "lint"
+Provides-Extra: types
+Requires-Dist: mypy[reports]~=1.15; extra == "types"
+Provides-Extra: docs
+Requires-Dist: pyspelling==2.10; extra == "docs"
+Requires-Dist: sphinx-autobuild==2024.10.3; extra == "docs"
+Requires-Dist: sphinx-lint==1.0.0; extra == "docs"
+Requires-Dist: sphinx-tabs==3.4.7; extra == "docs"
+Requires-Dist: canonical-sphinx~=0.2.0; extra == "docs"
+Provides-Extra: tics
+Requires-Dist: flake8; extra == "tics"
+Requires-Dist: pylint; extra == "tics"
+
+***************
+Craft providers
+***************
+
+|doc-build-status-badge|_ |weekly-test-status-badge|_ |code-coverage-badge|_
+
+Description
+-----------
+This project provides Python interfaces for instantiating and executing
+builds for a variety of target environments.
+
+Initial providers include:
+
+- `LXD containers`_
+- `Multipass VMs`_
+
+Host support is targeted for:
+
+- Linux
+- Mac OS X
+- Windows
+
+License
+-------
+Free software: GNU Lesser General Public License v3
+
+Documentation
+--------------
+https://canonical-craft-providers.readthedocs-hosted.com/en/latest/
+
+Contributing
+------------
+See the HACKING.rst document for details on how to contribute.
+
+.. _`LXD containers`: https://ubuntu.com/lxd/
+.. _`Multipass VMs`: https://multipass.run/
+.. |doc-build-status-badge| image:: https://readthedocs.com/projects/canonical-craft-providers/badge/?version=latest
+.. _doc-build-status-badge: https://canonical-craft-providers.readthedocs-hosted.com/en/latest/?badge=latest
+.. |weekly-test-status-badge| image:: https://github.com/canonical/craft-providers/actions/workflows/tests-weekly.yaml/badge.svg?branch=main
+.. _weekly-test-status-badge: https://github.com/canonical/craft-providers/actions/workflows/tests-weekly.yaml
+.. |code-coverage-badge| image:: https://codecov.io/gh/canonical/craft-providers/graph/badge.svg?token=CTEPNPXrn5
+.. _code-coverage-badge: https://codecov.io/gh/canonical/craft-providers

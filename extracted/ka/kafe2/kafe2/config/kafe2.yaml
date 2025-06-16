@@ -1,0 +1,36 @@
+log_level: "info"
+
+core:
+  log_filename: "kafe.log"
+  default_initial_parameter_value: 1.0
+
+  minimizers:
+    default_minimizer_list:
+      - "root::tminuit"
+      - "iminuit"
+      - "scipy"
+    minuit:
+      log_filename: "minuit.log"
+      print_level: -1
+
+  fitters:
+    default_fitter: "nexus_fitter"
+    nexus_fitter:
+      max_calls: 6000
+
+
+fit:
+  log_filename: "fit.log"
+  iterative_do_fit:
+    max_iterations: 10
+    convergence_limit: 1e-5
+  plot:
+    axis_labels:
+      x: '$x$'
+      y: '$y$'
+    ratio_label: 'Ratio'
+    residual_label: 'Residual'
+    pull_label: 'Pull'
+    error_label: "%(model_label)s $\\pm 1\\sigma$"
+
+    style: !include plot_style_color.yaml

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: scrapegraphai
-Version: 1.55.0
+Version: 1.57.0
 Summary: A web scraping library based on LangChain which uses LLM and direct graph logic to create scraping pipelines.
 Author-email: Marco Vinciguerra <mvincig11@gmail.com>, Lorenzo Padoan <lorenzo.padoan977@gmail.com>
 Keywords: ai,artificial intelligence,gpt,graph,langchain,llm,machine learning,natural language processing,nlp,openai,rag,scrapegraph,scrapegraphai,scraping,web scraping,web scraping library,web scraping tool,webscraping
@@ -25,6 +25,7 @@ Requires-Dist: minify-html>=0.15.0
 Requires-Dist: playwright>=1.43.0
 Requires-Dist: pydantic>=2.10.2
 Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: scrapegraph-py>=0.1.0
 Requires-Dist: semchunk>=2.2.0
 Requires-Dist: simpleeval>=1.0.0
 Requires-Dist: tiktoken>=0.7
@@ -83,7 +84,7 @@ You can find more informations at the following [link](https://scrapegraphai.com
 - **API**: [Documentation](https://docs.scrapegraphai.com/introduction)
 - **SDKs**: [Python](https://docs.scrapegraphai.com/sdks/python), [Node](https://docs.scrapegraphai.com/sdks/javascript) 
 - **LLM Frameworks**: [Langchain](https://docs.scrapegraphai.com/integrations/langchain), [Llama Index](https://docs.scrapegraphai.com/integrations/llamaindex), [Crew.ai](https://docs.scrapegraphai.com/integrations/crewai), [CamelAI](https://github.com/camel-ai/camel)
-- **Low-code Frameworks**: [Pipedream](https://pipedream.com/apps/scrapegraphai), [Bubble](https://bubble.io/plugin/scrapegraphai-1745408893195x213542371433906180), [Zapier](https://zapier.com/apps/scrapegraphai/integrations), [n8n](http://localhost:5001/dashboard), [LangFlow](https://www.langflow.org)
+- **Low-code Frameworks**: [Pipedream](https://pipedream.com/apps/scrapegraphai), [Bubble](https://bubble.io/plugin/scrapegraphai-1745408893195x213542371433906180), [Zapier](https://zapier.com/apps/scrapegraphai/integrations), [n8n](http://localhost:5001/dashboard), [LangFlow](https://www.langflow.org), [Dify](https://dify.ai)
 - **MCP server**:  [Link](https://smithery.ai/server/@ScrapeGraphAI/scrapegraph-mcp)
 
 ## 🚀 Quick install

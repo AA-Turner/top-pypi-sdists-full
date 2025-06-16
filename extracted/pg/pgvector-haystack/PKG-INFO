@@ -1,0 +1,62 @@
+Metadata-Version: 2.4
+Name: pgvector-haystack
+Version: 3.4.0
+Summary: An integration of pgvector (vector search extension for Postgres) with Haystack
+Project-URL: Source, https://github.com/deepset-ai/haystack-core-integrations
+Project-URL: Documentation, https://github.com/deepset-ai/haystack-core-integrations/blob/main/integrations/pgvector/README.md
+Project-URL: Issues, https://github.com/deepset-ai/haystack-core-integrations/issues
+Author-email: deepset GmbH <info@deepset.ai>
+License-Expression: Apache-2.0
+License-File: LICENSE.txt
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.9
+Requires-Dist: haystack-ai>=2.11.0
+Requires-Dist: pgvector>=0.3.0
+Requires-Dist: psycopg[binary]
+Description-Content-Type: text/markdown
+
+# pgvector-haystack
+
+[![PyPI - Version](https://img.shields.io/pypi/v/pgvector-haystack.svg)](https://pypi.org/project/pgvector-haystack)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pgvector-haystack.svg)](https://pypi.org/project/pgvector-haystack)
+
+---
+
+**Table of Contents**
+
+- [pgvector-haystack](#pgvector-haystack)
+  - [Installation](#installation)
+  - [Testing](#testing)
+  - [License](#license)
+
+## Installation
+
+```console
+pip install pgvector-haystack
+```
+
+## Testing
+
+Ensure that you have a PostgreSQL running with the `pgvector` extension. For a quick setup using Docker, run:
+```
+docker run -d -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres pgvector/pgvector:pg17
+```
+
+then run the tests:
+
+```console
+hatch run test:all
+```
+
+## License
+
+`pgvector-haystack` is distributed under the terms of the [Apache-2.0](https://spdx.org/licenses/Apache-2.0.html) license.

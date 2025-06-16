@@ -13,7 +13,7 @@ from resolvelib.resolvers import Criterion
 from pdm.exceptions import CandidateNotFound, InvalidPyVersion, RequirementError
 from pdm.models.candidates import Candidate
 from pdm.models.repositories import LockedRepository
-from pdm.models.requirements import FileRequirement, Requirement, parse_requirement, strip_extras
+from pdm.models.requirements import FileRequirement, Requirement, VcsRequirement, parse_requirement, strip_extras
 from pdm.models.specifiers import PySpecSet
 from pdm.resolver.python import PythonCandidate, PythonRequirement, find_python_matches, is_python_satisfied_by
 from pdm.termui import logger
@@ -309,6 +309,17 @@ class BaseProvider(AbstractProvider[Requirement, Candidate, str]):
             logger.error("Invalid metadata in %s: %s", candidate, e)
             raise RequirementsConflicted(Criterion([], [], [])) from None
 
+        if candidate.req.extras:
+            # XXX: If the requirement has extras, add the original candidate
+            # (without extras) as its dependency. This ensures the same package with
+            # different extras resolve to the same version.
+            self_req = dataclasses.replace(
+                candidate.req.as_pinned_version(candidate.version),
+                extras=None,
+                marker=None,
+            )
+            if self_req not in deps:
+                deps.insert(0, self_req)
         self.fetched_dependencies[candidate.dep_key] = deps[:]
         # Filter out incompatible dependencies(e.g. functools32) early so that
         # we don't get errors when building wheels.
@@ -404,7 +415,10 @@ class ReusePinProvider(BaseProvider):
         return matches_gen
 
     def _get_dependencies_from_repository(self, candidate: Candidate) -> tuple[list[Requirement], PySpecSet, str]:
-        if self.locked_repository is not None:
+        is_stable_metadata = candidate.req.is_named or (
+            isinstance(candidate.req, VcsRequirement) and candidate.req.revision
+        )
+        if self.locked_repository is not None and is_stable_metadata:
             try:
                 return self.locked_repository.get_dependencies(candidate)
             except CandidateNotFound:

@@ -167,7 +167,7 @@ def make_extensions():
 
 setup(
     name="selectolax",
-    version='0.3.29',
+    version='0.3.30',
     description="Fast HTML5 parser with CSS selectors.",
     long_description=readme,
     author="Artem Golubin",
@@ -181,30 +181,9 @@ setup(
     },
     license="MIT license",
     zip_safe=False,
-    keywords="selectolax",
-    classifiers=[
-        "Development Status :: 5 - Production/Stable",
-        "Topic :: Text Processing :: Markup :: HTML",
-        "Topic :: Internet",
-        "Topic :: Internet :: WWW/HTTP",
-        "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
-        "Natural Language :: English",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-    ],
     test_suite="tests",
     tests_require=[
         "pytest",
     ],
-    project_urls={
-        "Source code": "https://github.com/rushter/selectolax",
-    },
     ext_modules=make_extensions(),
 )

@@ -1,15 +1,17 @@
 import os
 from copy import deepcopy
-from typing import Callable, Dict, List, MutableMapping
+from typing import Callable, Dict, List, MutableMapping, Union
 
 from dbt.constants import DEFAULT_ENV_PLACEHOLDER
 from dbt.contracts.files import (
     AnySourceFile,
     ParseFileType,
     SchemaSourceFile,
+    SourceFile,
     parse_file_type_to_parser,
 )
 from dbt.contracts.graph.manifest import Manifest
+from dbt.contracts.graph.nodes import AnalysisNode, ModelNode, SeedNode, SnapshotNode
 from dbt.events.types import PartialParsingEnabled, PartialParsingFile
 from dbt.node_types import NodeType
 from dbt_common.context import get_invocation_context
@@ -343,7 +345,11 @@ class PartialParsing:
         if node.patch_path:
             file_id = node.patch_path
             # it might be changed...  then what?
-            if file_id not in self.file_diff["deleted"] and file_id in self.saved_files:
+            if (
+                file_id not in self.file_diff["deleted"]
+                and file_id in self.saved_files
+                and source_file.parse_file_type in parse_file_type_to_key
+            ):
                 # Schema files should already be updated if this comes from a node,
                 # but this code is also called when updating groups and exposures.
                 # This might save the old schema file element, so when the schema file
@@ -390,10 +396,10 @@ class PartialParsing:
         self.saved_files[new_source_file.file_id] = deepcopy(new_source_file)
         self.add_to_pp_files(new_source_file)
 
-    def remove_mssat_file(self, source_file):
+    def remove_mssat_file(self, source_file: AnySourceFile):
         # nodes [unique_ids] -- SQL files
         # There should always be a node for a SQL file
-        if not source_file.nodes:
+        if not isinstance(source_file, SourceFile) or not source_file.nodes:
             return
         # There is generally only 1 node for SQL files, except for macros and snapshots
         for unique_id in source_file.nodes:
@@ -820,7 +826,7 @@ class PartialParsing:
 
     # For model, seed, snapshot, analysis schema dictionary keys,
     # delete the patches and tests from the patch
-    def delete_schema_mssa_links(self, schema_file, dict_key, elem):
+    def delete_schema_mssa_links(self, schema_file, dict_key, elem) -> None:
         # find elem node unique_id in node_patches
         prefix = key_to_prefix[dict_key]
         elem_unique_ids = []
@@ -841,11 +847,12 @@ class PartialParsing:
                 elem_unique_id in self.saved_manifest.nodes
                 or elem_unique_id in self.saved_manifest.disabled
             ):
+                nodes: List[Union[ModelNode, SeedNode, SnapshotNode, AnalysisNode]] = []
                 if elem_unique_id in self.saved_manifest.nodes:
-                    nodes = [self.saved_manifest.nodes.pop(elem_unique_id)]
+                    nodes = [self.saved_manifest.nodes.pop(elem_unique_id)]  # type: ignore[list-item]
                 else:
                     # The value of disabled items is a list of nodes
-                    nodes = self.saved_manifest.disabled.pop(elem_unique_id)
+                    nodes = self.saved_manifest.disabled.pop(elem_unique_id)  # type: ignore[assignment]
                 # need to add the node source_file to pp_files
                 for node in nodes:
                     file_id = node.file_id
@@ -858,9 +865,9 @@ class PartialParsing:
                     # if the node's group has changed - need to reparse all referencing nodes to ensure valid ref access
                     if node.group != elem.get("group"):
                         self.schedule_referencing_nodes_for_parsing(node.unique_id)
-                    # If the latest version has changed or a version has been removed we need to
-                    # reparse referencing nodes.
-                    if node.is_versioned:
+                    # If the latest version has changed, a version has been removed, or a version has been added,
+                    #  we need to reparse referencing nodes.
+                    if node.is_versioned or elem.get("versions"):
                         self.schedule_referencing_nodes_for_parsing(node.unique_id)
             # remove from patches
             schema_file.node_patches.remove(elem_unique_id)
@@ -913,10 +920,14 @@ class PartialParsing:
         if macro["name"] in schema_file.macro_patches:
             macro_unique_id = schema_file.macro_patches[macro["name"]]
             del schema_file.macro_patches[macro["name"]]
+        # Need to delete all macros in the same file
+        # and then reapply all schema file updates for those macros
         if macro_unique_id and macro_unique_id in self.saved_manifest.macros:
             macro = self.saved_manifest.macros.pop(macro_unique_id)
             macro_file_id = macro.file_id
             if macro_file_id in self.new_files:
+                source_file = self.saved_files[macro_file_id]
+                self.delete_macro_file(source_file)
                 self.saved_files[macro_file_id] = deepcopy(self.new_files[macro_file_id])
                 self.add_to_pp_files(self.saved_files[macro_file_id])
 

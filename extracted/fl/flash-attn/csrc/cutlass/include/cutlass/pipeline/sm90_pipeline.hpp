@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -293,7 +293,9 @@ public:
     uint32_t transaction_bytes = 0;
     ThreadCategory role = ThreadCategory::NonParticipant;
     uint32_t is_leader = 0;
-    uint32_t num_consumers = 0;
+    uint32_t num_consumers = 0; // Number of consumer threads
+    uint32_t num_producers = 1; // Number of producer threads
+    int initializing_warp = 0; 
   };
 
   template <class ClusterShape>
@@ -303,9 +305,10 @@ public:
   init_barriers(SharedStorage& storage, Params params, ClusterShape cluster_shape) {
     int warp_idx = canonical_warp_idx_sync();
     bool is_initializing_warp = (warp_idx == 0);
+    is_initializing_warp = (warp_idx == params.initializing_warp); 
     if (is_initializing_warp) {
       // Barrier FULL and EMPTY init
-      constexpr int producer_arv_cnt = 1;
+      uint32_t const producer_arv_cnt = params.num_producers;
       uint32_t const num_consumer_warpgroups_per_cluster = params.num_consumers / NumThreadsPerWarpGroup;
       uint32_t multicast_consumer_arrival_count = params.num_consumers; // If cluster_size is 1
       if (cute::size(cluster_shape) > 1) {
@@ -418,13 +421,24 @@ public:
   }
 
   CUTLASS_DEVICE
-  void producer_acquire(PipelineState state, ProducerToken barrier_token = {BarrierStatus::WaitAgain}) {
+  void producer_acquire(PipelineState state) {
+    producer_acquire(state.index(), state.phase());
+  }
+
+  CUTLASS_DEVICE
+  void producer_acquire(PipelineState state, ProducerToken barrier_token) {
     producer_acquire(state.index(), state.phase(), barrier_token);
   }
 
   CUTLASS_DEVICE
   void producer_commit(PipelineState state, uint32_t bytes) {
     producer_commit(state.index(), bytes);
+  }
+
+  template<class UserDefinedArriveOp>
+  CUTLASS_DEVICE
+  void producer_commit(PipelineState state, UserDefinedArriveOp&& user_defined_arrive_op) {
+    cute::forward<UserDefinedArriveOp>(user_defined_arrive_op)(producer_get_barrier(state.index()));;
   }
 
   // Prevents early exit of producer blocks in Cluster.
@@ -441,6 +455,11 @@ public:
   CUTLASS_DEVICE
   ProducerBarrierType* producer_get_barrier(PipelineState state) {
     return producer_get_barrier(state.index());
+  }
+
+  CUTLASS_DEVICE
+  void producer_expect_transaction(PipelineState state, uint32_t transaction_bytes) {
+    producer_expect_transaction(state.index(), transaction_bytes);
   }
 
   ////////////////////
@@ -489,6 +508,25 @@ private:
   }
 
   CUTLASS_DEVICE
+  void producer_acquire(uint32_t stage, uint32_t phase) {
+    empty_barrier_ptr_[stage].wait(phase);
+
+    if (params_.is_leader) {
+      full_barrier_ptr_[stage].arrive_and_expect_tx(params_.transaction_bytes);
+    }
+    #ifndef NDEBUG
+    if (params_.role == ThreadCategory::Consumer || params_.role == ThreadCategory::NonParticipant) {
+      asm volatile ("brkpt;\n" ::);
+    }
+
+    // Most likely you have elected more than one leader
+    if (params_.is_leader && (threadIdx.x % 32 != 0)) {
+      asm volatile ("brkpt;\n" ::);
+    }
+    #endif
+  }
+
+  CUTLASS_DEVICE
   void producer_acquire(uint32_t stage, uint32_t phase, ProducerToken barrier_token) {
     detail::pipeline_check_is_producer(params_.role);
     if (barrier_token != BarrierStatus::WaitDone) {
@@ -508,6 +546,14 @@ private:
       asm volatile ("brkpt;\n" ::);
     }
     #endif
+  }
+
+  CUTLASS_DEVICE
+  void producer_expect_transaction(uint32_t stage, uint32_t transaction_bytes) {
+    detail::pipeline_check_is_producer(params_.role);
+    if (params_.is_leader) {
+      full_barrier_ptr_[stage].expect_transaction(transaction_bytes);
+    }
   }
 
   // NOP for TMA based mainloop
@@ -743,6 +789,7 @@ public:
     uint32_t producer_arv_count = 1;
     uint32_t consumer_arv_count = 1;
     uint32_t dst_blockid = cute::block_rank_in_cluster();
+    int initializing_warp = 0; 
   };
 
   static
@@ -753,6 +800,8 @@ public:
     EmptyBarrier *empty_barrier_ptr = storage.empty_barrier_.data();
     int warp_idx = canonical_warp_idx_sync();
     bool is_initializing_warp = (warp_idx == 0);
+    is_initializing_warp = (warp_idx == params.initializing_warp); 
+
     if (is_initializing_warp) {
       // Barrier FULL and EMPTY init
       cutlass::arch::detail::initialize_barrier_array_pair_aligned<decltype(full_barrier_ptr), decltype(empty_barrier_ptr), Stages>(
@@ -982,6 +1031,7 @@ public:
     uint32_t producer_arv_count = 1;
     uint32_t consumer_arv_count = 1;
     uint32_t dst_blockid = cute::block_rank_in_cluster();
+    int initializing_warp = 0; 
   };
 
   static
@@ -990,6 +1040,7 @@ public:
   init_barriers(SharedStorage& storage, Params params) {
     int warp_idx = canonical_warp_idx_sync();
     bool is_initializing_warp = (warp_idx == 0);
+    is_initializing_warp = (warp_idx == params.initializing_warp); 
     if (is_initializing_warp) {
       // Barrier FULL and EMPTY init
       cutlass::arch::detail::initialize_barrier_array_pair_aligned<decltype(storage.full_barrier_), decltype(storage.empty_barrier_), Stages>(
@@ -1215,6 +1266,7 @@ public:
   struct Params {
     uint32_t group_id;
     uint32_t group_size;
+    int initializing_warp = 0; 
   };
 
 private:
@@ -1240,6 +1292,19 @@ public:
       barrier_ptr_(&storage.barrier_[0][0]),
       // Group 0 - starts with an opposite phase
       stage_({0, params.group_id == 0, 0}) {
+
+#if (__CUDA_ARCH__ >= 1000)
+    int warp_idx = canonical_warp_idx_sync();
+
+    // Barrier FULL, EMPTY init
+    if (warp_idx == params.initializing_warp) {
+      int arv_cnt = params.group_size;
+      constexpr int Stages = Depth * Length;
+      cutlass::arch::detail::initialize_barrier_array_aligned<decltype(barrier_ptr_), Stages>(
+          barrier_ptr_, arv_cnt);
+    }
+#else
+
     int warp_idx = canonical_warp_idx_sync();
     int lane_predicate = cute::elect_one_sync();
 
@@ -1252,6 +1317,7 @@ public:
         }
       }
     }
+#endif 
     cutlass::arch::fence_barrier_init();
   }
 

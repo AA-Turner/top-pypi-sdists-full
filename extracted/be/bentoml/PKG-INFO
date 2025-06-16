@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bentoml
-Version: 1.4.15
+Version: 1.4.16
 Summary: BentoML: The easiest way to serve AI apps and models
 Project-URL: Homepage, https://bentoml.com
 Project-URL: Documentation, https://docs.bentoml.com
@@ -57,7 +57,6 @@ Requires-Dist: prometheus-client>=0.10.0
 Requires-Dist: psutil
 Requires-Dist: pydantic<3
 Requires-Dist: python-dateutil
-Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: python-json-logger
 Requires-Dist: python-multipart
 Requires-Dist: pyyaml>=5.0

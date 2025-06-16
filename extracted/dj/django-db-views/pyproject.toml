@@ -1,0 +1,106 @@
+[project]
+name = "django-db-views"
+version = "0.1.11"
+description = """
+    Handle database views.
+    Allow to create migrations for database views.
+    View migrations using django code.
+    They can be reversed.
+    Changes in model view definition are detected automatically.
+    Support almost all options as regular makemigrations command
+"""
+keywords = [
+    "views",
+    "database views",
+    "django",
+    "database perspective",
+    "view migrations",
+    "database table function",
+    "django materialized views",
+]
+authors = [
+  {name = "Bartłomiej Nowak", email = "n.bartek3762@gmail.com"},
+  {name = "Mariusz Okulanis"},
+]
+maintainers = [
+  {name = "Bartłomiej Nowak", email = "n.bartek3762@gmail.com"}
+]
+license = {text = "MIT License"}
+readme = {file = "README.md", content-type = "text/markdown"}
+classifiers=[
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+py_modules = ["six"]
+dependencies = [
+    "six",
+    "django>=2.2"
+]
+
+[project.urls]
+Homepage = "https://github.com/BezBartek/django-db-views"
+Documentation = "https://github.com/BezBartek/django-db-views/blob/master/README.md"
+Repository = "https://github.com/BezBartek/django-db-views"
+Issues = "https://github.com/BezBartek/django-db-views/issues"
+Changelog = "https://github.com/BezBartek/django-db-views/blob/master/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit==3.6.0",
+]
+tests = [
+    "psycopg2==2.9.3",
+    "pytest-django==4.5.2",
+    "django-environ==0.9.0",
+    "mysqlclient==2.2.1",
+    "pytest-mock==3.8.2",
+    "tox==3.25.1",
+    "build==1.2.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = [
+    '/README.md',
+    '/CHANGELOG.md',
+    '/LICENSE',
+    '/django_db_views'
+]
+
+[tool.pytest.ini_options]
+addopts = "--migrations --create-db"
+env = [
+    "PYTHONDONTWRITEBYTECODE = 1"
+]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = True
+requires = tox-conda
+envlist = py39-dj{22,32,40,41}, py310-dj{22,32,40,41,42,50}, py311-dj{22,32,40,41,42,50}, py312-dj{42,50,51}
+
+[testenv]
+conda_channels=
+    conda-forge
+conda_install_args=
+    --override-channels
+setenv =
+    PYTHONDONTWRITEBYTECODE=1
+conda_deps =
+    psycopg2
+    pytest-django
+    mysqlclient==2.2.1
+    pytest-mock
+deps =
+    django-environ==0.9.0
+
+commands = pytest tests/
+"""

@@ -7,79 +7,343 @@ import System
 import System.Runtime.InteropServices.ComTypes
 
 
-class SYSKIND(Enum):
-    """This class has no documentation."""
-
-    SYS_WIN_16 = 0
-
-    SYS_WIN_32 = ...
-
-    SYS_MAC = ...
-
-    SYS_WIN_64 = ...
-
-
-class LIBFLAGS(Enum):
-    """This class has no documentation."""
-
-    LIBFLAG_FRESTRICTED = ...
-
-    LIBFLAG_FCONTROL = ...
-
-    LIBFLAG_FHIDDEN = ...
-
-    LIBFLAG_FHASDISKIMAGE = ...
-
-
-class TYPELIBATTR:
+class FILETIME:
     """This class has no documentation."""
 
     @property
-    def guid(self) -> System.Guid:
+    def dw_low_date_time(self) -> int:
         ...
 
-    @guid.setter
-    def guid(self, value: System.Guid) -> None:
-        ...
-
-    @property
-    def lcid(self) -> int:
-        ...
-
-    @lcid.setter
-    def lcid(self, value: int) -> None:
+    @dw_low_date_time.setter
+    def dw_low_date_time(self, value: int) -> None:
         ...
 
     @property
-    def syskind(self) -> System.Runtime.InteropServices.ComTypes.SYSKIND:
+    def dw_high_date_time(self) -> int:
         ...
 
-    @syskind.setter
-    def syskind(self, value: System.Runtime.InteropServices.ComTypes.SYSKIND) -> None:
+    @dw_high_date_time.setter
+    def dw_high_date_time(self, value: int) -> None:
+        ...
+
+
+class STATSTG:
+    """This class has no documentation."""
+
+    @property
+    def pwcs_name(self) -> str:
+        ...
+
+    @pwcs_name.setter
+    def pwcs_name(self, value: str) -> None:
         ...
 
     @property
-    def w_major_ver_num(self) -> int:
+    def type(self) -> int:
         ...
 
-    @w_major_ver_num.setter
-    def w_major_ver_num(self, value: int) -> None:
-        ...
-
-    @property
-    def w_minor_ver_num(self) -> int:
-        ...
-
-    @w_minor_ver_num.setter
-    def w_minor_ver_num(self, value: int) -> None:
+    @type.setter
+    def type(self, value: int) -> None:
         ...
 
     @property
-    def w_lib_flags(self) -> System.Runtime.InteropServices.ComTypes.LIBFLAGS:
+    def cb_size(self) -> int:
         ...
 
-    @w_lib_flags.setter
-    def w_lib_flags(self, value: System.Runtime.InteropServices.ComTypes.LIBFLAGS) -> None:
+    @cb_size.setter
+    def cb_size(self, value: int) -> None:
+        ...
+
+    @property
+    def mtime(self) -> System.Runtime.InteropServices.ComTypes.FILETIME:
+        ...
+
+    @mtime.setter
+    def mtime(self, value: System.Runtime.InteropServices.ComTypes.FILETIME) -> None:
+        ...
+
+    @property
+    def ctime(self) -> System.Runtime.InteropServices.ComTypes.FILETIME:
+        ...
+
+    @ctime.setter
+    def ctime(self, value: System.Runtime.InteropServices.ComTypes.FILETIME) -> None:
+        ...
+
+    @property
+    def atime(self) -> System.Runtime.InteropServices.ComTypes.FILETIME:
+        ...
+
+    @atime.setter
+    def atime(self, value: System.Runtime.InteropServices.ComTypes.FILETIME) -> None:
+        ...
+
+    @property
+    def grf_mode(self) -> int:
+        ...
+
+    @grf_mode.setter
+    def grf_mode(self, value: int) -> None:
+        ...
+
+    @property
+    def grf_locks_supported(self) -> int:
+        ...
+
+    @grf_locks_supported.setter
+    def grf_locks_supported(self, value: int) -> None:
+        ...
+
+    @property
+    def clsid(self) -> System.Guid:
+        ...
+
+    @clsid.setter
+    def clsid(self, value: System.Guid) -> None:
+        ...
+
+    @property
+    def grf_state_bits(self) -> int:
+        ...
+
+    @grf_state_bits.setter
+    def grf_state_bits(self, value: int) -> None:
+        ...
+
+    @property
+    def reserved(self) -> int:
+        ...
+
+    @reserved.setter
+    def reserved(self, value: int) -> None:
+        ...
+
+
+class IStream(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def clone(self, ppstm: typing.Optional[System.Runtime.InteropServices.ComTypes.IStream]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IStream]:
+        ...
+
+    def commit(self, grf_commit_flags: int) -> None:
+        ...
+
+    def copy_to(self, pstm: System.Runtime.InteropServices.ComTypes.IStream, cb: int, pcb_read: System.IntPtr, pcb_written: System.IntPtr) -> None:
+        ...
+
+    def lock_region(self, lib_offset: int, cb: int, dw_lock_type: int) -> None:
+        ...
+
+    def read(self, pv: typing.List[int], cb: int, pcb_read: System.IntPtr) -> None:
+        ...
+
+    def revert(self) -> None:
+        ...
+
+    def seek(self, dlib_move: int, dw_origin: int, plib_new_position: System.IntPtr) -> None:
+        ...
+
+    def set_size(self, lib_new_size: int) -> None:
+        ...
+
+    def stat(self, pstatstg: typing.Optional[System.Runtime.InteropServices.ComTypes.STATSTG], grf_stat_flag: int) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.STATSTG]:
+        ...
+
+    def unlock_region(self, lib_offset: int, cb: int, dw_lock_type: int) -> None:
+        ...
+
+    def write(self, pv: typing.List[int], cb: int, pcb_written: System.IntPtr) -> None:
+        ...
+
+
+class BIND_OPTS:
+    """This class has no documentation."""
+
+    @property
+    def cb_struct(self) -> int:
+        ...
+
+    @cb_struct.setter
+    def cb_struct(self, value: int) -> None:
+        ...
+
+    @property
+    def grf_flags(self) -> int:
+        ...
+
+    @grf_flags.setter
+    def grf_flags(self, value: int) -> None:
+        ...
+
+    @property
+    def grf_mode(self) -> int:
+        ...
+
+    @grf_mode.setter
+    def grf_mode(self, value: int) -> None:
+        ...
+
+    @property
+    def dw_tick_count_deadline(self) -> int:
+        ...
+
+    @dw_tick_count_deadline.setter
+    def dw_tick_count_deadline(self, value: int) -> None:
+        ...
+
+
+class IEnumMoniker(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def clone(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumMoniker]:
+        ...
+
+    def next(self, celt: int, rgelt: typing.List[System.Runtime.InteropServices.ComTypes.IMoniker], pcelt_fetched: System.IntPtr) -> int:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+    def skip(self, celt: int) -> int:
+        ...
+
+
+class IRunningObjectTable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def enum_running(self, ppenum_moniker: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumMoniker]:
+        ...
+
+    def get_object(self, pmk_object_name: System.Runtime.InteropServices.ComTypes.IMoniker, ppunk_object: typing.Optional[typing.Any]) -> typing.Tuple[int, typing.Any]:
+        ...
+
+    def get_time_of_last_change(self, pmk_object_name: System.Runtime.InteropServices.ComTypes.IMoniker, pfiletime: typing.Optional[System.Runtime.InteropServices.ComTypes.FILETIME]) -> typing.Tuple[int, System.Runtime.InteropServices.ComTypes.FILETIME]:
+        ...
+
+    def is_running(self, pmk_object_name: System.Runtime.InteropServices.ComTypes.IMoniker) -> int:
+        ...
+
+    def note_change_time(self, dw_register: int, pfiletime: System.Runtime.InteropServices.ComTypes.FILETIME) -> None:
+        ...
+
+    def register(self, grf_flags: int, punk_object: typing.Any, pmk_object_name: System.Runtime.InteropServices.ComTypes.IMoniker) -> int:
+        ...
+
+    def revoke(self, dw_register: int) -> None:
+        ...
+
+
+class IEnumString(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def clone(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumString]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumString]:
+        ...
+
+    def next(self, celt: int, rgelt: typing.List[str], pcelt_fetched: System.IntPtr) -> int:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+    def skip(self, celt: int) -> int:
+        ...
+
+
+class IBindCtx(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def enum_object_param(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumString]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumString]:
+        ...
+
+    def get_bind_options(self, pbindopts: System.Runtime.InteropServices.ComTypes.BIND_OPTS) -> None:
+        ...
+
+    def get_object_param(self, psz_key: str, ppunk: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
+        ...
+
+    def get_running_object_table(self, pprot: typing.Optional[System.Runtime.InteropServices.ComTypes.IRunningObjectTable]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IRunningObjectTable]:
+        ...
+
+    def register_object_bound(self, punk: typing.Any) -> None:
+        ...
+
+    def register_object_param(self, psz_key: str, punk: typing.Any) -> None:
+        ...
+
+    def release_bound_objects(self) -> None:
+        ...
+
+    def revoke_object_bound(self, punk: typing.Any) -> None:
+        ...
+
+    def revoke_object_param(self, psz_key: str) -> int:
+        ...
+
+    def set_bind_options(self, pbindopts: System.Runtime.InteropServices.ComTypes.BIND_OPTS) -> None:
+        ...
+
+
+class IMoniker(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def bind_to_object(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, riid_result: System.Guid, ppv_result: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
+        ...
+
+    def bind_to_storage(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, riid: System.Guid, ppv_obj: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
+        ...
+
+    def common_prefix_with(self, pmk_other: System.Runtime.InteropServices.ComTypes.IMoniker, ppmk_prefix: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
+        ...
+
+    def compose_with(self, pmk_right: System.Runtime.InteropServices.ComTypes.IMoniker, f_only_if_not_generic: bool, ppmk_composite: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
+        ...
+
+    def enum(self, f_forward: bool, ppenum_moniker: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumMoniker]:
+        ...
+
+    def get_class_id(self, p_class_id: typing.Optional[System.Guid]) -> typing.Tuple[None, System.Guid]:
+        ...
+
+    def get_display_name(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, ppsz_display_name: typing.Optional[str]) -> typing.Tuple[None, str]:
+        ...
+
+    def get_size_max(self, pcb_size: typing.Optional[int]) -> typing.Tuple[None, int]:
+        ...
+
+    def get_time_of_last_change(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, p_file_time: typing.Optional[System.Runtime.InteropServices.ComTypes.FILETIME]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.FILETIME]:
+        ...
+
+    def hash(self, pdw_hash: typing.Optional[int]) -> typing.Tuple[None, int]:
+        ...
+
+    def inverse(self, ppmk: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
+        ...
+
+    def is_dirty(self) -> int:
+        ...
+
+    def is_equal(self, pmk_other_moniker: System.Runtime.InteropServices.ComTypes.IMoniker) -> int:
+        ...
+
+    def is_running(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, pmk_newly_running: System.Runtime.InteropServices.ComTypes.IMoniker) -> int:
+        ...
+
+    def is_system_moniker(self, pdw_mksys: typing.Optional[int]) -> typing.Tuple[int, int]:
+        ...
+
+    def load(self, p_stm: System.Runtime.InteropServices.ComTypes.IStream) -> None:
+        ...
+
+    def parse_display_name(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, psz_display_name: str, pch_eaten: typing.Optional[int], ppmk_out: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, int, System.Runtime.InteropServices.ComTypes.IMoniker]:
+        ...
+
+    def reduce(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, dw_reduce_how_far: int, ppmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, ppmk_reduced: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
+        ...
+
+    def relative_path_to(self, pmk_other: System.Runtime.InteropServices.ComTypes.IMoniker, ppmk_rel_path: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
+        ...
+
+    def save(self, p_stm: System.Runtime.InteropServices.ComTypes.IStream, f_clear_dirty: bool) -> None:
         ...
 
 
@@ -129,60 +393,6 @@ class INVOKEKIND(Enum):
     INVOKE_PROPERTYPUT = ...
 
     INVOKE_PROPERTYPUTREF = ...
-
-
-class DESCKIND(Enum):
-    """This class has no documentation."""
-
-    DESCKIND_NONE = 0
-
-    DESCKIND_FUNCDESC = ...
-
-    DESCKIND_VARDESC = ...
-
-    DESCKIND_TYPECOMP = ...
-
-    DESCKIND_IMPLICITAPPOBJ = ...
-
-    DESCKIND_MAX = ...
-
-
-class BINDPTR:
-    """This class has no documentation."""
-
-    @property
-    def lpfuncdesc(self) -> System.IntPtr:
-        ...
-
-    @lpfuncdesc.setter
-    def lpfuncdesc(self, value: System.IntPtr) -> None:
-        ...
-
-    @property
-    def lpvardesc(self) -> System.IntPtr:
-        ...
-
-    @lpvardesc.setter
-    def lpvardesc(self, value: System.IntPtr) -> None:
-        ...
-
-    @property
-    def lptcomp(self) -> System.IntPtr:
-        ...
-
-    @lptcomp.setter
-    def lptcomp(self, value: System.IntPtr) -> None:
-        ...
-
-
-class ITypeComp(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def bind(self, sz_name: str, l_hash_val: int, w_flags: int, pp_t_info: typing.Optional[System.Runtime.InteropServices.ComTypes.ITypeInfo], p_desc_kind: typing.Optional[System.Runtime.InteropServices.ComTypes.DESCKIND], p_bind_ptr: typing.Optional[System.Runtime.InteropServices.ComTypes.BINDPTR]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.ITypeInfo, System.Runtime.InteropServices.ComTypes.DESCKIND, System.Runtime.InteropServices.ComTypes.BINDPTR]:
-        ...
-
-    def bind_type(self, sz_name: str, l_hash_val: int, pp_t_info: typing.Optional[System.Runtime.InteropServices.ComTypes.ITypeInfo], pp_t_comp: typing.Optional[System.Runtime.InteropServices.ComTypes.ITypeComp]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.ITypeInfo, System.Runtime.InteropServices.ComTypes.ITypeComp]:
-        ...
 
 
 class IMPLTYPEFLAGS(Enum):
@@ -280,6 +490,60 @@ class TYPEKIND(Enum):
     TKIND_MAX = ...
 
 
+class DESCKIND(Enum):
+    """This class has no documentation."""
+
+    DESCKIND_NONE = 0
+
+    DESCKIND_FUNCDESC = ...
+
+    DESCKIND_VARDESC = ...
+
+    DESCKIND_TYPECOMP = ...
+
+    DESCKIND_IMPLICITAPPOBJ = ...
+
+    DESCKIND_MAX = ...
+
+
+class BINDPTR:
+    """This class has no documentation."""
+
+    @property
+    def lpfuncdesc(self) -> System.IntPtr:
+        ...
+
+    @lpfuncdesc.setter
+    def lpfuncdesc(self, value: System.IntPtr) -> None:
+        ...
+
+    @property
+    def lpvardesc(self) -> System.IntPtr:
+        ...
+
+    @lpvardesc.setter
+    def lpvardesc(self, value: System.IntPtr) -> None:
+        ...
+
+    @property
+    def lptcomp(self) -> System.IntPtr:
+        ...
+
+    @lptcomp.setter
+    def lptcomp(self, value: System.IntPtr) -> None:
+        ...
+
+
+class ITypeComp(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def bind(self, sz_name: str, l_hash_val: int, w_flags: int, pp_t_info: typing.Optional[System.Runtime.InteropServices.ComTypes.ITypeInfo], p_desc_kind: typing.Optional[System.Runtime.InteropServices.ComTypes.DESCKIND], p_bind_ptr: typing.Optional[System.Runtime.InteropServices.ComTypes.BINDPTR]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.ITypeInfo, System.Runtime.InteropServices.ComTypes.DESCKIND, System.Runtime.InteropServices.ComTypes.BINDPTR]:
+        ...
+
+    def bind_type(self, sz_name: str, l_hash_val: int, pp_t_info: typing.Optional[System.Runtime.InteropServices.ComTypes.ITypeInfo], pp_t_comp: typing.Optional[System.Runtime.InteropServices.ComTypes.ITypeComp]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.ITypeInfo, System.Runtime.InteropServices.ComTypes.ITypeComp]:
+        ...
+
+
 class ITypeLib(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -311,6 +575,218 @@ class ITypeLib(metaclass=abc.ABCMeta):
         ...
 
     def release_t_lib_attr(self, p_t_lib_attr: System.IntPtr) -> None:
+        ...
+
+
+class ITypeLib2(System.Runtime.InteropServices.ComTypes.ITypeLib, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_all_cust_data(self, p_cust_data: System.IntPtr) -> None:
+        ...
+
+    def get_cust_data(self, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
+        ...
+
+    def get_documentation_2(self, index: int, pbstr_help_string: typing.Optional[str], pdw_help_string_context: typing.Optional[int], pbstr_help_string_dll: typing.Optional[str]) -> typing.Tuple[None, str, int, str]:
+        ...
+
+    def get_lib_statistics(self, pc_unique_names: System.IntPtr, pcch_unique_names: typing.Optional[int]) -> typing.Tuple[None, int]:
+        ...
+
+
+class CONNECTDATA:
+    """This class has no documentation."""
+
+    @property
+    def p_unk(self) -> System.Object:
+        ...
+
+    @p_unk.setter
+    def p_unk(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def dw_cookie(self) -> int:
+        ...
+
+    @dw_cookie.setter
+    def dw_cookie(self, value: int) -> None:
+        ...
+
+
+class IEnumConnections(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def clone(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumConnections]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumConnections]:
+        ...
+
+    def next(self, celt: int, rgelt: typing.List[System.Runtime.InteropServices.ComTypes.CONNECTDATA], pcelt_fetched: System.IntPtr) -> int:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+    def skip(self, celt: int) -> int:
+        ...
+
+
+class IConnectionPoint(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def advise(self, p_unk_sink: typing.Any, pdw_cookie: typing.Optional[int]) -> typing.Tuple[None, int]:
+        ...
+
+    def enum_connections(self, pp_enum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumConnections]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumConnections]:
+        ...
+
+    def get_connection_interface(self, p_iid: typing.Optional[System.Guid]) -> typing.Tuple[None, System.Guid]:
+        ...
+
+    def get_connection_point_container(self, pp_cpc: typing.Optional[System.Runtime.InteropServices.ComTypes.IConnectionPointContainer]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IConnectionPointContainer]:
+        ...
+
+    def unadvise(self, dw_cookie: int) -> None:
+        ...
+
+
+class IEnumConnectionPoints(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def clone(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumConnectionPoints]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumConnectionPoints]:
+        ...
+
+    def next(self, celt: int, rgelt: typing.List[System.Runtime.InteropServices.ComTypes.IConnectionPoint], pcelt_fetched: System.IntPtr) -> int:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+    def skip(self, celt: int) -> int:
+        ...
+
+
+class SYSKIND(Enum):
+    """This class has no documentation."""
+
+    SYS_WIN_16 = 0
+
+    SYS_WIN_32 = ...
+
+    SYS_MAC = ...
+
+    SYS_WIN_64 = ...
+
+
+class LIBFLAGS(Enum):
+    """This class has no documentation."""
+
+    LIBFLAG_FRESTRICTED = ...
+
+    LIBFLAG_FCONTROL = ...
+
+    LIBFLAG_FHIDDEN = ...
+
+    LIBFLAG_FHASDISKIMAGE = ...
+
+
+class TYPELIBATTR:
+    """This class has no documentation."""
+
+    @property
+    def guid(self) -> System.Guid:
+        ...
+
+    @guid.setter
+    def guid(self, value: System.Guid) -> None:
+        ...
+
+    @property
+    def lcid(self) -> int:
+        ...
+
+    @lcid.setter
+    def lcid(self, value: int) -> None:
+        ...
+
+    @property
+    def syskind(self) -> System.Runtime.InteropServices.ComTypes.SYSKIND:
+        ...
+
+    @syskind.setter
+    def syskind(self, value: System.Runtime.InteropServices.ComTypes.SYSKIND) -> None:
+        ...
+
+    @property
+    def w_major_ver_num(self) -> int:
+        ...
+
+    @w_major_ver_num.setter
+    def w_major_ver_num(self, value: int) -> None:
+        ...
+
+    @property
+    def w_minor_ver_num(self) -> int:
+        ...
+
+    @w_minor_ver_num.setter
+    def w_minor_ver_num(self, value: int) -> None:
+        ...
+
+    @property
+    def w_lib_flags(self) -> System.Runtime.InteropServices.ComTypes.LIBFLAGS:
+        ...
+
+    @w_lib_flags.setter
+    def w_lib_flags(self, value: System.Runtime.InteropServices.ComTypes.LIBFLAGS) -> None:
+        ...
+
+
+class ITypeInfo2(System.Runtime.InteropServices.ComTypes.ITypeInfo, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_all_cust_data(self, p_cust_data: System.IntPtr) -> None:
+        ...
+
+    def get_all_func_cust_data(self, index: int, p_cust_data: System.IntPtr) -> None:
+        ...
+
+    def get_all_impl_type_cust_data(self, index: int, p_cust_data: System.IntPtr) -> None:
+        ...
+
+    def get_all_param_cust_data(self, index_func: int, index_param: int, p_cust_data: System.IntPtr) -> None:
+        ...
+
+    def get_all_var_cust_data(self, index: int, p_cust_data: System.IntPtr) -> None:
+        ...
+
+    def get_cust_data(self, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
+        ...
+
+    def get_documentation_2(self, memid: int, pbstr_help_string: typing.Optional[str], pdw_help_string_context: typing.Optional[int], pbstr_help_string_dll: typing.Optional[str]) -> typing.Tuple[None, str, int, str]:
+        ...
+
+    def get_func_cust_data(self, index: int, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
+        ...
+
+    def get_func_index_of_mem_id(self, memid: int, inv_kind: System.Runtime.InteropServices.ComTypes.INVOKEKIND, p_func_index: typing.Optional[int]) -> typing.Tuple[None, int]:
+        ...
+
+    def get_impl_type_cust_data(self, index: int, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
+        ...
+
+    def get_param_cust_data(self, index_func: int, index_param: int, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
+        ...
+
+    def get_type_flags(self, p_type_flags: typing.Optional[int]) -> typing.Tuple[None, int]:
+        ...
+
+    def get_type_kind(self, p_type_kind: typing.Optional[System.Runtime.InteropServices.ComTypes.TYPEKIND]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.TYPEKIND]:
+        ...
+
+    def get_var_cust_data(self, index: int, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
+        ...
+
+    def get_var_index_of_mem_id(self, memid: int, p_var_index: typing.Optional[int]) -> typing.Tuple[None, int]:
         ...
 
 
@@ -1026,22 +1502,6 @@ class IPersistFile(metaclass=abc.ABCMeta):
         ...
 
 
-class IEnumConnectionPoints(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def clone(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumConnectionPoints]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumConnectionPoints]:
-        ...
-
-    def next(self, celt: int, rgelt: typing.List[System.Runtime.InteropServices.ComTypes.IConnectionPoint], pcelt_fetched: System.IntPtr) -> int:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-    def skip(self, celt: int) -> int:
-        ...
-
-
 class IConnectionPointContainer(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -1049,466 +1509,6 @@ class IConnectionPointContainer(metaclass=abc.ABCMeta):
         ...
 
     def find_connection_point(self, riid: System.Guid, pp_cp: typing.Optional[System.Runtime.InteropServices.ComTypes.IConnectionPoint]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IConnectionPoint]:
-        ...
-
-
-class CONNECTDATA:
-    """This class has no documentation."""
-
-    @property
-    def p_unk(self) -> System.Object:
-        ...
-
-    @p_unk.setter
-    def p_unk(self, value: System.Object) -> None:
-        ...
-
-    @property
-    def dw_cookie(self) -> int:
-        ...
-
-    @dw_cookie.setter
-    def dw_cookie(self, value: int) -> None:
-        ...
-
-
-class IEnumConnections(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def clone(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumConnections]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumConnections]:
-        ...
-
-    def next(self, celt: int, rgelt: typing.List[System.Runtime.InteropServices.ComTypes.CONNECTDATA], pcelt_fetched: System.IntPtr) -> int:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-    def skip(self, celt: int) -> int:
-        ...
-
-
-class IConnectionPoint(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def advise(self, p_unk_sink: typing.Any, pdw_cookie: typing.Optional[int]) -> typing.Tuple[None, int]:
-        ...
-
-    def enum_connections(self, pp_enum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumConnections]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumConnections]:
-        ...
-
-    def get_connection_interface(self, p_iid: typing.Optional[System.Guid]) -> typing.Tuple[None, System.Guid]:
-        ...
-
-    def get_connection_point_container(self, pp_cpc: typing.Optional[System.Runtime.InteropServices.ComTypes.IConnectionPointContainer]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IConnectionPointContainer]:
-        ...
-
-    def unadvise(self, dw_cookie: int) -> None:
-        ...
-
-
-class FILETIME:
-    """This class has no documentation."""
-
-    @property
-    def dw_low_date_time(self) -> int:
-        ...
-
-    @dw_low_date_time.setter
-    def dw_low_date_time(self, value: int) -> None:
-        ...
-
-    @property
-    def dw_high_date_time(self) -> int:
-        ...
-
-    @dw_high_date_time.setter
-    def dw_high_date_time(self, value: int) -> None:
-        ...
-
-
-class STATSTG:
-    """This class has no documentation."""
-
-    @property
-    def pwcs_name(self) -> str:
-        ...
-
-    @pwcs_name.setter
-    def pwcs_name(self, value: str) -> None:
-        ...
-
-    @property
-    def type(self) -> int:
-        ...
-
-    @type.setter
-    def type(self, value: int) -> None:
-        ...
-
-    @property
-    def cb_size(self) -> int:
-        ...
-
-    @cb_size.setter
-    def cb_size(self, value: int) -> None:
-        ...
-
-    @property
-    def mtime(self) -> System.Runtime.InteropServices.ComTypes.FILETIME:
-        ...
-
-    @mtime.setter
-    def mtime(self, value: System.Runtime.InteropServices.ComTypes.FILETIME) -> None:
-        ...
-
-    @property
-    def ctime(self) -> System.Runtime.InteropServices.ComTypes.FILETIME:
-        ...
-
-    @ctime.setter
-    def ctime(self, value: System.Runtime.InteropServices.ComTypes.FILETIME) -> None:
-        ...
-
-    @property
-    def atime(self) -> System.Runtime.InteropServices.ComTypes.FILETIME:
-        ...
-
-    @atime.setter
-    def atime(self, value: System.Runtime.InteropServices.ComTypes.FILETIME) -> None:
-        ...
-
-    @property
-    def grf_mode(self) -> int:
-        ...
-
-    @grf_mode.setter
-    def grf_mode(self, value: int) -> None:
-        ...
-
-    @property
-    def grf_locks_supported(self) -> int:
-        ...
-
-    @grf_locks_supported.setter
-    def grf_locks_supported(self, value: int) -> None:
-        ...
-
-    @property
-    def clsid(self) -> System.Guid:
-        ...
-
-    @clsid.setter
-    def clsid(self, value: System.Guid) -> None:
-        ...
-
-    @property
-    def grf_state_bits(self) -> int:
-        ...
-
-    @grf_state_bits.setter
-    def grf_state_bits(self, value: int) -> None:
-        ...
-
-    @property
-    def reserved(self) -> int:
-        ...
-
-    @reserved.setter
-    def reserved(self, value: int) -> None:
-        ...
-
-
-class IStream(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def clone(self, ppstm: typing.Optional[System.Runtime.InteropServices.ComTypes.IStream]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IStream]:
-        ...
-
-    def commit(self, grf_commit_flags: int) -> None:
-        ...
-
-    def copy_to(self, pstm: System.Runtime.InteropServices.ComTypes.IStream, cb: int, pcb_read: System.IntPtr, pcb_written: System.IntPtr) -> None:
-        ...
-
-    def lock_region(self, lib_offset: int, cb: int, dw_lock_type: int) -> None:
-        ...
-
-    def read(self, pv: typing.List[int], cb: int, pcb_read: System.IntPtr) -> None:
-        ...
-
-    def revert(self) -> None:
-        ...
-
-    def seek(self, dlib_move: int, dw_origin: int, plib_new_position: System.IntPtr) -> None:
-        ...
-
-    def set_size(self, lib_new_size: int) -> None:
-        ...
-
-    def stat(self, pstatstg: typing.Optional[System.Runtime.InteropServices.ComTypes.STATSTG], grf_stat_flag: int) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.STATSTG]:
-        ...
-
-    def unlock_region(self, lib_offset: int, cb: int, dw_lock_type: int) -> None:
-        ...
-
-    def write(self, pv: typing.List[int], cb: int, pcb_written: System.IntPtr) -> None:
-        ...
-
-
-class BIND_OPTS:
-    """This class has no documentation."""
-
-    @property
-    def cb_struct(self) -> int:
-        ...
-
-    @cb_struct.setter
-    def cb_struct(self, value: int) -> None:
-        ...
-
-    @property
-    def grf_flags(self) -> int:
-        ...
-
-    @grf_flags.setter
-    def grf_flags(self, value: int) -> None:
-        ...
-
-    @property
-    def grf_mode(self) -> int:
-        ...
-
-    @grf_mode.setter
-    def grf_mode(self, value: int) -> None:
-        ...
-
-    @property
-    def dw_tick_count_deadline(self) -> int:
-        ...
-
-    @dw_tick_count_deadline.setter
-    def dw_tick_count_deadline(self, value: int) -> None:
-        ...
-
-
-class IEnumMoniker(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def clone(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumMoniker]:
-        ...
-
-    def next(self, celt: int, rgelt: typing.List[System.Runtime.InteropServices.ComTypes.IMoniker], pcelt_fetched: System.IntPtr) -> int:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-    def skip(self, celt: int) -> int:
-        ...
-
-
-class IRunningObjectTable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def enum_running(self, ppenum_moniker: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumMoniker]:
-        ...
-
-    def get_object(self, pmk_object_name: System.Runtime.InteropServices.ComTypes.IMoniker, ppunk_object: typing.Optional[typing.Any]) -> typing.Tuple[int, typing.Any]:
-        ...
-
-    def get_time_of_last_change(self, pmk_object_name: System.Runtime.InteropServices.ComTypes.IMoniker, pfiletime: typing.Optional[System.Runtime.InteropServices.ComTypes.FILETIME]) -> typing.Tuple[int, System.Runtime.InteropServices.ComTypes.FILETIME]:
-        ...
-
-    def is_running(self, pmk_object_name: System.Runtime.InteropServices.ComTypes.IMoniker) -> int:
-        ...
-
-    def note_change_time(self, dw_register: int, pfiletime: System.Runtime.InteropServices.ComTypes.FILETIME) -> None:
-        ...
-
-    def register(self, grf_flags: int, punk_object: typing.Any, pmk_object_name: System.Runtime.InteropServices.ComTypes.IMoniker) -> int:
-        ...
-
-    def revoke(self, dw_register: int) -> None:
-        ...
-
-
-class IEnumString(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def clone(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumString]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumString]:
-        ...
-
-    def next(self, celt: int, rgelt: typing.List[str], pcelt_fetched: System.IntPtr) -> int:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-    def skip(self, celt: int) -> int:
-        ...
-
-
-class IBindCtx(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def enum_object_param(self, ppenum: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumString]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumString]:
-        ...
-
-    def get_bind_options(self, pbindopts: System.Runtime.InteropServices.ComTypes.BIND_OPTS) -> None:
-        ...
-
-    def get_object_param(self, psz_key: str, ppunk: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
-        ...
-
-    def get_running_object_table(self, pprot: typing.Optional[System.Runtime.InteropServices.ComTypes.IRunningObjectTable]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IRunningObjectTable]:
-        ...
-
-    def register_object_bound(self, punk: typing.Any) -> None:
-        ...
-
-    def register_object_param(self, psz_key: str, punk: typing.Any) -> None:
-        ...
-
-    def release_bound_objects(self) -> None:
-        ...
-
-    def revoke_object_bound(self, punk: typing.Any) -> None:
-        ...
-
-    def revoke_object_param(self, psz_key: str) -> int:
-        ...
-
-    def set_bind_options(self, pbindopts: System.Runtime.InteropServices.ComTypes.BIND_OPTS) -> None:
-        ...
-
-
-class IMoniker(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def bind_to_object(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, riid_result: System.Guid, ppv_result: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
-        ...
-
-    def bind_to_storage(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, riid: System.Guid, ppv_obj: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
-        ...
-
-    def common_prefix_with(self, pmk_other: System.Runtime.InteropServices.ComTypes.IMoniker, ppmk_prefix: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
-        ...
-
-    def compose_with(self, pmk_right: System.Runtime.InteropServices.ComTypes.IMoniker, f_only_if_not_generic: bool, ppmk_composite: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
-        ...
-
-    def enum(self, f_forward: bool, ppenum_moniker: typing.Optional[System.Runtime.InteropServices.ComTypes.IEnumMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IEnumMoniker]:
-        ...
-
-    def get_class_id(self, p_class_id: typing.Optional[System.Guid]) -> typing.Tuple[None, System.Guid]:
-        ...
-
-    def get_display_name(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, ppsz_display_name: typing.Optional[str]) -> typing.Tuple[None, str]:
-        ...
-
-    def get_size_max(self, pcb_size: typing.Optional[int]) -> typing.Tuple[None, int]:
-        ...
-
-    def get_time_of_last_change(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, p_file_time: typing.Optional[System.Runtime.InteropServices.ComTypes.FILETIME]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.FILETIME]:
-        ...
-
-    def hash(self, pdw_hash: typing.Optional[int]) -> typing.Tuple[None, int]:
-        ...
-
-    def inverse(self, ppmk: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
-        ...
-
-    def is_dirty(self) -> int:
-        ...
-
-    def is_equal(self, pmk_other_moniker: System.Runtime.InteropServices.ComTypes.IMoniker) -> int:
-        ...
-
-    def is_running(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, pmk_newly_running: System.Runtime.InteropServices.ComTypes.IMoniker) -> int:
-        ...
-
-    def is_system_moniker(self, pdw_mksys: typing.Optional[int]) -> typing.Tuple[int, int]:
-        ...
-
-    def load(self, p_stm: System.Runtime.InteropServices.ComTypes.IStream) -> None:
-        ...
-
-    def parse_display_name(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, pmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, psz_display_name: str, pch_eaten: typing.Optional[int], ppmk_out: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, int, System.Runtime.InteropServices.ComTypes.IMoniker]:
-        ...
-
-    def reduce(self, pbc: System.Runtime.InteropServices.ComTypes.IBindCtx, dw_reduce_how_far: int, ppmk_to_left: System.Runtime.InteropServices.ComTypes.IMoniker, ppmk_reduced: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
-        ...
-
-    def relative_path_to(self, pmk_other: System.Runtime.InteropServices.ComTypes.IMoniker, ppmk_rel_path: typing.Optional[System.Runtime.InteropServices.ComTypes.IMoniker]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.IMoniker]:
-        ...
-
-    def save(self, p_stm: System.Runtime.InteropServices.ComTypes.IStream, f_clear_dirty: bool) -> None:
-        ...
-
-
-class ITypeLib2(System.Runtime.InteropServices.ComTypes.ITypeLib, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_all_cust_data(self, p_cust_data: System.IntPtr) -> None:
-        ...
-
-    def get_cust_data(self, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
-        ...
-
-    def get_documentation_2(self, index: int, pbstr_help_string: typing.Optional[str], pdw_help_string_context: typing.Optional[int], pbstr_help_string_dll: typing.Optional[str]) -> typing.Tuple[None, str, int, str]:
-        ...
-
-    def get_lib_statistics(self, pc_unique_names: System.IntPtr, pcch_unique_names: typing.Optional[int]) -> typing.Tuple[None, int]:
-        ...
-
-
-class ITypeInfo2(System.Runtime.InteropServices.ComTypes.ITypeInfo, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_all_cust_data(self, p_cust_data: System.IntPtr) -> None:
-        ...
-
-    def get_all_func_cust_data(self, index: int, p_cust_data: System.IntPtr) -> None:
-        ...
-
-    def get_all_impl_type_cust_data(self, index: int, p_cust_data: System.IntPtr) -> None:
-        ...
-
-    def get_all_param_cust_data(self, index_func: int, index_param: int, p_cust_data: System.IntPtr) -> None:
-        ...
-
-    def get_all_var_cust_data(self, index: int, p_cust_data: System.IntPtr) -> None:
-        ...
-
-    def get_cust_data(self, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
-        ...
-
-    def get_documentation_2(self, memid: int, pbstr_help_string: typing.Optional[str], pdw_help_string_context: typing.Optional[int], pbstr_help_string_dll: typing.Optional[str]) -> typing.Tuple[None, str, int, str]:
-        ...
-
-    def get_func_cust_data(self, index: int, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
-        ...
-
-    def get_func_index_of_mem_id(self, memid: int, inv_kind: System.Runtime.InteropServices.ComTypes.INVOKEKIND, p_func_index: typing.Optional[int]) -> typing.Tuple[None, int]:
-        ...
-
-    def get_impl_type_cust_data(self, index: int, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
-        ...
-
-    def get_param_cust_data(self, index_func: int, index_param: int, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
-        ...
-
-    def get_type_flags(self, p_type_flags: typing.Optional[int]) -> typing.Tuple[None, int]:
-        ...
-
-    def get_type_kind(self, p_type_kind: typing.Optional[System.Runtime.InteropServices.ComTypes.TYPEKIND]) -> typing.Tuple[None, System.Runtime.InteropServices.ComTypes.TYPEKIND]:
-        ...
-
-    def get_var_cust_data(self, index: int, guid: System.Guid, p_var_val: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any]:
-        ...
-
-    def get_var_index_of_mem_id(self, memid: int, p_var_index: typing.Optional[int]) -> typing.Tuple[None, int]:
         ...
 
 

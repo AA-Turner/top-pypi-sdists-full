@@ -124,6 +124,13 @@ def mock_submit_job(mocker):
     )
 
 
+def get_list(xml, name):
+    element = xml.find(f".//Parameter[@name='{name}']/value")
+    if element is None or element.text is None:
+        return []
+    return element.text.split(";")
+
+
 @pytest.mark.parametrize(
     (
         "cwl_worflow",
@@ -178,22 +185,16 @@ def test_cwl_job_submit(
     mock_submit_job.assert_called_once_with(job)
     result_xml = ET.fromstring(result)
 
-    def get_list(name):
-        element = result_xml.find(f".//Parameter[@name='{name}']/value")
-        if element is None or element.text is None:
-            return []
-        return element.text.split(";")
-
-    input_data = get_list("InputData")
+    input_data = get_list(result_xml, "InputData")
     assert input_data == expected_input_data
 
-    output_sandbox = get_list("OutputSandbox")
+    output_sandbox = get_list(result_xml, "OutputSandbox")
     assert set(expected_output_sandbox).issubset(output_sandbox)
 
-    input_sandbox = get_list("InputSandbox")
+    input_sandbox = get_list(result_xml, "InputSandbox")
     assert set(expected_input_sandbox).issubset(input_sandbox)
 
-    output_data = get_list("OutputData")
+    output_data = get_list(result_xml, "OutputData")
     assert output_data == expected_output_data
 
     if expected_output_data:
@@ -228,22 +229,99 @@ def test_datapipe_cwl_job(mock_submit_job):
     mock_submit_job.assert_called_once_with(job)
     result_xml = ET.fromstring(result)
 
-    if input_data := result_xml.find(".//Parameter[@name='InputData']/value"):
-        input_data = input_data.text.split(";")
-        assert len(input_data) == 1
-        assert input_data[0] == "gamma_cone10_run010000.simtel.zst"
+    input_data = get_list(result_xml, "InputData")
+    assert len(input_data) == 1
+    assert (
+        input_data[0]
+        == "LFN:/ctao/simpipe/prod6/gamma-diffuse/010xxx/gamma_cone10_run010000.simtel.zst"
+    )
 
-    if input_sandbox := result_xml.find(".//Parameter[@name='InputSandbox']/value"):
-        input_sandbox = input_sandbox.text.split(";")
-        assert len(input_sandbox) == 1
-        assert input_sandbox[0] == "process_config.yaml"
+    input_sandbox = get_list(result_xml, "InputSandbox")
+    assert len(input_sandbox) == 3
+    assert "process_config.yaml" in input_sandbox[-1]
 
-    if output_data := result_xml.find(".//Parameter[@name='OutputData']/value"):
-        output_data = output_data.text.split(";")
-        assert len(output_data) == 1
-        assert output_data[0] == "LFN:/ctao/datapipe/test.dl1.h5"
+    output_data = get_list(result_xml, "OutputData")
+    assert len(output_data) == 1
+    assert output_data[0] == "LFN:/ctao/datapipe/test.dl1.h5"
 
-    if output_sandbox := result_xml.find(".//Parameter[@name='OutputSandbox']/value"):
-        output_sandbox = output_sandbox.text.split(";")
-        assert len(job.output_sandbox) == 1
-        assert job.output_sandbox[0] == "ctapipe-process_dl0_dl1.provenance.log"
+    output_sandbox = get_list(result_xml, "OutputSandbox")
+    assert len(output_sandbox) == 2
+    assert output_sandbox == [
+        "ctapipe-process.log",
+        "ctapipe-process_dl0_dl1.provenance.log",
+    ]
+
+
+def test_datapipe_cwl_workflow_job(mock_submit_job):
+    job = CWLJob(
+        "tests/resources/cwl/process_multiple/process_dl0_dl1_multiple.cwl",
+        "tests/resources/cwl/process_multiple/inputs_dl0_dl1_multiple.yaml",
+        cvmfs_base_path=Path("/cvmfs/ctao.dpps.test/"),
+    )
+    assert len(job.input_data) == 0
+
+    assert len(job.input_sandbox) == 2
+    assert "gamma_1.dl1_img.h5" in job.input_sandbox[0]
+    assert "gamma_2.dl1_img.h5" in job.input_sandbox[1]
+
+    assert len(job.output_data) == 0
+    assert job.output_sandbox == [
+        "merged.dl1.h5",
+        "ctapipe-merge.log",
+        "ctapipe-merge.provenance.log",
+    ]
+
+    result = job.submit()
+    mock_submit_job.assert_called_once_with(job)
+    result_xml = ET.fromstring(result)
+
+    input_data = get_list(result_xml, "InputData")
+    assert input_data == []
+
+    input_sandbox = get_list(result_xml, "InputSandbox")
+    assert len(input_sandbox) == 4  # cwl + inputs + input_sandbox
+
+    output_data = get_list(result_xml, "OutputData")
+    assert len(output_data) == 0
+
+    output_sandbox = get_list(result_xml, "OutputSandbox")
+    assert len(output_sandbox) == 3
+    assert output_sandbox[0] == "merged.dl1.h5"
+
+
+# TODO: parametrize with the above test?
+def test_datapipe_dl0_dl2_workflow(mock_submit_job):
+    """Handling JS requirements."""
+    job = CWLJob(
+        "tests/resources/cwl/datapipe_dl0_dl2/workflow_dl0_to_dl2.cwl",
+        "tests/resources/cwl/datapipe_dl0_dl2/inputs_workflow_dl0_to_dl2.yaml",
+        cvmfs_base_path=Path("/cvmfs/ctao.dpps.test/"),
+    )
+    assert len(job.input_data) == 1
+    assert job.input_data == [
+        "LFN:/ctao/simpipe/prod6/gamma-diffuse/010xxx/gamma_prod5.simtel.zst"
+    ]
+
+    assert len(job.input_sandbox) == 0  # if no processing config
+
+    assert len(job.output_data) == 0
+
+    assert job.output_sandbox == ["gamma_prod5.dl1.h5", "gamma_prod5.dl2.h5"]
+
+    result = job.submit()
+    mock_submit_job.assert_called_once_with(job)
+    result_xml = ET.fromstring(result)
+
+    input_data = get_list(result_xml, "InputData")
+    assert input_data == [
+        "LFN:/ctao/simpipe/prod6/gamma-diffuse/010xxx/gamma_prod5.simtel.zst"
+    ]
+
+    input_sandbox = get_list(result_xml, "InputSandbox")
+    assert len(input_sandbox) == 2  # cwl + inputs
+
+    output_data = get_list(result_xml, "OutputData")
+    assert len(output_data) == 0
+
+    output_sandbox = get_list(result_xml, "OutputSandbox")
+    assert output_sandbox == ["gamma_prod5.dl1.h5", "gamma_prod5.dl2.h5"]

@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -79,7 +79,7 @@ char* TCOD_console_vsprint(const char* fmt, va_list ap) {
     int i;
     for (i = 0; i < NB_BUFFERS; i++) {
       buflen[i] = INITIAL_SIZE;
-      msg[i] = calloc(sizeof(char), INITIAL_SIZE);
+      msg[i] = calloc(INITIAL_SIZE, sizeof(char));
     }
   }
   do {
@@ -100,7 +100,7 @@ char* TCOD_console_vsprint(const char* fmt, va_list ap) {
         buflen[current_buf] *= 2;
       }
       free(msg[current_buf]);
-      msg[current_buf] = calloc(sizeof(char), buflen[current_buf]);
+      msg[current_buf] = calloc(buflen[current_buf], sizeof(char));
       ok = false;
     }
   } while (!ok);
@@ -282,21 +282,21 @@ int TCOD_console_print_internal(
   miny = y;
   maxy = con->h - 1;
   if (rh > 0) {
-    maxy = MIN(maxy, y + rh - 1);
+    maxy = TCOD_MIN(maxy, y + rh - 1);
   }
   switch (align) {
     case TCOD_LEFT:
-      minx = MAX(0, x);
-      maxx = MIN(con->w - 1, x + rw - 1);
+      minx = TCOD_MAX(0, x);
+      maxx = TCOD_MIN(con->w - 1, x + rw - 1);
       break;
     case TCOD_RIGHT:
-      minx = MAX(0, x - rw + 1);
-      maxx = MIN(con->w - 1, x);
+      minx = TCOD_MAX(0, x - rw + 1);
+      maxx = TCOD_MIN(con->w - 1, x);
       break;
     case TCOD_CENTER:
     default:
-      minx = MAX(0, x - rw / 2);
-      maxx = MIN(con->w - 1, x + rw / 2);
+      minx = TCOD_MAX(0, x - rw / 2);
+      maxx = TCOD_MIN(con->w - 1, x + rw / 2);
       break;
   }
 
@@ -443,7 +443,7 @@ wchar_t* TCOD_console_vsprint_utf(const wchar_t* fmt, va_list ap) {
     int i;
     for (i = 0; i < NB_BUFFERS; i++) {
       buflen[i] = INITIAL_SIZE;
-      msg[i] = calloc(sizeof(wchar_t), INITIAL_SIZE);
+      msg[i] = calloc(INITIAL_SIZE, sizeof(wchar_t));
     }
   }
   do {
@@ -461,7 +461,7 @@ wchar_t* TCOD_console_vsprint_utf(const wchar_t* fmt, va_list ap) {
         buflen[current_buf] *= 2;
       }
       free(msg[current_buf]);
-      msg[current_buf] = calloc(sizeof(wchar_t), buflen[current_buf]);
+      msg[current_buf] = calloc(buflen[current_buf], sizeof(wchar_t));
       ok = false;
     }
   } while (!ok);
@@ -538,20 +538,20 @@ int TCOD_console_print_internal_utf(
   oldBack = con->back;
   miny = y;
   maxy = con->h - 1;
-  if (rh > 0) maxy = MIN(maxy, y + rh - 1);
+  if (rh > 0) maxy = TCOD_MIN(maxy, y + rh - 1);
   switch (align) {
     case TCOD_LEFT:
-      minx = MAX(0, x);
-      maxx = MIN(con->w - 1, x + rw - 1);
+      minx = TCOD_MAX(0, x);
+      maxx = TCOD_MIN(con->w - 1, x + rw - 1);
       break;
     case TCOD_RIGHT:
-      minx = MAX(0, x - rw + 1);
-      maxx = MIN(con->w - 1, x);
+      minx = TCOD_MAX(0, x - rw + 1);
+      maxx = TCOD_MIN(con->w - 1, x);
       break;
     case TCOD_CENTER:
     default:
-      minx = MAX(0, x - rw / 2);
-      maxx = MIN(con->w - 1, x + rw / 2);
+      minx = TCOD_MAX(0, x - rw / 2);
+      maxx = TCOD_MIN(con->w - 1, x + rw / 2);
       break;
   }
 
@@ -1180,7 +1180,7 @@ static int printn_internal_(const PrintParams* __restrict params, size_t n, cons
       top += 1;
     }
   }
-  return MIN(top, bottom) - y + 1;
+  return TCOD_MIN(top, bottom) - y + 1;
 }
 TCOD_NODISCARD
 static int vprintf_internal_(const PrintParams* __restrict params, const char* __restrict fmt, va_list args) {

@@ -76,6 +76,7 @@ async def entrada_de_notas_503(task: RpaProcessoEntradaDTO) -> RpaRetornoProcess
 
         # Seta config entrada na var nota para melhor entendimento
         nota = task.configEntrada
+        cfop = nota["cfop"]
         multiplicador_timeout = int(float(task.sistemas[0].timeout))
         set_variable("timeout_multiplicador", multiplicador_timeout)
 
@@ -364,8 +365,36 @@ async def entrada_de_notas_503(task: RpaProcessoEntradaDTO) -> RpaRetornoProcess
                         class_name="TDBIComboBox", found_index=0
                     )
             combo_box_natureza_operacao.click()
+            
             await worker_sleep(4)
-            set_combobox("||List", "1557-ENTRADAS P/TRANSFERENCIA DE CONSUMO FILIAL")
+            
+            # Verifica tipo de CFOP
+            if cfop == "6557":
+                try:
+                    set_combobox("||List", "2557-ENTRADAS P/ TRANSFERENCIA DE CONSUMO - FILIAL")
+                except:
+                    return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"Erro ao selecionar 2557-ENTRADAS P/ TRANSFERÊNCIA DE CONSUMO FILIAL.",
+                    status=RpaHistoricoStatusEnum.Falha,
+                )
+            elif cfop == "5557":
+                try:
+                    set_combobox("||List", "1557-ENTRADAS P/TRANSFERENCIA DE CONSUMO FILIAL")
+                except:
+                    return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"Erro ao selecionar 1557-ENTRADAS P/TRANSFERENCIA DE CONSUMO FILIAL.",
+                    status=RpaHistoricoStatusEnum.Falha,
+                )
+            else:
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"CFOP diferente de 5557 e 6557. Verifique manualmente.",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                )
+            
             await worker_sleep(3)
 
             pyautogui.hotkey("tab")
@@ -995,3 +1024,4 @@ async def entrada_de_notas_503(task: RpaProcessoEntradaDTO) -> RpaRetornoProcess
         logger.error(observacao)
         console.print(observacao, style="bold red")
         return {"sucesso": False, "retorno": observacao}
+

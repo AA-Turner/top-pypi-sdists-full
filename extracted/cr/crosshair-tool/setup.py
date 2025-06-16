@@ -14,7 +14,7 @@ from setuptools import Extension, find_packages, setup  # type: ignore
 # the pre-commit checks through check_init_and_setup_coincide.py.
 setup(
     name="crosshair-tool",
-    version="0.0.92",  # Update this in crosshair/__init__.py too
+    version="0.0.93",  # Update this in crosshair/__init__.py too
     author="Phillip Schanely",
     author_email="pschanely+vE7F@gmail.com",
     ext_modules=[
@@ -66,6 +66,7 @@ setup(
             "sphinx>=3.4.3",
             "sphinx-rtd-theme>=0.5.1",
             "rst2pdf>=0.102",
+            "z3-solver==4.14.1.0",  # TODO: the 4.15 release has significant performance improvements
         ]
     },
     classifiers=[

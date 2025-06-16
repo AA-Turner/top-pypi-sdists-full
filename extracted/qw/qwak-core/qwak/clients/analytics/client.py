@@ -1,6 +1,8 @@
 from datetime import timedelta
 from time import sleep, time
+from typing import Optional
 
+import grpc
 from _qwak_proto.qwak.analytics.analytics_pb2 import (
     QueryResultDownloadURLParams,
     QueryStatus,
@@ -14,8 +16,9 @@ from _qwak_proto.qwak.analytics.analytics_service_pb2 import (
 from _qwak_proto.qwak.analytics.analytics_service_pb2_grpc import (
     AnalyticsQueryServiceStub,
 )
-from dependency_injector.wiring import Provide
+from qwak.clients.location_discovery import LocationDiscoveryClient
 from qwak.inner.di_configuration import QwakContainer
+from qwak.inner.tool.grpc.grpc_tools import create_grpc_channel
 
 
 class AnalyticsEngineError(RuntimeError):
@@ -26,8 +29,8 @@ class AnalyticsEngineError(RuntimeError):
 
 
 class AnalyticsEngineClient:
-    def __init__(self, grpc_channel=Provide[QwakContainer.core_grpc_channel]):
-        self.grpc_client = AnalyticsQueryServiceStub(grpc_channel)
+    def __init__(self, grpc_channel: Optional[QwakContainer.core_grpc_channel] = None):
+        self.grpc_client = self._create_grpc_client(grpc_channel)
 
     def get_analytics_data(self, query: str, timeout: timedelta = None) -> str:
         """
@@ -79,3 +82,25 @@ class AnalyticsEngineClient:
         request = GetQueryResultDownloadURLRequest(params=request_params)
         response = self.grpc_client.GetQueryResultDownloadURL(request)
         return response.download_url
+
+    def _create_grpc_client(
+        self, grpc_channel: Optional[grpc.Channel] = None
+    ) -> AnalyticsQueryServiceStub:
+        if grpc_channel:
+            return AnalyticsQueryServiceStub(grpc_channel)
+
+        channel = create_grpc_channel(
+            url=self._get_analytics_engine_url(),
+            status_for_retry=(
+                grpc.StatusCode.UNAVAILABLE,
+                grpc.StatusCode.CANCELLED,
+            ),
+        )
+        return AnalyticsQueryServiceStub(channel)
+
+    @staticmethod
+    def _get_analytics_engine_url() -> str:
+        """
+        Fetches the analytics engine service URL from the LocationDiscoveryService.
+        """
+        return LocationDiscoveryClient().get_analytics_engine().service_url

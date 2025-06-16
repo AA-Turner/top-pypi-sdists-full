@@ -7,12 +7,12 @@ from dataclasses import dataclass
 from types import EllipsisType
 from typing import Any, Literal
 
-from mcp.types import EmbeddedResource, ImageContent, TextContent, ToolAnnotations
+from mcp.types import ToolAnnotations
 from pydantic import ConfigDict
 
 from fastmcp.tools.tool import ParsedFunction, Tool
 from fastmcp.utilities.logging import get_logger
-from fastmcp.utilities.types import get_cached_typeadapter
+from fastmcp.utilities.types import MCPContent, get_cached_typeadapter
 
 logger = get_logger(__name__)
 
@@ -97,6 +97,7 @@ class ArgTransform:
         type: New type for the argument. Use ... for no change.
         hide: If True, hide this argument from clients but pass a constant value to parent.
         required: If True, make argument required (remove default). Use ... for no change.
+        examples: Examples for the argument. Use ... for no change.
 
     Examples:
         # Rename argument 'old_name' to 'new_name'
@@ -137,6 +138,7 @@ class ArgTransform:
     type: Any | EllipsisType = NotSet
     hide: bool = False
     required: Literal[True] | EllipsisType = NotSet
+    examples: Any | EllipsisType = NotSet
 
     def __post_init__(self):
         """Validate that only one of default or default_factory is provided."""
@@ -200,9 +202,7 @@ class TransformedTool(Tool):
     forwarding_fn: Callable[..., Any]  # Always present, handles arg transformation
     transform_args: dict[str, ArgTransform]
 
-    async def run(
-        self, arguments: dict[str, Any]
-    ) -> list[TextContent | ImageContent | EmbeddedResource]:
+    async def run(self, arguments: dict[str, Any]) -> list[MCPContent]:
         """Run the tool with context set for forward() functions.
 
         This method executes the tool's function while setting up the context
@@ -583,6 +583,10 @@ class TransformedTool(Tool):
             type_schema = get_cached_typeadapter(transform.type).json_schema()
             # Update the schema with the type information from TypeAdapter
             new_schema.update(type_schema)
+
+        # Handle examples transformation
+        if transform.examples is not NotSet:
+            new_schema["examples"] = transform.examples
 
         return new_name, new_schema, is_required
 

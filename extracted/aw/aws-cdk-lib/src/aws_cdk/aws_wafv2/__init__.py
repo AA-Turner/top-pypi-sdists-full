@@ -4377,7 +4377,7 @@ class CfnRuleGroup(
 
                If the specified header isn't present in the request, AWS WAF doesn't apply the rule to the web request at all.
 
-            This configuration is used for ``GeoMatchStatement`` and ``RateBasedStatement`` . For ``IPSetReferenceStatement`` , use ``IPSetForwardedIPConfig`` instead.
+            This configuration is used for ``GeoMatchStatement`` , ``AsnMatchStatement`` , and ``RateBasedStatement`` . For ``IPSetReferenceStatement`` , use ``IPSetForwardedIPConfig`` instead.
 
             AWS WAF only evaluates the first IP address found in the specified HTTP header.
 
@@ -11173,6 +11173,7 @@ class CfnWebACL(
         data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.DataProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        on_source_d_do_s_protection_config: typing.Any = None,
         rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -11190,6 +11191,7 @@ class CfnWebACL(
         :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL. This is a web ACL level data protection option. The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
         :param description: A description of the web ACL that helps with identification.
         :param name: The name of the web ACL. You cannot change the name of a web ACL after you create it.
+        :param on_source_d_do_s_protection_config: 
         :param rules: The rule statements used to identify the web requests that you want to manage. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
         :param token_domains: Specifies the domains that AWS WAF should accept in a web request token. This enables the use of tokens across multiple protected websites. When AWS WAF provides a token, it uses the domain of the AWS resource that the web ACL is protecting. If you don't specify a list of token domains, AWS WAF accepts tokens only for the domain of the protected resource. With a token domain list, AWS WAF accepts the resource's host domain plus all domains in the token domain list, including their prefixed subdomains.
@@ -11209,6 +11211,7 @@ class CfnWebACL(
             data_protection_config=data_protection_config,
             description=description,
             name=name,
+            on_source_d_do_s_protection_config=on_source_d_do_s_protection_config,
             rules=rules,
             tags=tags,
             token_domains=token_domains,
@@ -11465,6 +11468,18 @@ class CfnWebACL(
             type_hints = typing.get_type_hints(_typecheckingstub__191460374393c7b9829682ab4faa571596cd3c2090e46352a427930a25736975)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="onSourceDDoSProtectionConfig")
+    def on_source_d_do_s_protection_config(self) -> typing.Any:
+        return typing.cast(typing.Any, jsii.get(self, "onSourceDDoSProtectionConfig"))
+
+    @on_source_d_do_s_protection_config.setter
+    def on_source_d_do_s_protection_config(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1180464a1661a74085b880efee37841284ce892adac9d3cda8cb5c117c625ba2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "onSourceDDoSProtectionConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="rules")
@@ -14282,7 +14297,7 @@ class CfnWebACL(
 
                If the specified header isn't present in the request, AWS WAF doesn't apply the rule to the web request at all.
 
-            This configuration is used for ``GeoMatchStatement`` and ``RateBasedStatement`` . For ``IPSetReferenceStatement`` , use ``IPSetForwardedIPConfig`` instead.
+            This configuration is used for ``GeoMatchStatement`` , ``AsnMatchStatement`` , and ``RateBasedStatement`` . For ``IPSetReferenceStatement`` , use ``IPSetForwardedIPConfig`` instead.
 
             AWS WAF only evaluates the first IP address found in the specified HTTP header.
 
@@ -20580,6 +20595,7 @@ class CfnWebACLAssociationProps:
         "data_protection_config": "dataProtectionConfig",
         "description": "description",
         "name": "name",
+        "on_source_d_do_s_protection_config": "onSourceDDoSProtectionConfig",
         "rules": "rules",
         "tags": "tags",
         "token_domains": "tokenDomains",
@@ -20599,6 +20615,7 @@ class CfnWebACLProps:
         data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
+        on_source_d_do_s_protection_config: typing.Any = None,
         rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -20615,6 +20632,7 @@ class CfnWebACLProps:
         :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL. This is a web ACL level data protection option. The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
         :param description: A description of the web ACL that helps with identification.
         :param name: The name of the web ACL. You cannot change the name of a web ACL after you create it.
+        :param on_source_d_do_s_protection_config: 
         :param rules: The rule statements used to identify the web requests that you want to manage. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
         :param token_domains: Specifies the domains that AWS WAF should accept in a web request token. This enables the use of tokens across multiple protected websites. When AWS WAF provides a token, it uses the domain of the AWS resource that the web ACL is protecting. If you don't specify a list of token domains, AWS WAF accepts tokens only for the domain of the protected resource. With a token domain list, AWS WAF accepts the resource's host domain plus all domains in the token domain list, including their prefixed subdomains.
@@ -20638,6 +20656,7 @@ class CfnWebACLProps:
             check_type(argname="argument data_protection_config", value=data_protection_config, expected_type=type_hints["data_protection_config"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument on_source_d_do_s_protection_config", value=on_source_d_do_s_protection_config, expected_type=type_hints["on_source_d_do_s_protection_config"])
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument token_domains", value=token_domains, expected_type=type_hints["token_domains"])
@@ -20660,6 +20679,8 @@ class CfnWebACLProps:
             self._values["description"] = description
         if name is not None:
             self._values["name"] = name
+        if on_source_d_do_s_protection_config is not None:
+            self._values["on_source_d_do_s_protection_config"] = on_source_d_do_s_protection_config
         if rules is not None:
             self._values["rules"] = rules
         if tags is not None:
@@ -20803,6 +20824,14 @@ class CfnWebACLProps:
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def on_source_d_do_s_protection_config(self) -> typing.Any:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-onsourceddosprotectionconfig
+        '''
+        result = self._values.get("on_source_d_do_s_protection_config")
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def rules(
@@ -21747,6 +21776,7 @@ def _typecheckingstub__03030a65c492e95a1d1ae5ddafd6acbb9efdfa7e18b6367ac7e03eb8f
     data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    on_source_d_do_s_protection_config: typing.Any = None,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -21822,6 +21852,12 @@ def _typecheckingstub__b7cfda3db6502d36377ec778a8c90e7487c0f54a00cb343261a4d256a
 
 def _typecheckingstub__191460374393c7b9829682ab4faa571596cd3c2090e46352a427930a25736975(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1180464a1661a74085b880efee37841284ce892adac9d3cda8cb5c117c625ba2(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22584,6 +22620,7 @@ def _typecheckingstub__6e738df983d65d43590c0a02c03e6e0daa3a2097ae335371d22711838
     data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
+    on_source_d_do_s_protection_config: typing.Any = None,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,

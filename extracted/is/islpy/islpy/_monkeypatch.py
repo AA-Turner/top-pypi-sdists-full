@@ -5,7 +5,6 @@ from functools import update_wrapper
 from sys import intern
 from typing import (
     TYPE_CHECKING,
-    Any,
     ClassVar,
     Concatenate,
     Literal,
@@ -43,6 +42,10 @@ _CHECK_DIM_TYPES: tuple[_isl.dim_type, ...] = (
 
 # {{{ typing helpers
 
+T = TypeVar("T")
+P = ParamSpec("P")
+ResultT = TypeVar("ResultT")
+
 SelfT = TypeVar("SelfT")
 
 BasicT = TypeVar("BasicT", _isl.BasicSet, _isl.BasicMap)
@@ -62,35 +65,20 @@ MapOrBasic: TypeAlias = _isl.BasicMap | _isl.Map
 MapOrBasicT = TypeVar("MapOrBasicT", bound=MapOrBasic)
 
 SetOrMap: TypeAlias = _isl.BasicSet | _isl.Set | _isl.BasicMap | _isl.Map
-SetOrMapT = TypeVar("SetOrMapT", bound=SetOrMap)
+SetOrMapT = TypeVar("SetOrMapT", _isl.BasicSet, _isl.Set, _isl.BasicMap, _isl.Map)
 
 HasSpace: TypeAlias = (
     _isl.Space
-    | _isl.Aff
-    | _isl.BasicMap
-    | _isl.BasicSet
     | _isl.Constraint
     | _isl.LocalSpace
-    | _isl.Map
+    | _isl.Aff
     | _isl.MultiAff
-    | _isl.MultiId
-    | _isl.MultiPwAff
-    | _isl.MultiUnionPwAff
-    | _isl.MultiVal
-    | _isl.Point
     | _isl.PwAff
     | _isl.PwMultiAff
-    | _isl.PwQPolynomial
-    | _isl.PwQPolynomialFold
-    | _isl.QPolynomial
-    | _isl.QPolynomialFold
+    | _isl.BasicMap
+    | _isl.BasicSet
     | _isl.Set
-    | _isl.UnionMap
-    | _isl.UnionPwAff
-    | _isl.UnionPwMultiAff
-    | _isl.UnionPwQPolynomial
-    | _isl.UnionPwQPolynomialFold
-    | _isl.UnionSet
+    | _isl.Map
     )
 
 
@@ -108,34 +96,30 @@ class IslObject(Protocol):
 
 # {{{ copied verbatim from pytools to avoid numpy/pytools dependency
 
-F = TypeVar("F", bound=Callable[..., Any])
-
-
 class _HasKwargs:
     pass
 
 
-def _memoize_on_first_arg(function: F, cache_dict_name: str | None = None) -> F:
+def _memoize_on_first_arg(
+        function: Callable[Concatenate[T, P], ResultT], *,
+        cache_dict_name: str | None = None) -> Callable[Concatenate[T, P], ResultT]:
     """Like :func:`memoize_method`, but for functions that take the object
     in which do memoization information is stored as first argument.
 
     Supports cache deletion via ``function_name.clear_cache(self)``.
     """
-    from sys import intern
 
     if cache_dict_name is None:
         cache_dict_name = intern(
                 f"_memoize_dic_{function.__module__}{function.__name__}"
                 )
 
-    def wrapper(obj, *args, **kwargs):
-        if kwargs:
-            key = (_HasKwargs, frozenset(kwargs.items()), *args)
-        else:
-            key = args
+    def wrapper(obj: T, *args: P.args, **kwargs: P.kwargs) -> ResultT:
+        key = (_HasKwargs, frozenset(kwargs.items()), *args) if kwargs else args
 
+        assert cache_dict_name is not None
         try:
-            return getattr(obj, cache_dict_name)[key]
+            return cast("ResultT", getattr(obj, cache_dict_name)[key])
         except AttributeError:
             attribute_error = True
         except KeyError:
@@ -145,11 +129,10 @@ def _memoize_on_first_arg(function: F, cache_dict_name: str | None = None) -> F:
         if attribute_error:
             object.__setattr__(obj, cache_dict_name, {key: result})
             return result
-        else:
-            getattr(obj, cache_dict_name)[key] = result
-            return result
+        getattr(obj, cache_dict_name)[key] = result
+        return result
 
-    def clear_cache(obj):
+    def clear_cache(obj: object):
         object.__delattr__(obj, cache_dict_name)
 
     from functools import update_wrapper
@@ -159,7 +142,8 @@ def _memoize_on_first_arg(function: F, cache_dict_name: str | None = None) -> F:
     # into the function's dict is moderately sketchy.
     new_wrapper.clear_cache = clear_cache  # type: ignore[attr-defined]
 
-    return cast("F", new_wrapper)
+    return new_wrapper
+
 
 # }}}
 
@@ -197,7 +181,7 @@ def context_ne(self: object, other: object) -> bool:
     return not self.__eq__(other)
 
 
-def generic_reduce(self: IslObject):
+def generic_reduce(self: HasSpace):
     ctx = self.get_ctx()
     prn = _isl.Printer.to_str(ctx)
     prn = getattr(prn, f"print_{self._base_name}")(self)
@@ -624,16 +608,42 @@ def obj_get_var_dict(
 def obj_get_var_ids(
             self: HasSpace,
             dimtype: _isl.dim_type
-        ) -> Sequence[str]:
+        ) -> Sequence[str | None]:
     """Return a list of :class:`Id` instances for :class:`dim_type` *dimtype*."""
-    return [self.get_dim_name(dimtype, i) for i in range(self.dim(dimtype))]
+    return [
+        self.get_dim_name(dimtype, i)
+        for i in range(self.dim(dimtype))]
 
 
 @_memoize_on_first_arg
-def obj_get_var_names(self: HasSpace, dimtype: _isl.dim_type) -> Sequence[str]:
-    """Return a list of dim names (in order) for :class:`dim_type` *dimtype*."""
+def obj_get_var_names_not_none(
+            self: HasSpace,
+            dimtype: _isl.dim_type,
+        ) -> Sequence[str]:
+    """Return a list of dim names (in order) for :class:`dim_type` *dimtype*.
+
+    Raise :exc:`ValueError` if any of the names is *None*.
+
+    .. versionadded:: 2025.2.5
+    """
+    ndim = self.dim(dimtype)
+    res = [n
+        for i in range(ndim)
+        if (n := self.get_dim_name(dimtype, i)) is not None]
+    if len(res) != ndim:
+        raise ValueError("None encountered in dim names")
+    return res
+
+
+@_memoize_on_first_arg
+def obj_get_var_names(
+            self: HasSpace,
+            dimtype: _isl.dim_type,
+        ) -> Sequence[str | None]:
+    """Return a list of dim names (in order) for :class:`dim_type` *dimtype*.
+    """
     return [self.get_dim_name(dimtype, i)
-        for i in range(self.dim(dimtype))]
+            for i in range(self.dim(dimtype))]
 
 
 def pwaff_get_pieces(self: _isl.PwAff | _isl.Aff) -> list[tuple[_isl.Set, _isl.Aff]]:
@@ -671,7 +681,7 @@ def pw_get_aggregate_domain(self: _isl.PwAff | _isl.PwQPolynomial) -> _isl.Set:
 
     result = _isl.Set.empty(self.get_domain_space())
     for dom, _ in self.get_pieces():
-        result = result.union(cast("_isl.Set", dom))
+        result = result.union(dom)
 
     return result
 
@@ -848,10 +858,10 @@ def map_ge(self: _isl.BasicMap | _isl.Map, other: _isl.BasicMap | _isl.Map) -> b
 # {{{ project_out_except
 
 def obj_project_out_except(
-            obj: SetLikeT,
+            obj: SetOrMapT,
             names: Collection[str],
             types: Collection[_isl.dim_type]
-        ) -> SetLikeT:
+        ) -> SetOrMapT:
     """
     :param types: list of :class:`dim_type` determining
         the types of axes to project out
@@ -888,10 +898,10 @@ def obj_project_out_except(
 # {{{ eliminate_except
 
 def obj_eliminate_except(
-            obj: SetLikeT,
+            obj: SetOrMapT,
             names: Collection[str],
             types: Collection[_isl.dim_type]
-        ) -> SetLikeT:
+        ) -> SetOrMapT:
     """
     :param types: list of :class:`dim_type` determining
         the types of axes to eliminate
@@ -1051,6 +1061,7 @@ for cls in ALL_CLASSES:
         cls.get_var_dict = obj_get_var_dict
         cls.get_var_ids = obj_get_var_ids
         cls.get_var_names = obj_get_var_names
+        cls.get_var_names_not_none = obj_get_var_names_not_none
 
     # }}}
 
@@ -1141,10 +1152,6 @@ for cls in ALL_CLASSES:
 
 
 _add_functionality()
-
-
-P = ParamSpec("P")
-ResultT = TypeVar("ResultT")
 
 
 _DOWNCAST_RE = re.compile(

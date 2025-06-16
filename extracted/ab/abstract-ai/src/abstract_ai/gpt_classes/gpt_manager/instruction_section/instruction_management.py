@@ -1,4 +1,4 @@
-from ..dependencies import *
+#from ..dependencies import *
 # updates instructions manager with environment values from GUI      
 def update_instruction_mgr(self)->None:
     """

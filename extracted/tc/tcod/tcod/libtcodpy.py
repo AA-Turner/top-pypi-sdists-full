@@ -6,11 +6,12 @@ import atexit
 import sys
 import threading
 import warnings
+from collections.abc import Callable, Hashable, Iterable, Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Hashable, Iterable, Iterator, Sequence
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
-from typing_extensions import Literal, deprecated
+from typing_extensions import deprecated
 
 import tcod.bsp
 import tcod.console
@@ -1678,7 +1679,7 @@ def console_get_char(con: tcod.console.Console, x: int, y: int) -> int:
         Array access performs significantly faster than using this function.
         See :any:`Console.ch`.
     """
-    return lib.TCOD_console_get_char(_console(con), x, y)  # type: ignore
+    return lib.TCOD_console_get_char(_console(con), x, y)
 
 
 @deprecate("This function is not supported if contexts are being used.", category=FutureWarning)

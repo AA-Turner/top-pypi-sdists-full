@@ -36,14 +36,17 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.13",
     install_requires=[
-        "dagster==1.10.19",
+        "dagster==1.10.20",
         "requests",
     ],
     zip_safe=False,
     entry_points={
         "console_scripts": [
             "dagster-airbyte = dagster_airbyte.cli:main",
-        ]
+        ],
+        "dagster_dg_cli.plugin": [
+            "dagster_airbyte = dagster_airbyte",
+        ],
     },
     extras_require={
         "test": [
@@ -51,7 +54,7 @@ setup(
             "flaky",
         ],
         "managed": [
-            "dagster-managed-elements==0.26.19",
+            "dagster-managed-elements==0.26.20",
         ],
     },
 )

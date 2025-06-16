@@ -83,6 +83,7 @@ from ..release import (
     ReleaseProjectOptions as _ReleaseProjectOptions_929803c8,
     ReleaseTrigger as _ReleaseTrigger_e4dc221f,
 )
+from .biome_config import IConfiguration as _IConfiguration_70e9f813
 
 
 @jsii.enum(jsii_type="projen.javascript.ArrowParens")
@@ -124,6 +125,240 @@ class AutoRelease(enum.Enum):
 
     :stability: experimental
     '''
+
+
+class Biome(
+    _Component_2b0ad27f,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.javascript.Biome",
+):
+    '''
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        project: "NodeProject",
+        *,
+        biome_config: typing.Optional[_IConfiguration_70e9f813] = None,
+        formatter: typing.Optional[builtins.bool] = None,
+        linter: typing.Optional[builtins.bool] = None,
+        merge_arrays_in_configuration: typing.Optional[builtins.bool] = None,
+        organize_imports: typing.Optional[builtins.bool] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param project: -
+        :param biome_config: (experimental) Full Biome configuration. Note that this configuration dictates the final outcome if value is set.
+        :param formatter: (experimental) Enable code formatter. Replaces mainly Prettier Default: false
+        :param linter: (experimental) Enable linting. Replaces Eslint. Default: true
+        :param merge_arrays_in_configuration: (experimental) Should arrays be merged or overwritten when creating Biome configuration. By default arrays are merged and duplicate values are removed Default: true
+        :param organize_imports: (experimental) Enable import sorting/organizing. Replaces mainly Prettier Default: false
+        :param version: (experimental) Version of Biome to use. Default: "^1"
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f2264088409136f62af7e2ac4488206c06c3b9a69056be8b9ead20ab895f1bc)
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+        options = BiomeOptions(
+            biome_config=biome_config,
+            formatter=formatter,
+            linter=linter,
+            merge_arrays_in_configuration=merge_arrays_in_configuration,
+            organize_imports=organize_imports,
+            version=version,
+        )
+
+        jsii.create(self.__class__, self, [project, options])
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, project: _Project_57d89203) -> typing.Optional["Biome"]:
+        '''
+        :param project: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02197aa3a69f17c43ff359679227be724559aba6ef0881da4e04e9a0bf66d078)
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+        return typing.cast(typing.Optional["Biome"], jsii.sinvoke(cls, "of", [project]))
+
+    @jsii.member(jsii_name="addLintPattern")
+    def add_lint_pattern(self, pattern: builtins.str) -> None:
+        '''
+        :param pattern: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b6d2bb84dd9b7c5eb08b33b88046ee37fd213655ef24dbb058f24785fe54fe8)
+            check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
+        return typing.cast(None, jsii.invoke(self, "addLintPattern", [pattern]))
+
+    @builtins.property
+    @jsii.member(jsii_name="file")
+    def file(self) -> _JsonFile_fa8164db:
+        '''(experimental) Biome configuration file content.
+
+        :stability: experimental
+        '''
+        return typing.cast(_JsonFile_fa8164db, jsii.get(self, "file"))
+
+    @builtins.property
+    @jsii.member(jsii_name="task")
+    def task(self) -> _Task_9fa875b6:
+        '''(experimental) Biome task.
+
+        :stability: experimental
+        '''
+        return typing.cast(_Task_9fa875b6, jsii.get(self, "task"))
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.BiomeOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "biome_config": "biomeConfig",
+        "formatter": "formatter",
+        "linter": "linter",
+        "merge_arrays_in_configuration": "mergeArraysInConfiguration",
+        "organize_imports": "organizeImports",
+        "version": "version",
+    },
+)
+class BiomeOptions:
+    def __init__(
+        self,
+        *,
+        biome_config: typing.Optional[_IConfiguration_70e9f813] = None,
+        formatter: typing.Optional[builtins.bool] = None,
+        linter: typing.Optional[builtins.bool] = None,
+        merge_arrays_in_configuration: typing.Optional[builtins.bool] = None,
+        organize_imports: typing.Optional[builtins.bool] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param biome_config: (experimental) Full Biome configuration. Note that this configuration dictates the final outcome if value is set.
+        :param formatter: (experimental) Enable code formatter. Replaces mainly Prettier Default: false
+        :param linter: (experimental) Enable linting. Replaces Eslint. Default: true
+        :param merge_arrays_in_configuration: (experimental) Should arrays be merged or overwritten when creating Biome configuration. By default arrays are merged and duplicate values are removed Default: true
+        :param organize_imports: (experimental) Enable import sorting/organizing. Replaces mainly Prettier Default: false
+        :param version: (experimental) Version of Biome to use. Default: "^1"
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b53a2988afa9afc23bda2fe96e2de8ffaff18ab919e00b69a6c8d3d229f3dcc1)
+            check_type(argname="argument biome_config", value=biome_config, expected_type=type_hints["biome_config"])
+            check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
+            check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
+            check_type(argname="argument merge_arrays_in_configuration", value=merge_arrays_in_configuration, expected_type=type_hints["merge_arrays_in_configuration"])
+            check_type(argname="argument organize_imports", value=organize_imports, expected_type=type_hints["organize_imports"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if biome_config is not None:
+            self._values["biome_config"] = biome_config
+        if formatter is not None:
+            self._values["formatter"] = formatter
+        if linter is not None:
+            self._values["linter"] = linter
+        if merge_arrays_in_configuration is not None:
+            self._values["merge_arrays_in_configuration"] = merge_arrays_in_configuration
+        if organize_imports is not None:
+            self._values["organize_imports"] = organize_imports
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def biome_config(self) -> typing.Optional[_IConfiguration_70e9f813]:
+        '''(experimental) Full Biome configuration.
+
+        Note that this configuration dictates the final outcome if value is set.
+
+        :stability: experimental
+
+        Example::
+
+            if linter is disabled on main level, it can be enabled on fullConfiguration.formatter.enabled.
+        '''
+        result = self._values.get("biome_config")
+        return typing.cast(typing.Optional[_IConfiguration_70e9f813], result)
+
+    @builtins.property
+    def formatter(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable code formatter.
+
+        Replaces mainly Prettier
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("formatter")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def linter(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable linting.
+
+        Replaces Eslint.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("linter")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def merge_arrays_in_configuration(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Should arrays be merged or overwritten when creating Biome configuration.
+
+        By default arrays are merged and duplicate values are removed
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("merge_arrays_in_configuration")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def organize_imports(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable import sorting/organizing.
+
+        Replaces mainly Prettier
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("organize_imports")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Version of Biome to use.
+
+        :default: "^1"
+
+        :stability: experimental
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BiomeOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -5427,6 +5662,8 @@ class NodeProject(
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+        biome: typing.Optional[builtins.bool] = None,
+        biome_options: typing.Optional[typing.Union[BiomeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union[BuildWorkflowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5559,6 +5796,8 @@ class NodeProject(
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param biome: (experimental) Setup Biome. Default: false
+        :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
         :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -5693,6 +5932,8 @@ class NodeProject(
             default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             auto_approve_upgrades=auto_approve_upgrades,
+            biome=biome,
+            biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
             build_workflow_triggers=build_workflow_triggers,
@@ -6183,6 +6424,14 @@ class NodeProject(
         return typing.cast(typing.Optional[_AutoMerge_f73f9be0], jsii.get(self, "autoMerge"))
 
     @builtins.property
+    @jsii.member(jsii_name="biome")
+    def biome(self) -> typing.Optional[Biome]:
+        '''
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[Biome], jsii.get(self, "biome"))
+
+    @builtins.property
     @jsii.member(jsii_name="buildWorkflow")
     def build_workflow(self) -> typing.Optional[_BuildWorkflow_bdd5e6cc]:
         '''(experimental) The PR build GitHub workflow.
@@ -6393,6 +6642,8 @@ class NodeProject(
         "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "auto_approve_upgrades": "autoApproveUpgrades",
+        "biome": "biome",
+        "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
         "build_workflow_triggers": "buildWorkflowTriggers",
@@ -6533,6 +6784,8 @@ class NodeProjectOptions(
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+        biome: typing.Optional[builtins.bool] = None,
+        biome_options: typing.Optional[typing.Union[BiomeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union[BuildWorkflowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6665,6 +6918,8 @@ class NodeProjectOptions(
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param biome: (experimental) Setup Biome. Default: false
+        :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
         :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -6734,6 +6989,8 @@ class NodeProjectOptions(
             yarn_berry_options = YarnBerryOptions(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+        if isinstance(biome_options, dict):
+            biome_options = BiomeOptions(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = BuildWorkflowOptions(**build_workflow_options)
         if isinstance(build_workflow_triggers, dict):
@@ -6852,6 +7109,8 @@ class NodeProjectOptions(
             check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument auto_approve_upgrades", value=auto_approve_upgrades, expected_type=type_hints["auto_approve_upgrades"])
+            check_type(argname="argument biome", value=biome, expected_type=type_hints["biome"])
+            check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
             check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
@@ -7076,6 +7335,10 @@ class NodeProjectOptions(
             self._values["artifacts_directory"] = artifacts_directory
         if auto_approve_upgrades is not None:
             self._values["auto_approve_upgrades"] = auto_approve_upgrades
+        if biome is not None:
+            self._values["biome"] = biome
+        if biome_options is not None:
+            self._values["biome_options"] = biome_options
         if build_workflow is not None:
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
@@ -8365,6 +8628,28 @@ class NodeProjectOptions(
         '''
         result = self._values.get("auto_approve_upgrades")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def biome(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Setup Biome.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("biome")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def biome_options(self) -> typing.Optional[BiomeOptions]:
+        '''(experimental) Biome options.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("biome_options")
+        return typing.cast(typing.Optional[BiomeOptions], result)
 
     @builtins.property
     def build_workflow(self) -> typing.Optional[builtins.bool]:
@@ -15756,6 +16041,8 @@ __all__ = [
     "AddBundleOptions",
     "ArrowParens",
     "AutoRelease",
+    "Biome",
+    "BiomeOptions",
     "BuildWorkflowOptions",
     "Bundle",
     "BundleLogLevel",
@@ -15841,9 +16128,50 @@ __all__ = [
     "YarnWorkerPoolMode",
     "Yarnrc",
     "YarnrcOptions",
+    "biome_config",
 ]
 
 publication.publish()
+
+# Loading modules to ensure their types are registered with the jsii runtime library
+from . import biome_config
+
+def _typecheckingstub__9f2264088409136f62af7e2ac4488206c06c3b9a69056be8b9ead20ab895f1bc(
+    project: NodeProject,
+    *,
+    biome_config: typing.Optional[_IConfiguration_70e9f813] = None,
+    formatter: typing.Optional[builtins.bool] = None,
+    linter: typing.Optional[builtins.bool] = None,
+    merge_arrays_in_configuration: typing.Optional[builtins.bool] = None,
+    organize_imports: typing.Optional[builtins.bool] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02197aa3a69f17c43ff359679227be724559aba6ef0881da4e04e9a0bf66d078(
+    project: _Project_57d89203,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b6d2bb84dd9b7c5eb08b33b88046ee37fd213655ef24dbb058f24785fe54fe8(
+    pattern: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b53a2988afa9afc23bda2fe96e2de8ffaff18ab919e00b69a6c8d3d229f3dcc1(
+    *,
+    biome_config: typing.Optional[_IConfiguration_70e9f813] = None,
+    formatter: typing.Optional[builtins.bool] = None,
+    linter: typing.Optional[builtins.bool] = None,
+    merge_arrays_in_configuration: typing.Optional[builtins.bool] = None,
+    organize_imports: typing.Optional[builtins.bool] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb5731b72372(
     *,
@@ -16656,6 +16984,8 @@ def _typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7
     default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+    biome: typing.Optional[builtins.bool] = None,
+    biome_options: typing.Optional[typing.Union[BiomeOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[BuildWorkflowOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,

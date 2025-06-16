@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 import glob
 import os
 import os.path
@@ -19,7 +17,7 @@ try:
 except ImportError:
     from distutils.core import setup, Extension
 
-VERSION = '2.4'
+VERSION = '2.5'
 
 extra_setup_args = {}
 
@@ -474,7 +472,6 @@ setup(
         dev_status(VERSION),
         'Intended Audience :: Developers',
         'Intended Audience :: Information Technology',
-        'License :: OSI Approved :: MIT License',
         'Programming Language :: Cython',
         'Programming Language :: Python :: 3',
         'Programming Language :: Lua',

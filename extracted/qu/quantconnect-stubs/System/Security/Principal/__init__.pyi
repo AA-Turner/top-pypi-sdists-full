@@ -25,16 +25,6 @@ class IIdentity(metaclass=abc.ABCMeta):
         ...
 
 
-class PrincipalPolicy(Enum):
-    """This class has no documentation."""
-
-    UNAUTHENTICATED_PRINCIPAL = 0
-
-    NO_PRINCIPAL = 1
-
-    WINDOWS_PRINCIPAL = 2
-
-
 class IPrincipal(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -45,6 +35,16 @@ class IPrincipal(metaclass=abc.ABCMeta):
 
     def is_in_role(self, role: str) -> bool:
         ...
+
+
+class PrincipalPolicy(Enum):
+    """This class has no documentation."""
+
+    UNAUTHENTICATED_PRINCIPAL = 0
+
+    NO_PRINCIPAL = 1
+
+    WINDOWS_PRINCIPAL = 2
 
 
 class TokenImpersonationLevel(Enum):

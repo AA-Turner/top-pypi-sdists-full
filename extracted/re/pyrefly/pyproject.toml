@@ -1,0 +1,31 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+bindings = "bin"
+strip = true
+include = ["rust-toolchain"]
+manifest-path = "pyrefly/Cargo.toml"
+
+[project.urls]
+homepage = "https://pyrefly.org"
+documentation = "https://pyrefly.org/en/docs/"
+
+[project]
+name = "pyrefly"
+description = "A faster Python type checker written in Rust"
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["typechecker", "typechecking"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development"
+]

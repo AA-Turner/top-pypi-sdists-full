@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: cosmicfrog
+Version: 1.0.13
+Summary: Helpful utilities for working with Cosmic Frog models
+Home-page: https://cosmicfrog.com
+Author: Optilogic
+License: MIT
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.11

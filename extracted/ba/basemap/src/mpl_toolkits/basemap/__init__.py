@@ -48,7 +48,7 @@ import _geoslib
 from . proj import Proj
 
 
-__version__ = "1.4.1"
+__version__ = "2.0.0"
 
 # basemap data files now installed in lib/matplotlib/toolkits/basemap/data
 # check to see if environment variable BASEMAPDATA set to a directory,
@@ -3570,7 +3570,7 @@ class Basemap(object):
                             "region to be consistent with your data, or (if your",
                             "data is on a global lat/lon grid) use the shiftdata",
                             "method to adjust the data to be consistent with the",
-                            "map projection region (see examples/shiftdata.py)"]))
+                            "map projection region (see doc/examples/shiftdata.py)"]))
                 # mask for points more than one grid length outside projection limb.
                 xx = ma.masked_where(x > 1.e20, x)
                 yy = ma.masked_where(y > 1.e20, y)
@@ -3667,7 +3667,7 @@ class Basemap(object):
                             "region to be consistent with your data, or (if your",
                             "data is on a global lat/lon grid) use the shiftgrid",
                             "function to adjust the data to be consistent with the",
-                            "map projection region (see examples/contour_demo.py)"]))
+                            "map projection region (see doc/examples/contour_demo.py)"]))
                 # mask for points more than one grid length outside projection limb.
                 xx = ma.masked_where(x > 1.e20, x)
                 yy = ma.masked_where(y > 1.e20, y)
@@ -4413,6 +4413,7 @@ class Basemap(object):
         verbose          if True, print WMS server info (default
                          False).
         \**kwargs        extra keyword arguments passed on to
+                         OWSLib.wms.WebMapService and
                          OWSLib.wms.WebMapService.getmap.
         ==============   ====================================================
 
@@ -4452,7 +4453,11 @@ class Basemap(object):
         if ypixels is None:
             ypixels = int(self.aspect*xpixels)
         if verbose: print(server)
-        wms = WebMapService(server)
+        wms_keys = ["version", "xml", "username", "password",
+                    "parse_remote_metadata", "timeout", "headers", "auth"]
+        wms_options = {k: kwargs[k] for k in wms_keys if k in kwargs}
+        kwargs = {k: kwargs[k] for k in kwargs if k not in wms_keys}
+        wms = WebMapService(server, **wms_options)
         if verbose:
             print('id: %s, version: %s' %
             (wms.identification.type,wms.identification.version))
@@ -4836,10 +4841,11 @@ class Basemap(object):
                          [lon_0-180, lon_0+180] range.
         ================ ======================================================
 
-        if datain given, returns ``dataout,lonsout`` (data and longitudes shifted to fit in interval
-        [lon_0-180,lon_0+180]), otherwise just returns longitudes.  If
-        transformed longitudes lie outside map projection region, data is
-        masked and longitudes are set to 1.e30.
+        If datain is given, returns ``lonsout, dataout`` (longitudes and data
+        shifted to fit in the interval [lon_0-180, lon_0+180]); otherwise,
+        returns just the shifted longitudes. If transformed longitudes lie
+        outside the map projection region, data is masked and longitudes are
+        set to 1.e30.
         """
         if lon_0 is None and 'lon_0' not in self.projparams:
             raise ValueError('lon_0 keyword must be provided')

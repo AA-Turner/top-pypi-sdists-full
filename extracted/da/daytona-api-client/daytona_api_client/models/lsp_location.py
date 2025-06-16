@@ -1,4 +1,7 @@
 # coding: utf-8
+# Copyright 2025 Daytona Platforms Inc.
+# SPDX-License-Identifier: Apache-2.0
+
 
 """
     Daytona
@@ -24,10 +27,12 @@ from daytona_api_client.models.range import Range
 from typing import Optional, Set
 from typing_extensions import Self
 
+
 class LspLocation(BaseModel):
     """
     LspLocation
-    """ # noqa: E501
+    """  # noqa: E501
+
     range: Range
     uri: StrictStr
     additional_properties: Dict[str, Any] = {}
@@ -38,7 +43,6 @@ class LspLocation(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -65,9 +69,11 @@ class LspLocation(BaseModel):
           are ignored.
         * Fields in `self.additional_properties` are added to the output dict.
         """
-        excluded_fields: Set[str] = set([
-            "additional_properties",
-        ])
+        excluded_fields: Set[str] = set(
+            [
+                "additional_properties",
+            ]
+        )
 
         _dict = self.model_dump(
             by_alias=True,
@@ -76,7 +82,7 @@ class LspLocation(BaseModel):
         )
         # override the default output from pydantic by calling `to_dict()` of range
         if self.range:
-            _dict['range'] = self.range.to_dict()
+            _dict["range"] = self.range.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -93,15 +99,12 @@ class LspLocation(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "range": Range.from_dict(obj["range"]) if obj.get("range") is not None else None,
-            "uri": obj.get("uri")
-        })
+        _obj = cls.model_validate(
+            {"range": Range.from_dict(obj["range"]) if obj.get("range") is not None else None, "uri": obj.get("uri")}
+        )
         # store additional fields in additional_properties
         for _key in obj.keys():
             if _key not in cls.__properties:
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
-
-

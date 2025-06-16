@@ -3723,8 +3723,8 @@ class CfnCluster(
             The policy specifies the limits for resources that can be added or terminated from a cluster. The policy only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
 
             :param compute_limits: The Amazon EC2 unit limits for a managed scaling policy. The managed scaling activity of a cluster is not allowed to go above or below these limits. The limit only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
-            :param scaling_strategy: 
-            :param utilization_performance_index: 
+            :param scaling_strategy: Determines whether a custom scaling utilization performance index can be set. Possible values include *ADVANCED* or *DEFAULT* .
+            :param utilization_performance_index: An integer value that represents an advanced scaling strategy. Setting a higher value optimizes for performance. Setting a lower value optimizes for resource conservation. Setting the value to 50 balances performance and resource conservation. Possible values are 1, 25, 50, 75, and 100.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-managedscalingpolicy.html
             :exampleMetadata: fixture=_generated
@@ -3777,7 +3777,10 @@ class CfnCluster(
 
         @builtins.property
         def scaling_strategy(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Determines whether a custom scaling utilization performance index can be set.
+
+            Possible values include *ADVANCED* or *DEFAULT* .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-managedscalingpolicy.html#cfn-emr-cluster-managedscalingpolicy-scalingstrategy
             '''
             result = self._values.get("scaling_strategy")
@@ -3785,7 +3788,10 @@ class CfnCluster(
 
         @builtins.property
         def utilization_performance_index(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''An integer value that represents an advanced scaling strategy.
+
+            Setting a higher value optimizes for performance. Setting a lower value optimizes for resource conservation. Setting the value to 50 balances performance and resource conservation. Possible values are 1, 25, 50, 75, and 100.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-managedscalingpolicy.html#cfn-emr-cluster-managedscalingpolicy-utilizationperformanceindex
             '''
             result = self._values.get("utilization_performance_index")

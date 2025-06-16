@@ -1,0 +1,42 @@
+Metadata-Version: 2.3
+Name: emport
+Version: 1.4.1
+Summary: Utility library for performing programmatic imports
+Project-URL: GitHub, https://github.com/vmalloc/emport
+Author-email: Rotem Yaari <vmalloc@gmail.com>
+License: BSD 3-Clause License
+License-File: LICENSE
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+Requires-Dist: logbook>=0.11.0
+Provides-Extra: testing
+Requires-Dist: dessert>=1.5.0; extra == 'testing'
+Requires-Dist: pytest; extra == 'testing'
+Description-Content-Type: text/markdown
+
+
+![Build Status](https://github.com/vmalloc/emport/actions/workflows/main.yml/badge.svg?branch=develop)
+![Supported Versions](https://img.shields.io/pypi/pyversions/emport.svg)
+![Latest Version](https://img.shields.io/pypi/v/emport.svg)
+
+
+Overview
+========
+
+Emport is a small utility library for importing files by file name. It exposed a single function, ``import_file(filename)``.
+
+Unlike traditional usages of ``__import__``, ``execfile`` or even ``imp.load_source``, Emport takes care of all cases that you may encounter - importing files inside packages (useful when they use relative imports), importing directories (or ``__init__.py`` files)
+
+
+Licence
+=======
+
+The library is licensed under the BSD (3-clause) open source license.
+
+
+

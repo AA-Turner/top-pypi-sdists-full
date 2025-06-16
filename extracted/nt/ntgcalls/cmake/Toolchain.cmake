@@ -3,7 +3,7 @@ if(NTGCALLS_TOOLCHAIN_INCLUDED)
 endif(NTGCALLS_TOOLCHAIN_INCLUDED)
 set(NTGCALLS_TOOLCHAIN_INCLUDED ON)
 
-get_filename_component(deps_loc "${CMAKE_CURRENT_LIST_DIR}/../deps" REALPATH)
+get_filename_component(DEPS_DIR "${CMAKE_CURRENT_LIST_DIR}/../deps" REALPATH)
 get_filename_component(props_loc "${CMAKE_CURRENT_LIST_DIR}/../version.properties" REALPATH)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter QUIET)
@@ -16,7 +16,6 @@ include(${CMAKE_CURRENT_LIST_DIR}/GitUtils.cmake)
 
 if (ANDROID_ABI)
     include(${CMAKE_CURRENT_LIST_DIR}/FindNDK.cmake)
-    set(JUST_INSTALL_CLANG ON)
     include(${CMAKE_CURRENT_LIST_DIR}/FindClang.cmake)
 else ()
     if (LINUX)

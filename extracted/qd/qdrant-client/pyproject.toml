@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qdrant-client"
-version = "1.14.2"
+version = "1.14.3"
 description = "Client library for the Qdrant vector search engine"
 authors = ["Andrey Vasnetsov <andrey@qdrant.tech>"]
 packages = [
@@ -28,10 +28,10 @@ protobuf = ">=3.20.0"
 urllib3 = ">=1.26.14,<3"
 portalocker = "^2.7.0"
 fastembed = [
-    { version = "0.6.1", optional = true },
+    { version = "^0.7", optional = true },
 ]
 fastembed-gpu = [
-    { version = "0.6.1", optional = true },
+    { version = "^0.7", optional = true },
 ]
 
 [tool.poetry.group.dev.dependencies]
@@ -42,6 +42,7 @@ pytest-timeout = "^2.1.0"
 autoflake = "^2.2.1"
 ruff = "0.4.3"
 pytest-mock = "^3.14.0"
+pre-commit = "^4.2.0"
 
 
 [tool.poetry.group.docs.dependencies]

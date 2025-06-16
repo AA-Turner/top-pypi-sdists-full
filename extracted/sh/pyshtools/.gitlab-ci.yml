@@ -1,0 +1,25 @@
+image: ruby:latest
+
+cache:
+  paths:
+  - vendor/
+
+variables:
+  LC_ALL: "en_US.UTF-8"
+  LANG: "en_US.UTF-8"
+  LANGUAGE: "en_US.UTF-8"
+
+before_script:
+  - cd docs
+  - bundle config set path 'vendor'
+  - bundle install
+
+pages:
+  stage: deploy
+  script:
+  - bundle exec jekyll build -d ../public
+  artifacts:
+    paths:
+    - public
+  only:
+  - master

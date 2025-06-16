@@ -5,7 +5,7 @@ from typing import Optional
 import urllib.request
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '88962061c851edfe5dfcfe12a1c3cf63a703dfd8'
+_SKYPILOT_COMMIT_SHA = 'cabefc469263d1b7b946280e31db246b68ad18b3'
 
 
 def _get_git_commit():
@@ -35,7 +35,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20250612'
+__version__ = '1.0.0.dev20250615'
 __root_dir__ = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -144,6 +144,7 @@ Vast = clouds.Vast
 Vsphere = clouds.Vsphere
 Fluidstack = clouds.Fluidstack
 Nebius = clouds.Nebius
+Hyperbolic = clouds.Hyperbolic
 
 __all__ = [
     '__version__',
@@ -163,6 +164,7 @@ __all__ = [
     'Vsphere',
     'Fluidstack',
     'Nebius',
+    'Hyperbolic',
     'Optimizer',
     'OptimizeTarget',
     'backends',

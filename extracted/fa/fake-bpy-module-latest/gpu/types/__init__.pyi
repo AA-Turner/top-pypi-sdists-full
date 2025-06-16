@@ -246,7 +246,7 @@ class GPUOffScreen:
         """
 
 class GPUShader:
-    """GPUShader combines multiple GLSL shaders into a program used for drawing.
+    """Deprecated, use gpu.shader.create_from_info(shader_info) instead.GPUShader combines multiple GLSL shaders into a program used for drawing.
     It must contain at least a vertex and fragment shaders.The GLSL #version directive is automatically included at the top of shaders,
     and set to 330. Some preprocessor directives are automatically added according to
     the Operating System or availability: GPU_ATI, GPU_NVIDIA and GPU_INTEL.The following extensions are enabled by default if supported by the GPU:

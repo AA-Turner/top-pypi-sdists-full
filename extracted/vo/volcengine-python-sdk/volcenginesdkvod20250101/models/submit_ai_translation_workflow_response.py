@@ -33,17 +33,45 @@ class SubmitAITranslationWorkflowResponse(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'project_base_info': 'ProjectBaseInfoForSubmitAITranslationWorkflowOutput'
     }
 
     attribute_map = {
+        'project_base_info': 'ProjectBaseInfo'
     }
 
-    def __init__(self, _configuration=None):  # noqa: E501
+    def __init__(self, project_base_info=None, _configuration=None):  # noqa: E501
         """SubmitAITranslationWorkflowResponse - a model defined in Swagger"""  # noqa: E501
         if _configuration is None:
             _configuration = Configuration()
         self._configuration = _configuration
+
+        self._project_base_info = None
         self.discriminator = None
+
+        if project_base_info is not None:
+            self.project_base_info = project_base_info
+
+    @property
+    def project_base_info(self):
+        """Gets the project_base_info of this SubmitAITranslationWorkflowResponse.  # noqa: E501
+
+
+        :return: The project_base_info of this SubmitAITranslationWorkflowResponse.  # noqa: E501
+        :rtype: ProjectBaseInfoForSubmitAITranslationWorkflowOutput
+        """
+        return self._project_base_info
+
+    @project_base_info.setter
+    def project_base_info(self, project_base_info):
+        """Sets the project_base_info of this SubmitAITranslationWorkflowResponse.
+
+
+        :param project_base_info: The project_base_info of this SubmitAITranslationWorkflowResponse.  # noqa: E501
+        :type: ProjectBaseInfoForSubmitAITranslationWorkflowOutput
+        """
+
+        self._project_base_info = project_base_info
 
     def to_dict(self):
         """Returns the model properties as a dict"""

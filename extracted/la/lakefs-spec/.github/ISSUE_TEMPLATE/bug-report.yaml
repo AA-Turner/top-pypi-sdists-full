@@ -1,0 +1,36 @@
+name: "Issue: Report a bug"
+description: Report problems or issues with lakeFS-spec.
+labels: ["bug", "triage"]
+projects: ["aai-institute/4"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thank you for reporting this bug and helping us improving lakeFS-spec! 
+        If you are willing to submit a PR (this is not required), please let us know!
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Provide a brief description of the problem or issue.
+      placeholder: |
+        Describe the problem and the context in which it happened. If possible, give instructions on how to reproduce the problem.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What did you expect to happen?
+      description: Describe what you expected to happen
+      placeholder: |
+        Please explain why the current behavior is incorrect, and what you expected to happen instead.
+  - type: input
+    attributes:
+      label: lakeFS-spec version
+      placeholder: "Version tag shown in output of `pip show lakefs-spec`"
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: lakeFS version
+      placeholder: "Version tag shown in output of `pip show lakefs`"
+    validations:
+      required: true

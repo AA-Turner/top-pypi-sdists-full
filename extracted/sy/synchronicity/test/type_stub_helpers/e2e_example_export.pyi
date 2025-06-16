@@ -6,6 +6,7 @@ import typing_extensions
 SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class BlockingFoo:
+
     singleton: BlockingFoo
 
     def __init__(self, arg: str):
@@ -83,22 +84,42 @@ P = typing_extensions.ParamSpec("P")
 
 R = typing.TypeVar("R")
 
-P_INNER = typing_extensions.ParamSpec("P_INNER")
-
 R_INNER = typing.TypeVar("R_INNER", covariant=True)
 
+P_INNER = typing_extensions.ParamSpec("P_INNER")
+
 class CallableWrapper(typing.Generic[P, R]):
+    """Abstract base class for generic types.
+
+    A generic type is typically declared by inheriting from
+    this class parameterized with one or more type variables.
+    For example, a generic mapping type might be defined as::
+
+      class Mapping(Generic[KT, VT]):
+          def __getitem__(self, key: KT) -> VT:
+              ...
+          # Etc.
+
+    This class can then be used as follows::
+
+      def lookup_name(mapping: Mapping[KT, VT], key: KT, default: VT) -> VT:
+          try:
+              return mapping[key]
+          except KeyError:
+              return default
+    """
     def __init__(self, /, *args, **kwargs):
+        """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
-    class __func_spec(typing_extensions.Protocol[P_INNER, R_INNER, SUPERSELF]):
+    class __func_spec(typing_extensions.Protocol[R_INNER, P_INNER, SUPERSELF]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> R_INNER:
             ...
 
         async def aio(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> R_INNER:
             ...
 
-    func: __func_spec[P, R, typing_extensions.Self]
+    func: __func_spec[R, P, typing_extensions.Self]
 
 
 def wrap_callable(c: collections.abc.Callable[P, R]) -> CallableWrapper[P, R]:

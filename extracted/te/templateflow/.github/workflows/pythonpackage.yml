@@ -1,0 +1,141 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Python package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+    tags: [ '*' ]
+  pull_request:
+    branches: [ master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-cache-v1
+          restore-keys: |
+            pip-cache-
+      - run: pip install --upgrade build twine
+      - name: Build sdist and wheel
+        run: python -m build
+      - run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Interpolate version in confined environment
+        id: get_version
+        run: |
+          python -m venv /tmp/buildenv
+          source /tmp/buildenv/bin/activate
+          python -m pip install -U build hatch
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG=${GITHUB_REF##*/}
+          fi
+          THISVERSION=$( python -m hatch version | tail -n1 | xargs )
+          THISVERSION=${TAG:-$THISVERSION}
+          echo "Expected VERSION: \"${THISVERSION}\""
+          echo "version=${THISVERSION}" >> $GITHUB_OUTPUT
+
+  test-install:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        mode: ['wheel']
+        include:
+          - {python-version: '3.11', mode: 'repo'}
+          - {python-version: '3.11', mode: 'sdist'}
+          - {python-version: '3.11', mode: 'editable'}
+
+    env:
+      TEMPLATEFLOW_HOME: /tmp/home
+      THISVERSION: ${{ needs.build.outputs.version }}
+    steps:
+    - uses: actions/checkout@v4
+      if: matrix.mode == 'repo'  || matrix.mode == 'editable'
+      with:
+        fetch-depth: 0
+    - uses: actions/download-artifact@v4
+      if: matrix.mode == 'sdist'  || matrix.mode == 'wheel'
+      with:
+        name: dist
+        path: /tmp/package/
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: pip-cache-v1
+        restore-keys: |
+          pip-cache-
+    - name: Upgrade pip
+      run: pip install --upgrade pip wheel
+    - name: Set install command
+      run: |
+        case ${{ matrix.mode }} in
+          repo)
+            echo "TARGET=." >> $GITHUB_ENV
+            ;;
+          editable)
+            echo "TARGET=-e ." >> $GITHUB_ENV
+            ;;
+          sdist)
+            echo "TARGET=$( ls /tmp/package/templateflow*.tar.gz )" >> $GITHUB_ENV
+            ;;
+          wheel)
+            echo "TARGET=$( ls /tmp/package/templateflow*.whl )" >> $GITHUB_ENV
+            ;;
+        esac
+    - name: Install and check version
+      run: |
+        pip install $TARGET
+        INSTALLED_VERSION=$(python -c 'import templateflow as tf; print(tf.__version__, end="")')
+        echo "VERSION: \"${THISVERSION}\""
+        echo "INSTALLED: \"${INSTALLED_VERSION}\""
+        test "${INSTALLED_VERSION}" = "${THISVERSION}"
+
+    - name: Re-install
+      run: |
+        pip install $TARGET --force-reinstall
+        find ${TEMPLATEFLOW_HOME} >> /tmp/.install.txt
+    - name: Re-install [missing template]
+      run: |
+        rm -rf ${TEMPLATEFLOW_HOME}/tpl-MNI152NLin2009cAsym
+        pip install $TARGET --force-reinstall
+        python -c "import templateflow; templateflow.update(overwrite=False)"
+        find ${TEMPLATEFLOW_HOME} >> /tmp/.install-2.txt
+        diff /tmp/.install.txt /tmp/.install-2.txt
+        exit $?
+
+  flake8:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+    - run: pipx run flake8-pyproject templateflow/

@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: m24842_ml
+Version: 1.1.2
+Summary: Collection of ML models and benchmarking tools
+Requires-Python: >=3.8
+Requires-Dist: torch
+Requires-Dist: transformers
+Requires-Dist: einops
+Requires-Dist: opt_einsum
+Requires-Dist: rotary_embedding_torch
+Requires-Dist: wandb
+Requires-Dist: pyyaml

@@ -1,18 +1,12 @@
 # -*- coding: utf-8 -*-
 
-"""
-Objective Oriented Interface for AWS S3, similar to pathlib.
-"""
-
 from ._version import __version__
-
-__short_description__ = "Objective Oriented Interface for AWS S3, similar to pathlib."
-__license__ = "Apache License 2.0"
-__author__ = "Sanhe Hu"
-__author_email__ = "husanhe@gmail.com"
-__maintainer__ = "Sanhe Hu"
-__maintainer_email__ = "sanhehu@amazon.com"
-__github_username__ = "aws-samples"
+from ._version import __short_description__
+from ._version import __license__
+from ._version import __author__
+from ._version import __author_email__
+from ._version import __maintainer__
+from ._version import __maintainer_email__
 
 try:
     from . import utils

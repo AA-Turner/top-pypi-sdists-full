@@ -1,13 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-cte
-Version: 1.3.3
+Version: 2.0.0
 Summary: Common Table Expressions (CTE) for Django
-Home-page: https://github.com/dimagi/django-cte
-Maintainer: Daniel Miller
-Maintainer-email: millerdev@gmail.com
-License: BSD License
-Platform: UNKNOWN
-Classifier: Development Status :: 3 - Alpha
+Author-email: Daniel Miller <millerdev@gmail.com>
+Requires-Python: >= 3.9
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
@@ -15,21 +13,22 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3
-Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: django
+Project-URL: Home, https://github.com/dimagi/django-cte
 
 # Common Table Expressions with Django
 
@@ -52,25 +51,35 @@ to use Common Table Expressions with the Django ORM.
 
 ```
 cd django-cte
-mkvirtualenv cte  # or however you choose to setup your environment
-pip install django pynose flake8
+uv sync
 
-nosetests
-flake8 --config=setup.cfg
+pytest
+ruff check
+
+# To run tests against postgres
+psql -U username -h localhost -p 5432 -c 'create database django_cte;'
+export PG_DB_SETTINGS='{
+    "ENGINE":"django.db.backends.postgresql_psycopg2",
+    "NAME":"django_cte",
+    "USER":"username",
+    "PASSWORD":"password",
+    "HOST":"localhost",
+    "PORT":"5432"}'
+
+# WARNING pytest will delete the test_django_cte database if it exists!
+DB_SETTINGS="$PG_DB_SETTINGS" pytest
 ```
 
 All feature and bug contributions are expected to be covered by tests.
 
 
-## Uploading to PyPI
+## Publishing a new verison to PyPI
 
-Package and upload the generated files.
+Push a new tag to Github using the format vX.Y.Z where X.Y.Z matches the version
+in [`__init__.py`](django_cte/__init__.py).
 
-```
-pip install -r pkg-requires.txt
+A new version is published to https://test.pypi.org/p/django-cte on every
+push to the *main* branch.
 
-python setup.py sdist bdist_wheel
-twine upload dist/*
-```
-
+Publishing is automated with [Github Actions](.github/workflows/pypi.yml).
 

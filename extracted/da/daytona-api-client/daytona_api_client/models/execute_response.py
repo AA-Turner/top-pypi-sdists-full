@@ -1,4 +1,7 @@
 # coding: utf-8
+# Copyright 2025 Daytona Platforms Inc.
+# SPDX-License-Identifier: Apache-2.0
+
 
 """
     Daytona
@@ -23,10 +26,12 @@ from typing import Any, ClassVar, Dict, List, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
+
 class ExecuteResponse(BaseModel):
     """
     ExecuteResponse
-    """ # noqa: E501
+    """  # noqa: E501
+
     exit_code: Union[StrictFloat, StrictInt] = Field(description="Exit code", alias="exitCode")
     result: StrictStr = Field(description="Command output")
     additional_properties: Dict[str, Any] = {}
@@ -37,7 +42,6 @@ class ExecuteResponse(BaseModel):
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -64,9 +68,11 @@ class ExecuteResponse(BaseModel):
           are ignored.
         * Fields in `self.additional_properties` are added to the output dict.
         """
-        excluded_fields: Set[str] = set([
-            "additional_properties",
-        ])
+        excluded_fields: Set[str] = set(
+            [
+                "additional_properties",
+            ]
+        )
 
         _dict = self.model_dump(
             by_alias=True,
@@ -89,15 +95,10 @@ class ExecuteResponse(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "exitCode": obj.get("exitCode"),
-            "result": obj.get("result")
-        })
+        _obj = cls.model_validate({"exitCode": obj.get("exitCode"), "result": obj.get("result")})
         # store additional fields in additional_properties
         for _key in obj.keys():
             if _key not in cls.__properties:
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
-
-

@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,10 +35,10 @@
 #include "list.h"
 #include "mersenne.h"
 
-TCOD_bsp_t* TCOD_bsp_new(void) { return (TCOD_bsp_t*)calloc(sizeof(TCOD_bsp_t), 1); }
+TCOD_bsp_t* TCOD_bsp_new(void) { return (TCOD_bsp_t*)calloc(1, sizeof(TCOD_bsp_t)); }
 
 TCOD_bsp_t* TCOD_bsp_new_with_size(int x, int y, int w, int h) {
-  TCOD_bsp_t* bsp = (TCOD_bsp_t*)calloc(sizeof(TCOD_bsp_t), 1);
+  TCOD_bsp_t* bsp = (TCOD_bsp_t*)calloc(1, sizeof(TCOD_bsp_t));
   bsp->x = x;
   bsp->y = y;
   bsp->w = w;
@@ -60,7 +60,7 @@ void TCOD_bsp_delete(TCOD_bsp_t* node) {
 }
 
 static TCOD_bsp_t* TCOD_bsp_new_intern(TCOD_bsp_t* father, bool left) {
-  TCOD_bsp_t* bsp = (TCOD_bsp_t*)calloc(sizeof(TCOD_bsp_t), 1);
+  TCOD_bsp_t* bsp = (TCOD_bsp_t*)calloc(1, sizeof(TCOD_bsp_t));
   if (father->horizontal) {
     bsp->x = father->x;
     bsp->w = father->w;

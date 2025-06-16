@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: dazl
-Version: 8.3.0
+Version: 8.4.0
 Summary: high-level Ledger API client for Daml ledgers
-Home-page: https://github.com/digital-asset/dazl-client
 License: Apache-2.0
 Keywords: daml,blockchain,dlt,distributed ledger,digital asset
 Author: Davin K. Tanabe
 Author-email: davin.tanabe@digitalasset.com
-Requires-Python: >=3.9.2,<4.0.0
+Requires-Python: >=3.10.0,<4.0.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -17,12 +16,13 @@ Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: pygments
 Provides-Extra: tls-testing
 Requires-Dist: googleapis_common_protos (>=1,<2)
-Requires-Dist: grpcio (==1.67.1)
-Requires-Dist: protobuf (>=5)
+Requires-Dist: grpcio (>=1.72.0,<2.0.0)
+Requires-Dist: protobuf (>=6)
 Requires-Dist: pyOpenSSL ; extra == "tls-testing"
 Requires-Dist: pygments ; extra == "pygments"
 Requires-Dist: semver
 Requires-Dist: typing_extensions
+Project-URL: Homepage, https://github.com/digital-asset/dazl-client
 Project-URL: Repository, https://github.com/digital-asset/dazl-client
 Description-Content-Type: text/markdown
 

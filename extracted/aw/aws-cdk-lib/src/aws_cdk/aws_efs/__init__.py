@@ -2811,7 +2811,9 @@ class CfnMountTarget(
             subnet_id="subnetId",
         
             # the properties below are optional
-            ip_address="ipAddress"
+            ip_address="ipAddress",
+            ip_address_type="ipAddressType",
+            ipv6_address="ipv6Address"
         )
     '''
 
@@ -2824,14 +2826,18 @@ class CfnMountTarget(
         security_groups: typing.Sequence[builtins.str],
         subnet_id: builtins.str,
         ip_address: typing.Optional[builtins.str] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
+        ipv6_address: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param file_system_id: The ID of the file system for which to create the mount target.
-        :param security_groups: VPC security group IDs, of the form ``sg-xxxxxxxx`` . These must be for the same VPC as the subnet specified. The maximum number of security groups depends on account quota. For more information, see `Amazon VPC Quotas <https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html>`_ in the *Amazon VPC User Guide* (see the *Security Groups* table).
-        :param subnet_id: The ID of the subnet to add the mount target in. For One Zone file systems, use the subnet that is associated with the file system's Availability Zone.
-        :param ip_address: Valid IPv4 address within the address range of the specified subnet.
+        :param security_groups: VPC security group IDs, of the form ``sg-xxxxxxxx`` . These must be for the same VPC as the subnet specified. The maximum number of security groups depends on account quota. For more information, see `Amazon VPC Quotas <https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html>`_ in the *Amazon VPC User Guide* (see the *Security Groups* table). If you don't specify a security group, then Amazon EFS uses the default security group for the subnet's VPC.
+        :param subnet_id: The ID of the subnet to add the mount target in. For One Zone file systems, use the subnet that is associated with the file system's Availability Zone. The subnet type must be the same type as the ``IpAddressType`` .
+        :param ip_address: If the ``IpAddressType`` for the mount target is IPv4 ( ``IPV4_ONLY`` or ``DUAL_STACK`` ), then specify the IPv4 address to use. If you do not specify an ``IpAddress`` , then Amazon EFS selects an unused IP address from the subnet specified for ``SubnetId`` .
+        :param ip_address_type: 
+        :param ipv6_address: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53e47daec02e70bf8a73cac8e0366ac0f8a6af5ccf7598cf37952afe954d30bd)
@@ -2842,6 +2848,8 @@ class CfnMountTarget(
             security_groups=security_groups,
             subnet_id=subnet_id,
             ip_address=ip_address,
+            ip_address_type=ip_address_type,
+            ipv6_address=ipv6_address,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -2945,7 +2953,7 @@ class CfnMountTarget(
     @builtins.property
     @jsii.member(jsii_name="ipAddress")
     def ip_address(self) -> typing.Optional[builtins.str]:
-        '''Valid IPv4 address within the address range of the specified subnet.'''
+        '''If the ``IpAddressType`` for the mount target is IPv4 ( ``IPV4_ONLY`` or ``DUAL_STACK`` ), then specify the IPv4 address to use.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipAddress"))
 
     @ip_address.setter
@@ -2954,6 +2962,30 @@ class CfnMountTarget(
             type_hints = typing.get_type_hints(_typecheckingstub__804f6c8cadefc6e3bd989db6da64591d147d67de340d096244f68a21842bb5ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "ipAddress", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAddressType")
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipAddressType"))
+
+    @ip_address_type.setter
+    def ip_address_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa0cce2a23c783f1140d965a20db7db2255e72b575061672bff8884307e12048)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipAddressType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipv6Address")
+    def ipv6_address(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipv6Address"))
+
+    @ipv6_address.setter
+    def ipv6_address(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d32de6237501dc91f3fc4a5121f4d28b9f910af301fcb6a625250a259cb215b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipv6Address", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -2964,6 +2996,8 @@ class CfnMountTarget(
         "security_groups": "securityGroups",
         "subnet_id": "subnetId",
         "ip_address": "ipAddress",
+        "ip_address_type": "ipAddressType",
+        "ipv6_address": "ipv6Address",
     },
 )
 class CfnMountTargetProps:
@@ -2974,13 +3008,17 @@ class CfnMountTargetProps:
         security_groups: typing.Sequence[builtins.str],
         subnet_id: builtins.str,
         ip_address: typing.Optional[builtins.str] = None,
+        ip_address_type: typing.Optional[builtins.str] = None,
+        ipv6_address: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMountTarget``.
 
         :param file_system_id: The ID of the file system for which to create the mount target.
-        :param security_groups: VPC security group IDs, of the form ``sg-xxxxxxxx`` . These must be for the same VPC as the subnet specified. The maximum number of security groups depends on account quota. For more information, see `Amazon VPC Quotas <https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html>`_ in the *Amazon VPC User Guide* (see the *Security Groups* table).
-        :param subnet_id: The ID of the subnet to add the mount target in. For One Zone file systems, use the subnet that is associated with the file system's Availability Zone.
-        :param ip_address: Valid IPv4 address within the address range of the specified subnet.
+        :param security_groups: VPC security group IDs, of the form ``sg-xxxxxxxx`` . These must be for the same VPC as the subnet specified. The maximum number of security groups depends on account quota. For more information, see `Amazon VPC Quotas <https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html>`_ in the *Amazon VPC User Guide* (see the *Security Groups* table). If you don't specify a security group, then Amazon EFS uses the default security group for the subnet's VPC.
+        :param subnet_id: The ID of the subnet to add the mount target in. For One Zone file systems, use the subnet that is associated with the file system's Availability Zone. The subnet type must be the same type as the ``IpAddressType`` .
+        :param ip_address: If the ``IpAddressType`` for the mount target is IPv4 ( ``IPV4_ONLY`` or ``DUAL_STACK`` ), then specify the IPv4 address to use. If you do not specify an ``IpAddress`` , then Amazon EFS selects an unused IP address from the subnet specified for ``SubnetId`` .
+        :param ip_address_type: 
+        :param ipv6_address: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-mounttarget.html
         :exampleMetadata: fixture=_generated
@@ -2997,7 +3035,9 @@ class CfnMountTargetProps:
                 subnet_id="subnetId",
             
                 # the properties below are optional
-                ip_address="ipAddress"
+                ip_address="ipAddress",
+                ip_address_type="ipAddressType",
+                ipv6_address="ipv6Address"
             )
         '''
         if __debug__:
@@ -3006,6 +3046,8 @@ class CfnMountTargetProps:
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
             check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
             check_type(argname="argument ip_address", value=ip_address, expected_type=type_hints["ip_address"])
+            check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument ipv6_address", value=ipv6_address, expected_type=type_hints["ipv6_address"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "file_system_id": file_system_id,
             "security_groups": security_groups,
@@ -3013,6 +3055,10 @@ class CfnMountTargetProps:
         }
         if ip_address is not None:
             self._values["ip_address"] = ip_address
+        if ip_address_type is not None:
+            self._values["ip_address_type"] = ip_address_type
+        if ipv6_address is not None:
+            self._values["ipv6_address"] = ipv6_address
 
     @builtins.property
     def file_system_id(self) -> builtins.str:
@@ -3028,7 +3074,7 @@ class CfnMountTargetProps:
     def security_groups(self) -> typing.List[builtins.str]:
         '''VPC security group IDs, of the form ``sg-xxxxxxxx`` .
 
-        These must be for the same VPC as the subnet specified. The maximum number of security groups depends on account quota. For more information, see `Amazon VPC Quotas <https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html>`_ in the *Amazon VPC User Guide* (see the *Security Groups* table).
+        These must be for the same VPC as the subnet specified. The maximum number of security groups depends on account quota. For more information, see `Amazon VPC Quotas <https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html>`_ in the *Amazon VPC User Guide* (see the *Security Groups* table). If you don't specify a security group, then Amazon EFS uses the default security group for the subnet's VPC.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-mounttarget.html#cfn-efs-mounttarget-securitygroups
         '''
@@ -3040,7 +3086,7 @@ class CfnMountTargetProps:
     def subnet_id(self) -> builtins.str:
         '''The ID of the subnet to add the mount target in.
 
-        For One Zone file systems, use the subnet that is associated with the file system's Availability Zone.
+        For One Zone file systems, use the subnet that is associated with the file system's Availability Zone. The subnet type must be the same type as the ``IpAddressType`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-mounttarget.html#cfn-efs-mounttarget-subnetid
         '''
@@ -3050,11 +3096,29 @@ class CfnMountTargetProps:
 
     @builtins.property
     def ip_address(self) -> typing.Optional[builtins.str]:
-        '''Valid IPv4 address within the address range of the specified subnet.
+        '''If the ``IpAddressType`` for the mount target is IPv4 ( ``IPV4_ONLY`` or ``DUAL_STACK`` ), then specify the IPv4 address to use.
+
+        If you do not specify an ``IpAddress`` , then Amazon EFS selects an unused IP address from the subnet specified for ``SubnetId`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-mounttarget.html#cfn-efs-mounttarget-ipaddress
         '''
         result = self._values.get("ip_address")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ip_address_type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-mounttarget.html#cfn-efs-mounttarget-ipaddresstype
+        '''
+        result = self._values.get("ip_address_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ipv6_address(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-efs-mounttarget.html#cfn-efs-mounttarget-ipv6address
+        '''
+        result = self._values.get("ipv6_address")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -5234,6 +5298,8 @@ def _typecheckingstub__53e47daec02e70bf8a73cac8e0366ac0f8a6af5ccf7598cf37952afe9
     security_groups: typing.Sequence[builtins.str],
     subnet_id: builtins.str,
     ip_address: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    ipv6_address: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5274,12 +5340,26 @@ def _typecheckingstub__804f6c8cadefc6e3bd989db6da64591d147d67de340d096244f68a218
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__aa0cce2a23c783f1140d965a20db7db2255e72b575061672bff8884307e12048(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d32de6237501dc91f3fc4a5121f4d28b9f910af301fcb6a625250a259cb215b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f2ad126af1a9797276c238562f8185eb06a56da00a9b12a35504f9d72fbdc711(
     *,
     file_system_id: builtins.str,
     security_groups: typing.Sequence[builtins.str],
     subnet_id: builtins.str,
     ip_address: typing.Optional[builtins.str] = None,
+    ip_address_type: typing.Optional[builtins.str] = None,
+    ipv6_address: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

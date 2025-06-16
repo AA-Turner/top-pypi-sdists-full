@@ -1,0 +1,70 @@
+Metadata-Version: 2.3
+Name: dessert
+Version: 1.5.0
+Summary: Assertion introspection via AST rewriting
+Project-URL: GitHub, https://github.com/vmalloc/dessert
+Author-email: Rotem Yaari <vmalloc@gmail.com>
+License: MIT
+License-File: LICENSE
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
+Requires-Dist: atomicwrites>=1.0
+Requires-Dist: attrs
+Requires-Dist: munch
+Requires-Dist: py
+Provides-Extra: testing
+Requires-Dist: emport>=1.1.1; extra == 'testing'
+Requires-Dist: pylint; extra == 'testing'
+Requires-Dist: pytest; extra == 'testing'
+Description-Content-Type: text/markdown
+
+
+![Build Status](https://github.com/vmalloc/dessert/actions/workflows/test.yml/badge.svg?branch=develop)
+![Version](https://img.shields.io/pypi/v/dessert.svg)
+
+Overview
+========
+
+Dessert is a utility library enabling Python code to introspect assertions raised via the `assert` statement.
+
+It is a standalone version of the introspection code from [pytest](http://pytest.org ), and all credit is due to Holger Krekel and the pytest developers for this code.
+
+Usage
+=====
+
+Using dessert is fairly simple:
+
+```python
+
+>>> with open(tmp_filename, "w") as f:
+...     _ = f.write("""
+... def func():
+...     def x():
+...         return 1
+...     def y():
+...         return -1
+...     assert y() == x()
+... """)
+
+>>> import emport
+>>> import dessert
+>>> with dessert.rewrite_assertions_context():
+...     module = emport.import_file(tmp_filename)
+>>> module.func() # doctest: +IGNORE_EXCEPTION_DETAIL +ELLIPSIS
+Traceback (most recent call last):
+    ...
+    assert y() == x()
+AssertionError: assert -1 == 1
++  where -1 = <function y at ...>()
++  and   1 = <function x at ...>()
+```
+
+Licence
+=======
+
+Dessert is released under the MIT license. It is 99% based on pytest, which is released under the MIT license.

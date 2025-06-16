@@ -1,0 +1,59 @@
+[build-system]
+requires = [ "setuptools", "setuptools-scm" ]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "denodo-sqlalchemy"
+description = "Denodo Dialect for SQLAlchemy"
+authors = [ { name = "Denodo Research Labs", email = "research.labs@denodo.com" } ]
+readme = { file = "README.md", content-type = "text/markdown" }
+license = { file = "LICENSE" }
+requires-python = ">= 3.9"
+keywords = ["sqlalchemy", "denodo", "database", "data", "data analysis", "data science"]
+classifiers=[
+    "Development Status :: 5 - Production/Stable",
+
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+
+    "License :: OSI Approved :: MIT License",
+
+    "Operating System :: OS Independent",
+
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dynamic = ["version"]
+dependencies = [
+    "sqlalchemy>=1.4.36",
+    "psycopg2-binary>=2.9.6"
+]
+
+
+[project.optional-dependencies]
+flightsql = [
+    "sqlalchemy>=2.0.0",
+    "adbc-driver-flightsql~=1.3.0",
+    "pyarrow~=19.0.0"
+]
+
+[project.entry-points."sqlalchemy.dialects"]
+"denodo" = "denodo.sqlalchemy.psycopg2:dialect"
+"denodo.psycopg2" = "denodo.sqlalchemy.psycopg2:dialect"
+"denodo.flightsql" = "denodo.sqlalchemy.flightsql:dialect"
+
+
+[tool.setuptools.dynamic]
+version = { attr = "denodo.sqlalchemy.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["denodo.*"]
+namespaces = true
+

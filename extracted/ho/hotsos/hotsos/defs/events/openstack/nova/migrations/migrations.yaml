@@ -1,2 +1,0 @@
-input:
-  path: 'var/log/nova/nova-compute.log'

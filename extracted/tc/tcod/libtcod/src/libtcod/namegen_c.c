@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -105,7 +105,7 @@ size_t namegen_name_size;
 
 /* initialise a syllable set */
 namegen_syllables_t* namegen_syllables_new(void) {
-  namegen_syllables_t* data = calloc(sizeof(namegen_syllables_t), 1);
+  namegen_syllables_t* data = calloc(1, sizeof(namegen_syllables_t));
   return data;
 }
 
@@ -218,7 +218,7 @@ void namegen_generator_delete(namegen_t* generator) {
 void namegen_populate_list(const char* source, TCOD_list_t list, bool wildcards) {
   const size_t source_length = strlen(source);
   const size_t token_length = source_length + 1;
-  char* token = calloc(token_length, 1);  // tokens will typically be many and very short, but let's be cautious. What
+  char* token = calloc(1, token_length);  // tokens will typically be many and very short, but let's be cautious. What
                                           // if the entire string is a single token?
   size_t i = 0;
   do {
@@ -387,7 +387,8 @@ void namegen_parser_run(const char* filename) {
  * rubbish pruning *
  * --------------- */
 
-/* search for occurrences of triple characters (case-insensitive) */
+// Search for occurrences of triple characters (case-insensitive).
+// Return true if triple characters exist in str.
 bool namegen_word_has_triples(const char* str) {
   const char* it = str;
   char c = (char)(tolower(*it));
@@ -407,7 +408,8 @@ bool namegen_word_has_triples(const char* str) {
   return has_triples;
 }
 
-/* search for occurrences of illegal strings */
+// Search for occurrences of illegal strings.
+// Return true if illegal strings are found.
 bool namegen_word_has_illegal(const namegen_t* data, const char* str) {
   /* convert word to lowercase */
   char* haystack = TCOD_strdup(str);
@@ -440,8 +442,8 @@ void namegen_word_prune_spaces(char* str) {
   while (data[strlen(data) - 1] == ' ') data[strlen(data) - 1] = '\0';
 }
 
-/* prune repeated "syllables", such as Arnarn */
-bool namegen_word_prune_syllables(char* str) {
+// Return true if `str` has repeated syllables such as "Arnarn".
+bool namegen_word_prune_syllables(const char* str) {
   char* data = TCOD_strdup(str);
   int len = (int)strlen(data);
   char check[8];
@@ -471,10 +473,10 @@ bool namegen_word_prune_syllables(char* str) {
   return false;
 }
 
-/* everything stacked together */
+// Return true if `str` is valid
 bool namegen_word_is_ok(const namegen_t* data, char* str) {
   namegen_word_prune_spaces(str);
-  return (strlen(str) > 0) & (!namegen_word_has_triples(str)) & (!namegen_word_has_illegal(data, str)) &
+  return (strlen(str) > 0) && (!namegen_word_has_triples(str)) && (!namegen_word_has_illegal(data, str)) &&
          (!namegen_word_prune_syllables(str));
 }
 

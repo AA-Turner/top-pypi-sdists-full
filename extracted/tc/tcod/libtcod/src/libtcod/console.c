@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@ static TCOD_Error TCOD_console_data_alloc(struct TCOD_Console* console) {
   if (console->tiles) {
     return TCOD_E_ERROR;
   }
-  console->tiles = calloc(sizeof(*console->tiles), console->elements);
+  console->tiles = calloc(console->elements, sizeof(*console->tiles));
   return TCOD_E_OK;
 }
 static void TCOD_console_data_free(struct TCOD_Console* con) {
@@ -75,7 +75,7 @@ TCOD_Console* TCOD_console_new(int w, int h) {
     TCOD_set_errorvf("Width and height can not be negative: got %i,%i", w, h);
     return NULL;
   }
-  struct TCOD_Console* con = calloc(sizeof(*con), 1);
+  struct TCOD_Console* con = calloc(1, sizeof(*con));
   if (!con) {
     TCOD_set_errorv("Could not allocate memory for a console.");
     return NULL;
@@ -356,7 +356,7 @@ int TCOD_console_get_char(const TCOD_Console* con, int x, int y) {
 /**
  *  Clamp colors channels that are outside of uint8_t's range.
  */
-static uint8_t clamp_color_(int c) { return (uint8_t)(MAX(0, MIN(c, 255))); }
+static uint8_t clamp_color_(int c) { return (uint8_t)(TCOD_MAX(0, TCOD_MIN(c, 255))); }
 /**
  *  Mix two colors using a lambda.
  */
@@ -371,8 +371,8 @@ static struct TCOD_ColorRGBA blend_color_(
   return out;
 }
 static int channel_multiply(uint8_t dst, uint8_t src) { return (int)dst * (int)src / 255; }
-static int channel_lighten(uint8_t dst, uint8_t src) { return MAX(dst, src); }
-static int channel_darken(uint8_t dst, uint8_t src) { return MIN(dst, src); }
+static int channel_lighten(uint8_t dst, uint8_t src) { return TCOD_MAX(dst, src); }
+static int channel_darken(uint8_t dst, uint8_t src) { return TCOD_MIN(dst, src); }
 static int channel_screen(uint8_t dst, uint8_t src) {
   // newbk = white - (white - oldbk) * (white - curbk)
   return 255 - (255 - (int)dst) * (255 - (int)src) / 255;

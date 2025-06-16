@@ -349,9 +349,11 @@ class MCPServer:
                         "content": [
                             {
                                 "type": "text",
-                                "text": str(result)
-                                if isinstance(result, (str, int, float, bool))
-                                else json.dumps(result),
+                                "text": (
+                                    str(result)
+                                    if isinstance(result, (str, int, float, bool))
+                                    else json.dumps(result)
+                                ),
                             }
                         ]
                     },

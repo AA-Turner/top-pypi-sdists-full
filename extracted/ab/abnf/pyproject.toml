@@ -1,0 +1,90 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=64",
+    "setuptools_scm>=8",
+]
+
+[project]
+authors = [
+    { email = "charles@declaresub.com", name = "Charles Yeomans" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Interpreters",
+]
+description = "Parsers for ABNF grammars."
+dynamic = [
+    "version",
+]
+keywords = [
+    "abnf",
+    "generator",
+    "parser",
+]
+name = "abnf"
+readme = "README.md"
+requires-python = ">= 3.9"
+
+[tool.black]
+
+[tool.check-manifest]
+ignore = [
+    "tests/notes",
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.pyright]
+pythonVersion = "3.9"
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+ignore = [
+    "COM812",
+    "E501",
+    "RUF001",
+    "S101",
+]
+select = [
+    "ASYNC",
+    "B",
+    "BLE",
+    "C4",
+    "COM",
+    "DTZ",
+    "E",
+    "EM",
+    "F",
+    "FURB",
+    "I",
+    "ICN",
+    "ISC",
+    "PERF",
+    "RUF",
+    "SIM",
+    "T20",
+    "UP",
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.setuptools_scm]

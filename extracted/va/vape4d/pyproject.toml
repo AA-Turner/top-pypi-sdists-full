@@ -1,0 +1,28 @@
+[project]
+name = "vape4d"
+version = "0.2.7"
+description = "Volume 4D Visualization"
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["4D", "volume", "visualization", "vape4d"]
+authors = [{ name = "Simon Niedermayr" }]
+
+dependencies = ["numpy", "matplotlib", "seaborn", "cmasher", "cffi"]
+
+[project.optional-dependencies]
+ipython = ["ipython"]
+
+[project.urls]
+homepage = "https://keksboter.github.io/vape4d"
+repository = "https://github.com/KeKsBoTer/vape4d"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+# "extension-module" tells pyo3 we want to build an extension module (skips linking against libpython.so)
+features = ["pyo3/extension-module", "python"]
+
+[project.gui-scripts]
+vape4d = "vape4d.vape4d:standalone"

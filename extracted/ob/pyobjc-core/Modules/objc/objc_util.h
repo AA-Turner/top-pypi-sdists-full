@@ -4,9 +4,10 @@
 NS_ASSUME_NONNULL_BEGIN
 
 extern NSNull* NSNull_null;
+extern Class NSAutoreleasePool_class;
 extern PyObject* PyObjCExc_Error;
 extern PyObject* PyObjCExc_NoSuchClassError;
-extern PyObject* PyObjCExc_UnInitDeallocWarning;
+extern PyObject* PyObjCExc_UnInitDeallocWarning; /* XXX: Drop in PyObjC 12 */
 extern PyObject* PyObjCExc_ObjCRevivalWarning;
 extern PyObject* PyObjCExc_LockError;
 extern PyObject* PyObjCExc_BadPrototypeError;
@@ -18,8 +19,6 @@ extern PyObject* PyObjCExc_ObjCSuperWarning;
 extern int PyObjC_CheckArgCount(PyObject* callable, size_t min_args, size_t max_args,
                                 size_t nargsf);
 extern int PyObjC_CheckNoKwnames(PyObject* callable, PyObject* _Nullable kwnames);
-
-extern PyObject* _Nullable PyObjC_MakeCVoidP(void* ptr);
 
 extern int PyObjCUtil_Init(PyObject* module);
 
@@ -54,8 +53,6 @@ extern int PyObjC_is_ascii_string(PyObject* unicode_string, const char* ascii_st
     __attribute__((__pure__));
 extern int PyObjC_is_ascii_prefix(PyObject* unicode_string, const char* ascii_string,
                                   size_t n) __attribute__((__pure__));
-
-extern PyObject* _Nullable PyObjC_ImportName(const char* name);
 
 extern PyObject* _Nullable PyObjC_AdjustSelf(PyObject* object);
 
@@ -147,6 +144,7 @@ extern PyObject* PyObjCNM_callable_retained;
 extern PyObject* PyObjCNM_deprecated;
 extern PyObject* PyObjCNM_deref_result_pointer;
 extern PyObject* PyObjCNM_free_result;
+extern PyObject* PyObjCNM_initializer;
 extern PyObject* PyObjCNM_full_signature;
 extern PyObject* PyObjCNM_null_accepted;
 extern PyObject* PyObjCNM_printf_format;
@@ -179,6 +177,7 @@ extern PyObject* PyObjCNM_pyobjcSetValue_;
 extern PyObject* PyObjCNM_tzinfo;
 extern PyObject* PyObjCNM_update;
 extern PyObject* PyObjCNM_co_consts;
+extern PyObject* PyObjCNM___call__;
 
 extern int PyObjC_RemoveInternalTypeCodes(char*);
 

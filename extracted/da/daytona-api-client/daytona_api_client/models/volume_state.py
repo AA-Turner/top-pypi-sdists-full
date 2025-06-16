@@ -1,4 +1,7 @@
 # coding: utf-8
+# Copyright 2025 Daytona Platforms Inc.
+# SPDX-License-Identifier: Apache-2.0
+
 
 """
     Daytona
@@ -27,17 +30,15 @@ class VolumeState(str, Enum):
     """
     allowed enum values
     """
-    CREATING = 'creating'
-    READY = 'ready'
-    PENDING_CREATE = 'pending_create'
-    PENDING_DELETE = 'pending_delete'
-    DELETING = 'deleting'
-    DELETED = 'deleted'
-    ERROR = 'error'
+    CREATING = "creating"
+    READY = "ready"
+    PENDING_CREATE = "pending_create"
+    PENDING_DELETE = "pending_delete"
+    DELETING = "deleting"
+    DELETED = "deleted"
+    ERROR = "error"
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
         """Create an instance of VolumeState from a JSON string"""
         return cls(json.loads(json_str))
-
-

@@ -1,0 +1,26 @@
+dictionaryDefinitions:
+  - name: words
+    path: .config/dictionary.txt
+    addWords: true
+dictionaries:
+  - bash
+  - software-terms
+  - networking-terms
+  - makefile
+  - python
+  - words
+  - "!aws"
+  - "!backwards-compatibility"
+  - "!cryptocurrencies"
+  - "!cpp"
+ignorePaths:
+  - .config/requirements*
+  - \.*
+  - cspell.config.yaml
+  - mkdocs.yml
+  - pyproject.toml
+  - tox.ini
+
+languageSettings:
+  - languageId: python
+    allowCompoundWords: false

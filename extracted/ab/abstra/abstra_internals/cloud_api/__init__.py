@@ -17,8 +17,6 @@ from abstra_internals.environment import (
     CLOUD_API_CLI_URL,
     CLOUD_API_ENDPOINT,
     HOST,
-    IS_PRODUCTION,
-    PROJECT_ID,
     REQUEST_TIMEOUT,
 )
 from abstra_internals.logger import AbstraLogger
@@ -69,6 +67,8 @@ def get_ai_messages(
     env_vars_keys,
     current_abstra_json,
     allowed_actions_schema,
+    tasks,
+    executions,
 ):
     url = f"{CLOUD_API_CLI_URL}/ai/messages"
     current_abstra_version = pkg_utils.get_local_package_version().base_version
@@ -84,6 +84,8 @@ def get_ai_messages(
         "actionsVersion": "v1",
         "abstraJson": current_abstra_json,
         "allowedActionsSchema": allowed_actions_schema,
+        "tasks": tasks,
+        "executions": executions,
     }
     return requests.post(url, headers=headers, json=body, stream=True).iter_content(
         chunk_size=None
@@ -144,17 +146,6 @@ def get_project_info(headers: dict, project_id: Optional[str] = None):
     r = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
     r.raise_for_status()
     return r.json()
-
-
-def get_project_id():
-    if IS_PRODUCTION:
-        return PROJECT_ID
-
-    else:
-        headers = resolve_headers()
-        if headers is None:
-            return None
-        return get_project_info(headers)["id"]
 
 
 class TunnelRequest(BaseModel):

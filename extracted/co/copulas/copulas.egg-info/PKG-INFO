@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copulas
-Version: 0.12.2
+Version: 0.12.3
 Summary: Create tabular synthetic data using copulas-based modeling.
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License: BSL-1.1
@@ -49,7 +49,6 @@ Requires-Dist: copulas[tutorials]; extra == "test"
 Requires-Dist: pytest>=6.2.5; extra == "test"
 Requires-Dist: pytest-cov>=2.6.0; extra == "test"
 Requires-Dist: pytest-rerunfailures>=10.3; extra == "test"
-Requires-Dist: rundoc>=0.4.3; extra == "test"
 Requires-Dist: tomli>=2.0.0; extra == "test"
 Provides-Extra: dev
 Requires-Dist: copulas[test,tutorials]; extra == "dev"
@@ -70,7 +69,7 @@ Requires-Dist: lxml-html-clean<0.5,>=0.4.1; extra == "dev"
 Requires-Dist: Jinja2<3.2,>=3.1.6; extra == "dev"
 Requires-Dist: myst_parser<4.1,>=3.0.1; extra == "dev"
 Requires-Dist: ruff<1,>=0.3.2; extra == "dev"
-Requires-Dist: twine<4,>=1.10.0; extra == "dev"
+Requires-Dist: twine>=1.10.0; extra == "dev"
 Requires-Dist: wheel>=0.30.0; extra == "dev"
 Requires-Dist: coverage<7.8,>=7.7.1; extra == "dev"
 Requires-Dist: tox<4,>=2.9.1; extra == "dev"
@@ -79,6 +78,8 @@ Requires-Dist: urllib3<2.4,>=1.26.20; extra == "dev"
 Requires-Dist: tabulate<0.10,>=0.9.0; extra == "dev"
 Requires-Dist: boto3<1.38,>=1.37.18; extra == "dev"
 Requires-Dist: docutils<0.22,>=0.21.2; extra == "dev"
+Provides-Extra: readme
+Requires-Dist: rundoc<0.5,>=0.4.3; extra == "readme"
 Dynamic: license-file
 
 <p style="text-align:center">

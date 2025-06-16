@@ -33,13 +33,8 @@ class DataFusionCompiler(SQLGlotCompiler):
         ops.ArrayFilter,
         ops.ArrayMap,
         ops.ArrayZip,
-        ops.BitwiseNot,
-        ops.Clip,
         ops.CountDistinctStar,
         ops.DateDelta,
-        ops.Greatest,
-        ops.IntervalFromInteger,
-        ops.Least,
         ops.RowID,
         ops.Strftime,
         ops.TimeDelta,
@@ -529,6 +524,9 @@ class DataFusionCompiler(SQLGlotCompiler):
             args.append(value)
         return self.f.named_struct(*args)
 
+    def visit_StructField(self, op, *, arg, field):
+        return sge.Bracket(this=arg, expressions=[sge.convert(field)])
+
     def visit_GroupConcat(self, op, *, arg, sep, where, order_by):
         if order_by:
             raise com.UnsupportedOperationError(
@@ -562,6 +560,52 @@ class DataFusionCompiler(SQLGlotCompiler):
 
     def visit_MapLength(self, op, *, arg):
         return self.f.array_length(self.f.map_keys(arg))
+
+    def visit_ArrayAll(self, op, *, arg):
+        value_type = op.arg.dtype.value_type
+        return self.if_(
+            arg.is_(NULL),
+            self.cast(NULL, dt.bool),
+            self.if_(
+                self.f.array_length(arg) > 0,
+                self.if_(
+                    self.f.array_has_all(
+                        self.f.make_array(self.cast(NULL, value_type)), arg
+                    ),
+                    self.cast(NULL, dt.bool),
+                    self.f.array_has_all(
+                        self.f.make_array(True, self.cast(NULL, value_type)), arg
+                    ),
+                ),
+                self.cast(NULL, dt.bool),
+            ),
+        )
+
+    def visit_ArrayAny(self, op, *, arg):
+        value_type = op.arg.dtype.value_type
+        return self.if_(
+            arg.is_(NULL),
+            self.cast(NULL, dt.bool),
+            self.if_(
+                self.f.array_length(arg) > 0,
+                self.if_(
+                    self.f.array_has_all(
+                        self.f.make_array(self.cast(NULL, value_type)), arg
+                    ),
+                    self.cast(NULL, dt.bool),
+                    self.f.array_has_any(self.f.make_array(True), arg),
+                ),
+                self.cast(NULL, dt.bool),
+            ),
+        )
+
+    def visit_BitwiseNot(self, op, *, arg):
+        # https://stackoverflow.com/q/69648488/4001592
+        return sge.BitwiseXor(this=arg, expression=sge.Literal.number(-1))
+
+    def visit_IntervalFromInteger(self, op, *, arg, unit):
+        unit = unit.name.lower()
+        return sg.cast(self.f.concat(self.cast(arg, dt.string), f" {unit}"), "interval")
 
 
 compiler = DataFusionCompiler()

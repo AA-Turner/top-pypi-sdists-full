@@ -4495,6 +4495,8 @@ class CfnEventInvokeConfig(
         def __init__(self, *, destination: builtins.str) -> None:
             '''A destination for events that failed processing.
 
+            See `Capturing records of Lambda asynchronous invocations <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html>`_ for more information.
+
             :param destination: The Amazon Resource Name (ARN) of the destination resource. To retain records of unsuccessful `asynchronous invocations <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html#invocation-async-destinations>`_ , you can configure an Amazon SNS topic, Amazon SQS queue, Amazon S3 bucket, Lambda function, or Amazon EventBridge event bus as the destination. To retain records of failed invocations from `Kinesis <https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html>`_ , `DynamoDB <https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html>`_ , `self-managed Kafka <https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html#services-smaa-onfailure-destination>`_ or `Amazon MSK <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-onfailure-destination>`_ , you can configure an Amazon SNS topic, Amazon SQS queue, or Amazon S3 bucket as the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventinvokeconfig-onfailure.html
@@ -4787,7 +4789,18 @@ class CfnEventSourceMapping(
         
             # the properties below are optional
             amazon_managed_kafka_event_source_config=lambda.CfnEventSourceMapping.AmazonManagedKafkaEventSourceConfigProperty(
-                consumer_group_id="consumerGroupId"
+                consumer_group_id="consumerGroupId",
+                schema_registry_config=lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
+                    access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
+                        type="type",
+                        uri="uri"
+                    )],
+                    event_record_format="eventRecordFormat",
+                    schema_registry_uri="schemaRegistryUri",
+                    schema_validation_configs=[lambda.CfnEventSourceMapping.SchemaValidationConfigProperty(
+                        attribute="attribute"
+                    )]
+                )
             ),
             batch_size=123,
             bisect_batch_on_function_error=False,
@@ -4831,7 +4844,18 @@ class CfnEventSourceMapping(
                 )
             ),
             self_managed_kafka_event_source_config=lambda.CfnEventSourceMapping.SelfManagedKafkaEventSourceConfigProperty(
-                consumer_group_id="consumerGroupId"
+                consumer_group_id="consumerGroupId",
+                schema_registry_config=lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
+                    access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
+                        type="type",
+                        uri="uri"
+                    )],
+                    event_record_format="eventRecordFormat",
+                    schema_registry_uri="schemaRegistryUri",
+                    schema_validation_configs=[lambda.CfnEventSourceMapping.SchemaValidationConfigProperty(
+                        attribute="attribute"
+                    )]
+                )
             ),
             source_access_configurations=[lambda.CfnEventSourceMapping.SourceAccessConfigurationProperty(
                 type="type",
@@ -5436,17 +5460,22 @@ class CfnEventSourceMapping(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lambda.CfnEventSourceMapping.AmazonManagedKafkaEventSourceConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"consumer_group_id": "consumerGroupId"},
+        name_mapping={
+            "consumer_group_id": "consumerGroupId",
+            "schema_registry_config": "schemaRegistryConfig",
+        },
     )
     class AmazonManagedKafkaEventSourceConfigProperty:
         def __init__(
             self,
             *,
             consumer_group_id: typing.Optional[builtins.str] = None,
+            schema_registry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventSourceMapping.SchemaRegistryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specific configuration settings for an Amazon Managed Streaming for Apache Kafka (Amazon MSK) event source.
 
             :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_ .
+            :param schema_registry_config: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-amazonmanagedkafkaeventsourceconfig.html
             :exampleMetadata: fixture=_generated
@@ -5458,15 +5487,29 @@ class CfnEventSourceMapping(
                 from aws_cdk import aws_lambda as lambda_
                 
                 amazon_managed_kafka_event_source_config_property = lambda.CfnEventSourceMapping.AmazonManagedKafkaEventSourceConfigProperty(
-                    consumer_group_id="consumerGroupId"
+                    consumer_group_id="consumerGroupId",
+                    schema_registry_config=lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
+                        access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
+                            type="type",
+                            uri="uri"
+                        )],
+                        event_record_format="eventRecordFormat",
+                        schema_registry_uri="schemaRegistryUri",
+                        schema_validation_configs=[lambda.CfnEventSourceMapping.SchemaValidationConfigProperty(
+                            attribute="attribute"
+                        )]
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__aac6572409154e0ba1b8c514b7863acbda031f98f5a42007db7c94d4afe31b72)
                 check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
+                check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if consumer_group_id is not None:
                 self._values["consumer_group_id"] = consumer_group_id
+            if schema_registry_config is not None:
+                self._values["schema_registry_config"] = schema_registry_config
 
         @builtins.property
         def consumer_group_id(self) -> typing.Optional[builtins.str]:
@@ -5478,6 +5521,16 @@ class CfnEventSourceMapping(
             '''
             result = self._values.get("consumer_group_id")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def schema_registry_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventSourceMapping.SchemaRegistryConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-amazonmanagedkafkaeventsourceconfig.html#cfn-lambda-eventsourcemapping-amazonmanagedkafkaeventsourceconfig-schemaregistryconfig
+            '''
+            result = self._values.get("schema_registry_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventSourceMapping.SchemaRegistryConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5881,6 +5934,8 @@ class CfnEventSourceMapping(
         ) -> None:
             '''A destination for events that failed processing.
 
+            See `Capturing records of Lambda asynchronous invocations <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html>`_ for more information.
+
             :param destination: The Amazon Resource Name (ARN) of the destination resource. To retain records of unsuccessful `asynchronous invocations <https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html#invocation-async-destinations>`_ , you can configure an Amazon SNS topic, Amazon SQS queue, Amazon S3 bucket, Lambda function, or Amazon EventBridge event bus as the destination. To retain records of failed invocations from `Kinesis <https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html>`_ , `DynamoDB <https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html>`_ , `self-managed Kafka <https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html#services-smaa-onfailure-destination>`_ or `Amazon MSK <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-onfailure-destination>`_ , you can configure an Amazon SNS topic, Amazon SQS queue, or Amazon S3 bucket as the destination.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-onfailure.html
@@ -6058,6 +6113,240 @@ class CfnEventSourceMapping(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type", "uri": "uri"},
+    )
+    class SchemaRegistryAccessConfigProperty:
+        def __init__(
+            self,
+            *,
+            type: typing.Optional[builtins.str] = None,
+            uri: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param type: The type of authentication Lambda uses to access your schema registry.
+            :param uri: The URI of the secret (Secrets Manager secret ARN) to authenticate with your schema registry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemaregistryaccessconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                schema_registry_access_config_property = lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
+                    type="type",
+                    uri="uri"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6eca6e693bd8bc08cbc4e65ef0a192af8a45e588dc95d417a2c7feff8fc7ade7)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if type is not None:
+                self._values["type"] = type
+            if uri is not None:
+                self._values["uri"] = uri
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The type of authentication Lambda uses to access your schema registry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemaregistryaccessconfig.html#cfn-lambda-eventsourcemapping-schemaregistryaccessconfig-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def uri(self) -> typing.Optional[builtins.str]:
+            '''The URI of the secret (Secrets Manager secret ARN) to authenticate with your schema registry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemaregistryaccessconfig.html#cfn-lambda-eventsourcemapping-schemaregistryaccessconfig-uri
+            '''
+            result = self._values.get("uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchemaRegistryAccessConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "access_configs": "accessConfigs",
+            "event_record_format": "eventRecordFormat",
+            "schema_registry_uri": "schemaRegistryUri",
+            "schema_validation_configs": "schemaValidationConfigs",
+        },
+    )
+    class SchemaRegistryConfigProperty:
+        def __init__(
+            self,
+            *,
+            access_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventSourceMapping.SchemaRegistryAccessConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            event_record_format: typing.Optional[builtins.str] = None,
+            schema_registry_uri: typing.Optional[builtins.str] = None,
+            schema_validation_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventSourceMapping.SchemaValidationConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param access_configs: An array of access configuration objects that tell Lambda how to authenticate with your schema registry.
+            :param event_record_format: The record format that Lambda delivers to your function after schema validation.
+            :param schema_registry_uri: The URI for your schema registry. The correct URI format depends on the type of schema registry you're using.
+            :param schema_validation_configs: An array of schema validation configuration objects, which tell Lambda the message attributes you want to validate and filter using your schema registry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemaregistryconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                schema_registry_config_property = lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
+                    access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
+                        type="type",
+                        uri="uri"
+                    )],
+                    event_record_format="eventRecordFormat",
+                    schema_registry_uri="schemaRegistryUri",
+                    schema_validation_configs=[lambda.CfnEventSourceMapping.SchemaValidationConfigProperty(
+                        attribute="attribute"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7f8fb419a333cbc879badd611bbdfdb1f0ed875f70f7915910a930f6c8cc2742)
+                check_type(argname="argument access_configs", value=access_configs, expected_type=type_hints["access_configs"])
+                check_type(argname="argument event_record_format", value=event_record_format, expected_type=type_hints["event_record_format"])
+                check_type(argname="argument schema_registry_uri", value=schema_registry_uri, expected_type=type_hints["schema_registry_uri"])
+                check_type(argname="argument schema_validation_configs", value=schema_validation_configs, expected_type=type_hints["schema_validation_configs"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if access_configs is not None:
+                self._values["access_configs"] = access_configs
+            if event_record_format is not None:
+                self._values["event_record_format"] = event_record_format
+            if schema_registry_uri is not None:
+                self._values["schema_registry_uri"] = schema_registry_uri
+            if schema_validation_configs is not None:
+                self._values["schema_validation_configs"] = schema_validation_configs
+
+        @builtins.property
+        def access_configs(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventSourceMapping.SchemaRegistryAccessConfigProperty"]]]]:
+            '''An array of access configuration objects that tell Lambda how to authenticate with your schema registry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemaregistryconfig.html#cfn-lambda-eventsourcemapping-schemaregistryconfig-accessconfigs
+            '''
+            result = self._values.get("access_configs")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventSourceMapping.SchemaRegistryAccessConfigProperty"]]]], result)
+
+        @builtins.property
+        def event_record_format(self) -> typing.Optional[builtins.str]:
+            '''The record format that Lambda delivers to your function after schema validation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemaregistryconfig.html#cfn-lambda-eventsourcemapping-schemaregistryconfig-eventrecordformat
+            '''
+            result = self._values.get("event_record_format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def schema_registry_uri(self) -> typing.Optional[builtins.str]:
+            '''The URI for your schema registry.
+
+            The correct URI format depends on the type of schema registry you're using.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemaregistryconfig.html#cfn-lambda-eventsourcemapping-schemaregistryconfig-schemaregistryuri
+            '''
+            result = self._values.get("schema_registry_uri")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def schema_validation_configs(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventSourceMapping.SchemaValidationConfigProperty"]]]]:
+            '''An array of schema validation configuration objects, which tell Lambda the message attributes you want to validate and filter using your schema registry.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemaregistryconfig.html#cfn-lambda-eventsourcemapping-schemaregistryconfig-schemavalidationconfigs
+            '''
+            result = self._values.get("schema_validation_configs")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventSourceMapping.SchemaValidationConfigProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchemaRegistryConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnEventSourceMapping.SchemaValidationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"attribute": "attribute"},
+    )
+    class SchemaValidationConfigProperty:
+        def __init__(self, *, attribute: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param attribute: The attribute you want your schema registry to validate and filter for.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemavalidationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                schema_validation_config_property = lambda.CfnEventSourceMapping.SchemaValidationConfigProperty(
+                    attribute="attribute"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a33eb6c4d2c3434344b07e6867f42e37e4fc335a3f84422c3bf42cd6136142b7)
+                check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if attribute is not None:
+                self._values["attribute"] = attribute
+
+        @builtins.property
+        def attribute(self) -> typing.Optional[builtins.str]:
+            '''The attribute you want your schema registry to validate and filter for.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-schemavalidationconfig.html#cfn-lambda-eventsourcemapping-schemavalidationconfig-attribute
+            '''
+            result = self._values.get("attribute")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SchemaValidationConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lambda.CfnEventSourceMapping.SelfManagedEventSourceProperty",
         jsii_struct_bases=[],
         name_mapping={"endpoints": "endpoints"},
@@ -6119,17 +6408,22 @@ class CfnEventSourceMapping(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lambda.CfnEventSourceMapping.SelfManagedKafkaEventSourceConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"consumer_group_id": "consumerGroupId"},
+        name_mapping={
+            "consumer_group_id": "consumerGroupId",
+            "schema_registry_config": "schemaRegistryConfig",
+        },
     )
     class SelfManagedKafkaEventSourceConfigProperty:
         def __init__(
             self,
             *,
             consumer_group_id: typing.Optional[builtins.str] = None,
+            schema_registry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventSourceMapping.SchemaRegistryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specific configuration settings for a self-managed Apache Kafka event source.
 
-            :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_ .
+            :param consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-kafka-process.html#services-smaa-topic-add>`_ .
+            :param schema_registry_config: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html
             :exampleMetadata: fixture=_generated
@@ -6141,26 +6435,50 @@ class CfnEventSourceMapping(
                 from aws_cdk import aws_lambda as lambda_
                 
                 self_managed_kafka_event_source_config_property = lambda.CfnEventSourceMapping.SelfManagedKafkaEventSourceConfigProperty(
-                    consumer_group_id="consumerGroupId"
+                    consumer_group_id="consumerGroupId",
+                    schema_registry_config=lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
+                        access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
+                            type="type",
+                            uri="uri"
+                        )],
+                        event_record_format="eventRecordFormat",
+                        schema_registry_uri="schemaRegistryUri",
+                        schema_validation_configs=[lambda.CfnEventSourceMapping.SchemaValidationConfigProperty(
+                            attribute="attribute"
+                        )]
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__da32c0d6c5c0b8e4a97d90195ff7f689e87587b466dc192a0b2972c1b6740d3d)
                 check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
+                check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if consumer_group_id is not None:
                 self._values["consumer_group_id"] = consumer_group_id
+            if schema_registry_config is not None:
+                self._values["schema_registry_config"] = schema_registry_config
 
         @builtins.property
         def consumer_group_id(self) -> typing.Optional[builtins.str]:
             '''The identifier for the Kafka consumer group to join.
 
-            The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id>`_ .
+            The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. For more information, see `Customizable consumer group ID <https://docs.aws.amazon.com/lambda/latest/dg/with-kafka-process.html#services-smaa-topic-add>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html#cfn-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig-consumergroupid
             '''
             result = self._values.get("consumer_group_id")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def schema_registry_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventSourceMapping.SchemaRegistryConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig.html#cfn-lambda-eventsourcemapping-selfmanagedkafkaeventsourceconfig-schemaregistryconfig
+            '''
+            result = self._values.get("schema_registry_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventSourceMapping.SchemaRegistryConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6365,7 +6683,18 @@ class CfnEventSourceMappingProps:
             
                 # the properties below are optional
                 amazon_managed_kafka_event_source_config=lambda.CfnEventSourceMapping.AmazonManagedKafkaEventSourceConfigProperty(
-                    consumer_group_id="consumerGroupId"
+                    consumer_group_id="consumerGroupId",
+                    schema_registry_config=lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
+                        access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
+                            type="type",
+                            uri="uri"
+                        )],
+                        event_record_format="eventRecordFormat",
+                        schema_registry_uri="schemaRegistryUri",
+                        schema_validation_configs=[lambda.CfnEventSourceMapping.SchemaValidationConfigProperty(
+                            attribute="attribute"
+                        )]
+                    )
                 ),
                 batch_size=123,
                 bisect_batch_on_function_error=False,
@@ -6409,7 +6738,18 @@ class CfnEventSourceMappingProps:
                     )
                 ),
                 self_managed_kafka_event_source_config=lambda.CfnEventSourceMapping.SelfManagedKafkaEventSourceConfigProperty(
-                    consumer_group_id="consumerGroupId"
+                    consumer_group_id="consumerGroupId",
+                    schema_registry_config=lambda.CfnEventSourceMapping.SchemaRegistryConfigProperty(
+                        access_configs=[lambda.CfnEventSourceMapping.SchemaRegistryAccessConfigProperty(
+                            type="type",
+                            uri="uri"
+                        )],
+                        event_record_format="eventRecordFormat",
+                        schema_registry_uri="schemaRegistryUri",
+                        schema_validation_configs=[lambda.CfnEventSourceMapping.SchemaValidationConfigProperty(
+                            attribute="attribute"
+                        )]
+                    )
                 ),
                 source_access_configurations=[lambda.CfnEventSourceMapping.SourceAccessConfigurationProperty(
                     type="type",
@@ -11323,23 +11663,28 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.C
 
     Example::
 
-        import aws_cdk.aws_signer as signer
+        import aws_cdk.aws_lambda as lambda_
         
         
-        signing_profile = signer.SigningProfile(self, "SigningProfile",
-            platform=signer.Platform.AWS_LAMBDA_SHA384_ECDSA
-        )
-        
-        code_signing_config = lambda_.CodeSigningConfig(self, "CodeSigningConfig",
-            signing_profiles=[signing_profile]
-        )
-        
-        lambda_.Function(self, "Function",
-            code_signing_config=code_signing_config,
-            runtime=lambda_.Runtime.NODEJS_18_X,
+        fn = lambda_.Function(self, "MyFunc",
+            runtime=lambda_.Runtime.NODEJS_LATEST,
             handler="index.handler",
-            code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
+            code=lambda_.Code.from_inline("exports.handler = handler.toString()")
         )
+        
+        rule = events.Rule(self, "rule",
+            event_pattern=events.EventPattern(
+                source=["aws.ec2"]
+            )
+        )
+        
+        queue = sqs.Queue(self, "Queue")
+        
+        rule.add_target(targets.LambdaFunction(fn,
+            dead_letter_queue=queue,  # Optional: add a dead letter queue
+            max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
+            retry_attempts=2
+        ))
     '''
 
     def __init__(self) -> None:
@@ -28163,23 +28508,28 @@ class Function(
 
     Example::
 
-        import aws_cdk.aws_signer as signer
+        import aws_cdk.aws_lambda as lambda_
         
         
-        signing_profile = signer.SigningProfile(self, "SigningProfile",
-            platform=signer.Platform.AWS_LAMBDA_SHA384_ECDSA
-        )
-        
-        code_signing_config = lambda_.CodeSigningConfig(self, "CodeSigningConfig",
-            signing_profiles=[signing_profile]
-        )
-        
-        lambda_.Function(self, "Function",
-            code_signing_config=code_signing_config,
-            runtime=lambda_.Runtime.NODEJS_18_X,
+        fn = lambda_.Function(self, "MyFunc",
+            runtime=lambda_.Runtime.NODEJS_LATEST,
             handler="index.handler",
-            code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
+            code=lambda_.Code.from_inline("exports.handler = handler.toString()")
         )
+        
+        rule = events.Rule(self, "rule",
+            event_pattern=events.EventPattern(
+                source=["aws.ec2"]
+            )
+        )
+        
+        queue = sqs.Queue(self, "Queue")
+        
+        rule.add_target(targets.LambdaFunction(fn,
+            dead_letter_queue=queue,  # Optional: add a dead letter queue
+            max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
+            retry_attempts=2
+        ))
     '''
 
     def __init__(
@@ -29945,6 +30295,7 @@ def _typecheckingstub__9ba4e20a14a70ac72313ba360ce912878e7f45dfe5ecfef9725f227fc
 def _typecheckingstub__aac6572409154e0ba1b8c514b7863acbda031f98f5a42007db7c94d4afe31b72(
     *,
     consumer_group_id: typing.Optional[builtins.str] = None,
+    schema_registry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventSourceMapping.SchemaRegistryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30015,6 +30366,31 @@ def _typecheckingstub__cb04d1a40c8f33d48d5c4188609d038cd334985a6f5970b3c6b8dd193
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6eca6e693bd8bc08cbc4e65ef0a192af8a45e588dc95d417a2c7feff8fc7ade7(
+    *,
+    type: typing.Optional[builtins.str] = None,
+    uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f8fb419a333cbc879badd611bbdfdb1f0ed875f70f7915910a930f6c8cc2742(
+    *,
+    access_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventSourceMapping.SchemaRegistryAccessConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    event_record_format: typing.Optional[builtins.str] = None,
+    schema_registry_uri: typing.Optional[builtins.str] = None,
+    schema_validation_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventSourceMapping.SchemaValidationConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a33eb6c4d2c3434344b07e6867f42e37e4fc335a3f84422c3bf42cd6136142b7(
+    *,
+    attribute: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a93b51262658dc9dfd71e073cc42d4549a6e56e4c3b47edd31d26c3a46ea8929(
     *,
     endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventSourceMapping.EndpointsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -30025,6 +30401,7 @@ def _typecheckingstub__a93b51262658dc9dfd71e073cc42d4549a6e56e4c3b47edd31d26c3a4
 def _typecheckingstub__da32c0d6c5c0b8e4a97d90195ff7f689e87587b466dc192a0b2972c1b6740d3d(
     *,
     consumer_group_id: typing.Optional[builtins.str] = None,
+    schema_registry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventSourceMapping.SchemaRegistryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

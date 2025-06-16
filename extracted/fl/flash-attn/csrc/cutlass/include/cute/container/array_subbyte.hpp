@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -611,17 +611,6 @@ struct tuple_element<I, cute::array_subbyte<T,N>>
   using type = T;
 };
 
-template <class T, size_t N>
-struct tuple_size<const cute::array_subbyte<T,N>>
-    : CUTE_STL_NAMESPACE::integral_constant<size_t, N>
-{};
-
-template <size_t I, class T, size_t N>
-struct tuple_element<I, const cute::array_subbyte<T,N>>
-{
-  using type = T;
-};
-
 } // end namespace CUTE_STL_NAMESPACE
 
 #ifdef CUTE_STL_NAMESPACE_IS_CUDA_STD
@@ -643,17 +632,6 @@ struct tuple_size<cute::array_subbyte<T,N>>
 
 template <size_t I, class T, size_t N>
 struct tuple_element<I, cute::array_subbyte<T,N>>
-{
-  using type = T;
-};
-
-template <class T, size_t N>
-struct tuple_size<const cute::array_subbyte<T,N>>
-    : CUTE_STL_NAMESPACE::integral_constant<size_t, N>
-{};
-
-template <size_t I, class T, size_t N>
-struct tuple_element<I, const cute::array_subbyte<T,N>>
 {
   using type = T;
 };

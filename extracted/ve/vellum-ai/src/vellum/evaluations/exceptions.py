@@ -1,2 +1,0 @@
-class TestSuiteRunResultsException(Exception):
-    pass

@@ -1,0 +1,86 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyodide-lock"
+authors = [
+  { name="Pyodide developers" },
+]
+description = "Tooling to manage the `pyodide-lock.json` file"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # compatible with pyodide-build and the as-shipped wheel in the pyodide distribution
+    "pydantic>=2",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+cli = [
+    "typer",
+]
+wheel = [
+    "pkginfo",
+    "packaging",
+]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "build",
+    "typer",
+    # from wheel
+    "pkginfo",
+    "packaging",
+    "wheel"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pyodide/pyodide-lock"
+"Bug Tracker" = "https://github.com/pyodide/pyodide-lock/issues"
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = ["pyodide_lock", "tests"]
+show_error_codes = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.ruff]
+select = [
+  "B904",   # bugbear (Within an except clause, raise exceptions with raise ... from err)
+  "B905",   # bugbear (zip() without an explicit strict= parameter set.)
+  "C9",     # mccabe complexity
+  "E",      # pycodestyles
+  "W",      # pycodestyles
+  "F",      # pyflakes
+  "I",      # isort
+  "PGH",    # pygrep-hooks
+  "PLC",    # pylint conventions
+  "PLE",    # pylint errors
+  "UP",     # pyupgrade
+]
+
+[tool.pytest.ini_options]
+addopts = '''
+--doctest-modules'''
+
+[project.entry-points."pyodide.cli"]
+lockfile = "pyodide_lock.cli:main"

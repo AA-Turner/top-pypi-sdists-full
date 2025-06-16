@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: antsibull-docutils
-Version: 1.1.0
+Version: 1.2.0
 Summary: Antsibull docutils helpers
 Project-URL: Documentation, https://ansible.readthedocs.io/projects/antsibull-docutils/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docutils/
@@ -9,7 +9,8 @@ Project-URL: Bug tracker, https://github.com/ansible-community/antsibull-docutil
 Project-URL: Changelog, https://github.com/ansible-community/antsibull-docutils/tree/main/CHANGELOG.md
 Author-email: Felix Fontein <felix@fontein.de>
 Maintainer-email: Felix Fontein <felix@fontein.de>, Maxwell G <maxwell@gtmx.me>
-License: GPL-3.0-or-later
+License-Expression: GPL-3.0-or-later
+License-File: LICENSES/GPL-3.0-or-later.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Ansible
 Classifier: Intended Audience :: Developers

@@ -19,12 +19,13 @@ from datetime import datetime
 from time import time
 
 from dotenv import load_dotenv
-from neo4j import AsyncGraphDatabase
 from pydantic import BaseModel
 from typing_extensions import LiteralString
 
 from graphiti_core.cross_encoder.client import CrossEncoderClient
 from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
+from graphiti_core.driver.driver import GraphDriver
+from graphiti_core.driver.neo4j_driver import Neo4jDriver
 from graphiti_core.edges import EntityEdge, EpisodicEdge
 from graphiti_core.embedder import EmbedderClient, OpenAIEmbedder
 from graphiti_core.graphiti_types import GraphitiClients
@@ -94,12 +95,13 @@ class Graphiti:
     def __init__(
         self,
         uri: str,
-        user: str,
-        password: str,
+        user: str | None = None,
+        password: str | None = None,
         llm_client: LLMClient | None = None,
         embedder: EmbedderClient | None = None,
         cross_encoder: CrossEncoderClient | None = None,
         store_raw_episode_content: bool = True,
+        graph_driver: GraphDriver | None = None,
     ):
         """
         Initialize a Graphiti instance.
@@ -137,7 +139,9 @@ class Graphiti:
         Make sure to set the OPENAI_API_KEY environment variable before initializing
         Graphiti if you're using the default OpenAIClient.
         """
-        self.driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
+
+        self.driver = graph_driver if graph_driver else Neo4jDriver(uri, user, password)
+
         self.database = DEFAULT_DATABASE
         self.store_raw_episode_content = store_raw_episode_content
         if llm_client:
@@ -273,6 +277,8 @@ class Graphiti:
         update_communities: bool = False,
         entity_types: dict[str, BaseModel] | None = None,
         previous_episode_uuids: list[str] | None = None,
+        edge_types: dict[str, BaseModel] | None = None,
+        edge_type_map: dict[tuple[str, str], list[str]] | None = None,
     ) -> AddEpisodeResults:
         """
         Process an episode and update the graph.
@@ -355,6 +361,13 @@ class Graphiti:
                 )
             )
 
+            # Create default edge type map
+            edge_type_map_default = (
+                {('Entity', 'Entity'): list(edge_types.keys())}
+                if edge_types is not None
+                else {('Entity', 'Entity'): []}
+            )
+
             # Extract entities as nodes
 
             extracted_nodes = await extract_nodes(
@@ -370,7 +383,9 @@ class Graphiti:
                     previous_episodes,
                     entity_types,
                 ),
-                extract_edges(self.clients, episode, extracted_nodes, previous_episodes, group_id),
+                extract_edges(
+                    self.clients, episode, extracted_nodes, previous_episodes, group_id, edge_types
+                ),
             )
 
             edges = resolve_edge_pointers(extracted_edges, uuid_map)
@@ -380,6 +395,9 @@ class Graphiti:
                     self.clients,
                     edges,
                     episode,
+                    nodes,
+                    edge_types or {},
+                    edge_type_map or edge_type_map_default,
                 ),
                 extract_attributes_from_nodes(
                     self.clients, nodes, episode, previous_episodes, entity_types
@@ -686,7 +704,19 @@ class Graphiti:
         )[0]
 
         resolved_edge, invalidated_edges = await resolve_extracted_edge(
-            self.llm_client, updated_edge, related_edges, existing_edges
+            self.llm_client,
+            updated_edge,
+            related_edges,
+            existing_edges,
+            EpisodicNode(
+                name='',
+                source=EpisodeType.text,
+                source_description='',
+                content='',
+                valid_at=edge.valid_at or utc_now(),
+                entity_edges=[],
+                group_id=edge.group_id,
+            ),
         )
 
         await add_nodes_and_edges_bulk(

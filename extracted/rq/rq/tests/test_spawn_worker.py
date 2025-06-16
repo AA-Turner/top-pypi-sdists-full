@@ -49,7 +49,7 @@ class TestWorker(RQTestCase):
         # Postconditions
         self.assertEqual(q.count, 0)
         failed_job_registry = FailedJobRegistry(queue=q)
-        self.assertTrue(job in failed_job_registry)
+        self.assertIn(job, failed_job_registry)
         self.assertEqual(w.get_current_job_id(), None)
 
         # Check the job
@@ -106,7 +106,7 @@ class WorkerShutdownTestCase(TimeoutTestCase, RQTestCase):
 
         sentinel_file = '/tmp/.rq_sentinel_cold'
         self.assertFalse(
-            os.path.exists(sentinel_file), '{sentinel_file} file should not exist yet, delete that file and try again.'
+            os.path.exists(sentinel_file), f'{sentinel_file} file should not exist yet, delete that file and try again.'
         )
         fooq.enqueue(create_file_after_timeout, sentinel_file, 5)
         self.assertFalse(w._stop_requested)

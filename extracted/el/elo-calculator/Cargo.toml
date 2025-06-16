@@ -1,8 +1,0 @@
-[workspace]
-members = [
-    "lib",
-    "cli",
-    "api",
-]
-exclude = ["python_bindings"]
-resolver = "2"

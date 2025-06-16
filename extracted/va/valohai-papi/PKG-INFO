@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: valohai-papi
+Version: 0.1.3
+Summary: Experimental imperative Valohai pipeline API
+Home-page: https://github.com/valohai/papi
+License: MIT
+Author: Aarni Koskela
+Author-email: aarni@valohai.com
+Requires-Python: >=3.6.1,<4.0.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: dataclasses (>=0.6); python_version < "3.7"
+Requires-Dist: valohai-yaml (>=0.14.1)

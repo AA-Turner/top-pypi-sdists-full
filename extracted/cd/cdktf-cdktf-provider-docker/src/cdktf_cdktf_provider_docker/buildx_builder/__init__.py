@@ -1,7 +1,7 @@
 r'''
 # `docker_buildx_builder`
 
-Refer to the Terraform Registry for docs: [`docker_buildx_builder`](https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder).
+Refer to the Terraform Registry for docs: [`docker_buildx_builder`](https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BuildxBuilder(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-docker.buildxBuilder.BuildxBuilder",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder docker_buildx_builder}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder docker_buildx_builder}.'''
 
     def __init__(
         self,
@@ -74,25 +74,25 @@ class BuildxBuilder(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder docker_buildx_builder} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder docker_buildx_builder} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param append: Append a node to builder instead of changing it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#append BuildxBuilder#append}
-        :param bootstrap: Automatically boot the builder after creation. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#bootstrap BuildxBuilder#bootstrap}
-        :param buildkit_config: BuildKit daemon config file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#buildkit_config BuildxBuilder#buildkit_config}
-        :param buildkit_flags: BuildKit flags to set for the builder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#buildkit_flags BuildxBuilder#buildkit_flags}
-        :param docker_container: docker_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#docker_container BuildxBuilder#docker_container}
-        :param driver: The driver to use for the Buildx builder (e.g., docker-container, kubernetes). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#driver BuildxBuilder#driver}
-        :param driver_options: Additional options for the Buildx driver in the form of ``key=value,...``. These options are driver-specific. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#driver_options BuildxBuilder#driver_options}
-        :param endpoint: The endpoint or context to use for the Buildx builder, where context is the name of a context from docker context ls and endpoint is the address for Docker socket (eg. DOCKER_HOST value). By default, the current Docker configuration is used for determining the context/endpoint value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#endpoint BuildxBuilder#endpoint}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#id BuildxBuilder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#kubernetes BuildxBuilder#kubernetes}
-        :param name: The name of the Buildx builder. IF not specified, a random name will be generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#name BuildxBuilder#name}
-        :param node_attribute: Create/modify node with given name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#node BuildxBuilder#node}
-        :param platform: Fixed platforms for current node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#platform BuildxBuilder#platform}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#remote BuildxBuilder#remote}
-        :param use: Set the current builder instance as the default for the current context. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#use BuildxBuilder#use}
+        :param append: Append a node to builder instead of changing it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#append BuildxBuilder#append}
+        :param bootstrap: Automatically boot the builder after creation. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#bootstrap BuildxBuilder#bootstrap}
+        :param buildkit_config: BuildKit daemon config file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#buildkit_config BuildxBuilder#buildkit_config}
+        :param buildkit_flags: BuildKit flags to set for the builder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#buildkit_flags BuildxBuilder#buildkit_flags}
+        :param docker_container: docker_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#docker_container BuildxBuilder#docker_container}
+        :param driver: The driver to use for the Buildx builder (e.g., docker-container, kubernetes). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#driver BuildxBuilder#driver}
+        :param driver_options: Additional options for the Buildx driver in the form of ``key=value,...``. These options are driver-specific. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#driver_options BuildxBuilder#driver_options}
+        :param endpoint: The endpoint or context to use for the Buildx builder, where context is the name of a context from docker context ls and endpoint is the address for Docker socket (eg. DOCKER_HOST value). By default, the current Docker configuration is used for determining the context/endpoint value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#endpoint BuildxBuilder#endpoint}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#id BuildxBuilder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#kubernetes BuildxBuilder#kubernetes}
+        :param name: The name of the Buildx builder. IF not specified, a random name will be generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#name BuildxBuilder#name}
+        :param node_attribute: Create/modify node with given name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#node BuildxBuilder#node}
+        :param platform: Fixed platforms for current node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#platform BuildxBuilder#platform}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#remote BuildxBuilder#remote}
+        :param use: Set the current builder instance as the default for the current context. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#use BuildxBuilder#use}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -145,7 +145,7 @@ class BuildxBuilder(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BuildxBuilder to import.
-        :param import_from_id: The id of the existing BuildxBuilder that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BuildxBuilder that should be imported. Refer to the {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BuildxBuilder to import is found.
         '''
         if __debug__:
@@ -175,19 +175,19 @@ class BuildxBuilder(
         restart_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cgroup_parent: Sets the cgroup parent of the container if Docker is using the "cgroupfs" driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cgroup_parent BuildxBuilder#cgroup_parent}
-        :param cpu_period: Sets the CPU CFS scheduler period for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu_period BuildxBuilder#cpu_period}
-        :param cpu_quota: Imposes a CPU CFS quota on the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu_quota BuildxBuilder#cpu_quota}
-        :param cpuset_cpus: Limits the set of CPU cores the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpuset_cpus BuildxBuilder#cpuset_cpus}
-        :param cpuset_mems: Limits the set of CPU memory nodes the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpuset_mems BuildxBuilder#cpuset_mems}
-        :param cpu_shares: Configures CPU shares (relative weight) of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu_shares BuildxBuilder#cpu_shares}
-        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
-        :param env: Sets environment variables in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#env BuildxBuilder#env}
-        :param image: Sets the BuildKit image to use for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#image BuildxBuilder#image}
-        :param memory: Sets the amount of memory the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory BuildxBuilder#memory}
-        :param memory_swap: Sets the memory swap limit for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory_swap BuildxBuilder#memory_swap}
-        :param network: Sets the network mode for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#network BuildxBuilder#network}
-        :param restart_policy: Sets the container's restart policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#restart_policy BuildxBuilder#restart_policy}
+        :param cgroup_parent: Sets the cgroup parent of the container if Docker is using the "cgroupfs" driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cgroup_parent BuildxBuilder#cgroup_parent}
+        :param cpu_period: Sets the CPU CFS scheduler period for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu_period BuildxBuilder#cpu_period}
+        :param cpu_quota: Imposes a CPU CFS quota on the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu_quota BuildxBuilder#cpu_quota}
+        :param cpuset_cpus: Limits the set of CPU cores the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpuset_cpus BuildxBuilder#cpuset_cpus}
+        :param cpuset_mems: Limits the set of CPU memory nodes the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpuset_mems BuildxBuilder#cpuset_mems}
+        :param cpu_shares: Configures CPU shares (relative weight) of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu_shares BuildxBuilder#cpu_shares}
+        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
+        :param env: Sets environment variables in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#env BuildxBuilder#env}
+        :param image: Sets the BuildKit image to use for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#image BuildxBuilder#image}
+        :param memory: Sets the amount of memory the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory BuildxBuilder#memory}
+        :param memory_swap: Sets the memory swap limit for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory_swap BuildxBuilder#memory_swap}
+        :param network: Sets the network mode for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#network BuildxBuilder#network}
+        :param restart_policy: Sets the container's restart policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#restart_policy BuildxBuilder#restart_policy}
         '''
         value = BuildxBuilderDockerContainer(
             cgroup_parent=cgroup_parent,
@@ -229,22 +229,22 @@ class BuildxBuilder(
         tolerations: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param annotations: Sets additional annotations on the deployments and pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#annotations BuildxBuilder#annotations}
-        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
-        :param image: Sets the image to use for running BuildKit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#image BuildxBuilder#image}
-        :param labels: Sets additional labels on the deployments and pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#labels BuildxBuilder#labels}
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#limits BuildxBuilder#limits}
-        :param loadbalance: Load-balancing strategy (sticky or random). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#loadbalance BuildxBuilder#loadbalance}
-        :param namespace: Sets the Kubernetes namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#namespace BuildxBuilder#namespace}
-        :param nodeselector: Sets the pod's nodeSelector label(s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#nodeselector BuildxBuilder#nodeselector}
-        :param qemu: qemu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#qemu BuildxBuilder#qemu}
-        :param replicas: Sets the number of Pod replicas to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#replicas BuildxBuilder#replicas}
-        :param requests: requests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#requests BuildxBuilder#requests}
-        :param rootless: Run the container as a non-root user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#rootless BuildxBuilder#rootless}
-        :param schedulername: Sets the scheduler responsible for scheduling the pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#schedulername BuildxBuilder#schedulername}
-        :param serviceaccount: Sets the pod's serviceAccountName. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#serviceaccount BuildxBuilder#serviceaccount}
-        :param timeout: Set the timeout limit for pod provisioning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#timeout BuildxBuilder#timeout}
-        :param tolerations: Configures the pod's taint toleration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#tolerations BuildxBuilder#tolerations}
+        :param annotations: Sets additional annotations on the deployments and pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#annotations BuildxBuilder#annotations}
+        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
+        :param image: Sets the image to use for running BuildKit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#image BuildxBuilder#image}
+        :param labels: Sets additional labels on the deployments and pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#labels BuildxBuilder#labels}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#limits BuildxBuilder#limits}
+        :param loadbalance: Load-balancing strategy (sticky or random). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#loadbalance BuildxBuilder#loadbalance}
+        :param namespace: Sets the Kubernetes namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#namespace BuildxBuilder#namespace}
+        :param nodeselector: Sets the pod's nodeSelector label(s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#nodeselector BuildxBuilder#nodeselector}
+        :param qemu: qemu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#qemu BuildxBuilder#qemu}
+        :param replicas: Sets the number of Pod replicas to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#replicas BuildxBuilder#replicas}
+        :param requests: requests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#requests BuildxBuilder#requests}
+        :param rootless: Run the container as a non-root user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#rootless BuildxBuilder#rootless}
+        :param schedulername: Sets the scheduler responsible for scheduling the pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#schedulername BuildxBuilder#schedulername}
+        :param serviceaccount: Sets the pod's serviceAccountName. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#serviceaccount BuildxBuilder#serviceaccount}
+        :param timeout: Set the timeout limit for pod provisioning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#timeout BuildxBuilder#timeout}
+        :param tolerations: Configures the pod's taint toleration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#tolerations BuildxBuilder#tolerations}
         '''
         value = BuildxBuilderKubernetes(
             annotations=annotations,
@@ -278,11 +278,11 @@ class BuildxBuilder(
         servername: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cacert: Absolute path to the TLS certificate authority used for validation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cacert BuildxBuilder#cacert}
-        :param cert: Absolute path to the TLS client certificate to present to buildkitd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cert BuildxBuilder#cert}
-        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
-        :param key: Sets the TLS client key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#key BuildxBuilder#key}
-        :param servername: TLS server name used in requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#servername BuildxBuilder#servername}
+        :param cacert: Absolute path to the TLS certificate authority used for validation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cacert BuildxBuilder#cacert}
+        :param cert: Absolute path to the TLS client certificate to present to buildkitd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cert BuildxBuilder#cert}
+        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
+        :param key: Sets the TLS client key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#key BuildxBuilder#key}
+        :param servername: TLS server name used in requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#servername BuildxBuilder#servername}
         '''
         value = BuildxBuilderRemote(
             cacert=cacert,
@@ -682,21 +682,21 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param append: Append a node to builder instead of changing it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#append BuildxBuilder#append}
-        :param bootstrap: Automatically boot the builder after creation. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#bootstrap BuildxBuilder#bootstrap}
-        :param buildkit_config: BuildKit daemon config file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#buildkit_config BuildxBuilder#buildkit_config}
-        :param buildkit_flags: BuildKit flags to set for the builder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#buildkit_flags BuildxBuilder#buildkit_flags}
-        :param docker_container: docker_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#docker_container BuildxBuilder#docker_container}
-        :param driver: The driver to use for the Buildx builder (e.g., docker-container, kubernetes). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#driver BuildxBuilder#driver}
-        :param driver_options: Additional options for the Buildx driver in the form of ``key=value,...``. These options are driver-specific. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#driver_options BuildxBuilder#driver_options}
-        :param endpoint: The endpoint or context to use for the Buildx builder, where context is the name of a context from docker context ls and endpoint is the address for Docker socket (eg. DOCKER_HOST value). By default, the current Docker configuration is used for determining the context/endpoint value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#endpoint BuildxBuilder#endpoint}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#id BuildxBuilder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#kubernetes BuildxBuilder#kubernetes}
-        :param name: The name of the Buildx builder. IF not specified, a random name will be generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#name BuildxBuilder#name}
-        :param node_attribute: Create/modify node with given name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#node BuildxBuilder#node}
-        :param platform: Fixed platforms for current node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#platform BuildxBuilder#platform}
-        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#remote BuildxBuilder#remote}
-        :param use: Set the current builder instance as the default for the current context. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#use BuildxBuilder#use}
+        :param append: Append a node to builder instead of changing it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#append BuildxBuilder#append}
+        :param bootstrap: Automatically boot the builder after creation. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#bootstrap BuildxBuilder#bootstrap}
+        :param buildkit_config: BuildKit daemon config file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#buildkit_config BuildxBuilder#buildkit_config}
+        :param buildkit_flags: BuildKit flags to set for the builder. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#buildkit_flags BuildxBuilder#buildkit_flags}
+        :param docker_container: docker_container block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#docker_container BuildxBuilder#docker_container}
+        :param driver: The driver to use for the Buildx builder (e.g., docker-container, kubernetes). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#driver BuildxBuilder#driver}
+        :param driver_options: Additional options for the Buildx driver in the form of ``key=value,...``. These options are driver-specific. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#driver_options BuildxBuilder#driver_options}
+        :param endpoint: The endpoint or context to use for the Buildx builder, where context is the name of a context from docker context ls and endpoint is the address for Docker socket (eg. DOCKER_HOST value). By default, the current Docker configuration is used for determining the context/endpoint value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#endpoint BuildxBuilder#endpoint}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#id BuildxBuilder#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kubernetes: kubernetes block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#kubernetes BuildxBuilder#kubernetes}
+        :param name: The name of the Buildx builder. IF not specified, a random name will be generated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#name BuildxBuilder#name}
+        :param node_attribute: Create/modify node with given name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#node BuildxBuilder#node}
+        :param platform: Fixed platforms for current node. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#platform BuildxBuilder#platform}
+        :param remote: remote block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#remote BuildxBuilder#remote}
+        :param use: Set the current builder instance as the default for the current context. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#use BuildxBuilder#use}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -846,7 +846,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Append a node to builder instead of changing it.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#append BuildxBuilder#append}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#append BuildxBuilder#append}
         '''
         result = self._values.get("append")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -857,7 +857,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Automatically boot the builder after creation. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#bootstrap BuildxBuilder#bootstrap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#bootstrap BuildxBuilder#bootstrap}
         '''
         result = self._values.get("bootstrap")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -866,7 +866,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def buildkit_config(self) -> typing.Optional[builtins.str]:
         '''BuildKit daemon config file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#buildkit_config BuildxBuilder#buildkit_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#buildkit_config BuildxBuilder#buildkit_config}
         '''
         result = self._values.get("buildkit_config")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -875,7 +875,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def buildkit_flags(self) -> typing.Optional[builtins.str]:
         '''BuildKit flags to set for the builder.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#buildkit_flags BuildxBuilder#buildkit_flags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#buildkit_flags BuildxBuilder#buildkit_flags}
         '''
         result = self._values.get("buildkit_flags")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -884,7 +884,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def docker_container(self) -> typing.Optional["BuildxBuilderDockerContainer"]:
         '''docker_container block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#docker_container BuildxBuilder#docker_container}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#docker_container BuildxBuilder#docker_container}
         '''
         result = self._values.get("docker_container")
         return typing.cast(typing.Optional["BuildxBuilderDockerContainer"], result)
@@ -893,7 +893,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def driver(self) -> typing.Optional[builtins.str]:
         '''The driver to use for the Buildx builder (e.g., docker-container, kubernetes).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#driver BuildxBuilder#driver}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#driver BuildxBuilder#driver}
         '''
         result = self._values.get("driver")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -904,7 +904,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Additional options for the Buildx driver in the form of ``key=value,...``. These options are driver-specific.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#driver_options BuildxBuilder#driver_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#driver_options BuildxBuilder#driver_options}
         '''
         result = self._values.get("driver_options")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -915,14 +915,14 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         DOCKER_HOST value). By default, the current Docker configuration is used for determining the context/endpoint value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#endpoint BuildxBuilder#endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#endpoint BuildxBuilder#endpoint}
         '''
         result = self._values.get("endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#id BuildxBuilder#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#id BuildxBuilder#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -934,7 +934,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def kubernetes(self) -> typing.Optional["BuildxBuilderKubernetes"]:
         '''kubernetes block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#kubernetes BuildxBuilder#kubernetes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#kubernetes BuildxBuilder#kubernetes}
         '''
         result = self._values.get("kubernetes")
         return typing.cast(typing.Optional["BuildxBuilderKubernetes"], result)
@@ -943,7 +943,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the Buildx builder. IF not specified, a random name will be generated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#name BuildxBuilder#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#name BuildxBuilder#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -952,7 +952,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def node_attribute(self) -> typing.Optional[builtins.str]:
         '''Create/modify node with given name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#node BuildxBuilder#node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#node BuildxBuilder#node}
         '''
         result = self._values.get("node_attribute")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -961,7 +961,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def platform(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Fixed platforms for current node.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#platform BuildxBuilder#platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#platform BuildxBuilder#platform}
         '''
         result = self._values.get("platform")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -970,7 +970,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def remote(self) -> typing.Optional["BuildxBuilderRemote"]:
         '''remote block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#remote BuildxBuilder#remote}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#remote BuildxBuilder#remote}
         '''
         result = self._values.get("remote")
         return typing.cast(typing.Optional["BuildxBuilderRemote"], result)
@@ -981,7 +981,7 @@ class BuildxBuilderConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Set the current builder instance as the default for the current context.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#use BuildxBuilder#use}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#use BuildxBuilder#use}
         '''
         result = self._values.get("use")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1036,19 +1036,19 @@ class BuildxBuilderDockerContainer:
         restart_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cgroup_parent: Sets the cgroup parent of the container if Docker is using the "cgroupfs" driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cgroup_parent BuildxBuilder#cgroup_parent}
-        :param cpu_period: Sets the CPU CFS scheduler period for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu_period BuildxBuilder#cpu_period}
-        :param cpu_quota: Imposes a CPU CFS quota on the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu_quota BuildxBuilder#cpu_quota}
-        :param cpuset_cpus: Limits the set of CPU cores the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpuset_cpus BuildxBuilder#cpuset_cpus}
-        :param cpuset_mems: Limits the set of CPU memory nodes the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpuset_mems BuildxBuilder#cpuset_mems}
-        :param cpu_shares: Configures CPU shares (relative weight) of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu_shares BuildxBuilder#cpu_shares}
-        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
-        :param env: Sets environment variables in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#env BuildxBuilder#env}
-        :param image: Sets the BuildKit image to use for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#image BuildxBuilder#image}
-        :param memory: Sets the amount of memory the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory BuildxBuilder#memory}
-        :param memory_swap: Sets the memory swap limit for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory_swap BuildxBuilder#memory_swap}
-        :param network: Sets the network mode for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#network BuildxBuilder#network}
-        :param restart_policy: Sets the container's restart policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#restart_policy BuildxBuilder#restart_policy}
+        :param cgroup_parent: Sets the cgroup parent of the container if Docker is using the "cgroupfs" driver. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cgroup_parent BuildxBuilder#cgroup_parent}
+        :param cpu_period: Sets the CPU CFS scheduler period for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu_period BuildxBuilder#cpu_period}
+        :param cpu_quota: Imposes a CPU CFS quota on the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu_quota BuildxBuilder#cpu_quota}
+        :param cpuset_cpus: Limits the set of CPU cores the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpuset_cpus BuildxBuilder#cpuset_cpus}
+        :param cpuset_mems: Limits the set of CPU memory nodes the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpuset_mems BuildxBuilder#cpuset_mems}
+        :param cpu_shares: Configures CPU shares (relative weight) of the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu_shares BuildxBuilder#cpu_shares}
+        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
+        :param env: Sets environment variables in the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#env BuildxBuilder#env}
+        :param image: Sets the BuildKit image to use for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#image BuildxBuilder#image}
+        :param memory: Sets the amount of memory the container can use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory BuildxBuilder#memory}
+        :param memory_swap: Sets the memory swap limit for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory_swap BuildxBuilder#memory_swap}
+        :param network: Sets the network mode for the container. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#network BuildxBuilder#network}
+        :param restart_policy: Sets the container's restart policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#restart_policy BuildxBuilder#restart_policy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c45080abf251e7c71d36b8393e01d19e3025676da4e223b3aea931a1faa6f634)
@@ -1097,7 +1097,7 @@ class BuildxBuilderDockerContainer:
     def cgroup_parent(self) -> typing.Optional[builtins.str]:
         '''Sets the cgroup parent of the container if Docker is using the "cgroupfs" driver.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cgroup_parent BuildxBuilder#cgroup_parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cgroup_parent BuildxBuilder#cgroup_parent}
         '''
         result = self._values.get("cgroup_parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1106,7 +1106,7 @@ class BuildxBuilderDockerContainer:
     def cpu_period(self) -> typing.Optional[builtins.str]:
         '''Sets the CPU CFS scheduler period for the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu_period BuildxBuilder#cpu_period}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu_period BuildxBuilder#cpu_period}
         '''
         result = self._values.get("cpu_period")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1115,7 +1115,7 @@ class BuildxBuilderDockerContainer:
     def cpu_quota(self) -> typing.Optional[builtins.str]:
         '''Imposes a CPU CFS quota on the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu_quota BuildxBuilder#cpu_quota}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu_quota BuildxBuilder#cpu_quota}
         '''
         result = self._values.get("cpu_quota")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1124,7 +1124,7 @@ class BuildxBuilderDockerContainer:
     def cpuset_cpus(self) -> typing.Optional[builtins.str]:
         '''Limits the set of CPU cores the container can use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpuset_cpus BuildxBuilder#cpuset_cpus}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpuset_cpus BuildxBuilder#cpuset_cpus}
         '''
         result = self._values.get("cpuset_cpus")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1133,7 +1133,7 @@ class BuildxBuilderDockerContainer:
     def cpuset_mems(self) -> typing.Optional[builtins.str]:
         '''Limits the set of CPU memory nodes the container can use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpuset_mems BuildxBuilder#cpuset_mems}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpuset_mems BuildxBuilder#cpuset_mems}
         '''
         result = self._values.get("cpuset_mems")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1142,7 +1142,7 @@ class BuildxBuilderDockerContainer:
     def cpu_shares(self) -> typing.Optional[builtins.str]:
         '''Configures CPU shares (relative weight) of the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu_shares BuildxBuilder#cpu_shares}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu_shares BuildxBuilder#cpu_shares}
         '''
         result = self._values.get("cpu_shares")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1153,7 +1153,7 @@ class BuildxBuilderDockerContainer:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Automatically load images to the Docker Engine image store. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
         '''
         result = self._values.get("default_load")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1162,7 +1162,7 @@ class BuildxBuilderDockerContainer:
     def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Sets environment variables in the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#env BuildxBuilder#env}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#env BuildxBuilder#env}
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1171,7 +1171,7 @@ class BuildxBuilderDockerContainer:
     def image(self) -> typing.Optional[builtins.str]:
         '''Sets the BuildKit image to use for the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#image BuildxBuilder#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#image BuildxBuilder#image}
         '''
         result = self._values.get("image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1180,7 +1180,7 @@ class BuildxBuilderDockerContainer:
     def memory(self) -> typing.Optional[builtins.str]:
         '''Sets the amount of memory the container can use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory BuildxBuilder#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory BuildxBuilder#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1189,7 +1189,7 @@ class BuildxBuilderDockerContainer:
     def memory_swap(self) -> typing.Optional[builtins.str]:
         '''Sets the memory swap limit for the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory_swap BuildxBuilder#memory_swap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory_swap BuildxBuilder#memory_swap}
         '''
         result = self._values.get("memory_swap")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1198,7 +1198,7 @@ class BuildxBuilderDockerContainer:
     def network(self) -> typing.Optional[builtins.str]:
         '''Sets the network mode for the container.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#network BuildxBuilder#network}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#network BuildxBuilder#network}
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1207,7 +1207,7 @@ class BuildxBuilderDockerContainer:
     def restart_policy(self) -> typing.Optional[builtins.str]:
         '''Sets the container's restart policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#restart_policy BuildxBuilder#restart_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#restart_policy BuildxBuilder#restart_policy}
         '''
         result = self._values.get("restart_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1582,22 +1582,22 @@ class BuildxBuilderKubernetes:
         tolerations: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param annotations: Sets additional annotations on the deployments and pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#annotations BuildxBuilder#annotations}
-        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
-        :param image: Sets the image to use for running BuildKit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#image BuildxBuilder#image}
-        :param labels: Sets additional labels on the deployments and pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#labels BuildxBuilder#labels}
-        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#limits BuildxBuilder#limits}
-        :param loadbalance: Load-balancing strategy (sticky or random). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#loadbalance BuildxBuilder#loadbalance}
-        :param namespace: Sets the Kubernetes namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#namespace BuildxBuilder#namespace}
-        :param nodeselector: Sets the pod's nodeSelector label(s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#nodeselector BuildxBuilder#nodeselector}
-        :param qemu: qemu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#qemu BuildxBuilder#qemu}
-        :param replicas: Sets the number of Pod replicas to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#replicas BuildxBuilder#replicas}
-        :param requests: requests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#requests BuildxBuilder#requests}
-        :param rootless: Run the container as a non-root user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#rootless BuildxBuilder#rootless}
-        :param schedulername: Sets the scheduler responsible for scheduling the pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#schedulername BuildxBuilder#schedulername}
-        :param serviceaccount: Sets the pod's serviceAccountName. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#serviceaccount BuildxBuilder#serviceaccount}
-        :param timeout: Set the timeout limit for pod provisioning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#timeout BuildxBuilder#timeout}
-        :param tolerations: Configures the pod's taint toleration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#tolerations BuildxBuilder#tolerations}
+        :param annotations: Sets additional annotations on the deployments and pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#annotations BuildxBuilder#annotations}
+        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
+        :param image: Sets the image to use for running BuildKit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#image BuildxBuilder#image}
+        :param labels: Sets additional labels on the deployments and pods. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#labels BuildxBuilder#labels}
+        :param limits: limits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#limits BuildxBuilder#limits}
+        :param loadbalance: Load-balancing strategy (sticky or random). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#loadbalance BuildxBuilder#loadbalance}
+        :param namespace: Sets the Kubernetes namespace. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#namespace BuildxBuilder#namespace}
+        :param nodeselector: Sets the pod's nodeSelector label(s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#nodeselector BuildxBuilder#nodeselector}
+        :param qemu: qemu block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#qemu BuildxBuilder#qemu}
+        :param replicas: Sets the number of Pod replicas to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#replicas BuildxBuilder#replicas}
+        :param requests: requests block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#requests BuildxBuilder#requests}
+        :param rootless: Run the container as a non-root user. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#rootless BuildxBuilder#rootless}
+        :param schedulername: Sets the scheduler responsible for scheduling the pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#schedulername BuildxBuilder#schedulername}
+        :param serviceaccount: Sets the pod's serviceAccountName. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#serviceaccount BuildxBuilder#serviceaccount}
+        :param timeout: Set the timeout limit for pod provisioning. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#timeout BuildxBuilder#timeout}
+        :param tolerations: Configures the pod's taint toleration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#tolerations BuildxBuilder#tolerations}
         '''
         if isinstance(limits, dict):
             limits = BuildxBuilderKubernetesLimits(**limits)
@@ -1661,7 +1661,7 @@ class BuildxBuilderKubernetes:
     def annotations(self) -> typing.Optional[builtins.str]:
         '''Sets additional annotations on the deployments and pods.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#annotations BuildxBuilder#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#annotations BuildxBuilder#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1672,7 +1672,7 @@ class BuildxBuilderKubernetes:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Automatically load images to the Docker Engine image store. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
         '''
         result = self._values.get("default_load")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1681,7 +1681,7 @@ class BuildxBuilderKubernetes:
     def image(self) -> typing.Optional[builtins.str]:
         '''Sets the image to use for running BuildKit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#image BuildxBuilder#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#image BuildxBuilder#image}
         '''
         result = self._values.get("image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1690,7 +1690,7 @@ class BuildxBuilderKubernetes:
     def labels(self) -> typing.Optional[builtins.str]:
         '''Sets additional labels on the deployments and pods.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#labels BuildxBuilder#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#labels BuildxBuilder#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1699,7 +1699,7 @@ class BuildxBuilderKubernetes:
     def limits(self) -> typing.Optional["BuildxBuilderKubernetesLimits"]:
         '''limits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#limits BuildxBuilder#limits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#limits BuildxBuilder#limits}
         '''
         result = self._values.get("limits")
         return typing.cast(typing.Optional["BuildxBuilderKubernetesLimits"], result)
@@ -1708,7 +1708,7 @@ class BuildxBuilderKubernetes:
     def loadbalance(self) -> typing.Optional[builtins.str]:
         '''Load-balancing strategy (sticky or random).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#loadbalance BuildxBuilder#loadbalance}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#loadbalance BuildxBuilder#loadbalance}
         '''
         result = self._values.get("loadbalance")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1717,7 +1717,7 @@ class BuildxBuilderKubernetes:
     def namespace(self) -> typing.Optional[builtins.str]:
         '''Sets the Kubernetes namespace.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#namespace BuildxBuilder#namespace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#namespace BuildxBuilder#namespace}
         '''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1726,7 +1726,7 @@ class BuildxBuilderKubernetes:
     def nodeselector(self) -> typing.Optional[builtins.str]:
         '''Sets the pod's nodeSelector label(s).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#nodeselector BuildxBuilder#nodeselector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#nodeselector BuildxBuilder#nodeselector}
         '''
         result = self._values.get("nodeselector")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1735,7 +1735,7 @@ class BuildxBuilderKubernetes:
     def qemu(self) -> typing.Optional["BuildxBuilderKubernetesQemu"]:
         '''qemu block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#qemu BuildxBuilder#qemu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#qemu BuildxBuilder#qemu}
         '''
         result = self._values.get("qemu")
         return typing.cast(typing.Optional["BuildxBuilderKubernetesQemu"], result)
@@ -1744,7 +1744,7 @@ class BuildxBuilderKubernetes:
     def replicas(self) -> typing.Optional[jsii.Number]:
         '''Sets the number of Pod replicas to create.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#replicas BuildxBuilder#replicas}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#replicas BuildxBuilder#replicas}
         '''
         result = self._values.get("replicas")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1753,7 +1753,7 @@ class BuildxBuilderKubernetes:
     def requests(self) -> typing.Optional["BuildxBuilderKubernetesRequests"]:
         '''requests block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#requests BuildxBuilder#requests}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#requests BuildxBuilder#requests}
         '''
         result = self._values.get("requests")
         return typing.cast(typing.Optional["BuildxBuilderKubernetesRequests"], result)
@@ -1764,7 +1764,7 @@ class BuildxBuilderKubernetes:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Run the container as a non-root user.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#rootless BuildxBuilder#rootless}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#rootless BuildxBuilder#rootless}
         '''
         result = self._values.get("rootless")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1773,7 +1773,7 @@ class BuildxBuilderKubernetes:
     def schedulername(self) -> typing.Optional[builtins.str]:
         '''Sets the scheduler responsible for scheduling the pod.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#schedulername BuildxBuilder#schedulername}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#schedulername BuildxBuilder#schedulername}
         '''
         result = self._values.get("schedulername")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1782,7 +1782,7 @@ class BuildxBuilderKubernetes:
     def serviceaccount(self) -> typing.Optional[builtins.str]:
         '''Sets the pod's serviceAccountName.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#serviceaccount BuildxBuilder#serviceaccount}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#serviceaccount BuildxBuilder#serviceaccount}
         '''
         result = self._values.get("serviceaccount")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1791,7 +1791,7 @@ class BuildxBuilderKubernetes:
     def timeout(self) -> typing.Optional[builtins.str]:
         '''Set the timeout limit for pod provisioning.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#timeout BuildxBuilder#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#timeout BuildxBuilder#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1800,7 +1800,7 @@ class BuildxBuilderKubernetes:
     def tolerations(self) -> typing.Optional[builtins.str]:
         '''Configures the pod's taint toleration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#tolerations BuildxBuilder#tolerations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#tolerations BuildxBuilder#tolerations}
         '''
         result = self._values.get("tolerations")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1835,9 +1835,9 @@ class BuildxBuilderKubernetesLimits:
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: CPU limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
-        :param ephemeral_storage: Ephemeral storage limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
-        :param memory: Memory limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory BuildxBuilder#memory}
+        :param cpu: CPU limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
+        :param ephemeral_storage: Ephemeral storage limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
+        :param memory: Memory limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory BuildxBuilder#memory}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__60c654970ee0599eacd5134a16555a7ddc86a6a215c2dba3e296091770466c59)
@@ -1856,7 +1856,7 @@ class BuildxBuilderKubernetesLimits:
     def cpu(self) -> typing.Optional[builtins.str]:
         '''CPU limit for the Kubernetes pod.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
         '''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1865,7 +1865,7 @@ class BuildxBuilderKubernetesLimits:
     def ephemeral_storage(self) -> typing.Optional[builtins.str]:
         '''Ephemeral storage limit for the Kubernetes pod.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
         '''
         result = self._values.get("ephemeral_storage")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1874,7 +1874,7 @@ class BuildxBuilderKubernetesLimits:
     def memory(self) -> typing.Optional[builtins.str]:
         '''Memory limit for the Kubernetes pod.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory BuildxBuilder#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory BuildxBuilder#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2019,9 +2019,9 @@ class BuildxBuilderKubernetesOutputReference(
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: CPU limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
-        :param ephemeral_storage: Ephemeral storage limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
-        :param memory: Memory limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory BuildxBuilder#memory}
+        :param cpu: CPU limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
+        :param ephemeral_storage: Ephemeral storage limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
+        :param memory: Memory limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory BuildxBuilder#memory}
         '''
         value = BuildxBuilderKubernetesLimits(
             cpu=cpu, ephemeral_storage=ephemeral_storage, memory=memory
@@ -2037,8 +2037,8 @@ class BuildxBuilderKubernetesOutputReference(
         install: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param image: Sets the QEMU emulation image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#image BuildxBuilder#image}
-        :param install: Install QEMU emulation for multi-platform support. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#install BuildxBuilder#install}
+        :param image: Sets the QEMU emulation image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#image BuildxBuilder#image}
+        :param install: Install QEMU emulation for multi-platform support. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#install BuildxBuilder#install}
         '''
         value = BuildxBuilderKubernetesQemu(image=image, install=install)
 
@@ -2053,9 +2053,9 @@ class BuildxBuilderKubernetesOutputReference(
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: CPU limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
-        :param ephemeral_storage: Ephemeral storage limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
-        :param memory: Memory limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory BuildxBuilder#memory}
+        :param cpu: CPU limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
+        :param ephemeral_storage: Ephemeral storage limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
+        :param memory: Memory limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory BuildxBuilder#memory}
         '''
         value = BuildxBuilderKubernetesRequests(
             cpu=cpu, ephemeral_storage=ephemeral_storage, memory=memory
@@ -2414,8 +2414,8 @@ class BuildxBuilderKubernetesQemu:
         install: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param image: Sets the QEMU emulation image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#image BuildxBuilder#image}
-        :param install: Install QEMU emulation for multi-platform support. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#install BuildxBuilder#install}
+        :param image: Sets the QEMU emulation image. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#image BuildxBuilder#image}
+        :param install: Install QEMU emulation for multi-platform support. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#install BuildxBuilder#install}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a229b967feb0a8e90ca93463d4ecdeead103e99f89973a70d2b9f509381fee43)
@@ -2431,7 +2431,7 @@ class BuildxBuilderKubernetesQemu:
     def image(self) -> typing.Optional[builtins.str]:
         '''Sets the QEMU emulation image.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#image BuildxBuilder#image}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#image BuildxBuilder#image}
         '''
         result = self._values.get("image")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2442,7 +2442,7 @@ class BuildxBuilderKubernetesQemu:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Install QEMU emulation for multi-platform support.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#install BuildxBuilder#install}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#install BuildxBuilder#install}
         '''
         result = self._values.get("install")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2560,9 +2560,9 @@ class BuildxBuilderKubernetesRequests:
         memory: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cpu: CPU limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
-        :param ephemeral_storage: Ephemeral storage limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
-        :param memory: Memory limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory BuildxBuilder#memory}
+        :param cpu: CPU limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
+        :param ephemeral_storage: Ephemeral storage limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
+        :param memory: Memory limit for the Kubernetes pod. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory BuildxBuilder#memory}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b15808b58c3cdfd567684ee6a699705f5f74d4d5b3ebf73a055ad6ac3b6c8a9)
@@ -2581,7 +2581,7 @@ class BuildxBuilderKubernetesRequests:
     def cpu(self) -> typing.Optional[builtins.str]:
         '''CPU limit for the Kubernetes pod.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cpu BuildxBuilder#cpu}
         '''
         result = self._values.get("cpu")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2590,7 +2590,7 @@ class BuildxBuilderKubernetesRequests:
     def ephemeral_storage(self) -> typing.Optional[builtins.str]:
         '''Ephemeral storage limit for the Kubernetes pod.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#ephemeral_storage BuildxBuilder#ephemeral_storage}
         '''
         result = self._values.get("ephemeral_storage")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2599,7 +2599,7 @@ class BuildxBuilderKubernetesRequests:
     def memory(self) -> typing.Optional[builtins.str]:
         '''Memory limit for the Kubernetes pod.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#memory BuildxBuilder#memory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#memory BuildxBuilder#memory}
         '''
         result = self._values.get("memory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2737,11 +2737,11 @@ class BuildxBuilderRemote:
         servername: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cacert: Absolute path to the TLS certificate authority used for validation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cacert BuildxBuilder#cacert}
-        :param cert: Absolute path to the TLS client certificate to present to buildkitd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cert BuildxBuilder#cert}
-        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
-        :param key: Sets the TLS client key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#key BuildxBuilder#key}
-        :param servername: TLS server name used in requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#servername BuildxBuilder#servername}
+        :param cacert: Absolute path to the TLS certificate authority used for validation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cacert BuildxBuilder#cacert}
+        :param cert: Absolute path to the TLS client certificate to present to buildkitd. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cert BuildxBuilder#cert}
+        :param default_load: Automatically load images to the Docker Engine image store. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
+        :param key: Sets the TLS client key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#key BuildxBuilder#key}
+        :param servername: TLS server name used in requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#servername BuildxBuilder#servername}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9da06a204ebdca5e1b19cd7daff0b91539a7149457f3604b64c8ad3747418bad)
@@ -2766,7 +2766,7 @@ class BuildxBuilderRemote:
     def cacert(self) -> typing.Optional[builtins.str]:
         '''Absolute path to the TLS certificate authority used for validation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cacert BuildxBuilder#cacert}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cacert BuildxBuilder#cacert}
         '''
         result = self._values.get("cacert")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2775,7 +2775,7 @@ class BuildxBuilderRemote:
     def cert(self) -> typing.Optional[builtins.str]:
         '''Absolute path to the TLS client certificate to present to buildkitd.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#cert BuildxBuilder#cert}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#cert BuildxBuilder#cert}
         '''
         result = self._values.get("cert")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2786,7 +2786,7 @@ class BuildxBuilderRemote:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Automatically load images to the Docker Engine image store. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#default_load BuildxBuilder#default_load}
         '''
         result = self._values.get("default_load")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2795,7 +2795,7 @@ class BuildxBuilderRemote:
     def key(self) -> typing.Optional[builtins.str]:
         '''Sets the TLS client key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#key BuildxBuilder#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#key BuildxBuilder#key}
         '''
         result = self._values.get("key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2804,7 +2804,7 @@ class BuildxBuilderRemote:
     def servername(self) -> typing.Optional[builtins.str]:
         '''TLS server name used in requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.1/docs/resources/buildx_builder#servername BuildxBuilder#servername}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/kreuzwerker/docker/3.6.2/docs/resources/buildx_builder#servername BuildxBuilder#servername}
         '''
         result = self._values.get("servername")
         return typing.cast(typing.Optional[builtins.str], result)

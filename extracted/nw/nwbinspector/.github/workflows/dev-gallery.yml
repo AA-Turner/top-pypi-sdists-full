@@ -1,0 +1,36 @@
+name: Development Version Gallery
+on: workflow_call
+
+env:
+  TESTING_FILES_FOLDER_PATH: ./204919/testing_files/
+
+jobs:
+  build-and-test:
+    name: Testing against dev PyNWB version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - run: git fetch --prune --unshallow --tags
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.9
+
+      - name: Install pytest
+        run: |
+          pip install pytest
+          pip install pytest-cov
+
+      - name: Install package
+        run: |
+          pip install -e ".[dandi]"
+          pip install git+https://github.com/neurodatawithoutborders/pynwb@dev
+
+      - name: Download testing data and set config path
+        run: dandi download "https://gui-staging.dandiarchive.org/#/dandiset/204919"
+
+      - name: Run pytest
+        run: pytest -rsx

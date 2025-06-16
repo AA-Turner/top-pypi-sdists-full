@@ -12,8 +12,8 @@
 from __future__ import annotations
 
 import itertools
-from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import torch
@@ -31,11 +31,10 @@ from monai.utils import (
     fall_back_tuple,
     look_up_option,
     optional_import,
-    pytorch_after,
 )
 
 tqdm, _ = optional_import("tqdm", name="tqdm")
-_nearest_mode = "nearest-exact" if pytorch_after(1, 11) else "nearest"
+_nearest_mode = "nearest-exact"
 
 __all__ = ["sliding_window_inference"]
 

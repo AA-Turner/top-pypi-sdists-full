@@ -1086,8 +1086,15 @@ class BlockPublicAccess(
 
     Example::
 
-        bucket = s3.Bucket(self, "MyBlockedBucket",
-            block_public_access=s3.BlockPublicAccess(block_public_policy=False)
+        from aws_cdk import RemovalPolicy
+        
+        
+        s3.Bucket(scope, "Bucket",
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            enforce_sSL=True,
+            versioned=True,
+            removal_policy=RemovalPolicy.RETAIN
         )
     '''
 
@@ -1607,16 +1614,17 @@ class BucketEncryption(enum.Enum):
 
     Example::
 
-        from aws_cdk.aws_s3 import BucketEncryption
+        # application: appconfig.Application
         
         
-        app = App(
-            default_stack_synthesizer=AppStagingSynthesizer.default_resources(
-                app_id="my-app-id",
-                staging_bucket_encryption=BucketEncryption.S3_MANAGED,
-                file_asset_publishing_role=BootstrapRole.from_role_arn("arn:aws:iam::123456789012:role/S3Access"),
-                image_asset_publishing_role=BootstrapRole.from_role_arn("arn:aws:iam::123456789012:role/ECRAccess")
-            )
+        bucket = s3.Bucket(self, "MyBucket",
+            versioned=True,
+            encryption=s3.BucketEncryption.KMS
+        )
+        
+        appconfig.SourcedConfiguration(self, "MySourcedConfiguration",
+            application=application,
+            location=appconfig.ConfigurationSource.from_bucket(bucket, "path/to/file.json")
         )
     '''
 
@@ -9179,7 +9187,7 @@ class CfnBucket(
             For example, 1. If request is for pages in the ``/docs`` folder, redirect to the ``/documents`` folder. 2. If request results in HTTP error 4xx, redirect request to another host where you might process the error.
 
             :param http_error_code_returned_equals: The HTTP error code when the redirect is applied. In the event of an error, if the error code equals this value, then the specified redirect is applied. Required when parent element ``Condition`` is specified and sibling ``KeyPrefixEquals`` is not specified. If both are specified, then both must be true for the redirect to be applied.
-            :param key_prefix_equals: The object key name prefix when the redirect is applied. For example, to redirect requests for ``ExamplePage.html`` , the key prefix will be ``ExamplePage.html`` . To redirect request for all pages with the prefix ``docs/`` , the key prefix will be ``/docs`` , which identifies all objects in the docs/ folder. Required when the parent element ``Condition`` is specified and sibling ``HttpErrorCodeReturnedEquals`` is not specified. If both conditions are specified, both must be true for the redirect to be applied.
+            :param key_prefix_equals: The object key name prefix when the redirect is applied. For example, to redirect requests for ``ExamplePage.html`` , the key prefix will be ``ExamplePage.html`` . To redirect request for all pages with the prefix ``docs/`` , the key prefix will be ``docs/`` , which identifies all objects in the docs/ folder. Required when the parent element ``Condition`` is specified and sibling ``HttpErrorCodeReturnedEquals`` is not specified. If both conditions are specified, both must be true for the redirect to be applied.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-routingrulecondition.html
             :exampleMetadata: fixture=_generated
@@ -9222,7 +9230,7 @@ class CfnBucket(
         def key_prefix_equals(self) -> typing.Optional[builtins.str]:
             '''The object key name prefix when the redirect is applied.
 
-            For example, to redirect requests for ``ExamplePage.html`` , the key prefix will be ``ExamplePage.html`` . To redirect request for all pages with the prefix ``docs/`` , the key prefix will be ``/docs`` , which identifies all objects in the docs/ folder.
+            For example, to redirect requests for ``ExamplePage.html`` , the key prefix will be ``ExamplePage.html`` . To redirect request for all pages with the prefix ``docs/`` , the key prefix will be ``docs/`` , which identifies all objects in the docs/ folder.
 
             Required when the parent element ``Condition`` is specified and sibling ``HttpErrorCodeReturnedEquals`` is not specified. If both conditions are specified, both must be true for the redirect to be applied.
 
@@ -17994,7 +18002,7 @@ class LifecycleRule:
         :param id: A unique identifier for this rule. The value cannot be more than 255 characters.
         :param noncurrent_version_expiration: Time between when a new version of the object is uploaded to the bucket and when old versions of the object expire. For buckets with versioning enabled (or suspended), specifies the time, in days, between when a new version of the object is uploaded to the bucket and when old versions of the object expire. When object versions expire, Amazon S3 permanently deletes them. If you specify a transition and expiration time, the expiration time must be later than the transition time. The underlying configuration is expressed in whole numbers of days. Providing a Duration that does not represent a whole number of days will result in a runtime or deployment error. Default: - No noncurrent version expiration
         :param noncurrent_versions_to_retain: Indicates a maximum number of noncurrent versions to retain. If there are this many more noncurrent versions, Amazon S3 permanently deletes them. Default: - No noncurrent versions to retain
-        :param noncurrent_version_transitions: One or more transition rules that specify when non-current objects transition to a specified storage class. Only for for buckets with versioning enabled (or suspended). If you specify a transition and expiration time, the expiration time must be later than the transition time.
+        :param noncurrent_version_transitions: One or more transition rules that specify when non-current objects transition to a specified storage class. Only for buckets with versioning enabled (or suspended). If you specify a transition and expiration time, the expiration time must be later than the transition time.
         :param object_size_greater_than: Specifies the minimum object size in bytes for this rule to apply to. Objects must be larger than this value in bytes. Default: - No rule
         :param object_size_less_than: Specifies the maximum object size in bytes for this rule to apply to. Objects must be smaller than this value in bytes. Default: - No rule
         :param prefix: Object key prefix that identifies one or more objects to which this rule applies. Default: - Rule applies to all objects
@@ -18206,7 +18214,7 @@ class LifecycleRule:
     ) -> typing.Optional[typing.List["NoncurrentVersionTransition"]]:
         '''One or more transition rules that specify when non-current objects transition to a specified storage class.
 
-        Only for for buckets with versioning enabled (or suspended).
+        Only for buckets with versioning enabled (or suspended).
 
         If you specify a transition and expiration time, the expiration time
         must be later than the transition time.
@@ -21337,7 +21345,7 @@ class Bucket(
         :param id: A unique identifier for this rule. The value cannot be more than 255 characters.
         :param noncurrent_version_expiration: Time between when a new version of the object is uploaded to the bucket and when old versions of the object expire. For buckets with versioning enabled (or suspended), specifies the time, in days, between when a new version of the object is uploaded to the bucket and when old versions of the object expire. When object versions expire, Amazon S3 permanently deletes them. If you specify a transition and expiration time, the expiration time must be later than the transition time. The underlying configuration is expressed in whole numbers of days. Providing a Duration that does not represent a whole number of days will result in a runtime or deployment error. Default: - No noncurrent version expiration
         :param noncurrent_versions_to_retain: Indicates a maximum number of noncurrent versions to retain. If there are this many more noncurrent versions, Amazon S3 permanently deletes them. Default: - No noncurrent versions to retain
-        :param noncurrent_version_transitions: One or more transition rules that specify when non-current objects transition to a specified storage class. Only for for buckets with versioning enabled (or suspended). If you specify a transition and expiration time, the expiration time must be later than the transition time.
+        :param noncurrent_version_transitions: One or more transition rules that specify when non-current objects transition to a specified storage class. Only for buckets with versioning enabled (or suspended). If you specify a transition and expiration time, the expiration time must be later than the transition time.
         :param object_size_greater_than: Specifies the minimum object size in bytes for this rule to apply to. Objects must be larger than this value in bytes. Default: - No rule
         :param object_size_less_than: Specifies the maximum object size in bytes for this rule to apply to. Objects must be smaller than this value in bytes. Default: - No rule
         :param prefix: Object key prefix that identifies one or more objects to which this rule applies. Default: - Rule applies to all objects

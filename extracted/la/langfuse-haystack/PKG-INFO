@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langfuse-haystack
-Version: 2.0.1
+Version: 2.1.0
 Summary: Langfuse integration for Haystack
 Project-URL: Documentation, https://github.com/deepset-ai/haystack-core-integrations/tree/main/integrations/langfuse#readme
 Project-URL: Issues, https://github.com/deepset-ai/haystack-core-integrations/issues
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9
 Requires-Dist: haystack-ai>=2.13.0
-Requires-Dist: langfuse>=2.9.0
+Requires-Dist: langfuse<3.0.0,>=2.9.0
 Description-Content-Type: text/markdown
 
 # langfuse-haystack
@@ -135,12 +135,18 @@ pip install hatch
 
 With `hatch` installed, run all the tests:
 ```
-hatch run test
+hatch run test:all
 ```
 
-Run the linters `ruff` and `mypy`:
+To format your code and perform linting using Ruff (with automatic fixes), run:
 ```
-hatch run lint:all
+hatch run fmt
+```
+
+To check for static type errors, run:
+
+```console
+$ hatch run test:types
 ```
 
 ## License

@@ -29,6 +29,7 @@ class DatasetLocatorFieldDataType(str, Enum):
     UUID = 'UUID'
     STRING = 'string'
     ENUM = 'enum'
+    REGEX_STRING = 'regex_string'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

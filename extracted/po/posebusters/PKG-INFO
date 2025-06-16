@@ -1,0 +1,127 @@
+Metadata-Version: 2.4
+Name: posebusters
+Version: 0.4.4
+Summary: PoseBusters: Plausibility checks for generated molecule poses.
+Keywords: posebusters,docking,tests,metric
+Author-email: Martin Buttenschoen <martin.buttenschoen@stats.ox.ac.uk>
+Requires-Python: ~=3.9
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 3 - Alpha
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+Requires-Dist: rdkit >= 2024.9
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: pyyaml
+Requires-Dist: ruff ; extra == "dev"
+Requires-Dist: ipython ; extra == "docs"
+Requires-Dist: nbsphinx ; extra == "docs"
+Requires-Dist: sphinx_rtd_theme ; extra == "docs"
+Requires-Dist: sphinx-hoverxref ; extra == "docs"
+Requires-Dist: sphinx ; extra == "docs"
+Requires-Dist: sphinxcontrib-programoutput ; extra == "docs"
+Requires-Dist: pre-commit ; extra == "test"
+Requires-Dist: pytest ; extra == "test"
+Requires-Dist: pytest-cov ; extra == "test"
+Project-URL: Documentation, https://posebusters.readthedocs.io/en/latest/
+Project-URL: Source, https://github.com/maabuu/posebusters/
+Project-URL: Tracker, https://github.com/maabuu/posebusters/issues/
+Provides-Extra: dev
+Provides-Extra: docs
+Provides-Extra: test
+
+![posebusters_banner](https://github.com/maabuu/posebusters/blob/b5f4c2caed1499c2b73f5297a08e60ec7d263c61/docs/source/_static/logo_banner.png?raw=true "PoseBusters")
+
+PoseBusters: Plausibility checks for generated molecule poses.
+
+### Paper in [Chemical Science](https://pubs.rsc.org/en/content/articlelanding/2024/sc/d3sc04185a) and preprint on [arXiv](https://arxiv.org/abs/2308.05777)
+
+## Installation
+
+```bash
+# install with pip from PyPI
+pip install posebusters
+```
+<!-- # install with conda from conda-forge
+conda install posebusters -c conda-forge -->
+
+## Usage
+
+<!-- ### Command line usage -->
+
+```bash
+
+# Check generated molecule pose.
+bust molecule_pred.sdf
+bust molecule_a.sdf molecule_b.sdf
+bust molecule_*.sdf
+
+# Check new ligand generated for a given protein.
+bust ligand_pred.sdf -p mol_cond.pdb
+
+# Check re-docked ligand (a pose that should recover the ligand in a given protein-ligand crystal complex).
+bust ligand_pred.sdf -l mol_true.sdf -p protein.pdb
+
+# Check any of the three by providing a csv with files to check together
+bust -t file_table.csv
+```
+
+<!-- ### Python API
+
+```python
+from dockbusters import DockBuster
+
+# check re-docked ligand
+DockBuster().bust(ligand_pred_file, ligand_crystal_file, protein_crystal_file)
+
+# check docked ligand
+DockBuster().bust(ligand_pred_file, protein_crystal_file)
+
+# check molecule
+DockBuster().bust(ligand_pred_file, protein_crystal_file)
+``` -->
+
+## Documentation
+
+Documentation is available at [https://posebusters.readthedocs.io](https://posebusters.readthedocs.io).
+
+For more information about the tests and for a study using PoseBusters to compare docking methods, refer to our [paper](http://dx.doi.org/10.1039/D3SC04185A) or [preprint](https://arxiv.org/abs/2308.05777):
+
+```
+@article{buttenschoen2024posebusters,
+  title = {{{PoseBusters}}: {{AI-based}} Docking Methods Fail to Generate Physically Valid Poses or Generalise to Novel Sequences},
+  shorttitle = {{{PoseBusters}}},
+  author = {Buttenschoen, Martin and Morris, Garrett M. and Deane, Charlotte M.},
+  year = "2024",
+  journal = "Chemical Science",
+  volume = "15",
+  issue = "9",
+  pages = "3130-3139",
+  publisher = "The Royal Society of Chemistry",
+  doi = "10.1039/D3SC04185A",
+  url = "http://dx.doi.org/10.1039/D3SC04185A",
+}
+```
+
+The data used for the paper is available at [https://zenodo.org/record/8278563](https://zenodo.org/record/8278563).
+
+## Feedback & Contact
+
+We welcome all feedback. For code issues, please open an issue. For other inquiries contact us by email.
+
+## Thanks
+
+This program uses software written by other people. Notably:
+
+- RDKit - [https://github.com/rdkit/rdkit](https://github.com/rdkit/rdkit)
+- Pandas - [https://github.com/pandas-dev/pandas](https://github.com/pandas-dev/pandas)
+

@@ -1,6 +1,7 @@
 import { Polygon } from 'leaflet';
 import L from '../leaflet';
-import { LeafletPolylineModel, LeafletPolylineView } from './Polyline';
+import { LeafletPolylineModel } from './Polyline';
+import { LeafletPathView } from './Path';
 export declare class LeafletPolygonModel extends LeafletPolylineModel {
     defaults(): {
         _view_name: string;
@@ -31,10 +32,14 @@ export declare class LeafletPolygonModel extends LeafletPolylineModel {
         popup_max_height: number | null;
         pane: string;
         subitems: L.Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
-export declare class LeafletPolygonView extends LeafletPolylineView {
+export declare class LeafletPolygonView extends LeafletPathView {
     obj: Polygon;
     create_obj(): void;
+    model_events(): void;
+    update_transform(): void;
 }
 //# sourceMappingURL=Polygon.d.ts.map

@@ -11,7 +11,9 @@ from .files import get_bucket_dir, read_bucket
 
 def render_media(bucket_id: str, name: str, url: str, as_path: bool = False, as_base64: bool = False) -> Union[str, Path]:
     if (as_base64 or as_path or url.startswith("/")):
-        file = Path(get_bucket_dir(bucket_id, "media", name))
+        file = Path(get_bucket_dir(bucket_id, "thumbnail", name))
+        if not file.exists():
+            file = Path(get_bucket_dir(bucket_id, "media", name))
         if as_path:
             return file
         data = file.read_bytes()
@@ -70,7 +72,15 @@ def merge_media(media: list, messages: list) -> Iterator:
         yield from media
 
 def render_messages(messages: Messages, media: list = None) -> Iterator:
+    last_is_assistant = False
     for idx, message in enumerate(messages):
+        # Remove duplicate assistant messages
+        if message.get("role") == "assistant":
+            if last_is_assistant:
+                continue
+            last_is_assistant = True
+        else:
+            last_is_assistant = False
         if isinstance(message["content"], list):
             parts = [render_part(part) for part in message["content"] if part]
             yield {
@@ -91,7 +101,7 @@ def render_messages(messages: Messages, media: list = None) -> Iterator:
                             "image_url": {"url": to_data_uri(media_data)}
                         }
                         for media_data, filename in media
-                        if is_valid_media(media_data, filename)
+                        if media_data and is_valid_media(media_data, filename)
                     ] + ([{"type": "text", "text": message["content"]}] if isinstance(message["content"], str) else message["content"])
                 }
             else:

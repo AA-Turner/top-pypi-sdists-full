@@ -15,28 +15,6 @@ import System.IO
 DynamicObject = typing.Any
 
 
-class ICommand(metaclass=abc.ABCMeta):
-    """Represents a command that can be run against a single algorithm"""
-
-    @property
-    @abc.abstractmethod
-    def id(self) -> str:
-        """Unique command id"""
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
-        """
-        Runs this command against the specified algorithm instance
-        
-        :param algorithm: The algorithm to run this command against
-        """
-        ...
-
-
 class CommandResultPacket(QuantConnect.Packets.Packet):
     """Contains data held as the result of executing a command"""
 
@@ -84,6 +62,175 @@ class ICommandHandler(System.IDisposable, metaclass=abc.ABCMeta):
         
         :returns: The command result packet of each command executed if any.
         """
+        ...
+
+
+class ICommand(metaclass=abc.ABCMeta):
+    """Represents a command that can be run against a single algorithm"""
+
+    @property
+    @abc.abstractmethod
+    def id(self) -> str:
+        """Unique command id"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
+        """
+        Runs this command against the specified algorithm instance
+        
+        :param algorithm: The algorithm to run this command against
+        """
+        ...
+
+
+class BaseCommand(System.Object, QuantConnect.Commands.ICommand, metaclass=abc.ABCMeta):
+    """Base command implementation"""
+
+    @property
+    def id(self) -> str:
+        """Unique command id"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    def get_symbol(self, ticker: str, security_type: QuantConnect.SecurityType, market: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None) -> QuantConnect.Symbol:
+        """
+        Creats symbol using symbol properties.
+        
+        This method is protected.
+        
+        :param ticker: The string ticker symbol
+        :param security_type: The security type of the ticker. If security_type == Option, then a canonical symbol is created
+        :param market: The market the ticker resides in
+        :param symbol: The algorithm to run this command against
+        """
+        ...
+
+    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
+        """
+        Runs this command against the specified algorithm instance
+        
+        :param algorithm: The algorithm to run this command against
+        """
+        ...
+
+
+class AlgorithmStatusCommand(QuantConnect.Commands.BaseCommand):
+    """Represents a command that will change the algorithm's status"""
+
+    @property
+    def status(self) -> QuantConnect.AlgorithmStatus:
+        """Gets or sets the algorithm status"""
+        ...
+
+    @status.setter
+    def status(self, value: QuantConnect.AlgorithmStatus) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the AlgorithmStatusCommand"""
+        ...
+
+    @overload
+    def __init__(self, status: QuantConnect.AlgorithmStatus) -> None:
+        """
+        Initializes a new instance of the AlgorithmStatusCommand with
+        the specified status
+        """
+        ...
+
+    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
+        """
+        Sets the algorithm's status to Status
+        
+        :param algorithm: The algorithm to run this command against
+        """
+        ...
+
+
+class CancelOrderCommand(QuantConnect.Commands.BaseCommand):
+    """Represents a command to cancel a specific order by id"""
+
+    class Result(QuantConnect.Commands.CommandResultPacket):
+        """Result packet type for the CancelOrderCommand command"""
+
+        @property
+        def quantity_filled(self) -> float:
+            """Gets or sets the quantity filled on the cancelled order"""
+            ...
+
+        @quantity_filled.setter
+        def quantity_filled(self, value: float) -> None:
+            ...
+
+        def __init__(self, command: QuantConnect.Commands.ICommand, success: bool, quantity_filled: float) -> None:
+            """Initializes a new instance of the Result class"""
+            ...
+
+    @property
+    def order_id(self) -> int:
+        """Gets or sets the order id to be cancelled"""
+        ...
+
+    @order_id.setter
+    def order_id(self, value: int) -> None:
+        ...
+
+    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
+        """
+        Runs this command against the specified algorithm instance
+        
+        :param algorithm: The algorithm to run this command against
+        """
+        ...
+
+
+class CallbackCommand(QuantConnect.Commands.BaseCommand):
+    """Algorithm callback command type"""
+
+    @property
+    def type(self) -> str:
+        """The target command type to run, if empty or null will be the generic untyped command handler"""
+        ...
+
+    @type.setter
+    def type(self, value: str) -> None:
+        ...
+
+    @property
+    def payload(self) -> str:
+        """The command payload"""
+        ...
+
+    @payload.setter
+    def payload(self, value: str) -> None:
+        ...
+
+    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
+        """
+        Runs this command against the specified algorithm instance
+        
+        :param algorithm: The algorithm to run this command against
+        """
+        ...
+
+    def to_string(self) -> str:
+        """The command string representation"""
+        ...
+
+
+class QuitCommand(QuantConnect.Commands.AlgorithmStatusCommand):
+    """Represents a command that will terminate the algorithm"""
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the QuitCommand"""
         ...
 
 
@@ -155,211 +302,44 @@ class BaseCommandHandler(System.Object, QuantConnect.Commands.ICommandHandler, m
         ...
 
 
-class BaseCommand(System.Object, QuantConnect.Commands.ICommand, metaclass=abc.ABCMeta):
-    """Base command implementation"""
+class FileCommandHandler(QuantConnect.Commands.BaseCommandHandler):
+    """Represents a command handler that sources it's commands from a file on the local disk"""
 
-    @property
-    def id(self) -> str:
-        """Unique command id"""
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    def get_symbol(self, ticker: str, security_type: QuantConnect.SecurityType, market: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None) -> QuantConnect.Symbol:
+    def __init__(self) -> None:
         """
-        Creats symbol using symbol properties.
+        Initializes a new instance of the FileCommandHandler class
+        using the 'command-json-file' configuration value for the command json file
+        """
+        ...
+
+    def acknowledge(self, command: QuantConnect.Commands.ICommand, command_result_packet: QuantConnect.Commands.CommandResultPacket) -> None:
+        """
+        Acknowledge a command that has been executed
         
         This method is protected.
         
-        :param ticker: The string ticker symbol
-        :param security_type: The security type of the ticker. If security_type == Option, then a canonical symbol is created
-        :param market: The market the ticker resides in
-        :param symbol: The algorithm to run this command against
+        :param command: The command that was executed
+        :param command_result_packet: The result
         """
         ...
 
-    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
+    @staticmethod
+    def get_command_files() -> typing.Iterable[System.IO.FileInfo]:
         """
-        Runs this command against the specified algorithm instance
+        Gets all the available command files
         
-        :param algorithm: The algorithm to run this command against
+        :returns: Sorted enumerator of all the available command files.
         """
         ...
 
-
-class CancelOrderCommand(QuantConnect.Commands.BaseCommand):
-    """Represents a command to cancel a specific order by id"""
-
-    class Result(QuantConnect.Commands.CommandResultPacket):
-        """Result packet type for the CancelOrderCommand command"""
-
-        @property
-        def quantity_filled(self) -> float:
-            """Gets or sets the quantity filled on the cancelled order"""
-            ...
-
-        @quantity_filled.setter
-        def quantity_filled(self, value: float) -> None:
-            ...
-
-        def __init__(self, command: QuantConnect.Commands.ICommand, success: bool, quantity_filled: float) -> None:
-            """Initializes a new instance of the Result class"""
-            ...
-
-    @property
-    def order_id(self) -> int:
-        """Gets or sets the order id to be cancelled"""
-        ...
-
-    @order_id.setter
-    def order_id(self, value: int) -> None:
-        ...
-
-    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
+    def get_commands(self) -> typing.Iterable[QuantConnect.Commands.ICommand]:
         """
-        Runs this command against the specified algorithm instance
+        Gets the next command in the queue
         
-        :param algorithm: The algorithm to run this command against
-        """
-        ...
-
-
-class AddSecurityCommand(QuantConnect.Commands.BaseCommand):
-    """Represents a command to add a security to the algorithm"""
-
-    class Result(QuantConnect.Commands.CommandResultPacket):
-        """Result packet type for the AddSecurityCommand command"""
-
-        @property
-        def symbol(self) -> QuantConnect.Symbol:
-            """The symbol result from the add security command"""
-            ...
-
-        @symbol.setter
-        def symbol(self, value: QuantConnect.Symbol) -> None:
-            ...
-
-        def __init__(self, command: QuantConnect.Commands.AddSecurityCommand, success: bool, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
-            """Initializes a new instance of the Result class"""
-            ...
-
-    @property
-    def security_type(self) -> QuantConnect.SecurityType:
-        """The security type of the security"""
-        ...
-
-    @security_type.setter
-    def security_type(self, value: QuantConnect.SecurityType) -> None:
-        ...
-
-    @property
-    def symbol(self) -> str:
-        """The security's ticker symbol"""
-        ...
-
-    @symbol.setter
-    def symbol(self, value: str) -> None:
-        ...
-
-    @property
-    def resolution(self) -> QuantConnect.Resolution:
-        """The requested resolution, defaults to Resolution.Minute"""
-        ...
-
-    @resolution.setter
-    def resolution(self, value: QuantConnect.Resolution) -> None:
-        ...
-
-    @property
-    def market(self) -> str:
-        """The security's market, defaults to QuantConnect.Market.USA except for Forex, defaults to QuantConnect.Market.FXCM"""
-        ...
-
-    @market.setter
-    def market(self, value: str) -> None:
-        ...
-
-    @property
-    def fill_data_forward(self) -> bool:
-        """The fill forward behavior, true to fill forward, false otherwise - defaults to true"""
-        ...
-
-    @fill_data_forward.setter
-    def fill_data_forward(self, value: bool) -> None:
-        ...
-
-    @property
-    def leverage(self) -> float:
-        """The leverage for the security, defaults to 2 for equity, 50 for forex, and 1 for everything else"""
-        ...
-
-    @leverage.setter
-    def leverage(self, value: float) -> None:
-        ...
-
-    @property
-    def extended_market_hours(self) -> bool:
-        """The extended market hours flag, true to allow pre/post market data, false for only in market data"""
-        ...
-
-    @extended_market_hours.setter
-    def extended_market_hours(self, value: bool) -> None:
-        ...
-
-    def __init__(self) -> None:
-        """Default construct that applies default values"""
-        ...
-
-    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
-        """
-        Runs this command against the specified algorithm instance
+        This method is protected.
         
-        :param algorithm: The algorithm to run this command against
+        :returns: The next command in the queue, if present, null if no commands present.
         """
-        ...
-
-
-class AlgorithmStatusCommand(QuantConnect.Commands.BaseCommand):
-    """Represents a command that will change the algorithm's status"""
-
-    @property
-    def status(self) -> QuantConnect.AlgorithmStatus:
-        """Gets or sets the algorithm status"""
-        ...
-
-    @status.setter
-    def status(self, value: QuantConnect.AlgorithmStatus) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the AlgorithmStatusCommand"""
-        ...
-
-    @overload
-    def __init__(self, status: QuantConnect.AlgorithmStatus) -> None:
-        """
-        Initializes a new instance of the AlgorithmStatusCommand with
-        the specified status
-        """
-        ...
-
-    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
-        """
-        Sets the algorithm's status to Status
-        
-        :param algorithm: The algorithm to run this command against
-        """
-        ...
-
-
-class QuitCommand(QuantConnect.Commands.AlgorithmStatusCommand):
-    """Represents a command that will terminate the algorithm"""
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the QuitCommand"""
         ...
 
 
@@ -527,47 +507,6 @@ class UpdateOrderCommand(QuantConnect.Commands.BaseCommand):
         ...
 
 
-class FileCommandHandler(QuantConnect.Commands.BaseCommandHandler):
-    """Represents a command handler that sources it's commands from a file on the local disk"""
-
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the FileCommandHandler class
-        using the 'command-json-file' configuration value for the command json file
-        """
-        ...
-
-    def acknowledge(self, command: QuantConnect.Commands.ICommand, command_result_packet: QuantConnect.Commands.CommandResultPacket) -> None:
-        """
-        Acknowledge a command that has been executed
-        
-        This method is protected.
-        
-        :param command: The command that was executed
-        :param command_result_packet: The result
-        """
-        ...
-
-    @staticmethod
-    def get_command_files() -> typing.Iterable[System.IO.FileInfo]:
-        """
-        Gets all the available command files
-        
-        :returns: Sorted enumerator of all the available command files.
-        """
-        ...
-
-    def get_commands(self) -> typing.Iterable[QuantConnect.Commands.ICommand]:
-        """
-        Gets the next command in the queue
-        
-        This method is protected.
-        
-        :returns: The next command in the queue, if present, null if no commands present.
-        """
-        ...
-
-
 class LiquidateCommand(QuantConnect.Commands.BaseCommand):
     """Represents a command that will liquidate the entire algorithm"""
 
@@ -603,6 +542,101 @@ class LiquidateCommand(QuantConnect.Commands.BaseCommand):
         Submits orders to liquidate all current holdings in the algorithm
         
         :param algorithm: The algorithm to be liquidated
+        """
+        ...
+
+
+class AddSecurityCommand(QuantConnect.Commands.BaseCommand):
+    """Represents a command to add a security to the algorithm"""
+
+    class Result(QuantConnect.Commands.CommandResultPacket):
+        """Result packet type for the AddSecurityCommand command"""
+
+        @property
+        def symbol(self) -> QuantConnect.Symbol:
+            """The symbol result from the add security command"""
+            ...
+
+        @symbol.setter
+        def symbol(self, value: QuantConnect.Symbol) -> None:
+            ...
+
+        def __init__(self, command: QuantConnect.Commands.AddSecurityCommand, success: bool, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+            """Initializes a new instance of the Result class"""
+            ...
+
+    @property
+    def security_type(self) -> QuantConnect.SecurityType:
+        """The security type of the security"""
+        ...
+
+    @security_type.setter
+    def security_type(self, value: QuantConnect.SecurityType) -> None:
+        ...
+
+    @property
+    def symbol(self) -> str:
+        """The security's ticker symbol"""
+        ...
+
+    @symbol.setter
+    def symbol(self, value: str) -> None:
+        ...
+
+    @property
+    def resolution(self) -> QuantConnect.Resolution:
+        """The requested resolution, defaults to Resolution.Minute"""
+        ...
+
+    @resolution.setter
+    def resolution(self, value: QuantConnect.Resolution) -> None:
+        ...
+
+    @property
+    def market(self) -> str:
+        """The security's market, defaults to QuantConnect.Market.USA except for Forex, defaults to QuantConnect.Market.FXCM"""
+        ...
+
+    @market.setter
+    def market(self, value: str) -> None:
+        ...
+
+    @property
+    def fill_data_forward(self) -> bool:
+        """The fill forward behavior, true to fill forward, false otherwise - defaults to true"""
+        ...
+
+    @fill_data_forward.setter
+    def fill_data_forward(self, value: bool) -> None:
+        ...
+
+    @property
+    def leverage(self) -> float:
+        """The leverage for the security, defaults to 2 for equity, 50 for forex, and 1 for everything else"""
+        ...
+
+    @leverage.setter
+    def leverage(self, value: float) -> None:
+        ...
+
+    @property
+    def extended_market_hours(self) -> bool:
+        """The extended market hours flag, true to allow pre/post market data, false for only in market data"""
+        ...
+
+    @extended_market_hours.setter
+    def extended_market_hours(self, value: bool) -> None:
+        ...
+
+    def __init__(self) -> None:
+        """Default construct that applies default values"""
+        ...
+
+    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
+        """
+        Runs this command against the specified algorithm instance
+        
+        :param algorithm: The algorithm to run this command against
         """
         ...
 
@@ -657,40 +691,6 @@ class Command(DynamicObject):
 
     def to_string(self) -> str:
         """The string representation of this command"""
-        ...
-
-
-class CallbackCommand(QuantConnect.Commands.BaseCommand):
-    """Algorithm callback command type"""
-
-    @property
-    def type(self) -> str:
-        """The target command type to run, if empty or null will be the generic untyped command handler"""
-        ...
-
-    @type.setter
-    def type(self, value: str) -> None:
-        ...
-
-    @property
-    def payload(self) -> str:
-        """The command payload"""
-        ...
-
-    @payload.setter
-    def payload(self, value: str) -> None:
-        ...
-
-    def run(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> QuantConnect.Commands.CommandResultPacket:
-        """
-        Runs this command against the specified algorithm instance
-        
-        :param algorithm: The algorithm to run this command against
-        """
-        ...
-
-    def to_string(self) -> str:
-        """The command string representation"""
         ...
 
 

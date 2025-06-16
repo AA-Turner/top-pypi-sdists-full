@@ -8,8 +8,8 @@ import QuantConnect.Orders.TimeInForces
 import QuantConnect.Securities
 
 
-class DayTimeInForce(QuantConnect.Orders.TimeInForce):
-    """Day Time In Force - order expires at market close"""
+class GoodTilCanceledTimeInForce(QuantConnect.Orders.TimeInForce):
+    """Good Til Canceled Time In Force - order does never expires"""
 
     def is_fill_valid(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, fill: QuantConnect.Orders.OrderEvent) -> bool:
         """
@@ -71,8 +71,8 @@ class GoodTilDateTimeInForce(QuantConnect.Orders.TimeInForce):
         ...
 
 
-class GoodTilCanceledTimeInForce(QuantConnect.Orders.TimeInForce):
-    """Good Til Canceled Time In Force - order does never expires"""
+class DayTimeInForce(QuantConnect.Orders.TimeInForce):
+    """Day Time In Force - order expires at market close"""
 
     def is_fill_valid(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, fill: QuantConnect.Orders.OrderEvent) -> bool:
         """

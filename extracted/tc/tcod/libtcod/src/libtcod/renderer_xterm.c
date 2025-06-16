@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,8 @@
  */
 #include "renderer_xterm.h"
 #ifndef NO_SDL
-#include <SDL.h>
+#include <SDL3/SDL.h>
+#include <ctype.h>
 #include <limits.h>
 #include <locale.h>
 #include <signal.h>
@@ -62,24 +63,24 @@ static struct termios g_old_termios;
 struct TerminalSizeOut {
   int columns;
   int rows;
-  Uint32 timestamp;
+  uint64_t timestamp;
 };
 
 static struct {
-  SDL_mutex* lock;
+  SDL_Mutex* lock;
   struct TerminalSizeOut* out;
 } g_terminal_size_state = {
     .lock = NULL,
     .out = NULL,
 };
 static struct {
-  int button_down;
-  Uint32 last_mouse_down_timestamp;
-  Uint8 num_clicks;
+  uint8_t button_down;
+  uint64_t last_mouse_down_timestamp;
+  uint8_t num_clicks;
   int last_mouse_motion_x;
   int last_mouse_motion_y;
 } g_mouse_state = {
-    .button_down = -1,
+    .button_down = 0,
     .last_mouse_down_timestamp = 0,
     .num_clicks = 1,
     .last_mouse_motion_x = -1,
@@ -140,12 +141,12 @@ static TCOD_Error xterm_get_terminal_size(struct TerminalSizeOut* out) {
   SDL_LockMutex(g_terminal_size_state.lock);
   g_terminal_size_state.out = out;
   SDL_UnlockMutex(g_terminal_size_state.lock);
-  const Uint32 start_time = SDL_GetTicks();
+  const uint64_t start_time = SDL_GetTicks();
   fprintf(stdout, "\x1b[6n");  // Poll the cursor position.
   fflush(stdout);
-  while (!SDL_TICKS_PASSED(SDL_GetTicks(), start_time + 100)) {
+  while (SDL_GetTicks() < start_time + 100) {
     SDL_LockMutex(g_terminal_size_state.lock);
-    if (SDL_TICKS_PASSED(out->timestamp, start_time)) {
+    if (out->timestamp >= start_time) {
       g_terminal_size_state.out = NULL;
       SDL_UnlockMutex(g_terminal_size_state.lock);
       return TCOD_E_OK;
@@ -235,30 +236,27 @@ static void xterm_destructor(struct TCOD_Context* __restrict self) {
 }
 /// Send keyboard and text input events to SDL.
 static void send_sdl_key_press(SDL_Keycode ch, bool shift) {
-  const bool is_ascii = ch <= (SDL_Keycode)INT_MAX && isascii(ch);
   SDL_Keycode sym = ch;
-  Uint16 mod = KMOD_NONE;
+  SDL_Keymod mod = SDL_KMOD_NONE;
   if (shift) {
     sym = tolower(sym);
-    mod = KMOD_SHIFT;
+    mod = SDL_KMOD_SHIFT;
   }
   SDL_Event down_event = {
       .key = {
-          .type = SDL_KEYDOWN,
+          .type = SDL_EVENT_KEY_DOWN,
           .timestamp = SDL_GetTicks(),
           .windowID = 0,
-          .state = SDL_PRESSED,
-          .repeat = 0,
-          .keysym = {.sym = sym, .scancode = SDL_GetScancodeFromKey(sym), .mod = mod}}};
+          .which = 0,
+          .scancode = SDL_GetScancodeFromKey(sym, &mod),
+          .key = sym,
+          .mod = mod,
+          .down = true,
+          .repeat = false}};
   SDL_PushEvent(&down_event);
-  if (is_ascii && isprint(ch)) {
-    SDL_Event text_event = {
-        .text = {.type = SDL_TEXTINPUT, .timestamp = SDL_GetTicks(), .windowID = 0, .text[0] = ch, .text[1] = '\0'}};
-    SDL_PushEvent(&text_event);
-  }
   SDL_Event up_event = down_event;
-  up_event.type = SDL_KEYUP;
-  up_event.key.state = SDL_RELEASED;
+  up_event.type = SDL_EVENT_KEY_UP;
+  up_event.key.down = false;
   SDL_PushEvent(&up_event);
 }
 
@@ -266,7 +264,7 @@ static int read_terminated_int(char* after) {
   *after = '\0';
   char buf[16] = "";
   for (size_t i = 0; i < sizeof(buf) - 1; i++) {
-    const int ch = getchar();
+    const char ch = (char)getchar();
     if (!isdigit(ch)) {
       *after = ch;
       buf[i] = '\0';
@@ -279,10 +277,10 @@ static int read_terminated_int(char* after) {
 /// Send mouse inputs to SDL.
 static void xterm_handle_mouse_click(int cb, int x, int y) {
   const int cb_button = cb & 3;
-  const Uint32 timestamp = SDL_GetTicks();
-  Uint32 type = SDL_MOUSEBUTTONDOWN;
-  Uint8 state = SDL_PRESSED;
-  Uint8 button = 0;
+  const uint64_t timestamp = SDL_GetTicks();
+  uint32_t type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+  bool down = true;
+  uint8_t button = 0;
   switch (cb_button) {
     case 0:
       button = SDL_BUTTON_LEFT;
@@ -294,24 +292,22 @@ static void xterm_handle_mouse_click(int cb, int x, int y) {
       button = SDL_BUTTON_RIGHT;
       break;
     case 3:
-      type = SDL_MOUSEBUTTONUP;
-      state = SDL_RELEASED;
+      type = SDL_EVENT_MOUSE_BUTTON_UP;
+      down = false;
       button = g_mouse_state.button_down;
       break;
     default:
       TCOD_log_debug_f("unknown mouse button %i\n", cb_button);
   }
-  if (type == SDL_MOUSEBUTTONDOWN) {
+  if (type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
     // We don't get button info on mouse up, so only do one click at once.
-    if (g_mouse_state.button_down >= 0) return;
+    if (g_mouse_state.button_down > 0) return;
     g_mouse_state.button_down = button;
-    if (!SDL_TICKS_PASSED(timestamp, g_mouse_state.last_mouse_down_timestamp + DOUBLE_CLICK_TIME) &&
-        g_mouse_state.button_down < 255)
-      g_mouse_state.num_clicks += 1;
+    if (timestamp < g_mouse_state.last_mouse_down_timestamp + DOUBLE_CLICK_TIME) g_mouse_state.num_clicks += 1;
     g_mouse_state.last_mouse_down_timestamp = timestamp;
   } else {
-    if (g_mouse_state.button_down < 0) return;
-    g_mouse_state.button_down = -1;
+    if (g_mouse_state.button_down <= 0) return;
+    g_mouse_state.button_down = 0;
   }
   SDL_Event button_event = {
       .button = {
@@ -320,18 +316,18 @@ static void xterm_handle_mouse_click(int cb, int x, int y) {
           .windowID = 0,
           .which = 0,
           .button = button,
-          .state = state,
+          .down = down,
           .clicks = g_mouse_state.num_clicks,
-          .x = x,
-          .y = y,
+          .x = (float)x,
+          .y = (float)y,
       }};
   SDL_PushEvent(&button_event);
-  if (type != SDL_MOUSEBUTTONDOWN) g_mouse_state.num_clicks = 1;
+  if (type != SDL_EVENT_MOUSE_BUTTON_DOWN) g_mouse_state.num_clicks = 1;
 }
 /// Send mouse wheel events to SDL.
 static void xterm_handle_mouse_wheel(int cb) {
   const int cb_button = cb & 3;
-  Sint32 dy = 0;
+  float dy = 0;
   switch (cb_button) {
     case 0:
       dy = 1;
@@ -344,7 +340,7 @@ static void xterm_handle_mouse_wheel(int cb) {
   }
   SDL_Event wheel_event = {
       .wheel = {
-          .type = SDL_MOUSEWHEEL,
+          .type = SDL_EVENT_MOUSE_WHEEL,
           .timestamp = SDL_GetTicks(),
           .windowID = 0,
           .which = 0,
@@ -365,20 +361,20 @@ static void xterm_handle_mouse_motion(int x, int y) {
   g_mouse_state.last_mouse_motion_y = y;
   SDL_Event motion_event = {
       .motion = {
-          .type = SDL_MOUSEMOTION,
+          .type = SDL_EVENT_MOUSE_MOTION,
           .timestamp = SDL_GetTicks(),
           .windowID = 0,
           .which = 0,
-          .x = x,
-          .y = y,
-          .xrel = xrel,
-          .yrel = yrel,
+          .x = (float)x,
+          .y = (float)y,
+          .xrel = (float)xrel,
+          .yrel = (float)yrel,
       }};
   SDL_PushEvent(&motion_event);
 }
 /// Parse X10 compatibility mode mouse escape sequences.
 static void xterm_handle_mouse_escape() {
-  const int cb = getchar();
+  const char cb = (char)getchar();
   const int x = getchar() - 33;
   const int y = getchar() - 33;
   if (cb & 32) {
@@ -395,22 +391,19 @@ static bool xterm_handle_input_escape_code(char* start, char* end, int* arg0, in
   *start = '\0';
   *arg0 = -1;
   *arg1 = -1;
-  *start = getchar();
+  *start = (char)getchar();
   if (*start != '[' && *start != 'O') return false;
   *arg0 = read_terminated_int(end);
   if (*end == ';') *arg1 = read_terminated_int(end);
   return true;
 }
 /// Send a window event to SDL.
-static void xterm_handle_focus_change(Uint8 event) {
+static void xterm_handle_focus_change(SDL_EventType event) {
   SDL_Event focus_event = {
       .window = {
-          .type = SDL_WINDOWEVENT,
-          .event = event,
+          .type = event,
           .timestamp = SDL_GetTicks(),
           .windowID = 0,
-          .data1 = 0,
-          .data2 = 0,
       }};
   SDL_PushEvent(&focus_event);
 }
@@ -427,10 +420,10 @@ static void xterm_handle_input_escape() {
           xterm_handle_mouse_escape();
           break;
         case 'I':
-          xterm_handle_focus_change(SDL_WINDOWEVENT_FOCUS_GAINED);
+          xterm_handle_focus_change(SDL_EVENT_WINDOW_FOCUS_GAINED);
           break;
         case 'O':
-          xterm_handle_focus_change(SDL_WINDOWEVENT_FOCUS_LOST);
+          xterm_handle_focus_change(SDL_EVENT_WINDOW_FOCUS_LOST);
           break;
         case 'A':
           send_sdl_key_press(SDLK_UP, false);
@@ -564,9 +557,10 @@ static void xterm_handle_input_escape() {
   if (unknown) TCOD_log_debug_f("unknown input escape code '%c' '%c' %i %i\n", start, end, arg0, arg1);
 }
 /// ANSI input event loop.
-static int xterm_handle_input(void* arg) {
+static int xterm_handle_input(void* nulldata) {
+  (void)nulldata;  // Unused
   while (true) {
-    const int ch = getchar();
+    const char ch = (char)getchar();
     if (ch == '\x1b') {
       xterm_handle_input_escape();
       continue;
@@ -590,12 +584,12 @@ static TCOD_Error xterm_recommended_console_size(
 
 #ifndef _WIN32
 static void xterm_on_window_change_signal(int signum) {
+  (void)signum;  // Unused
   int columns, rows;
   xterm_recommended_console_size(NULL, 1.0, &columns, &rows);
   SDL_Event resize_event = {
       .window = {
-          .type = SDL_WINDOWEVENT,
-          .event = SDL_WINDOWEVENT_RESIZED,
+          .type = SDL_EVENT_WINDOW_RESIZED,
           .timestamp = SDL_GetTicks(),
           .windowID = 0,
           .data1 = columns,
@@ -607,9 +601,10 @@ static void xterm_on_window_change_signal(int signum) {
 
 #ifndef _WIN32
 static void xterm_on_hangup_signal(int signum) {
+  (void)signum;  // Unused
   SDL_Event quit_event = {
       .quit = {
-          .type = SDL_QUIT,
+          .type = SDL_EVENT_QUIT,
           .timestamp = SDL_GetTicks(),
       }};
   SDL_PushEvent(&quit_event);
@@ -625,7 +620,7 @@ TCOD_Context* TCOD_renderer_init_xterm(
   TCOD_Context* context = TCOD_context_new_();
   if (!context) return NULL;
   context->type = TCOD_RENDERER_XTERM;
-  struct TCOD_RendererXterm* data = context->contextdata_ = calloc(sizeof(*data), 1);
+  struct TCOD_RendererXterm* data = context->contextdata_ = calloc(1, sizeof(*data));
   if (!data) {
     TCOD_context_delete(context);
     TCOD_set_errorv("Could not allocate memory.");

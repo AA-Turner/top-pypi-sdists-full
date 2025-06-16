@@ -41,6 +41,7 @@ from brickflow.bundles.model import (
     JobsTasksLibraries,
     JobsTasksNotebookTask,
     JobsTasksPipelineTask,
+    JobsTasksPythonWheelTask,
     JobsTasksRunJobTask,
     JobsTasksSparkJarTask,
     JobsTasksSparkPythonTask,
@@ -51,6 +52,8 @@ from brickflow.bundles.model import (
     Resources,
     Targets,
     Workspace,
+    JobsQueue,
+    JobsHealth,
 )
 from brickflow.cli.projects import MultiProjectManager, get_brickflow_root
 from brickflow.codegen import (
@@ -580,6 +583,36 @@ class DatabricksBundleCodegen(CodegenInterface):
             )
         return jt
 
+    def _build_native_python_wheel_task(
+        self,
+        task_name: str,
+        task: Task,
+        task_libraries: List[JobsTasksLibraries],
+        task_settings: TaskSettings,
+        depends_on: List[JobsTasksDependsOn],
+        **_kwargs: Any,
+    ) -> JobsTasks:
+        python_wheel_task: JobsTasksPythonWheelTask = task.task_func()
+
+        try:
+            assert isinstance(python_wheel_task, JobsTasksPythonWheelTask)
+        except AssertionError as e:
+            raise ValueError(
+                f"Error while building python wheel task {task_name}. "
+                f"Make sure {task_name} returns a PythonWheelTask object."
+            ) from e
+
+        return JobsTasks(
+            **task_settings.to_tf_dict(),
+            python_wheel_task=python_wheel_task,
+            libraries=task_libraries,
+            depends_on=depends_on,
+            task_key=task_name,
+            # unpack dictionary provided by cluster object, will either be key or
+            # existing cluster id
+            **task.cluster.job_task_field_dict,
+        )
+
     def _build_native_spark_jar_task(
         self,
         task_name: str,
@@ -670,19 +703,34 @@ class DatabricksBundleCodegen(CodegenInterface):
         depends_on: List[JobsTasksDependsOn],
         **_kwargs: Any,
     ) -> JobsTasks:
-        run_job_task: JobsTasksRunJobTask = task.task_func()
+        run_job_task: Union[JobsTasksRunJobTask, Workflow] = task.task_func()
 
         try:
-            assert isinstance(run_job_task, JobsTasksRunJobTask)
+            assert isinstance(run_job_task, (JobsTasksRunJobTask, Workflow))
         except AssertionError as e:
             raise ValueError(
                 f"Error while building run job task {task_name}. "
-                f"Make sure {task_name} returns a RunJobTask object."
+                f"Make sure {task_name} returns a RunJobTask or Workflow object."
             ) from e
+
+        job_id = None
+
+        if isinstance(run_job_task, JobsTasksRunJobTask):
+            job_id = run_job_task.job_id
+        elif isinstance(run_job_task, Workflow):
+            # If the task is a workflow, we need to set the job_id and job_name
+            # based on the workflow name. The job_id will be used in the JobsTasks.
+            # Uncomment the following lines if you want to handle workflow references
+            # in a specific way (e.g., using a custom naming convention).
+            if self.project.workflow_exists(run_job_task) is False:
+                raise ValueError(
+                    f"Workflow {run_job_task.name} does not exist in the current project."
+                )
+            job_id = f"${{resources.jobs.{run_job_task.name}.id}}"
 
         return JobsTasks(
             **task_settings.to_tf_dict(),  # type: ignore
-            run_job_task=JobsTasksRunJobTask(job_id=run_job_task.job_id),
+            run_job_task=JobsTasksRunJobTask(job_id=job_id),
             depends_on=depends_on,
             task_key=task_name,
         )
@@ -876,6 +924,7 @@ class DatabricksBundleCodegen(CodegenInterface):
             TaskType.BRICKFLOW_TASK: self._build_brickflow_entrypoint_task,
             TaskType.DLT: self._build_dlt_task,
             TaskType.NOTEBOOK_TASK: self._build_native_notebook_task,
+            TaskType.PYTHON_WHEEL_TASK: self._build_native_python_wheel_task,
             TaskType.SPARK_JAR_TASK: self._build_native_spark_jar_task,
             TaskType.SPARK_PYTHON_TASK: self._build_native_spark_python_task,
             TaskType.RUN_JOB_TASK: self._build_native_run_job_task,
@@ -1026,7 +1075,7 @@ class DatabricksBundleCodegen(CodegenInterface):
                 name=workflow_name,
                 tasks=tasks,
                 tags=workflow.tags,
-                health=workflow.health,
+                health=JobsHealth(rules=workflow.health) if workflow.health else None,
                 job_clusters=[JobsJobClusters(**c) for c in workflow_clusters],
                 schedule=self.workflow_obj_to_schedule(workflow),
                 max_concurrent_runs=workflow.max_concurrent_runs,
@@ -1043,6 +1092,11 @@ class DatabricksBundleCodegen(CodegenInterface):
                 parameters=workflow.parameters,
                 environments=workflow.environments,
                 git_source=git_conf,
+                queue=(
+                    JobsQueue(enabled=workflow.queue)
+                    if workflow.queue is not None
+                    else None
+                ),
             )
 
             jobs[workflow_name] = job

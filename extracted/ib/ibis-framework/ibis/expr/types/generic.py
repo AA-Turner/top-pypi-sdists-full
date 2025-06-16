@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 from public import public
@@ -13,8 +13,9 @@ import ibis.expr.operations as ops
 from ibis.common.deferred import Deferred, _, deferrable
 from ibis.common.grounds import Singleton
 from ibis.expr.rewrites import rewrite_window_input
-from ibis.expr.types.core import Expr, _binop, _FixedTextJupyterMixin
-from ibis.util import deprecated, promote_list
+from ibis.expr.types.core import Expr, _binop
+from ibis.expr.types.rich import FixedTextJupyterMixin, to_rich
+from ibis.util import deprecated, experimental, promote_list
 
 if TYPE_CHECKING:
     import datetime
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     import polars as pl
     import pyarrow as pa
     import rich.table
+    from typing_extensions import Self
 
     import ibis.expr.schema as sch
     import ibis.expr.types as ir
@@ -428,7 +430,7 @@ class Value(Expr):
         """
         return ops.TypeOf(self).to_expr()
 
-    def fill_null(self, fill_value: Scalar, /) -> Value:
+    def fill_null(self, fill_value: Scalar, /) -> Self:
         """Replace `NULL`s with the given value. Does NOT affect `NaN` and `inf` values.
 
         This only replaces genuine `NULL` values, it does NOT affect
@@ -491,11 +493,11 @@ class Value(Expr):
         return ops.Coalesce((self, fill_value)).to_expr()
 
     @deprecated(as_of="9.1", instead="use fill_null instead")
-    def fillna(self, fill_value: Scalar, /) -> Value:
+    def fillna(self, fill_value: Scalar, /) -> Self:
         """DEPRECATED: use `fill_null` instead, which acts exactly the same."""
         return self.fill_null(fill_value)
 
-    def nullif(self, null_if_expr: Value, /) -> Value:
+    def nullif(self, null_if_expr: Value, /) -> Self:
         """Set values to null if they equal the values `null_if_expr`.
 
         Commonly used to avoid divide-by-zero problems by replacing zero with
@@ -584,20 +586,26 @@ class Value(Expr):
         """
         return ops.Between(self, lower, upper).to_expr()
 
-    def isin(self, values: Value | Sequence[Value], /) -> ir.BooleanValue:
-        """Check whether this expression's values are in `values`.
+    def isin(
+        self, values: ir.ArrayValue | ir.Column | Iterable[Value], /
+    ) -> ir.BooleanValue:
+        """Check whether this expression is in `values`.
 
-        `NULL` values are propagated in the output. See examples for details.
+        `NULL` values in the input are propagated in the output.
+        If the `values` argument contains any `NULL` values,
+        then ibis follows the SQL behavior of returning `NULL` (not False)
+        when `self` is not present.
+        See examples below for details.
 
         Parameters
         ----------
         values
-            Values or expression to check for membership
+            Values or expression to check for membership.
 
         Returns
         -------
         BooleanValue
-            Expression indicating membership
+            True if `self` is contained in `values`, False otherwise.
 
         See Also
         --------
@@ -607,91 +615,67 @@ class Value(Expr):
         --------
         >>> import ibis
         >>> ibis.options.interactive = True
-        >>> t = ibis.memtable({"a": [1, 2, 3], "b": [2, 3, 4]})
-        >>> t
-        ┏━━━━━━━┳━━━━━━━┓
-        ┃ a     ┃ b     ┃
-        ┡━━━━━━━╇━━━━━━━┩
-        │ int64 │ int64 │
-        ├───────┼───────┤
-        │     1 │     2 │
-        │     2 │     3 │
-        │     3 │     4 │
-        └───────┴───────┘
+        >>> t = ibis.memtable(
+        ...     {
+        ...         "a": [1, 2, 3, None],
+        ...         "b": [1, 2, 9, None],
+        ...     },
+        ...     schema={"a": int, "b": int},
+        ... )
 
-        Check against a literal sequence of values
+        Checking for values in literals:
 
-        >>> t.a.isin([1, 2])
-        ┏━━━━━━━━━━━━━━━━━━━━━┓
-        ┃ InValues(a, (1, 2)) ┃
-        ┡━━━━━━━━━━━━━━━━━━━━━┩
-        │ boolean             │
-        ├─────────────────────┤
-        │ True                │
-        │ True                │
-        │ False               │
-        └─────────────────────┘
+        >>> t.mutate(
+        ...     a_in_12=t.a.isin([1, 2]),
+        ...     a_in_12None=t.a.isin([1, 2, None]),
+        ... )
+        ┏━━━━━━━┳━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━┓
+        ┃ a     ┃ b     ┃ a_in_12 ┃ a_in_12None ┃
+        ┡━━━━━━━╇━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━┩
+        │ int64 │ int64 │ boolean │ boolean     │
+        ├───────┼───────┼─────────┼─────────────┤
+        │     1 │     1 │ True    │ True        │
+        │     2 │     2 │ True    │ True        │
+        │     3 │     9 │ False   │ NULL        │
+        │  NULL │  NULL │ NULL    │ NULL        │
+        └───────┴───────┴─────────┴─────────────┘
 
-        Check against a derived expression
+        Checking for values in columns of the same table:
 
-        >>> t.a.isin(t.b + 1)
-        ┏━━━━━━━━━━━━━━━┓
-        ┃ InSubquery(a) ┃
-        ┡━━━━━━━━━━━━━━━┩
-        │ boolean       │
-        ├───────────────┤
-        │ False         │
-        │ False         │
-        │ True          │
-        └───────────────┘
+        >>> t.mutate(
+        ...     a_in_b=t.a.isin(t.b),
+        ...     a_in_b_no_null=t.a.isin(t.b.fill_null(0)),
+        ...     a_in_b_plus_1=t.a.isin(t.b + 1),
+        ... )
+        ┏━━━━━━━┳━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+        ┃ a     ┃ b     ┃ a_in_b  ┃ a_in_b_no_null ┃ a_in_b_plus_1 ┃
+        ┡━━━━━━━╇━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+        │ int64 │ int64 │ boolean │ boolean        │ boolean       │
+        ├───────┼───────┼─────────┼────────────────┼───────────────┤
+        │     1 │     1 │ True    │ True           │ NULL          │
+        │     2 │     2 │ True    │ True           │ True          │
+        │     3 │     9 │ NULL    │ False          │ True          │
+        │  NULL │  NULL │ NULL    │ NULL           │ NULL          │
+        └───────┴───────┴─────────┴────────────────┴───────────────┘
 
-        Check against a column from a different table
+        Checking for values in a column from a different table:
 
-        >>> t2 = ibis.memtable({"x": [99, 2, 99]})
-        >>> t.a.isin(t2.x)
-        ┏━━━━━━━━━━━━━━━┓
-        ┃ InSubquery(a) ┃
-        ┡━━━━━━━━━━━━━━━┩
-        │ boolean       │
-        ├───────────────┤
-        │ False         │
-        │ True          │
-        │ False         │
-        └───────────────┘
-
-        `NULL` behavior
-
-        >>> t = ibis.memtable({"x": [1, 2]})
-        >>> t.x.isin([1, None])
-        ┏━━━━━━━━━━━━━━━━━━━━━━━━┓
-        ┃ InValues(x, (1, None)) ┃
-        ┡━━━━━━━━━━━━━━━━━━━━━━━━┩
-        │ boolean                │
-        ├────────────────────────┤
-        │ True                   │
-        │ NULL                   │
-        └────────────────────────┘
-        >>> t = ibis.memtable({"x": [1, None, 2]})
-        >>> t.x.isin([1])
-        ┏━━━━━━━━━━━━━━━━━━━┓
-        ┃ InValues(x, (1,)) ┃
-        ┡━━━━━━━━━━━━━━━━━━━┩
-        │ boolean           │
-        ├───────────────────┤
-        │ True              │
-        │ NULL              │
-        │ False             │
-        └───────────────────┘
-        >>> t.x.isin([3])
-        ┏━━━━━━━━━━━━━━━━━━━┓
-        ┃ InValues(x, (3,)) ┃
-        ┡━━━━━━━━━━━━━━━━━━━┩
-        │ boolean           │
-        ├───────────────────┤
-        │ False             │
-        │ NULL              │
-        │ False             │
-        └───────────────────┘
+        >>> t2 = ibis.memtable({"x": [1, 2, 99], "y": [1, 2, None]})
+        >>> t.mutate(
+        ...     a_in_x=t.a.isin(t2.x),
+        ...     a_in_y=t.a.isin(t2.y),
+        ...     a_in_y_plus_1=t.a.isin(t2.y + 1),
+        ... )
+        ┏━━━━━━━┳━━━━━━━┳━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+        ┃ a     ┃ b     ┃ a_in_x  ┃ a_in_y  ┃ a_in_y_plus_1 ┃
+        ┡━━━━━━━╇━━━━━━━╇━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+        │ int64 │ int64 │ boolean │ boolean │ boolean       │
+        ├───────┼───────┼─────────┼─────────┼───────────────┤
+        │     1 │     1 │ True    │ True    │ NULL          │
+        │     2 │     2 │ True    │ True    │ True          │
+        │     3 │     9 │ False   │ NULL    │ True          │
+        │  NULL │  NULL │ NULL    │ NULL    │ NULL          │
+        └───────┴───────┴─────────┴─────────┴───────────────┘
         """
         from ibis.expr.types import ArrayValue
 
@@ -702,50 +686,94 @@ class Value(Expr):
         else:
             return ops.InValues(self, values).to_expr()
 
-    def notin(self, values: Value | Sequence[Value], /) -> ir.BooleanValue:
-        """Check whether this expression's values are not in `values`.
+    def notin(
+        self, values: ir.ArrayValue | ir.Column | Iterable[Value], /
+    ) -> ir.BooleanValue:
+        """Check whether this expression is not in `values`.
 
         Opposite of [`Value.isin()`](./expression-generic.qmd#ibis.expr.types.generic.Value.isin).
+
+        `NULL` values in the input are propagated in the output.
+        If the `values` argument contains any `NULL` values,
+        then ibis follows the SQL behavior of returning `NULL` (not False)
+        when `self` is present.
+        See examples below for details.
 
         Parameters
         ----------
         values
-            Values or expression to check for lack of membership
+            Values or expression to check for lack of membership.
 
         Returns
         -------
         BooleanValue
-            Whether `self`'s values are not contained in `values`
+            True if self is not in `values`, False otherwise.
 
         Examples
         --------
         >>> import ibis
         >>> ibis.options.interactive = True
-        >>> t = ibis.examples.penguins.fetch().limit(5)
-        >>> t.bill_depth_mm
-        ┏━━━━━━━━━━━━━━━┓
-        ┃ bill_depth_mm ┃
-        ┡━━━━━━━━━━━━━━━┩
-        │ float64       │
-        ├───────────────┤
-        │          18.7 │
-        │          17.4 │
-        │          18.0 │
-        │          NULL │
-        │          19.3 │
-        └───────────────┘
-        >>> t.bill_depth_mm.notin([18.7, 18.1])
-        ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-        ┃ Not(InValues(bill_depth_mm, (18.7, 18.1))) ┃
-        ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-        │ boolean                                    │
-        ├────────────────────────────────────────────┤
-        │ False                                      │
-        │ True                                       │
-        │ True                                       │
-        │ NULL                                       │
-        │ True                                       │
-        └────────────────────────────────────────────┘
+        >>> t = ibis.memtable(
+        ...     {
+        ...         "a": [1, 2, 3, None],
+        ...         "b": [1, 2, 9, None],
+        ...     },
+        ...     schema={"a": int, "b": int},
+        ... )
+
+        Checking for values in literals:
+
+        >>> t.mutate(
+        ...     a_notin_12=t.a.notin([1, 2]),
+        ...     a_notin_12None=t.a.notin([1, 2, None]),
+        ... )
+        ┏━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+        ┃ a     ┃ b     ┃ a_notin_12 ┃ a_notin_12None ┃
+        ┡━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+        │ int64 │ int64 │ boolean    │ boolean        │
+        ├───────┼───────┼────────────┼────────────────┤
+        │     1 │     1 │ False      │ False          │
+        │     2 │     2 │ False      │ False          │
+        │     3 │     9 │ True       │ NULL           │
+        │  NULL │  NULL │ NULL       │ NULL           │
+        └───────┴───────┴────────────┴────────────────┘
+
+        Checking for values in columns of the same table:
+
+        >>> t.mutate(
+        ...     a_notin_b=t.a.notin(t.b),
+        ...     a_notin_b_no_null=t.a.notin(t.b.fill_null(0)),
+        ...     a_notin_b_plus_1=t.a.notin(t.b + 1),
+        ... )
+        ┏━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+        ┃ a     ┃ b     ┃ a_notin_b ┃ a_notin_b_no_null ┃ a_notin_b_plus_1 ┃
+        ┡━━━━━━━╇━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+        │ int64 │ int64 │ boolean   │ boolean           │ boolean          │
+        ├───────┼───────┼───────────┼───────────────────┼──────────────────┤
+        │     1 │     1 │ False     │ False             │ NULL             │
+        │     2 │     2 │ False     │ False             │ False            │
+        │     3 │     9 │ NULL      │ True              │ False            │
+        │  NULL │  NULL │ NULL      │ NULL              │ NULL             │
+        └───────┴───────┴───────────┴───────────────────┴──────────────────┘
+
+        Checking for values in a column from a different table:
+
+        >>> t2 = ibis.memtable({"x": [1, 2, 99], "y": [1, 2, None]})
+        >>> t.mutate(
+        ...     a_notin_x=t.a.notin(t2.x),
+        ...     a_notin_y=t.a.notin(t2.y),
+        ...     a_notin_y_plus_1=t.a.notin(t2.y + 1),
+        ... )
+        ┏━━━━━━━┳━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+        ┃ a     ┃ b     ┃ a_notin_x ┃ a_notin_y ┃ a_notin_y_plus_1 ┃
+        ┡━━━━━━━╇━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+        │ int64 │ int64 │ boolean   │ boolean   │ boolean          │
+        ├───────┼───────┼───────────┼───────────┼──────────────────┤
+        │     1 │     1 │ False     │ False     │ NULL             │
+        │     2 │     2 │ False     │ False     │ False            │
+        │     3 │     9 │ True      │ NULL      │ False            │
+        │  NULL │  NULL │ NULL      │ NULL      │ NULL             │
+        └───────┴───────┴───────────┴───────────┴──────────────────┘
         """
         return ~self.isin(values)
 
@@ -754,7 +782,7 @@ class Value(Expr):
         value: Value | dict,
         replacement: Value | None = None,
         else_: Value | None = None,
-    ):
+    ) -> Value:
         """Replace values given in `values` with `replacement`.
 
         This is similar to the pandas `replace` method.
@@ -834,7 +862,7 @@ class Value(Expr):
         range=None,
         group_by=None,
         order_by=None,
-    ) -> Value:
+    ) -> Self:
         """Construct a window expression.
 
         Parameters
@@ -1257,7 +1285,7 @@ class Value(Expr):
     def __lt__(self, other: Value) -> ir.BooleanValue:
         return _binop(ops.Less, self, other)
 
-    def asc(self, *, nulls_first: bool = False) -> ir.Value:
+    def asc(self, *, nulls_first: bool = False) -> Self:
         """Sort an expression in ascending order.
 
         Parameters
@@ -1304,7 +1332,7 @@ class Value(Expr):
         """
         return ops.SortKey(self, ascending=True, nulls_first=nulls_first).to_expr()
 
-    def desc(self, *, nulls_first: bool = False) -> ir.Value:
+    def desc(self, *, nulls_first: bool = False) -> Self:
         """Sort an expression in descending order.
 
         Parameters
@@ -1380,6 +1408,17 @@ class Value(Expr):
 
 @public
 class Scalar(Value):
+    # overriding Expr's implementation just for typing
+    @experimental
+    def to_pyarrow(
+        self,
+        *,
+        params: Mapping[ir.Scalar, Any] | None = None,
+        limit: int | str | None = None,
+        **kwargs: Any,
+    ) -> pa.Scalar:
+        return super().to_pyarrow(params=params, limit=limit, **kwargs)
+
     def __pyarrow_result__(
         self,
         table: pa.Table,
@@ -1498,7 +1537,7 @@ class Scalar(Value):
 
 
 @public
-class Column(Value, _FixedTextJupyterMixin):
+class Column(Value, FixedTextJupyterMixin):
     # Higher than numpy objects
     __array_priority__ = 20
 
@@ -1559,8 +1598,6 @@ class Column(Value, _FixedTextJupyterMixin):
         │ …      │
         └────────┘
         """
-        from ibis.expr.types.pretty import to_rich
-
         return to_rich(
             self,
             max_rows=max_rows,
@@ -1569,6 +1606,17 @@ class Column(Value, _FixedTextJupyterMixin):
             max_depth=max_depth,
             console_width=console_width,
         )
+
+    # overriding Expr's implementation just for typing
+    @experimental
+    def to_pyarrow(
+        self,
+        *,
+        params: Mapping[ir.Scalar, Any] | None = None,
+        limit: int | str | None = None,
+        **kwargs: Any,
+    ) -> pa.Array:
+        return super().to_pyarrow(params=params, limit=limit, **kwargs)
 
     def __pyarrow_result__(
         self,

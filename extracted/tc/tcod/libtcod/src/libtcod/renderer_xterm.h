@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 #ifndef LIBTCOD_RENDERER_XTERM_H_
 #define LIBTCOD_RENDERER_XTERM_H_
 #include "config.h"
@@ -37,13 +38,7 @@
 extern "C" {
 #endif  // __cplusplus
 TCOD_PUBLIC TCOD_NODISCARD TCOD_Context* TCOD_renderer_init_xterm(
-  int window_x,
-  int window_y,
-  int pixel_width,
-  int pixel_height,
-  int columns,
-  int rows,
-  const char* window_title);
+    int window_x, int window_y, int pixel_width, int pixel_height, int columns, int rows, const char* window_title);
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

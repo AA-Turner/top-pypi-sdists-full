@@ -1,4 +1,0 @@
-{
-    "name": "b",
-    "depends": ["addona"],
-}

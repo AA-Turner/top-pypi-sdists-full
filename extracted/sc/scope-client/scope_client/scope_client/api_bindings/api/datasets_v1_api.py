@@ -2306,6 +2306,7 @@ class DatasetsV1Api:
             '200': "AvailableDataset",
             '500': "InternalServerError",
             '404': "NotFoundError",
+            '400': "BadRequestError",
             '422': "HTTPValidationError",
         }
         response_data = self.api_client.call_api(
@@ -2380,6 +2381,7 @@ class DatasetsV1Api:
             '200': "AvailableDataset",
             '500': "InternalServerError",
             '404': "NotFoundError",
+            '400': "BadRequestError",
             '422': "HTTPValidationError",
         }
         response_data = self.api_client.call_api(
@@ -2454,6 +2456,7 @@ class DatasetsV1Api:
             '200': "AvailableDataset",
             '500': "InternalServerError",
             '404': "NotFoundError",
+            '400': "BadRequestError",
             '422': "HTTPValidationError",
         }
         response_data = self.api_client.call_api(

@@ -1,0 +1,54 @@
+name: Publish
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [closed]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build source distribution and wheels
+    uses: ./.github/workflows/build.yml
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, ${{ vars.RELEASE_PR_BRANCH || 'create-pull-request' }}) && github.repository == 'darvid/python-hyperscan'
+    with:
+      force_build: true
+
+  publish:
+    name: Publish to GitHub Releases and PyPI
+    runs-on: ubuntu-latest
+    environment: release
+    concurrency: publish
+    needs: [build]
+    if: needs.build.outputs.valid_event == 'true'
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -R dist/
+
+      - name: Publish to GitHub Releases
+        uses: python-semantic-release/publish-action@v9.21.1
+        with:
+          inputs: ./dist
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: latest
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          verbose: true

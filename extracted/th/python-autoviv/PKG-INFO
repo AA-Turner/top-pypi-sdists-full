@@ -1,0 +1,180 @@
+Metadata-Version: 2.3
+Name: python-autoviv
+Version: 1.0.4
+Summary: 
+License: MIT
+Author: Tyson Holub
+Author-email: tyson@tysonholub.com
+Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: typer (>=0.13,<0.14)
+Project-URL: homepage, https://gitlab.com/tysonholub/python-autoviv
+Description-Content-Type: text/markdown
+
+# python-autoviv [![PyPi](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-%2344CC11)](https://pypi.org/project/python-autoviv/) [![PyPiStats](https://img.shields.io/pypi/dm/python-autoviv.svg)](https://pypistats.org/packages/python-autoviv)
+
+## Overview
+
+The Autovivification library for Python
+
+> "In the Perl programming language, autovivification is the automatic creation of new arrays and hashes as required every time an undefined value is dereferenced. Perl autovivification allows a programmer to refer to a structured variable, and arbitrary sub-elements of that structured variable, without expressly declaring the existence of the variable and its complete structure beforehand." https://en.wikipedia.org/wiki/Autovivification
+
+## Dev Prerequisites
+
+-   python 3.12
+-   [pipx](https://pypa.github.io/pipx/), an optional tool for prerequisite installs
+-   [poetry](https://github.com/python-poetry/poetry) (install globally with `pipx install poetry`)
+-   [flake8](https://github.com/PyCQA/flake8) (install globally with `pipx install flake8`)
+    -   [flake8-bugbear](https://github.com/PyCQA/flake8-bugbear) extension (install with `pipx inject flake8 flake8-bugbear`)
+    -   [flake8-naming](https://github.com/PyCQA/pep8-naming) extension (install with `pipx inject flake8 pep8-naming`)
+-   [black](https://github.com/psf/black) (install globally with `pipx install black`)
+-   [pre-commit](https://github.com/pre-commit/pre-commit) (install globally with `pipx install pre-commit`)
+-   [just](https://github.com/casey/just), a Justfile command runner
+
+### Windows
+
+Justfile support for Windows requires [cygwin](https://www.cygwin.com/). Once installed your `PATH` will need to be updated to resolve `cygpath.exe` (probably `C:\cygwin64\bin`). Justfile will forward any targets with shebangs starting with `/` to cygwin for execution.
+
+Consider using a bash terminal through [WSL](https://ubuntu.com/desktop/wsl) instead.
+
+## Updating python version:
+
+-   Update python version in `Dev Prerequisites` above
+-   Update \[tool.poetry.dependencies\] section of `pyproject.toml`
+-   Update pyupgrade hook in `.pre-commit-config.yaml`
+-   Update python version in `.gitlab-ci.yml`
+
+## Justfile Targets
+
+-   `install`: installs poetry dependencies and pre-commit git hooks
+-   `update_boilerplate`: fetches and applies updates from the boilerplate remote
+-   `test`: runs pytest with test coverage report
+
+## Usage
+
+Import autoviv and call parse on any list, dict, or primitive. You can also call loads on serialized JSON
+
+```python
+>>> import autoviv
+>>> import requests
+>>> r = requests.get('http://jsonplaceholder.typicode.com/users')
+>>> users = autoviv.parse(r.json())
+>>> # or
+... users = autoviv.loads(r.text)
+>>> for user in users:
+...     print(user.name)
+...
+Leanne Graham
+Ervin Howell
+Clementine Bauch
+Patricia Lebsack
+Chelsey Dietrich
+Mrs. Dennis Schulist
+Kurtis Weissnat
+Nicholas Runolfsdottir V
+Glenna Reichert
+Clementina DuBuque
+>>> user = users[0]
+>>> print(autoviv.pprint(user, indent=4))
+{
+    "username": "Bret",
+    "website": "hildegard.org",
+    "name": "Leanne Graham",
+    "company": {
+        "bs": "harness real-time e-markets",
+        "name": "Romaguera-Crona",
+        "catchPhrase": "Multi-layered client-server neural-net"
+    },
+    "id": 1,
+    "phone": "1-770-736-8031 x56442",
+    "address": {
+        "suite": "Apt. 556",
+        "street": "Kulas Light",
+        "geo": {
+            "lat": "-37.3159",
+            "lng": "81.1496"
+        },
+        "zipcode": "92998-3874",
+        "city": "Gwenborough"
+    },
+    "email": "Sincere@april.biz"
+}
+>>> user.name = 'auto-vivification'
+>>> r = requests.put('http://jsonplaceholder.typicode.com/users/{0}'.format(user.id), json=user)
+>>> response = autoviv.parse(r.json())
+>>> print(response.name)
+auto-vivification
+>>> new = autoviv.parse({})
+>>> new.id = 5
+>>> if not new.username:
+...     new.username = 'New User'
+...
+>>> new.address.geo.lat = "-42.3433"
+>>> new.address.geo.lng = "74.3433"
+>>> new.email = 'someone@somewhere.biz'
+>>> print(autoviv.pprint(new))
+{
+    "username": "New User",
+    "email": "someone@somewhere.biz",
+    "id": 5,
+    "address": {
+        "geo": {
+            "lat": "-42.3433",
+            "lng": "74.3433"
+        }
+    }
+}
+```
+
+### NoneProp
+
+It should be noted that missing referenced properties, including nested, are gracefully falsey.
+
+```python
+>>> import autoviv
+>>> data = autoviv.parse({})
+>>> data.property.is_none
+
+>>> bool(data.property.is_none)
+False
+>>> isinstance(data.property.is_none, autoviv.NoneProp)
+True
+>>> 'some data' in data.property.is_none
+False
+>>> [x for x in data.property.is_none]
+[]
+>>> data.property.is_none = None
+>>> isinstance(data.property.is_none, autoviv.NoneProp)
+False
+>>> print(autoviv.pprint(data))
+{
+    "property": {
+        "is_none": null
+    }
+}
+```
+
+## Contributing
+
+Bug reports and pull requests are welcome. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the
+[Contributor Covenant](http://contributor-covenant.org) code of conduct.
+
+## License
+
+This package is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
+
+## Boilerplate
+
+To support pulling updates from the [pyplate](git@gitlab.com:tysonholub/pyplate.git) python boilerplate, add the `boilerplate` git remote:
+
+```bash
+git remote add boilerplate git@gitlab.com:tysonholub/pyplate.git
+```
+
+Then moving forward, run `just update_boilerplate` to pull latest changes from the `boilerplate` remote. **NOTE**: you must keep the boilerplate remote history intact to successfully merge updates from the boilerplate remote.
+

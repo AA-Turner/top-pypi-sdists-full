@@ -1,0 +1,64 @@
+.python_versions: &python_versions
+  - "3.9"
+  - "3.10"
+  - "3.11"
+  - "3.12"
+  - "3.13"
+
+include:
+  # -- wheels ------------------------
+
+  # Linux x86_64 (manylinux)
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@1
+    inputs:
+      stage: build
+      job_name: wheel_manylinux_x86_64
+      pure_python: false
+      python_versions: *python_versions
+
+  # Linux aarch64 (manylinux)
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@1
+    inputs:
+      stage: build
+      runner_tags: [aarch64]
+      job_name: wheel_manylinux_aarch64
+      image: quay.io/pypa/manylinux_2_28_aarch64
+      pure_python: false
+      python_versions: *python_versions
+
+  # Linux x86_64 (musllinux)
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@1
+    inputs:
+      stage: build
+      job_name: wheel_musllinux_x86_64
+      image: quay.io/pypa/musllinux_1_2_x86_64
+      pure_python: false
+      python_versions: *python_versions
+
+  # Linux aarch64 (musllinux)
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@1
+    inputs:
+      stage: build
+      runner_tags: [aarch64]
+      job_name: wheel_musllinux_aarch64
+      image: quay.io/pypa/musllinux_1_2_aarch64
+      pure_python: false
+      python_versions: *python_versions
+
+  # macOS x86_64
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@1
+    inputs:
+      stage: build
+      runner_tags: [macos_x86_64]
+      job_name: wheel_macos_x86_64
+      pure_python: false
+      python_versions: *python_versions
+
+  # macOS ARM64
+  - component: git.ligo.org/computing/gitlab/components/python/wheel@1
+    inputs:
+      stage: build
+      runner_tags: [macos_arm64]
+      job_name: wheel_macos_arm64
+      pure_python: false
+      python_versions: *python_versions

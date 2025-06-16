@@ -1,0 +1,19 @@
+[package]
+name = "py-nixeval"
+version = "0.1.1"
+edition = "2021"
+license = "MIT"
+authors = ["Ruben Cano Diaz <rubencanodiaz@gmail.com>"]
+repository = "https://github.com/Rucadi/py-nixeval"
+readme = "README.md"
+keywords = ["nix", "python", "pyo3", "snix-eval", "bindings"]
+categories = ["development-tools", "interpreter", "nix", "python3"]
+
+[lib]
+name = "nixeval"
+crate-type = ["cdylib"]
+
+[dependencies]
+# PyO3 crate for building Python bindings
+pyo3 = { version = "0.25.0", features = ["extension-module"] }
+snix-eval = { git = "https://github.com/Rucadi/snix", package = "snix-eval" }

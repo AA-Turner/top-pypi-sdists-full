@@ -3,6 +3,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set
 
+from dbt import deprecations
 from dbt.adapters.capability import Capability
 from dbt.adapters.factory import get_adapter
 from dbt.artifacts.resources import FreshnessThreshold, SourceConfig, Time
@@ -26,6 +27,7 @@ from dbt.contracts.graph.unparsed import (
     UnparsedSourceTableDefinition,
 )
 from dbt.events.types import FreshnessConfigProblem, UnusedTables
+from dbt.exceptions import ParsingError
 from dbt.node_types import NodeType
 from dbt.parser.common import ParserRef
 from dbt.parser.schema_generic_tests import SchemaGenericTestParser
@@ -52,6 +54,7 @@ class SourcePatcher:
         self.generic_test_parsers: Dict[str, SchemaGenericTestParser] = {}
         self.patches_used: Dict[SourceKey, Set[str]] = {}
         self.sources: Dict[str, SourceDefinition] = {}
+        self._deprecations: Set[Any] = set()
 
     # This method calls the 'parse_source' method which takes
     # the UnpatchedSourceDefinitions in the manifest and combines them
@@ -131,10 +134,28 @@ class SourcePatcher:
         # We need to be able to tell the difference between explicitly setting the loaded_at_field to None/null
         # and when it's simply not set.  This allows a user to override the source level loaded_at_field so that
         # specific table can default to metadata-based freshness.
+        if table.loaded_at_field_present and table.loaded_at_query:
+            raise ParsingError(
+                "Cannot specify both loaded_at_field and loaded_at_query at table level."
+            )
+        if source.loaded_at_field and source.loaded_at_query:
+            raise ParsingError(
+                "Cannot specify both loaded_at_field and loaded_at_query at source level."
+            )
+
         if table.loaded_at_field_present or table.loaded_at_field is not None:
             loaded_at_field = table.loaded_at_field
         else:
             loaded_at_field = source.loaded_at_field  # may be None, that's okay
+
+        loaded_at_query: Optional[str]
+        if table.loaded_at_query is not None:
+            loaded_at_query = table.loaded_at_query
+        else:
+            if table.loaded_at_field_present:
+                loaded_at_query = None
+            else:
+                loaded_at_query = source.loaded_at_query
 
         quoting = source.quoting.merged(table.quoting)
         # path = block.path.original_file_path
@@ -184,6 +205,7 @@ class SourcePatcher:
             meta=meta,
             loader=source.loader,
             loaded_at_field=loaded_at_field,
+            loaded_at_query=loaded_at_query,
             freshness=config.freshness,
             quoting=quoting,
             resource_type=NodeType.Source,
@@ -373,6 +395,14 @@ class SourcePatcher:
         source: UnparsedSourceDefinition = target.source
 
         source_freshness = source.freshness
+        if source_freshness and (target.path, source.name) not in self._deprecations:
+            deprecations.warn(
+                "property-moved-to-config-deprecation",
+                key="freshness",
+                file=target.path,
+                key_path=source.name,
+            )
+            self._deprecations.add((target.path, source.name))
 
         source_config_freshness_raw: Optional[Dict] = source.config.get(
             "freshness", {}
@@ -385,6 +415,14 @@ class SourcePatcher:
 
         table: UnparsedSourceTableDefinition = target.table
         table_freshness = table.freshness
+        if table_freshness and (target.path, table.name) not in self._deprecations:
+            deprecations.warn(
+                "property-moved-to-config-deprecation",
+                key="freshness",
+                file=target.path,
+                key_path=table.name,
+            )
+            self._deprecations.add((target.path, table.name))
 
         table_config_freshness_raw: Optional[Dict] = table.config.get(
             "freshness", {}
@@ -395,7 +433,7 @@ class SourcePatcher:
             else None
         )
 
-        return merge_freshness(
+        return merge_source_freshness(
             source_freshness,
             source_config_freshness,
             table_freshness,
@@ -414,7 +452,9 @@ def merge_freshness_time_thresholds(
         return update or base
 
 
-def merge_freshness(*thresholds: Optional[FreshnessThreshold]) -> Optional[FreshnessThreshold]:
+def merge_source_freshness(
+    *thresholds: Optional[FreshnessThreshold],
+) -> Optional[FreshnessThreshold]:
     if not thresholds:
         return None
 

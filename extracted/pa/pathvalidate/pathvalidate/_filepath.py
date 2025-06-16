@@ -209,6 +209,7 @@ class FilePathValidator(BaseValidator):
             ErrorAttrKey.PLATFORM: self.platform,
             ErrorAttrKey.FS_ENCODING: self._fs_encoding,
             ErrorAttrKey.BYTE_COUNT: byte_ct,
+            ErrorAttrKey.VALUE: unicode_filepath,
         }
 
         if byte_ct > self.max_len:
@@ -257,9 +258,7 @@ class FilePathValidator(BaseValidator):
 
         err_object = ValidationError(
             description=(
-                "an invalid absolute file path ({}) for the platform ({}).".format(
-                    value, self.platform.value
-                )
+                f"an invalid absolute file path ({value!r}) for the platform ({self.platform.value})."
                 + " to avoid the error, specify an appropriate platform corresponding to"
                 + " the path format or 'auto'."
             ),
@@ -279,19 +278,17 @@ class FilePathValidator(BaseValidator):
         match = _RE_INVALID_PATH.findall(unicode_filepath)
         if match:
             raise InvalidCharError(
-                INVALID_CHAR_ERR_MSG_TMPL.format(
-                    invalid=findall_to_str(match), value=repr(unicode_filepath)
-                )
+                INVALID_CHAR_ERR_MSG_TMPL.format(invalid=findall_to_str(match)),
+                value=unicode_filepath,
             )
 
     def __validate_win_filepath(self, unicode_filepath: str) -> None:
         match = _RE_INVALID_WIN_PATH.findall(unicode_filepath)
         if match:
             raise InvalidCharError(
-                INVALID_CHAR_ERR_MSG_TMPL.format(
-                    invalid=findall_to_str(match), value=repr(unicode_filepath)
-                ),
+                INVALID_CHAR_ERR_MSG_TMPL.format(invalid=findall_to_str(match)),
                 platform=Platform.WINDOWS,
+                value=unicode_filepath,
             )
 
         _drive, value = self.__split_drive(unicode_filepath)

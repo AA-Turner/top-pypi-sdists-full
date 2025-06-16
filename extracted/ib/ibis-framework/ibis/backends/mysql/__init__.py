@@ -22,7 +22,7 @@ import ibis.expr.operations as ops
 import ibis.expr.schema as sch
 import ibis.expr.types as ir
 from ibis import util
-from ibis.backends import CanCreateDatabase, PyArrowExampleLoader
+from ibis.backends import CanCreateDatabase, HasCurrentDatabase, PyArrowExampleLoader
 from ibis.backends.sql import SQLBackend
 from ibis.backends.sql.compilers.base import STAR, TRUE, C, RenameTable
 
@@ -35,54 +35,25 @@ if TYPE_CHECKING:
     import pyarrow as pa
 
 
-class Backend(SQLBackend, CanCreateDatabase, PyArrowExampleLoader):
+class Backend(SQLBackend, CanCreateDatabase, HasCurrentDatabase, PyArrowExampleLoader):
     name = "mysql"
     compiler = sc.mysql.compiler
     supports_create_or_replace = False
 
-    def _from_url(self, url: ParseResult, **kwargs):
-        """Connect to a backend using a URL `url`.
-
-        Parameters
-        ----------
-        url
-            URL with which to connect to a backend.
-        kwargs
-            Additional keyword arguments
-
-        Returns
-        -------
-        BaseBackend
-            A backend instance
-
-        """
-        database, *_ = url.path[1:].split("/", 1)
-        connect_args = {
-            "user": url.username,
-            "password": unquote_plus(url.password or ""),
-            "host": url.hostname,
-            "database": database or "",
-            "port": url.port or None,
-        }
-
-        kwargs.update(connect_args)
+    def _from_url(self, url: ParseResult, **kwarg_overrides):
+        kwargs = {}
+        if url.username:
+            kwargs["user"] = url.username
+        if url.password:
+            kwargs["password"] = unquote_plus(url.password)
+        if url.hostname:
+            kwargs["host"] = url.hostname
+        if database := url.path[1:].split("/", 1)[0]:
+            kwargs["database"] = database
+        if url.port:
+            kwargs["port"] = url.port
+        kwargs.update(kwarg_overrides)
         self._convert_kwargs(kwargs)
-
-        if "user" in kwargs and not kwargs["user"]:
-            del kwargs["user"]
-
-        if "host" in kwargs and not kwargs["host"]:
-            del kwargs["host"]
-
-        if "database" in kwargs and not kwargs["database"]:
-            del kwargs["database"]
-
-        if "password" in kwargs and kwargs["password"] is None:
-            del kwargs["password"]
-
-        if "port" in kwargs and kwargs["port"] is None:
-            del kwargs["port"]
-
         return self.connect(**kwargs)
 
     @cached_property
@@ -322,27 +293,6 @@ class Backend(SQLBackend, CanCreateDatabase, PyArrowExampleLoader):
         like: str | None = None,
         database: tuple[str, str] | str | None = None,
     ) -> list[str]:
-        """List the tables in the database.
-
-        ::: {.callout-note}
-        ## Ibis does not use the word `schema` to refer to database hierarchy.
-
-        A collection of tables is referred to as a `database`.
-        A collection of `database` is referred to as a `catalog`.
-
-        These terms are mapped onto the corresponding features in each
-        backend (where available), regardless of whether the backend itself
-        uses the same terminology.
-        :::
-
-        Parameters
-        ----------
-        like
-            A pattern to use for listing tables.
-        database
-            Database to list tables from. Default behavior is to show tables in
-            the current database (`self.current_database`).
-        """
         if database is not None:
             table_loc = self._to_sqlglot_table(database)
         else:

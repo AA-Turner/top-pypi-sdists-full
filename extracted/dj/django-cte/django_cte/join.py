@@ -1,9 +1,7 @@
-from __future__ import absolute_import
-from __future__ import unicode_literals
 from django.db.models.sql.constants import INNER
 
 
-class QJoin(object):
+class QJoin:
     """Join clause with join condition from Q object clause
 
     :param parent_alias: Alias of parent table.

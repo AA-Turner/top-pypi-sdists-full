@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.13...3.21)
+cmake_minimum_required (VERSION 3.23...4.0)
 
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     set(CMAKE_TOOLCHAIN_FILE
@@ -48,6 +48,7 @@ endif()
 
 set(LIBTCOD_SAMPLES OFF CACHE BOOL "Build sources from the samples directory.")
 set(LIBTCOD_TESTS OFF CACHE BOOL "Build unit tests.")
+set(LIBTCOD_INSTALL ON CACHE BOOL "Enable install targets.")
 
 add_library(${PROJECT_NAME})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
@@ -70,3 +71,12 @@ if(LIBTCOD_TESTS)
     add_subdirectory(tests)
     list(APPEND VCPKG_MANIFEST_FEATURES "tests")
 endif()
+
+if (WIN32)
+    set(CPACK_GENERATOR "ZIP")
+else()
+    set(CPACK_GENERATOR "TGZ")
+endif()
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+include(CPack)

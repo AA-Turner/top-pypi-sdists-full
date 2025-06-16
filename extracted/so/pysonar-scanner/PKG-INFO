@@ -1,0 +1,42 @@
+Metadata-Version: 2.3
+Name: pysonar-scanner
+Version: 0.3.0.1966
+Summary: Sonar Scanner for the Python Ecosystem
+License: LGPL-3.0-only
+Keywords: sonar,sonarqube,sonarcloud,cleancode
+Author: [Code Quality] Data & ML Squad
+Author-email: quality.data-ml@sonarsource.com
+Requires-Python: >=3.8
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Quality Assurance
+Requires-Dist: toml (>=0.10.2)
+Project-URL: Homepage, https://github.com/SonarSource/sonar-scanner-python
+Project-URL: Repository, https://github.com/SonarSource/sonar-scanner-python
+Description-Content-Type: text/markdown
+
+# pysonar-scanner
+**DEPRECATION NOTICE:**
+
+This application is no longer actively maintained and has been deprecated in favor of `pysonar`. `pysonar` offers a more Python-centric experience and support for newer versions of SonarQube.
+
+**Please migrate to `pysonar` for all future usage.**
+
+You can install it via pip:
+`pip install pysonar`
+
+# License
+
+Copyright 2011-2024 SonarSource.
+
+Licensed under the [GNU Lesser General Public License, Version 3.0](http://www.gnu.org/licenses/lgpl.txt)
+

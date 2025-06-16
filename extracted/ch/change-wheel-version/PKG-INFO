@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: change_wheel_version
+Version: 0.6.0
+Summary: Change the version of a wheel file
+Keywords: wheel,version,packaging
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: wheel
+Requires-Dist: installer
+Requires-Dist: packaging
+Project-URL: changelog, https://github.com/hauntsaninja/change_wheel_version/blob/master/CHANGELOG.md
+Project-URL: repository, https://github.com/hauntsaninja/change_wheel_version
+
+# change_wheel_version
+
+A script to change the version of a package inside a pre-existing wheel.
+
+This is useful for e.g. adding a local version to a custom built wheel, without having to jury rig
+its build process:
+
+```bash
+pipx run change_wheel_version some.whl --local-version special.build.info
+```
+
+Note that this only affects the packaging metadata, not any version numbers in code.
+

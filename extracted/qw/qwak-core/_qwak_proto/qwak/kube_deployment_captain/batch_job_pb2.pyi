@@ -8,6 +8,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import google.protobuf.wrappers_pb2
 import sys
 import typing
 
@@ -525,6 +526,8 @@ class ModelIdentifier(google.protobuf.message.Message):
 global___ModelIdentifier = ModelIdentifier
 
 class ListFilesPreStepConfiguration(google.protobuf.message.Message):
+    """will be deprecated soon"""
+
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SOURCE_PATH_FIELD_NUMBER: builtins.int
@@ -537,16 +540,18 @@ class ListFilesPreStepConfiguration(google.protobuf.message.Message):
     """Name for the file to save the list of files in the source path"""
     total_number_of_tasks: builtins.int
     """Total number of inference tasks, used to divide the files list into similarly sized groups"""
-    task_index: builtins.int
-    """Index of the specific task, used to determine on which files group to run inference on"""
+    @property
+    def task_index(self) -> google.protobuf.wrappers_pb2.Int32Value:
+        """Index of the specific task, used to determine on which files group to run inference on. value 0 is legit"""
     def __init__(
         self,
         *,
         source_path: builtins.str = ...,
         list_files_file_name: builtins.str = ...,
         total_number_of_tasks: builtins.int = ...,
-        task_index: builtins.int = ...,
+        task_index: google.protobuf.wrappers_pb2.Int32Value | None = ...,
     ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["task_index", b"task_index"]) -> builtins.bool: ...
     def ClearField(self, field_name: typing_extensions.Literal["list_files_file_name", b"list_files_file_name", "source_path", b"source_path", "task_index", b"task_index", "total_number_of_tasks", b"total_number_of_tasks"]) -> None: ...
 
 global___ListFilesPreStepConfiguration = ListFilesPreStepConfiguration

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: array_api_strict
-Version: 2.3.1
+Version: 2.4
 Summary: A strict, minimal implementation of the Python array API standard.
 Author: Consortium for Python Data API Standards
 License: Copyright (c) 2021-2024, NumPy Developers, Consortium for Python Data API Standards
@@ -35,15 +35,16 @@ License: Copyright (c) 2021-2024, NumPy Developers, Consortium for Python Data A
         (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         
+Project-URL: Homepage, https://data-apis.org/array-api-strict/
+Project-URL: Repository, https://github.com/data-apis/array-api-strict
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy

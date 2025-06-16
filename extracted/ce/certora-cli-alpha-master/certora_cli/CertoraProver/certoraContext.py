@@ -150,8 +150,6 @@ def get_local_run_cmd(context: CertoraContext) -> List[str]:
         java_cmd.extend(context.java_args.strip().split(' '))
 
     cmd = java_cmd + ["-jar", jar_path] + run_args
-    if context.test == str(Util.TestValue.LOCAL_JAR):
-        raise Util.TestResultsReady(' '.join(cmd))
     return cmd
 
 

@@ -1,6 +1,6 @@
 #################################################################################################
 #
-# Copyright (c) 2017 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2017 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Redistribution and use in source and binary forms, with or without
@@ -507,7 +507,8 @@ class Manifest:
     self.selected_kernels = []
     self.ignore_kernel_names = []
     self.exclude_kernel_names = []
-    self.compute_capabilities = [50,]
+    self.compute_capabilities_baseline = [50,]
+    self.compute_capabilities_feature_set = ['50',]
     self.curr_build_dir = '.'
     self.filter_by_cc = True
 
@@ -518,14 +519,9 @@ class Manifest:
       # A common user error is to use commas instead of semicolons.
       if ',' in args.architectures:
         raise RuntimeError("The list of architectures (CMake option CUTLASS_NVCC_ARCHS) must be semicolon-delimited.\nDon't use commas to separate the architectures; use semicolons.\nYou specified the list as: " + args.architectures)
-      architectures = args.architectures.split(';') if len(args.architectures) else ['50',]
-
-      arch_conditional_cc = [
-        '90a', 
-      ]
-      architectures = [x if x not in arch_conditional_cc else x.split('a')[0] for x in architectures]
-
-      self.compute_capabilities = [int(x) for x in architectures]
+      
+      self.compute_capabilities_feature_set = args.architectures.split(';') if len(args.architectures) else ['50',]
+      self.compute_capabilities_baseline = sorted(set(int(arch.split('a')[0].split('f')[0]) for arch in self.compute_capabilities_feature_set))
 
       if args.filter_by_cc in ['false', 'False', '0']:
         self.filter_by_cc = False
@@ -563,20 +559,34 @@ class Manifest:
     self.operations_by_name = {}
     self.disable_full_archs_compilation = args.disable_full_archs_compilation
     self.is_kernel_filter_set_to_all = args.instantiation_level == "max" and args.kernels != ''
+    self.instantiation_level = 0
+    try:
+        self.instantiation_level = int(args.instantiation_level)
+    except ValueError:
+        self.instantiation_level = 0
 
-  def get_sm90_instantiation_level(self, pruned_level=0, default_level=111, exhaustive_level=9999):
+  def get_sm90_instantiation_level(self, pruned_level=0, default_level=111, exhaustive_level=9992):
     # Non-negative integer which determines how many kernels are instantiated.
     # 0 = 0000 generates the fewest kernels, 9999 generates all possible combinations.
     # increasing first digit reduces schedule / mixed type pruning,
     # increasing second digit generates more cluster sizes,
-    # increasing third digit generates more MMA shapes,
+    # increasing third digit generates more MMA multipliers,
     # increasing fourth digit generates more instruction shapes.
-    return exhaustive_level if self.is_kernel_filter_set_to_all else (
-      pruned_level if self.kernel_filter == '' else default_level
-    )
+
+    if self.instantiation_level > 0:
+        return self.instantiation_level
+
+    elif self.is_kernel_filter_set_to_all:
+        return exhaustive_level
+
+    elif self.kernel_filter == '':
+        return pruned_level
+
+    else:
+        return default_level
 
 
-  def get_kernel_filters (self, kernelListFile):
+  def get_kernel_filters(self, kernelListFile):
     if os.path.isfile(kernelListFile):
         with open(kernelListFile, 'r') as fileReader:
             lines = [line.rstrip() for line in fileReader if not line.startswith("#")]
@@ -614,7 +624,7 @@ class Manifest:
     # filter based on compute capability
     enabled = not (self.filter_by_cc)
 
-    for cc in self.compute_capabilities:
+    for cc in self.compute_capabilities_baseline:
 
       if cc >= operation.tile_description.minimum_compute_capability and \
          cc <= operation.tile_description.maximum_compute_capability and \
@@ -768,14 +778,14 @@ class Manifest:
           return name.endswith(".cpp")
 
       def get_src_archs_str_given_requested_cuda_archs(archs, source_file):
-          intersected_archs = archs & set(self.compute_capabilities)
+          intersected_archs = archs & set(self.compute_capabilities_baseline)
           if intersected_archs == set():
               raise RuntimeError(
                     """
                     Empty archs set for file {} after taking
                     the intersection of {} (global requested archs) and
                     {} (per file requested archs)
-                    """.format(source_file, set(self.compute_capabilities), archs))
+                    """.format(source_file, set(self.compute_capabilities_baseline), archs))
           else:
               return " ".join(map(str, intersected_archs))
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 0.1.50
+Version: 0.1.52
 Requires-Dist: sentence-transformers>=3.3.1
 Requires-Dist: click>=8.1.8
 Requires-Dist: rich>=14.0.0
@@ -130,7 +130,7 @@ def text_embedding_flow(flow_builder: cocoindex.FlowBuilder, data_scope: cocoind
     # Export collected data to a vector index.
     doc_embeddings.export(
         "doc_embeddings",
-        cocoindex.storages.Postgres(),
+        cocoindex.targets.Postgres(),
         primary_key_fields=["filename", "location"],
         vector_indexes=[
             cocoindex.VectorIndexDef(

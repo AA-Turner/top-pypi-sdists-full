@@ -48,6 +48,7 @@ from sqlfluff.core.parser import (
     OneOf,
     OptionallyBracketed,
     ParseMode,
+    RawSegment,
     Ref,
     RegexLexer,
     RegexParser,
@@ -523,6 +524,7 @@ ansi_dialect.add(
         Ref("WithNoSchemaBindingClauseSegment"),
         Ref("WithDataClauseSegment"),
         "FETCH",
+        "OFFSET",
     ),
     WhereClauseTerminatorGrammar=OneOf(
         "LIMIT",
@@ -763,7 +765,7 @@ ansi_dialect.add(
     ListComprehensionGrammar=Nothing(),
     TimeWithTZGrammar=Sequence(
         OneOf("TIME", "TIMESTAMP"),
-        Bracketed(Ref("NumericLiteralSegment"), optional=True),
+        Ref("BracketedArguments", optional=True),
         Sequence(OneOf("WITH", "WITHOUT"), "TIME", "ZONE", optional=True),
     ),
     SequenceMinValueGrammar=OneOf(
@@ -1059,17 +1061,18 @@ class ObjectReferenceSegment(BaseSegment):
         """Details about a table alias."""
 
         part: str  # Name of the part
-        # Segment(s) comprising the part. Usuaully just one segment, but could
+        # Segment(s) comprising the part. Usually just one segment, but could
         # be multiple in dialects (e.g. BigQuery) that support unusual
         # characters in names (e.g. "-")
-        segments: list[BaseSegment]
+        segments: list[RawSegment]
 
     @classmethod
-    def _iter_reference_parts(cls, elem) -> Generator[ObjectReferencePart, None, None]:
+    def _iter_reference_parts(
+        cls, elem: RawSegment
+    ) -> Generator[ObjectReferencePart, None, None]:
         """Extract the elements of a reference and yield."""
         # trim on quotes and split out any dots.
-        for part in elem.raw_trimmed().split("."):
-            yield cls.ObjectReferencePart(part, [elem])
+        yield cls.ObjectReferencePart(elem.raw_trimmed(), [elem])
 
     def iter_raw_references(self) -> Generator[ObjectReferencePart, None, None]:
         """Generate a list of reference strings and elements.
@@ -1079,7 +1082,7 @@ class ObjectReferenceSegment(BaseSegment):
         """
         # Extract the references from those identifiers (because some may be quoted)
         for elem in self.recursive_crawl("identifier"):
-            yield from self._iter_reference_parts(elem)
+            yield from self._iter_reference_parts(cast(IdentifierSegment, elem))
 
     def is_qualified(self) -> bool:
         """Return if there is more than one element to the reference."""
@@ -1250,15 +1253,6 @@ class ArrayAccessorSegment(BaseSegment):
         ),
         bracket_type="square",
         parse_mode=ParseMode.GREEDY,
-    )
-
-
-class AliasedObjectReferenceSegment(BaseSegment):
-    """A reference to an object with an `AS` clause."""
-
-    type = "object_reference"
-    match_grammar: Matchable = Sequence(
-        Ref("ObjectReferenceSegment"), Ref("AliasExpressionSegment")
     )
 
 
@@ -1789,7 +1783,7 @@ class WildcardIdentifierSegment(ObjectReferenceSegment):
         """
         # Extract the references from those identifiers (because some may be quoted)
         for elem in self.recursive_crawl("identifier", "star"):
-            yield from self._iter_reference_parts(elem)
+            yield from self._iter_reference_parts(cast(RawSegment, elem))
 
 
 class WildcardExpressionSegment(BaseSegment):
@@ -2725,7 +2719,21 @@ class FetchClauseSegment(BaseSegment):
             optional=True,
         ),
         OneOf("ROW", "ROWS"),
-        "ONLY",
+        OneOf("ONLY", Sequence("WITH", "TIES")),
+    )
+
+
+class OffsetClauseSegment(BaseSegment):
+    """An `OFFSET` clause like in `SELECT`."""
+
+    type = "offset_clause"
+    match_grammar: Matchable = Sequence(
+        "OFFSET",
+        OneOf(
+            Ref("NumericLiteralSegment"),
+            Ref("ExpressionSegment", exclude=Ref.keyword("ROW")),
+        ),
+        OneOf("ROW", "ROWS"),
     )
 
 
@@ -2813,6 +2821,7 @@ class SelectStatementSegment(BaseSegment):
     match_grammar = UnorderedSelectStatementSegment.match_grammar.copy(
         insert=[
             Ref("OrderByClauseSegment", optional=True),
+            Ref("OffsetClauseSegment", optional=True),
             Ref("FetchClauseSegment", optional=True),
             Ref("LimitClauseSegment", optional=True),
             Ref("NamedWindowSegment", optional=True),

@@ -669,29 +669,25 @@ def test_decimal_literal(con, backend, expr, expected_types, expected_result):
             ],
         ),
         param(
-            lambda t: ibis.literal(1.3),
-            lambda t: 1.3,
+            lambda _: ibis.literal(1.3),
+            lambda _: 1.3,
             id="float-literal",
             marks=[
                 pytest.mark.notimpl(["exasol"], raises=com.OperationNotDefinedError)
             ],
         ),
+        param(lambda _: ibis.literal(np.nan), lambda _: np.nan, id="nan-literal"),
         param(
-            lambda t: ibis.literal(np.nan),
-            lambda t: np.nan,
-            id="nan-literal",
-        ),
-        param(
-            lambda t: ibis.literal(np.inf),
-            lambda t: np.inf,
+            lambda _: ibis.literal(np.inf),
+            lambda _: np.inf,
             id="inf-literal",
             marks=[
                 pytest.mark.notimpl(["exasol"], raises=com.OperationNotDefinedError)
             ],
         ),
         param(
-            lambda t: ibis.literal(-np.inf),
-            lambda t: -np.inf,
+            lambda _: ibis.literal(-np.inf),
+            lambda _: -np.inf,
             id="-inf-literal",
             marks=[
                 pytest.mark.notimpl(["exasol"], raises=com.OperationNotDefinedError)
@@ -755,17 +751,11 @@ def test_isnan_isinf(
             ibis.least(L(10), L(1)),
             1,
             id="least",
-            marks=pytest.mark.notimpl(
-                ["datafusion"], raises=com.OperationNotDefinedError
-            ),
         ),
         param(
             ibis.greatest(L(10), L(1)),
             10,
             id="greatest",
-            marks=pytest.mark.notimpl(
-                ["datafusion"], raises=com.OperationNotDefinedError
-            ),
         ),
         param(L(5.5).round(), 6.0, id="round"),
         param(L(5.556).round(2), 5.56, id="round-digits"),
@@ -1043,14 +1033,6 @@ def test_floor_divide_precedence(con):
             ),
             id="log_base_bigint",
             marks=[
-                pytest.mark.notimpl(
-                    ["datafusion"], raises=com.OperationNotDefinedError
-                ),
-                pytest.mark.notimpl(
-                    ["datafusion"],
-                    raises=ValueError,
-                    reason="Base greatest(9000, t0.bigint_col) for logarithm not supported!",
-                ),
                 pytest.mark.notimpl(["polars"], raises=com.UnsupportedArgumentError),
                 pytest.mark.notimpl(
                     ["risingwave"],
@@ -1074,7 +1056,7 @@ def test_complex_math_functions_columns(
     ("expr_fn", "expected_fn"),
     [
         param(
-            lambda be, t: t.double_col.round(),
+            lambda _, t: t.double_col.round(),
             lambda be, t: be.round(t.double_col),
             id="round",
             marks=[
@@ -1084,48 +1066,41 @@ def test_complex_math_functions_columns(
                     raises=AssertionError,
                     reason="rounding works but behavior differs from pandas",
                 ),
+                pytest.mark.notyet(
+                    ["polars"],
+                    raises=AssertionError,
+                    reason="rounding behavior is slightly different",
+                ),
             ],
         ),
         param(
-            lambda be, t: t.double_col.add(0.05).round(3),
+            lambda _, t: t.double_col.add(0.05).round(3),
             lambda be, t: be.round(t.double_col + 0.05, 3),
             id="round-with-param",
         ),
         param(
-            lambda be, t: ibis.least(t.bigint_col, t.int_col),
-            lambda be, t: pd.Series(list(map(min, t.bigint_col, t.int_col))),
+            lambda _, t: ibis.least(t.bigint_col, t.int_col),
+            lambda _, t: pd.Series(list(map(min, t.bigint_col, t.int_col))),
             id="least-all-columns",
-            marks=pytest.mark.notimpl(
-                ["datafusion"], raises=com.OperationNotDefinedError
-            ),
         ),
         param(
-            lambda be, t: ibis.least(t.bigint_col, t.int_col, -2),
-            lambda be, t: pd.Series(
+            lambda _, t: ibis.least(t.bigint_col, t.int_col, -2),
+            lambda _, t: pd.Series(
                 list(map(min, t.bigint_col, t.int_col, [-2] * len(t)))
             ),
             id="least-scalar",
-            marks=pytest.mark.notimpl(
-                ["datafusion"], raises=com.OperationNotDefinedError
-            ),
         ),
         param(
-            lambda be, t: ibis.greatest(t.bigint_col, t.int_col),
-            lambda be, t: pd.Series(list(map(max, t.bigint_col, t.int_col))),
+            lambda _, t: ibis.greatest(t.bigint_col, t.int_col),
+            lambda _, t: pd.Series(list(map(max, t.bigint_col, t.int_col))),
             id="greatest-all-columns",
-            marks=pytest.mark.notimpl(
-                ["datafusion"], raises=com.OperationNotDefinedError
-            ),
         ),
         param(
-            lambda be, t: ibis.greatest(t.bigint_col, t.int_col, -2),
-            lambda be, t: pd.Series(
+            lambda _, t: ibis.greatest(t.bigint_col, t.int_col, -2),
+            lambda _, t: pd.Series(
                 list(map(max, t.bigint_col, t.int_col, [-2] * len(t)))
             ),
             id="greatest-scalar",
-            marks=pytest.mark.notimpl(
-                ["datafusion"], raises=com.OperationNotDefinedError
-            ),
         ),
     ],
 )
@@ -1136,21 +1111,9 @@ def test_backend_specific_numerics(backend, con, df, alltypes, expr_fn, expected
     backend.assert_series_equal(result, expected)
 
 
-@pytest.mark.parametrize(
-    "op",
-    [
-        operator.add,
-        operator.sub,
-        operator.mul,
-        operator.truediv,
-        operator.floordiv,
-        param(
-            operator.pow, marks=[pytest.mark.notimpl(["exasol"], raises=ExaQueryError)]
-        ),
-    ],
-    ids=lambda op: op.__name__,
-)
-def test_binary_arithmetic_operations(backend, alltypes, df, op):
+@pytest.mark.parametrize("opname", ["add", "sub", "mul", "truediv", "floordiv", "pow"])
+def test_binary_arithmetic_operations(backend, alltypes, df, opname):
+    op = getattr(operator, opname)
     smallint_col = alltypes.smallint_col + 1  # make it nonzero
     smallint_series = df.smallint_col + 1
 
@@ -1395,7 +1358,6 @@ def test_random_different_per_row(alltypes):
         ),
     ],
 )
-@pytest.mark.notimpl(["datafusion"], raises=com.OperationNotDefinedError)
 def test_clip(backend, alltypes, df, ibis_func, pandas_func):
     result = ibis_func(alltypes.int_col).execute()
     expected = pandas_func(df.int_col).astype(result.dtype)
@@ -1404,7 +1366,7 @@ def test_clip(backend, alltypes, df, ibis_func, pandas_func):
     backend.assert_series_equal(result, expected, check_names=False)
 
 
-@pytest.mark.notimpl(["datafusion", "polars"], raises=com.OperationNotDefinedError)
+@pytest.mark.notimpl(["polars"], raises=com.OperationNotDefinedError)
 @pytest.mark.notyet(
     ["druid"],
     raises=PyDruidProgrammingError,
@@ -1542,7 +1504,7 @@ def test_bitwise_scalars(con, op, left, right):
     assert result == expected
 
 
-@pytest.mark.notimpl(["datafusion", "exasol"], raises=com.OperationNotDefinedError)
+@pytest.mark.notimpl(["exasol"], raises=com.OperationNotDefinedError)
 @pytest.mark.notimpl(["oracle"], raises=OracleDatabaseError)
 @flink_no_bitwise
 def test_bitwise_not_scalar(con):
@@ -1552,7 +1514,7 @@ def test_bitwise_not_scalar(con):
     assert result == expected
 
 
-@pytest.mark.notimpl(["datafusion", "exasol"], raises=com.OperationNotDefinedError)
+@pytest.mark.notimpl(["exasol"], raises=com.OperationNotDefinedError)
 @pytest.mark.notimpl(["oracle"], raises=OracleDatabaseError)
 @flink_no_bitwise
 def test_bitwise_not_col(backend, alltypes, df):

@@ -760,42 +760,20 @@ class CloudVerification:
                           Util.get_configuration_layout_data_file(),
                           Util.get_build_dir() / Path(self.context.files[0]).name]
 
+            if Util.get_debug_log_file().exists():
+                files_list.append(Util.get_debug_log_file())
+
             if Util.get_certora_sources_dir().exists():
                 files_list.append(Util.get_certora_sources_dir())
 
             if hasattr(self.context, 'build_script') and self.context.build_script:
-                result = compress_files(self.logZipFilePath, Util.get_debug_log_file(),
-                                        short_output=Ctx.is_minimal_cli_output(self.context))
-
-                if not result:
-                    return False
-                files_list.append(self.logZipFilePath)
-
-                # Create a .RustExecution file to classify zipInput as a rust source code
-                rust_execution_file = Util.get_build_dir() / ".RustExecution"
-                rust_execution_file.touch(exist_ok=True)
-                files_list.append(rust_execution_file)
-
                 if attr_file := getattr(self.context, 'rust_logs_stdout', None):
                     files_list.append(Util.get_build_dir() / Path(attr_file).name)
                 if attr_file := getattr(self.context, 'rust_logs_stderr', None):
                     files_list.append(Util.get_build_dir() / Path(attr_file).name)
 
-                result = compress_files(self.ZipFilePath, *files_list,
-                                        short_output=Ctx.is_minimal_cli_output(self.context))
-
-            elif Attrs.is_solana_app() or Attrs.is_soroban_app():
-                for file in self.context.files:
-                    files_list.append(Path(file))
-
-                result = compress_files(self.ZipFilePath, *files_list,
-                                        short_output=Ctx.is_minimal_cli_output(self.context))
-            else:
-                raise Util.CertoraUserInputError(
-                    'When running rust application, context should either have attribute "rust_executables" '
-                    'provided by build_script execution, '
-                    'or either is_solana_app(), is_soroban_app() should be set to True'
-                )
+            result = compress_files(self.ZipFilePath, *files_list,
+                                    short_output=Ctx.is_minimal_cli_output(self.context))
 
         else:
             # Zip the log file first separately and again with the rest of the files, so it will not be decompressed

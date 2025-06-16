@@ -4,6 +4,8 @@ except ImportError:
     ctypes = None
 
 import objc
+import sys
+import types
 from PyObjCTest.pointersupport import object_capsule, opaque_capsule, OC_PointerSupport
 from PyObjCTools.TestSupport import TestCase, skipUnless
 
@@ -28,14 +30,6 @@ class TestProxySupport(TestCase):
             r"(this function got an unexpected keyword argument 'cobject2'.)",
         ):
             objc.objc_object(cobject2=p)
-
-    def test_cobject_for_nil(self):
-        arr = objc.lookUpClass("NSArray").alloc()
-        arr.init()
-        with self.assertRaisesRegex(
-            AttributeError, "cannot access attribute '__cobject__' of NIL"
-        ):
-            self.assertIs(arr.__cobject__(), None)
 
     def test_no__new__(self):
         with self.assertRaisesRegex(
@@ -76,15 +70,6 @@ class TestProxySupport(TestCase):
         b.value = "pointer"
         with self.assertRaisesRegex(ValueError, "c_void_p.value is not an integer"):
             objc.objc_object(c_void_p=b)
-
-    @skipUnless(ctypes is not None, "requires ctypes")
-    def test_voidp_for_nil(self):
-        arr = objc.lookUpClass("NSArray").alloc()
-        arr.init()
-        with self.assertRaisesRegex(
-            AttributeError, "cannot access attribute '__c_void_p__' of NIL"
-        ):
-            self.assertIs(arr.__c_void_p__(), None)
 
     @skipUnless(ctypes is not None, "requires ctypes")
     def test_voidp_using_ctypes(self):
@@ -223,3 +208,20 @@ class TestMiscTypes(TestCase):
         v2 = OC_PointerSupport.getContext()
 
         self.assertIs(v1, v2)
+
+    def test_special_union(self):
+        self.assertResultHasType(OC_PointerSupport.getUnion, b"^(test_union=if)")
+        self.assertArgHasType(OC_PointerSupport.intFromUnion_, 0, b"^(test_union=if)")
+        v1 = OC_PointerSupport.getUnion()
+        if sys.version_info[:2] >= (3, 13):
+            self.assertIsInstance(v1, types.CapsuleType)
+        else:
+            self.assertEqual(type(v1).__name__, "PyCapsule")
+        self.assertIn('"__union__"', str(v1))
+        v2 = OC_PointerSupport.intFromUnion_(v1)
+        self.assertEqual(v2, 99)
+
+        with self.assertRaises(ValueError):
+            OC_PointerSupport.intFromUnion_(42)
+
+        self.assertEqual(objc._nameForSignature(b"^(test_union=if)"), "union_test")

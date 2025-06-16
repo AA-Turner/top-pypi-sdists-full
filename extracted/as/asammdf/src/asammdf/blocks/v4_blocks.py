@@ -3302,6 +3302,8 @@ class ChannelConversion(_ChannelConversionBase):
 
         values_count = len(new_values)
 
+        index: np.intp | int
+
         conversion_type = self.conversion_type
         if conversion_type == v4c.CONVERSION_TYPE_NON:
             pass
@@ -4080,7 +4082,7 @@ class ChannelConversion(_ChannelConversionBase):
 
                     bytes_values.append(b"|".join(new_val))
 
-                new_values = np.array(bytes_values)
+                new_values = np.array(bytes_values, dtype=bytes)
                 new_values[non_int] = b""
 
         if scalar:

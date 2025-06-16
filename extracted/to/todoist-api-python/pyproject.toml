@@ -1,0 +1,157 @@
+[project]
+name = "todoist_api_python"
+version = "3.1.0"
+description = "Official Python SDK for the Todoist API."
+authors = [{ name = "Doist Developers", email = "dev@doist.com" }]
+requires-python = "~=3.9"
+readme = "README.md"
+license = "MIT"
+keywords = ["todoist", "rest", "sync", "api", "python"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+  "requests>=2.32.3,<3",
+  "dataclass-wizard>=0.35.0,<1.0",
+  "annotated-types",
+]
+
+[project.urls]
+Homepage = "https://github.com/Doist/todoist-api-python"
+Repository = "https://github.com/Doist/todoist-api-python"
+Documentation = "https://developer.todoist.com/rest/"
+
+[dependency-groups]
+dev = [
+  "pre-commit>=4.0.0,<5",
+  "pytest>=8.0.0,<9",
+  "pytest-asyncio>=0.26.0,<0.27",
+  "tox>=4.15.1,<5",
+  "tox-uv>=1.25.0,<2",
+  "mypy~=1.11",
+  "ruff>=0.11.0,<0.12",
+  "responses>=0.25.3,<0.26",
+  "types-requests~=2.32",
+]
+
+docs = [
+  "mkdocs>=1.6.1,<2.0.0",
+  "mkdocstrings[python]>=0.29.1,<1.0.0",
+  "mkdocs-material>=9.6.11,<10.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["todoist_api_python"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["todoist_api_python"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.mypy]
+follow_imports = "silent"
+mypy_path = "."
+scripts_are_modules = true
+namespace_packages = true
+no_implicit_optional = true
+no_implicit_reexport = true
+show_error_codes = true
+check_untyped_defs = true
+enable_error_code = [
+  "redundant-self",
+  "redundant-expr",
+  "ignore-without-code",
+  "truthy-iterable",
+  "truthy-bool",
+]
+extra_checks = true
+strict_equality = true
+strict_optional = true # default value, but required for Pylance to be strict, see https://twist.com/a/1585/ch/274843/t/3453725/c/76267088
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+untyped_calls_exclude = []
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
+
+[tool.ruff]
+target-version = "py39" # used by some linters like UP, FA, PERF
+
+[tool.ruff.lint]
+select = [
+  "A",     # flake8-builtins
+  "ASYNC", # flake8-async
+  "B",     # flake8-bugbear
+  "C4",    # flake8-comprehensions
+  "D",     # pydocstyle,
+  "DTZ",   # flake8-datetimez,
+  "E",     # pycodestyle errors
+  "W",     # pycodestyle warnings
+  "F",     # pyflakes
+  "I",     # isort
+  "PL",    # pylint
+  "RUF",   # ruff
+  "S",     # flake8-bandit
+  "T20",   # flake8-print
+  "SIM",   # flake8-simplify
+  "UP",    # pyupgrade
+  "TC",    # flake8-type-checking
+  "TRY",   # tryceratops
+  "BLE",   # flake8-blind-except
+  "FA",    # flake8-future-annotations
+  "FIX",   # flake8-fixme
+  "ICN",   # flake8-import-conventions
+  "LOG",   # flake8-logging
+  "G",     # flake8-logging-format
+  "RET",   # flake8-logging-return
+  "ISC",   # flake8-implicit-str-concat
+  "INP",   # flake8-no-pep420
+  "PIE",   # flake8-pie
+  "PT",    # flake8-pytest-style
+  "TID",   # flake8-tidy-imports
+  "PTH",   # flake8-user-pathlib
+  "PERF",  # perflint
+  "FURB",  # refurb
+  "N",     # pep8-naming
+  "PGH",   # pygrep-hooks
+  "PYI",   # flake8-pyi
+  "ANN",   # flake8-annotations
+]
+
+ignore = [
+  "D203",    # incorrect-blank-line-before-class
+  "D212",    # multi-line-summary-first-line
+  "PLR0913", # too-many-arguments
+  "TRY00",   # raise-vanilla-args
+
+  # All listed below are not intentional and should be fixed
+  "D100", # undocumented-public-module
+  "D101", # undocumented-public-class
+  "D102", # undocumented-public-method
+  "D103", # undocumented-public-function
+  "D104", # undocumented-public-package
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+  "S101",    # assert
+  "S105",    # hardcoded-password-string
+  "PLR2004", # magic-value-comparison
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"

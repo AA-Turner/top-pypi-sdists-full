@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbt-metabase
-Version: 1.5.2
+Version: 1.5.3
 Summary: dbt + Metabase integration.
 Author: Mike Gouline
 License: MIT License

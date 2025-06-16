@@ -1,8 +1,7 @@
 # Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
+# SPDX-License-Identifier: Apache-2.0
 
-from daytona_api_client import SessionExecuteResponse
-from daytona_api_client import WorkspaceState as SandboxState
+from daytona_api_client import SandboxState, SessionExecuteResponse
 
 from ._async.daytona import AsyncDaytona
 from ._async.sandbox import AsyncSandbox
@@ -21,20 +20,21 @@ from .common.charts import (
     PieChart,
     ScatterChart,
 )
-from .common.daytona import CodeLanguage, CreateSandboxParams, DaytonaConfig, SandboxResources
+from .common.daytona import (
+    CodeLanguage,
+    CreateSandboxBaseParams,
+    CreateSandboxFromImageParams,
+    CreateSandboxFromSnapshotParams,
+    DaytonaConfig,
+)
 from .common.errors import DaytonaError
 from .common.filesystem import FileUpload
 from .common.image import Image
 from .common.lsp_server import LspLanguageId
 from .common.process import CodeRunParams, SessionExecuteRequest
-from .common.sandbox import SandboxState, SandboxTargetRegion
+from .common.sandbox import Resources
+from .common.snapshot import CreateSnapshotParams
 from .common.volume import VolumeMount
-
-CreateWorkspaceParams = deprecated_alias("CreateWorkspaceParams", "CreateSandboxParams")(CreateSandboxParams)
-Workspace = deprecated_alias("Workspace", "Sandbox")(Sandbox)
-WorkspaceTargetRegion = deprecated_alias("WorkspaceTargetRegion", "SandboxTargetRegion")(SandboxTargetRegion)
-WorkspaceResources = deprecated_alias("WorkspaceResources", "SandboxResources")(SandboxResources)
-WorkspaceState = deprecated_alias("WorkspaceState", "SandboxState")(SandboxState)
 
 __all__ = [
     "Daytona",
@@ -44,18 +44,10 @@ __all__ = [
     "SessionExecuteResponse",
     "DaytonaError",
     "LspLanguageId",
-    "WorkspaceTargetRegion",
     "CodeRunParams",
-    "CreateSandboxParams",
     "Sandbox",
-    "SandboxTargetRegion",
-    "SandboxResources",
+    "Resources",
     "SandboxState",
-    "CreateWorkspaceParams",
-    "Workspace",
-    "WorkspaceTargetRegion",
-    "WorkspaceResources",
-    "WorkspaceState",
     "ChartType",
     "Chart",
     "LineChart",
@@ -69,4 +61,8 @@ __all__ = [
     "AsyncDaytona",
     "AsyncSandbox",
     "Image",
+    "CreateSandboxBaseParams",
+    "CreateSandboxFromImageParams",
+    "CreateSandboxFromSnapshotParams",
+    "CreateSnapshotParams",
 ]

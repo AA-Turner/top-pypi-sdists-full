@@ -1,5 +1,0 @@
-parameters:
-  foodict:
-    bar: bar
-    baz: baz
-  target: foo

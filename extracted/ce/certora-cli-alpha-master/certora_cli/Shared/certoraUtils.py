@@ -96,6 +96,7 @@ EMV_JAR = Path("emv.jar")
 CERTORA_SOURCES = Path(".certora_sources")
 SOLANA_INLINING = "solana_inlining"
 SOLANA_SUMMARIES = "solana_summaries"
+CARGO_TOML_FILE = "cargo.toml"
 
 ALPHA_PACKAGE_NAME = 'certora-cli-alpha'
 ALPHA_PACKAGE_MASTER_NAME = ALPHA_PACKAGE_NAME + '-master'
@@ -1271,7 +1272,7 @@ class TestValue(NoValEnum):
     determines the chekpoint where the execution will halt. The exception TestResultsReady will be thrown. The value
     will also determine what object will be attached to the exception for inspection by the caller
     """
-    LOCAL_JAR = auto()
+    BEFORE_LOCAL_PROVER_CALL = auto()
     CHECK_ARGS = auto()
     AFTER_BUILD = auto()
     CHECK_SOLC_OPTIONS = auto()
@@ -1461,6 +1462,14 @@ def eq_by(f: Callable[[T, T], bool], a: Sequence[T], b: Sequence[T]) -> bool:
     check if Sequences a and b are equal according to function f.
     """
     return len(a) == len(b) and all(map(f, a, b))
+
+def find_nearest_cargo_toml() -> Optional[Path]:
+    current = Path.cwd()
+    for parent in [current] + list(current.parents):
+        candidate = parent / CARGO_TOML_FILE
+        if candidate.is_file():
+            return candidate
+    return None
 
 def file_in_source_tree(file_path: Path) -> bool:
     # if the file is under .certora_source, return True

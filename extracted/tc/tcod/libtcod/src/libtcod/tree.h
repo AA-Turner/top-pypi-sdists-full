@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_TREE_H
-#define _TCOD_TREE_H
+#pragma once
+#ifndef TCOD_TREE_H_
+#define TCOD_TREE_H_
 
 #include "portability.h"
 
@@ -48,4 +49,4 @@ TCODLIB_API void TCOD_tree_add_son(TCOD_tree_t* node, TCOD_tree_t* son);
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif  // TCOD_TREE_H_

@@ -1,8 +1,0 @@
-regions: [
-  'eu-west-1',
-  'eu-west-2',
-  'eu-west-3'
-]
-should_collect_cloudformation_events: true
-should_forward_events_to_eventbridge: true
-should_forward_failures_to_opscenter: true

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling>=0.25.1", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dessert"
+description = "Assertion introspection via AST rewriting"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+
+classifiers = [
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = ["munch", "py", "atomicwrites>=1.0", "attrs"]
+
+dynamic = ["version"]
+
+authors = [{ name = "Rotem Yaari", email = "vmalloc@gmail.com" }]
+
+[project.urls]
+"GitHub" = "https://github.com/vmalloc/dessert"
+
+[project.optional-dependencies]
+testing = ["pytest", "emport>=1.1.1", "pylint"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.pytest]
+testpaths = "tests"

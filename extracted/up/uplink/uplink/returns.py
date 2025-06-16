@@ -4,12 +4,12 @@ import warnings
 
 # Local imports
 from uplink import decorators
-from uplink.converters import keys, interfaces
+from uplink.converters import interfaces, keys
 
-__all__ = ["json", "from_json", "schema"]
+__all__ = ["from_json", "json", "schema"]
 
 
-class ReturnType(object):
+class ReturnType:
     def __init__(self, decorator, type_):
         self._decorator = decorator
         self._type_ = type_
@@ -32,7 +32,7 @@ class ReturnType(object):
 
 class CallableReturnType(ReturnType):
     def __init__(self, decorator, type_, strategy):
-        super(CallableReturnType, self).__init__(decorator, type_)
+        super().__init__(decorator, type_)
         self._strategy = strategy
 
     def __call__(self, *args, **kwargs):
@@ -48,10 +48,8 @@ class _ReturnsBase(decorators.MethodAnnotation):
         pass
 
     def _modify_request_definition(self, definition, kwargs):
-        super(_ReturnsBase, self)._modify_request_definition(definition, kwargs)
-        definition.return_type = ReturnType.with_decorator(
-            definition.return_type, self
-        )
+        super()._modify_request_definition(definition, kwargs)
+        definition.return_type = ReturnType.with_decorator(definition.return_type, self)
 
     def _get_converter(self, request_builder, return_type):  # pragma: no cover
         return request_builder.get_converter(
@@ -73,14 +71,14 @@ class _ReturnsBase(decorators.MethodAnnotation):
         )
 
 
-class JsonStrategy(object):
+class JsonStrategy:
     # TODO: Consider moving this under json decorator
     # TODO: Support JSON Pointer (https://tools.ietf.org/html/rfc6901)
 
     def __init__(self, converter, key=()):
         self._converter = converter
 
-        if not isinstance(key, (list, tuple)):
+        if not isinstance(key, list | tuple):
             key = (key,)
         self._key = key
 
@@ -88,8 +86,7 @@ class JsonStrategy(object):
         content = response.json()
         for name in self._key:
             content = content[name]
-        content = self._converter(content)
-        return content
+        return self._converter(content)
 
 
 # noinspection PyPep8Naming
@@ -98,53 +95,52 @@ class json(_ReturnsBase):
     Specifies that the decorated consumer method should return a JSON
     object.
 
-    .. code-block:: python
+    ```python
+    # This method will return a JSON object (e.g., a dict or list)
+    @returns.json
+    @get("/users/{username}")
+    def get_user(self, username):
+        \"""Get a specific user.\"""
+    ```
 
-        # This method will return a JSON object (e.g., a dict or list)
-        @returns.json
-        @get("/users/{username}")
-        def get_user(self, username):
-            \"""Get a specific user.\"""
+    ## Returning a Specific JSON Field
 
-    Returning a Specific JSON Field:
+    The `key` argument accepts a string or tuple that
+    specifies the path of an internal field in the JSON document.
 
-        The :py:attr:`key` argument accepts a string or tuple that
-        specifies the path of an internal field in the JSON document.
+    For instance, consider an API that returns JSON responses that,
+    at the root of the document, contains both the server-retrieved
+    data and a list of relevant API errors:
 
-        For instance, consider an API that returns JSON responses that,
-        at the root of the document, contains both the server-retrieved
-        data and a list of relevant API errors:
+    ```json
+    {
+        "data": { "user": "prkumar", "id": "140232" },
+        "errors": []
+    }
+    ```
 
-        .. code-block:: json
-            :emphasize-lines: 2
+    If returning the list of errors is unnecessary, we can use the
+    `key` argument to strictly return the nested field
+    `data.id`:
 
-            {
-                "data": { "user": "prkumar", "id": "140232" },
-                "errors": []
-            }
+    ```python
+    @returns.json(key=("data", "id"))
+    @get("/users/{username}")
+    def get_user_id(self, username):
+        \"""Get a specific user's ID.\"""
+    ```
 
-        If returning the list of errors is unnecessary, we can use the
-        :py:attr:`key` argument to strictly return the nested field
-        :py:attr:`data.id`:
+    We can also configure Uplink to convert the field before it's
+    returned by also specifying the `type` argument:
 
-        .. code-block:: python
+    ```python
+    @returns.json(key=("data", "id"), type=int)
+    @get("/users/{username}")
+    def get_user_id(self, username):
+        \"""Get a specific user's ID.\"""
+    ```
 
-            @returns.json(key=("data", "id"))
-            @get("/users/{username}")
-            def get_user_id(self, username):
-                \"""Get a specific user's ID.\"""
-
-        We can also configure Uplink to convert the field before it's
-        returned by also specifying the``type`` argument:
-
-       .. code-block:: python
-
-            @returns.json(key=("data", "id"), type=int)
-            @get("/users/{username}")
-            def get_user_id(self, username):
-                \"""Get a specific user's ID.\"""
-
-    .. versionadded:: v0.5.0
+    Added in version 0.5.0
     """
 
     _can_be_static = True
@@ -168,12 +164,14 @@ class json(_ReturnsBase):
                 "The `model` argument of @returns.json is deprecated and will "
                 "be removed in v1.0.0. Use `type` instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
         if member:  # pragma: no cover
             warnings.warn(
                 "The `member` argument of @returns.json is deprecated and will "
                 "be removed in v1.0.0. Use `key` instead.",
                 DeprecationWarning,
+                stacklevel=2,
             )
         self._type = type or model
         self._key = key or member
@@ -183,9 +181,7 @@ class json(_ReturnsBase):
         return self._type
 
     def _get_converter(self, request_builder, return_type):
-        converter = super(json, self)._get_converter(
-            request_builder, return_type
-        )
+        converter = super()._get_converter(request_builder, return_type)
 
         if converter:
             return converter
@@ -207,42 +203,42 @@ class json(_ReturnsBase):
 
 from_json = json
 """
-    Specifies that the decorated consumer method should produce
-    instances of a :py:obj:`type` class using a registered
-    deserialization strategy (see :py:meth:`uplink.loads.from_json`)
+Specifies that the decorated consumer method should produce
+instances of a `type` class using a registered
+deserialization strategy (see `uplink.loads.from_json`)
 
-    This decorator accepts the same arguments as
-    :py:class:`uplink.returns.json`.
+This decorator accepts the same arguments as
+`uplink.returns.json`.
 
-    Often, a JSON response body represents a schema in your application.
-    If an existing Python object encapsulates this schema, use the
-    :py:attr:`type` argument to specify it as the return type:
+Often, a JSON response body represents a schema in your application.
+If an existing Python object encapsulates this schema, use the
+:py:attr:`type` argument to specify it as the return type:
 
-    .. code-block:: python
+```python
+@returns.from_json(type=User)
+@get("/users/{username}")
+def get_user(self, username):
+    \"""Get a specific user.\"""
+```
 
-        @returns.from_json(type=User)
-        @get("/users/{username}")
-        def get_user(self, username):
-            \"""Get a specific user.\"""
+For Python 3 users, you can alternatively provide a return value
+annotation. Hence, the previous code is equivalent to the following
+in Python 3:
 
-    For Python 3 users, you can alternatively provide a return value
-    annotation. Hence, the previous code is equivalent to the following
-    in Python 3:
+```python
+@returns.from_json
+@get("/users/{username}")
+def get_user(self, username) -> User:
+    \"""Get a specific user.\"""
+```
 
-    .. code-block:: python
+Both usages typically require also registering a converter that
+knows how to deserialize the JSON into the specified `type`
+(see `uplink.loads.from_json`). This step is unnecessary if
+the `type` is defined using a library for which Uplink has
+built-in support, such as `marshmallow`.
 
-        @returns.from_json
-        @get("/users/{username}")
-        def get_user(self, username) -> User:
-            \"""Get a specific user.\"""
-
-    Both usages typically require also registering a converter that
-    knows how to deserialize the JSON into the specified :py:attr:`type`
-    (see :py:meth:`uplink.loads.from_json`). This step is unnecessary if
-    the :py:attr:`type` is defined using a library for which Uplink has
-    built-in support, such as :py:mod:`marshmallow`.
-
-    .. versionadded:: v0.6.0
+Added in version 0.6.0
 """
 
 
@@ -251,29 +247,29 @@ class schema(_ReturnsBase):
     """
     Specifies that the function returns a specific type of response.
 
-    In Python 3, to provide a consumer method's return type, you can
+    The standard way to provide a consumer method's return type is to
     set it as the method's return annotation:
 
-    .. code-block:: python
+    ```python
+    @get("/users/{username}")
+    def get_user(self, username) -> UserSchema:
+        \"""Get a specific user.\"""
+    ```
 
-        @get("/users/{username}")
-        def get_user(self, username) -> UserSchema:
-            \"""Get a specific user.\"""
+    Alternatively, you can use this decorator instead:
 
-    For Python 2.7 compatibility, you can use this decorator instead:
-
-    .. code-block:: python
-
-        @returns.schema(UserSchema)
-        @get("/users/{username}")
-        def get_user(self, username):
-            \"""Get a specific user.\"""
+    ```python
+    @returns.schema(UserSchema)
+    @get("/users/{username}")
+    def get_user(self, username):
+        \"""Get a specific user.\"""
+    ```
 
     To have Uplink convert response bodies into the desired type, you
     will need to define an appropriate converter (e.g., using
-    :py:class:`uplink.loads`).
+    [`uplink.loads`][uplink.loads]).
 
-    .. versionadded:: v0.5.1
+    Added in version 0.5.1
     """
 
     def __init__(self, type):
@@ -287,7 +283,7 @@ class schema(_ReturnsBase):
         return converter
 
 
-class _ModuleProxy(object):
+class _ModuleProxy:
     __module = sys.modules[__name__]
 
     schema = model = schema

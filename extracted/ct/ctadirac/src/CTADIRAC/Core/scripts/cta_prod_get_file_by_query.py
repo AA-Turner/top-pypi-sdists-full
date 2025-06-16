@@ -28,13 +28,13 @@ def main():
 
     import DIRAC
     from DIRAC import gLogger
-    from DIRAC.Resources.Catalog.FileCatalog import FileCatalog
+    from DIRAC.DataManagementSystem.Client.DataManager import DataManager
     from DIRAC.DataManagementSystem.Client.MetaQuery import (
-        MetaQuery,
         FILE_STANDARD_METAKEYS,
+        MetaQuery,
     )
     from DIRAC.DataManagementSystem.Utilities.DMSHelpers import resolveSEGroup
-    from DIRAC.Interfaces.API.Dirac import Dirac
+    from DIRAC.Resources.Catalog.FileCatalog import FileCatalog
 
     path = "/"
     seList = None
@@ -78,10 +78,15 @@ def main():
     gLogger.notice("Found lfns:")
     gLogger.notice("\n".join(lfn for lfn in lfnList))
 
-    dirac = Dirac()
     for lfn in lfnList:
+        voName = lfn.split("/")[1]
+        if voName not in ["ctao", "vo.cta.in2p3.fr"]:
+            message = f"Wrong lfn: path must start with vo name (ctao or vo.cta.in2p3.fr):\n{lfn}"
+            gLogger.error(message)
+            return
         gLogger.notice("Start downloading file", lfn)
-        res = dirac.getFile(lfn)
+        dm = DataManager(vo=voName)
+        res = dm.getFile(lfn)
         if not res["OK"]:
             gLogger.error("Error downloading file", lfn)
             return res["Message"]

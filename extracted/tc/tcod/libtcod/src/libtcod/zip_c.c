@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,7 +48,7 @@ typedef struct TCOD_Zip {
 } zip_data_t;
 
 TCOD_zip_t TCOD_zip_new(void) {
-  zip_data_t* ret = (zip_data_t*)calloc(sizeof(zip_data_t), 1);
+  zip_data_t* ret = (zip_data_t*)calloc(1, sizeof(zip_data_t));
   return (TCOD_zip_t)ret;
 }
 
@@ -372,7 +372,7 @@ int TCOD_zip_get_data(TCOD_zip_t pzip, int nbBytes, void* data) {
   b_offset = zip->offset * sizeof(uintptr_t) - zip->isize; /* current offset */
   in += b_offset; /* the data address in buffer */
   /* copy it to data */
-  for (i = 0; i < MIN(l, nbBytes); i++) {
+  for (i = 0; i < TCOD_MIN(l, nbBytes); i++) {
     *(out++) = *(in++);
     b_offset++;
   }

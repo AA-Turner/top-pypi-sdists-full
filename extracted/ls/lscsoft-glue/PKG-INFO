@@ -1,0 +1,32 @@
+Metadata-Version: 2.2
+Name: lscsoft-glue
+Version: 4.1.0
+Author-email: Duncan Brown <dabrown@syr.edu>
+Maintainer-email: Robert Bruntz <robert.bruntz@ligo.org>, Duncan Macleod <duncan.macleod@ligo.org>
+License: GPL-2.0-or-later
+Project-URL: Bug Tracker, https://git.ligo.org/lscsoft/glue/-/issues
+Project-URL: Documentation, https://lscsoft.docs.ligo.org/glue/
+Project-URL: Source Code, https://git.ligo.org/lscsoft/glue.git
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering :: Astronomy
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.6
+License-File: LICENSE
+Requires-Dist: igwn-segments
+Provides-Extra: test
+Requires-Dist: lalsuite; python_version < "3.13" and extra == "test"
+Requires-Dist: pytest; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"

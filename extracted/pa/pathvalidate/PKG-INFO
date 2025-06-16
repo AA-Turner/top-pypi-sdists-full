@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pathvalidate
-Version: 3.2.3
+Version: 3.3.1
 Summary: pathvalidate is a Python library to sanitize/validate a string such as filenames/file-paths/etc.
 Home-page: https://github.com/thombashi/pathvalidate
 Author: Tsuyoshi Hombashi
@@ -46,6 +46,19 @@ Requires-Dist: click>=6.2; extra == "test"
 Requires-Dist: Faker>=1.0.8; extra == "test"
 Requires-Dist: pytest>=6.0.1; extra == "test"
 Requires-Dist: pytest-md-report>=0.6.2; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 .. contents:: **pathvalidate**
    :backlinks: top

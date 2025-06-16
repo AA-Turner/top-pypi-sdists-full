@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_LIST_H
-#define _TCOD_LIST_H
+#pragma once
+#ifndef TCOD_LIST_H_
+#define TCOD_LIST_H_
 
 #include "portability.h"
 
@@ -71,4 +72,4 @@ TCODLIB_API bool TCOD_list_is_empty(TCOD_list_t l);
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif  // TCOD_LIST_H_

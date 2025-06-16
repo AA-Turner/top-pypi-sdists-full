@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from collections.abc import Sequence
 from functools import wraps
 from inspect import Parameter
 from inspect import signature
@@ -15,6 +13,9 @@ from optuna._experimental import _validate_version
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Sequence
+
     from typing_extensions import ParamSpec
 
     _P = ParamSpec("_P")
@@ -48,9 +49,9 @@ def _infer_kwargs(previous_positional_arg_names: Sequence[str], *args: Any) -> d
 def convert_positional_args(
     *,
     previous_positional_arg_names: Sequence[str],
+    deprecated_version: str,
+    removed_version: str,
     warning_stacklevel: int = 2,
-    deprecated_version: str | None = None,
-    removed_version: str | None = None,
 ) -> "Callable[[Callable[_P, _T]], Callable[_P, _T]]":
     """Convert positional arguments to keyword arguments.
 

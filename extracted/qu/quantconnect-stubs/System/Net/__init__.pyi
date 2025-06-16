@@ -59,81 +59,17 @@ class WebUtility(System.Object):
         ...
 
 
-class ICredentialsByHost(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-
-class NetworkCredential(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost):
+class EndPoint(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def user_name(self) -> str:
+    def address_family(self) -> System.Net.Sockets.AddressFamily:
         ...
 
-    @user_name.setter
-    def user_name(self, value: str) -> None:
+    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
         ...
 
-    @property
-    def password(self) -> str:
-        ...
-
-    @password.setter
-    def password(self, value: str) -> None:
-        ...
-
-    @property
-    def secure_password(self) -> System.Security.SecureString:
-        ...
-
-    @secure_password.setter
-    def secure_password(self, value: System.Security.SecureString) -> None:
-        ...
-
-    @property
-    def domain(self) -> str:
-        ...
-
-    @domain.setter
-    def domain(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: str, domain: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: System.Security.SecureString) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: System.Security.SecureString, domain: str) -> None:
-        ...
-
-    @overload
-    def get_credential(self, uri: System.Uri, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    @overload
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-
-class ICredentials(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_credential(self, uri: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
+    def serialize(self) -> System.Net.SocketAddress:
         ...
 
 
@@ -331,145 +267,48 @@ class IPAddress(System.Object, System.ISpanFormattable, System.ISpanParsable[Sys
         ...
 
 
-class CookieVariant(Enum):
-    """This class has no documentation."""
+class IPEndPoint(System.Net.EndPoint):
+    """Provides an IP address."""
 
-    UNKNOWN = 0
+    MIN_PORT: int = ...
+    """Specifies the minimum acceptable value for the System.Net.IPEndPoint.Port property."""
 
-    PLAIN = 1
-
-    RFC_2109 = 2
-
-    RFC_2965 = 3
-
-    DEFAULT = ...
-
-
-class Cookie(System.Object):
-    """This class has no documentation."""
+    MAX_PORT: int = ...
+    """Specifies the maximum acceptable value for the System.Net.IPEndPoint.Port property."""
 
     @property
-    def comment(self) -> str:
-        ...
-
-    @comment.setter
-    def comment(self, value: str) -> None:
+    def address_family(self) -> System.Net.Sockets.AddressFamily:
         ...
 
     @property
-    def comment_uri(self) -> System.Uri:
+    def address(self) -> System.Net.IPAddress:
+        """Gets or sets the IP address."""
         ...
 
-    @comment_uri.setter
-    def comment_uri(self, value: System.Uri) -> None:
-        ...
-
-    @property
-    def http_only(self) -> bool:
-        ...
-
-    @http_only.setter
-    def http_only(self, value: bool) -> None:
+    @address.setter
+    def address(self, value: System.Net.IPAddress) -> None:
         ...
 
     @property
-    def discard(self) -> bool:
-        ...
-
-    @discard.setter
-    def discard(self, value: bool) -> None:
-        ...
-
-    @property
-    def domain(self) -> str:
-        ...
-
-    @domain.setter
-    def domain(self, value: str) -> None:
-        ...
-
-    @property
-    def expired(self) -> bool:
-        ...
-
-    @expired.setter
-    def expired(self, value: bool) -> None:
-        ...
-
-    @property
-    def expires(self) -> datetime.datetime:
-        ...
-
-    @expires.setter
-    def expires(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def path(self) -> str:
-        ...
-
-    @path.setter
-    def path(self, value: str) -> None:
-        ...
-
-    @property
-    def port(self) -> str:
+    def port(self) -> int:
+        """Gets or sets the port."""
         ...
 
     @port.setter
-    def port(self, value: str) -> None:
-        ...
-
-    @property
-    def secure(self) -> bool:
-        ...
-
-    @secure.setter
-    def secure(self, value: bool) -> None:
-        ...
-
-    @property
-    def time_stamp(self) -> datetime.datetime:
-        ...
-
-    @property
-    def value(self) -> str:
-        ...
-
-    @value.setter
-    def value(self, value: str) -> None:
-        ...
-
-    @property
-    def version(self) -> int:
-        ...
-
-    @version.setter
-    def version(self, value: int) -> None:
+    def port(self, value: int) -> None:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def __init__(self, address: int, port: int) -> None:
+        """Creates a new instance of the IPEndPoint class with the specified address and port."""
         ...
 
     @overload
-    def __init__(self, name: str, value: str) -> None:
+    def __init__(self, address: System.Net.IPAddress, port: int) -> None:
+        """Creates a new instance of the IPEndPoint class with the specified address and port."""
         ...
 
-    @overload
-    def __init__(self, name: str, value: str, path: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, value: str, path: str, domain: str) -> None:
+    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
         ...
 
     def equals(self, comparand: typing.Any) -> bool:
@@ -478,7 +317,30 @@ class Cookie(System.Object):
     def get_hash_code(self) -> int:
         ...
 
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.Net.IPEndPoint:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPEndPoint:
+        ...
+
+    def serialize(self) -> System.Net.SocketAddress:
+        ...
+
     def to_string(self) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
         ...
 
 
@@ -500,45 +362,11 @@ class AuthenticationSchemes(Enum):
     INTEGRATED_WINDOWS_AUTHENTICATION = ...
 
 
-class CookieException(System.FormatException, System.Runtime.Serialization.ISerializable):
+class TransportContext(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @overload
-    def __init__(self) -> None:
+    def get_channel_binding(self, kind: System.Security.Authentication.ExtendedProtection.ChannelBindingKind) -> System.Security.Authentication.ExtendedProtection.ChannelBinding:
         ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        Initializes a new instance of the CookieException class with the specified error message.
-        
-        :param message: A string that describes the error that occurred.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the CookieException class with the specified error message
-        and a reference to the inner exception that is the cause of this exception.
-        
-        :param message: A string that describes the error that occurred.
-        :param inner_exception: The exception that is the cause of the current exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def get_object_data(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
 class HttpStatusCode(Enum):
@@ -679,7 +507,177 @@ class HttpStatusCode(Enum):
     NETWORK_AUTHENTICATION_REQUIRED = 511
 
 
-class CookieCollection(System.Object, System.Collections.Generic.ICollection[System.Net.Cookie], System.Collections.ICollection, typing.Iterable[System.Net.Cookie]):
+class DecompressionMethods(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    G_ZIP = ...
+
+    DEFLATE = ...
+
+    BROTLI = ...
+
+    ALL = ...
+
+
+class HttpVersion(System.Object):
+    """This class has no documentation."""
+
+    UNKNOWN: System.Version = ...
+    """Defines a Version instance that indicates an unknown version of HTTP."""
+
+    VERSION_10: System.Version = ...
+    """Defines a Version instance for HTTP 1.0."""
+
+    VERSION_11: System.Version = ...
+    """Defines a Version instance for HTTP 1.1."""
+
+    VERSION_20: System.Version = ...
+    """Defines a Version instance for HTTP 2.0."""
+
+    VERSION_30: System.Version = ...
+    """Defines a Version instance for HTTP 3.0."""
+
+
+class Cookie(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def comment(self) -> str:
+        ...
+
+    @comment.setter
+    def comment(self, value: str) -> None:
+        ...
+
+    @property
+    def comment_uri(self) -> System.Uri:
+        ...
+
+    @comment_uri.setter
+    def comment_uri(self, value: System.Uri) -> None:
+        ...
+
+    @property
+    def http_only(self) -> bool:
+        ...
+
+    @http_only.setter
+    def http_only(self, value: bool) -> None:
+        ...
+
+    @property
+    def discard(self) -> bool:
+        ...
+
+    @discard.setter
+    def discard(self, value: bool) -> None:
+        ...
+
+    @property
+    def domain(self) -> str:
+        ...
+
+    @domain.setter
+    def domain(self, value: str) -> None:
+        ...
+
+    @property
+    def expired(self) -> bool:
+        ...
+
+    @expired.setter
+    def expired(self, value: bool) -> None:
+        ...
+
+    @property
+    def expires(self) -> datetime.datetime:
+        ...
+
+    @expires.setter
+    def expires(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def path(self) -> str:
+        ...
+
+    @path.setter
+    def path(self, value: str) -> None:
+        ...
+
+    @property
+    def port(self) -> str:
+        ...
+
+    @port.setter
+    def port(self, value: str) -> None:
+        ...
+
+    @property
+    def secure(self) -> bool:
+        ...
+
+    @secure.setter
+    def secure(self, value: bool) -> None:
+        ...
+
+    @property
+    def time_stamp(self) -> datetime.datetime:
+        ...
+
+    @property
+    def value(self) -> str:
+        ...
+
+    @value.setter
+    def value(self, value: str) -> None:
+        ...
+
+    @property
+    def version(self) -> int:
+        ...
+
+    @version.setter
+    def version(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, value: str, path: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, value: str, path: str, domain: str) -> None:
+        ...
+
+    def equals(self, comparand: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class CookieCollection(System.Object, System.Collections.Generic.ICollection[System.Net.Cookie], System.Collections.Generic.IReadOnlyCollection[System.Net.Cookie], System.Collections.ICollection, typing.Iterable[System.Net.Cookie]):
     """This class has no documentation."""
 
     @property
@@ -741,17 +739,212 @@ class CookieCollection(System.Object, System.Collections.Generic.ICollection[Sys
         ...
 
 
-class EndPoint(System.Object, metaclass=abc.ABCMeta):
+class ICredentials(metaclass=abc.ABCMeta):
     """This class has no documentation."""
+
+    def get_credential(self, uri: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class NetworkCredential(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost):
+    """This class has no documentation."""
+
+    @property
+    def user_name(self) -> str:
+        ...
+
+    @user_name.setter
+    def user_name(self, value: str) -> None:
+        ...
+
+    @property
+    def password(self) -> str:
+        ...
+
+    @password.setter
+    def password(self, value: str) -> None:
+        ...
+
+    @property
+    def secure_password(self) -> System.Security.SecureString:
+        ...
+
+    @secure_password.setter
+    def secure_password(self, value: System.Security.SecureString) -> None:
+        ...
+
+    @property
+    def domain(self) -> str:
+        ...
+
+    @domain.setter
+    def domain(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: str, domain: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: System.Security.SecureString) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: System.Security.SecureString, domain: str) -> None:
+        ...
+
+    @overload
+    def get_credential(self, uri: System.Uri, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+    @overload
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class ICredentialsByHost(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class CredentialCache(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost, System.Collections.IEnumerable):
+    """This class has no documentation."""
+
+    DEFAULT_CREDENTIALS: System.Net.ICredentials
+
+    DEFAULT_NETWORK_CREDENTIALS: System.Net.NetworkCredential
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def add(self, uri_prefix: System.Uri, auth_type: str, cred: System.Net.NetworkCredential) -> None:
+        ...
+
+    @overload
+    def add(self, host: str, port: int, authentication_type: str, credential: System.Net.NetworkCredential) -> None:
+        ...
+
+    @overload
+    def get_credential(self, uri_prefix: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
+        ...
+
+    @overload
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IEnumerator:
+        ...
+
+    @overload
+    def remove(self, uri_prefix: System.Uri, auth_type: str) -> None:
+        ...
+
+    @overload
+    def remove(self, host: str, port: int, authentication_type: str) -> None:
+        ...
+
+
+class IWebProxy(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def credentials(self) -> System.Net.ICredentials:
+        ...
+
+    @credentials.setter
+    def credentials(self, value: System.Net.ICredentials) -> None:
+        ...
+
+    def get_proxy(self, destination: System.Uri) -> System.Uri:
+        ...
+
+    def is_bypassed(self, host: System.Uri) -> bool:
+        ...
+
+
+class CookieException(System.FormatException, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        """
+        Initializes a new instance of the CookieException class with the specified error message.
+        
+        :param message: A string that describes the error that occurred.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the CookieException class with the specified error message
+        and a reference to the inner exception that is the cause of this exception.
+        
+        :param message: A string that describes the error that occurred.
+        :param inner_exception: The exception that is the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class DnsEndPoint(System.Net.EndPoint):
+    """This class has no documentation."""
+
+    @property
+    def host(self) -> str:
+        ...
 
     @property
     def address_family(self) -> System.Net.Sockets.AddressFamily:
         ...
 
-    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
+    @property
+    def port(self) -> int:
         ...
 
-    def serialize(self) -> System.Net.SocketAddress:
+    @overload
+    def __init__(self, host: str, port: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, host: str, port: int, address_family: System.Net.Sockets.AddressFamily) -> None:
+        ...
+
+    def equals(self, comparand: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
         ...
 
 
@@ -840,168 +1033,6 @@ class CookieContainer(System.Object):
 
 class PathList(System.Object):
     """This class has no documentation."""
-
-
-class DnsEndPoint(System.Net.EndPoint):
-    """This class has no documentation."""
-
-    @property
-    def host(self) -> str:
-        ...
-
-    @property
-    def address_family(self) -> System.Net.Sockets.AddressFamily:
-        ...
-
-    @property
-    def port(self) -> int:
-        ...
-
-    @overload
-    def __init__(self, host: str, port: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, host: str, port: int, address_family: System.Net.Sockets.AddressFamily) -> None:
-        ...
-
-    def equals(self, comparand: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class HttpVersion(System.Object):
-    """This class has no documentation."""
-
-    UNKNOWN: System.Version = ...
-    """Defines a Version instance that indicates an unknown version of HTTP."""
-
-    VERSION_10: System.Version = ...
-    """Defines a Version instance for HTTP 1.0."""
-
-    VERSION_11: System.Version = ...
-    """Defines a Version instance for HTTP 1.1."""
-
-    VERSION_20: System.Version = ...
-    """Defines a Version instance for HTTP 2.0."""
-
-    VERSION_30: System.Version = ...
-    """Defines a Version instance for HTTP 3.0."""
-
-
-class IWebProxy(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def credentials(self) -> System.Net.ICredentials:
-        ...
-
-    @credentials.setter
-    def credentials(self, value: System.Net.ICredentials) -> None:
-        ...
-
-    def get_proxy(self, destination: System.Uri) -> System.Uri:
-        ...
-
-    def is_bypassed(self, host: System.Uri) -> bool:
-        ...
-
-
-class DecompressionMethods(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    G_ZIP = ...
-
-    DEFLATE = ...
-
-    BROTLI = ...
-
-    ALL = ...
-
-
-class IPEndPoint(System.Net.EndPoint):
-    """Provides an IP address."""
-
-    MIN_PORT: int = ...
-    """Specifies the minimum acceptable value for the System.Net.IPEndPoint.Port property."""
-
-    MAX_PORT: int = ...
-    """Specifies the maximum acceptable value for the System.Net.IPEndPoint.Port property."""
-
-    @property
-    def address_family(self) -> System.Net.Sockets.AddressFamily:
-        ...
-
-    @property
-    def address(self) -> System.Net.IPAddress:
-        """Gets or sets the IP address."""
-        ...
-
-    @address.setter
-    def address(self, value: System.Net.IPAddress) -> None:
-        ...
-
-    @property
-    def port(self) -> int:
-        """Gets or sets the port."""
-        ...
-
-    @port.setter
-    def port(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, address: int, port: int) -> None:
-        """Creates a new instance of the IPEndPoint class with the specified address and port."""
-        ...
-
-    @overload
-    def __init__(self, address: System.Net.IPAddress, port: int) -> None:
-        """Creates a new instance of the IPEndPoint class with the specified address and port."""
-        ...
-
-    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
-        ...
-
-    def equals(self, comparand: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> System.Net.IPEndPoint:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPEndPoint:
-        ...
-
-    def serialize(self) -> System.Net.SocketAddress:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
-        ...
 
 
 class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable, System.ISpanParsable[System_Net_IPNetwork], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPNetwork]):
@@ -1179,48 +1210,17 @@ class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable
         ...
 
 
-class TransportContext(System.Object, metaclass=abc.ABCMeta):
+class CookieVariant(Enum):
     """This class has no documentation."""
 
-    def get_channel_binding(self, kind: System.Security.Authentication.ExtendedProtection.ChannelBindingKind) -> System.Security.Authentication.ExtendedProtection.ChannelBinding:
-        ...
+    UNKNOWN = 0
 
+    PLAIN = 1
 
-class CredentialCache(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost, System.Collections.IEnumerable):
-    """This class has no documentation."""
+    RFC_2109 = 2
 
-    DEFAULT_CREDENTIALS: System.Net.ICredentials
+    RFC_2965 = 3
 
-    DEFAULT_NETWORK_CREDENTIALS: System.Net.NetworkCredential
-
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def add(self, uri_prefix: System.Uri, auth_type: str, cred: System.Net.NetworkCredential) -> None:
-        ...
-
-    @overload
-    def add(self, host: str, port: int, authentication_type: str, credential: System.Net.NetworkCredential) -> None:
-        ...
-
-    @overload
-    def get_credential(self, uri_prefix: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    @overload
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        ...
-
-    @overload
-    def remove(self, uri_prefix: System.Uri, auth_type: str) -> None:
-        ...
-
-    @overload
-    def remove(self, host: str, port: int, authentication_type: str) -> None:
-        ...
+    DEFAULT = ...
 
 

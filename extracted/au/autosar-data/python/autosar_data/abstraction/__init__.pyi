@@ -1,4 +1,4 @@
-from typing import final, Iterator, List, Optional
+from typing import final, Iterator, List, Optional, Tuple
 from autosar_data.abstraction.communication import *
 from autosar_data.abstraction.datatype import *
 from autosar_data.abstraction.ecu_configuration import *
@@ -70,6 +70,12 @@ class ArPackage:
         """create a new `CompuMethod` in the package"""
         ...
 
+    def create_constant_specification(
+        self, name: str, value: ValueSpecification
+    ) -> ConstantSpecification:
+        """create a new `ConstantSpecification` in the package"""
+        ...
+
     def create_data_constr(self, name: str) -> DataConstr:
         """create a new `DataConstr` in the package"""
         ...
@@ -116,6 +122,12 @@ class ArPackage:
         self, settings: ImplementationDataTypeSettings
     ) -> ImplementationDataType:
         """create a new `ImplementationDataType` in the package"""
+        ...
+
+    def create_mode_declaration_group(
+        self, name: str, *, category: Optional[ModeDeclarationGroupCategory] = None
+    ) -> ModeDeclarationGroup:
+        """create a new `ModeDeclarationGroup` in the package"""
         ...
 
     def create_mode_switch_interface(self, name: str) -> ModeSwitchInterface:
@@ -212,6 +224,10 @@ class ArPackage:
     def elements(self) -> Iterator[Element]:
         """iterate over all elements in the package"""
         ...
+
+    def sub_packages(self) -> Iterator[ArPackage]:
+        """iterate over all sub-packages in the package"""
+        ...
     name: str
 
 @final
@@ -249,6 +265,12 @@ class AutosarModelAbstraction:
 
     def get_or_create_package(self, path: str, /) -> ArPackage:
         """Get a package by its path or create it if it does not exist"""
+        ...
+
+    def load_file(
+        self, filename: str, /, *, strict: bool = False
+    ) -> Tuple[ArxmlFile, List[str]]:
+        """Load a file into the model"""
         ...
     model: AutosarModel
     """Get the underlying `AutosarModel` from the abstraction model"""

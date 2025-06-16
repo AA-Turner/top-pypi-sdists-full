@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: oras
-Version: 0.2.35
+Version: 0.2.37
 Summary: OCI Registry as Storage Python SDK
 Home-page: https://github.com/oras-project/oras-py
 Author: Vanessa Sochat

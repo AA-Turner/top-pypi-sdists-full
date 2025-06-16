@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -121,8 +121,8 @@ TCOD_Error TCOD_map_compute_fov_recursive_shadowcasting(
     return TCOD_E_INVALID_ARGUMENT;
   }
   if (max_radius <= 0) {
-    int max_radius_x = MAX(map->width - pov_x, pov_x);
-    int max_radius_y = MAX(map->height - pov_y, pov_y);
+    int max_radius_x = TCOD_MAX(map->width - pov_x, pov_x);
+    int max_radius_y = TCOD_MAX(map->height - pov_y, pov_y);
     max_radius = (int)(sqrt(max_radius_x * max_radius_x + max_radius_y * max_radius_y)) + 1;
   }
   /* recursive shadow casting */

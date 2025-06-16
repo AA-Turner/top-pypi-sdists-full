@@ -1,34 +1,33 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: doc8
-Version: 1.1.2
+Version: 2.0.0
 Summary: Style checker for Sphinx (or other) RST documentation
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 Maintainer-email: PyCQA <code-quality@python.org>
-License: Apache 2.0
-Project-URL: Homepage, https://github.com/pycqa/doc8
+License-Expression: Apache-2.0
 Project-URL: Bug Tracker, https://github.com/pycqa/doc8/issues
-Project-URL: Release Management, https://github.com/pycqa/doc8/releases
 Project-URL: CI, https://github.com/pycqa/doc8/actions
-Project-URL: Documentation, https://doc8.readthedocs.io
 Project-URL: Discussions, https://github.com/pycqa/doc8/discussions
+Project-URL: Documentation, https://doc8.readthedocs.io
+Project-URL: Homepage, https://github.com/pycqa/doc8
+Project-URL: Release Management, https://github.com/pycqa/doc8/releases
 Keywords: doc8,rst,linter
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: docutils<=0.21.2,>=0.19
@@ -36,6 +35,7 @@ Requires-Dist: restructuredtext-lint>=0.7
 Requires-Dist: stevedore
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: Pygments
+Dynamic: license-file
 
 .. image:: https://img.shields.io/pypi/v/doc8?logo=python&logoColor=white
    :target: https://pypi.org/project/doc8/

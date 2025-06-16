@@ -117,7 +117,6 @@ async def get_graph(
     """Return the runnable."""
     assert_graph_exists(graph_id)
     value = GRAPHS[graph_id]
-    token = None
     if graph_id in FACTORY_ACCEPTS_CONFIG:
         config = ensure_config(config)
         if store is not None and not config["configurable"].get(CONFIG_KEY_STORE):
@@ -126,7 +125,7 @@ async def get_graph(
             CONFIG_KEY_CHECKPOINTER
         ):
             config["configurable"][CONFIG_KEY_CHECKPOINTER] = checkpointer
-        token = var_child_runnable_config.set(config)
+        var_child_runnable_config.set(config)
         value = value(config) if FACTORY_ACCEPTS_CONFIG[graph_id] else value()
     try:
         async with _generate_graph(value) as graph_obj:
@@ -147,8 +146,7 @@ async def get_graph(
                 update["config"] = config
             yield graph_obj.copy(update=update)
     finally:
-        if token is not None:
-            var_child_runnable_config.reset(token)
+        var_child_runnable_config.set(None)
 
 
 def graph_exists(graph_id: str) -> bool:
@@ -159,7 +157,10 @@ def graph_exists(graph_id: str) -> bool:
 def assert_graph_exists(graph_id: str) -> None:
     """Assert that a graph exists."""
     if not graph_exists(graph_id):
-        raise HTTPException(status_code=404, detail=f"Graph '{graph_id}' not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Graph '{graph_id}' not found. Expected one of: {sorted(GRAPHS.keys())}",
+        )
 
 
 def get_assistant_id(assistant_id: str) -> str:

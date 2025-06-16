@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "my_package"
+description = "My package description"
+keywords = ["one", "two"]
+license = {text = "BSD 3-Clause License"}
+classifiers = [
+    "Framework :: Django",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.5",
+]
+dynamic = ["readme", "version"]
+dependencies = [
+    "requests",
+    'importlib; python_version == "2.6"',
+]
+
+[project.optional-dependencies]
+pdf = ["ReportLab>=1.2", "RXP"]
+rest = ["docutils>=0.3", "pack ==1.1, ==1.3"]
+
+[project.scripts]
+executable-name = "package.module:function"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+script-files = [
+    "bin/first.py",
+    "bin/second.py",
+]
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.rst"]
+hello = ["*.msg"]
+
+[tool.setuptools.packages.find]
+exclude = [
+    "src.subpackage1",
+    "src.subpackage2",
+]
+namespaces = false
+
+[tool.setuptools.data-files]
+"/etc/my_package" = [
+    "site.d/00_default.conf",
+    "host.d/00_default.conf",
+]
+data = ["data/img/logo.png", "data/svg/icon.svg"]
+fonts = ["data/fonts/*.ttf", "data/fonts/*.otf"]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst", "CHANGELOG.rst", "LICENSE.rst"]}
+version = {attr = "src.VERSION"}

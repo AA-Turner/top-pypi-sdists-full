@@ -383,7 +383,7 @@ async def extracao_fechamento_contabil(
             caminho_ajustado = caminho_arquivo.with_suffix('.xls')
             nome_com_extensao = caminho_ajustado.name
             print(nome_com_extensao)
-           # Renomeia o arquivo
+            # Renomeia o arquivo
             os.rename(caminho_arquivo, caminho_ajustado)
 
             console.print(f"Arquivo renomeado para: {caminho_ajustado}")
@@ -432,10 +432,10 @@ async def extracao_fechamento_contabil(
                 json.dump(dados_json, f, ensure_ascii=False, indent=2)
 
             # Exibe o JSON formatado
-            print(json.dumps(dados_json, ensure_ascii=False, indent=2))
+            console.print(json.dumps(dados_json, ensure_ascii=False, indent=2))
 
             await worker_sleep(3)
-
+            sended_to_datalake= False
             console.print("Enviar arquivo para o Datalake")
             # Envia o JSON para o datalake
             directory = "balancete_contabil/raw"
@@ -443,9 +443,11 @@ async def extracao_fechamento_contabil(
             with open(full_path, "rb") as file:
                 file_bytes = io.BytesIO(file.read())
             try:
-                send_file_request = await send_file_to_datalake(
+                console.print("Enviando Json para data lake")
+                await send_file_to_datalake(
                     directory, file_bytes, filename, "json"
                 )
+                sended_to_datalake= True
             except Exception as e:
                 console.print(f"Erro ao enviar o arquivo: {e}", style="bold red")
                 return RpaRetornoProcessoDTO(
@@ -454,7 +456,7 @@ async def extracao_fechamento_contabil(
                     status=RpaHistoricoStatusEnum.Falha,
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
-
+            sended_to_bof= False
             # lê o arquivo
             with open(f"{caminho_ajustado}", "rb") as file:
                 file_bytes = io.BytesIO(file.read())
@@ -473,6 +475,7 @@ async def extracao_fechamento_contabil(
                 os.remove(f"{caminho_ajustado}")
                 console.print("Removendo arquivo JSON da pasta downloads")
                 os.remove(full_path)
+                sended_to_bof= True
             except Exception as e:
                 result = f"Arquivo Balancete contábil gerado com sucesso, porém gerou erro ao realizar o envio para o backoffice {e} - Arquivo ainda salvo na dispositivo utilizado no diretório {caminho_arquivo} !"
                 console.print(result, style="bold red")
@@ -481,6 +484,14 @@ async def extracao_fechamento_contabil(
                     retorno=result,
                     status=RpaHistoricoStatusEnum.Falha,
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                )
+            
+            if sended_to_datalake and sended_to_bof:
+                return RpaRetornoProcessoDTO(
+                    sucesso=True,
+                    retorno="Sucesso ao processar Integração Contabil ",
+                    status=RpaHistoricoStatusEnum.Sucesso,
+                    
                 )
         except Exception as erro:
             return RpaRetornoProcessoDTO(

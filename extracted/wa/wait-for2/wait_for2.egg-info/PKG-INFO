@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: wait_for2
-Version: 0.4.0
+Version: 0.4.1
 Summary: Asyncio wait_for that can handle simultaneous cancellation and future completion.
 Home-page: https://github.com/Traktormaster/wait-for2
 Author: Nándor Mátravölgyi
 Author-email: nandor.matra@gmail.com
-License: Apache 2.0
+License: Apache-2.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -16,7 +16,6 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE

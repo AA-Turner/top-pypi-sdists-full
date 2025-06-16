@@ -1,0 +1,15 @@
+[dependencies]
+arrow2 = {workspace = true, features = ["io_csv", "io_csv_async"]}
+atoi_simd = "0.15.5"
+chrono = {workspace = true}
+csv-async = "1.2.6"
+fast-float = "0.2.0"
+simdutf8 = {workspace = true}
+
+[lints]
+workspace = true
+
+[package]
+edition = {workspace = true}
+name = "daft-decoding"
+version = {workspace = true}

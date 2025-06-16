@@ -1,0 +1,190 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+use std::ffi::OsString;
+use std::fmt::Debug;
+use std::mem;
+use std::path::Path;
+use std::sync::Arc;
+
+use dupe::Dupe;
+use path_absolutize::Absolutize;
+use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::lock::Mutex;
+use pyrefly_util::upward_search::UpwardSearch;
+use tracing::Level;
+use tracing::debug;
+use tracing::enabled;
+use tracing::error;
+use tracing::info;
+use tracing::warn;
+
+use crate::config::config::ConfigFile;
+use crate::error::kind::Severity;
+use crate::module::module_name::ModuleName;
+use crate::module::module_path::ModulePath;
+use crate::module::module_path::ModulePathDetails;
+
+pub struct ConfigError {
+    severity: Severity,
+    msg: anyhow::Error,
+}
+
+impl ConfigError {
+    pub fn error(msg: anyhow::Error) -> Self {
+        Self {
+            severity: Severity::Error,
+            msg,
+        }
+    }
+
+    pub fn warn(msg: anyhow::Error) -> Self {
+        Self {
+            severity: Severity::Warn,
+            msg,
+        }
+    }
+
+    pub fn print(&self) {
+        match self.severity {
+            Severity::Error => {
+                error!("{:#}", self.msg);
+            }
+            Severity::Warn => {
+                warn!("{:#}", self.msg);
+            }
+            Severity::Info => {
+                info!("{:#}", self.msg);
+            }
+        }
+    }
+}
+
+/// When debugging is enabled, log errors.
+pub fn debug_log(errors: Vec<ConfigError>) {
+    if enabled!(Level::DEBUG) {
+        for e in errors {
+            debug!("{:#}", e.msg);
+        }
+    }
+}
+
+/// A way to find a config file given a directory or Python file.
+/// Uses a lot of caching.
+pub struct ConfigFinder<T = ArcId<ConfigFile>> {
+    /// The cached state, with previously found entries.
+    search: UpwardSearch<T>,
+    /// The errors that have occurred when loading.
+    errors: Arc<Mutex<Vec<ConfigError>>>,
+
+    /// Function to run before checking the state. If this returns a value, it is _not_ cached.
+    /// If this returns anything other than `Ok`, the rest of the functions are used.
+    before: Box<dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<T>> + Send + Sync>,
+    /// If there is no config file, or loading it fails, use this fallback.
+    fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
+}
+
+impl<T: Dupe + Debug + Send + Sync + 'static> ConfigFinder<T> {
+    /// Create a new ConfigFinder a way to load a config file, and a default if that errors or there is no file.
+    pub fn new(
+        load: Box<dyn Fn(&Path) -> (T, Vec<ConfigError>) + Send + Sync>,
+        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
+    ) -> Self {
+        Self::new_custom(Box::new(|_, _| Ok(None)), load, fallback)
+    }
+
+    /// Create a new ConfigFinder that always returns the same constant.
+    pub fn new_constant(constant: T) -> Self {
+        let c1 = constant.dupe();
+        let c2 = constant.dupe();
+        let c3 = constant;
+
+        Self::new_custom(
+            Box::new(move |_, _| Ok(Some(c1.dupe()))),
+            Box::new(move |_| (c2.dupe(), Vec::new())),
+            Box::new(move |_, _| c3.dupe()),
+        )
+    }
+
+    /// Create a new ConfigFinder, but with a custom way to produce a result from a Python file.
+    /// If the `before` function fails to produce a config, then the other methods will be used.
+    /// The `before` function is not cached in any way.
+    fn new_custom(
+        before: Box<dyn Fn(ModuleName, &ModulePath) -> anyhow::Result<Option<T>> + Send + Sync>,
+        load: Box<dyn Fn(&Path) -> (T, Vec<ConfigError>) + Send + Sync>,
+        fallback: Box<dyn Fn(ModuleName, &ModulePath) -> T + Send + Sync>,
+    ) -> Self {
+        let errors = Arc::new(Mutex::new(Vec::new()));
+        let errors2 = errors.dupe();
+
+        Self {
+            search: UpwardSearch::new(
+                ConfigFile::CONFIG_FILE_NAMES
+                    .iter()
+                    .chain(ConfigFile::ADDITIONAL_ROOT_FILE_NAMES)
+                    .map(OsString::from)
+                    .collect(),
+                move |x| {
+                    let (v, errors) = load(x);
+                    errors2.lock().extend(errors);
+                    v
+                },
+            ),
+            errors,
+            before,
+            fallback,
+        }
+    }
+
+    /// Invalidate all data stored in the config.
+    pub fn clear(&self) {
+        self.search.clear();
+        *self.errors.lock() = Vec::new();
+    }
+
+    /// Collect all the current errors that have been produced, and clear them.
+    pub fn errors(&self) -> Vec<ConfigError> {
+        mem::take(&mut self.errors.lock())
+    }
+
+    pub fn add_errors(&self, errors: Vec<ConfigError>) {
+        self.errors.lock().extend(errors);
+    }
+
+    /// Get the config file associated with a directory.
+    pub fn directory(&self, dir: &Path) -> Option<T> {
+        self.search.directory(dir)
+    }
+
+    /// Get the config file given a Python file.
+    pub fn python_file(&self, name: ModuleName, path: &ModulePath) -> T {
+        match (self.before)(name, path) {
+            Ok(Some(x)) => return x,
+            Ok(None) => {}
+            Err(e) => {
+                self.errors.lock().push(ConfigError::error(e));
+            }
+        }
+
+        let f = |dir: Option<&Path>| match dir {
+            Some(parent) => self
+                .search
+                .directory_absolute(parent)
+                .unwrap_or_else(|| (self.fallback)(name, path)),
+            None => (self.fallback)(name, path),
+        };
+
+        match path.details() {
+            ModulePathDetails::FileSystem(x) | ModulePathDetails::Memory(x) => {
+                let absolute = x.absolutize().ok();
+                f(absolute.as_ref().and_then(|x| x.parent()))
+            }
+            ModulePathDetails::Namespace(x) => f(x.absolutize().ok().as_deref()),
+            ModulePathDetails::BundledTypeshed(_) => f(None),
+        }
+    }
+}

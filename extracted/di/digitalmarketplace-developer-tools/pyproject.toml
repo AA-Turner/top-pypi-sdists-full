@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "digitalmarketplace-developer-tools"
+dynamic = ["version"]
+dependencies = [
+  "colored>=2",
+  "invoke>=2",
+]
+requires-python = ">=3.9,<3.14"
+authors = [
+  {name = "GDS Developers"},
+  {name = "CCS Developers"},
+]
+description = "Common developer tools for Digital Marketplace repos"
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.urls]
+Homepage = "https://github.com/Crown-Commercial-Service/digitalmarketplace-developer-tools"
+Repository = "https://github.com/Crown-Commercial-Service/digitalmarketplace-developer-tools.git"
+Issues = "https://github.com/Crown-Commercial-Service/digitalmarketplace-developer-tools/issues"
+Changelog = "https://github.com/Crown-Commercial-Service/digitalmarketplace-developer-tools/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+  'flake8',
+  'black',
+  'invoke>=1.5',
+  'mypy',
+  'pytest',
+  'pre-commit',
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "dmdevtools.__version__"}

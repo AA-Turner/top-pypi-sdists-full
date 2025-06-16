@@ -1,0 +1,18 @@
+[package]
+edition = "2021"
+name = "spider_fingerprint_py"
+version = "0.0.20"
+repository = "https://github.com/tzafon/spider_fingerprint_py"
+license = "MIT"
+description = "The spider_fingerprint project for python."
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.24.0", default-features = false, features = ["macros"] }
+spider_fingerprint = { version = "2", default-features = false }
+ua_generator = "0.5"
+
+[profile.release]
+lto = true

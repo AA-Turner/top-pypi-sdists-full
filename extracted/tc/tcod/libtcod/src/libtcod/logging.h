@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 #ifndef LIBTCOD_LOGGING_H_
 #define LIBTCOD_LOGGING_H_
 
@@ -108,15 +109,15 @@ TCODLIB_API void TCOD_log_verbose_fmt_(int level, const char* source, int line, 
 
 // All of these are for internal use.
 #define TCOD_log_debug_f(fmt, ...) TCOD_log_verbose_fmt_(TCOD_LOG_DEBUG, __FILE__, __LINE__, (fmt), __VA_ARGS__)
-#define TCOD_log_info_f(fmt, ...) TCOD_log_verbose_fmt_(TCOD_LOG_DEBUG, __FILE__, __LINE__, (fmt), __VA_ARGS__)
-#define TCOD_log_warning_f(fmt, ...) TCOD_log_verbose_fmt_(TCOD_LOG_DEBUG, __FILE__, __LINE__, (fmt), __VA_ARGS__)
-#define TCOD_log_error_f(fmt, ...) TCOD_log_verbose_fmt_(TCOD_LOG_DEBUG, __FILE__, __LINE__, (fmt), __VA_ARGS__)
-#define TCOD_log_critical_f(fmt, ...) TCOD_log_verbose_fmt_(TCOD_LOG_DEBUG, __FILE__, __LINE__, (fmt), __VA_ARGS__)
+#define TCOD_log_info_f(fmt, ...) TCOD_log_verbose_fmt_(TCOD_LOG_INFO, __FILE__, __LINE__, (fmt), __VA_ARGS__)
+#define TCOD_log_warning_f(fmt, ...) TCOD_log_verbose_fmt_(TCOD_LOG_WARNING, __FILE__, __LINE__, (fmt), __VA_ARGS__)
+#define TCOD_log_error_f(fmt, ...) TCOD_log_verbose_fmt_(TCOD_LOG_ERROR, __FILE__, __LINE__, (fmt), __VA_ARGS__)
+#define TCOD_log_critical_f(fmt, ...) TCOD_log_verbose_fmt_(TCOD_LOG_CRITICAL, __FILE__, __LINE__, (fmt), __VA_ARGS__)
 #define TCOD_log_debug(msg) TCOD_log_verbose_((msg), TCOD_LOG_DEBUG, __FILE__, __LINE__)
-#define TCOD_log_info(msg) TCOD_log_verbose_((msg), TCOD_LOG_DEBUG, __FILE__, __LINE__)
-#define TCOD_log_warning(msg) TCOD_log_verbose_((msg), TCOD_LOG_DEBUG, __FILE__, __LINE__)
-#define TCOD_log_error(msg) TCOD_log_verbose_((msg), TCOD_LOG_DEBUG, __FILE__, __LINE__)
-#define TCOD_log_critical(msg) TCOD_log_verbose_((msg), TCOD_LOG_DEBUG, __FILE__, __LINE__)
+#define TCOD_log_info(msg) TCOD_log_verbose_((msg), TCOD_LOG_INFO, __FILE__, __LINE__)
+#define TCOD_log_warning(msg) TCOD_log_verbose_((msg), TCOD_LOG_WARNING, __FILE__, __LINE__)
+#define TCOD_log_error(msg) TCOD_log_verbose_((msg), TCOD_LOG_ERROR, __FILE__, __LINE__)
+#define TCOD_log_critical(msg) TCOD_log_verbose_((msg), TCOD_LOG_CRITICAL, __FILE__, __LINE__)
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

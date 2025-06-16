@@ -25,6 +25,8 @@ export declare class LeafletIconModel extends LeafletUILayerModel {
         popup_max_height: number | null;
         pane: string;
         subitems: L.Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
 export declare class LeafletIconView extends LeafletUILayerView {

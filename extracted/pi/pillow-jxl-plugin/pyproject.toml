@@ -1,0 +1,34 @@
+[build-system]
+requires = ["maturin>=1.2,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pillow-jxl-plugin"
+requires-python = ">=3.9"
+authors = [
+    { name = "Isotr0py" },
+]
+description = "Pillow plugin for JPEG-XL, using Rust for bindings."
+readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "packaging",
+    "Pillow",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = ["numpy", "pytest", "pyexiv2"]
+
+[project.urls]
+"Homepage" = "https://github.com/Isotr0py/pillow-jpegxl-plugin"
+"Bug Tracker" = "https://github.com/Isotr0py/pillow-jpegxl-plugin/issues"
+"Releases" = "https://github.com/Isotr0py/pillow-jpegxl-plugin/releases"
+
+[tool.maturin]
+features = ["pyo3/extension-module", "vendored"]

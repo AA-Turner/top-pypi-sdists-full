@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: upsonic
-Version: 0.55.6
+Version: 0.56.1
 Summary: Task oriented AI agent framework for digital workers and vertical AI agents
 Author-email: Onur ULUSOY <onur@upsonic.co>
 License-File: LICENCE
@@ -8,20 +8,14 @@ Requires-Python: >=3.10
 Requires-Dist: beautifulsoup4>=4.12.3
 Requires-Dist: boto3>=1.35.99
 Requires-Dist: botocore>=1.35.99
-Requires-Dist: cloudpickle>=3.1.0
-Requires-Dist: dill>=0.3.9
 Requires-Dist: duckduckgo-search>=7.3.1
-Requires-Dist: fastapi>=0.115.6
 Requires-Dist: google>=3.0.0
-Requires-Dist: httpx>=0.27.2
-Requires-Dist: markitdown==0.0.1
-Requires-Dist: matplotlib>=3.10.0
-Requires-Dist: mcp[cli]==1.5.0
+Requires-Dist: markitdown[all]==0.0.1
+Requires-Dist: mcp[cli]==1.9.0
 Requires-Dist: nest-asyncio>=1.6.0
 Requires-Dist: psutil==6.1.1
-Requires-Dist: pyautogui>=0.9.54
-Requires-Dist: pydantic-ai-slim[anthropic,bedrock,openai]>=0.0.45
-Requires-Dist: pydantic-ai==0.1.3
+Requires-Dist: pydantic-ai-slim[anthropic,bedrock,mcp,openai]>=0.0.45
+Requires-Dist: pydantic-ai==0.2.11
 Requires-Dist: pydantic==2.10.5
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: python-multipart>=0.0.20
@@ -62,7 +56,6 @@ Description-Content-Type: text/markdown
     <a href="https://www.python.org/">
     <img src="https://img.shields.io/badge/Made%20with-Python-1f425f.svg" alt="Made_with_python">
     </a>
-    <img src="https://static.pepy.tech/personalized-badge/upsonic?period=total&units=international_system&left_color=grey&right_color=blue&left_text=PyPI%20Downloads" alt="pypi_downloads">
   </p>
 
 
@@ -100,13 +93,6 @@ LLM output reliability is critical, particularly for numerical operations and ac
 Upsonic is a reliability-focused framework. The results in the table were generated with a small dataset. They show success rates in the transformation of JSON keys. No hard-coded changes were made to the frameworks during testing; only the existing features of each framework were activated and run. GPT-4o was used in the tests.
 
 10 transfers were performed for each section. The numbers show the error count. So if it says 7, it means 7 out of 10 were done **incorrectly**. The table has been created based on initial results. We are expanding the dataset. The tests will become more reliable after creating a larger test set. Reliability benchmark [repo](https://github.com/Upsonic/Reliability-Benchmark)
-
-
-| Name     | Reliability Score % | ASIN Code | HS Code | CIS Code | Marketing URL | Usage URL | Warranty Time | Policy Link | Policy Description |
-|-----------|--------------------|-----------|---------|----------|---------------|-----------|---------------|-------------|----------------|
- **Upsonic**   |**99.3**      |0         |1       |0        |0             |0         |0             |0           |0                   |
-| **CrewAI**    |**87.5**       |0         |3       |2        |1             |1         |0             |1           |2                   |
-| **Langgraph** |**6.3**      |10        |10      |7        |10            |8         |10            |10          |10                  |
 
 
 ```python

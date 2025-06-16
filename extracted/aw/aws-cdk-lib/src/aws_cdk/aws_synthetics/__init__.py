@@ -302,6 +302,29 @@ cloudwatch.Alarm(self, "CanaryAlarm",
 )
 ```
 
+### Performing safe canary updates
+
+You can configure a canary to first perform a dry run before applying any updates. The `dryRunAndUpdate` property can be used to safely update canaries by validating the changes before they're applied.
+This feature is supported for canary runtime versions `syn-nodejs-puppeteer-10.0+`, `syn-nodejs-playwright-2.0+`, and `syn-python-selenium-5.1+`.
+
+When `dryRunAndUpdate` is set to `true`, CDK will execute a dry run to validate the changes before applying them to the canary.
+If the dry run succeeds, the canary will be updated with the changes.
+If the dry run fails, the CloudFormation deployment will fail with the dry run's failure reason.
+
+```python
+canary = synthetics.Canary(self, "MyCanary",
+    schedule=synthetics.Schedule.rate(Duration.minutes(5)),
+    test=synthetics.Test.custom(
+        code=synthetics.Code.from_asset(path.join(__dirname, "canary")),
+        handler="index.handler"
+    ),
+    runtime=synthetics.Runtime.SYNTHETICS_PYTHON_SELENIUM_5_1,
+    dry_run_and_update=True
+)
+```
+
+For more information, see [Performing safe canary updates](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html).
+
 ### Artifacts
 
 You can pass an S3 bucket to store artifacts from canary runs. If you do not,
@@ -573,6 +596,7 @@ class Canary(
         artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
+        dry_run_and_update: typing.Optional[builtins.bool] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
         memory: typing.Optional[_Size_7b441c34] = None,
@@ -599,6 +623,7 @@ class Canary(
         :param artifacts_bucket_location: The s3 location that stores the data of the canary runs. Default: - A new s3 bucket will be created without a prefix.
         :param canary_name: The name of the canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary name. The canary name makes up part of the canary ARN, which is included in outbound calls over the internet. Default: - A unique name will be generated from the construct ID
         :param cleanup: (deprecated) Specify the underlying resources to be cleaned up when the canary is deleted. Using ``Cleanup.LAMBDA`` will create a Custom Resource to achieve this. Default: Cleanup.NOTHING
+        :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to true, CDK will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to false or omitted, the canary will be updated directly without first performing a dry run. Default: undefined - AWS CloudWatch default is false
         :param environment_variables: Key-value pairs that the Synthetics caches and makes available for your canary scripts. Use environment variables to apply configuration changes, such as test and production environment configurations, without changing your Canary script source code. Default: - No environment variables.
         :param failure_retention_period: How many days should failed runs be retained. Default: Duration.days(31)
         :param memory: The maximum amount of memory that the canary can use while running. This value must be a multiple of 64 Mib. The range is 960 MiB to 3008 MiB. Default: Size.mebibytes(1024)
@@ -627,6 +652,7 @@ class Canary(
             artifacts_bucket_location=artifacts_bucket_location,
             canary_name=canary_name,
             cleanup=cleanup,
+            dry_run_and_update=dry_run_and_update,
             environment_variables=environment_variables,
             failure_retention_period=failure_retention_period,
             memory=memory,
@@ -849,6 +875,7 @@ class Canary(
         "artifacts_bucket_location": "artifactsBucketLocation",
         "canary_name": "canaryName",
         "cleanup": "cleanup",
+        "dry_run_and_update": "dryRunAndUpdate",
         "environment_variables": "environmentVariables",
         "failure_retention_period": "failureRetentionPeriod",
         "memory": "memory",
@@ -877,6 +904,7 @@ class CanaryProps:
         artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
+        dry_run_and_update: typing.Optional[builtins.bool] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
         memory: typing.Optional[_Size_7b441c34] = None,
@@ -902,6 +930,7 @@ class CanaryProps:
         :param artifacts_bucket_location: The s3 location that stores the data of the canary runs. Default: - A new s3 bucket will be created without a prefix.
         :param canary_name: The name of the canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary name. The canary name makes up part of the canary ARN, which is included in outbound calls over the internet. Default: - A unique name will be generated from the construct ID
         :param cleanup: (deprecated) Specify the underlying resources to be cleaned up when the canary is deleted. Using ``Cleanup.LAMBDA`` will create a Custom Resource to achieve this. Default: Cleanup.NOTHING
+        :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to true, CDK will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to false or omitted, the canary will be updated directly without first performing a dry run. Default: undefined - AWS CloudWatch default is false
         :param environment_variables: Key-value pairs that the Synthetics caches and makes available for your canary scripts. Use environment variables to apply configuration changes, such as test and production environment configurations, without changing your Canary script source code. Default: - No environment variables.
         :param failure_retention_period: How many days should failed runs be retained. Default: Duration.days(31)
         :param memory: The maximum amount of memory that the canary can use while running. This value must be a multiple of 64 Mib. The range is 960 MiB to 3008 MiB. Default: Size.mebibytes(1024)
@@ -948,6 +977,7 @@ class CanaryProps:
             check_type(argname="argument artifacts_bucket_location", value=artifacts_bucket_location, expected_type=type_hints["artifacts_bucket_location"])
             check_type(argname="argument canary_name", value=canary_name, expected_type=type_hints["canary_name"])
             check_type(argname="argument cleanup", value=cleanup, expected_type=type_hints["cleanup"])
+            check_type(argname="argument dry_run_and_update", value=dry_run_and_update, expected_type=type_hints["dry_run_and_update"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
             check_type(argname="argument failure_retention_period", value=failure_retention_period, expected_type=type_hints["failure_retention_period"])
             check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
@@ -979,6 +1009,8 @@ class CanaryProps:
             self._values["canary_name"] = canary_name
         if cleanup is not None:
             self._values["cleanup"] = cleanup
+        if dry_run_and_update is not None:
+            self._values["dry_run_and_update"] = dry_run_and_update
         if environment_variables is not None:
             self._values["environment_variables"] = environment_variables
         if failure_retention_period is not None:
@@ -1121,6 +1153,23 @@ class CanaryProps:
         '''
         result = self._values.get("cleanup")
         return typing.cast(typing.Optional["Cleanup"], result)
+
+    @builtins.property
+    def dry_run_and_update(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether to perform a dry run before updating the canary.
+
+        If set to true, CDK will execute a dry run to validate the changes before applying them to the canary.
+        If the dry run succeeds, the canary will be updated with the changes.
+        If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason.
+
+        If set to false or omitted, the canary will be updated directly without first performing a dry run.
+
+        :default: undefined - AWS CloudWatch default is false
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html
+        '''
+        result = self._values.get("dry_run_and_update")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def environment_variables(
@@ -3936,6 +3985,20 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
         return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_1_0"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_2_0")
+    def SYNTHETICS_NODEJS_PLAYWRIGHT_2_0(cls) -> "Runtime":
+        '''``syn-nodejs-playwright-2.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.49.1 - Chromium version 131.0.6778.264.
+
+        New Features:
+
+        - The mismatch between total duration and sum of timings for a given request in HAR file is fixed.
+        - Supports dry runs for the canary which allows for adhoc executions or performing a safe canary update.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-2.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_2_0"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_5")
     def SYNTHETICS_NODEJS_PUPPETEER_3_5(cls) -> "Runtime":
         '''(deprecated) ``syn-nodejs-puppeteer-3.5`` includes the following: - Lambda runtime Node.js 14.x - Puppeteer-core version 5.5.0 - Chromium version 92.0.4512.
@@ -4345,6 +4408,15 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
         '''
         return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_5_1"))
 
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_6_0")
+    def SYNTHETICS_PYTHON_SELENIUM_6_0(cls) -> "Runtime":
+        '''``syn-python-selenium-6.0`` includes the following: - Lambda runtime Python 3.11 - Selenium version 4.21.0 - Chromium version 131.0.6778.264.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-6.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_6_0"))
+
     @builtins.property
     @jsii.member(jsii_name="family")
     def family(self) -> "RuntimeFamily":
@@ -4748,6 +4820,7 @@ def _typecheckingstub__b3b6d76e5f93e31884e16cc00a9b4fc93e6782ff7db09c74aa1ef9346
     artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
     canary_name: typing.Optional[builtins.str] = None,
     cleanup: typing.Optional[Cleanup] = None,
+    dry_run_and_update: typing.Optional[builtins.bool] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
     memory: typing.Optional[_Size_7b441c34] = None,
@@ -4776,6 +4849,7 @@ def _typecheckingstub__44ec0b14d52b66927d4daebe6f97bb070f3629bb0eb86e21668ca7862
     artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
     canary_name: typing.Optional[builtins.str] = None,
     cleanup: typing.Optional[Cleanup] = None,
+    dry_run_and_update: typing.Optional[builtins.bool] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
     memory: typing.Optional[_Size_7b441c34] = None,

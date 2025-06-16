@@ -1,0 +1,23 @@
+from app_common_python import LoadedConfig, KafkaTopics, DependencyEndpoints, ObjectBuckets, KafkaServers, isClowderEnabled, PrivateDependencyEndpoints
+
+def test_load_config():
+    assert LoadedConfig.kafka.brokers[0].port == 27015, "Port failed to be found"
+    assert KafkaTopics["originalName"].name == "someTopic"
+    assert DependencyEndpoints["app1"]["endpoint1"].port == 8000
+    assert DependencyEndpoints["app2"]["endpoint2"].name == "endpoint2"
+    assert DependencyEndpoints["app1"]["endpoint1"].apiPath == "app1-api-path"
+    assert DependencyEndpoints["app2"]["endpoint2"].apiPath == "app2-api-path"
+    assert PrivateDependencyEndpoints["app1"]["endpoint1"].port == 10000
+    assert PrivateDependencyEndpoints["app2"]["endpoint2"].name == "endpoint2"
+    assert ObjectBuckets["reqname"].name == "name"
+    assert KafkaServers[0] == "broker-host:27015"
+    assert LoadedConfig.kafka.brokers[0].securityProtocol == "plaintext"
+    with open(LoadedConfig.rds_ca()) as fp:
+        ca_content = fp.read()
+        assert ca_content == "ca"
+    with open(LoadedConfig.kafka_ca()) as fp:
+        ca_content = fp.read()
+        assert ca_content == "kafkaca"
+    assert isClowderEnabled() == True
+    assert LoadedConfig.featureFlags.hostname == "ff-server.server.example.com"
+    assert LoadedConfig.hostname == "testing"

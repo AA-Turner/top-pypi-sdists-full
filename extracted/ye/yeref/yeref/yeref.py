@@ -167,6 +167,7 @@ channel_instruction_ru = 'https://telegra.ph/FereyChannelBot-10-21'
 group_instruction_ru = 'https://telegra.ph/FereyGroupBot-11-13'
 demo_instruction_ru = 'https://telegra.ph/FereyDemoBot-11-15'
 tools_instruction_ru = 'https://telegra.ph/FereyToolsBot-11-15'
+sticker_instruction_ru = 'https://telegra.ph/FereyPostBot-11-15'
 post_instruction_ru = 'https://telegra.ph/FereyPostBot-11-15'
 media_instruction_ru = 'https://telegra.ph/FereyMediaBot-11-15'
 find_instruction_ru = 'https://telegra.ph/FereyFindBot-11-15'
@@ -180,6 +181,7 @@ channel_instruction_en = 'https://telegra.ph/FereyChannelBot-10-21'
 group_instruction_en = 'https://telegra.ph/FereyGroupBot-11-13'
 demo_instruction_en = 'https://telegra.ph/FereyDemoBot-11-15'
 tools_instruction_en = 'https://telegra.ph/FereyToolsBot-11-15'
+sticker_instruction_en = 'https://telegra.ph/FereyPostBot-11-15'
 post_instruction_en = 'https://telegra.ph/FereyPostBot-11-15'
 media_instruction_en = 'https://telegra.ph/FereyMediaBot-11-15'
 find_instruction_en = 'https://telegra.ph/FereyFindBot-11-15'
@@ -561,7 +563,7 @@ html_template = """<!DOCTYPE html>
                     }})
                 }}
                 else if (shade === "purple") {{
-                    document.querySelectorAll('.button').forEach(button => {{
+                    document.querySelectorAll('.button').forsticker_instruction_ruEach(button => {{
                         button.style.backgroundColor = 'purple'
                     }})
                 }}
@@ -17753,7 +17755,7 @@ async def correct_link(link):
 
         if '@' in link and '/' in link: link = link[:link.index('/')]
         link = str(link).rstrip('/').rstrip('.').rstrip(':').strip()
-        result = None if '@None' == link else link
+        result = None if link in ['@None', '@'] else link
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))

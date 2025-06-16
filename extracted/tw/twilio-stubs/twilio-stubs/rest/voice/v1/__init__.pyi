@@ -1,0 +1,23 @@
+from twilio.base.version import Version as Version
+from twilio.rest.voice.v1.archived_call import ArchivedCallList as ArchivedCallList
+from twilio.rest.voice.v1.byoc_trunk import ByocTrunkList as ByocTrunkList
+from twilio.rest.voice.v1.connection_policy import ConnectionPolicyList as ConnectionPolicyList
+from twilio.rest.voice.v1.dialing_permissions import DialingPermissionsList as DialingPermissionsList
+from twilio.rest.voice.v1.ip_record import IpRecordList as IpRecordList
+from twilio.rest.voice.v1.source_ip_mapping import SourceIpMappingList as SourceIpMappingList
+
+class V1(Version):
+    version: str
+    def __init__(self, domain) -> None: ...
+    @property
+    def archived_calls(self): ...
+    @property
+    def byoc_trunks(self): ...
+    @property
+    def connection_policies(self): ...
+    @property
+    def dialing_permissions(self): ...
+    @property
+    def ip_records(self): ...
+    @property
+    def source_ip_mappings(self): ...

@@ -1,11 +1,13 @@
 import objc
 import sys
 import io
+import os
 import types
 import warnings
+import tempfile
 import builtins
 from PyObjCTest.testbndl import PyObjC_TestClass3
-from PyObjCTools.TestSupport import TestCase
+from PyObjCTools.TestSupport import TestCase, pyobjc_options
 from .objectint import OC_ObjectInt
 from objc import super  # noqa: A004
 
@@ -14,6 +16,13 @@ NSObject = objc.lookUpClass("NSObject")
 NSArray = objc.lookUpClass("NSArray")
 NSData = objc.lookUpClass("NSData")
 NSAutoreleasePool = objc.lookUpClass("NSAutoreleasePool")
+
+
+class TestGenericAlias(TestCase):
+    def test_generic_class(self):
+        t = NSObject[3, 4]
+
+        self.assertIsGenericAlias(t, NSObject, (3, 4))
 
 
 class TestSubclassing(TestCase):
@@ -314,16 +323,19 @@ class TestClassMethods(TestCase):
 
 class TestOverridingSpecials(TestCase):
     def testOverrideSpecialMethods_alloc(self):
-        aList = [0]
+        num_allocs = 0
 
         class ClassWithAlloc(NSObject):
             def alloc(cls):
-                aList[0] += 1
+                nonlocal num_allocs
+                num_allocs += 1
                 return objc.super(ClassWithAlloc, cls).alloc()
 
-        self.assertEqual(aList[0], 0)
+        self.assertNotIsInstance(ClassWithAlloc.alloc, objc.native_selector)
+
+        self.assertEqual(num_allocs, 0)
         o = ClassWithAlloc.alloc().init()
-        self.assertEqual(aList[0], 1)
+        self.assertEqual(num_allocs, 1)
         self.assertIsInstance(o, NSObject)
         del o
 
@@ -346,14 +358,16 @@ class TestOverridingSpecials(TestCase):
         o = ClassWithRetaining.alloc().init()
         v = o.retainCount()
         o.retain()
-        self.assertEqual(aList, ["retain"])
+        self.assertEqual(aList, ["retain", "release", "retain"])
         self.assertEqual(o.retainCount(), v + 1)
         o.release()
-        self.assertEqual(aList, ["retain", "release"])
+        self.assertEqual(aList, ["retain", "release", "retain", "release"])
         self.assertEqual(o.retainCount(), v)
         del o
 
-        self.assertEqual(aList, ["retain", "release", "release", "__del__"])
+        self.assertEqual(
+            aList, ["retain", "release", "retain", "release", "release", "__del__"]
+        )
 
         # Test again, now remove all python references and create one
         # again.
@@ -362,14 +376,16 @@ class TestOverridingSpecials(TestCase):
         o = ClassWithRetaining.alloc().init()
         v = NSArray.arrayWithArray_([o])
         del o
-        self.assertEqual(aList, ["retain"])
+        self.assertEqual(aList, ["retain", "release", "retain"])
         o = v[0]
-        self.assertEqual(aList, ["retain"])
+        self.assertEqual(aList, ["retain", "release", "retain"])
         del v
         del o
         del pool
 
-        self.assertEqual(aList, ["retain", "release", "release", "__del__"])
+        self.assertEqual(
+            aList, ["retain", "release", "retain", "release", "release", "__del__"]
+        )
 
         o = ClassWithRetaining.alloc().init()
         v = o.__del__
@@ -476,6 +492,33 @@ class TestOverridingSpecials(TestCase):
         self.assertIn("dealloc", aList)
         self.assertIn("__del__", aList)
 
+        class ClassWithBadDealloc(NSObject):
+            def dealloc(self):
+                raise RuntimeError("failure")
+
+        o = ClassWithBadDealloc.alloc().init()
+
+        # The error gets logged using NSLog, hence a fairly
+        # complicated way to capture the stderr stream.
+        orig_stderr = os.dup(2)
+        try:
+            with tempfile.TemporaryFile() as temp_fd:
+                os.dup2(temp_fd.fileno(), 2)
+
+                del o
+
+                os.lseek(2, 0, 0)
+                captured = temp_fd.read()
+
+        finally:
+            os.dup2(orig_stderr, 2)
+            os.close(orig_stderr)
+
+        self.assertIn(
+            b"Exception during dealloc of proxy: <class 'RuntimeError'>: failure",
+            captured,
+        )
+
     def testMethodNames(self):
         class MethodNamesClass(NSObject):
             def someName_andArg_(self, name, arg):
@@ -559,6 +602,37 @@ class TestOverridingSpecials(TestCase):
 
         self.assertEqual(values, {"key": 42})
 
+    def test_class_with_slots(self):
+        class ClassWithSlots(NSObject):
+            __slots__ = ("slot",)
+
+        value = ClassWithSlots.alloc().init()
+
+        with self.assertRaisesRegex(
+            AttributeError, "'ClassWithSlots' object has no attribute 'slot'"
+        ):
+            value.slot
+
+        with self.assertRaisesRegex(
+            AttributeError, "'ClassWithSlots' object has no attribute 'slotb'"
+        ):
+            value.slotb
+
+        value.slot = 42
+        self.assertEqual(value.slot, 42)
+
+        with self.assertRaisesRegex(
+            AttributeError, "'ClassWithSlots' object has no attribute 'slotb'"
+        ):
+            value.slotb = 42
+
+        del value.slot
+
+        with self.assertRaisesRegex(
+            AttributeError, "'ClassWithSlots' object has no attribute 'slot'"
+        ):
+            value.slot
+
     def test_invalid_slots(self):
         with self.assertRaisesRegex(TypeError, "not iterable"):
 
@@ -576,7 +650,7 @@ class TestOverridingSpecials(TestCase):
         with self.assertRaisesRegex(UnicodeEncodeError, r".*surrogates not allowed"):
 
             class ClassWithInvalidNamedSlot(NSObject):
-                __slots__ = "\uDC00"
+                __slots__ = "\udc00"
 
     def test_dict_as_slots(self):
         # When __slots__ is a dict pydoc can use the
@@ -705,6 +779,7 @@ class TestOverridingSpecials(TestCase):
         self.assertIn("Exception ignored", captured_stderr.getvalue())
 
     def test_uninit_warn_as_error(self):
+        # XXX: TEst is no longer relevant
         o = NSObject.alloc()
 
         with warnings.catch_warnings():
@@ -719,11 +794,29 @@ class TestOverridingSpecials(TestCase):
             finally:
                 sys.stderr = orig_stderr
 
-        self.assertIn(
+        self.assertNotIn(
             "leaking an uninitialized object of type NSObject",
             captured_stderr.getvalue(),
         )
-        self.assertIn("Exception ignored", captured_stderr.getvalue())
+        self.assertNotIn("Exception ignored", captured_stderr.getvalue())
+
+    def test_selector_kwonly(self):
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has 1 keyword-only arguments without a default"
+        ):
+
+            class OC_KwonlySelector(NSObject):
+                def method(self, *, arg):
+                    pass
+
+    def test_selector_too_few_defaults(self):
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has between 2 and 4 positional arguments"
+        ):
+
+            class OC_TooFewDefaults(NSObject):
+                def method_(self, arg, arg1, arg2=3, arg3=4):
+                    pass
 
 
 class TestSelectorAttributes(TestCase):
@@ -1326,3 +1419,67 @@ class TestSubclassOptions(TestCase):
 
         finally:
             objc.options._processClassDict = orig
+
+    def test_invalid_keyword(self):
+        with self.assertRaisesRegex(
+            TypeError,
+            r"(this function got an unexpected keyword argument 'foo')|('foo' is an invalid keyword argument for this function)",
+        ):
+
+            class OC_SubClassKeywordInvalid(NSObject, foo=42):
+                pass
+
+    def test_class_extender_fails(self):
+        def extender(*args, **kwds):
+            raise RuntimeError("don't extend me")
+
+        with pyobjc_options(_class_extender=extender):
+            with self.assertRaisesRegex(RuntimeError, "don't extend me"):
+
+                class OC_SubClassingFails1(NSObject):
+                    pass
+
+    def test_invalid_protocols(self):
+        try:
+            NSObject.__pyobjc_protocols__ = 42
+
+            with self.assertRaisesRegex(
+                TypeError, "__pyobjc_protocols__ not a sequence"
+            ):
+
+                class OC_SubClassingFails2(NSObject):
+                    pass
+
+        finally:
+            del NSObject.__pyobjc_protocols__
+
+    def test_subclassing_with_protocols(self):
+        proto = objc.protocolNamed("NSObject")
+
+        class OC_BaseClass(NSObject, protocols=[proto]):
+            pass
+
+        self.assertEqual(OC_BaseClass.__pyobjc_protocols__, (proto,))
+
+        class OC_SubClassWithProtocols(OC_BaseClass):
+            pass
+
+        self.assertEqual(OC_SubClassWithProtocols.__pyobjc_protocols__, (proto,))
+
+    def test_class_version(self):
+        class OC_VersionedClass(NSObject):
+            pass
+
+        self.assertEqual(OC_VersionedClass.__version__, 0)
+
+        OC_VersionedClass.__version__ = 42.0
+
+        self.assertEqual(OC_VersionedClass.__version__, 42)
+
+        with self.assertRaisesRegex(ValueError, "'int'.* 'str"):
+            OC_VersionedClass.__version__ = "aap"
+
+        self.assertEqual(OC_VersionedClass.__version__, 42)
+
+        with self.assertRaisesRegex(TypeError, "Cannot delete __version__ attribute"):
+            del OC_VersionedClass.__version__

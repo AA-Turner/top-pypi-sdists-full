@@ -1,0 +1,28 @@
+[build-system]
+# Setuptools version should match setup.py; wheel because pip will insert it noisily
+requires = ["setuptools >= 42.0.0", "versioningit", "wheel"]
+build-backend = 'setuptools.build_meta'
+
+[tool.versioningit]
+default-version = "0+unknown"
+
+[tool.versioningit.vcs]
+exclude = ["schema-*"]
+
+[tool.versioningit.format]
+# Same format as versioneer
+distance = "{base_version}+{distance}.{vcs}{rev}"
+dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
+distance-dirty = "{base_version}+{distance}.{vcs}{rev}.dirty"
+
+[tool.versioningit.write]
+file = "dandischema/_version.py"
+
+[tool.black]
+exclude='\.eggs|\.git|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist'
+
+[tool.isort]
+profile = "black"
+force_sort_within_sections = true
+reverse_relative = true
+known_first_party = ["dandischema"]

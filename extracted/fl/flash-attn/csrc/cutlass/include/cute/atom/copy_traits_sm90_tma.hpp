@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -146,7 +146,7 @@ struct Copy_Traits<SM90_TMA_LOAD, NumBitsPerTMA, AuxParams_>
   auto
   get_tma_tensor(GShape const& g_shape) const {
     static_assert(is_congruent<decltype(g_shape), decltype(aux_params_.g_stride_)>::value);
-    return make_counting_tensor(make_layout(g_shape, aux_params_.g_stride_));
+    return make_coord_tensor(make_layout(g_shape, aux_params_.g_stride_));
   }
 
   // Don't try to execute a copy with SM90_TMA_LOAD before calling .with()
@@ -276,7 +276,7 @@ struct Copy_Traits<SM90_TMA_LOAD_MULTICAST, NumBitsPerTMA, AuxParams_>
   auto
   get_tma_tensor(GShape const& g_shape) const {
     static_assert(is_congruent<decltype(g_shape), decltype(aux_params_.g_stride_)>::value);
-    return make_counting_tensor(make_layout(g_shape, aux_params_.g_stride_));
+    return make_coord_tensor(make_layout(g_shape, aux_params_.g_stride_));
   }
 
   // Don't try to execute a copy with SM90_TMA_LOAD_MULTICAST before calling .with()
@@ -350,7 +350,7 @@ struct Copy_Traits<SM90_TMA_STORE, NumBitsPerTMA, AuxParams_>
   auto
   get_tma_tensor(GShape const& g_shape) const {
     static_assert(is_congruent<decltype(g_shape), decltype(aux_params_.g_stride_)>::value);
-    return make_counting_tensor(make_layout(g_shape, aux_params_.g_stride_));
+    return make_coord_tensor(make_layout(g_shape, aux_params_.g_stride_));
   }
 
   // Construct new TMA_STORE with (unsafe) swapped out TMA descriptor ptr (for grouped gemm/ptr array gemm)
@@ -463,7 +463,7 @@ struct Copy_Traits<SM90_TMA_REDUCE_ADD, NumBitsPerTMA, AuxParams_>
   auto
   get_tma_tensor(GShape const& g_shape) const {
     static_assert(is_congruent<decltype(g_shape), decltype(aux_params_.g_stride_)>::value);
-    return make_counting_tensor(make_layout(g_shape, aux_params_.g_stride_));
+    return make_coord_tensor(make_layout(g_shape, aux_params_.g_stride_));
   }
 
   template <class Coord, int... Is>
@@ -1165,7 +1165,7 @@ make_tma_copy_tiled(CopyOp                  const& copy_op,
   // Scale that up to cover all of the smem_coords
   auto layout_V = tile_to_shape(make_layout(layout_v), size(cta_v_map));
   // CTA T -> smem idx
-  auto layout_t = make_layout(cosize(cta_t_map), shape_div(num_elems_per_tma, cosize(cta_t_map)));
+  auto layout_t = make_layout(cosize(cta_t_map), safe_div(num_elems_per_tma, cosize(cta_t_map)));
   // CTA TID -> smem coord
   auto layout_T = composition(inv_smem_layout, composition(layout_t, cta_t_map));
   // Combine with the T mapping
@@ -1374,19 +1374,6 @@ tma_partition(Copy_Atom<Args...>      const& copy_atom,
   // Transform tile mode and coalesce
   Tensor gtensor_v = coalesce(gtensor.compose(glayout_V), Shape<Shape<_1,_1>>{});    // ((TMA,TMA_Iter), Rest...)
   Tensor stensor_v = coalesce(stensor.compose(slayout_V), Shape<Shape<_1,_1>>{});    // ((TMA,TMA_Iter), Rest...)
-
-#if 0
-  if (thread0()) {
-    print("cta_coord  : "); print(cta_coord); print("\n");
-    print("cta_layout : "); print(cta_layout); print("\n");
-    print("gtensor   : "); print(gtensor); print("\n");
-    print("stensor   : "); print(stensor); print("\n");
-    print("layout_V  : "); print(layout_V); print("\n");
-    print("gtensor_v : "); print(gtensor_v); print("\n");
-    print("stensor_v : "); print(stensor_v); print("\n");
-  }
-#endif
-
   // Offset inside the TMA-mode for the multicast
   auto multicast_offset = cta_layout(cta_coord) * (size(tma_layout_v) / cosize(cta_layout));
   auto multicast_coord  = make_coord(make_coord(multicast_offset, Int<0>{}));
@@ -1413,16 +1400,19 @@ tma_partition(Copy_Atom<Args...>      const& copy_atom,
 }
 
 // TMA Multicast Masks Calculation
-template <int Mode, class CtaLayout, class CtaCoord>
+template <class CtaLayout, class CtaCoord>
 CUTE_HOST_DEVICE constexpr
 uint16_t
 create_tma_multicast_mask(CtaLayout const& cta_layout_vmnk,
                           CtaCoord  const& cta_coord_vmnk)
 {
-  auto cta_coord_slicer = replace<Mode>(cta_coord_vmnk, _);
-  auto [cta_layout, elected_cta] = slice_and_offset(cta_coord_slicer, cta_layout_vmnk);
+  auto [cta_layout, elected_cta] = slice_and_offset(cta_coord_vmnk, cta_layout_vmnk);
 
   uint16_t mcast_mask = 0;
+  if constexpr (rank_v<decltype(cta_layout)> == 0) {
+    // Trivial case with no additional ctas
+    mcast_mask = uint16_t(1);
+  } else
   if constexpr (rank_v<decltype(cta_layout)> == 1 and depth_v<decltype(cta_layout)> <= 1 and
                 not is_static<decltype(cta_layout)>::value) {
     // Get the instruction code -- optimized for dynamic flat-rank-1 cta_layout
@@ -1443,6 +1433,16 @@ create_tma_multicast_mask(CtaLayout const& cta_layout_vmnk,
   // Shift by the instruction's elected block rank (dynamic)
   mcast_mask <<= elected_cta;
   return mcast_mask;
+}
+
+// Projections multicast mask
+template <int Mode, int... Modes, class CtaLayout, class CtaCoord>
+CUTE_HOST_DEVICE constexpr
+uint16_t
+create_tma_multicast_mask(CtaLayout const& cta_layout_vmnk,
+                          CtaCoord  const& cta_coord_vmnk)
+{
+  return create_tma_multicast_mask<Modes...>(cta_layout_vmnk, replace<Mode>(cta_coord_vmnk, _));
 }
 
 ////////////////////////////////////

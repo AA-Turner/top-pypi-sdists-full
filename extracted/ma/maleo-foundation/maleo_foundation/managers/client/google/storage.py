@@ -3,7 +3,9 @@ from datetime import timedelta
 from google.cloud.storage import Bucket, Client
 from google.oauth2.service_account import Credentials
 from pathlib import Path
+from redis.asyncio.client import Redis
 from typing import Optional, Union
+from maleo_foundation.enums import BaseEnums
 from maleo_foundation.types import BaseTypes
 from maleo_foundation.utils.logging import SimpleConfig
 from .base import GoogleClientManager
@@ -15,7 +17,8 @@ class GoogleCloudStorage(GoogleClientManager):
         service_key:BaseTypes.OptionalString=None,
         credentials:Optional[Credentials]=None,
         credentials_path:Optional[Union[Path, str]]=None,
-        bucket_name:BaseTypes.OptionalString = None
+        bucket_name:BaseTypes.OptionalString = None,
+        redis:Optional[Redis] = None
     ) -> None:
         key = "google-cloud-storage"
         name = "GoogleCloudStorage"
@@ -31,6 +34,7 @@ class GoogleCloudStorage(GoogleClientManager):
             raise ValueError(f"Bucket '{self._bucket_name}' does not exist.")
         self._root_location = service_key
         self._logger.info("Client manager initialized successfully")
+        self._redis = redis
 
     @property
     def bucket_name(self) -> str:
@@ -53,8 +57,9 @@ class GoogleCloudStorage(GoogleClientManager):
         location:str,
         content_type:Optional[str]=None,
         make_public:bool=False,
-        expiration:timedelta=timedelta(minutes=15),
-        root_location_override:BaseTypes.OptionalString=None
+        expiration:BaseEnums=BaseEnums.Expiration.EXP_15MN,
+        root_location_override:BaseTypes.OptionalString=None,
+        set_in_redis:bool=False
     ) -> str:
         """
         Upload a file to Google Cloud Storage.
@@ -69,9 +74,11 @@ class GoogleCloudStorage(GoogleClientManager):
             str: The public URL or blob path depending on `make_public`.
         """
         if root_location_override is None or (isinstance(root_location_override, str) and len(root_location_override) <= 0):
-            blob = self._bucket.blob(f"{self._root_location}/{location}")
+            blob_name = f"{self._root_location}/{location}"
         else:
-            blob = self._bucket.blob(f"{root_location_override}/{location}")
+            blob_name = f"{root_location_override}/{location}"
+
+        blob = self._bucket.blob(blob_name=blob_name)
         blob.upload_from_string(content, content_type=content_type)
 
         if make_public:
@@ -80,16 +87,24 @@ class GoogleCloudStorage(GoogleClientManager):
         else:
             url = blob.generate_signed_url(
                 version="v4",
-                expiration=expiration,
+                expiration=timedelta(seconds=int(expiration)),
                 method="GET"
             )
+
+        if set_in_redis:
+            if make_public:
+                self._redis.set(f"{self.key}:{blob_name}", url)
+            else:
+                self._redis.set(f"{self.key}:{blob_name}", url, ex=int(expiration))
+
         return url
 
     def generate_signed_url(
         self,
         location:str,
-        expiration:timedelta=timedelta(minutes=15),
-        root_location_override:BaseTypes.OptionalString=None
+        expiration:BaseEnums=BaseEnums.Expiration.EXP_15MN,
+        root_location_override:BaseTypes.OptionalString=None,
+        use_redis:bool=False
     ) -> str:
         """
         generate signed URL of a file in the bucket based on its location.
@@ -104,16 +119,29 @@ class GoogleCloudStorage(GoogleClientManager):
         Raises:
             ValueError: If the file does not exist
         """
+        if use_redis and self._redis is None:
+            raise ValueError("Can not use redis. Redis is not initialized")
+
         if root_location_override is None or (isinstance(root_location_override, str) and len(root_location_override) <= 0):
-            blob = self._bucket.blob(blob_name=f"{self._root_location}/{location}")
+            blob_name=f"{self._root_location}/{location}"
         else:
-            blob = self._bucket.blob(blob_name=f"{root_location_override}/{location}")
+            blob_name=f"{root_location_override}/{location}"
+
+        blob = self._bucket.blob(blob_name=blob_name)
         if not blob.exists():
             raise ValueError(f"File '{location}' did not exists.")
 
+        if use_redis:
+            if self._redis is None:
+                raise ValueError("Can not use redis. Redis is not initialized")
+            url = self._redis.get(blob_name)
+            if url is not None:
+                return url
+
         url = blob.generate_signed_url(
             version="v4",
-            expiration=expiration,
+            expiration=timedelta(seconds=int(expiration)),
             method="GET"
         )
+        self._redis.set(f"{self.key}:{blob_name}", url, ex=int(expiration))
         return url

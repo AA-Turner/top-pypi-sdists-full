@@ -1,3 +1,4 @@
+import os
 import pendulum
 from weread2notionpro.notion_helper import NotionHelper
 from weread2notionpro.weread_api import WeReadApi
@@ -80,7 +81,7 @@ def insert_book_to_notion(books, index, bookId):
             properties,
             pendulum.from_timestamp(book.get("时间"), tz="Asia/Shanghai"),
         )
-
+    book["封面"] = book.get("cover")
     print(
         f"正在插入《{book.get('title')}》,一共{len(books)}本，当前是第{index+1}本。"
     )
@@ -152,7 +153,6 @@ notion_helper = NotionHelper()
 archive_dict = {}
 notion_books = {}
 
-
 def main():
     global notion_books
     global archive_dict
@@ -179,6 +179,7 @@ def main():
                 value.get("status") != utils.get_complete_status()
                 or (value.get("status") ==utils.get_complete_status() and value.get("myRating"))
             )
+            and(value.get("image") is not None)
         ):
             not_need_sync.append(key)
     notebooks = weread_api.get_notebooklist()

@@ -3,7 +3,11 @@ from typing import TypedDict, Union
 import requests
 
 from abstra_internals.entities.agents import ConnectionModel
-from abstra_internals.environment import PROJECT_ID, REQUEST_TIMEOUT, SIDECAR_HEADERS
+from abstra_internals.environment import (
+    CLOUD_API_PROD_HEADERS,
+    PROJECT_ID,
+    REQUEST_TIMEOUT,
+)
 from abstra_internals.repositories.project.project import Project
 from abstra_internals.repositories.services.roles.common import RoleCommonRepository
 
@@ -28,13 +32,6 @@ class RoleAgentRepository(RoleCommonRepository):
 
     def get_connections(self):
         return self.fetch_connections()
-
-    def get_connection_by_stage_id(self, stage_id: str):
-        connections = self.get_connections()
-        for connection in connections:
-            if connection.client_stage_id == stage_id:
-                return connection
-        raise Exception(f"Connection not found for stage {stage_id}")
 
     def get_connection_by_token(self, token: str):
         connections = self.get_connections()
@@ -128,7 +125,7 @@ class RoleAgentRepository(RoleCommonRepository):
 
 class ProductionRoleAgentRepository(RoleAgentRepository):
     def get_headers(self):
-        return SIDECAR_HEADERS
+        return CLOUD_API_PROD_HEADERS
 
     def get_current_project_id(self):
         return PROJECT_ID

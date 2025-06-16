@@ -1850,3 +1850,7 @@ class Kubevirt():
     def list_dns_zones(self):
         print("not implemented")
         return []
+
+    def detach_disks(self, name):
+        print("not implemented")
+        return {'result': 'success'}

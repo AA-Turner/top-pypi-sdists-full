@@ -1,0 +1,79 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "pytest_notebook"
+dynamic = ["version", "description"]
+authors = [{name = "Chris Sewell", email = "chrisj_sewell@hotmail.com"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Framework :: Pytest",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Testing",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Operating System :: OS Independent",
+  "License :: OSI Approved :: BSD License",
+]
+requires-python = "~=3.8"
+dependencies = [
+  "pytest>=3.5.0",
+  "attrs<23,>=19",
+  "importlib-metadata~=6.0;python_version<'3.10'",
+  "importlib-resources~=5.0;python_version<'3.9'",
+  "nbclient~=0.5.10",
+  "nbdime>=4",
+  "nbformat",
+  "jsonschema",
+]
+
+[project.urls]
+Source = "https://github.com/chrisjsewell/pytest-notebook"
+Documentation = "https://pytest-notebook.readthedocs.io"
+
+[project.optional-dependencies]
+testing = [
+  "pytest-cov",
+  "pytest-regressions",
+  "ipykernel",
+  "coverage~=5.0",
+  "black==23.11.0",
+  "beautifulsoup4==4.12.2",
+]
+code_style = [
+  "pre-commit~=3.5.0",
+  "doc8<0.9.0,>=0.8.0",
+]
+docs = [
+  "sphinx>=3",
+  "pyyaml",
+  "sphinx-book-theme~=1.0.1",
+  "myst-nb~=1.0",
+  "coverage~=5.0",
+  "pytest-cov",
+  "black",
+]
+
+[project.entry-points."pytest11"]
+nb_regression = "pytest_notebook.plugin"
+
+[project.entry-points."nbreg.post_proc"]
+coalesce_streams = "pytest_notebook.post_processors:coalesce_streams"
+blacken_code = "pytest_notebook.post_processors:blacken_code"
+beautifulsoup = "pytest_notebook.post_processors:beautifulsoup"
+
+[tool.ruff]
+extend-select = ["B0", "C4", "I", "ICN", "ISC", "N", "RUF", "SIM", "UP"]
+extend-ignore = ["ISC001"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true

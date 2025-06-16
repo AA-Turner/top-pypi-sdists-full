@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,9 +29,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 #ifndef LIBTCOD_RENDERER_SDL2_H_
 #define LIBTCOD_RENDERER_SDL2_H_
+#ifndef NO_SDL
 
+#include <SDL3/SDL_properties.h>
 #include <stdbool.h>
 
 #include "config.h"
@@ -79,18 +82,31 @@ struct TCOD_RendererSDL2 {
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
-/**
-    Return a libtcod rendering context using an SDL2 renderer.
+/***************************************************************************
+    @brief Return a libtcod rendering context using an SDL2 renderer.
+
+    @param x Window X position, if unsure then use `SDL_WINDOWPOS_UNDEFINED`
+    @param y Window Y position, if unsure then use `SDL_WINDOWPOS_UNDEFINED`
+    @param width Window width in pixels
+    @param height Window height in pixels
+    @param title Window title text
+    @param window_flags SDL window flags, see `SDL_WindowFlags`
+    @param vsync Enables VSync
+    @param tileset The tileset to use for this context.
+    @return The new context, will need to deleted with TCOD_context_delete when you are done with it.
  */
 TCOD_PUBLIC TCOD_NODISCARD struct TCOD_Context* TCOD_renderer_init_sdl2(
-    int x,
-    int y,
-    int width,
-    int height,
-    const char* title,
-    int window_flags,
-    int renderer_flags,
-    struct TCOD_Tileset* tileset);
+    int x, int y, int width, int height, const char* title, int window_flags, int vsync, struct TCOD_Tileset* tileset);
+/***************************************************************************
+    @brief  Return a libtcod rendering context using SDL3.
+
+    @param window_props The SDL3 window properties. See `SDL_CreateWindowWithProperties`.
+    @param renderer_props The SDL3 rendering properties. See `SDL_CreateRendererWithProperties`.
+    @param tileset The tileset to use for this renderer.
+    @return The new context, will need to deleted with TCOD_context_delete when you are done with it.
+ */
+TCOD_PUBLIC TCOD_NODISCARD TCOD_Context* TCOD_renderer_init_sdl3(
+    SDL_PropertiesID window_props, SDL_PropertiesID renderer_props, struct TCOD_Tileset* tileset);
 /**
     Return a new SDL2 atlas created from a tileset for an SDL2 renderer.
 
@@ -179,4 +195,5 @@ TCOD_PUBLIC TCOD_Error TCOD_sdl2_render_texture(
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
+#endif  // NO_SDL
 #endif  // LIBTCOD_RENDERER_SDL2_H_

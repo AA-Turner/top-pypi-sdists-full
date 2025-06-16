@@ -1,0 +1,191 @@
+[tool.poetry]
+authors = ["Jon Connell <python@figsandfudge.com>"]
+classifiers = [
+  "Topic :: Office/Business :: Financial :: Spreadsheet",
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+description = "Read and write Apple Numbers spreadsheets"
+documentation = "https://github.com/masaccio/numbers-parser/blob/main/README.md"
+license = "MIT"
+name = "numbers-parser"
+packages = [{include = "numbers_parser", from = "src"}]
+readme = "README.md"
+repository = "https://github.com/masaccio/numbers-parser"
+version = "4.15.1"
+
+[tool.poetry.scripts]
+cat-numbers = "numbers_parser._cat_numbers:main"
+unpack-numbers = "numbers_parser._unpack_numbers:main"
+csv2numbers = "numbers_parser._csv2numbers:main"
+
+[tool.poetry.dependencies]
+compact-json = "^1.1.3"
+protobuf = ">=4.0,<6.0"
+python = ">=3.9,<4.0"
+python-snappy = "^0.7"
+sigfig = "^1.3.3"
+setuptools = ">=70.0.0"
+importlib-resources = ">=6.1"
+enum-tools = ">=0.11"
+python-dateutil = "^2.9.0.post0"
+
+[tool.poetry.group.dev.dependencies]
+gprof2dot = "^2022.7.29"
+line-profiler = "^4.0.3"
+mock = ">=5.1.0"
+pytest = ">=7.2.0"
+pytest-check = ">=1.0"
+pytest-console-scripts = "^1.3.1"
+pytest-cov = ">=4.0,>=5.0"
+pytest-xdist = "^3.3.1"
+ruff = "*"
+tox = "^4.11.4"
+python-magic = ">=0.4"
+tqdm = ">=4.66"
+colorama = "^0.4.6"
+pympler = "^1.1"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = ">= 7.3"
+enum-tools = ">=0.11"
+sphinx-toolbox = ">=3.5"
+sphinx-nefertiti = ">=0.7"
+sphinx-markdown-builder = ">=0.6"
+sphinx-copybutton = ">=0.5"
+
+[tool.poetry.group.bootstrap]
+optional = true
+
+[tool.poetry.group.bootstrap.dependencies]
+pyobjc-core = ">=10.2"
+pyobjc-framework-Cocoa = ">=10.2"
+py2app = ">=0.28"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+
+[tool.coverage.run]
+branch = true
+omit = ["src/numbers_parser/generated/*.py"]
+
+[tool.coverage.html]
+directory = "coverage_html_report"
+show_contexts = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/numbers_parser --cov-report=html --cov-report=term-missing:skip-covered --cov-context=test"
+
+[tool.tox]
+requires = ["tox>=4.0"]
+envlist = ["py39", "py310", "py311", "py312", "py313"]
+
+[testenv]
+deps = [
+  "pytest",
+  "pytest-check",
+  "pytest-console-scripts",
+  "pytest-cov",
+  "pytest-xdist",
+  "python-magic",
+  "pympler",
+  "colorama"
+]
+commands = [
+  "pytest tests/ --import-mode importlib -n logical --no-cov"
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+exclude = [
+  # Machine-generated files
+  "**/.bootstrap/*",
+  "**/.tox/*",
+  "**/.vscode/*",
+  "**/src/numbers_parser/generated/*",
+  # Third-party files not to lint
+  "**/src/debug/lldbutil.py",
+]
+fix = true
+lint.ignore = [
+  "T201", # Allow print()
+  # To fix:
+  "ANN001", #Missing type annotation
+  "ANN002", #Missing type annotation
+  "ANN003", #Missing type annotation
+  "ANN201", #Missing return type annotation
+  "ANN202", #Missing return type annotation
+  "ANN204", #Missing return type annotation
+  "ANN205", #Missing return type annotation
+  "ANN206", #Missing return type annotation
+  "ANN401", #Dynamically typed expressions
+  "ARG001", #Unused function argument
+  "ARG002", #Unused method argument
+  "ARG003", #Unused class method argument
+  "BLE001", #Do not catch blind exception
+  "C901", #code too complex
+  "D100", #Missing docstring
+  "D101", #Missing docstring
+  "D102", #Missing docstring
+  "D103", #Missing docstring
+  "D105", #Missing docstring
+  "D107", #Missing docstring
+  "D205", # Blank line - conflicts with black
+  "D210", #No whitespaces allowed surrounding docstring text
+  "D400", #First line should end with a period
+  "D401", #First line of docstring should be in imperative mood
+  "D415", #First line should end with a period, question mark, or exclamation point
+  "E501", #Line too long
+  "ERA001", # Remove commented out code
+  "FBT001", #Boolean-typed positional argument in function definition
+  "FBT002", #Boolean default positional argument in function definition
+  "FBT003", #Boolean positional value in function call
+  "FIX002", #Line contains TODO, consider resolving the issue
+  "ISC003", #Explicitly concatenated string should be implicitly concatenated
+  "PERF401", #Use a list comprehension to create a transformed list
+  "PLR0913", #Too many arguments
+  "PLR2004", #Magic value used
+  "PLW0603", #Using the global statement
+  "PTH103", # Use of os.makedirs()
+  "PTH118", # Use of os.path.join()
+  "PTH119", # Use of os.path.basename()
+  "PTH123", # Use of open()
+  "RUF001", #String contains ambiguous
+  "RUF002", #Docstring contains ambiguous
+  "RUF003", #Comment contains ambiguous
+  "SIM115", #Use a context manager for opening files
+  "SLF001", #Private member accessed
+  "TD002", # TODO author
+  "TD003", # TODO author
+  # Conflicts with other rules
+  "D212", # Multiline summary first line
+  "D203", # Blank lines before class docstrings
+  "D416", # Colon after after section titles
+]
+line-length = 100
+lint.select = [ "ALL" ]
+src = ["src", "tests"]
+target-version = "py39"
+lint.unfixable = [
+  "ERA", # do not autoremove commented out code
+]
+
+[tool.ruff.lint.pylint]
+max-statements = 100
+max-branches = 20
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+"docs/conf.py" = ["INP001"]
+"src/build/**" = ["PLR2004", "INP001", "PTH"]
+"src/build/protodump.py" = ["PLR2004", "INP001", "PTH", "S110", "N806"]
+"src/debug/**" = ["INP001"]
+"tests/**" = ["PLR2004", "S101", "D103", "ANN201", "ANN001"]

@@ -1,0 +1,92 @@
+[build-system]
+requires = [
+  "setuptools>=61",
+  "wheel",
+]
+build-backend = "setuptools.build_meta:__legacy__"
+
+[project]
+name = "lscsoft-glue"
+authors = [
+  { name = "Duncan Brown", email = "dabrown@syr.edu" },
+]
+maintainers = [
+  { name = "Robert Bruntz", email = "robert.bruntz@ligo.org" },
+  { name = "Duncan Macleod", email = "duncan.macleod@ligo.org" },
+]
+license = { text = "GPL-2.0-or-later" }
+
+# classifiers
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+# requirements
+requires-python = ">=3.6"
+dependencies = [
+  "igwn-segments",
+]
+
+dynamic = [
+  "version",
+]
+
+[project.optional-dependencies]
+test = [
+  "lalsuite ; python_version < '3.13'",
+  "pytest",
+]
+docs = [
+  "sphinx",
+  "sphinx_rtd_theme",
+]
+
+[project.urls]
+"Bug Tracker" = "https://git.ligo.org/lscsoft/glue/-/issues"
+"Documentation" = "https://lscsoft.docs.ligo.org/glue/"
+"Source Code" = "https://git.ligo.org/lscsoft/glue.git"
+
+[tool.setuptools]
+license-files = [ "LICENSE" ]
+
+[tool.setuptools.dynamic]
+version = { attr = "glue.__version__" }
+
+[tool.setuptools.packages.find]
+include = [
+  "glue*",
+]
+
+# -- coverage ---------------
+
+[tool.coverage.paths]
+# map standard install paths back to the source to
+# enable merging coverage of installed module from
+# multiple platforms
+source = [
+  "glue/",  # <-- source path, must come first
+  "*/*-packages/glue/",
+]
+
+[tool.coverage.run]
+# measure source for the `glue` package
+source = [
+  "glue",
+]
+
+[tool.coverage.report]
+# print report with one decimal point
+precision = 1

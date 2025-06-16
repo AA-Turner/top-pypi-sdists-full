@@ -1,0 +1,677 @@
+Metadata-Version: 2.4
+Name: graph-notebook
+Version: 5.0.1
+Summary: Jupyter notebook extension to connect to graph databases
+Author-email: amazon-neptune <amazon-neptune-pypi@amazon.com>
+License: 
+                                         Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+License-File: LICENSE
+License-File: NOTICE
+Keywords: gremlin,jupyter,neptune,opencypher,sparql
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: <3.12,>=3.9
+Requires-Dist: async-timeout<5.0,>=4.0
+Requires-Dist: boto3>=1.34.74
+Requires-Dist: botocore>=1.34.74
+Requires-Dist: gremlinpython<=3.7.2,>=3.5.1
+Requires-Dist: ipyfilechooser==0.6.0
+Requires-Dist: ipykernel>=6.5.0
+Requires-Dist: ipython<=8.10.0,>=7.16.1
+Requires-Dist: ipywidgets<9.0.0,>=8.0.0
+Requires-Dist: itables<=2.1.0,>=2.0.0
+Requires-Dist: jedi<=0.18.2,>=0.18.1
+Requires-Dist: jinja2<=3.1.4,>=3.0.3
+Requires-Dist: json-repair==0.29.2
+Requires-Dist: jupyter-client<9.0.0,>=8.0.0
+Requires-Dist: jupyter-server-proxy<5.0.0,>=4.0.0
+Requires-Dist: jupyter-server<3.0.0,>=2.0.0
+Requires-Dist: jupyterlab-widgets<4.0.0,>=3.0.0
+Requires-Dist: jupyterlab<5.0.0,>=4.3.5
+Requires-Dist: nbclassic>=1.3.0
+Requires-Dist: nbclient>=0.7.3
+Requires-Dist: nbconvert<=7.2.8,>=6.3.0
+Requires-Dist: neo4j<=5.23.1,>=5.0.0
+Requires-Dist: nest-asyncio<=1.6.0,>=1.5.5
+Requires-Dist: networkx==2.4
+Requires-Dist: notebook<8.0.0,>=7.0.0
+Requires-Dist: numba==0.60.0
+Requires-Dist: numpy<1.24.0,>=1.23.5
+Requires-Dist: pandas<=2.2.2,>=2.1.0
+Requires-Dist: rdflib==7.0.0
+Requires-Dist: requests<=2.32.2,>=2.32.0
+Requires-Dist: sparqlwrapper==2.0.0
+Provides-Extra: test
+Requires-Dist: pytest==6.2.5; extra == 'test'
+Description-Content-Type: text/markdown
+
+# Graph Notebook: easily query and visualize graphs
+
+The graph notebook provides an easy way to interact with graph databases using Jupyter notebooks. Using this open-source Python package, you can connect to any graph database that supports the [Apache TinkerPop](https://tinkerpop.apache.org/), [openCypher](https://github.com/opencypher/openCypher) or the [RDF SPARQL](https://www.w3.org/TR/rdf-sparql-query/) graph models. These databases could be running locally on your desktop or in the cloud. Graph databases can be used to explore a variety of use cases including [knowledge graphs](https://aws.amazon.com/neptune/knowledge-graphs-on-aws/) and [identity graphs](https://aws.amazon.com/neptune/identity-graphs-on-aws/).
+
+![A colorful graph picture](./images/ColorfulGraph.png)
+
+## Visualizing Gremlin queries
+
+![Gremlin query and graph](./images/GremlinQueryGraph.png)
+
+## Visualizing openCypher queries
+
+![openCypher query and graph](./images/OCQueryGraph.png)
+
+## Visualizing SPARQL queries
+
+![SPARL query and graph](./images/SPARQLQueryGraph.png)
+
+Instructions for connecting to the following graph databases:
+
+|             Endpoint            |       Graph model       |   Query language    |
+| :-----------------------------: | :---------------------: | :-----------------: |
+|[Gremlin Server](#gremlin-server)|     property graph      |       Gremlin       |
+|    [Blazegraph](#blazegraph)    |            RDF          |       SPARQL        |
+|[Amazon Neptune](#amazon-neptune)|  property graph or RDF  |  Gremlin, openCypher, or SPARQL  |
+|         [Neo4J](#neo4j)         |     property graph      |       Cypher        |
+
+We encourage others to contribute configurations they find useful. There is an [`additional-databases`](https://github.com/aws/graph-notebook/blob/main/additional-databases) folder where more information can be found.
+
+## Features
+
+### Notebook cell 'magic' extensions in the IPython 3 kernel
+
+`%%sparql` - Executes a SPARQL query against your configured database endpoint. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/notebooks-magics.html#notebooks-cell-magics-sparql)
+
+`%%gremlin` - Executes a Gremlin query against your database using web sockets. The results are similar to those a Gremlin console would return. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/notebooks-magics.html#notebooks-cell-magics-gremlin)
+
+`%%opencypher` or `%%oc` Executes an openCypher query against your database. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/notebooks-magics.html#notebooks-cell-magics-opencypher)
+
+`%%graph_notebook_config` - Sets the executing notebook's database configuration to the JSON payload provided in the cell body.
+
+`%%graph_notebook_vis_options` - Sets the executing notebook's [vis.js options](https://visjs.github.io/vis-network/docs/network/physics.html) to the JSON payload provided in the cell body.
+
+`%%neptune_ml` - Set of commands to integrate with NeptuneML functionality, as described [here](https://docs.aws.amazon.com/neptune/latest/userguide/notebooks-magics.html#notebooks-line-magics-neptune_ml). [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/machine-learning.html)
+
+**TIP** :point_right: `%%sparql`, `%%gremlin`, and `%%oc` share a [suite of common arguments](https://docs.aws.amazon.com/neptune/latest/userguide/notebooks-magics.html#notebook-magics-query-args) that be used to customize the appearance of rendered graphs. Example usage of these arguments can also be found in the sample notebooks under [02-Visualization](https://github.com/aws/graph-notebook/tree/main/src/graph_notebook/notebooks/02-Visualization).
+
+**TIP** :point_right: There is syntax highlighting for language query magic cells to help you structure your queries more easily.
+
+#### Notebook line 'magic' extensions in the IPython 3 kernel
+
+`%gremlin_status` - Obtain the status of Gremlin queries. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/gremlin-api-status.html)
+
+`%sparql_status` - Obtain the status of SPARQL queries. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/sparql-api-status.html)
+
+`%opencypher_status` or `%oc_status` - Obtain the status of openCypher queries. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/access-graph-opencypher-status.html)
+
+`%load` - Generate a form to submit a bulk loader job. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/bulk-load.html)
+
+`%load_ids` - Get ids of bulk load jobs. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/load-api-reference-status-examples.html)
+
+`%load_status` - Get the status of a provided `load_id`. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/load-api-reference-status-examples.html)
+
+`%cancel_load` - Cancels a bulk load job. You can either provide a single `load_id`, or specify `--all-in-queue` to cancel all queued (and not actively running) jobs. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/load-api-reference-cancel.html)
+
+`%neptune_ml` - Set of commands to integrate with NeptuneML functionality, as described [here](https://docs.aws.amazon.com/neptune/latest/userguide/notebooks-magics.html#notebooks-cell-magics-neptune_ml). You can find a set of tutorial notebooks [here](https://github.com/aws/graph-notebook/tree/main/src/graph_notebook/notebooks/04-Machine-Learning).
+[Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/machine-learning.html)
+
+`%status` - Check the Health Status of the configured host endpoint. [Documentation](https://docs.aws.amazon.com/neptune/latest/userguide/access-graph-status.html)
+
+`%seed` - Provides a form to add data to your graph, using sets of insert queries instead of a bulk loader. Sample RDF and Property Graph data models are provided with this command. Alternatively, you can select a language type and provide a file path(or a directory path containing one or more of these files) to load the queries from.
+
+`%stream_viewer` - Interactively explore the Neptune CDC stream (if enabled)
+
+`%graph_notebook_config` - Returns a JSON payload that contains connection information for your host.
+
+`%graph_notebook_host` - Set the host endpoint to send queries to.
+
+`%graph_notebook_version` - Print the version of the `graph-notebook` package
+
+`%graph_notebook_vis_options` - Print the Vis.js options being used for rendered graphs
+
+**TIP** :point_right: You can list all the magics installed in the Python 3 kernel using the `%lsmagic` command.
+
+**TIP** :point_right: Many of the magic commands support a `--help` option in order to provide additional information.
+
+## Example notebooks
+
+This project includes many example Jupyter notebooks. It is recommended to explore them. All of the commands and features supported by `graph-notebook` are explained in detail with examples within the sample notebooks. You can find them  [here](./src/graph_notebook/notebooks/). As this project has evolved, many new features have been added. If you are already familiar with graph-notebook but want a quick summary of new features added, a good place to start is the Air-Routes notebooks in the [02-Visualization](./src/graph_notebook/notebooks/02-Visualization) folder.
+
+## Keeping track of new features
+
+It is recommended to check the [ChangeLog.md](ChangeLog.md) file periodically to keep up to date as new features are added.
+
+## Prerequisites
+
+You will need:
+
+* [Python](https://www.python.org/downloads/) 
+  * For JupyterLab 4x Version: 3.9.x-3.11.x
+  * For JupyterLab 3x Version: 3.9.x-3.10.14 
+* A graph database that provides one or more of:
+  * A SPARQL 1.1 endpoint
+  * An Apache TinkerPop Gremlin Server compatible endpoint
+  * An endpoint compatible with openCypher
+  
+## Installation
+
+Follow the instructions for either Jupyter Classic Notebook or JupyterLab based on your requirements.
+
+
+### Jupyter Classic Notebook
+
+``` bash
+pip install graph-notebook
+
+# Enable the visualization widget
+jupyter nbclassic-extension enable  --py --sys-prefix graph_notebook.widgets
+
+# copy static html resources
+python -m graph_notebook.static_resources.install
+python -m graph_notebook.nbextensions.install
+
+# copy premade starter notebooks
+python -m graph_notebook.notebooks.install --destination ~/notebook/destination/dir
+
+# create nbconfig file and directory tree, if they do not already exist
+mkdir ~/.jupyter/nbconfig
+touch ~/.jupyter/nbconfig/notebook.json
+
+# start jupyter notebook
+python -m graph_notebook.start_notebook --notebooks-dir ~/notebook/destination/dir
+```
+
+### Jupyter Lab
+
+Graph-notebook has been upgraded to support JupyterLab 4.x since version 5.0.0, featuring a modernized widget architecture and improved compatibility.
+
+Choose your installation based on your JupyterLab version requirements.
+
+
+### JupyterLab 4.x (Recommended)
+
+``` bash
+# install jupyterlab
+pip install "jupyterlab>=4.3.5,<5"
+
+# Install the latest version with JupyterLab 4.x support
+pip install graph-notebook
+
+# copy premade starter notebooks
+python -m graph_notebook.notebooks.install --destination ~/notebook/destination/dir
+
+# start jupyterlab
+python -m graph_notebook.start_jupyterlab --jupyter-dir ~/notebook/destination/dir
+```
+
+### JupyterLab 3.x (Legacy)
+
+``` bash
+
+# install jupyterlab
+pip install "jupyterlab>=3,<4"
+
+# Install legacy version for JupyterLab 3.x compatibility
+pip install "graph-notebook<5.0.0"
+
+# copy premade starter notebooks
+python -m graph_notebook.notebooks.install --destination ~/notebook/destination/dir
+
+# start jupyterlab
+python -m graph_notebook.start_jupyterlab --jupyter-dir ~/notebook/destination/dir
+```
+
+#### Loading magic extensions in JupyterLab
+
+When attempting to run a line/cell magic on a new notebook in JupyterLab, you may encounter the error:
+
+``` bash
+UsageError: Cell magic `%%graph_notebook_config` not found.
+```
+
+To fix this, run the following command, then restart JupyterLab.
+
+``` bash
+python -m graph_notebook.ipython_profile.configure_ipython_profile
+```
+
+Alternatively, the magic extensions can be manually reloaded for a single notebook by running the following command in any empty cell.
+
+``` bash
+%load_ext graph_notebook.magics
+```
+
+## Upgrading an existing installation
+
+``` bash
+# upgrade graph-notebook
+pip install graph-notebook --upgrade
+```
+
+After the above command completes, rerun the commands given at [Jupyter Classic Notebook](#jupyter-classic-notebook) or [JupyterLab 3.x](#jupyterlab-3x) based on which flavour is installed.
+
+## Connecting to a graph database
+
+Configuration options can be set using the `%graph_notebook_config` magic command. The command accepts a JSON object as an argument. The JSON object can contain any of the configuration options listed below. The command can be run multiple times to change the configuration. The configuration is stored in the notebook's metadata and will be used for all subsequent queries.
+
+| Configuration Option | Description | Default Value | Type |
+| --- | --- | --- | --- |
+| auth_mode | The authentication mode to use for Amazon Neptune connections | DEFAULT | string |
+| aws_region | The AWS region to use for Amazon Neptune connections | your-region-1 | string |
+| host | The host url to form a connection with | localhost | string |
+| load_from_s3_arn | The ARN of the S3 bucket to load data from [Amazon Neptune only] | | string |
+| neptune_service | The name of the Neptune service for the host url [Amazon Neptune only] | neptune-db | string |
+| port | The port to use when creating a connection | 8182 | number |
+| proxy_host | The proxy host url to route a connection through [Amazon Neptune only]| | string |
+| proxy_port | The proxy port to use when creating proxy connection [Amazon Neptune only] | 8182 | number |
+| ssl | Whether to make connections to the created endpoint with ssl or not [True/False] | False | boolean |
+| ssl_verify | Whether to verify the server's TLS certificate or not [True/False] | True | boolean |
+| sparql | SPARQL connection object | ``` { "path": "sparql" } ``` | string |
+| gremlin | Gremlin connection object | ``` { "username": "", "password": "", "traversal_source": "g",  "message_serializer": "graphsonv3" } ```| string |
+| neo4j | Neo4J connection object |``` { "username": "neo4j", "password": "password", "auth": true, "database": null } ``` | string |
+
+### Gremlin Server
+
+In a new cell in the Jupyter notebook, change the configuration using `%%graph_notebook_config` and modify the fields for `host`, `port`, and `ssl`. Optionally, modify `traversal_source` if your graph traversal source name differs from the default value, `username` and `password` if required by the graph store, or `message_serializer` for a specific data transfer format. For a local Gremlin server (HTTP or WebSockets), you can use the following command:
+
+``` python
+%%graph_notebook_config
+{
+  "host": "localhost",
+  "port": 8182,
+  "ssl": false,
+  "gremlin": {
+    "traversal_source": "g",
+    "username": "",
+    "password": "",
+    "message_serializer": "graphsonv3"
+  }
+}
+```
+
+To setup a new local Gremlin Server for use with the graph notebook, check out [`additional-databases/gremlin server`](additional-databases/gremlin-server)
+
+### Blazegraph
+
+Change the configuration using `%%graph_notebook_config` and modify the fields for `host`, `port`, and `ssl`. For a local Blazegraph database, you can use the following command:
+
+``` python
+%%graph_notebook_config
+{
+  "host": "localhost",
+  "port": 9999,
+  "ssl": false,
+  "sparql": {
+    "path": "sparql"
+  }
+}
+```
+
+You can also make use of namespaces for Blazegraph by specifying the path `graph-notebook` should use when querying your SPARQL like below:
+
+``` python
+%%graph_notebook_config
+
+{
+  "host": "localhost",
+  "port": 9999,
+  "ssl": false,
+  "sparql": {
+    "path": "blazegraph/namespace/foo/sparql"
+  }
+}
+```
+
+This will result in the url `localhost:9999/blazegraph/namespace/foo/sparql` being used when executing any `%%sparql` magic commands.
+
+To setup a new local Blazegraph database for use with the graph notebook, check out the [Quick Start](https://github.com/blazegraph/database/wiki/Quick_Start) from Blazegraph.
+
+### Amazon Neptune
+
+Change the configuration using `%%graph_notebook_config` and modify the defaults as they apply to your Neptune instance.
+
+#### Neptune DB
+
+``` python
+%%graph_notebook_config
+{
+  "host": "your-neptune-endpoint",
+  "neptune_service": "neptune-db",
+  "port": 8182,
+  "auth_mode": "DEFAULT",
+  "load_from_s3_arn": "",
+  "ssl": true,
+  "ssl_verify": true,
+  "aws_region": "your-neptune-region"
+}
+```
+
+#### Neptune Analytics
+
+``` python
+%%graph_notebook_config
+{
+  "host": "your-neptune-endpoint",
+  "neptune_service": "neptune-graph",
+  "port": 443,
+  "auth_mode": "IAM",
+  "ssl": true,
+  "ssl_verify": true,
+  "aws_region": "your-neptune-region"
+}
+```
+
+To setup a new Amazon Neptune cluster, check out the [Amazon Web Services documentation](https://docs.aws.amazon.com/neptune/latest/userguide/manage-console-launch.html).
+
+When connecting the graph notebook to Neptune via a private endpoint, make sure you have a network setup to communicate to the VPC that Neptune runs on. If not, you can follow [this guide](https://github.com/aws/graph-notebook/tree/main/additional-databases/neptune).
+
+In addition to the above configuration options, you can also specify the following options:
+
+### Amazon Neptune Proxy Connection
+
+``` python
+%%graph_notebook_config
+{
+  "host": "clustername.cluster-ididididid.us-east-1.neptune.amazonaws.com",
+  "neptune_service": "neptune-db",
+  "port": 8182,
+  "ssl": true,
+  "proxy_port": 8182,
+  "proxy_host": "host.proxy.com",
+  "auth_mode": "IAM",
+  "aws_region": "us-east-1",
+  "load_from_s3_arn": ""
+}
+```
+
+See also: Connecting to Amazon Neptune from clients outside the Neptune VPC using AWS Network [Load Balancer](https://aws-samples.github.io/aws-dbs-refarch-graph/src/connecting-using-a-load-balancer/#connecting-to-amazon-neptune-from-clients-outside-the-neptune-vpc-using-aws-network-load-balancer)
+
+## Authentication (Amazon Neptune)
+
+If you are running a SigV4 authenticated endpoint, ensure that your configuration has `auth_mode` set to `IAM`:
+
+``` python
+%%graph_notebook_config
+{
+  "host": "your-neptune-endpoint",
+  "neptune_service": "neptune-db",
+  "port": 8182,
+  "auth_mode": "IAM",
+  "load_from_s3_arn": "",
+  "ssl": true,
+  "ssl_verify": true,
+  "aws_region": "your-neptune-region"
+}
+```
+
+Additionally, you should have the following Amazon Web Services credentials available in a location accessible to Boto3:
+
+* Access Key ID
+* Secret Access Key
+* Default Region
+* Session Token (OPTIONAL. Use if you are using temporary credentials)
+
+These variables must follow a specific naming convention, as listed in the [Boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables)
+
+A list of all locations checked for Amazon Web Services credentials can also be found [here](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#configuring-credentials).
+
+### Neo4J
+
+Change the configuration using `%%graph_notebook_config` and modify the fields for `host`, `port`, `ssl`, and `neo4j` authentication.
+
+If your Neo4J instance supports [multiple databases](https://neo4j.com/developer/manage-multiple-databases/), you can specify a database name via the `database` field. Otherwise, leave the `database` field blank to query the default database.
+
+For a local Neo4j Desktop database, you can use the following command:
+
+``` python
+%%graph_notebook_config
+{
+  "host": "localhost",
+  "port": 7687,
+  "ssl": false,
+  "neo4j": {
+    "username": "neo4j",
+    "password": "password",
+    "auth": true,
+    "database": ""
+  }
+}
+```
+
+Ensure that you also specify the `%%oc bolt` option when submitting queries to the Bolt endpoint.
+
+To setup a new local Neo4J Desktop database for use with the graph notebook, check out the [Neo4J Desktop User Interface Guide](https://neo4j.com/developer/neo4j-desktop/).
+
+## Building From Source
+
+A pre-release distribution can be built from the graph-notebook repository via the following steps:
+
+``` bash
+# 1) Clone the repository and navigate into the clone directory
+git clone https://github.com/aws/graph-notebook.git
+cd graph-notebook
+
+# 2) Create a new virtual environment
+
+# 2a) Option 1 - pyenv
+# install pyenv - https://github.com/pyenv/pyenv?tab=readme-ov-file#installation
+# install pyenv-virtualenv - https://github.com/pyenv/pyenv-virtualenv?tab=readme-ov-file#installation
+pyenv install 3.10.13  # Only if not already installed; this can be any supported Python 3 version in Prerequisites
+pyenv virtualenv 3.10.13 build-graph-notebook
+pyenv local build-graph-notebook
+
+# 2b) Option 2 - venv
+deactivate 
+conda deactivate
+rm -rf /tmp/venv
+python3 -m venv --clear /tmp/venv
+source /tmp/venv/bin/activate
+
+
+# 3) Install build dependencies
+pip install --upgrade build hatch hatch-jupyter-builder
+pip install "jupyterlab>=4.3.5,<5"
+
+# 4) Build the distribution
+python3 -m build .
+```
+
+You should now be able to find the built distribution at
+
+`./dist/graph_notebook-5.0.1-py3-none-any.whl`
+
+And use it by following the [installation](https://github.com/aws/graph-notebook#installation) steps, replacing
+
+``` python
+pip install graph-notebook
+```
+
+with
+
+``` python
+pip install ./dist/graph_notebook-5.0.1-py3-none-any.whl --force-reinstall
+```
+
+## Contributing Guidelines
+
+See [CONTRIBUTING](https://github.com/aws/graph-notebook/blob/main/CONTRIBUTING.md) for more information.
+
+## License
+
+This project is licensed under the Apache-2.0 License.

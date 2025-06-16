@@ -1,0 +1,66 @@
+Metadata-Version: 2.4
+Name: pychomp2
+Version: 1.1.0
+Summary: CHomP (Computational Homology Project) Python Extension
+Author-Email: Marcio Gameiro <marciogameiro@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Education
+Classifier: Programming Language :: C++
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS
+Project-URL: Repository, https://github.com/marciogameiro/pyCHomP2
+Requires-Python: >=3.9
+Requires-Dist: graphviz>=0.20
+Requires-Dist: matplotlib>=3.6.0
+Requires-Dist: numpy>=1.23.0
+Requires-Dist: scipy>=1.11.4
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Description-Content-Type: text/markdown
+
+# pyCHomP2
+
+CHomP (Computational Homology Project) with Python bindings
+
+## Installation
+
+To get the latest tagged version from the PyPi repository:
+
+```bash
+pip install pychomp2
+```
+
+To uninstall:
+
+```bash
+pip uninstall pychomp2
+```
+
+## Installing from source
+
+The recommended way to install `pyCHomP2` is using `pip` as above. To get the bleeding edge version (i.e., this repo) install with the commands below. This requires a `C++` compiler.
+
+```bash
+git clone https://github.com/marciogameiro/pyCHomP2.git
+cd pyCHomP2
+pip install . --force-reinstall --no-deps --no-cache-dir
+```
+
+Or install directly from `GitHub`:
+
+```bash
+pip install --force-reinstall --no-deps --no-cache-dir git+https://github.com/marciogameiro/pyCHomP2.git
+```

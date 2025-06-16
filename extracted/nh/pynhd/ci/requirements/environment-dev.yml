@@ -1,0 +1,156 @@
+name: hyriver-dev
+channels:
+- conda-forge
+- nodefaults
+dependencies:
+# system
+- python >=3.9
+- libnetcdf
+- hdf5
+- libgdal-core
+
+# async-retriever
+- aiodns
+- aiofiles
+- aiohttp >=3.8.3
+- aiohttp-client-cache >=0.12.3
+- aiosqlite
+- brotli
+- cytoolz
+- ujson
+
+# hydrosignatures
+- numpy >=2
+- pandas >=1
+- scipy
+- xarray >=2024.7
+# optional
+- numba >=0.60
+- numbagg
+
+# py3dep
+# - async-retriever
+- click >=0.7
+- cytoolz
+- geopandas >=1
+- numpy >=1.17
+# - pygeoogc
+# - pygeoutils
+- rasterio >=1.2
+- rioxarray >=0.11
+- shapely >=2
+- xarray >=2024.7
+# optional
+- numba >=0.60
+- numbagg
+
+# pydaymet/pygridmet/pynldas2
+- aiofiles
+- aiohttp >=3.8.3
+- click >=0.7
+- netcdf4
+- numpy >=2
+- pandas >=1
+- pyproj >=3.0.1
+- rasterio
+- rioxarray >=0.15
+- shapely >=2
+- xarray >=2024.7
+
+# pygeohydro
+# - async-retriever
+- cytoolz
+- defusedxml
+- folium
+- geopandas >=1
+- h5netcdf
+# - hydrosignatures
+- matplotlib >=3.5
+- numpy >=2
+- pandas >=1
+# - pygeoogc
+# - pygeoutils
+# - pynhd
+- pyproj >=3.0.1
+- rioxarray >=0.15
+- scipy
+- shapely >=2
+- ujson
+- xarray >=2024.7
+# optional
+- planetary-computer
+- pystac-client
+
+# pygeoogc
+# - async-retriever
+- cytoolz
+- defusedxml
+- joblib
+- multidict
+- owslib >=0.27.2
+- pyproj >=3.0.1
+- requests
+- requests-cache >=0.9.6
+- shapely >=2
+- typing-extensions
+- ujson
+- url-normalize >=1.4
+- urllib3
+- yarl
+
+# pygeoutils
+- cytoolz
+- geopandas >=1
+- netcdf4
+- numpy >=2
+- pyproj >=3.0.1
+- rasterio >=1.2
+- rioxarray >=0.15
+- scipy
+- shapely >=2
+- ujson
+- xarray >=2024.7
+
+# pynhd
+# - async-retriever
+- cytoolz
+- geopandas >=1
+- networkx
+- numpy >=2
+- pandas >=1
+- pyarrow >=1.0.1
+# - pygeoogc
+# - pygeoutils
+- shapely >=2
+# optional
+- py7zr
+
+# seamless-3dep
+- aiofiles
+- aiohttp >=3.8.3
+- rasterio
+
+# performance
+- numbagg
+- flox
+- opt-einsum
+
+# example notebooks
+- mapclassify
+- contextily
+- hvplot
+- osmnx
+- tqdm
+- ffmpeg
+- xarray-spatial
+- dask-expr
+- datashader
+
+# IDE and dev
+- pytest
+- nox
+- nbmake
+- ipywidgets
+- ipykernel
+- nbconvert >=7.16.4
+- notebook >=7.2.2

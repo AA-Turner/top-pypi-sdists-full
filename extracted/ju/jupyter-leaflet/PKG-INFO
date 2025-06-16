@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: jupyter-leaflet
-Version: 0.19.2
+Version: 0.20.0
 Summary: ipyleaflet extensions for JupyterLab and Jupyter Notebook
 Project-URL: Homepage, https://github.com/jupyter-widgets/ipyleaflet
 Author-email: Project Jupyter <jupyter@googlegroups.com>

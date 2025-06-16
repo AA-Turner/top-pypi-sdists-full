@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: daytona_sdk
-Version: 0.20.2
+Version: 0.21.0
 Summary: Python SDK for Daytona
 Author-email: "Daytona Platforms Inc." <support@daytona.io>
-License: AGPL-3.0
+License: Apache-2.0
 Keywords: daytona,sdk
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
@@ -13,8 +13,9 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Requires-Dist: daytona_api_client<0.21.0,>=0.20.1
-Requires-Dist: daytona_api_client_async<0.21.0,>=0.20.1
+License-File: LICENSE
+Requires-Dist: daytona_api_client<0.22.0,>=0.21.0
+Requires-Dist: daytona_api_client_async<0.22.0,>=0.21.0
 Requires-Dist: environs<10.0.0,>=9.5.0
 Requires-Dist: marshmallow<4.0.0,>=3.19.0
 Requires-Dist: pydantic<3.0.0,>=2.4.2
@@ -28,6 +29,7 @@ Requires-Dist: aiohttp_retry<3.0.0,>=2.9.0
 Requires-Dist: toml<0.11.0,>=0.10.0
 Requires-Dist: aioboto3<15.0.0,>=14.0.0
 Requires-Dist: boto3<2.0.0,>=1.0.0
+Requires-Dist: importlib-metadata<6.0.0,>=1.0.0; python_version < "3.8"
 Provides-Extra: dev
 Requires-Dist: pydoc-markdown>=4.8.2; extra == "dev"
 Requires-Dist: build>=1.0.3; extra == "dev"
@@ -40,6 +42,7 @@ Requires-Dist: pylint<4.0.0,>=3.3.4; extra == "dev"
 Requires-Dist: isort<6.0.0,>=5.10.0; extra == "dev"
 Requires-Dist: matplotlib<3.11.0,>=3.10.0; extra == "dev"
 Requires-Dist: unasync<0.7.0,>=0.6.0; extra == "dev"
+Dynamic: license-file
 
 # Daytona SDK for Python
 
@@ -50,7 +53,7 @@ A Python SDK for interacting with the Daytona API, providing a simple interface 
 You can install the package using pip:
 
 ```bash
-pip install daytona-sdk
+pip install daytona
 ```
 
 ## Quick Start
@@ -58,7 +61,7 @@ pip install daytona-sdk
 Here's a simple example of using the SDK:
 
 ```python
-from daytona_sdk import Daytona
+from daytona import Daytona
 
 # Initialize using environment variables
 daytona = Daytona()
@@ -79,7 +82,7 @@ daytona.delete(sandbox)
 The SDK can be configured using environment variables or by passing a configuration object:
 
 ```python
-from daytona_sdk import Daytona, DaytonaConfig
+from daytona import Daytona, DaytonaConfig
 
 # Initialize with configuration
 config = DaytonaConfig(
@@ -178,6 +181,6 @@ completions = lsp.completions('path/to/file.ts', {"line": 10, "character": 15})
 
 ## Contributing
 
-Daytona is Open Source under the [GNU AFFERO GENERAL PUBLIC LICENSE](LICENSE), and is the [copyright of its contributors](NOTICE). If you would like to contribute to the software, read the Developer Certificate of Origin Version 1.1 (https://developercertificate.org/). Afterwards, navigate to the [contributing guide](CONTRIBUTING.md) to get started.
+Daytona is Open Source under the [Apache License 2.0](LICENSE), and is the [copyright of its contributors](NOTICE). If you would like to contribute to the software, read the Developer Certificate of Origin Version 1.1 (https://developercertificate.org/). Afterwards, navigate to the [contributing guide](CONTRIBUTING.md) to get started.
 
-Code in [\_sync](src/daytona_sdk/_sync/) directory shouldn't be edited directly. It should be generated from the corresponding async code in the [\_async](src/daytona_sdk/_async/) directory using the [sync_generator.py](scripts/sync_generator.py) script.
+Code in [\_sync](src/daytona/_sync/) directory shouldn't be edited directly. It should be generated from the corresponding async code in the [\_async](src/daytona/_async/) directory using the [sync_generator.py](scripts/sync_generator.py) script.

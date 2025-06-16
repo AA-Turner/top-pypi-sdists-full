@@ -1,39 +1,39 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: graphviz
-Version: 0.20.3
+Version: 0.21
 Summary: Simple Python interface for Graphviz
-Home-page: https://github.com/xflr6/graphviz
-Author: Sebastian Bank
-Author-email: sebastian.bank@uni-leipzig.de
-License: MIT
+Author-email: Sebastian Bank <sebastian.bank@uni-leipzig.de>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/xflr6/graphviz
 Project-URL: Documentation, https://graphviz.readthedocs.io
 Project-URL: Changelog, https://graphviz.readthedocs.io/en/latest/changelog.html
 Project-URL: Issue Tracker, https://github.com/xflr6/graphviz/issues
 Project-URL: CI, https://github.com/xflr6/graphviz/actions
 Project-URL: Coverage, https://codecov.io/gh/xflr6/graphviz
-Keywords: graph visualization dot render
+Keywords: graph,visualization,dot,render
 Platform: any
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Provides-Extra: dev
-Requires-Dist: tox>=3; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: pep8-naming; extra == "dev"
+Requires-Dist: build; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
 Requires-Dist: twine; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: Flake8-pyproject; extra == "dev"
+Requires-Dist: pep8-naming; extra == "dev"
+Requires-Dist: tox>=3; extra == "dev"
 Provides-Extra: test
 Requires-Dist: pytest<8.1,>=7; extra == "test"
 Requires-Dist: pytest-mock>=3; extra == "test"
@@ -42,12 +42,13 @@ Requires-Dist: coverage; extra == "test"
 Provides-Extra: docs
 Requires-Dist: sphinx<7,>=5; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
-Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Requires-Dist: sphinx-rtd-theme>=0.2.5; extra == "docs"
+Dynamic: license-file
 
 Graphviz
 ========
 
-|PyPI version| |License| |Supported Python| |Wheel| |Downloads|
+|PyPI version| |License| |Supported Python| |Downloads|
 
 |Build| |Codecov| |Readthedocs-stable| |Readthedocs-latest|
 
@@ -78,12 +79,14 @@ Links
 - Changelog: https://graphviz.readthedocs.io/en/latest/changelog.html
 - Issue Tracker: https://github.com/xflr6/graphviz/issues
 - Download: https://pypi.org/project/graphviz/#files
+- Development documentation: https://graphviz.readthedocs.io/en/latest/development.html
+- Release process: https://graphviz.readthedocs.io/en/latest/release_process.html
 
 
 Installation
 ------------
 
-This package runs under Python 3.8+, use pip_ to install:
+This package runs under Python 3.9+, use pip_ to install:
 
 .. code:: bash
 
@@ -192,13 +195,6 @@ License
 This package is distributed under the `MIT license`_.
 
 
-Development
------------
-
-- Development documentation: https://graphviz.readthedocs.io/en/latest/development.html
-- Release process: https://graphviz.readthedocs.io/en/latest/release_process.html
-
-
 .. _Graphviz:  https://www.graphviz.org
 .. _DOT: https://www.graphviz.org/doc/info/lang.html
 .. _upstream repo: https://gitlab.com/graphviz/graphviz/
@@ -248,9 +244,6 @@ Development
 .. |Supported Python| image:: https://img.shields.io/pypi/pyversions/graphviz.svg
     :target: https://pypi.org/project/graphviz/
     :alt: Supported Python Versions
-.. |Wheel| image:: https://img.shields.io/pypi/wheel/graphviz.svg
-    :target: https://pypi.org/project/graphviz/#files
-    :alt: Wheel format
 .. |Downloads| image::  https://img.shields.io/pypi/dm/graphviz.svg
     :target: https://pypistats.org/packages/graphviz
     :alt: Monthly downloads

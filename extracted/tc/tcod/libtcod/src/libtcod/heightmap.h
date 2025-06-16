@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_HEIGHTMAP_H
-#define _TCOD_HEIGHTMAP_H
+#pragma once
+#ifndef TCOD_HEIGHTMAP_H_
+#define TCOD_HEIGHTMAP_H_
 
 #include "mersenne_types.h"
 #include "noise.h"
@@ -112,4 +113,4 @@ TCODLIB_API void TCOD_heightmap_islandify(TCOD_heightmap_t* hm, float seaLevel, 
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif  // TCOD_HEIGHTMAP_H_

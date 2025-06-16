@@ -1,0 +1,128 @@
+[build-system]
+requires = [
+    "scikit-build-core>=0.3.0",
+    "swig",
+    "cmeel-eigen",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "openbabel-wheel"
+dynamic = ["version"]
+description = "An unofficial repository to distribute OpenBabel prebuilt wheels through Pypi.."
+authors = [
+  {name = "Jinzhe Zeng", email = "jinzhe.zeng@rutgers.edu"},
+  {name = "Noel O'Boyle", email = "openbabel-discuss@lists.sourceforge.net"},
+]
+license = {file = "LICENSE"}
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Environment :: Console',
+    'Environment :: Other Environment',
+    'Intended Audience :: Education',
+    'Intended Audience :: Science/Research',
+    'License :: OSI Approved :: GNU General Public License (GPL)',
+    'Natural Language :: English',
+    'Operating System :: MacOS :: MacOS X',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: OS Independent',
+    'Operating System :: POSIX',
+    'Operating System :: POSIX :: Linux',
+    'Operating System :: Unix',
+    'Programming Language :: C++',
+    'Programming Language :: Python',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+    'Topic :: Scientific/Engineering :: Chemistry',
+    'Topic :: Software Development :: Libraries',
+]
+dependencies = [
+]
+readme = "README.md"
+requires-python = ">=3.7"
+
+[tool.scikit-build]
+minimum-version = "0.3.0"
+wheel.install-dir = "openbabel"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+
+[tool.scikit-build.cmake.define]
+OBABEL_VERSION = "77993b9a3b96fb9bd86249098beb97ab0fcbafc6"
+CMAKE_BUILD_TYPE = "Release"
+WITH_INCHI = "ON"
+PYTHON_BINDINGS = "ON"
+RUN_SWIG = "ON"
+BUILD_BY_PIP = "ON"
+# https://github.com/njzjz/openbabel-wheel/issues/49
+CMAKE_POLICY_VERSION_MINIMUM = "3.5"
+
+[project.urls]
+homepage = "https://github.com/njzjz/openbabel-wheel"
+repository = "https://github.com/njzjz/openbabel-wheel"
+openbabel_homepage = "http://openbabel.org/"
+openbabel_repository = "https://github.com/openbabel/openbabel"
+
+[project.scripts]
+obabel = "openbabel.executable:obabel"
+
+[tool.setuptools.packages.find]
+include = ["openbabel*"]
+
+[tool.setuptools_scm]
+
+[tool.cibuildwheel]
+test-command = [
+    """python -c "from openbabel import openbabel;ff = openbabel.OBForceField.FindType('mmff94');ff.DiverseConfGen(0.5, 100000, 50)" """,
+    "obabel -:C -oxyz --gen3d",
+]
+build = ["cp37-*", "cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp313t-*"]
+skip = ["*-win32", "*-manylinux_i686", "*-musllinux*"]
+test-skip = ["cp37-macosx_x86_64"]
+free-threaded-support = true
+
+[tool.cibuildwheel.linux]
+# refer rdkit-pypi
+before-all = [
+    # Has eigen3-devel.aarch64
+    "yum install -y epel-release",
+    "yum install -y wget freetype-devel libpng12-devel pixman-devel zlib-devel libxml2-devel",
+    # cairo-devel from the centos repo does not work, build here
+    "wget https://www.cairographics.org/snapshots/cairo-1.15.14.tar.xz --no-check-certificate",
+    "tar xvf cairo-*",
+    "cd cairo-*",
+    "./configure",
+    "make -j 20",
+    "make install",
+    "cd ..",
+]
+environment-pass = ["CIBW_BUILD"]
+
+[tool.cibuildwheel.macos]
+
+before-all = [
+'''if [[ "$CIBW_BUILD" == *macosx_arm64* ]]; then
+    rm /usr/local/lib/libfreetype.dylib
+    install_arm=( libpng libx11 libxau libxcb libxdmcp libxext libxrender fontconfig glib lzo pixman cairo freetype )
+    for i in "${install_arm[@]}"; do
+        response=$(brew fetch --force --bottle-tag=arm64_ventura $i | grep Downloaded )
+        download_path=$(echo $response | xargs -n 1 | tail -1)
+        brew reinstall $download_path
+    done
+else
+    rm /usr/local/lib/libfreetype.dylib
+    install_arm=( libpng libx11 libxau libxcb libxdmcp libxext libxrender fontconfig glib lzo pixman cairo freetype )
+    for i in "${install_arm[@]}"; do
+        response=$(brew fetch --force --bottle-tag=ventura $i | grep Downloaded )
+        download_path=$(echo $response | xargs -n 1 | tail -1)
+        brew reinstall $download_path
+    done
+fi
+brew install gnu-sed
+'''
+]
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "13"
+
+[tool.cibuildwheel.windows]
+before-build = "pip install delvewheel"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --ignore-in-wheel"

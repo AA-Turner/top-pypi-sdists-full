@@ -19,6 +19,8 @@ export interface ILeafletLayerModel {
     popup_max_height: number | null;
     pane: string;
     subitems: Layer[];
+    pm_ignore: boolean;
+    snap_ignore: boolean;
 }
 export declare class LeafletLayerModel extends WidgetModel {
     defaults(): ILeafletLayerModel;
@@ -40,6 +42,8 @@ export declare class LeafletUILayerModel extends LeafletLayerModel {
         popup_max_height: number | null;
         pane: string;
         subitems: Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
 export declare class LeafletLayerView extends LeafletWidgetView {

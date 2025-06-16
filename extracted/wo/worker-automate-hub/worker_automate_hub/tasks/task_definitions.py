@@ -86,9 +86,16 @@ from worker_automate_hub.tasks.jobs.integracao_contabil_generica import (
     integracao_contabil_generica,
 )
 from worker_automate_hub.tasks.jobs.lancamento_pis_cofins import lancamento_pis_cofins
+
+from worker_automate_hub.tasks.jobs.lancamento_rateio import lancamento_rateio
+
 from worker_automate_hub.tasks.jobs.extracao_fechamento_contabil import (
     extracao_fechamento_contabil,
 )
+from worker_automate_hub.tasks.jobs.extracao_fechamento_emsys import (
+    extracao_fechamento_emsys,
+)
+
 
 task_definitions = {
     "5b295021-8df7-40a1-a45e-fe7109ae3902": exemplo_processo,
@@ -183,8 +190,10 @@ task_definitions = {
     "c10bbf8c-3949-4a0e-9e10-3d85d367263d": abertura_livros_fiscais,
     "68d6a695-73f0-424c-afb6-54b5dba3ab9d": lancamento_pis_cofins,
     "def194c2-ffa0-4b9e-b95c-920fb4ad4150": importar_cte_xml,
+    "b47f25e8-0b41-429d-904b-7db7a03219cc": lancamento_rateio,
     "58de6a65-68cd-4e68-ab28-31b543b6de02": transferencias,  # Logistica reverse
     "ca7ac373-e8e7-4ac2-aa7e-298070e0d9a0": extracao_fechamento_contabil,
+    "8c28726d-458d-4119-afa0-202695b79a8f": extracao_fechamento_emsys,
 }
 
 

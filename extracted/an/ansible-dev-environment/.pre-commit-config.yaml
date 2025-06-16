@@ -1,0 +1,120 @@
+---
+ci:
+  # format compatible with commitlint
+  autoupdate_commit_msg: "chore: pre-commit autoupdate"
+  autoupdate_schedule: monthly
+  autofix_commit_msg: "chore: auto fixes from pre-commit.com hooks"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: debug-statements
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/asottile/add-trailing-comma.git
+    rev: v3.1.0
+    hooks:
+      - id: add-trailing-comma
+
+  - repo: https://github.com/Lucas-C/pre-commit-hooks.git
+    rev: v1.5.5
+    hooks:
+      - id: remove-tabs
+        exclude: >
+          (?x)^(
+            .config/pydoclint-baseline.txt
+          )$
+
+  - repo: https://github.com/pycontribs/mirrors-prettier
+    rev: v3.5.3
+    hooks:
+      - id: prettier
+        always_run: true
+        additional_dependencies:
+          - prettier
+          - prettier-plugin-toml
+          - prettier-plugin-sort-json
+
+  - repo: https://github.com/pappasam/toml-sort
+    rev: v0.24.2
+    hooks:
+      - id: toml-sort-fix
+        alias: toml
+
+  - repo: https://github.com/tox-dev/tox-ini-fmt
+    rev: 1.5.0
+    hooks:
+      - id: tox-ini-fmt
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.8
+    hooks:
+      - id: ruff
+        entry: sh -c 'ruff check --fix --force-exclude && ruff format --force-exclude'
+        types_or: [python, pyi]
+
+  - repo: https://github.com/streetsidesoftware/cspell-cli
+    rev: v8.19.1
+    hooks:
+      - id: cspell
+        name: Spell check with cspell
+
+  - repo: https://github.com/jsh9/pydoclint
+    rev: "0.6.6"
+    hooks:
+      - id: pydoclint
+        # This allows automatic reduction of the baseline file when needed.
+        entry: sh -ec "pydoclint . && pydoclint --generate-baseline=1 ."
+        pass_filenames: false
+
+  - repo: https://github.com/pycqa/pylint.git
+    rev: v3.3.7
+    hooks:
+      - id: pylint
+        args:
+          - --output-format=colorized
+        additional_dependencies:
+          - argcomplete
+          - pytest
+          - pyyaml
+          - subprocess_tee
+          - setuptools
+          - tox
+
+  - repo: https://github.com/pre-commit/mirrors-mypy.git
+    rev: v1.15.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - argcomplete
+          - pip
+          - pytest
+          - subprocess_tee
+          - types-pyyaml
+          - types-setuptools
+          - uv
+        # Override default pre-commit '--ignore-missing-imports'
+        args: [--strict]
+
+  - repo: https://github.com/jazzband/pip-tools
+    rev: 7.4.1
+    hooks:
+      - id: pip-compile
+        name: deps
+        alias: deps
+        stages: [manual]
+        entry: >-
+          pip-compile .config/requirements.in
+          --upgrade
+          --all-extras
+          --no-annotate
+          --strip-extras
+          --output-file=.config/constraints.txt pyproject.toml
+        files: ^.config\/.*requirements.*$
+        language_version: "3.10" # minimal we support officially

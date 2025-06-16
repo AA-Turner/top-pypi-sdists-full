@@ -1569,6 +1569,12 @@ class CfnWorkGroup(
                     selected_engine_version="selectedEngineVersion"
                 ),
                 execution_role="executionRole",
+                managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
+                    enabled=False,
+                    encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                        kms_key="kmsKey"
+                    )
+                ),
                 publish_cloud_watch_metrics_enabled=False,
                 requester_pays_enabled=False,
                 result_configuration=athena.CfnWorkGroup.ResultConfigurationProperty(
@@ -1597,6 +1603,12 @@ class CfnWorkGroup(
                     selected_engine_version="selectedEngineVersion"
                 ),
                 execution_role="executionRole",
+                managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
+                    enabled=False,
+                    encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                        kms_key="kmsKey"
+                    )
+                ),
                 publish_cloud_watch_metrics_enabled=False,
                 remove_bytes_scanned_cutoff_per_query=False,
                 remove_customer_content_encryption_configuration=False,
@@ -2114,6 +2126,141 @@ class CfnWorkGroup(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "encryption_configuration": "encryptionConfiguration",
+        },
+    )
+    class ManagedQueryResultsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The configuration for the managed query results and encryption option.
+
+            ResultConfiguration and ManagedQueryResultsConfiguration cannot be set at the same time
+
+            :param enabled: 
+            :param encryption_configuration: Indicates the encryption configuration for Athena Managed Storage. If not setting this field, Managed Storage will encrypt the query results with Athena's encryption key
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-managedqueryresultsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_athena as athena
+                
+                managed_query_results_configuration_property = athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
+                    enabled=False,
+                    encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                        kms_key="kmsKey"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f6c4d2e9be468cb69e158be7cc0f67bd537760da2f65bdfea130a3adceb65198)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if encryption_configuration is not None:
+                self._values["encryption_configuration"] = encryption_configuration
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-managedqueryresultsconfiguration.html#cfn-athena-workgroup-managedqueryresultsconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+
+        @builtins.property
+        def encryption_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty"]]:
+            '''Indicates the encryption configuration for Athena Managed Storage.
+
+            If not setting this field, Managed Storage will encrypt the query results with Athena's encryption key
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-managedqueryresultsconfiguration.html#cfn-athena-workgroup-managedqueryresultsconfiguration-encryptionconfiguration
+            '''
+            result = self._values.get("encryption_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedQueryResultsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"kms_key": "kmsKey"},
+    )
+    class ManagedStorageEncryptionConfigurationProperty:
+        def __init__(self, *, kms_key: typing.Optional[builtins.str] = None) -> None:
+            '''Indicates the encryption configuration for Athena Managed Storage.
+
+            If not setting this field, Managed Storage will encrypt the query results with Athena's encryption key
+
+            :param kms_key: For SSE-KMS and CSE-KMS, this is the KMS key ARN or ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-managedstorageencryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_athena as athena
+                
+                managed_storage_encryption_configuration_property = athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                    kms_key="kmsKey"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__53549459074bb1d23e4ee2a6fd045c500008070dfc2015833edc260380222a02)
+                check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if kms_key is not None:
+                self._values["kms_key"] = kms_key
+
+        @builtins.property
+        def kms_key(self) -> typing.Optional[builtins.str]:
+            '''For SSE-KMS and CSE-KMS, this is the KMS key ARN or ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-managedstorageencryptionconfiguration.html#cfn-athena-workgroup-managedstorageencryptionconfiguration-kmskey
+            '''
+            result = self._values.get("kms_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedStorageEncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_athena.CfnWorkGroup.ResultConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2453,6 +2600,7 @@ class CfnWorkGroup(
             "enforce_work_group_configuration": "enforceWorkGroupConfiguration",
             "engine_version": "engineVersion",
             "execution_role": "executionRole",
+            "managed_query_results_configuration": "managedQueryResultsConfiguration",
             "publish_cloud_watch_metrics_enabled": "publishCloudWatchMetricsEnabled",
             "requester_pays_enabled": "requesterPaysEnabled",
             "result_configuration": "resultConfiguration",
@@ -2468,6 +2616,7 @@ class CfnWorkGroup(
             enforce_work_group_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkGroup.EngineVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             execution_role: typing.Optional[builtins.str] = None,
+            managed_query_results_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkGroup.ManagedQueryResultsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             publish_cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             requester_pays_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             result_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkGroup.ResultConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2482,6 +2631,7 @@ class CfnWorkGroup(
             :param enforce_work_group_configuration: If set to "true", the settings for the workgroup override client-side settings. If set to "false", client-side settings are used. For more information, see `Override client-side settings <https://docs.aws.amazon.com/athena/latest/ug/workgroups-settings-override.html>`_ .
             :param engine_version: The engine version that all queries running on the workgroup use.
             :param execution_role: Role used to access user resources in an Athena for Apache Spark session. This property applies only to Spark-enabled workgroups in Athena.
+            :param managed_query_results_configuration: The configuration for the managed query results and encryption option. ResultConfiguration and ManagedQueryResultsConfiguration cannot be set at the same time
             :param publish_cloud_watch_metrics_enabled: Indicates that the Amazon CloudWatch metrics are enabled for the workgroup.
             :param requester_pays_enabled: If set to ``true`` , allows members assigned to a workgroup to reference Amazon S3 Requester Pays buckets in queries. If set to ``false`` , workgroup members cannot query data from Requester Pays buckets, and queries that retrieve data from Requester Pays buckets cause an error. The default is ``false`` . For more information about Requester Pays buckets, see `Requester Pays Buckets <https://docs.aws.amazon.com/AmazonS3/latest/dev/RequesterPaysBuckets.html>`_ in the *Amazon Simple Storage Service Developer Guide* .
             :param result_configuration: Specifies the location in Amazon S3 where query results are stored and the encryption option, if any, used for query results. For more information, see `Work with query results and recent queries <https://docs.aws.amazon.com/athena/latest/ug/querying.html>`_ .
@@ -2507,6 +2657,12 @@ class CfnWorkGroup(
                         selected_engine_version="selectedEngineVersion"
                     ),
                     execution_role="executionRole",
+                    managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
+                        enabled=False,
+                        encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                            kms_key="kmsKey"
+                        )
+                    ),
                     publish_cloud_watch_metrics_enabled=False,
                     requester_pays_enabled=False,
                     result_configuration=athena.CfnWorkGroup.ResultConfigurationProperty(
@@ -2532,6 +2688,7 @@ class CfnWorkGroup(
                 check_type(argname="argument enforce_work_group_configuration", value=enforce_work_group_configuration, expected_type=type_hints["enforce_work_group_configuration"])
                 check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
                 check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+                check_type(argname="argument managed_query_results_configuration", value=managed_query_results_configuration, expected_type=type_hints["managed_query_results_configuration"])
                 check_type(argname="argument publish_cloud_watch_metrics_enabled", value=publish_cloud_watch_metrics_enabled, expected_type=type_hints["publish_cloud_watch_metrics_enabled"])
                 check_type(argname="argument requester_pays_enabled", value=requester_pays_enabled, expected_type=type_hints["requester_pays_enabled"])
                 check_type(argname="argument result_configuration", value=result_configuration, expected_type=type_hints["result_configuration"])
@@ -2548,6 +2705,8 @@ class CfnWorkGroup(
                 self._values["engine_version"] = engine_version
             if execution_role is not None:
                 self._values["execution_role"] = execution_role
+            if managed_query_results_configuration is not None:
+                self._values["managed_query_results_configuration"] = managed_query_results_configuration
             if publish_cloud_watch_metrics_enabled is not None:
                 self._values["publish_cloud_watch_metrics_enabled"] = publish_cloud_watch_metrics_enabled
             if requester_pays_enabled is not None:
@@ -2627,6 +2786,19 @@ class CfnWorkGroup(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def managed_query_results_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.ManagedQueryResultsConfigurationProperty"]]:
+            '''The configuration for the managed query results and encryption option.
+
+            ResultConfiguration and ManagedQueryResultsConfiguration cannot be set at the same time
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-workgroupconfiguration.html#cfn-athena-workgroup-workgroupconfiguration-managedqueryresultsconfiguration
+            '''
+            result = self._values.get("managed_query_results_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.ManagedQueryResultsConfigurationProperty"]], result)
+
+        @builtins.property
         def publish_cloud_watch_metrics_enabled(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
@@ -2684,6 +2856,7 @@ class CfnWorkGroup(
             "enforce_work_group_configuration": "enforceWorkGroupConfiguration",
             "engine_version": "engineVersion",
             "execution_role": "executionRole",
+            "managed_query_results_configuration": "managedQueryResultsConfiguration",
             "publish_cloud_watch_metrics_enabled": "publishCloudWatchMetricsEnabled",
             "remove_bytes_scanned_cutoff_per_query": "removeBytesScannedCutoffPerQuery",
             "remove_customer_content_encryption_configuration": "removeCustomerContentEncryptionConfiguration",
@@ -2701,6 +2874,7 @@ class CfnWorkGroup(
             enforce_work_group_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkGroup.EngineVersionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             execution_role: typing.Optional[builtins.str] = None,
+            managed_query_results_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkGroup.ManagedQueryResultsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             publish_cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             remove_bytes_scanned_cutoff_per_query: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             remove_customer_content_encryption_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
@@ -2715,6 +2889,7 @@ class CfnWorkGroup(
             :param enforce_work_group_configuration: If set to "true", the settings for the workgroup override client-side settings. If set to "false", client-side settings are used
             :param engine_version: The Athena engine version for running queries.
             :param execution_role: Execution Role ARN required to run Athena Spark Calculations.
+            :param managed_query_results_configuration: The configuration for the managed query results and encryption option. ResultConfiguration and ManagedQueryResultsConfiguration cannot be set at the same time
             :param publish_cloud_watch_metrics_enabled: Indicates that the Amazon CloudWatch metrics are enabled for the workgroup.
             :param remove_bytes_scanned_cutoff_per_query: Indicates that the data usage control limit per query is removed.
             :param remove_customer_content_encryption_configuration: 
@@ -2742,6 +2917,12 @@ class CfnWorkGroup(
                         selected_engine_version="selectedEngineVersion"
                     ),
                     execution_role="executionRole",
+                    managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
+                        enabled=False,
+                        encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                            kms_key="kmsKey"
+                        )
+                    ),
                     publish_cloud_watch_metrics_enabled=False,
                     remove_bytes_scanned_cutoff_per_query=False,
                     remove_customer_content_encryption_configuration=False,
@@ -2773,6 +2954,7 @@ class CfnWorkGroup(
                 check_type(argname="argument enforce_work_group_configuration", value=enforce_work_group_configuration, expected_type=type_hints["enforce_work_group_configuration"])
                 check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
                 check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+                check_type(argname="argument managed_query_results_configuration", value=managed_query_results_configuration, expected_type=type_hints["managed_query_results_configuration"])
                 check_type(argname="argument publish_cloud_watch_metrics_enabled", value=publish_cloud_watch_metrics_enabled, expected_type=type_hints["publish_cloud_watch_metrics_enabled"])
                 check_type(argname="argument remove_bytes_scanned_cutoff_per_query", value=remove_bytes_scanned_cutoff_per_query, expected_type=type_hints["remove_bytes_scanned_cutoff_per_query"])
                 check_type(argname="argument remove_customer_content_encryption_configuration", value=remove_customer_content_encryption_configuration, expected_type=type_hints["remove_customer_content_encryption_configuration"])
@@ -2791,6 +2973,8 @@ class CfnWorkGroup(
                 self._values["engine_version"] = engine_version
             if execution_role is not None:
                 self._values["execution_role"] = execution_role
+            if managed_query_results_configuration is not None:
+                self._values["managed_query_results_configuration"] = managed_query_results_configuration
             if publish_cloud_watch_metrics_enabled is not None:
                 self._values["publish_cloud_watch_metrics_enabled"] = publish_cloud_watch_metrics_enabled
             if remove_bytes_scanned_cutoff_per_query is not None:
@@ -2863,6 +3047,19 @@ class CfnWorkGroup(
             '''
             result = self._values.get("execution_role")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def managed_query_results_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.ManagedQueryResultsConfigurationProperty"]]:
+            '''The configuration for the managed query results and encryption option.
+
+            ResultConfiguration and ManagedQueryResultsConfiguration cannot be set at the same time
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-athena-workgroup-workgroupconfigurationupdates.html#cfn-athena-workgroup-workgroupconfigurationupdates-managedqueryresultsconfiguration
+            '''
+            result = self._values.get("managed_query_results_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkGroup.ManagedQueryResultsConfigurationProperty"]], result)
 
         @builtins.property
         def publish_cloud_watch_metrics_enabled(
@@ -3001,6 +3198,12 @@ class CfnWorkGroupProps:
                         selected_engine_version="selectedEngineVersion"
                     ),
                     execution_role="executionRole",
+                    managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
+                        enabled=False,
+                        encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                            kms_key="kmsKey"
+                        )
+                    ),
                     publish_cloud_watch_metrics_enabled=False,
                     requester_pays_enabled=False,
                     result_configuration=athena.CfnWorkGroup.ResultConfigurationProperty(
@@ -3029,6 +3232,12 @@ class CfnWorkGroupProps:
                         selected_engine_version="selectedEngineVersion"
                     ),
                     execution_role="executionRole",
+                    managed_query_results_configuration=athena.CfnWorkGroup.ManagedQueryResultsConfigurationProperty(
+                        enabled=False,
+                        encryption_configuration=athena.CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty(
+                            kms_key="kmsKey"
+                        )
+                    ),
                     publish_cloud_watch_metrics_enabled=False,
                     remove_bytes_scanned_cutoff_per_query=False,
                     remove_customer_content_encryption_configuration=False,
@@ -3567,6 +3776,21 @@ def _typecheckingstub__89f0b78a82f24ece8384b490252230129c42a711fdb038b4ecd645d32
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f6c4d2e9be468cb69e158be7cc0f67bd537760da2f65bdfea130a3adceb65198(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.ManagedStorageEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53549459074bb1d23e4ee2a6fd045c500008070dfc2015833edc260380222a02(
+    *,
+    kms_key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__86d94b0afb15160d6ec72666a7574c95b2d16afd21c5ca80a9f352f319f2f46c(
     *,
     acl_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.AclConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3599,6 +3823,7 @@ def _typecheckingstub__5bc58a8f7fc071c8f6e3cf6044079ec303e9ba8521ef96ca98c62cfdd
     enforce_work_group_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.EngineVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     execution_role: typing.Optional[builtins.str] = None,
+    managed_query_results_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.ManagedQueryResultsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     requester_pays_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     result_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.ResultConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3614,6 +3839,7 @@ def _typecheckingstub__6d600654f5aa48cb49fd4baf2a677e5f7725dcfa1249836427c1d9f65
     enforce_work_group_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     engine_version: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.EngineVersionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     execution_role: typing.Optional[builtins.str] = None,
+    managed_query_results_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkGroup.ManagedQueryResultsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_cloud_watch_metrics_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     remove_bytes_scanned_cutoff_per_query: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     remove_customer_content_encryption_configuration: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,

@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: ovirt-engine-sdk-python
+Version: 4.6.2
+Summary: Python SDK for oVirt Engine API
+Author: Michael Pasternak, Juan Hernandez, Ondra Machacek, Ori Liel, Martin Necas
+Author-email: mishka8520@yahoo.com, juan.hernandez@redhat.com, omachace@redhat.com, oliel@redhat.com, mnecas@redhat.com
+License: ASL2
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+License-File: LICENSE.txt
+Requires-Dist: pycurl>=7.19.0
+Requires-Dist: six
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

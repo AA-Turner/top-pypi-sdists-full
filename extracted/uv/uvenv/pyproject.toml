@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    "maturin>=1.5,<2.0",
+    # Add a fake dependency for unsupported platforms:
+    "please-use-uvx-v1-on-this-platform; (sys_platform != 'linux' and sys_platform != 'darwin') or (platform_machine != 'x86_64' and platform_machine != 'aarch64')",
+]
+build-backend = "maturin"
+
+[project]
+name = "uvenv"
+# requires-python = ">=3.10"
+description = 'uvenv: pipx for uv (🦀)'
+readme = "README.md"
+license-expression = "MIT"
+keywords = []
+authors = [
+    { name = "Robin van der Noord", email = "robinvandernoord@gmail.com" },
+]
+
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    # "Architecture :: x86_64",
+    # "Architecture :: aarch64",
+    "Development Status :: 4 - Beta",
+]
+
+dynamic = ["version"]
+
+dependencies = [
+    "uv==0.7.13", # obviously
+    "pip", # self-update
+    "patchelf; platform_system == 'Linux'", # idk, but required
+]
+
+[project.optional-dependencies]
+dev = [
+    "maturin[zig]",
+]
+
+[tool.maturin]
+bindings = "bin"

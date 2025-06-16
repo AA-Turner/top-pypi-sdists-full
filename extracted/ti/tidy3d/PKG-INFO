@@ -1,0 +1,205 @@
+Metadata-Version: 2.3
+Name: tidy3d
+Version: 2.8.4
+Summary: A fast FDTD solver
+License: LGPLv2+
+Author: Tyler Hughes
+Author-email: tyler@flexcompute.com
+Requires-Python: >=3.9,<3.14
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Provides-Extra: adjoint
+Provides-Extra: design
+Provides-Extra: dev
+Provides-Extra: docs
+Provides-Extra: gdspy
+Provides-Extra: gdstk
+Provides-Extra: heatcharge
+Provides-Extra: pytorch
+Provides-Extra: ruff
+Provides-Extra: scikit-rf
+Provides-Extra: trimesh
+Provides-Extra: vtk
+Requires-Dist: PyYAML
+Requires-Dist: autograd (>=1.7.0)
+Requires-Dist: bayesian-optimization (<2) ; extra == "dev" or extra == "design"
+Requires-Dist: boto3 (>=1.28.0,<2.0.0)
+Requires-Dist: bump-my-version ; extra == "dev"
+Requires-Dist: click (>=8.1.0,<9.0.0)
+Requires-Dist: cma ; extra == "dev" or extra == "docs"
+Requires-Dist: coverage ; extra == "dev"
+Requires-Dist: dask
+Requires-Dist: devsim ; extra == "dev" or extra == "docs" or extra == "heatcharge"
+Requires-Dist: dill ; extra == "dev"
+Requires-Dist: gdspy ; extra == "dev" or extra == "gdspy"
+Requires-Dist: gdstk (>=0.9.49) ; extra == "dev" or extra == "docs" or extra == "gdstk"
+Requires-Dist: grcwa ; extra == "dev" or extra == "docs"
+Requires-Dist: h5netcdf (==1.0.2)
+Requires-Dist: h5py (>=3.0.0,<4.0.0)
+Requires-Dist: importlib-metadata (>=6.0.0)
+Requires-Dist: ipython ; extra == "dev" or extra == "dev" or extra == "docs"
+Requires-Dist: jax[cpu] (>=0.4.26) ; extra == "dev" or extra == "adjoint"
+Requires-Dist: jaxlib (>=0.4.26) ; extra == "dev" or extra == "adjoint"
+Requires-Dist: jinja2 (>=3.1.2) ; extra == "dev" or extra == "docs"
+Requires-Dist: joblib
+Requires-Dist: jupyter ; extra == "dev" or extra == "docs"
+Requires-Dist: matplotlib
+Requires-Dist: memory_profiler ; extra == "dev"
+Requires-Dist: myst-parser ; extra == "dev" or extra == "docs"
+Requires-Dist: nbconvert (>=7.11.0) ; extra == "dev" or extra == "docs"
+Requires-Dist: nbdime ; extra == "dev" or extra == "docs"
+Requires-Dist: nbsphinx (>=0.8.7) ; extra == "dev" or extra == "docs"
+Requires-Dist: networkx (>=2.6.3,<3.0.0) ; extra == "dev" or extra == "trimesh"
+Requires-Dist: numpy
+Requires-Dist: optax (>=0.2.2) ; extra == "dev" or extra == "docs"
+Requires-Dist: pandas
+Requires-Dist: pre-commit ; extra == "dev"
+Requires-Dist: psutil ; extra == "dev"
+Requires-Dist: pydantic (>=2.0,<3.0)
+Requires-Dist: pydata-sphinx-theme (>=0.13.3) ; extra == "dev" or extra == "docs"
+Requires-Dist: pygad (==3.3.1) ; extra == "dev" or extra == "design"
+Requires-Dist: pyjwt
+Requires-Dist: pylint ; extra == "dev" or extra == "docs"
+Requires-Dist: pyroots (>=0.5.0)
+Requires-Dist: pyswarms ; extra == "dev" or extra == "design"
+Requires-Dist: pytest (>=8.1) ; extra == "dev"
+Requires-Dist: pytest-cov (>=6.0.0,<7.0.0) ; extra == "dev"
+Requires-Dist: pytest-env (>=1.1.5,<2.0.0) ; extra == "dev"
+Requires-Dist: pytest-timeout ; extra == "dev"
+Requires-Dist: pytest-xdist (>=3.6.1,<4.0.0) ; extra == "dev"
+Requires-Dist: requests (>=2.31.0,<3.0.0)
+Requires-Dist: responses
+Requires-Dist: rich (>=13.0,<14.0)
+Requires-Dist: rtree (==1.2.0) ; extra == "dev" or extra == "trimesh"
+Requires-Dist: ruff (==0.5.5) ; extra == "dev" or extra == "ruff"
+Requires-Dist: sax (>=0.11,<0.12) ; extra == "dev" or extra == "docs"
+Requires-Dist: scikit-rf ; extra == "dev" or extra == "scikit-rf"
+Requires-Dist: scipy
+Requires-Dist: shapely (>=2.0,<3.0)
+Requires-Dist: signac ; extra == "dev" or extra == "docs"
+Requires-Dist: sphinx (>=6) ; extra == "dev" or extra == "docs"
+Requires-Dist: sphinx-book-theme (>=1.0.1) ; extra == "dev" or extra == "docs"
+Requires-Dist: sphinx-copybutton (>=0.5.2) ; extra == "dev" or extra == "docs"
+Requires-Dist: sphinx-design ; extra == "dev" or extra == "docs"
+Requires-Dist: sphinx-favicon ; extra == "dev" or extra == "docs"
+Requires-Dist: sphinx-notfound-page ; extra == "dev" or extra == "docs"
+Requires-Dist: sphinx-sitemap (>=2.5.1) ; extra == "dev" or extra == "docs"
+Requires-Dist: sphinx-tabs ; extra == "dev" or extra == "docs"
+Requires-Dist: sphinxemoji ; extra == "dev" or extra == "docs"
+Requires-Dist: tmm ; extra == "dev" or extra == "docs"
+Requires-Dist: toml
+Requires-Dist: torch (>=2.2.0,<3.0.0) ; (sys_platform != "darwin") and (extra == "dev" or extra == "pytorch")
+Requires-Dist: torch (>=2.2.0,<3.0.0) ; (sys_platform == "darwin") and (extra == "dev" or extra == "pytorch")
+Requires-Dist: tox ; extra == "dev"
+Requires-Dist: trimesh (>=4,<5) ; extra == "dev" or extra == "trimesh" or extra == "heatcharge"
+Requires-Dist: vtk (>=9.2.6) ; extra == "dev" or extra == "vtk" or extra == "heatcharge"
+Requires-Dist: xarray (>=2023.08)
+Project-URL: Bug Tracker, https://github.com/flexcompute/tidy3d/issues
+Project-URL: Documentation, https://docs.flexcompute.com/projects/tidy3d/en/latest/
+Project-URL: Homepage, https://github.com/flexcompute/tidy3d
+Project-URL: Repository, https://github.com/flexcompute/tidy3d
+Description-Content-Type: text/markdown
+
+# Tidy3D
+[![PyPI
+Name](https://img.shields.io/badge/pypi-tidy3d-blue?style=for-the-badge)](https://pypi.python.org/pypi/tidy3d)
+[![PyPI version shields.io](https://img.shields.io/pypi/v/tidy3d.svg?style=for-the-badge)](https://pypi.python.org/pypi/tidy3d/)
+[![Documentation Status](https://readthedocs.com/projects/flexcompute-tidy3ddocumentation/badge/?version=latest&style=for-the-badge)](https://flexcompute-tidy3ddocumentation.readthedocs-hosted.com/?badge=latest)
+![Tests](https://img.shields.io/github/actions/workflow/status/flexcompute/tidy3d/run_tests.yml?style=for-the-badge)
+![License](https://img.shields.io/github/license/flexcompute/tidy3d?style=for-the-badge)
+[![Black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)](https://github.com/psf/black)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/daquinteroflex/4702549574741e87deaadba436218ebd/raw/tidy3d_extension.json)
+
+[![Notebooks](https://img.shields.io/badge/Demo-Live%20notebooks-8A2BE2?style=for-the-badge)](https://github.com/flexcompute/tidy3d-notebooks)
+
+![](https://raw.githubusercontent.com/flexcompute/tidy3d/main/img/Tidy3D-logo.svg)
+
+Tidy3D is a software package for solving extremely large electrodynamics problems using the finite-difference time-domain (FDTD) method. It can be controlled through either an [open source python package](https://github.com/flexcompute/tidy3d) or a [web-based graphical user interface](https://tidy3d.simulation.cloud).
+
+This repository contains the python API to allow you to:
+
+* Programmatically define FDTD simulations.
+* Submit and manage simulations running on Flexcompute's servers.
+* Download and postprocess the results from the simulations.
+
+
+![](https://raw.githubusercontent.com/flexcompute/tidy3d/main/img/snippet.png)
+
+## Installation
+
+### Signing up for tidy3d
+
+Note that while this front end package is open source, to run simulations on Flexcompute servers requires an account with credits.
+You can sign up for an account [here](https://tidy3d.simulation.cloud/signup).
+After that, you can install the front end with the instructions below, or visit [this page](https://docs.flexcompute.com/projects/tidy3d/en/latest/install.html) in our documentation for more details.
+
+### Quickstart Installation
+
+To install the Tidy3D Python API locally, the following instructions should work for most users.
+
+```
+pip install --user tidy3d
+tidy3d configure --apikey=XXX
+```
+
+Where `XXX` is your API key, which can be copied from your [account page](https://tidy3d.simulation.cloud/account) in the web interface.
+
+In a hosted jupyter notebook environment (eg google colab), it may be more convenient to install and configure via the following lines at the top of the notebook.
+
+```
+!pip install tidy3d
+import tidy3d.web as web
+web.configure("XXX")
+```
+
+**Advanced installation instructions for all platforms is available in the [documentation installation guides](https://docs.flexcompute.com/projects/tidy3d/en/latest/install.html).**
+
+### Authentication Verification
+
+To test the authentication, you may try importing the web interface via.
+
+```
+python -c "import tidy3d; tidy3d.web.test()"
+```
+
+It should pass without any errors if the API key is set up correctly.
+
+To get started, our documentation has a lot of [examples](https://docs.flexcompute.com/projects/tidy3d/en/latest/notebooks/docs/index.html) for inspiration.
+
+## Common Documentation References
+
+| API Resource       | URL                                                                              |
+|--------------------|----------------------------------------------------------------------------------|
+| Installation Guide | https://docs.flexcompute.com/projects/tidy3d/en/latest/install.html              |
+| Documentation      | https://docs.flexcompute.com/projects/tidy3d/en/latest/index.html                |
+| Example Library    | https://docs.flexcompute.com/projects/tidy3d/en/latest/notebooks/docs/index.html |
+| FAQ                | https://docs.flexcompute.com/projects/tidy3d/en/latest/faq/docs/index.html       |
+
+
+## Related Source Repositories
+
+| Name              | Repository                                      |
+|-------------------|-------------------------------------------------|
+| Source Code       | https://github.com/flexcompute/tidy3d           |
+| Notebooks Source  | https://github.com/flexcompute/tidy3d-notebooks |
+| FAQ Source Code   | https://github.com/flexcompute/tidy3d-faq       |
+
+
+## Issues / Feedback / Bug Reporting
+
+Your feedback helps us immensely!
+
+If you find bugs, file an [Issue](https://github.com/flexcompute/tidy3d/issues).
+For more general discussions, questions, comments, anything else, open a topic in the [Discussions Tab](https://github.com/flexcompute/tidy3d/discussions).
+
+## License
+
+[GNU LGPL](https://github.com/flexcompute/tidy3d/blob/main/LICENSE)
+

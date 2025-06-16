@@ -576,12 +576,12 @@ def setupMetaData():
     objc.registerMetaDataForSelector(
         b"OC_MetaDataTest",
         b"returnPointerToFree",
-        {"retval": {"c_array_of_fixed_length": 4, "free_result": True}},
+        {"retval": {"c_array_of_fixed_length": 4}, "free_result": True},
     )
     objc.registerMetaDataForSelector(
         b"OC_MetaDataTest",
         b"returnPointerToFreeVariadic",
-        {"retval": {"c_array_of_variable_length": True, "free_result": True}},
+        {"retval": {"c_array_of_variable_length": True}, "free_result": True},
     )
 
     objc.registerMetaDataForSelector(
@@ -836,6 +836,12 @@ class Py_MetaDataTest_AllArgs_Invalid(OC_MetaDataTest):
 
     def makeIntArrayOf_(self, count):
         return [i + 20 for i in range(count * 2)]
+
+    def divBy5_remainder_(self, v, r):
+        return v // 5, str(v)
+
+    def fillStringArray_(self, a):
+        return 42
 
 
 class Py_MetaDataTest_AllArgs(OC_MetaDataTest):
@@ -1385,6 +1391,10 @@ class TestByReference(TestCase):
         with self.assertRaisesRegex(ValueError, "argument 1 isn't allowed to be NULL"):
             OC_MetaDataTest.divBy5_remainder_on_(42, objc.NULL, o)
 
+        o = Py_MetaDataTest_AllArgs_Invalid.new()
+        with self.assertRaisesRegex(ValueError, "depythonifying 'int', got 'str'"):
+            OC_MetaDataTest.divBy5_remainder_on_(42, None, o)
+
     def testInputOutput(self):
         o = Py_MetaDataTest_AllArgs.new()
         x, y = OC_MetaDataTest.swapX_andY_on_(42, 284, o)
@@ -1668,12 +1678,14 @@ class TestPointerResultNative(TestCase):
     def test_fixed_free(self):
         obj = OC_MetaDataTest()
 
+        self.assertDoesFreeResult(obj.returnPointerToFree)
         v = obj.returnPointerToFree()
         self.assertEqual(v, (0, 1, 2, 3))
 
     def test_fixed_variadic(self):
         obj = OC_MetaDataTest()
 
+        self.assertDoesFreeResult(obj.returnPointerToFreeVariadic)
         v = obj.returnPointerToFreeVariadic()
         # XXX: This should be an error, we cannot return a pointer
         #      to a buffer that should be freed!

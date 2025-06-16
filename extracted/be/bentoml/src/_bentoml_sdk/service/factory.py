@@ -18,7 +18,6 @@ from simple_di import inject
 from starlette.applications import Starlette
 from typing_extensions import Unpack
 
-from bentoml import Runner
 from bentoml._internal.bento.bento import Bento
 from bentoml._internal.bento.build_config import BentoEnvSchema
 from bentoml._internal.configuration.containers import BentoMLContainer
@@ -28,6 +27,7 @@ from bentoml._internal.utils import deprecated
 from bentoml._internal.utils import dict_filter_none
 from bentoml.exceptions import BentoMLConfigException
 from bentoml.exceptions import BentoMLException
+from bentoml.legacy import Runner
 
 from ..images import Image
 from ..method import APIMethod
@@ -38,7 +38,7 @@ from .config import ServiceConfig as Config
 
 logger = logging.getLogger("bentoml.serve")
 
-T = t.TypeVar("T", bound=object)
+T = t.TypeVar("T")
 
 if t.TYPE_CHECKING:
     from bentoml._internal import external_typing as ext
@@ -72,17 +72,23 @@ def convert_envs(envs: t.List[t.Dict[str, t.Any]]) -> t.List[BentoEnvSchema]:
     return [BentoEnvSchema(**env) for env in envs]
 
 
+class _DummyService:
+    pass
+
+
 @attrs.define
 class Service(t.Generic[T]):
     """A Bentoml service that can be served by BentoML server."""
 
-    config: Config
-    inner: type[T]
+    name: str
+    config: Config = attrs.field(factory=Config)
+    inner: type[T] = _DummyService
     image: t.Optional[Image] = None
     envs: t.List[BentoEnvSchema] = attrs.field(factory=list, converter=convert_envs)
     labels: t.Dict[str, str] = attrs.field(factory=dict)
-    bento: t.Optional[Bento] = attrs.field(init=False, default=None)
     models: list[Model[t.Any]] = attrs.field(factory=list)
+    cmd: t.Optional[t.List[str]] = None
+    bento: t.Optional[Bento] = attrs.field(init=False, default=None)
     apis: dict[str, APIMethod[..., t.Any]] = attrs.field(factory=dict)
     dependencies: dict[str, Dependency[t.Any]] = attrs.field(factory=dict, init=False)
     mount_apps: list[tuple[ext.ASGIApp, str, str]] = attrs.field(
@@ -271,11 +277,6 @@ class Service(t.Generic[T]):
                 "paths": all_paths,
             }
         )
-
-    @property
-    def name(self) -> str:
-        name = self.config.get("name") or self.inner.__name__
-        return name
 
     @property
     def import_string(self) -> str:
@@ -485,12 +486,13 @@ def service(inner: type[T], /) -> Service[T]: ...
 
 @t.overload
 def service(
-    inner: None = ...,
-    /,
     *,
+    name: str | None = None,
     image: Image | None = None,
     envs: list[dict[str, str]] | None = None,
     labels: dict[str, str] | None = None,
+    cmd: list[str] | None = None,
+    service_class: type[Service[T]] = Service,
     **kwargs: Unpack[Config],
 ) -> _ServiceDecorator: ...
 
@@ -499,9 +501,12 @@ def service(
     inner: type[T] | None = None,
     /,
     *,
+    name: str | None = None,
     image: Image | None = None,
     envs: list[dict[str, str]] | None = None,
     labels: dict[str, str] | None = None,
+    cmd: list[str] | None = None,
+    service_class: type[Service[T]] = Service,
     **kwargs: Unpack[Config],
 ) -> t.Any:
     """Mark a class as a BentoML service.
@@ -519,12 +524,14 @@ def service(
     def decorator(inner: type[T]) -> Service[T]:
         if isinstance(inner, Service):
             raise TypeError("service() decorator can only be applied once")
-        return Service(
+        return service_class(
+            name=name or inner.__name__,
             config=config,
             inner=inner,
             image=image,
             envs=envs or [],
             labels=labels or {},
+            cmd=cmd,
         )
 
     return decorator(inner) if inner is not None else decorator
@@ -540,7 +547,6 @@ def runner_service(runner: Runner, **kwargs: Unpack[Config]) -> Service[t.Any]:
         def __init__(self) -> None:
             super().__init__(**runner.runnable_init_params)
 
-    RunnerHandle.__name__ = runner.name
     apis: dict[str, APIMethod[..., t.Any]] = {}
     assert runner.runnable_class.bentoml_runnable_methods__ is not None
     for method in runner.runner_methods:
@@ -562,31 +568,16 @@ def runner_service(runner: Runner, **kwargs: Unpack[Config]) -> Service[t.Any]:
         gpus: list[int] | str | int = resource_config["nvidia.com/gpu"]
         if isinstance(gpus, str):
             gpus = int(gpus)
-        if runner.workers_per_resource > 1:
-            config["workers"] = {}
-            workers_per_resource = int(runner.workers_per_resource)
-            if isinstance(gpus, int):
-                gpus = list(range(gpus))
-            for i in gpus:
-                config["workers"].extend([{"gpus": i}] * workers_per_resource)
-        else:
-            resources_per_worker = int(1 / runner.workers_per_resource)
-            if isinstance(gpus, int):
-                config["workers"] = [
-                    {"gpus": resources_per_worker}
-                    for _ in range(gpus // resources_per_worker)
-                ]
-            else:
-                config["workers"] = [
-                    {"gpus": gpus[i : i + resources_per_worker]}
-                    for i in range(0, len(gpus), resources_per_worker)
-                ]
+        elif isinstance(gpus, list):
+            gpus = len(gpus)
+        config["workers"] = int(gpus * runner.workers_per_resource)
     elif "cpus" in resource_config:
         config["workers"] = (
             math.ceil(resource_config["cpus"]) * runner.workers_per_resource
         )
     config.update(kwargs)
     return Service(
+        name=runner.name,
         config=config,
         inner=RunnerHandle,
         models=[BentoModel(m.tag) for m in runner.models],

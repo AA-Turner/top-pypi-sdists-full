@@ -1,0 +1,62 @@
+Metadata-Version: 2.4
+Name: pypgstac
+Version: 0.9.6
+Summary: Schema, functions and a python library for storing and accessing STAC collections and items in PostgreSQL
+Project-URL: Homepage, https://stac-utils.github.io/pgstac/
+Project-URL: Documentation, https://stac-utils.github.io/pgstac/
+Project-URL: Issues, https://github.com/stac-utils/pgstac/issues
+Project-URL: Source, https://github.com/stac-utils/pgstac
+Project-URL: Changelog, https://stac-utils.github.io/pgstac/release-notes/
+Author-email: David Bitner <bitner@dbspatial.com>
+License-Expression: MIT
+Keywords: PgSTAC,Postgresql,STAC
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+Requires-Dist: cachetools>=5.3.0
+Requires-Dist: fire>=0.7.0
+Requires-Dist: hydraters>=0.1.0
+Requires-Dist: orjson>=3.7.0
+Requires-Dist: plpygis>=0.5.0
+Requires-Dist: pydantic>=1.7
+Requires-Dist: python-dateutil>=2.8.0
+Requires-Dist: smart-open>=5.0
+Requires-Dist: tenacity>=8.1.0
+Requires-Dist: version-parser>=1.0.1
+Provides-Extra: dev
+Requires-Dist: black>=24.10.0; extra == 'dev'
+Requires-Dist: flake8==7.1.1; extra == 'dev'
+Requires-Dist: mypy>=1.13.0; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: ruff==0.8.2; extra == 'dev'
+Requires-Dist: types-setuptools; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: folium; extra == 'docs'
+Requires-Dist: jupyter; extra == 'docs'
+Requires-Dist: mkdocs-jupyter; extra == 'docs'
+Requires-Dist: pandas; extra == 'docs'
+Requires-Dist: seaborn; extra == 'docs'
+Provides-Extra: migrations
+Requires-Dist: migra; extra == 'migrations'
+Requires-Dist: psycopg2-binary; extra == 'migrations'
+Provides-Extra: psycopg
+Requires-Dist: psycopg-pool>=3.1.0; extra == 'psycopg'
+Requires-Dist: psycopg[binary]>=3.1.0; extra == 'psycopg'
+Provides-Extra: test
+Requires-Dist: morecantile==6.2.*; extra == 'test'
+Requires-Dist: pystac[validation]==1.*; extra == 'test'
+Requires-Dist: pytest-benchmark==5.1.*; extra == 'test'
+Requires-Dist: pytest-cov==6.0.*; extra == 'test'
+Requires-Dist: pytest==8.3.*; extra == 'test'
+Requires-Dist: types-cachetools==5.5.*; extra == 'test'
+Description-Content-Type: text/markdown
+
+# pypgstac
+
+Python tools for working with PgSTAC

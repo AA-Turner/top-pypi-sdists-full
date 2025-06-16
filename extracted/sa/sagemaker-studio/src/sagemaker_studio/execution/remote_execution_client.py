@@ -29,7 +29,7 @@ from sagemaker_studio.models.execution import (
 from sagemaker_studio.projects import ProjectService
 from sagemaker_studio.utils._internal import InternalUtils
 
-DEFAULT_INSTANCE_TYPE = "ml.m4.xlarge"  # consistent with the default instance type when create a training job via SageMaker console
+DEFAULT_INSTANCE_TYPE = "ml.m6i.xlarge"  # consistent with the default instance in the toolkit
 DEFAULT_IMAGE_VERSION = "2.2"  # consistent with default image version in Space
 
 
@@ -846,7 +846,12 @@ class RemoteExecutionClient(ExecutionClient):
             self.__set_ec2client()
         if self.ssm_client is None:
             self.__set_ssmclient()
-        if None in [self.security_group, self.subnets, self.user_role_arn, self.kms_key_identifier]:
+        if None in [
+            self.security_group,
+            self.subnets,
+            self.user_role_arn,
+            self.kms_key_identifier,
+        ]:
             self.__set_stack()
 
         return

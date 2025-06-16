@@ -505,7 +505,10 @@ class CfnFleet(
                     ),
                     instance_market_options=deadline.CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty(
                         type="type"
-                    )
+                    ),
+        
+                    # the properties below are optional
+                    storage_profile_id="storageProfileId"
                 )
             ),
             display_name="displayName",
@@ -1967,7 +1970,10 @@ class CfnFleet(
                         ),
                         instance_market_options=deadline.CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty(
                             type="type"
-                        )
+                        ),
+                
+                        # the properties below are optional
+                        storage_profile_id="storageProfileId"
                     )
                 )
             '''
@@ -2187,6 +2193,7 @@ class CfnFleet(
         name_mapping={
             "instance_capabilities": "instanceCapabilities",
             "instance_market_options": "instanceMarketOptions",
+            "storage_profile_id": "storageProfileId",
         },
     )
     class ServiceManagedEc2FleetConfigurationProperty:
@@ -2195,11 +2202,13 @@ class CfnFleet(
             *,
             instance_capabilities: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]],
             instance_market_options: typing.Union[_IResolvable_da3f097b, typing.Union["CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
+            storage_profile_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration details for a service managed Amazon EC2 fleet.
 
             :param instance_capabilities: The Amazon EC2 instance capabilities.
             :param instance_market_options: The Amazon EC2 market type.
+            :param storage_profile_id: The storage profile ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2265,17 +2274,23 @@ class CfnFleet(
                     ),
                     instance_market_options=deadline.CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty(
                         type="type"
-                    )
+                    ),
+                
+                    # the properties below are optional
+                    storage_profile_id="storageProfileId"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__a24a660b503191048581077a517891d27502b69620643c509073603283a2cb39)
                 check_type(argname="argument instance_capabilities", value=instance_capabilities, expected_type=type_hints["instance_capabilities"])
                 check_type(argname="argument instance_market_options", value=instance_market_options, expected_type=type_hints["instance_market_options"])
+                check_type(argname="argument storage_profile_id", value=storage_profile_id, expected_type=type_hints["storage_profile_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "instance_capabilities": instance_capabilities,
                 "instance_market_options": instance_market_options,
             }
+            if storage_profile_id is not None:
+                self._values["storage_profile_id"] = storage_profile_id
 
         @builtins.property
         def instance_capabilities(
@@ -2300,6 +2315,15 @@ class CfnFleet(
             result = self._values.get("instance_market_options")
             assert result is not None, "Required property 'instance_market_options' is missing"
             return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty"], result)
+
+        @builtins.property
+        def storage_profile_id(self) -> typing.Optional[builtins.str]:
+            '''The storage profile ID.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-storageprofileid
+            '''
+            result = self._values.get("storage_profile_id")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2848,7 +2872,10 @@ class CfnFleetProps:
                         ),
                         instance_market_options=deadline.CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty(
                             type="type"
-                        )
+                        ),
+            
+                        # the properties below are optional
+                        storage_profile_id="storageProfileId"
                     )
                 ),
                 display_name="displayName",
@@ -6428,6 +6455,7 @@ def _typecheckingstub__a24a660b503191048581077a517891d27502b69620643c50907360328
     *,
     instance_capabilities: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]],
     instance_market_options: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
+    storage_profile_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

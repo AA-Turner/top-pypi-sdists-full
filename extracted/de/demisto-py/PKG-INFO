@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: demisto-py
-Version: 3.2.19
+Version: 3.2.20
 Summary: "A Python library for the Demisto API"
 Home-page: https://github.com/demisto/demisto-py
 License: Apache-2.0
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Dist: certifi (>=2024.2.2,<2025.0.0)
 Requires-Dist: python-dateutil (>=2.7.2,<3.0.0)
-Requires-Dist: setuptools (>=75.5.0,<76.0.0)
+Requires-Dist: setuptools (>=80.9.0)
 Requires-Dist: six (>=1.16,<2.0)
 Requires-Dist: tzlocal (>=5.2.0,<6.0.0)
 Requires-Dist: urllib3 (<2.1.0)

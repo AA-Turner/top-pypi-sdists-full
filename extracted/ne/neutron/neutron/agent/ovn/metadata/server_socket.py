@@ -17,41 +17,21 @@ import io
 import socketserver
 import urllib
 
-import jinja2
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_utils import encodeutils
 import requests
 import webob
-from webob import exc as webob_exc
 
 from neutron._i18n import _
 from neutron.agent.linux import utils as agent_utils
 from neutron.agent.metadata import proxy_base
 from neutron.common import ipv6_utils
+from neutron.common import metadata as common_metadata
 from neutron.common.ovn import constants as ovn_const
 from neutron.common import utils as common_utils
 
 
 LOG = logging.getLogger(__name__)
-
-RESPONSE = jinja2.Template("""HTTP/1.1 {{ http_code }}
-Content-Type: text/plain; charset=UTF-8
-Connection: close
-Content-Length: {{ len }}
-
-<html>
- <head>
-  <title>{{ title }}</title>
- </head>
- <body>
-  <h1>{{ body_title }}</h1>
-  {{ body }}<br /><br />
-
-
- </body>
-</html>""")
-RESPONSE_LENGHT = 40
 
 
 class MetadataProxyHandlerBaseSocketServer(
@@ -117,10 +97,7 @@ class MetadataProxyHandlerBaseSocketServer(
                     'Please try again later.')
             LOG.warning(msg)
             title = '503 Service Unavailable'
-            length = RESPONSE_LENGHT + len(title) * 2 + len(msg)
-            reponse = RESPONSE.render(http_code=title, title=title,
-                                      body_title=title, body=title, len=length)
-            return encodeutils.to_utf8(reponse)
+            return common_metadata.encode_http_reponse(title, title, msg)
 
         if resp.status_code == 200:
             return self._http_response(resp, req)
@@ -167,9 +144,22 @@ class MetadataProxyHandler(MetadataProxyHandlerBaseSocketServer,
                 res = self._proxy_request(instance_id, project_id, req)
                 self.wfile.write(res)
                 return
-            # TODO(ralonsoh): change this return to be a formatted Request
-            # and added to self.wfile
-            return webob_exc.HTTPNotFound()
+
+            network_id, router_id = self._get_instance_id(req)
+            if network_id and router_id:
+                title = '400 Bad Request'
+                msg = _(f'Both network {network_id} and router {router_id} '
+                        f'defined.')
+            elif network_id:
+                title = '404 Not Found'
+                msg = _(f'Instance was not found on network {network_id}.')
+                LOG.warning(msg)
+            else:
+                title = '404 Not Found'
+                msg = _(f'Instance was not found on router {router_id}.')
+                LOG.warning(msg)
+            res = common_metadata.encode_http_reponse(title, title, msg)
+            self.wfile.write(res)
         except Exception as exc:
             LOG.exception('Error while receiving data.')
             raise exc

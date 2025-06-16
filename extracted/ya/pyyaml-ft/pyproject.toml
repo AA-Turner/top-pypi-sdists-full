@@ -1,0 +1,8 @@
+[build-system]
+requires = [
+    "setuptools",  # FIXME: declare min/max setuptools versions?
+    "wheel",
+    "Cython>=3.1",
+]
+backend-path = ["packaging"]
+build-backend = "_pyyaml_pep517"

@@ -1,0 +1,93 @@
+Metadata-Version: 2.3
+Name: zarr-checksum
+Version: 0.4.7
+Summary: Checksum support for zarrs stored in various backends
+License: Apache-2.0
+Author: Kitware, Inc.
+Author-email: kitware@kitware.com
+Requires-Python: >=3.7
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Provides-Extra: boto
+Provides-Extra: dev
+Provides-Extra: format
+Provides-Extra: lint
+Provides-Extra: test
+Requires-Dist: boto3 (>=1.24) ; extra == "boto"
+Requires-Dist: boto3-stubs (>=1.24) ; extra == "dev"
+Requires-Dist: click (>=8.1.8)
+Requires-Dist: faker ; extra == "test"
+Requires-Dist: minio ; extra == "test"
+Requires-Dist: pytest (>=7.2.1) ; extra == "test"
+Requires-Dist: ruff (>=0.11.2) ; extra == "dev"
+Requires-Dist: ruff (>=0.11.2) ; extra == "format"
+Requires-Dist: ruff (>=0.11.2) ; extra == "lint"
+Requires-Dist: tqdm (>=4.67.1)
+Project-URL: Homepage, https://github.com/dandi/zarr_checksum
+Project-URL: Repository, https://github.com/dandi/zarr_checksum
+Description-Content-Type: text/markdown
+
+# zarr_checksum
+Algorithms for calculating a zarr checksum against local or cloud storage
+
+# Install
+```
+pip install zarr-checksum
+```
+
+# Usage
+
+## CLI
+To calculate the checksum for a local zarr archive
+```
+zarrsum local <directory>
+```
+
+To calculate the checksum for a remote (S3) zarr archive
+```
+zarrsum remote s3://your_bucket/prefix_to_zarr
+```
+
+## Python
+To calculate the checksum for a local zarr archive
+```python
+from zarr_checksum import compute_zarr_checksum
+from zarr_checksum.generators import yield_files_local, yield_files_s3
+
+# Local
+checksum = compute_zarr_checksum(yield_files_local("local_path"))
+
+# Remote
+checksum = compute_zarr_checksum(
+    yield_files_s3(
+        bucket="your_bucket",
+        prefix="prefix_to_zarr",
+        # Credentials can also be passed via environment variables
+        credentials={
+            aws_access_key_id: "youraccesskey",
+            aws_secret_access_key: "yoursecretkey",
+            region_name: "us-east-1",
+        }
+    )
+)
+```
+
+Access checksum information
+```python
+>>> checksum.digest
+'c228464f432c4376f0de6ddaea32650c-37481--38757151179'
+>>> checksum.md5
+'c228464f432c4376f0de6ddaea32650c'
+>>> checksum.count
+37481
+>>> checksum.size
+38757151179
+```
+

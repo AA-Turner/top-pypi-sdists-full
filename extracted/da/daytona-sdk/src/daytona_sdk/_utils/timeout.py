@@ -1,11 +1,11 @@
 # Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
+# SPDX-License-Identifier: Apache-2.0
 
 import concurrent.futures
 import functools
 from typing import Any, Callable, Optional, ParamSpec, TypeVar
 
-from daytona_sdk._utils.errors import DaytonaError
+from .._utils.errors import DaytonaError
 
 P = ParamSpec("P")
 T = TypeVar("T")

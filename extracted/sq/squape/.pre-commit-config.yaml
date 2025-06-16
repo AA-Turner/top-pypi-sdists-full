@@ -1,0 +1,43 @@
+default_language_version:
+    python: python3.8
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0 
+    hooks:
+      - id: no-commit-to-branch # Both main and master are protected by default if no branch argument is set.
+      - id: check-yaml
+      - id: detect-private-key
+      - id: debug-statements
+      - id: fix-encoding-pragma
+ 
+  - repo: https://github.com/asottile/reorder_python_imports
+    rev: v3.9.0
+    hooks:
+      - id: reorder-python-imports
+        args: [
+          --unclassifiable-application-module, squish, 
+          --unclassifiable-application-module, test,
+          --unclassifiable-application-module, squishinfo,
+          --unclassifiable-application-module, object,
+        ]
+ 
+  - repo: https://github.com/psf/black
+    rev: 22.6.0
+    hooks:
+      - id: black
+        language_version: python3.8
+        
+  - repo: https://github.com/pycqa/flake8
+    rev: 4.0.1
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-bugbear
+          - flake8-comprehensions
+          - flake8-simplify
+        
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.5.0
+    hooks:
+      - id: interrogate
+        args: [-vv, -i, -r, main, -M]

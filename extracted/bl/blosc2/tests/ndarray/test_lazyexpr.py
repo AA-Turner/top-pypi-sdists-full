@@ -6,6 +6,7 @@
 # LICENSE file in the root directory of this source tree)
 #######################################################################
 import math
+import pathlib
 
 import numpy as np
 import pytest
@@ -1066,6 +1067,28 @@ def test_eval_item(array_fixture):
     np.testing.assert_allclose(res[()], nres[0:10:2])
 
 
+# Test lazyexpr's slice method
+def test_eval_slice(array_fixture):
+    a1, a2, a3, a4, na1, na2, na3, na4 = array_fixture
+    expr = blosc2.lazyexpr("a1 + a2 - (a3 * a4)", operands={"a1": a1, "a2": a2, "a3": a3, "a4": a4})
+    nres = ne_evaluate("na1 + na2 - (na3 * na4)")[:2]
+    res = expr.slice(slice(0, 2))
+    assert isinstance(res, blosc2.ndarray.NDArray)
+    np.testing.assert_allclose(res[:], nres)
+    res = expr[:2]
+    assert isinstance(res, np.ndarray)
+    np.testing.assert_allclose(res, nres)
+
+    # string lazy expressions automatically use .slice internally
+    expr1 = blosc2.lazyexpr("a1 * a2", operands={"a1": a1, "a2": a2})
+    expr2 = blosc2.lazyexpr("expr1[:2] + a3[:2]")
+    nres = ne_evaluate("(na1 * na2) + na3")[:2]
+    assert isinstance(expr2, blosc2.LazyExpr)
+    res = expr2.compute()
+    assert isinstance(res, blosc2.ndarray.NDArray)
+    np.testing.assert_allclose(res[()], nres)
+
+
 # Test get_chunk method
 @pytest.mark.heavy
 def test_get_chunk(array_fixture):
@@ -1322,17 +1345,14 @@ def test_missing_operator():
     # Remove the file for operand b
     blosc2.remove_urlpath("b.b2nd")
     # Re-open the lazy expression
-    expr2 = blosc2.open("expr.b2nd")
-    # Check that some operand is missing
-    assert expr2.operands["a"] is not None
-    assert expr2.operands["b"] is None
-    # Check that the expression is still there, and can be introspected
-    # Note the added parentheses. The parser automatically adds these,
-    # mainly because of possible operator precedence issues in nested expressions.
-    assert expr2.expression == "a + b"
-    # Check that dtype and shape are None
-    assert expr2.dtype is None
-    assert expr2.shape is None
+    with pytest.raises(blosc2.exceptions.MissingOperands) as excinfo:
+        blosc2.open("expr.b2nd")
+
+    # Check that some operand is missing"
+    assert "a" not in excinfo.value.missing_ops
+    assert excinfo.value.missing_ops["b"] == pathlib.Path("b.b2nd")
+    assert excinfo.value.expr == "a + b"
+
     # Clean up
     blosc2.remove_urlpath("a.b2nd")
     blosc2.remove_urlpath("expr.b2nd")
@@ -1423,3 +1443,16 @@ def test_scalar_dtypes(values):
     avalue2 = blosc2.asarray(value2) if hasattr(value2, "shape") else value2
     dtype2 = (avalue1 * avalue2).dtype
     assert dtype1 == dtype2, f"Expected {dtype1} but got {dtype2}"
+
+
+def test_to_cframe():
+    N = 1_000
+    dtype = "float64"
+    a = blosc2.linspace(0, 1, N * N, dtype=dtype, shape=(N, N))
+    expr = a**3 + blosc2.sin(a**2)
+    cframe = expr.to_cframe()
+    assert len(cframe) > 0
+    arr = blosc2.ndarray_from_cframe(cframe)
+    assert arr.shape == expr.shape
+    assert arr.dtype == expr.dtype
+    assert np.allclose(arr[:], expr[:])

@@ -32,6 +32,7 @@ from oslo_utils import excutils
 import stevedore
 
 from neutron._i18n import _
+from neutron.common import wsgi_utils
 from neutron.conf.plugins.ml2 import config
 from neutron.db import segments_db
 from neutron.objects import ports
@@ -121,10 +122,6 @@ class TypeManager(stevedore.named.NamedExtensionManager):
                                                   self.is_partial_segment)
             return segments
 
-    def _match_segment(self, segment, filters):
-        return all(not filters.get(attr) or segment.get(attr) in filters[attr]
-                   for attr in provider.ATTRIBUTES)
-
     def _get_provider_segment(self, network):
         # TODO(manishg): Placeholder method
         # Code intended for operating on a provider segment should use
@@ -133,18 +130,6 @@ class TypeManager(stevedore.named.NamedExtensionManager):
         # future, network and segment information will be decoupled and
         # here we will do the job of extracting the segment information.
         return network
-
-    def network_matches_filters(self, network, filters):
-        if not filters:
-            return True
-        if any(validators.is_attr_set(network.get(attr))
-               for attr in provider.ATTRIBUTES):
-            segments = [self._get_provider_segment(network)]
-        elif validators.is_attr_set(network.get(mpnet_apidef.SEGMENTS)):
-            segments = self._get_attribute(network, mpnet_apidef.SEGMENTS)
-        else:
-            return True
-        return any(self._match_segment(s, filters) for s in segments)
 
     def _get_attribute(self, attrs, key):
         value = attrs.get(key)
@@ -205,6 +190,9 @@ class TypeManager(stevedore.named.NamedExtensionManager):
             driver.obj.initialize()
 
     def initialize_network_segment_range_support(self, start_time):
+        if wsgi_utils.get_api_worker_id() != wsgi_utils.FIRST_WORKER_ID:
+            return
+
         for network_type, driver in self.drivers.items():
             if network_type in constants.NETWORK_SEGMENT_RANGE_TYPES:
                 LOG.info("Initializing driver network segment range support "

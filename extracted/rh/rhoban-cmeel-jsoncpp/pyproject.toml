@@ -1,0 +1,30 @@
+[build-system]
+build-backend = "cmeel"
+requires = ["cmeel[build]"]
+
+[project]
+authors = [{email = "blep@users.sourceforge.net", name = "Baptiste Lepilleur"}]
+classifiers = []
+description = "Rhoban JsonCPP fork"
+license = "MIT"
+name = "rhoban-cmeel-jsoncpp"
+requires-python = ">= 3.8"
+version = "1.9.4.8"
+
+[project.urls]
+changelog = "https://github.com/rhobandeps/jsoncpp/blob/main/CHANGELOG.md"
+homepage = "https://github.com/rhobandeps/jsoncpp"
+repository = "https://github.com/rhobandeps/jsoncpp.git"
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+target-version = "py38"
+
+[tool.tomlsort]
+all = true
+
+[tool.cmeel]
+run-tests = false
+configure-args = ["-DJSONCPP_WITH_CMAKE_PACKAGE=ON"]

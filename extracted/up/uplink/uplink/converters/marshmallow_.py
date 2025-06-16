@@ -4,6 +4,8 @@ to deserialize and serialize values.
 """
 
 # Local imports
+import importlib.metadata
+
 from uplink import utils
 from uplink.converters import interfaces, register_default_converter_factory
 
@@ -11,25 +13,26 @@ from uplink.converters import interfaces, register_default_converter_factory
 class MarshmallowConverter(interfaces.Factory):
     """
     A converter that serializes and deserializes values using
-    :py:mod:`marshmallow` schemas.
+    `marshmallow` schemas.
 
     To deserialize JSON responses into Python objects with this
-    converter, define a :py:class:`marshmallow.Schema` subclass and set
+    converter, define a `marshmallow.Schema` subclass and set
     it as the return annotation of a consumer method:
 
-    .. code-block:: python
+    ```python
+    @get("/users")
+    def get_users(self, username) -> UserSchema():
+        '''Fetch a single user'''
+    ```
 
-        @get("/users")
-        def get_users(self, username) -> UserSchema():
-            '''Fetch a single user'''
-
-    Note:
-
+    !!! note
         This converter is an optional feature and requires the
-        :py:mod:`marshmallow` package. For example, here's how to
-        install this feature using pip::
+        `marshmallow` package. For example, here's how to
+        install this feature using pip:
 
-            $ pip install uplink[marshmallow]
+        ```
+        $ pip install uplink[marshmallow]
+        ```
     """
 
     try:
@@ -38,7 +41,7 @@ class MarshmallowConverter(interfaces.Factory):
         marshmallow = None
         is_marshmallow_3 = None
     else:
-        is_marshmallow_3 = marshmallow.__version__ >= "3.0"
+        is_marshmallow_3 = importlib.metadata.version("marshmallow") >= "3.0"
 
     def __init__(self):
         if self.marshmallow is None:
@@ -70,7 +73,7 @@ class MarshmallowConverter(interfaces.Factory):
     def _get_schema(cls, type_):
         if utils.is_subclass(type_, cls.marshmallow.Schema):
             return type_()
-        elif isinstance(type_, cls.marshmallow.Schema):
+        if isinstance(type_, cls.marshmallow.Schema):
             return type_
         raise ValueError("Expected marshmallow.Scheme subclass or instance.")
 

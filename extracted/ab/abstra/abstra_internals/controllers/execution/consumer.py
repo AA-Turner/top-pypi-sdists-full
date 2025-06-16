@@ -5,6 +5,7 @@ from abstra_internals.controllers.execution.worker_process import process_main
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import (
     EXECUTION_QUEUE_CONCURRENCY,
+    PROCESS_TIMEOUT_SECONDS,
 )
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.consumer import Consumer, QueueMessage
@@ -17,11 +18,6 @@ class StageNotFound(Exception):
 
 class NonCleanExit(Exception):
     pass
-
-
-# Should be smaller than the RabbitMQ consumer timeout
-# to prevent its termination
-PROCESS_TIMEOUT_SECONDS = 60 * 60 * 3
 
 
 class ConsumerController:
@@ -78,13 +74,11 @@ class ConsumerController:
                 target=process_main,
                 kwargs=dict(
                     stage=stage,
-                    controller=self.main_controller,
                     worker_id=worker_id,
                     app_id=self.app_id,
                     root_path=Settings.root_path,
                     server_port=Settings.server_port,
                     request=msg.preexecution.context,
-                    environment=AbstraLogger.environment,
                 ),
                 name=f"Worker-{head_id}",
             )
@@ -96,13 +90,13 @@ class ConsumerController:
             if p.is_alive():
                 p.terminate()
                 raise NonCleanExit(
-                    f"Worker took too long to complete ({PROCESS_TIMEOUT_SECONDS} seconds)"
+                    f"Run took too long to complete ({PROCESS_TIMEOUT_SECONDS} secs) and was terminated. Please make sure all your requests calls have a timeout set."
                 )
 
             if p.exitcode != 0:
-                err_msg = f"Worker exited with status ({p.exitcode})"
+                err_msg = f"Run failed with status '{p.exitcode}'"
                 if p.exitcode == -9:
-                    err_msg += ": Server reached its memory limit"
+                    err_msg += ": memory limit reached."
 
                 raise NonCleanExit(err_msg)
 

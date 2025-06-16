@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime, timedelta, timezone
 from time import sleep
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -26,16 +27,19 @@ class CLITestCase(RQTestCase):
         super().setUp()
         db_num = self.connection.connection_pool.connection_kwargs['db']
         self.redis_url = 'redis://127.0.0.1:6379/%d' % db_num
-        self.connection = Redis.from_url(self.redis_url)
+        self.connection: Redis = Redis.from_url(self.redis_url)
+
+    def tearDown(self):
+        self.connection.close()
 
     def assert_normal_execution(self, result):
         if result.exit_code == 0:
             return True
         else:
             print('Non normal execution')
-            print('Exit Code: {}'.format(result.exit_code))
-            print('Output: {}'.format(result.output))
-            print('Exception: {}'.format(result.exception))
+            print(f'Exit Code: {result.exit_code}')
+            print(f'Output: {result.output}')
+            print(f'Exception: {result.exception}')
             self.assertEqual(result.exit_code, 0)
 
 
@@ -49,9 +53,9 @@ class TestRQCli(CLITestCase):
             return True
         else:
             print('Non normal execution')
-            print('Exit Code: {}'.format(result.exit_code))
-            print('Output: {}'.format(result.output))
-            print('Exception: {}'.format(result.exception))
+            print(f'Exit Code: {result.exit_code}')
+            print(f'Output: {result.output}')
+            print(f'Exception: {result.exception}')
             self.assertEqual(result.exit_code, 0)
 
     """Test rq_cli script"""
@@ -80,7 +84,7 @@ class TestRQCli(CLITestCase):
             'testhost.example.com',
         )
         runner = CliRunner()
-        result = runner.invoke(main, ['info', '--config', cli_config.config])
+        result = runner.invoke(main, ['info', '--config', str(cli_config.config)])
         self.assertEqual(result.exit_code, 1)
 
     def test_config_file_default_options(self):
@@ -295,7 +299,7 @@ class TestRQCli(CLITestCase):
         pid = self.tmpdir.join('rq.pid')
         runner = CliRunner()
         result = runner.invoke(main, ['worker', '-u', self.redis_url, '-b', '--pid', str(pid)])
-        self.assertTrue(len(pid.read()) > 0)
+        self.assertGreater(len(pid.read()), 0)
         self.assert_normal_execution(result)
 
     def test_worker_with_scheduler(self):
@@ -351,19 +355,19 @@ class TestRQCli(CLITestCase):
         job = q.enqueue(div_by_zero)
         runner.invoke(main, ['worker', '-u', self.redis_url, '-b'])
         registry = FailedJobRegistry(queue=q)
-        self.assertTrue(job in registry)
+        self.assertIn(job, registry)
 
         # If disable-default-exception-handler is given, job is not moved to FailedJobRegistry
         job = q.enqueue(div_by_zero)
         runner.invoke(main, ['worker', '-u', self.redis_url, '-b', '--disable-default-exception-handler'])
         registry = FailedJobRegistry(queue=q)
-        self.assertFalse(job in registry)
+        self.assertNotIn(job, registry)
 
         # Both default and custom exception handler is run
         job = q.enqueue(div_by_zero)
         runner.invoke(main, ['worker', '-u', self.redis_url, '-b', '--exception-handler', 'tests.fixtures.add_meta'])
         registry = FailedJobRegistry(queue=q)
-        self.assertTrue(job in registry)
+        self.assertIn(job, registry)
         job.refresh()
         self.assertEqual(job.meta, {'foo': 1})
 
@@ -382,7 +386,7 @@ class TestRQCli(CLITestCase):
             ],
         )
         registry = FailedJobRegistry(queue=q)
-        self.assertFalse(job in registry)
+        self.assertNotIn(job, registry)
         job.refresh()
         self.assertEqual(job.meta, {'foo': 1})
 
@@ -405,13 +409,13 @@ class TestRQCli(CLITestCase):
     def test_suspend_with_ttl(self):
         """rq suspend -u <url> --duration=2"""
         runner = CliRunner()
-        result = runner.invoke(main, ['suspend', '-u', self.redis_url, '--duration', 1])
+        result = runner.invoke(main, ['suspend', '-u', self.redis_url, '--duration', '1'])
         self.assert_normal_execution(result)
 
     def test_suspend_with_invalid_ttl(self):
         """rq suspend -u <url> --duration=0"""
         runner = CliRunner()
-        result = runner.invoke(main, ['suspend', '-u', self.redis_url, '--duration', 0])
+        result = runner.invoke(main, ['suspend', '-u', self.redis_url, '--duration', '0'])
 
         self.assertEqual(result.exit_code, 1)
         self.assertIn('Duration must be an integer greater than 1', result.output)
@@ -518,8 +522,8 @@ class TestRQCli(CLITestCase):
         worker = Worker(queue, connection=self.connection)
         scheduler = RQScheduler(queue, self.connection)
 
-        self.assertTrue(len(queue) == 0)
-        self.assertTrue(len(registry) == 0)
+        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(registry), 0)
 
         runner = CliRunner()
         result = runner.invoke(
@@ -530,8 +534,8 @@ class TestRQCli(CLITestCase):
         scheduler.acquire_locks()
         scheduler.enqueue_scheduled_jobs()
 
-        self.assertTrue(len(queue) == 0)
-        self.assertTrue(len(registry) == 1)
+        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(registry), 1)
 
         self.assertFalse(worker.work(True))
 
@@ -539,8 +543,8 @@ class TestRQCli(CLITestCase):
 
         scheduler.enqueue_scheduled_jobs()
 
-        self.assertTrue(len(queue) == 1)
-        self.assertTrue(len(registry) == 0)
+        self.assertEqual(len(queue), 1)
+        self.assertEqual(len(registry), 0)
 
         self.assertTrue(worker.work(True))
 
@@ -555,8 +559,8 @@ class TestRQCli(CLITestCase):
         worker = Worker(queue, connection=self.connection)
         scheduler = RQScheduler(queue, self.connection)
 
-        self.assertTrue(len(queue) == 0)
-        self.assertTrue(len(registry) == 0)
+        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(registry), 0)
 
         runner = CliRunner()
         result = runner.invoke(
@@ -566,31 +570,31 @@ class TestRQCli(CLITestCase):
 
         scheduler.acquire_locks()
 
-        self.assertTrue(len(queue) == 0)
-        self.assertTrue(len(registry) == 1)
+        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(registry), 1)
 
         scheduler.enqueue_scheduled_jobs()
 
-        self.assertTrue(len(queue) == 1)
-        self.assertTrue(len(registry) == 0)
+        self.assertEqual(len(queue), 1)
+        self.assertEqual(len(registry), 0)
 
         self.assertTrue(worker.work(True))
 
-        self.assertTrue(len(queue) == 0)
-        self.assertTrue(len(registry) == 0)
+        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(registry), 0)
 
         result = runner.invoke(
             main, ['enqueue', '-u', self.redis_url, 'tests.fixtures.say_hello', '--schedule-at', '2100-01-01T00:00:00']
         )
         self.assert_normal_execution(result)
 
-        self.assertTrue(len(queue) == 0)
-        self.assertTrue(len(registry) == 1)
+        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(registry), 1)
 
         scheduler.enqueue_scheduled_jobs()
 
-        self.assertTrue(len(queue) == 0)
-        self.assertTrue(len(registry) == 1)
+        self.assertEqual(len(queue), 0)
+        self.assertEqual(len(registry), 1)
 
         self.assertFalse(worker.work(True))
 
@@ -682,7 +686,7 @@ class TestRQCli(CLITestCase):
         start = datetime.now(timezone.utc) + timedelta(minutes=5)
         middle = parse_schedule('5m', None)
         end = datetime.now(timezone.utc) + timedelta(minutes=5)
-
+        assert middle is not None and start is not None
         self.assertGreater(middle, start)
         self.assertLess(middle, end)
 
@@ -771,7 +775,7 @@ class TestRQCli(CLITestCase):
         )
         self.assert_normal_execution(result)
         job = Job.fetch(id, connection=self.connection)
-        self.assertEqual((job.args, job.kwargs), ([open('tests/test.json', 'r').read()], {}))
+        self.assertEqual((job.args, job.kwargs), ([open('tests/test.json').read()], {}))
 
         id = str(uuid4())
         result = runner.invoke(
@@ -779,7 +783,7 @@ class TestRQCli(CLITestCase):
         )
         self.assert_normal_execution(result)
         job = Job.fetch(id, connection=self.connection)
-        self.assertEqual((job.args, job.kwargs), ([], {'key': open('tests/test.json', 'r').read()}))
+        self.assertEqual((job.args, job.kwargs), ([], {'key': open('tests/test.json').read()}))
 
         id = str(uuid4())
         result = runner.invoke(
@@ -787,7 +791,7 @@ class TestRQCli(CLITestCase):
         )
         self.assert_normal_execution(result)
         job = Job.fetch(id, connection=self.connection)
-        self.assertEqual((job.args, job.kwargs), ([json.loads(open('tests/test.json', 'r').read())], {}))
+        self.assertEqual((job.args, job.kwargs), ([json.loads(open('tests/test.json').read())], {}))
 
         id = str(uuid4())
         result = runner.invoke(
@@ -795,7 +799,7 @@ class TestRQCli(CLITestCase):
         )
         self.assert_normal_execution(result)
         job = Job.fetch(id, connection=self.connection)
-        self.assertEqual((job.args, job.kwargs), ([], {'key': json.loads(open('tests/test.json', 'r').read())}))
+        self.assertEqual((job.args, job.kwargs), ([], {'key': json.loads(open('tests/test.json').read())}))
 
 
 class WorkerPoolCLITestCase(CLITestCase):
@@ -859,3 +863,94 @@ class WorkerPoolCLITestCase(CLITestCase):
         # --quiet and --verbose are mutually exclusive
         result = runner.invoke(main, args + ['--quiet', '--verbose'])
         self.assertNotEqual(result.exit_code, 0)
+
+
+class CronCLITestCase(CLITestCase):
+    """Tests the `rq cron` CLI command."""
+
+    def setUp(self):
+        # Call parent setUp first to initialize self.connection, self.redis_url etc.
+        super().setUp()
+
+        # Path to the existing cron config file
+        current_dir = os.path.dirname(__file__)
+        self.cron_config_path = os.path.abspath(os.path.join(current_dir, 'cron_config.py'))
+        self.assertTrue(os.path.exists(self.cron_config_path), f'Config file not found at {self.cron_config_path}')
+
+    def test_cron_execution(self):
+        """rq cron <config_path> -u <url>"""
+        runner = CliRunner()
+        mock_cron = MagicMock()
+
+        # Mock the Cron class instead of load_config
+        with patch('rq.cli.cli_cron.CronScheduler', return_value=mock_cron) as mock_cron_class:
+            # Make the start method just return to avoid infinite loop
+            mock_cron.start.side_effect = lambda: None
+
+            result = runner.invoke(main, ['cron', self.cron_config_path, '-u', self.redis_url])
+
+            self.assert_normal_execution(result)
+
+            # Verify Cron was constructed with correct parameters
+            mock_cron_class.assert_called_once()
+
+            # Verify load_config_from_file was called with correct path
+            mock_cron.load_config_from_file.assert_called_once_with(self.cron_config_path)
+
+            # Verify start was called
+            mock_cron.start.assert_called_once()
+
+    def test_cron_execution_log_level(self):
+        """rq cron <config_path> -u <url> --logging-level DEBUG"""
+        runner = CliRunner()
+        mock_cron = MagicMock()
+
+        # Mock the Cron class
+        with patch('rq.cli.cli_cron.CronScheduler', return_value=mock_cron) as mock_cron_class:
+            mock_cron.start.side_effect = lambda: None
+
+            result = runner.invoke(
+                main, ['cron', '--logging-level', 'DEBUG', self.cron_config_path, '-u', self.redis_url]
+            )
+
+            self.assert_normal_execution(result)
+
+            # Verify Cron was constructed with correct parameters
+            mock_cron_class.assert_called_once()
+
+            # Verify all logging parameters
+            call_kwargs = mock_cron_class.call_args[1]
+            self.assertEqual(call_kwargs['logging_level'], 'DEBUG')
+
+            # Verify config loading and start were called
+            mock_cron.load_config_from_file.assert_called_once_with(self.cron_config_path)
+            mock_cron.start.assert_called_once()
+
+    def test_cron_execution_with_url(self):
+        """Verify that the Redis URL (-u option) is correctly parsed and used"""
+        runner = CliRunner()
+        mock_cron = MagicMock()
+
+        # Use a distinctive non-default URL with different host, port, and DB
+        test_url = 'redis://test-host:7777/5'
+
+        with patch('rq.cli.cli_cron.CronScheduler', return_value=mock_cron) as mock_cron_class:
+            mock_cron.start.side_effect = lambda: None
+
+            result = runner.invoke(main, ['cron', self.cron_config_path, '-u', test_url])
+
+            self.assert_normal_execution(result)
+
+            # Verify that Cron was called with a connection from the provided URL
+            mock_cron_class.assert_called_once()
+            connection = mock_cron_class.call_args[1]['connection']
+
+            # Verify all connection parameters match our custom URL
+            connection_kwargs = connection.connection_pool.connection_kwargs
+            self.assertEqual(connection_kwargs['host'], 'test-host')
+            self.assertEqual(connection_kwargs['port'], 7777)
+            self.assertEqual(connection_kwargs['db'], 5)
+
+            # Verify config loading and start were called
+            mock_cron.load_config_from_file.assert_called_once_with(self.cron_config_path)
+            mock_cron.start.assert_called_once()

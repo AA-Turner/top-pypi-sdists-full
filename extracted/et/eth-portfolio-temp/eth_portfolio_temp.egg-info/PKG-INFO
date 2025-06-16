@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: eth-portfolio-temp
+Version: 0.0.12
+Summary: eth-portfolio makes it easy to analyze your portfolio.
+Home-page: https://github.com/BobTheBuidler/eth-portfolio
+Author: BobTheBuidler
+Author-email: bobthebuidlerdefi@gmail.com
+Requires-Python: >=3.8,<3.13

@@ -1,0 +1,114 @@
+[build-system]
+requires = [
+  "setuptools >=70.0.0",
+  "setuptools_scm >=8",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "igwn-segments"
+dynamic = ["version"]
+description = "Representations of semi-open intervals"
+readme = "README.rst"
+authors = [
+  {name = "Kipp Cannon", email = "kipp.cannon@ligo.org"},
+  {name = "Tito Dal Canton", email = "tito.canton@ligo.org"},
+  {name = "Duncan Macleod", email = "duncan.macleod@ligo.org"},
+  {name = "Leo Singer", email = "leo.singer@ligo.org"},
+]
+license = {text = "GPL-3.0-or-later"}
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: End Users/Desktop",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Operating System :: POSIX",
+  "Operating System :: Unix",
+  "Operating System :: MacOS",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+docs = [
+  "furo",
+  "Sphinx",
+  "sphinx-automodapi",
+  "sphinx-design",
+]
+tests = [
+  "pytest >= 3.9.1",
+]
+
+[tool.setuptools_scm]
+version_file = "src/igwn_segments/_version.py"
+
+# -- coverage
+
+[tool.coverage.paths]
+source = [
+  "src/igwn_segments/",
+  "*/igwn_segments/",
+]
+
+[tool.coverage.report]
+omit = [
+  "*/_version.py",
+]
+precision = 1
+
+# -- pytest
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+minversion = "3.9.1"
+
+# -- ruff
+
+[tool.ruff.lint]
+extend-select = [
+  # mccabe
+  "C90",
+  # pycodestyle errors
+  "E",
+  # flake8-executable
+  "EXE",
+  # pyflakes
+  "F",
+  # isort
+  "I",
+  # pep8-naming
+  "N",
+  # pyupgrade
+  "UP",
+  # pycodestyle warnings
+  "W",
+]
+ignore = [
+  "C901",  # complex-structure
+  "E501",  # line-too-long
+  "E741",  # ambiguous-variable-name
+  "N801",  # invalid-class-name
+  "N802",  # invalid-function-name
+  "W191",  # tab-indentation
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+  "F401",  # unused-import
+  "F403",  # undefined-local-with-import-star
+]

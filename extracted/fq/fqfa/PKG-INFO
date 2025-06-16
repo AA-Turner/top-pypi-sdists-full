@@ -1,0 +1,62 @@
+Metadata-Version: 2.1
+Name: fqfa
+Version: 1.3.1
+Summary: A lightweight Python library for handling FASTQ and FASTA files.
+Project-URL: repository, https://github.com/CountESS-Project/fqfa
+Project-URL: documentation, https://fqfa.readthedocs.io/
+Author-email: Alan F Rubin <alan.rubin@wehi.edu.au>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Requires-Python: >=3.6
+Requires-Dist: dataclasses; python_version < '3.7'
+Provides-Extra: dev
+Requires-Dist: black; extra == 'dev'
+Requires-Dist: flake8; extra == 'dev'
+Requires-Dist: flake8-pyproject; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Description-Content-Type: text/markdown
+
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.02076/status.svg)](https://doi.org/10.21105/joss.02076)
+[![Documentation Status](https://readthedocs.org/projects/fqfa/badge/?version=latest)](https://fqfa.readthedocs.io/en/latest/?badge=latest)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+# fqfa
+
+A pure Python library for handling [FASTQ](https://www.ncbi.nlm.nih.gov/sra/docs/submitformats/#fastq-files) and 
+[FASTA]( https://www.ncbi.nlm.nih.gov/BLAST/fasta.shtml) files.
+
+Install fqfa from PyPI using pip:
+
+    pip3 install fqfa
+
+To set up the package for development purposes, include the optional dependencies and
+install pre-commit:
+
+    pip3 install fqfa[dev]
+    pre-commit install
+
+Building the documentation requires the following additional packages:
+
+    pip3 install sphinx
+    pip3 install sphinx-rtd-theme
+
+Online documentation including usage examples is available on 
+[Read the Docs](https://fqfa.readthedocs.io/en/latest/index.html).
+
+To report a problem or request a new feature, please use the GitHub issue tracker.
+
+To cite this package please refer to ["fqfa: A pure Python package for genomic sequence files"](https://doi.org/10.21105/joss.02076).
+
+Contributions via pull request are welcome. 
+Contributed code should have full unit test coverage, 
+[NumPy-style docstrings](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard),
+[black formatting](https://github.com/psf/black),
+and [type hints](https://docs.python.org/3/library/typing.html).

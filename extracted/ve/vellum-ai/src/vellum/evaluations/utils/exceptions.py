@@ -1,2 +1,0 @@
-class VellumClientException(Exception):
-    pass

@@ -1,0 +1,119 @@
+Metadata-Version: 2.1
+Name: centerline
+Version: 1.1.1
+Summary: Calculate the centerline of a polygon
+Home-page: https://github.com/fitodic/centerline
+Download-URL: https://pypi.org/project/centerline/
+Author: Filip Todic
+Author-email: todic.filip@gmail.com
+License: MIT License
+Keywords: polygon,centerline,Voronoi
+Platform: POSIX
+Platform: Microsoft
+Platform: MacOS
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: GIS
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: Fiona>=1.7.0
+Requires-Dist: Shapely>=1.5.13
+Requires-Dist: numpy>=1.10.4
+Requires-Dist: scipy>=0.16.1
+Requires-Dist: Click>=7.0
+Provides-Extra: dev
+Requires-Dist: ipdb; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Provides-Extra: gdal
+Requires-Dist: GDAL>=2.3.3; extra == "gdal"
+Provides-Extra: lint
+Requires-Dist: flake8; extra == "lint"
+Requires-Dist: isort; extra == "lint"
+Requires-Dist: black; extra == "lint"
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: pytest>=4.0.0; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-sugar; extra == "test"
+Requires-Dist: pytest-runner; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+
+Centerline
+==========
+
+.. image:: https://github.com/fitodic/centerline/actions/workflows/ci.yml/badge.svg?event=push
+    :target: https://github.com/fitodic/centerline/actions
+    :alt: Build status
+
+.. image:: https://codecov.io/gh/fitodic/centerline/branch/master/graph/badge.svg?token=S2WQ9OTR9O
+    :target: https://codecov.io/gh/fitodic/centerline
+    :alt: Test coverage status
+
+.. image:: https://readthedocs.org/projects/centerline/badge/?version=latest
+    :target: http://centerline.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. image:: https://img.shields.io/pypi/v/centerline.svg
+    :target: https://pypi.python.org/pypi/centerline
+    :alt: Version
+
+.. image:: https://pepy.tech/badge/centerline
+    :target: https://pepy.tech/project/centerline
+    :alt: Downloads
+
+.. figure::  docs/images/example.png
+   :align:   center
+
+Roads, rivers and similar linear structures are often represented by
+long and complex polygons. Since one of the most important attributes of
+a linear structure is its length, extracting that attribute from a
+polygon can prove to be more or less difficult.
+
+This library tries to solve this problem by creating the the polygon's
+centerline using the `Voronoi diagram
+<https://en.wikipedia.org/wiki/Voronoi_diagram>`_. For more info on how
+to use this package, see the
+`official documentation <http://centerline.readthedocs.io/>`_.
+
+
+Features
+^^^^^^^^
+
+* A command-line script for creating centerlines from a vector source file and saving them into a destination vector file: ``create_centerlines``
+
+.. code:: bash
+
+    $ create_centerlines input.shp output.geojson
+
+
+* The ``Centerline`` class that allows integration into your own workflow.
+
+
+.. code:: python
+
+    >>> from shapely.geometry import Polygon
+    >>> from centerline.geometry import Centerline
+
+    >>> polygon = Polygon([[0, 0], [0, 4], [4, 4], [4, 0]])
+    >>> attributes = {"id": 1, "name": "polygon", "valid": True}
+
+    >>> centerline = Centerline(polygon, **attributes)
+    >>> centerline.id == 1
+    True
+    >>> centerline.name
+    'polygon'
+    >>> centerline.geometry.geoms
+    <shapely.geometry.base.GeometrySequence object at 0x7f7d24116210>

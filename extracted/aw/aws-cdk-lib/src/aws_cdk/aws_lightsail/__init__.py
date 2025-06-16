@@ -7580,7 +7580,7 @@ class CfnInstanceSnapshot(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lightsail.CfnInstanceSnapshot",
 ):
-    '''Resource Type definition for AWS::Lightsail::InstanceSnapshot.
+    '''Describes an instance snapshot.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-instancesnapshot.html
     :cloudformationResource: AWS::Lightsail::InstanceSnapshot
@@ -7616,9 +7616,9 @@ class CfnInstanceSnapshot(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param instance_name: The instance from which the snapshot was created.
+        :param instance_name: The name the user gave the instance ( ``Amazon_Linux_2023-1`` ).
         :param instance_snapshot_name: The name of the snapshot.
-        :param tags: An array of key-value pairs to apply to this resource.
+        :param tags: The tag keys and optional values for the resource. For more information about tags in Lightsail, see the `Amazon Lightsail Developer Guide <https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-tags>`_ .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b541a8ae34465f7b9196a2ba229a1f5fd9a1a2d84c59e0a52b4bb8767067a951)
@@ -7665,7 +7665,7 @@ class CfnInstanceSnapshot(
     @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the snapshot.
+        '''The Amazon Resource Name (ARN) of the snapshot ( ``arn:aws:lightsail:us-east-2:123456789101:InstanceSnapshot/d23b5706-3322-4d83-81e5-12345EXAMPLE`` ).
 
         :cloudformationAttribute: Arn
         '''
@@ -7674,7 +7674,7 @@ class CfnInstanceSnapshot(
     @builtins.property
     @jsii.member(jsii_name="attrFromInstanceArn")
     def attr_from_instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the instance from which the snapshot was created.
+        '''The Amazon Resource Name (ARN) of the instance from which the snapshot was created ( ``arn:aws:lightsail:us-east-2:123456789101:Instance/64b8404c-ccb1-430b-8daf-12345EXAMPLE`` ).
 
         :cloudformationAttribute: FromInstanceArn
         '''
@@ -7710,7 +7710,7 @@ class CfnInstanceSnapshot(
     @builtins.property
     @jsii.member(jsii_name="attrResourceType")
     def attr_resource_type(self) -> builtins.str:
-        '''The type of resource (usually InstanceSnapshot).
+        '''The type of resource (usually ``InstanceSnapshot`` ).
 
         :cloudformationAttribute: ResourceType
         '''
@@ -7737,7 +7737,9 @@ class CfnInstanceSnapshot(
     @builtins.property
     @jsii.member(jsii_name="attrSupportCode")
     def attr_support_code(self) -> builtins.str:
-        '''Support code to help identify any issues.
+        '''The support code.
+
+        Include this code in your email to support when you have questions about an instance or another resource in Lightsail. This code enables our support team to look up your Lightsail information more easily.
 
         :cloudformationAttribute: SupportCode
         '''
@@ -7757,7 +7759,7 @@ class CfnInstanceSnapshot(
     @builtins.property
     @jsii.member(jsii_name="instanceName")
     def instance_name(self) -> builtins.str:
-        '''The instance from which the snapshot was created.'''
+        '''The name the user gave the instance ( ``Amazon_Linux_2023-1`` ).'''
         return typing.cast(builtins.str, jsii.get(self, "instanceName"))
 
     @instance_name.setter
@@ -7783,7 +7785,7 @@ class CfnInstanceSnapshot(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.'''
+        '''The tag keys and optional values for the resource.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -7888,9 +7890,9 @@ class CfnInstanceSnapshotProps:
     ) -> None:
         '''Properties for defining a ``CfnInstanceSnapshot``.
 
-        :param instance_name: The instance from which the snapshot was created.
+        :param instance_name: The name the user gave the instance ( ``Amazon_Linux_2023-1`` ).
         :param instance_snapshot_name: The name of the snapshot.
-        :param tags: An array of key-value pairs to apply to this resource.
+        :param tags: The tag keys and optional values for the resource. For more information about tags in Lightsail, see the `Amazon Lightsail Developer Guide <https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-tags>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-instancesnapshot.html
         :exampleMetadata: fixture=_generated
@@ -7926,7 +7928,7 @@ class CfnInstanceSnapshotProps:
 
     @builtins.property
     def instance_name(self) -> builtins.str:
-        '''The instance from which the snapshot was created.
+        '''The name the user gave the instance ( ``Amazon_Linux_2023-1`` ).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-instancesnapshot.html#cfn-lightsail-instancesnapshot-instancename
         '''
@@ -7946,7 +7948,9 @@ class CfnInstanceSnapshotProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
+        '''The tag keys and optional values for the resource.
+
+        For more information about tags in Lightsail, see the `Amazon Lightsail Developer Guide <https://docs.aws.amazon.com/lightsail/latest/userguide/amazon-lightsail-tags>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-instancesnapshot.html#cfn-lightsail-instancesnapshot-tags
         '''

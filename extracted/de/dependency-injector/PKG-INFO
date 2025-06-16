@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dependency-injector
-Version: 4.47.1
+Version: 4.48.0
 Summary: Dependency injection framework for Python
 Author-email: Roman Mogylatov <rmogilatov@gmail.com>
 Maintainer-email: Roman Mogylatov <rmogilatov@gmail.com>

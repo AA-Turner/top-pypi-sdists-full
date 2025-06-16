@@ -1,0 +1,40 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Python application
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    # manually triggered
+
+jobs:
+  Test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@main
+      - name: Install the default version of uv
+        id: setup-uv
+        uses: astral-sh/setup-uv@v3
+      - name: Print the installed version
+        run: echo "Installed uv version is ${{ steps.setup-uv.outputs.uv-version }}"
+      - name: Install Python ${{ matrix.python-version }}
+        run: uv python install  ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install ".[testing]"
+      - name: Pylint
+        run: |
+          .venv/bin/pylint --rcfile=.pylintrc dessert tests --disable deprecated-class
+      - name: Test with pytest
+        run: |
+          .venv/bin/pytest

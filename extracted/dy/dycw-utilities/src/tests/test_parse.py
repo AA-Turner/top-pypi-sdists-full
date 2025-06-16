@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from ipaddress import IPv4Address, IPv6Address
 from pathlib import Path
 from types import NoneType
 from typing import Final, Literal
@@ -12,6 +13,7 @@ from hypothesis.strategies import (
     floats,
     frozensets,
     integers,
+    ip_addresses,
     lists,
     none,
     sampled_from,
@@ -41,16 +43,16 @@ from tests.test_typing_funcs.with_future import (
 from utilities.errors import ImpossibleCaseError
 from utilities.functions import ensure_path
 from utilities.hypothesis import (
-    dates_whenever,
+    dates,
     int64s,
     numbers,
     paths,
-    plain_datetimes_whenever,
+    plain_datetimes,
     text_ascii,
-    time_deltas_whenever,
-    times_whenever,
+    time_deltas,
+    times,
     versions,
-    zoned_datetimes_whenever,
+    zoned_datetimes,
 )
 from utilities.math import is_equal
 from utilities.parse import (
@@ -74,7 +76,7 @@ class TestSerializeAndParseObject:
         result = parse_object(bool, serialized)
         assert result is bool_
 
-    @given(date=dates_whenever())
+    @given(date=dates())
     def test_date(self, *, date: Date) -> None:
         serialized = serialize_object(date)
         result = parse_object(Date, serialized)
@@ -109,6 +111,18 @@ class TestSerializeAndParseObject:
         serialized = serialize_object(int_)
         result = parse_object(int, serialized)
         assert result == int_
+
+    @given(address=ip_addresses(v=4))
+    def test_ipv4_address(self, *, address: IPv4Address) -> None:
+        serialized = serialize_object(address)
+        result = parse_object(IPv4Address, serialized)
+        assert result == address
+
+    @given(address=ip_addresses(v=6))
+    def test_ipv6_address(self, *, address: IPv6Address) -> None:
+        serialized = serialize_object(address)
+        result = parse_object(IPv6Address, serialized)
+        assert result == address
 
     @given(ints=lists(int64s()))
     def test_list(self, *, ints: list[int]) -> None:
@@ -156,7 +170,7 @@ class TestSerializeAndParseObject:
         result = ensure_path(parse_object(Path, serialized))
         assert result == result.expanduser()
 
-    @given(datetime=plain_datetimes_whenever())
+    @given(datetime=plain_datetimes())
     def test_plain_datetime(self, *, datetime: PlainDateTime) -> None:
         serialized = serialize_object(datetime)
         result = parse_object(PlainDateTime, serialized)
@@ -200,13 +214,13 @@ class TestSerializeAndParseObject:
         result = parse_object(str, serialized)
         assert result == serialized
 
-    @given(time=times_whenever())
+    @given(time=times())
     def test_time(self, *, time: Time) -> None:
         serialized = serialize_object(time)
         result = parse_object(Time, serialized)
         assert result == time
 
-    @given(time_delta=time_deltas_whenever())
+    @given(time_delta=time_deltas())
     def test_time_delta(self, *, time_delta: TimeDelta) -> None:
         serialized = serialize_object(time_delta)
         result = parse_object(TimeDelta, serialized)
@@ -294,7 +308,7 @@ class TestSerializeAndParseObject:
         result = parse_object(Version, serialized)
         assert result == version
 
-    @given(datetime=zoned_datetimes_whenever())
+    @given(datetime=zoned_datetimes())
     def test_zoned_datetime(self, *, datetime: ZonedDateTime) -> None:
         serialized = serialize_object(datetime)
         result = parse_object(ZonedDateTime, serialized)

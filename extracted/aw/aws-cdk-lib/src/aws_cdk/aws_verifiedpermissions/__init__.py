@@ -1953,7 +1953,7 @@ class CfnPolicyStore(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param validation_settings: Specifies the validation setting for this policy store. Currently, the only valid and required value is ``Mode`` . .. epigraph:: We recommend that you turn on ``STRICT`` mode only after you define a schema. If a schema doesn't exist, then ``STRICT`` mode causes any policy to fail validation, and Verified Permissions rejects the policy. You can turn off validation by using the `UpdatePolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdatePolicyStore>`_ . Then, when you have a schema defined, use `UpdatePolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdatePolicyStore>`_ again to turn validation back on.
-        :param deletion_protection: 
+        :param deletion_protection: Specifies whether the policy store can be deleted. If enabled, the policy store can't be deleted. The default state is ``DISABLED`` .
         :param description: Descriptive text that you can provide to help with identification of the current policy store.
         :param schema: Creates or updates the policy schema in a policy store. Cedar can use the schema to validate any Cedar policies and policy templates submitted to the policy store. Any changes to the schema validate only policies and templates submitted after the schema change. Existing policies and templates are not re-evaluated against the changed schema. If you later update a policy, then it is evaluated against the new schema at that time.
         :param tags: The list of key-value pairs to associate with the policy store.
@@ -2054,6 +2054,10 @@ class CfnPolicyStore(
     def deletion_protection(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyStore.DeletionProtectionProperty"]]:
+        '''Specifies whether the policy store can be deleted.
+
+        If enabled, the policy store can't be deleted.
+        '''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPolicyStore.DeletionProtectionProperty"]], jsii.get(self, "deletionProtection"))
 
     @deletion_protection.setter
@@ -2117,8 +2121,9 @@ class CfnPolicyStore(
     )
     class DeletionProtectionProperty:
         def __init__(self, *, mode: builtins.str) -> None:
-            '''
-            :param mode: Default: - "DISABLED"
+            '''Specifies whether the policy store can be deleted.
+
+            :param mode: Specifies whether the policy store can be deleted. If enabled, the policy store can't be deleted. The default state is ``DISABLED`` . Default: - "DISABLED"
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-deletionprotection.html
             :exampleMetadata: fixture=_generated
@@ -2142,7 +2147,10 @@ class CfnPolicyStore(
 
         @builtins.property
         def mode(self) -> builtins.str:
-            '''
+            '''Specifies whether the policy store can be deleted. If enabled, the policy store can't be deleted.
+
+            The default state is ``DISABLED`` .
+
             :default: - "DISABLED"
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-verifiedpermissions-policystore-deletionprotection.html#cfn-verifiedpermissions-policystore-deletionprotection-mode
@@ -2305,7 +2313,7 @@ class CfnPolicyStoreProps:
         '''Properties for defining a ``CfnPolicyStore``.
 
         :param validation_settings: Specifies the validation setting for this policy store. Currently, the only valid and required value is ``Mode`` . .. epigraph:: We recommend that you turn on ``STRICT`` mode only after you define a schema. If a schema doesn't exist, then ``STRICT`` mode causes any policy to fail validation, and Verified Permissions rejects the policy. You can turn off validation by using the `UpdatePolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdatePolicyStore>`_ . Then, when you have a schema defined, use `UpdatePolicyStore <https://docs.aws.amazon.com/verifiedpermissions/latest/apireference/API_UpdatePolicyStore>`_ again to turn validation back on.
-        :param deletion_protection: 
+        :param deletion_protection: Specifies whether the policy store can be deleted. If enabled, the policy store can't be deleted. The default state is ``DISABLED`` .
         :param description: Descriptive text that you can provide to help with identification of the current policy store.
         :param schema: Creates or updates the policy schema in a policy store. Cedar can use the schema to validate any Cedar policies and policy templates submitted to the policy store. Any changes to the schema validate only policies and templates submitted after the schema change. Existing policies and templates are not re-evaluated against the changed schema. If you later update a policy, then it is evaluated against the new schema at that time.
         :param tags: The list of key-value pairs to associate with the policy store.
@@ -2378,7 +2386,10 @@ class CfnPolicyStoreProps:
     def deletion_protection(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPolicyStore.DeletionProtectionProperty]]:
-        '''
+        '''Specifies whether the policy store can be deleted. If enabled, the policy store can't be deleted.
+
+        The default state is ``DISABLED`` .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policystore.html#cfn-verifiedpermissions-policystore-deletionprotection
         '''
         result = self._values.get("deletion_protection")

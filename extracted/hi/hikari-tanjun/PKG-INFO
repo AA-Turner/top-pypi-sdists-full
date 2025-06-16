@@ -1,0 +1,70 @@
+Metadata-Version: 2.3
+Name: hikari-tanjun
+Version: 2.17.7
+Summary: A flexible command framework designed to extend Hikari.
+Keywords: hikari
+Author-email: Faster Speeding <lucina@lmbyrne.dev>
+Requires-Python: >=3.11.0,<3.14
+Description-Content-Type: text/markdown
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Communications :: Chat
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Requires-Dist: alluka>=0.2.0, <1
+Requires-Dist: hikari>=2.0.0.dev115, <3
+Requires-Dist: typing-extensions>=4.5, <5
+Project-URL: Changelog, https://tanjun.cursed.solutions/changelog
+Project-URL: Documentation, https://tanjun.cursed.solutions/
+Project-URL: Homepage, https://github.com/FasterSpeeding/Tanjun
+Project-URL: Repository, https://github.com/FasterSpeeding/Tanjun
+
+# Tanjun Library
+
+A flexible command framework designed to extend Hikari.
+
+# Installation
+
+You can install Tanjun from PyPI using the following command in any Python 3.11 or above environment.
+
+```
+python -m pip install -U hikari-tanjun
+```
+
+# Getting started
+
+For an overview on using Hikari for creating bots see [HG](https://hg.cursed.solutions/).
+
+For a guide on Tanjun's main features see the [usage guide](https://tanjun.cursed.solutions/usage/).
+
+There's also [Tanjun's general documentation](https://tanjun.cursed.solutions/), and some
+[tutorials and articles](https://patchwork.systems/programming/hikari-discord-bot/index.html).
+
+# Community Resources
+
+* [Tan-chan](https://tanchan.cursed.solutions/) is a general utility library for
+  Tanjun. It includes a command annotation parsing extension which parses docstrings to
+  get the descriptions of slash commands and their options.
+* Redis based implementations of the async cache dependency can be found in
+  [hikari-sake](https://sake.cursed.solutions/) \>=v1.0.1a1 (exposed by
+  [sake.redis.ResourceClient.add_to_tanjun][]).
+
+# Support
+
+[Hikari's support guild](https://discord.gg/hikari) provides for support for Tanjun.
+
+# Contributing
+
+Before contributing you should read through the
+[contributing guidelines](https://github.com/FasterSpeeding/Tanjun/blob/master/CONTRIBUTING.md) and
+the [code of conduct](https://github.com/FasterSpeeding/Tanjun/blob/master/CODE_OF_CONDUCT.md).
+

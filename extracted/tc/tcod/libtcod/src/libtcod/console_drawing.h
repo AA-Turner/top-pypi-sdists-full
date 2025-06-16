@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 #ifndef TCOD_CONSOLE_DRAWING_H_
 #define TCOD_CONSOLE_DRAWING_H_
 #ifdef __cplusplus
@@ -51,6 +52,7 @@ extern "C" {
  *  \param clear If true the drawing region will be filled with spaces.
  *  \param flag The blending flag to use.
  */
+TCOD_DEPRECATED("Use TCOD_console_draw_rect_rgb instead.")
 TCOD_PUBLIC void TCOD_console_rect(TCOD_Console* con, int x, int y, int rw, int rh, bool clear, TCOD_bkgnd_flag_t flag);
 /**
  *  Draw a horizontal line using the default colors.
@@ -64,6 +66,7 @@ TCOD_PUBLIC void TCOD_console_rect(TCOD_Console* con, int x, int y, int rw, int 
  *  This function makes assumptions about the fonts character encoding.
  *  It will fail if the font encoding is not `cp437`.
  */
+TCOD_DEPRECATED("Use TCOD_console_draw_rect_rgb instead.")
 TCOD_PUBLIC void TCOD_console_hline(TCOD_Console* con, int x, int y, int l, TCOD_bkgnd_flag_t flag);
 /**
  *  Draw a vertical line using the default colors.
@@ -77,6 +80,7 @@ TCOD_PUBLIC void TCOD_console_hline(TCOD_Console* con, int x, int y, int l, TCOD
  *  This function makes assumptions about the fonts character encoding.
  *  It will fail if the font encoding is not `cp437`.
  */
+TCOD_DEPRECATED("Use TCOD_console_draw_rect_rgb instead.")
 TCOD_PUBLIC void TCOD_console_vline(TCOD_Console* con, int x, int y, int l, TCOD_bkgnd_flag_t flag);
 // Next functions are provisional unless given an added version.
 /**

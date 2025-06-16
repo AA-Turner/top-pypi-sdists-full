@@ -1,0 +1,57 @@
+Metadata-Version: 2.1
+Name: pyxtuml
+Version: 3.0.0
+Summary: Library for parsing, manipulating, and generating BridgePoint xtUML models
+Home-page: https://github.com/xtuml/pyxtuml
+Author: John Törnblom
+Author-email: john.tornblom@gmail.com
+License: LGPLv3+
+Keywords: xtuml bridgepoint
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Compilers
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires: ply
+Description-Content-Type: text/x-rst
+License-File: COPYING
+License-File: COPYING.LESSER
+License-File: AUTHORS
+Requires-Dist: ply
+
+pyxtuml |Build Status| |Coverage Status|
+========================================
+
+pyxtuml is a python library for parsing, manipulating, and generating
+`BridgePoint <https://www.xtuml.org>`__ xtUML models.
+
+.. sectnum::
+
+=============
+Documentation
+=============
+
+Information on how to use pyxtuml is available at `Read the Docs <http://pyxtuml.readthedocs.io>`__.
+
+==============
+Reporting bugs
+==============
+
+If you encounter problems with pyxtuml, please `file a github
+issue <https://github.com/xtuml/pyxtuml/issues/new>`__. If you
+plan on sending pull request which affect more than a few lines of code,
+please file an issue before you start to work on you changes. This will
+allow us to discuss the solution properly before you commit time and
+effort.
+
+=======
+License
+=======
+
+pyxtuml is licensed under the LGPLv3+, see COPYING and COPYING.LESSER
+for more information.
+
+.. |Build Status| image:: https://github.com/xtuml/pyxtuml/actions/workflows/run-tests.yaml/badge.svg
+.. |Coverage Status| image:: https://coveralls.io/repos/xtuml/pyxtuml/badge.svg?branch=master
+   :target: https://coveralls.io/r/xtuml/pyxtuml?branch=master

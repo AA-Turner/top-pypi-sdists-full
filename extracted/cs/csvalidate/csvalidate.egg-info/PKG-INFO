@@ -1,0 +1,47 @@
+Metadata-Version: 2.1
+Name: csvalidate
+Version: 1.1.2
+Summary: CSV reader and writer with validation
+Home-page: https://github.com/Shir0kamii/csvalidate
+Download-URL: https://github.com/Shir0kamii/csvalidate/tags
+Author: Shir0kamii
+Author-email: shir0kamii@gmail.com
+Platform: any
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+License-File: LICENSE.txt
+Requires-Dist: marshmallow
+
+##########
+csvalidate
+##########
+
+csvalidate is a minimal library for reading from and writing to csv with an
+added layer of validation
+
+Status
+######
+
+Even though csvalidate doesn't get much work, it is maintained. Don't hesitate
+to open issues or pull requests.
+
+Get Started
+###########
+
+Installation
+============
+
+As any python package, you can install it via pip::
+
+    $ pip install csvalidate
+
+How ot use it ?
+===============
+
+The gist of it is to subclass one of `ValidatedReader` or `ValidatedWriter` and
+add a `schema` class attribute that defines validation.
+
+Examples can be found in the `examples` directory.

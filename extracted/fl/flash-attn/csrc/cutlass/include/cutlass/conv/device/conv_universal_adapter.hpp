@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -303,6 +303,16 @@ public:
       dim3 cluster(cute::size<0>(typename ConvKernel::DispatchPolicy::ClusterShape{}),
                    cute::size<1>(typename ConvKernel::DispatchPolicy::ClusterShape{}),
                    cute::size<2>(typename ConvKernel::DispatchPolicy::ClusterShape{}));
+      // Dynamic cluster support
+      [[maybe_unused]] dim3 fallback_cluster = dim3{0,0,0};
+      if constexpr (ConvKernel::ArchTag::kMinComputeCapability == 100 ||
+                    ConvKernel::ArchTag::kMinComputeCapability == 101) {
+        if constexpr (!cute::is_static_v<typename ConvKernel::DispatchPolicy::ClusterShape>) {
+          fallback_cluster = params.hw_info.cluster_shape_fallback;
+          cluster = params.hw_info.cluster_shape;
+        }
+      }
+
       void* kernel_params[] = {&params};
       if constexpr (kEnableCudaHostAdapter) {
         //
@@ -313,6 +323,7 @@ public:
 
           launch_result = cuda_adapter->launch(grid,
                                                cluster, 
+                                               fallback_cluster,
                                                block, 
                                                smem_size, 
                                                stream, 
@@ -326,7 +337,9 @@ public:
       else {
         CUTLASS_ASSERT(cuda_adapter == nullptr);
         void const* kernel = (void const*) device_kernel<ConvKernel>;
-        if constexpr (ConvKernel::ArchTag::kMinComputeCapability == 90) {
+        if constexpr (ConvKernel::ArchTag::kMinComputeCapability == 90
+                        || ConvKernel::ArchTag::kMinComputeCapability == 100 
+                     ) {
           if constexpr (is_static_1x1x1) {
             device_kernel<ConvKernel><<<grid, block, smem_size, stream>>>(params);
             launch_result = Status::kSuccess;
@@ -334,6 +347,20 @@ public:
           else {
             launch_result = ClusterLauncher::launch(
                 grid, cluster, block, smem_size, stream, kernel, kernel_params);
+          }
+        }
+        else {
+          if constexpr (ConvKernel::ArchTag::kMinComputeCapability == 100 ||
+                        ConvKernel::ArchTag::kMinComputeCapability == 101) {
+            launch_result = ClusterLauncher::launch_with_fallback_cluster(
+              grid,
+              cluster,
+              fallback_cluster,
+              block,
+              smem_size,
+              stream,
+              kernel,
+              kernel_params);
           }
         }
       }

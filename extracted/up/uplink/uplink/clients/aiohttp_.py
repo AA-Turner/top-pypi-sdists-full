@@ -2,6 +2,7 @@
 This module defines an :py:class:`aiohttp.ClientSession` adapter
 that returns awaitable responses.
 """
+
 # Standard library imports
 import asyncio
 import collections
@@ -16,7 +17,7 @@ except ImportError:  # pragma: no cover
     aiohttp = None
 
 # Local imports
-from uplink.clients import exceptions, io, interfaces, register
+from uplink.clients import exceptions, interfaces, io, register
 
 
 def threaded_callback(callback):
@@ -27,26 +28,27 @@ def threaded_callback(callback):
         response = callback(response)
         if isinstance(response, ThreadedResponse):
             return response.unwrap()
-        else:
-            return response
+        return response
 
     return new_callback
 
 
 class AiohttpClient(interfaces.HttpClientAdapter):
     """
-    An :py:mod:`aiohttp` client that creates awaitable responses.
+    An `aiohttp` client that creates awaitable responses.
 
     Note:
-        This client is an optional feature and requires the :py:mod:`aiohttp`
-        package. For example, here's how to install this extra using pip::
+        This client is an optional feature and requires the `aiohttp`
+        package. For example, here's how to install this extra using pip:
 
-            $ pip install uplink[aiohttp]
+        ```bash
+        $ pip install 'uplink[aiohttp]'
+        ```
 
     Args:
-        session (:py:class:`aiohttp.ClientSession`, optional):
+        session (aiohttp.ClientSession, optional):
             The session that should handle sending requests. If this
-            argument is omitted or set to :py:obj:`None`, a new session
+            argument is omitted or set to `None`, a new session
             will be created.
     """
 
@@ -72,9 +74,7 @@ class AiohttpClient(interfaces.HttpClientAdapter):
             # so we check whether it is one here and register it
             # to run appropriately at exit
             if asyncio.iscoroutinefunction(self._session.close):
-                asyncio.get_event_loop().run_until_complete(
-                    self._session.close()
-                )
+                asyncio.get_event_loop().run_until_complete(self._session.close())
             else:
                 self._session.close()
 
@@ -101,6 +101,7 @@ class AiohttpClient(interfaces.HttpClientAdapter):
         """
         if isinstance(session, aiohttp.ClientSession):
             return AiohttpClient(session, *args, **kwargs)
+        return None
 
     @classmethod
     def _create_session(cls, *args, **kwargs):
@@ -110,19 +111,19 @@ class AiohttpClient(interfaces.HttpClientAdapter):
     def create(cls, *args, **kwargs):
         """
         Builds a client instance with
-        :py:class:`aiohttp.ClientSession` arguments.
+        [`aiohttp.ClientSession`][aiohttp.ClientSession] arguments.
 
         Instead of directly initializing this class with a
-        :py:class:`aiohttp.ClientSession`, use this method to have the
+        [`aiohttp.ClientSession`][aiohttp.ClientSession], use this method to have the
         client lazily construct a session when sending the first
         request. Hence, this method guarantees that the creation of the
         underlying session happens inside of a coroutine.
 
         Args:
             *args: positional arguments that
-                :py:class:`aiohttp.ClientSession` takes.
+                [`aiohttp.ClientSession`][aiohttp.ClientSession] takes.
             **kwargs: keyword arguments that
-                :py:class:`aiohttp.ClientSession` takes.
+                [`aiohttp.ClientSession`][aiohttp.ClientSession] takes.
         """
         session_build_args = cls._create_session(*args, **kwargs)
         return AiohttpClient(session=session_build_args)
@@ -145,18 +146,17 @@ class AiohttpClient(interfaces.HttpClientAdapter):
         return io.AsyncioStrategy()
 
 
-class ThreadedCoroutine(object):
+class ThreadedCoroutine:
     def __init__(self, coroutine):
         self.__coroutine = coroutine
 
     def __call__(self, *args, **kwargs):
         with AsyncioExecutor() as executor:
             future = executor.submit(self.__coroutine, *args, **kwargs)
-            result = future.result()
-        return result
+            return future.result()
 
 
-class ThreadedResponse(object):
+class ThreadedResponse:
     def __init__(self, response):
         self.__response = response
 

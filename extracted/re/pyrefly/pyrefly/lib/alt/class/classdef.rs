@@ -1,0 +1,178 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+use std::sync::Arc;
+
+use dupe::Dupe;
+use pyrefly_util::prelude::SliceExt;
+use ruff_python_ast::Expr;
+use ruff_python_ast::Identifier;
+use ruff_python_ast::StmtClassDef;
+use ruff_python_ast::name::Name;
+use starlark_map::small_map::SmallMap;
+
+use crate::alt::answers::AnswersSolver;
+use crate::alt::answers::LookupAnswer;
+use crate::alt::class::class_field::ClassField;
+use crate::alt::types::class_metadata::ClassMetadata;
+use crate::alt::types::class_metadata::EnumMetadata;
+use crate::binding::binding::KeyClassField;
+use crate::binding::binding::KeyClassMetadata;
+use crate::binding::binding::KeyLegacyTypeParam;
+use crate::error::collector::ErrorCollector;
+use crate::graph::index::Idx;
+use crate::types::callable::Param;
+use crate::types::callable::Required;
+use crate::types::class::Class;
+use crate::types::class::ClassDefIndex;
+use crate::types::class::ClassFieldProperties;
+use crate::types::class::ClassType;
+use crate::types::types::TParams;
+use crate::types::types::Type;
+
+impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+    // Given a constructor (__new__ or metaclass __call__) that returns `ty`, return true if the type is:
+    // - SelfType or ClassType representing some subclass of `class`
+    // - union only containing the aforementioned types
+    // Docs:
+    // https://typing.python.org/en/latest/spec/constructors.html#new-method
+    // https://typing.python.org/en/latest/spec/constructors.html#converting-a-constructor-to-callable
+    pub fn is_compatible_constructor_return(&self, ty: &Type, class: &Class) -> bool {
+        match ty {
+            Type::SelfType(ty_cls) | Type::ClassType(ty_cls) => {
+                self.has_superclass(ty_cls.class_object(), class)
+            }
+            Type::Union(xs) => xs
+                .iter()
+                .all(|x| self.is_compatible_constructor_return(x, class)),
+            _ => false,
+        }
+    }
+
+    pub fn class_definition(
+        &self,
+        def_index: ClassDefIndex,
+        x: &StmtClassDef,
+        fields: SmallMap<Name, ClassFieldProperties>,
+        bases: &[Expr],
+        legacy_tparams: &[Idx<KeyLegacyTypeParam>],
+        errors: &ErrorCollector,
+    ) -> Class {
+        let scoped_tparams = self.scoped_type_params(x.type_params.as_deref(), errors);
+        let bases = bases.map(|x| self.base_class_of(x, errors));
+        let name = &x.name;
+        let class_tparams = self.class_tparams(name, scoped_tparams, bases, legacy_tparams, errors);
+
+        let tparams = self.type_params(name.range, class_tparams, errors);
+
+        Class::new(
+            def_index,
+            x.name.clone(),
+            self.module_info().dupe(),
+            tparams,
+            fields,
+        )
+    }
+
+    pub fn functional_class_definition(
+        &self,
+        def_index: ClassDefIndex,
+        name: &Identifier,
+        fields: &SmallMap<Name, ClassFieldProperties>,
+    ) -> Class {
+        Class::new(
+            def_index,
+            name.clone(),
+            self.module_info().dupe(),
+            TParams::default(),
+            fields.clone(),
+        )
+    }
+
+    pub fn get_metadata_for_class(&self, cls: &Class) -> Arc<ClassMetadata> {
+        self.get_from_class(cls, &KeyClassMetadata(cls.index()))
+    }
+
+    pub fn get_class_field_map(&self, cls: &Class) -> SmallMap<String, Arc<ClassField>> {
+        let mut map = SmallMap::new();
+
+        for name in cls.fields() {
+            let key = KeyClassField(cls.index(), name.clone());
+            let field = self.get_from_class(cls, &key);
+            map.insert(name.as_str().to_owned(), field);
+        }
+
+        map
+    }
+
+    pub fn get_enum_from_class(&self, cls: &Class) -> Option<EnumMetadata> {
+        self.get_metadata_for_class(cls).enum_metadata().cloned()
+    }
+
+    pub fn get_enum_from_class_type(&self, class_type: &ClassType) -> Option<EnumMetadata> {
+        self.get_enum_from_class(class_type.class_object())
+    }
+
+    pub fn unwrap_class_object_silently(&self, ty: &Type) -> Option<Type> {
+        match ty {
+            Type::ClassDef(c) if c.is_builtin("tuple") => Some(Type::any_tuple()),
+            Type::ClassDef(c) => Some(self.instantiate_fresh(c)),
+            Type::TypeAlias(ta) => self.unwrap_class_object_silently(&ta.as_value(self.stdlib)),
+            // Note that for the purposes of type narrowing, we always unwrap Type::Type(Type::ClassType),
+            // but it's not always a valid argument to isinstance/issubclass. expr_infer separately checks
+            // whether the argument is valid.
+            Type::Type(box ty @ (Type::ClassType(_) | Type::Quantified(_))) => Some(ty.clone()),
+            Type::Type(box Type::Tuple(_)) => Some(Type::any_tuple()),
+            Type::None | Type::Type(box Type::None) => Some(Type::None),
+            Type::ClassType(cls) if cls.is_builtin("type") => Some(Type::any_implicit()),
+            Type::Any(_) => Some(ty.clone()),
+            _ => None,
+        }
+    }
+
+    /// Get an ancestor `ClassType`, in terms of the type parameters of `class`.
+    fn get_ancestor(&self, class: &Class, want: &Class) -> Option<ClassType> {
+        self.get_metadata_for_class(class)
+            .ancestors(self.stdlib)
+            .find(|ancestor| ancestor.class_object() == want)
+            .cloned()
+    }
+
+    /// Is `want` a superclass of `class` in the class hierarchy? Will return `false` if
+    /// `want` is a protocol, unless it is explicitly marked as a base class in the MRO.
+    pub fn has_superclass(&self, class: &Class, want: &Class) -> bool {
+        class == want || self.get_ancestor(class, want).is_some()
+    }
+
+    /// Return the type representing `class` upcast to `want`, if `want` is a
+    /// supertype of `class` in the class hierarchy. Will return `None` if
+    /// `want` is not a superclass, including if `want` is a protocol (unless it
+    /// explicitly appears in the MRO).
+    pub fn as_superclass(&self, class: &ClassType, want: &Class) -> Option<ClassType> {
+        if class.class_object() == want {
+            Some(class.clone())
+        } else {
+            self.get_ancestor(class.class_object(), want)
+                .map(|ancestor| ancestor.substitute(&class.substitution()))
+        }
+    }
+
+    pub fn extends_any(&self, cls: &Class) -> bool {
+        self.get_metadata_for_class(cls).has_base_any()
+    }
+
+    pub fn class_self_param(&self, cls: &Class, posonly: bool) -> Param {
+        let ty = self.instantiate(cls);
+        let req = Required::Required;
+        let name = Name::new_static("self");
+        if posonly {
+            Param::PosOnly(Some(name), ty, req)
+        } else {
+            Param::Pos(name, ty, req)
+        }
+    }
+}

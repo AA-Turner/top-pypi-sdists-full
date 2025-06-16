@@ -1,19 +1,38 @@
-from __future__ import absolute_import
-from __future__ import unicode_literals
+from copy import copy
 
-from django.db.models import Manager
+from django.db.models import Manager, sql
+from django.db.models.expressions import Ref
 from django.db.models.query import Q, QuerySet, ValuesIterable
 from django.db.models.sql.datastructures import BaseTable
 
+from .jitmixin import jit_mixin
 from .join import QJoin, INNER
 from .meta import CTEColumnRef, CTEColumns
 from .query import CTEQuery
+from ._deprecated import deprecated
 
-__all__ = ["With", "CTEManager", "CTEQuerySet"]
+__all__ = ["CTE", "with_cte"]
 
 
-class With(object):
-    """Common Table Expression query object: `WITH ...`
+def with_cte(*ctes, select):
+    """Add Common Table Expression(s) (CTEs) to a model or queryset
+
+    :param *ctes: One or more CTE objects.
+    :param select: A model class, queryset, or CTE to use as the base
+        query to which CTEs are attached.
+    :returns: A queryset with the given CTE added to it.
+    """
+    if isinstance(select, CTE):
+        select = select.queryset()
+    elif not isinstance(select, QuerySet):
+        select = select._default_manager.all()
+    jit_mixin(select.query, CTEQuery)
+    select.query._with_ctes += ctes
+    return select
+
+
+class CTE:
+    """Common Table Expression
 
     :param queryset: A queryset to use as the body of the CTE.
     :param name: Optional name parameter for the CTE (default: "cte").
@@ -43,7 +62,7 @@ class With(object):
 
     @classmethod
     def recursive(cls, make_cte_queryset, name="cte", materialized=False):
-        """Recursive Common Table Expression: `WITH RECURSIVE ...`
+        """Recursive Common Table Expression
 
         :param make_cte_queryset: Function taking a single argument (a
         not-yet-fully-constructed cte object) and returning a `QuerySet`
@@ -60,10 +79,11 @@ class With(object):
     def join(self, model_or_queryset, *filter_q, **filter_kw):
         """Join this CTE to the given model or queryset
 
-        This CTE will be refernced by the returned queryset, but the
+        This CTE will be referenced by the returned queryset, but the
+
         corresponding `WITH ...` statement will not be prepended to the
-        queryset's SQL output; use `<CTEQuerySet>.with_cte(cte)` to
-        achieve that outcome.
+        queryset's SQL output; use `with_cte(cte, select=cte.join(...))`
+        to achieve that outcome.
 
         :param model_or_queryset: Model class or queryset to which the
         CTE should be joined.
@@ -98,53 +118,72 @@ class With(object):
 
         This CTE will be referenced by the returned queryset, but the
         corresponding `WITH ...` statement will not be prepended to the
-        queryset's SQL output; use `<CTEQuerySet>.with_cte(cte)` to
-        achieve that outcome.
+        queryset's SQL output; use `with_cte(cte, select=cte)` to do
+        that.
 
         :returns: A queryset.
         """
         cte_query = self.query
         qs = cte_query.model._default_manager.get_queryset()
 
-        query = CTEQuery(cte_query.model)
+        query = jit_mixin(sql.Query(cte_query.model), CTEQuery)
         query.join(BaseTable(self.name, None))
         query.default_cols = cte_query.default_cols
         query.deferred_loading = cte_query.deferred_loading
+        if cte_query.values_select:
+            query.set_values(cte_query.values_select)
+            qs._iterable_class = ValuesIterable
+        for alias in getattr(cte_query, "selected", None) or ():
+            if alias not in cte_query.annotations:
+                col = Ref(alias, cte_query.resolve_ref(alias))
+                query.add_annotation(col, alias)
         if cte_query.annotations:
             for alias, value in cte_query.annotations.items():
                 col = CTEColumnRef(alias, self.name, value.output_field)
                 query.add_annotation(col, alias)
-        if cte_query.values_select:
-            query.set_values(cte_query.values_select)
-            qs._iterable_class = ValuesIterable
         query.annotation_select_mask = cte_query.annotation_select_mask
 
         qs.query = query
         return qs
 
     def _resolve_ref(self, name):
+        selected = getattr(self.query, "selected", None)
+        if selected and name in selected and name not in self.query.annotations:
+            return Ref(name, self.query.resolve_ref(name))
         return self.query.resolve_ref(name)
 
+    def resolve_expression(self, *args, **kw):
+        if self.query is None:
+            raise ValueError("Cannot resolve recursive CTE without a query.")
+        clone = copy(self)
+        clone.query = clone.query.resolve_expression(*args, **kw)
+        return clone
 
+
+@deprecated("Use `django_cte.CTE` instead.")
+class With(CTE):
+
+    @staticmethod
+    @deprecated("Use `django_cte.CTE.recursive` instead.")
+    def recursive(*args, **kw):
+        return CTE.recursive(*args, **kw)
+
+
+@deprecated("CTEQuerySet is deprecated. "
+            "CTEs can now be applied to any queryset using `with_cte()`")
 class CTEQuerySet(QuerySet):
     """QuerySet with support for Common Table Expressions"""
 
     def __init__(self, model=None, query=None, using=None, hints=None):
         # Only create an instance of a Query if this is the first invocation in
         # a query chain.
-        if query is None:
-            query = CTEQuery(model)
         super(CTEQuerySet, self).__init__(model, query, using, hints)
+        jit_mixin(self.query, CTEQuery)
 
+    @deprecated("Use `django_cte.with_cte(cte, select=...)` instead.")
     def with_cte(self, cte):
-        """Add a Common Table Expression to this queryset
-
-        The CTE `WITH ...` clause will be added to the queryset's SQL
-        output (after other CTEs that have already been added) so it
-        can be referenced in annotations, filters, etc.
-        """
         qs = self._clone()
-        qs.query._with_ctes.append(cte)
+        qs.query._with_ctes += cte,
         return qs
 
     def as_manager(cls):
@@ -157,6 +196,8 @@ class CTEQuerySet(QuerySet):
     as_manager = classmethod(as_manager)
 
 
+@deprecated("CTEMAnager is deprecated. "
+            "CTEs can now be applied to any queryset using `with_cte()`")
 class CTEManager(Manager.from_queryset(CTEQuerySet)):
     """Manager for models that perform CTE queries"""
 

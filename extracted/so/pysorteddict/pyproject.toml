@@ -1,0 +1,65 @@
+[build-system]
+requires = [
+    # The Apple linker does not recognise `-Bsymbolic-functions`, one of the
+    # arguments cibuildwheel passes to it on macOS when building wheels for
+    # PyPy. Using an older version of Setuptools fixes this problem. However,
+    # that version does not recognise the MSYS2 platform tag, and aborts the
+    # build, preventing me from developing on MSYS2. It is not possible to
+    # detect MSYS2 from here, so just test for Windows.
+    "setuptools==70.0.0; platform_system != 'Windows'",
+    "setuptools==71.0.0; platform_system == 'Windows'",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pysorteddict"
+version = "0.7.2"
+authors = [
+    {name = "Vishal Pankaj Chandratreya"},
+]
+description = "Python sorted dictionary: a Python dictionary in which the keys are always in ascending order"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[project.urls]
+Homepage = "https://tfpf.github.io/pysorteddict/"
+Documentation = "https://tfpf.github.io/pysorteddict/documentation.html"
+Repository = "https://github.com/tfpf/pysorteddict"
+Changelog = "https://tfpf.github.io/pysorteddict/changelog.html"
+
+[tool.cibuildwheel]
+archs = ["auto64"]
+enable = ["pypy"]
+test-command = "pytest -n auto {package}"
+test-requires = ["pytest-xdist"]
+
+# No use of an editable installation. If the code is edited, it has to be
+# recompiled, and the package has to be reinstalled.
+[tool.hatch.envs.default]
+dev-mode = false
+dependencies = ["pytest-xdist"]
+
+[tool.ruff]
+line-length = 119
+
+[tool.ruff.lint.per-file-ignores]
+"docs/conf.py" = ["A001", "INP001"]
+"examples/*" = ["S101", "T201"]
+"tests/*" = ["PLR2004", "S101", "S311"]

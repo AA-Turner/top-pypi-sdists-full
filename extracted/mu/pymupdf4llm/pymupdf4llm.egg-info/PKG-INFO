@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymupdf4llm
-Version: 0.0.24
+Version: 0.0.25
 Summary: PyMuPDF Utilities for LLM/RAG
 Home-page: https://github.com/pymupdf/RAG
 Author: Artifex
@@ -16,7 +16,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Utilities
 Description-Content-Type: text/markdown
-Requires-Dist: pymupdf>=1.25.5
+Requires-Dist: pymupdf>=1.26.1
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -102,6 +102,7 @@ def get_force_lock_flag() -> str:
 @pre_bundle_hook
 def bundle_deploy(
     bundle_cli: Optional[str] = None,
+    fail_on_active_runs: bool = False,
     force_acquire_lock: bool = False,
     auto_approve: bool = False,
     debug: bool = False,
@@ -114,6 +115,13 @@ def bundle_deploy(
         return
 
     deploy_args = ["deploy", ENV_FLAG, get_bundles_project_env()]
+    if fail_on_active_runs is True:
+        # TODO: Remove the following message once the CLI is upgraded to >= 0.249.0.
+        _ilog.info(
+            "Note that, even with `fail-on-active-runs` being enabled, the deployment might fail, "
+            "in some edge cases (particularly if the bundle includes some wheel artifacts)."
+        )
+        deploy_args.append("--fail-on-active-runs")
     if force_acquire_lock is True:
         # fix/issue-32
         deploy_args.append(get_force_lock_flag())
@@ -145,15 +153,18 @@ def bundle_destroy(
 
 
 def get_arch() -> str:
-    architecture = platform.machine()
-
-    if architecture in ("i386", "i686"):
-        architecture = "386"
-    elif architecture == "x86_64":
-        architecture = "amd64"
-    elif architecture.startswith("arm"):
-        architecture = "arm64"
-    return architecture
+    system = platform.machine().lower()
+    arch_map = {
+        "x86_64": "amd64",
+        "amd64": "amd64",
+        "i386": "386",
+        "i686": "386",
+        "arm64": "arm64",
+        "aarch64": "arm64",
+    }
+    if system not in arch_map:
+        raise RuntimeError(f"Unsupported architecture: {system}")
+    return arch_map[system]
 
 
 def bundle_download_path(version: str) -> str:

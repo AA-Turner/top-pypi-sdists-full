@@ -1,0 +1,79 @@
+Metadata-Version: 2.1
+Name: langchain-azure-ai
+Version: 0.1.4
+Summary: An integration package to support Azure AI Foundry capabilities for model inference in LangChain.
+License: MIT
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Provides-Extra: opentelemetry
+Requires-Dist: aiohttp (>=3.10.0,<4.0.0)
+Requires-Dist: azure-ai-inference[opentelemetry] (>=1.0.0b7,<2.0.0)
+Requires-Dist: azure-core (>=1.32.0,<2.0.0)
+Requires-Dist: azure-cosmos (>=4.9.0,<5.0.0)
+Requires-Dist: azure-identity (>=1.15.0,<2.0.0)
+Requires-Dist: azure-monitor-opentelemetry (>=1.6.4,<2.0.0) ; extra == "opentelemetry"
+Requires-Dist: langchain-core (>=0.3.0,<0.4.0)
+Requires-Dist: langchain-openai (>=0.3.0,<0.4.0)
+Requires-Dist: numpy (>=1.26.2) ; python_version < "3.13"
+Requires-Dist: numpy (>=2.1.0) ; python_version >= "3.13"
+Requires-Dist: opentelemetry-instrumentation-threading (>=0.49b2,<0.50) ; extra == "opentelemetry"
+Requires-Dist: opentelemetry-semantic-conventions-ai (>=0.4.2,<0.5.0) ; extra == "opentelemetry"
+Project-URL: Release Notes, https://github.com/langchain-ai/langchain-azure/releases
+Project-URL: Source Code, https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-ai
+Description-Content-Type: text/markdown
+
+# langchain-azure-ai
+
+This package contains the LangChain integration for Azure AI Foundry. To learn more about how to use this package, see the LangChain documentation in [Azure AI Foundry](https://aka.ms/azureai/langchain).
+
+> [!NOTE]
+> This package is in Public Preview. For more information, see [Supplemental Terms of Use for Microsoft Azure Previews](https://azure.microsoft.com/support/legal/preview-supplemental-terms/).
+
+## Installation
+
+```bash
+pip install -U langchain-azure-ai
+```
+
+For using tracing capabilities with OpenTelemetry, you need to add the extras `opentelemetry`:
+
+```bash
+pip install -U langchain-azure-ai[opentelemetry]
+```
+
+## Changelog
+
+- **0.1.4**:
+
+  - Bug fix [#91](https://github.com/langchain-ai/langchain-azure/pull/91).
+
+- **0.1.3**:
+
+  - **[Breaking change]:** We renamed the parameter `model_name` in `AzureAIEmbeddingsModel` and `AzureAIChatCompletionsModel` to `model`, which is the parameter expected by the method `langchain.chat_models.init_chat_model`.
+  - We fixed an issue with JSON mode in chat models [#81](https://github.com/langchain-ai/langchain-azure/issues/81).
+  - We fixed the dependencies for NumpPy [#70](https://github.com/langchain-ai/langchain-azure/issues/70).
+  - We fixed an issue when tracing Pyndantic objects in the inputs [#65](https://github.com/langchain-ai/langchain-azure/issues/65).
+  - We made `connection_string` parameter optional as suggested at [#65](https://github.com/langchain-ai/langchain-azure/issues/65).
+
+- **0.1.2**:
+
+  - Bug fix [#35](https://github.com/langchain-ai/langchain-azure/issues/35).
+
+- **0.1.1**: 
+
+  - Adding `AzureCosmosDBNoSqlVectorSearch` and `AzureCosmosDBNoSqlSemanticCache` for vector search and full text search.
+  - Adding `AzureCosmosDBMongoVCoreVectorSearch` and `AzureCosmosDBMongoVCoreSemanticCache` for vector search.
+  - You can now create `AzureAIEmbeddingsModel` and `AzureAIChatCompletionsModel` clients directly from your AI project's connection string using the parameter `project_connection_string`. Your default Azure AI Services connection is used to find the model requested. This requires to have `azure-ai-projects` package installed.
+  - Support for native LLM structure outputs. Use `with_structured_output(method="json_schema")` to use native structured schema support. Use `with_structured_output(method="json_mode")` to use native JSON outputs capabilities. By default, LangChain uses `method="function_calling"` which uses tool calling capabilities to generate valid structure JSON payloads. This requires to have `azure-ai-inference >= 1.0.0b7`.
+  - Bug fix [#18](https://github.com/langchain-ai/langchain-azure/issues/18) and [#31](https://github.com/langchain-ai/langchain-azure/issues/31).
+
+- **0.1.0**:
+
+  - Introduce `AzureAIEmbeddingsModel` for embedding generation and `AzureAIChatCompletionsModel` for chat completions generation using the Azure AI Inference API. This client also supports GitHub Models endpoint.
+  - Introduce `AzureAIInferenceTracer` for tracing with OpenTelemetry and Azure Application Insights.
+

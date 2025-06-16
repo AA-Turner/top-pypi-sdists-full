@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -217,7 +217,7 @@ int TCOD_pf_compute_step(struct TCOD_Pathfinder* path) {
 }
 
 struct TCOD_Pathfinder* TCOD_pf_new(int ndim, const size_t* shape) {
-  struct TCOD_Pathfinder* path = calloc(sizeof(struct TCOD_Pathfinder), 1);
+  struct TCOD_Pathfinder* path = calloc(1, sizeof(struct TCOD_Pathfinder));
   if (!path) {
     return NULL;
   }

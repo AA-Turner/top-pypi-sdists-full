@@ -1,1 +1,2 @@
-from .clipit import initialize_clipit
+from .gui_frontend import *
+

@@ -20,6 +20,8 @@ export declare class LeafletLayerGroupModel extends LeafletLayerModel {
         popup_max_height: number | null;
         pane: string;
         subitems: L.Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
 export declare class LeafletLayerGroupView extends LeafletLayerView {

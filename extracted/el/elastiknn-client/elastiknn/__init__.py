@@ -1,2 +1,0 @@
-
-ELASTIKNN_NAME = "elastiknn"

@@ -131,7 +131,7 @@ class TestFixture:
             pytest.importorskip("xdist")
             result = pytester.runpytest("-n1")
             expected_lines = ["1 worker [1 item]"]
-        expected_lines += ["* 1 passed, 3 xfailed, 2 subtests passed in *"]
+        expected_lines += ["* 1 passed, 2 subtests passed, 3 subtests xfailed in *"]
         result.stdout.fnmatch_lines(expected_lines)
 
     def test_typing_exported(
@@ -216,7 +216,7 @@ class TestSubTest:
                     "E  * AssertionError: 1 != 0",
                     "* T.test_foo [[]custom[]] (i=3) *",
                     "E  * AssertionError: 1 != 0",
-                    "* 2 failed, 1 passed in *",
+                    "* 2 failed, 1 passed, 3 subtests passed in *",
                 ]
             )
 
@@ -267,7 +267,7 @@ class TestSubTest:
                     "E  * AssertionError: 1 != 0",
                     "* T.test_foo [[]custom[]] (i=3) *",
                     "E  * AssertionError: 1 != 0",
-                    "* 2 failed, 1 passed in *",
+                    "* 2 failed, 1 passed, 3 subtests passed in *",
                 ]
             )
 
@@ -394,19 +394,19 @@ class TestSubTest:
             if sys.version_info < (3, 11):
                 result.stderr.re_match_lines(
                     [
-                        "FAIL: test_foo \(__main__\.T\) \[custom message\] \(i=4\).*",
-                        "FAIL: test_foo \(__main__\.T\) \[custom message\] \(i=9\).*",
-                        "Ran 1 test in .*",
-                        "FAILED \(failures=6, skipped=4\)",
+                        r"FAIL: test_foo \(__main__\.T\) \[custom message\] \(i=4\).*",
+                        r"FAIL: test_foo \(__main__\.T\) \[custom message\] \(i=9\).*",
+                        r"Ran 1 test in .*",
+                        r"FAILED \(failures=6, skipped=4\)",
                     ]
                 )
             else:
                 result.stderr.re_match_lines(
                     [
-                        "FAIL: test_foo \(__main__\.T\.test_foo\) \[custom message\] \(i=4\).*",
-                        "FAIL: test_foo \(__main__\.T\.test_foo\) \[custom message\] \(i=9\).*",
-                        "Ran 1 test in .*",
-                        "FAILED \(failures=6, skipped=4\)",
+                        r"FAIL: test_foo \(__main__\.T\.test_foo\) \[custom message\] \(i=4\).*",
+                        r"FAIL: test_foo \(__main__\.T\.test_foo\) \[custom message\] \(i=9\).*",
+                        r"Ran 1 test in .*",
+                        r"FAILED \(failures=6, skipped=4\)",
                     ]
                 )
         elif runner == "pytest-normal":
@@ -418,11 +418,11 @@ class TestSubTest:
                     r"test_skip_with_failure.py::T::test_foo \[custom message\] \(i=4\) SUBFAIL .*",
                     r"test_skip_with_failure.py::T::test_foo \[custom message\] \(i=9\) SUBFAIL .*",
                     "test_skip_with_failure.py::T::test_foo PASSED .*",
-                    "[custom message] (i=0) SUBSKIP [1] test_skip_with_failure.py:5: skip subtest i=0",
-                    "[custom message] (i=0) SUBSKIP [1] test_skip_with_failure.py:5: skip subtest i=3",
-                    "[custom message] (i=4) SUBFAIL test_skip_with_failure.py::T::test_foo - AssertionError: assert 4 < 4",
-                    "[custom message] (i=9) SUBFAIL test_skip_with_failure.py::T::test_foo - AssertionError: assert 9 < 4",
-                    ".* 6 failed, 1 passed, 4 skipped in .*",
+                    r"[custom message] (i=0) SUBSKIP [1] test_skip_with_failure.py:5: skip subtest i=0",
+                    r"[custom message] (i=0) SUBSKIP [1] test_skip_with_failure.py:5: skip subtest i=3",
+                    r"[custom message] (i=4) SUBFAIL test_skip_with_failure.py::T::test_foo - AssertionError: assert 4 < 4",
+                    r"[custom message] (i=9) SUBFAIL test_skip_with_failure.py::T::test_foo - AssertionError: assert 9 < 4",
+                    r".* 6 failed, 1 passed, 4 skipped in .*",
                 ]
             )
         else:
@@ -463,19 +463,19 @@ class TestSubTest:
             if sys.version_info < (3, 11):
                 result.stderr.re_match_lines(
                     [
-                        "FAIL: test_foo \(__main__\.T\) \[custom message\] \(i=4\).*",
-                        "FAIL: test_foo \(__main__\.T\) \[custom message\] \(i=9\).*",
-                        "Ran 1 test in .*",
-                        "FAILED \(failures=6, skipped=5\)",
+                        r"FAIL: test_foo \(__main__\.T\) \[custom message\] \(i=4\).*",
+                        r"FAIL: test_foo \(__main__\.T\) \[custom message\] \(i=9\).*",
+                        r"Ran 1 test in .*",
+                        r"FAILED \(failures=6, skipped=5\)",
                     ]
                 )
             else:
                 result.stderr.re_match_lines(
                     [
-                        "FAIL: test_foo \(__main__\.T\.test_foo\) \[custom message\] \(i=4\).*",
-                        "FAIL: test_foo \(__main__\.T\.test_foo\) \[custom message\] \(i=9\).*",
-                        "Ran 1 test in .*",
-                        "FAILED \(failures=6, skipped=5\)",
+                        r"FAIL: test_foo \(__main__\.T\.test_foo\) \[custom message\] \(i=4\).*",
+                        r"FAIL: test_foo \(__main__\.T\.test_foo\) \[custom message\] \(i=9\).*",
+                        r"Ran 1 test in .*",
+                        r"FAILED \(failures=6, skipped=5\)",
                     ]
                 )
         elif runner == "pytest-normal":
@@ -491,8 +491,8 @@ class TestSubTest:
                     r".* 6 failed, 5 skipped in .*",
                 ]
             )
-            # check with `--no-fold-skipped` (which gives the correct information)
-            if sys.version_info >= (3, 10):
+            # Check with `--no-fold-skipped` (which gives the correct information).
+            if sys.version_info >= (3, 10) and pytest.version_tuple[:2] >= (8, 3):
                 result = pytester.runpytest(p, "-v", "--no-fold-skipped", "-rsf")
                 result.stdout.re_match_lines(
                     [

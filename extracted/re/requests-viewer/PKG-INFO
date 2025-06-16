@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: requests_viewer
+Version: 0.1.0
+Summary: requests_viewer!
+Home-page: https://github.com/kootenpv/requests_viewer
+Author: Pascal van Kooten
+Author-email: kootenpv@gmail.com
+License: MIT
+Description: UNKNOWN
+Platform: any
+Provides-Extra: fancy

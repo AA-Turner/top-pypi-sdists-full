@@ -1,0 +1,22 @@
+name: segregation
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.12
+  - deprecation
+  - geopandas>=0.9
+  - joblib
+  - libpysal
+  - mapclassify
+  - matplotlib
+  - numpy
+  - pandana
+  - pandas
+  - pip
+  - scikit-learn
+  - scipy
+  - seaborn
+  - tqdm
+  - numba
+  - pyproj >=3

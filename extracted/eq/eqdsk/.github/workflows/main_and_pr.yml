@@ -1,0 +1,69 @@
+name: Main and PR
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup python and Hatch
+        uses: ./.github/workflows/actions/setup-hatch
+
+      - name: Run Hatch linting tasks
+        uses: ./.github/workflows/actions/hatch-lint
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup python and Hatch
+        uses: "./.github/workflows/actions/setup-hatch"
+
+      - name: Checkout bluemira-private-data
+        uses: actions/checkout@v4
+        if: ${{ !github.event.pull_request.head.repo.fork }}
+        with:
+          repository: "Fusion-Power-Plant-Framework/bluemira-private-data"
+          ssh-key: ${{ secrets.BLUEMIRA_PRIVATE_DATA_DEPLOY_KEY }}
+          path: "./tests/test_data/private"
+
+      - name: Run all tests with coverage
+        if: ${{ matrix.os != 'windows-latest'}}
+        env:
+          PRIVATE: ${{ github.event.pull_request.head.repo.fork  && 'tests-cov' || 'tests-cov-private' }}
+        run: hatch run test:${PRIVATE}
+
+      - name: Run windows tests with coverage
+        if: ${{ matrix.os == 'windows-latest' }}
+        env:
+          PRIVATE: ${{ github.event.pull_request.head.repo.fork  && 'tests-cov' || 'tests-cov-private' }}
+        run: hatch run test:${env:PRIVATE}
+
+  docs-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup python and Hatch
+        uses: "./.github/workflows/actions/setup-hatch"
+
+      - name: Build docs
+        run: hatch run docs:build

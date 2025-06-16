@@ -59,14 +59,13 @@ from pyopencl.compyte.array import (
     equal_strides as _equal_strides,
     f_contiguous_strides as _f_contiguous_strides,
 )
+from pyopencl.typing import Allocator
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
 
     from numpy.typing import DTypeLike, NDArray
-
-    from pyopencl.typing import Allocator
 
 
 SCALAR_CLASSES = (Number, np.bool_, bool)
@@ -3403,5 +3402,40 @@ def cumsum(a, output_dtype=None, queue: cl.CommandQueue | None = None,
         return result
 
 # }}}
+
+
+__all__ = [
+    "Allocator",
+    "Array",
+    "all",
+    "any",
+    "arange",
+    "as_strided",
+    "concatenate",
+    "cumsum",
+    "diff",
+    "dot",
+    "empty_like",
+    "hstack",
+    "if_positive",
+    "logical_and",
+    "logical_not",
+    "logical_or",
+    "maximum",
+    "minimum",
+    "multi_put",
+    "multi_take",
+    "multi_take_put",
+    "reshape",
+    "stack",
+    "subset_dot",
+    "sum",
+    "take",
+    "to_device",
+    "transpose",
+    "vdot",
+    "zeros",
+    "zeros_like",
+]
 
 # vim: foldmethod=marker

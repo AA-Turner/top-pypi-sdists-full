@@ -1,0 +1,15 @@
+[package]
+name = "hdt_sampling"
+version = "0.2.0"
+edition = "2021"
+description = "Fast Hierarchical Dart Throwing sampling implementation"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "hdt_sampling"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.24.0"
+rand = "0.9.1"
+rand_pcg = "0.9.0"

@@ -675,11 +675,9 @@ class TypeChecker(NodeVisitor[None], TypeCheckerSharedApi):
             assert isinstance(defn.items[0], Decorator)
             self.visit_decorator(defn.items[0])
             if defn.items[0].var.is_settable_property:
-                # TODO: here and elsewhere we assume setter immediately follows getter.
-                assert isinstance(defn.items[1], Decorator)
                 # Perform a reduced visit just to infer the actual setter type.
-                self.visit_decorator_inner(defn.items[1], skip_first_item=True)
-                setter_type = defn.items[1].var.type
+                self.visit_decorator_inner(defn.setter, skip_first_item=True)
+                setter_type = defn.setter.var.type
                 # Check if the setter can accept two positional arguments.
                 any_type = AnyType(TypeOfAny.special_form)
                 fallback_setter_type = CallableType(
@@ -690,7 +688,7 @@ class TypeChecker(NodeVisitor[None], TypeCheckerSharedApi):
                     fallback=self.named_type("builtins.function"),
                 )
                 if setter_type and not is_subtype(setter_type, fallback_setter_type):
-                    self.fail("Invalid property setter signature", defn.items[1].func)
+                    self.fail("Invalid property setter signature", defn.setter.func)
                 setter_type = self.extract_callable_type(setter_type, defn)
                 if not isinstance(setter_type, CallableType) or len(setter_type.arg_types) != 2:
                     # TODO: keep precise type for callables with tricky but valid signatures.
@@ -2149,7 +2147,7 @@ class TypeChecker(NodeVisitor[None], TypeCheckerSharedApi):
         assert typ is not None and original_type is not None
 
         if not is_subtype(original_type, typ):
-            self.msg.incompatible_setter_override(defn.items[1], typ, original_type, base)
+            self.msg.incompatible_setter_override(defn.setter, typ, original_type, base)
 
     def check_method_override_for_base_with_name(
         self, defn: FuncDef | OverloadedFuncDef | Decorator, name: str, base: TypeInfo
@@ -2448,7 +2446,7 @@ class TypeChecker(NodeVisitor[None], TypeCheckerSharedApi):
                     if not is_subtype(original_arg_type, erase_override(override_arg_type)):
                         context: Context = node
                         if isinstance(node, FuncDef) and not node.is_property:
-                            arg_node = node.arguments[i + len(override.bound_args)]
+                            arg_node = node.arguments[i + override.bound()]
                             if arg_node.line != -1:
                                 context = arg_node
                         self.msg.argument_incompatible_with_supertype(
@@ -3426,7 +3424,9 @@ class TypeChecker(NodeVisitor[None], TypeCheckerSharedApi):
             # store the rvalue type on the variable.
             actual_lvalue_type = None
             if lvalue_node.is_inferred and not lvalue_node.explicit_self_type:
-                rvalue_type = self.expr_checker.accept(rvalue, lvalue_node.type)
+                # Don't use partial types as context, similar to regular code path.
+                ctx = lvalue_node.type if not isinstance(lvalue_node.type, PartialType) else None
+                rvalue_type = self.expr_checker.accept(rvalue, ctx)
                 actual_lvalue_type = lvalue_node.type
                 lvalue_node.type = rvalue_type
             lvalue_type, _ = self.node_type_from_base(lvalue_node.name, lvalue_node.info, lvalue)

@@ -1,0 +1,41 @@
+[build-system]
+requires = [
+    "setuptools>=61.0.0",
+    "setuptools_scm[toml]>=6.2",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytest-tcpclient"
+authors = [
+    { name="Anders Lindstrom", email="anders@anderslindstrom.com"},
+]
+description = "A pytest plugin for testing TCP clients"
+readme = ".github/README.rst"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dynamic = ["version", "optional-dependencies"]
+dependencies = [
+    "pytest>=7.1.3,<8",
+    "pytest-asyncio",
+    "pytest-mock"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/andersglindstrom/pytest-tcpclient.git"
+
+[project.entry-points.pytest11]
+tcpclient = "pytest_tcpclient.plugin"
+
+[tool.pytest.ini_options]
+pytester_example_dir = "examples"
+
+[tool.setuptools_scm]
+
+[tool.setuptools.dynamic.optional-dependencies.dev]
+file = "dev_dependencies.txt"

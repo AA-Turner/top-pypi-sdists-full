@@ -1,3 +1,0 @@
-- name: "Set1"
-  spec: "set1"
-  search_pattern: "metadata.resource_type.id:dataset"

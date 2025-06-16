@@ -1,0 +1,134 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "safe-eth-py"
+dynamic = ["version"]
+description = "Safe Ecosystem Foundation utilities for Ethereum projects"
+readme = "README.rst"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Uxío", email = "uxio@safe.global" },
+]
+keywords = [
+    "cowswap",
+    "django",
+    "ethereum",
+    "gnosis",
+    "safe",
+    "web3",
+    "safe_eth",
+]
+classifiers = [
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 2.0",
+    "Framework :: Django :: 3.0",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 5.0",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+]
+dependencies = [
+    "packaging",
+    "py-evm>=0.7.0a1",
+    "requests>=2",
+    "safe-pysha3>=1.0.0",
+    "web3>=7",
+]
+
+[project.optional-dependencies]
+django = [
+    "django-filter>=2",
+    "django>=2",
+    "djangorestframework>=2",
+]
+
+[project.urls]
+Documentation = "https://safe-eth-py.readthedocs.io/en/latest/"
+Homepage = "https://github.com/safe-global/safe-eth-py"
+Source = "https://github.com/safe-global/safe-eth-py"
+Tracker = "https://github.com/safe-global/safe-eth-py/issues"
+
+[tool.hatch.version]
+path = "safe_eth/__init__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:safe_eth}"
+
+[tool.coverage.run]
+include = ["safe_eth/*"]
+# source_pkgs = ["safe_eth", "tests"]
+branch = true
+parallel = true
+omit = [
+  "*__init__.py*",
+  "*tests*",
+  "*/migrations/*",
+]
+
+#[tool.coverage.paths]
+#tests = ["tests", "*/safe_eth/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "if settings.DEBUG",
+  "raise NotImplementedError",
+  "pass",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/safe_eth",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "/safe_eth",
+]
+
+[tool.isort]
+profile = "black"
+default_section = "THIRDPARTY"
+known_first_party = "safe_eth"
+known_safe_foundation = "py_eth_sig_utils"
+known_django = "django"
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "DJANGO",
+    "THIRDPARTY",
+    "SAFE_FOUNDATION",
+    "FIRSTPARTY",
+    "LOCALFOLDER",
+]
+
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+
+[tool.pytest_env]
+DJANGO_SETTINGS_MODULE = "config.settings.test"

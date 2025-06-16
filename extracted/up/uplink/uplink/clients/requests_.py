@@ -4,19 +4,17 @@
 import requests
 
 # Local imports
-from uplink.clients import exceptions, io, interfaces, register
+from uplink.clients import exceptions, interfaces, io, register
 
 
 class RequestsClient(interfaces.HttpClientAdapter):
     """
-    A :py:mod:`requests` client that returns
-    :py:class:`requests.Response` responses.
+    A `requests` client that returns
+    `requests.Response` responses.
 
     Args:
-        session (:py:class:`requests.Session`, optional): The session
-            that should handle sending requests. If this argument is
-            omitted or set to :py:obj:`None`, a new session will be
-            created.
+        session: The session that should handle sending requests. If this argument is
+            omitted or set to `None`, a new session will be created.
     """
 
     exceptions = exceptions.Exceptions()
@@ -37,6 +35,7 @@ class RequestsClient(interfaces.HttpClientAdapter):
     def with_session(session, *args, **kwargs):
         if isinstance(session, requests.Session):
             return RequestsClient(session, *args, **kwargs)
+        return None
 
     @staticmethod
     def _create_session(**kwargs):

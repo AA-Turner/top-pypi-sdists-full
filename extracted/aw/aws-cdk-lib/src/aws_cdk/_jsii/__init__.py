@@ -34,7 +34,7 @@ import aws_cdk.cloud_assembly_schema._jsii
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "aws-cdk-lib", "2.200.2", __name__[0:-6], "aws-cdk-lib@2.200.2.jsii.tgz"
+    "aws-cdk-lib", "2.201.0", __name__[0:-6], "aws-cdk-lib@2.201.0.jsii.tgz"
 )
 
 __all__ = [

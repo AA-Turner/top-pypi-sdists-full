@@ -57,6 +57,22 @@ This method uses AWS API calls to lookup the value from SSM during synthesis.
 string_value = ssm.StringParameter.value_from_lookup(self, "/My/Public/Parameter")
 ```
 
+The result of the `StringParameter.valueFromLookup()` operation will be written to a file
+called `cdk.context.json`. You must commit this file to source control so
+that the lookup values are available in non-privileged environments such
+as CI build steps, and to ensure your template builds are repeatable.
+
+To customize the cache key, use the `additionalCacheKey` property of the `options` parameter.
+This allows you to have multiple lookups with the same parameters
+cache their values separately. This can be useful if you want to
+scope the context variable to a construct (ie, using `additionalCacheKey: this.node.path`),
+so that if the value in the cache needs to be updated, it does not need to be updated
+for all constructs at the same time.
+
+```python
+string_value = ssm.StringParameter.value_from_lookup(self, "/My/Public/Parameter", undefined, additional_cache_key=self.node.path)
+```
+
 When using `valueFromLookup` an initial value of 'dummy-value-for-${parameterName}'
 (`dummy-value-for-/My/Public/Parameter` in the above example)
 is returned prior to the lookup being performed. This can lead to errors if you are using this
@@ -8834,6 +8850,8 @@ class StringParameter(
         scope: _constructs_77d1e7e8.Construct,
         parameter_name: builtins.str,
         default_value: typing.Optional[builtins.str] = None,
+        *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
     ) -> builtins.str:
         '''Reads the value of an SSM parameter during synthesis through an environmental context provider.
 
@@ -8847,13 +8865,18 @@ class StringParameter(
         :param scope: -
         :param parameter_name: -
         :param default_value: -
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__352ba5506c7762dcb469028a7b0515dc3daed2b43c5a8ff339ed16372f650250)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
             check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueFromLookup", [scope, parameter_name, default_value]))
+        options = StringParameterLookupOptions(
+            additional_cache_key=additional_cache_key
+        )
+
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueFromLookup", [scope, parameter_name, default_value, options]))
 
     @jsii.member(jsii_name="grantRead")
     def grant_read(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
@@ -9101,6 +9124,55 @@ class StringParameterAttributes(CommonStringParameterAttributes):
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.StringParameterLookupOptions",
+    jsii_struct_bases=[],
+    name_mapping={"additional_cache_key": "additionalCacheKey"},
+)
+class StringParameterLookupOptions:
+    def __init__(
+        self,
+        *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Additional properties for looking up an existing StringParameter.
+
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
+
+        :exampleMetadata: infused
+
+        Example::
+
+            string_value = ssm.StringParameter.value_from_lookup(self, "/My/Public/Parameter", undefined, additional_cache_key=self.node.path)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b618e024c5c8f9f30e5674f96c195555764789c667bad41049a169d5d6af1d3)
+            check_type(argname="argument additional_cache_key", value=additional_cache_key, expected_type=type_hints["additional_cache_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_cache_key is not None:
+            self._values["additional_cache_key"] = additional_cache_key
+
+    @builtins.property
+    def additional_cache_key(self) -> typing.Optional[builtins.str]:
+        '''Adds an additional discriminator to the ``cdk.context.json`` cache key.
+
+        :default: - no additional cache key
+        '''
+        result = self._values.get("additional_cache_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StringParameterLookupOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ssm.StringParameterProps",
     jsii_struct_bases=[ParameterOptions],
     name_mapping={
@@ -9327,6 +9399,7 @@ __all__ = [
     "StringListParameterProps",
     "StringParameter",
     "StringParameterAttributes",
+    "StringParameterLookupOptions",
     "StringParameterProps",
 ]
 
@@ -10722,6 +10795,8 @@ def _typecheckingstub__352ba5506c7762dcb469028a7b0515dc3daed2b43c5a8ff339ed16372
     scope: _constructs_77d1e7e8.Construct,
     parameter_name: builtins.str,
     default_value: typing.Optional[builtins.str] = None,
+    *,
+    additional_cache_key: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10746,6 +10821,13 @@ def _typecheckingstub__045695ee32d353600237b891b14ad138098a0add8ba99199144ee57ef
     type: typing.Optional[ParameterType] = None,
     value_type: typing.Optional[ParameterValueType] = None,
     version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b618e024c5c8f9f30e5674f96c195555764789c667bad41049a169d5d6af1d3(
+    *,
+    additional_cache_key: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

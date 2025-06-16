@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, List
+from typing import Any
 
 from tcod._internal import deprecate
 from tcod.cffi import lib
 
 
-class Color(List[int]):
+class Color(list[int]):
     """Old-style libtcodpy color class.
 
     Args:
@@ -126,7 +126,7 @@ class Color(List[int]):
         """
         if isinstance(other, (Color, list, tuple)):
             return Color._new_from_cdata(lib.TCOD_color_multiply(self, other))
-        return Color._new_from_cdata(lib.TCOD_color_multiply_scalar(self, other))
+        return Color._new_from_cdata(lib.TCOD_color_multiply_scalar(self, other))  # type: ignore[arg-type]
 
     def __repr__(self) -> str:
         """Return a printable representation of the current color."""

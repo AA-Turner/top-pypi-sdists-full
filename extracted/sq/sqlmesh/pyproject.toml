@@ -22,7 +22,7 @@ dependencies = [
     "requests",
     "rich[jupyter]",
     "ruamel.yaml",
-    "sqlglot[rs]~=26.27.0",
+    "sqlglot[rs]~=26.27.1",
     "tenacity",
     "time-machine",
     "json-stream"
@@ -273,6 +273,7 @@ retry_delay = 10
 select = [
     "F401",
     "RET505",
+    "T100",
 ]
 extend-select = ["TID"]
 

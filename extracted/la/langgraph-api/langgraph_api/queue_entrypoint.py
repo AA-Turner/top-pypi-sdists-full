@@ -56,6 +56,9 @@ async def healthcheck_server():
 
 
 async def entrypoint():
+    from langgraph_api import logging as lg_logging
+
+    lg_logging.set_logging_context({"entrypoint": "python-queue"})
     tasks: set[asyncio.Task] = set()
     # start simple http server for health checks
     tasks.add(asyncio.create_task(healthcheck_server()))
@@ -65,7 +68,7 @@ async def entrypoint():
         try:
             await asyncio.gather(*tasks)
         except asyncio.CancelledError:
-            pass
+            await logger.awarning("Queue entrypoint cancelled", exc_info=True)
 
 
 if __name__ == "__main__":

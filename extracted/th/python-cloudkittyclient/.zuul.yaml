@@ -1,0 +1,63 @@
+- job:
+    name: cloudkittyclient-devstack-functional-base
+    parent: devstack
+    description: |
+      Job for cloudkittyclient functional tests
+    pre-run: playbooks/cloudkittyclient-devstack-functional/pre.yaml
+    run: playbooks/cloudkittyclient-devstack-functional/run.yaml
+    post-run: playbooks/cloudkittyclient-devstack-functional/post.yaml
+    required-projects:
+      - name: openstack/cloudkitty
+      - name: openstack/python-cloudkittyclient
+    roles:
+      - zuul: openstack-infra/devstack
+    timeout: 5400
+    irrelevant-files:
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^releasenotes/.*$
+    vars:
+      devstack_plugins:
+        cloudkitty: https://opendev.org/openstack/cloudkitty
+      devstack_localrc:
+        CLOUDKITTY_FETCHER: keystone
+        DEVSTACK_GATE_USE_PYTHON3: "True"
+        USE_PYTHON3: True
+      devstack_services:
+        ck-api: true
+        horizon: false
+      tox_install_siblings: false
+      zuul_work_dir: src/opendev.org/openstack/python-cloudkittyclient
+
+- job:
+    name: cloudkittyclient-devstack-functional-v1-client
+    parent: cloudkittyclient-devstack-functional-base
+    vars:
+      tox_envlist: functional-v1
+
+- job:
+    name: cloudkittyclient-devstack-functional-v2-client
+    parent: cloudkittyclient-devstack-functional-base
+    vars:
+      tox_envlist: functional-v2
+
+- project:
+    templates:
+      - check-requirements
+      - openstack-cover-jobs
+      - openstack-python3-jobs
+      - openstackclient-plugin-jobs
+      - publish-openstack-docs-pti
+      - release-notes-jobs-python3
+    check:
+      jobs:
+        - cloudkittyclient-devstack-functional-v1-client:
+            voting: true
+        - cloudkittyclient-devstack-functional-v2-client:
+            voting: true
+    gate:
+      jobs:
+        - cloudkittyclient-devstack-functional-v1-client:
+            voting: true
+        - cloudkittyclient-devstack-functional-v2-client:
+            voting: true

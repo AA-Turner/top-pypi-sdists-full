@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,6 +53,7 @@ struct FusionOperation {
   // metadata types/queries that can be overrided
   using ElementOutput = void;
   using ElementCompute = void;
+  FloatRoundStyle RoundStyle = FloatRoundStyle::round_indeterminate;
 
   using ElementSource = void;
   static constexpr bool IsSourceSupported = false;
@@ -82,6 +83,10 @@ struct FusionOperation {
   using ElementAmax = void;
   static constexpr bool IsAbsMaxSupported = false;
 
+  using ElementBlockScaleFactor = void;
+  static constexpr int SFVecSize = 0;
+  static constexpr bool IsBlockScaleSupported = false;               // Umbrella variable to check BlockScaling support in the epilogues
+  using GmemLayoutTagScalefactor = void;
 };
 
 // D = alpha * acc
@@ -194,6 +199,20 @@ struct LinCombPerRowBiasEltAct
   static constexpr bool IsEltActSupported = true;
 };
 
+// Grouped Wgrad's D = alpha * acc + beta * C with special AccFetch.
+template<
+  class GroupsPerTile_,
+  class ElementOutput_,
+  class ElementCompute_,
+  class ElementSource_ = ElementOutput_,
+  class ElementScalar_ = ElementCompute_,
+  FloatRoundStyle RoundStyle_ = FloatRoundStyle::round_to_nearest
+>
+struct LinearCombinationGroupedWgrad
+    : LinearCombination<ElementOutput_, ElementCompute_, ElementSource_, ElementScalar_, RoundStyle_> {
+  using GroupsPerTile = GroupsPerTile_;
+};
+
 // D = activation(alpha * acc + beta * C + per-column bias)
 template<
   template <class> class ActivationFn_,
@@ -277,27 +296,6 @@ struct PerRowLinCombPerRowBiasEltAct
         ElementBias_, ElementSource_, ElementScalar_, AlignmentBias_, RoundStyle_> {
   static constexpr int AlignmentScalar = AlignmentScalar_;
   static constexpr bool IsPerRowScaleSupported = true;
-};
-
-// D = per-column alpha * per-row alpha * acc + beta * C
-template<
-  class ElementOutput_,
-  class ElementCompute_,
-  class ElementSource_ = ElementCompute_,
-  class ElementScalar_ = ElementCompute_,
-  int AlignmentScalar_ = 128 / cute::sizeof_bits_v<ElementScalar_>,
-  FloatRoundStyle RoundStyle_ = FloatRoundStyle::round_to_nearest
->
-struct OuterProdLinComb : FusionOperation {
-  using ElementOutput = ElementOutput_;
-  using ElementCompute = ElementCompute_;
-  using ElementSource = ElementSource_;
-  using ElementScalar = ElementScalar_;
-  static constexpr int AlignmentScalar = AlignmentScalar_;
-  static constexpr auto RoundStyle = RoundStyle_;
-  static constexpr bool IsSourceSupported = true;
-  static constexpr bool IsPerRowScaleSupported = true;
-  static constexpr bool IsPerColScaleSupported = true;
 };
 
 // D = activation(per-col alpha * acc + per-col beta * C + per-column bias)
@@ -484,6 +482,139 @@ struct LinCombDeEltActDePerRowBias
   static constexpr int AlignmentBias = AlignmentBias_;
   static constexpr bool IsDePerRowBiasSupported = true;
 };
+
+template<
+  int SFVecSize_,
+  class ElementOutput_,
+  class ElementCompute_,
+  class ElementBlockScaleFactor_,
+  class GmemLayoutTagScalefactor_ = cutlass::layout::RowMajor,
+  class ElementSource_ = ElementOutput_,
+  class ElementScalar_ = ElementCompute_,
+  FloatRoundStyle RoundStyle_ = FloatRoundStyle::round_to_nearest
+>
+struct LinCombBlockScaleFactor
+    : LinearCombination<ElementOutput_, ElementCompute_, ElementSource_, ElementScalar_, RoundStyle_> {
+  using ElementBlockScaleFactor = ElementBlockScaleFactor_;
+  static constexpr int SFVecSize = SFVecSize_;
+  static constexpr bool IsBlockScaleSupported = true;
+  using GmemLayoutTagScalefactor = GmemLayoutTagScalefactor_;
+};
+
+// D = activation(alpha * acc + beta * C)
+// With BlockScaleFactor generation (same recipe as LinCombBlockScaleFactor).
+template<
+  template <class> class ActivationFn_,
+  int SFVecSize_,
+  class ElementOutput_,
+  class ElementCompute_,
+  class ElementBlockScaleFactor_,
+  class GmemLayoutTagScalefactor_ = cutlass::layout::RowMajor,
+  class ElementSource_ = ElementOutput_,
+  class ElementScalar_ = ElementCompute_,
+  FloatRoundStyle RoundStyle_ = FloatRoundStyle::round_to_nearest
+>
+struct LinCombEltActBlockScaleFactor
+    : LinCombEltAct<ActivationFn_, ElementOutput_, ElementCompute_, ElementSource_, ElementScalar_, RoundStyle_> {
+  using ElementBlockScaleFactor = ElementBlockScaleFactor_;
+  static constexpr int SFVecSize = SFVecSize_;
+  static constexpr bool IsBlockScaleSupported = true;
+  using GmemLayoutTagScalefactor = GmemLayoutTagScalefactor_;
+};
+
+// D = alpha * acc + beta * C + per-row bias
+// With BlockScaleFactor generation
+template<
+  int SFVecSize_,
+  class ElementOutput_,
+  class ElementCompute_,
+  class ElementBlockScaleFactor_,
+  class GmemLayoutTagScalefactor_ = cutlass::layout::RowMajor,
+  class ElementBias_   = ElementOutput_,
+  class ElementSource_ = ElementOutput_,
+  class ElementScalar_ = ElementCompute_,
+  int AlignmentBias_ = 128 / cute::sizeof_bits_v<ElementBias_>,
+  FloatRoundStyle RoundStyle_ = FloatRoundStyle::round_to_nearest
+>
+struct LinCombPerRowBiasBlockScaleFactor
+    : LinCombPerRowBias<ElementOutput_, ElementCompute_, ElementBias_, ElementSource_, ElementScalar_, AlignmentBias_, RoundStyle_> {
+  using ElementBlockScaleFactor = ElementBlockScaleFactor_;
+  static constexpr int SFVecSize = SFVecSize_;
+  static constexpr bool IsBlockScaleSupported = true;
+  using GmemLayoutTagScalefactor = GmemLayoutTagScalefactor_;
+};
+
+
+// D = alpha * acc + beta * C + per-col bias
+// With BlockScaleFactor generation.
+template<
+  int SFVecSize_,
+  class ElementOutput_,
+  class ElementCompute_,
+  class ElementBlockScaleFactor_,
+  class GmemLayoutTagScalefactor_ = cutlass::layout::RowMajor,
+  class ElementBias_   = ElementOutput_,
+  class ElementSource_ = ElementOutput_,
+  class ElementScalar_ = ElementCompute_,
+  int AlignmentBias_ = 128 / cute::sizeof_bits_v<ElementBias_>,
+  FloatRoundStyle RoundStyle_ = FloatRoundStyle::round_to_nearest
+>
+struct LinCombPerColBiasBlockScaleFactor
+    : LinCombPerColBias<ElementOutput_, ElementCompute_, ElementBias_, ElementSource_, ElementScalar_, AlignmentBias_, RoundStyle_> {
+  using ElementBlockScaleFactor = ElementBlockScaleFactor_;
+  static constexpr int SFVecSize = SFVecSize_;
+  static constexpr bool IsBlockScaleSupported = true;
+  using GmemLayoutTagScalefactor = GmemLayoutTagScalefactor_;
+};
+
+
+// D = activation(alpha * acc + beta * C + per-row bias)
+// With BlockScaleFactor generation.
+template<
+  template <class> class ActivationFn_,
+  int SFVecSize_,
+  class ElementOutput_,
+  class ElementCompute_,
+  class ElementBlockScaleFactor_,
+  class GmemLayoutTagScalefactor_ = cutlass::layout::RowMajor,
+  class ElementBias_   = ElementOutput_,
+  class ElementSource_ = ElementOutput_,
+  class ElementScalar_ = ElementCompute_,
+  int AlignmentBias_ = 128 / cute::sizeof_bits_v<ElementBias_>,
+  FloatRoundStyle RoundStyle_ = FloatRoundStyle::round_to_nearest
+>
+struct LinCombPerRowBiasEltActBlockScaleFactor
+    : LinCombPerRowBiasEltAct<ActivationFn_, ElementOutput_, ElementCompute_, ElementBias_, ElementSource_, ElementScalar_, AlignmentBias_, RoundStyle_> {
+  using ElementBlockScaleFactor = ElementBlockScaleFactor_;
+  static constexpr int SFVecSize = SFVecSize_;
+  static constexpr bool IsBlockScaleSupported = true;
+  using GmemLayoutTagScalefactor = GmemLayoutTagScalefactor_;
+};
+
+
+// D = activation(alpha * acc + beta * C + per-col bias)
+// With BlockScaleFactor generation.
+template<
+  template <class> class ActivationFn_,
+  int SFVecSize_,
+  class ElementOutput_,
+  class ElementCompute_,
+  class ElementBlockScaleFactor_,
+  class GmemLayoutTagScalefactor_ = cutlass::layout::RowMajor,
+  class ElementBias_   = ElementOutput_,
+  class ElementSource_ = ElementOutput_,
+  class ElementScalar_ = ElementCompute_,
+  int AlignmentBias_ = 128 / cute::sizeof_bits_v<ElementBias_>,
+  FloatRoundStyle RoundStyle_ = FloatRoundStyle::round_to_nearest
+>
+struct LinCombPerColBiasEltActBlockScaleFactor
+    : LinCombPerColBiasEltAct<ActivationFn_, ElementOutput_, ElementCompute_, ElementBias_, ElementSource_, ElementScalar_, AlignmentBias_, RoundStyle_> {
+  using ElementBlockScaleFactor = ElementBlockScaleFactor_;
+  static constexpr int SFVecSize = SFVecSize_;
+  static constexpr bool IsBlockScaleSupported = true;
+  using GmemLayoutTagScalefactor = GmemLayoutTagScalefactor_;
+};
+
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 

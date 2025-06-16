@@ -1881,7 +1881,7 @@ def get_cluster_from_node():
             "Code doesn't appear to be running on node of a Coiled cluster (expected env vars are not set)"
         )
 
-    return coiled.Cluster(cluster_name)
+    return coiled.Cluster(cluster_name, workspace=os.environ.get("COILED_WORKSPACE_SLUG"))
 
 
 def get_dask_client_from_batch_node():

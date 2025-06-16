@@ -1,3 +1,4 @@
+import os
 from os import environ, getenv
 from typing import Literal, TypedDict
 
@@ -149,6 +150,11 @@ STATS_INTERVAL_SECS = env("STATS_INTERVAL_SECS", cast=int, default=60)
 DATABASE_URI = env("DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", undefined))
 MIGRATIONS_PATH = env("MIGRATIONS_PATH", cast=str, default="/storage/migrations")
 POSTGRES_POOL_MAX_SIZE = env("LANGGRAPH_POSTGRES_POOL_MAX_SIZE", cast=int, default=150)
+RESUMABLE_STREAM_TTL_SECONDS = env(
+    "RESUMABLE_STREAM_TTL_SECONDS",
+    cast=int,
+    default=3600,  # 1 hour
+)
 
 
 def _get_encryption_key(key_str: str | None):
@@ -239,7 +245,9 @@ BG_JOB_INTERVAL = 30  # seconds
 BG_JOB_MAX_RETRIES = 3
 BG_JOB_ISOLATED_LOOPS = env("BG_JOB_ISOLATED_LOOPS", cast=bool, default=False)
 BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS = env(
-    "BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS", cast=int, default=3600
+    "BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS",
+    cast=int,
+    default=180,  # 3 minutes
 )
 MAX_STREAM_CHUNK_SIZE_BYTES = env(
     "MAX_STREAM_CHUNK_SIZE_BYTES", cast=int, default=1024 * 1024 * 128
@@ -353,3 +361,10 @@ API_VARIANT = env("LANGSMITH_LANGGRAPH_API_VARIANT", cast=str, default="")
 
 # UI
 UI_USE_BUNDLER = env("LANGGRAPH_UI_BUNDLER", cast=bool, default=False)
+
+if not os.getenv("LANGCHAIN_REVISION_ID") and (
+    ref_sha := os.getenv("LANGSMITH_LANGGRAPH_GIT_REF_SHA")
+):
+    # This is respected by the langsmith SDK env inference
+    # https://github.com/langchain-ai/langsmith-sdk/blob/1b93e4c13b8369d92db891ae3babc3e2254f0e56/python/langsmith/env/_runtime_env.py#L190
+    os.environ["LANGCHAIN_REVISION_ID"] = ref_sha

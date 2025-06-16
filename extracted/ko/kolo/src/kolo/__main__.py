@@ -54,6 +54,7 @@ from .utils import (
     highlight_sql,
     maybe_format,
 )
+from .version import __version__
 from .web.server import KoloRequestHandler
 
 DATETIME_FORMATS = click.DateTime(
@@ -74,6 +75,7 @@ TRACE_NOT_FOUND_ERROR = "Could not find trace_id: `{trace_id}`"
 
 
 @click.group()
+@click.version_option(__version__, "--version", "-v", "-V")
 def cli():
     # Ensure the current working directory is on the path.
     # Important when running the `kolo` script installed by setuptools.
@@ -372,7 +374,12 @@ def node(trace_id: str, node_index: int):
 
 @trace.command()
 @click.argument("trace_ids", required=False, nargs=-1)
-@click.option("--old", is_flag=True, default=False, help="Delete old traces.")
+@click.option(
+    "--old",
+    is_flag=True,
+    default=False,
+    help="Delete old traces. Defaults to traces older than 30 days.",
+)
 @click.option(
     "--before",
     help="Delete traces older than this datetime. Must be used with `--old`.",

@@ -1,0 +1,17 @@
+Metadata-Version: 1.1
+Name: fnmatch2
+Version: 0.0.8
+Summary: An improved Unix filename pattern matching
+Home-page: https://github.com/LawfulHacker/fnmatch2
+Author: Sergio Garcia
+Author-email: lawfulhacker@gmail.com
+License: MIT
+Download-URL: https://github.com/LawfulHacker/fnmatch2/releases
+Description: An improved Unix filename pattern matching
+Keywords: fnmatch pattern path
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5

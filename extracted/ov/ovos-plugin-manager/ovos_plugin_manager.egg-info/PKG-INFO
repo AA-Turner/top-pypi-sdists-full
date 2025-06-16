@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: ovos-plugin-manager
+Version: 1.0.3
+Summary: OpenVoiceOS plugin manager
+Home-page: https://github.com/OpenVoiceOS/OVOS-plugin-manager
+Author: jarbasAi
+Author-email: jarbas@openvoiceos.com
+License: Apache-2.0
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# OVOS plugin manager
+
+OPM can be used to load and create plugins for the OpenVoiceOS ecosystem!
+
+![image](https://github.com/OpenVoiceOS/ovos-plugin-manager/assets/33701864/8c939267-42fc-4377-bcdb-f7df65e73252)
+
+Documentation can be found in the [ovos-technical-manual](https://openvoiceos.github.io/ovos-technical-manual/OPM)

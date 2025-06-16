@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: klio-audio
+Version: 0.1.0
+Summary: Library for audio-related Klio transforms and helpers
+Home-page: https://github.com/spotify/klio
+Author: The klio developers
+Author-email: opensource+klio@spotify.com
+Maintainer: The klio developers
+Maintainer-email: opensource+klio@spotify.com
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Requires-Python: >=3.5, <3.9
+Provides-Extra: docs
+Provides-Extra: tests
+Provides-Extra: dev

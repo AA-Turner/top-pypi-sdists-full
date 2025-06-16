@@ -1,0 +1,46 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: Check Broken Links on getdaft.io
+
+on:
+  schedule:
+  - cron: 0 20 * * *
+  workflow_dispatch:
+
+jobs:
+  check-links:
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    steps:
+    - name: setup broken link checker
+      run: npm install -g broken-link-checker
+    - name: Check getdaft.io
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 10
+        retry_wait_seconds: 120
+        max_attempts: 3
+        command: blc https://www.getdaft.io/daft -ro --verbose --exclude www.pytorch.org/ --exclude https://github.com/Eventual-Inc/Daft/ --exclude https://twitter.com/daftengine --exclude https://www.linkedin.com/company/eventualcomputing/ --exclude https://x.com/daftengine --exclude https://www.linkedin.com/showcase/daftengine/ --exclude https://scarf.sh/ --exclude https://static.scarf.sh/* --exclude https://huggingface.co/docs/dataset-viewer/en/parquet
+  notify_on_failure:
+    runs-on: self-hosted
+    if: failure()
+    needs: check-links
+    steps:
+    - name: Send Slack notification on failure
+      uses: slackapi/slack-github-action@v2.0.0
+      with:
+        payload: |
+          {
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": ":rotating_light: [NIGHTLY] Broken Link Checker <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow> *FAILED* :rotating_light:"
+                }
+              }
+            ]
+          }
+        webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+        webhook-type: incoming-webhook

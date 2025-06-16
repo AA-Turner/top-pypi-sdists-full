@@ -30,7 +30,7 @@ IMPORT_ERROR: str = ""
 try:
     # Use the C extension code when we can, for speed.
     import coverage.tracer
-    CTRACER_FILE: str | None = coverage.tracer.__file__
+    CTRACER_FILE: str | None = getattr(coverage.tracer, "__file__", "unknown")
 except ImportError as imp_err:
     # Couldn't import the C extension, maybe it isn't built.
     # We still need to check the environment variable directly here,
@@ -86,13 +86,14 @@ class Core:
             core_name = None
 
         if core_name is None:
-            # Someday we will default to sysmon, but it's still experimental:
-            #   if not reason_no_sysmon:
-            #       core_name = "sysmon"
-            if CTRACER_FILE:
-                core_name = "ctrace"
+            if env.SYSMON_DEFAULT and not reason_no_sysmon:
+                core_name = "sysmon"
             else:
-                if env.CPYTHON and IMPORT_ERROR:
+                core_name = "ctrace"
+
+        if core_name == "ctrace":
+            if not CTRACER_FILE:
+                if IMPORT_ERROR and env.SHIPPING_WHEELS:
                     warn(f"Couldn't import C tracer: {IMPORT_ERROR}", slug="no-ctracer", once=True)
                 core_name = "pytrace"
 

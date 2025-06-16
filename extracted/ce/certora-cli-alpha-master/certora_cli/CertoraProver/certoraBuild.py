@@ -3614,7 +3614,7 @@ def build_source_tree(sources: Set[Path], context: CertoraContext, overwrite: bo
 
         try:
             if overwrite:
-                # expecting target path to exist.
+                # expecting the target path to exist.
                 if target_path.exists():
                     build_logger.debug(f"Overwriting {target_path} by copying from {source_path}")
                 else:
@@ -3632,7 +3632,7 @@ def build_source_tree(sources: Set[Path], context: CertoraContext, overwrite: bo
     cwd_file_path.parent.mkdir(parents=True, exist_ok=True)
     cwd_file_path.touch()
 
-    #  the empty file .project_directory is written in the source tree to denote the projecct directory
+    #  the empty file .project_directory is written in the source tree to denote the project directory
     rust_proj_dir = getattr(context, 'rust_project_directory', None)
     if rust_proj_dir:
         proj_dir_parent_relative = os.path.relpath(rust_proj_dir, os.getcwd())

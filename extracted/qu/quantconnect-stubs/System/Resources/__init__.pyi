@@ -12,6 +12,72 @@ import System.Resources
 import System.Runtime.Serialization
 
 
+class MissingSatelliteAssemblyException(System.SystemException):
+    """The exception that is thrown when the satellite assembly for the resources of the default culture is missing."""
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class UltimateResourceFallbackLocation(Enum):
+    """Specifies whether a ResourceManager object looks for the resources of the app's default culture in the main assembly or in a satellite assembly."""
+
+    MAIN_ASSEMBLY = 0
+
+    SATELLITE = 1
+
+
+class MissingManifestResourceException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
 class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
     """Abstraction to read streams of resources."""
 
@@ -87,116 +153,6 @@ class ResourceSet(System.Object, System.IDisposable, System.Collections.IEnumera
 
     def read_resources(self) -> None:
         """This method is protected."""
-        ...
-
-
-class UltimateResourceFallbackLocation(Enum):
-    """Specifies whether a ResourceManager object looks for the resources of the app's default culture in the main assembly or in a satellite assembly."""
-
-    MAIN_ASSEMBLY = 0
-
-    SATELLITE = 1
-
-
-class ResourceReader(System.Object, System.Resources.IResourceReader):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self, file_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, stream: System.IO.Stream) -> None:
-        ...
-
-    def close(self) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
-        ...
-
-    def get_resource_data(self, resource_name: str, resource_type: typing.Optional[str], resource_data: typing.Optional[typing.List[int]]) -> typing.Tuple[None, str, typing.List[int]]:
-        ...
-
-
-class NeutralResourcesLanguageAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @property
-    def location(self) -> System.Resources.UltimateResourceFallbackLocation:
-        ...
-
-    @overload
-    def __init__(self, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, culture_name: str, location: System.Resources.UltimateResourceFallbackLocation) -> None:
-        ...
-
-
-class MissingSatelliteAssemblyException(System.SystemException):
-    """The exception that is thrown when the satellite assembly for the resources of the default culture is missing."""
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class MissingManifestResourceException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
         ...
 
 
@@ -317,6 +273,50 @@ class ResourceManager(System.Object):
         ...
 
     def release_all_resources(self) -> None:
+        ...
+
+
+class ResourceReader(System.Object, System.Resources.IResourceReader):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self, file_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, stream: System.IO.Stream) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
+        ...
+
+    def get_resource_data(self, resource_name: str, resource_type: typing.Optional[str], resource_data: typing.Optional[typing.List[int]]) -> typing.Tuple[None, str, typing.List[int]]:
+        ...
+
+
+class NeutralResourcesLanguageAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @property
+    def location(self) -> System.Resources.UltimateResourceFallbackLocation:
+        ...
+
+    @overload
+    def __init__(self, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, culture_name: str, location: System.Resources.UltimateResourceFallbackLocation) -> None:
         ...
 
 

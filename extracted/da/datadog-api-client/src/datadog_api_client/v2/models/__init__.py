@@ -531,6 +531,12 @@ from datadog_api_client.v2.model.cloud_workload_security_agent_policy_updater_at
     CloudWorkloadSecurityAgentPolicyUpdaterAttributes,
 )
 from datadog_api_client.v2.model.cloud_workload_security_agent_rule_action import CloudWorkloadSecurityAgentRuleAction
+from datadog_api_client.v2.model.cloud_workload_security_agent_rule_action_metadata import (
+    CloudWorkloadSecurityAgentRuleActionMetadata,
+)
+from datadog_api_client.v2.model.cloud_workload_security_agent_rule_action_set import (
+    CloudWorkloadSecurityAgentRuleActionSet,
+)
 from datadog_api_client.v2.model.cloud_workload_security_agent_rule_attributes import (
     CloudWorkloadSecurityAgentRuleAttributes,
 )
@@ -866,14 +872,14 @@ from datadog_api_client.v2.model.dora_deployment_response import DORADeploymentR
 from datadog_api_client.v2.model.dora_deployment_response_data import DORADeploymentResponseData
 from datadog_api_client.v2.model.dora_deployment_type import DORADeploymentType
 from datadog_api_client.v2.model.dora_event import DORAEvent
+from datadog_api_client.v2.model.dora_failure_request import DORAFailureRequest
+from datadog_api_client.v2.model.dora_failure_request_attributes import DORAFailureRequestAttributes
+from datadog_api_client.v2.model.dora_failure_request_data import DORAFailureRequestData
+from datadog_api_client.v2.model.dora_failure_response import DORAFailureResponse
+from datadog_api_client.v2.model.dora_failure_response_data import DORAFailureResponseData
+from datadog_api_client.v2.model.dora_failure_type import DORAFailureType
 from datadog_api_client.v2.model.dora_fetch_response import DORAFetchResponse
 from datadog_api_client.v2.model.dora_git_info import DORAGitInfo
-from datadog_api_client.v2.model.dora_incident_request import DORAIncidentRequest
-from datadog_api_client.v2.model.dora_incident_request_attributes import DORAIncidentRequestAttributes
-from datadog_api_client.v2.model.dora_incident_request_data import DORAIncidentRequestData
-from datadog_api_client.v2.model.dora_incident_response import DORAIncidentResponse
-from datadog_api_client.v2.model.dora_incident_response_data import DORAIncidentResponseData
-from datadog_api_client.v2.model.dora_incident_type import DORAIncidentType
 from datadog_api_client.v2.model.dora_list_deployments_request import DORAListDeploymentsRequest
 from datadog_api_client.v2.model.dora_list_deployments_request_attributes import DORAListDeploymentsRequestAttributes
 from datadog_api_client.v2.model.dora_list_deployments_request_data import DORAListDeploymentsRequestData
@@ -1062,6 +1068,7 @@ from datadog_api_client.v2.model.entity_v3_system_datadog import EntityV3SystemD
 from datadog_api_client.v2.model.entity_v3_system_kind import EntityV3SystemKind
 from datadog_api_client.v2.model.entity_v3_system_spec import EntityV3SystemSpec
 from datadog_api_client.v2.model.error_handler import ErrorHandler
+from datadog_api_client.v2.model.escalation import Escalation
 from datadog_api_client.v2.model.escalation_policy import EscalationPolicy
 from datadog_api_client.v2.model.escalation_policy_create_request import EscalationPolicyCreateRequest
 from datadog_api_client.v2.model.escalation_policy_create_request_data import EscalationPolicyCreateRequestData
@@ -1113,8 +1120,17 @@ from datadog_api_client.v2.model.escalation_policy_update_request_data_type impo
 from datadog_api_client.v2.model.escalation_policy_user import EscalationPolicyUser
 from datadog_api_client.v2.model.escalation_policy_user_attributes import EscalationPolicyUserAttributes
 from datadog_api_client.v2.model.escalation_policy_user_type import EscalationPolicyUserType
+from datadog_api_client.v2.model.escalation_relationships import EscalationRelationships
+from datadog_api_client.v2.model.escalation_relationships_responders import EscalationRelationshipsResponders
+from datadog_api_client.v2.model.escalation_relationships_responders_data_items import (
+    EscalationRelationshipsRespondersDataItems,
+)
+from datadog_api_client.v2.model.escalation_relationships_responders_data_items_type import (
+    EscalationRelationshipsRespondersDataItemsType,
+)
 from datadog_api_client.v2.model.escalation_target import EscalationTarget
 from datadog_api_client.v2.model.escalation_targets import EscalationTargets
+from datadog_api_client.v2.model.escalation_type import EscalationType
 from datadog_api_client.v2.model.event import Event
 from datadog_api_client.v2.model.event_attributes import EventAttributes
 from datadog_api_client.v2.model.event_category import EventCategory
@@ -1458,6 +1474,11 @@ from datadog_api_client.v2.model.job_create_response import JobCreateResponse
 from datadog_api_client.v2.model.job_create_response_data import JobCreateResponseData
 from datadog_api_client.v2.model.job_definition import JobDefinition
 from datadog_api_client.v2.model.job_definition_from_rule import JobDefinitionFromRule
+from datadog_api_client.v2.model.kind_attributes import KindAttributes
+from datadog_api_client.v2.model.kind_data import KindData
+from datadog_api_client.v2.model.kind_metadata import KindMetadata
+from datadog_api_client.v2.model.kind_obj import KindObj
+from datadog_api_client.v2.model.kind_response_meta import KindResponseMeta
 from datadog_api_client.v2.model.layer import Layer
 from datadog_api_client.v2.model.layer_attributes import LayerAttributes
 from datadog_api_client.v2.model.layer_attributes_interval import LayerAttributesInterval
@@ -1498,6 +1519,7 @@ from datadog_api_client.v2.model.list_findings_meta import ListFindingsMeta
 from datadog_api_client.v2.model.list_findings_page import ListFindingsPage
 from datadog_api_client.v2.model.list_findings_response import ListFindingsResponse
 from datadog_api_client.v2.model.list_historical_jobs_response import ListHistoricalJobsResponse
+from datadog_api_client.v2.model.list_kind_catalog_response import ListKindCatalogResponse
 from datadog_api_client.v2.model.list_pipelines_response import ListPipelinesResponse
 from datadog_api_client.v2.model.list_pipelines_response_meta import ListPipelinesResponseMeta
 from datadog_api_client.v2.model.list_powerpacks_response import ListPowerpacksResponse
@@ -3228,6 +3250,29 @@ from datadog_api_client.v2.model.team_link_create_request import TeamLinkCreateR
 from datadog_api_client.v2.model.team_link_response import TeamLinkResponse
 from datadog_api_client.v2.model.team_link_type import TeamLinkType
 from datadog_api_client.v2.model.team_links_response import TeamLinksResponse
+from datadog_api_client.v2.model.team_on_call_responders import TeamOnCallResponders
+from datadog_api_client.v2.model.team_on_call_responders_data import TeamOnCallRespondersData
+from datadog_api_client.v2.model.team_on_call_responders_data_relationships import TeamOnCallRespondersDataRelationships
+from datadog_api_client.v2.model.team_on_call_responders_data_relationships_escalations import (
+    TeamOnCallRespondersDataRelationshipsEscalations,
+)
+from datadog_api_client.v2.model.team_on_call_responders_data_relationships_escalations_data_items import (
+    TeamOnCallRespondersDataRelationshipsEscalationsDataItems,
+)
+from datadog_api_client.v2.model.team_on_call_responders_data_relationships_escalations_data_items_type import (
+    TeamOnCallRespondersDataRelationshipsEscalationsDataItemsType,
+)
+from datadog_api_client.v2.model.team_on_call_responders_data_relationships_responders import (
+    TeamOnCallRespondersDataRelationshipsResponders,
+)
+from datadog_api_client.v2.model.team_on_call_responders_data_relationships_responders_data_items import (
+    TeamOnCallRespondersDataRelationshipsRespondersDataItems,
+)
+from datadog_api_client.v2.model.team_on_call_responders_data_relationships_responders_data_items_type import (
+    TeamOnCallRespondersDataRelationshipsRespondersDataItemsType,
+)
+from datadog_api_client.v2.model.team_on_call_responders_data_type import TeamOnCallRespondersDataType
+from datadog_api_client.v2.model.team_on_call_responders_included import TeamOnCallRespondersIncluded
 from datadog_api_client.v2.model.team_permission_setting import TeamPermissionSetting
 from datadog_api_client.v2.model.team_permission_setting_attributes import TeamPermissionSettingAttributes
 from datadog_api_client.v2.model.team_permission_setting_response import TeamPermissionSettingResponse
@@ -3335,6 +3380,8 @@ from datadog_api_client.v2.model.upsert_catalog_entity_response import UpsertCat
 from datadog_api_client.v2.model.upsert_catalog_entity_response_included_item import (
     UpsertCatalogEntityResponseIncludedItem,
 )
+from datadog_api_client.v2.model.upsert_catalog_kind_request import UpsertCatalogKindRequest
+from datadog_api_client.v2.model.upsert_catalog_kind_response import UpsertCatalogKindResponse
 from datadog_api_client.v2.model.urgency import Urgency
 from datadog_api_client.v2.model.url_param import UrlParam
 from datadog_api_client.v2.model.url_param_update import UrlParamUpdate
@@ -3850,6 +3897,8 @@ __all__ = [
     "CloudWorkloadSecurityAgentPolicyUpdateRequest",
     "CloudWorkloadSecurityAgentPolicyUpdaterAttributes",
     "CloudWorkloadSecurityAgentRuleAction",
+    "CloudWorkloadSecurityAgentRuleActionMetadata",
+    "CloudWorkloadSecurityAgentRuleActionSet",
     "CloudWorkloadSecurityAgentRuleAttributes",
     "CloudWorkloadSecurityAgentRuleCreateAttributes",
     "CloudWorkloadSecurityAgentRuleCreateData",
@@ -4073,14 +4122,14 @@ __all__ = [
     "DORADeploymentResponseData",
     "DORADeploymentType",
     "DORAEvent",
+    "DORAFailureRequest",
+    "DORAFailureRequestAttributes",
+    "DORAFailureRequestData",
+    "DORAFailureResponse",
+    "DORAFailureResponseData",
+    "DORAFailureType",
     "DORAFetchResponse",
     "DORAGitInfo",
-    "DORAIncidentRequest",
-    "DORAIncidentRequestAttributes",
-    "DORAIncidentRequestData",
-    "DORAIncidentResponse",
-    "DORAIncidentResponseData",
-    "DORAIncidentType",
     "DORAListDeploymentsRequest",
     "DORAListDeploymentsRequestAttributes",
     "DORAListDeploymentsRequestData",
@@ -4243,6 +4292,7 @@ __all__ = [
     "EntityV3SystemKind",
     "EntityV3SystemSpec",
     "ErrorHandler",
+    "Escalation",
     "EscalationPolicy",
     "EscalationPolicyCreateRequest",
     "EscalationPolicyCreateRequestData",
@@ -4274,8 +4324,13 @@ __all__ = [
     "EscalationPolicyUser",
     "EscalationPolicyUserAttributes",
     "EscalationPolicyUserType",
+    "EscalationRelationships",
+    "EscalationRelationshipsResponders",
+    "EscalationRelationshipsRespondersDataItems",
+    "EscalationRelationshipsRespondersDataItemsType",
     "EscalationTarget",
     "EscalationTargets",
+    "EscalationType",
     "Event",
     "EventAttributes",
     "EventCategory",
@@ -4581,6 +4636,11 @@ __all__ = [
     "JobCreateResponseData",
     "JobDefinition",
     "JobDefinitionFromRule",
+    "KindAttributes",
+    "KindData",
+    "KindMetadata",
+    "KindObj",
+    "KindResponseMeta",
     "Layer",
     "LayerAttributes",
     "LayerAttributesInterval",
@@ -4617,6 +4677,7 @@ __all__ = [
     "ListFindingsPage",
     "ListFindingsResponse",
     "ListHistoricalJobsResponse",
+    "ListKindCatalogResponse",
     "ListPipelinesResponse",
     "ListPipelinesResponseMeta",
     "ListPowerpacksResponse",
@@ -5801,6 +5862,17 @@ __all__ = [
     "TeamLinkResponse",
     "TeamLinkType",
     "TeamLinksResponse",
+    "TeamOnCallResponders",
+    "TeamOnCallRespondersData",
+    "TeamOnCallRespondersDataRelationships",
+    "TeamOnCallRespondersDataRelationshipsEscalations",
+    "TeamOnCallRespondersDataRelationshipsEscalationsDataItems",
+    "TeamOnCallRespondersDataRelationshipsEscalationsDataItemsType",
+    "TeamOnCallRespondersDataRelationshipsResponders",
+    "TeamOnCallRespondersDataRelationshipsRespondersDataItems",
+    "TeamOnCallRespondersDataRelationshipsRespondersDataItemsType",
+    "TeamOnCallRespondersDataType",
+    "TeamOnCallRespondersIncluded",
     "TeamPermissionSetting",
     "TeamPermissionSettingAttributes",
     "TeamPermissionSettingResponse",
@@ -5892,6 +5964,8 @@ __all__ = [
     "UpsertCatalogEntityRequest",
     "UpsertCatalogEntityResponse",
     "UpsertCatalogEntityResponseIncludedItem",
+    "UpsertCatalogKindRequest",
+    "UpsertCatalogKindResponse",
     "Urgency",
     "UrlParam",
     "UrlParamUpdate",

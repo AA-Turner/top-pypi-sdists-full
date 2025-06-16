@@ -1,0 +1,132 @@
+"""
+Type annotations for mediapackagev2 service client paginators.
+
+[Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/paginators/)
+
+Copyright 2025 Vlad Emelianov
+
+Usage::
+
+    ```python
+    from aiobotocore.session import get_session
+
+    from types_aiobotocore_mediapackagev2.client import Mediapackagev2Client
+    from types_aiobotocore_mediapackagev2.paginator import (
+        ListChannelGroupsPaginator,
+        ListChannelsPaginator,
+        ListHarvestJobsPaginator,
+        ListOriginEndpointsPaginator,
+    )
+
+    session = get_session()
+    with session.create_client("mediapackagev2") as client:
+        client: Mediapackagev2Client
+
+        list_channel_groups_paginator: ListChannelGroupsPaginator = client.get_paginator("list_channel_groups")
+        list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
+        list_harvest_jobs_paginator: ListHarvestJobsPaginator = client.get_paginator("list_harvest_jobs")
+        list_origin_endpoints_paginator: ListOriginEndpointsPaginator = client.get_paginator("list_origin_endpoints")
+    ```
+"""
+
+from __future__ import annotations
+
+import sys
+from typing import TYPE_CHECKING
+
+from aiobotocore.paginate import AioPageIterator, AioPaginator
+
+from .type_defs import (
+    ListChannelGroupsRequestPaginateTypeDef,
+    ListChannelGroupsResponseTypeDef,
+    ListChannelsRequestPaginateTypeDef,
+    ListChannelsResponseTypeDef,
+    ListHarvestJobsRequestPaginateTypeDef,
+    ListHarvestJobsResponseTypeDef,
+    ListOriginEndpointsRequestPaginateTypeDef,
+    ListOriginEndpointsResponseTypeDef,
+)
+
+if sys.version_info >= (3, 12):
+    from typing import Unpack
+else:
+    from typing_extensions import Unpack
+
+__all__ = (
+    "ListChannelGroupsPaginator",
+    "ListChannelsPaginator",
+    "ListHarvestJobsPaginator",
+    "ListOriginEndpointsPaginator",
+)
+
+if TYPE_CHECKING:
+    _ListChannelGroupsPaginatorBase = AioPaginator[ListChannelGroupsResponseTypeDef]
+else:
+    _ListChannelGroupsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListChannelGroupsPaginator(_ListChannelGroupsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediapackagev2/paginator/ListChannelGroups.html#Mediapackagev2.Paginator.ListChannelGroups)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/paginators/#listchannelgroupspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListChannelGroupsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListChannelGroupsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediapackagev2/paginator/ListChannelGroups.html#Mediapackagev2.Paginator.ListChannelGroups.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/paginators/#listchannelgroupspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListChannelsPaginatorBase = AioPaginator[ListChannelsResponseTypeDef]
+else:
+    _ListChannelsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListChannelsPaginator(_ListChannelsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediapackagev2/paginator/ListChannels.html#Mediapackagev2.Paginator.ListChannels)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/paginators/#listchannelspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListChannelsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListChannelsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediapackagev2/paginator/ListChannels.html#Mediapackagev2.Paginator.ListChannels.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/paginators/#listchannelspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListHarvestJobsPaginatorBase = AioPaginator[ListHarvestJobsResponseTypeDef]
+else:
+    _ListHarvestJobsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListHarvestJobsPaginator(_ListHarvestJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediapackagev2/paginator/ListHarvestJobs.html#Mediapackagev2.Paginator.ListHarvestJobs)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/paginators/#listharvestjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListHarvestJobsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListHarvestJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediapackagev2/paginator/ListHarvestJobs.html#Mediapackagev2.Paginator.ListHarvestJobs.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/paginators/#listharvestjobspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListOriginEndpointsPaginatorBase = AioPaginator[ListOriginEndpointsResponseTypeDef]
+else:
+    _ListOriginEndpointsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListOriginEndpointsPaginator(_ListOriginEndpointsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediapackagev2/paginator/ListOriginEndpoints.html#Mediapackagev2.Paginator.ListOriginEndpoints)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/paginators/#listoriginendpointspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListOriginEndpointsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListOriginEndpointsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediapackagev2/paginator/ListOriginEndpoints.html#Mediapackagev2.Paginator.ListOriginEndpoints.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediapackagev2/paginators/#listoriginendpointspaginator)
+        """

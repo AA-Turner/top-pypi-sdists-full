@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: Youtube-DLG
+Version: 0.4
+Summary: Youtube-dl GUI
+Home-page: http://mrs0m30n3.github.io/youtube-dl-gui/
+Author: Sotiris Papadopoulos
+Author-email: ytubedlg@gmail.com
+License: UNLICENSE
+Description: A cross platform front-end GUI of the popular
+        youtube-dl written in wxPython
+Platform: UNKNOWN

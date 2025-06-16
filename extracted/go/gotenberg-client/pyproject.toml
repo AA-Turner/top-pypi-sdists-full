@@ -1,0 +1,302 @@
+#
+# Project Configuration
+#
+
+[build-system]
+build-backend = "hatchling.build"
+
+requires = [ "hatchling~=1.27.0" ]
+
+[project]
+name = "gotenberg-client"
+description = "A Python client for interfacing with the Gotenberg API"
+readme = "README.md"
+keywords = [ "api", "client", "html", "pdf" ]
+license = "MPL-2.0"
+authors = [
+  { name = "Trenton H", email = "rda0128ou@mozmail.com" },
+]
+requires-python = ">=3.9"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Web Environment",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = [ "version" ]
+dependencies = [
+  "httpx[http2]>=0.27",
+  "typing-extensions; python_version<'3.11'",
+]
+
+optional-dependencies.magic = [ "python-magic" ]
+
+#
+# Hatch Configuration
+#
+urls.Changelog = "https://github.com/stumpylog/gotenberg-client/blob/main/CHANGELOG.md"
+urls.Documentation = "https://stumpylog.github.io/gotenberg-client/"
+urls.Issues = "https://github.com/stumpylog/gotenberg-client/issues"
+urls.Source = "https://github.com/stumpylog/gotenberg-client/"
+
+[tool.hatch.version]
+path = "src/gotenberg_client/__about__.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  ".github",
+  ".docker",
+]
+
+[tool.hatch.envs.default]
+installer = "uv"
+
+[tool.hatch.envs.hatch-static-analysis]
+# https://hatch.pypa.io/latest/config/internal/static-analysis/
+dependencies = [ "ruff ~= 0.11" ]
+config-path = "none"
+
+[tool.hatch.envs.hatch-test]
+# https://hatch.pypa.io/latest/config/internal/testing/
+parallel = true
+randomize = true
+dependencies = [
+  "coverage-enable-subprocess == 1.0",
+  "coverage[toml] ~= 7.8",
+  "pytest ~= 8.3",
+  "pytest-mock ~= 3.14",
+  "pytest-randomly ~= 3.16",
+  "pytest-rerunfailures ~= 15.0",
+  "pytest-xdist[psutil] ~= 3.6",
+]
+extra-dependencies = [
+  "pytest-sugar",
+  "pytest-httpx ~= 0.35",
+  "pikepdf",
+  "python-magic",
+  "pytest-docker ~= 3.2",
+  "pytest-asyncio",
+]
+extra-args = [ "--maxprocesses=8", "--pythonwarnings=all" ]
+
+[tool.hatch.envs.hatch-test.scripts]
+run = [
+  "python3 --version",
+  "pytest{env:HATCH_TEST_ARGS:} {args}",
+]
+
+run-cov = [
+  "python3 --version",
+  "coverage erase",
+  "coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}",
+]
+cov-combine = [ "coverage combine" ]
+cov-report = [
+  "coverage report",
+  "coverage json",
+  "coverage html",
+]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = [ "3.9", "3.10", "3.11", "3.12", "3.13", "pypy3.9", "pypy3.10" ]
+
+#
+# Custom Environments
+#
+[tool.hatch.envs.typing]
+detached = true
+dependencies = [
+  "mypy ~= 1.15",
+  "httpx",
+  "pytest",
+  "pikepdf",
+  "pytest-httpx ~= 0.35",
+]
+
+[tool.hatch.envs.typing.scripts]
+run = [
+  "mypy --version",
+  "mypy --install-types --non-interactive .",
+]
+
+[tool.hatch.envs.pre-commit]
+template = "pre-commit"
+detached = true
+dependencies = [
+  "pre-commit ~= 4.2",
+  "pre-commit-uv",
+]
+
+[tool.hatch.envs.pre-commit.scripts]
+check = [ "pre-commit run --all-files" ]
+update = [ "pre-commit autoupdate" ]
+
+[tool.hatch.envs.docs]
+template = "docs"
+#detached = true
+dependencies = [
+  "mkdocs-material[imaging] ~= 9.6",
+  "mike ~= 2.1",
+  "mkdocs-minify-plugin ~= 0.8",
+  "mkdocstrings[python] ~= 0.29.1",
+]
+
+[tool.hatch.envs.docs.scripts]
+new = [ "mkdocs new ." ]
+build = [ "mkdocs build" ]
+serve = [
+  "mkdocs serve",
+]
+mike-help = [ "mike deploy --help" ]
+deploy = [
+  "mike deploy --push --branch gh-pages --remote origin --update-aliases {args} latest",
+  "mike set-default --branch gh-pages --remote origin --push latest",
+]
+
+#
+# Tool Configuration
+#
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+# https://docs.astral.sh/ruff/settings/
+fix = true
+output-format = "grouped"
+# https://docs.astral.sh/ruff/rules/
+lint.extend-select = [
+  "A",
+  "ARG",
+  "B",
+  "C",
+  "C4",
+  "COM",
+  "DTZ",
+  "E",
+  "EM",
+  "ERA",
+  "EXE",
+  "F",
+  "FBT",
+  "FLY",
+  "I",
+  "ICN",
+  "INP",
+  "INT",
+  "ISC",
+  "N",
+  "PERF",
+  "PGH",
+  "PIE",
+  "PL",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "PT",
+  "PTH",
+  "Q",
+  "RSE",
+  "RUF",
+  "S",
+  "SIM",
+  "SLF",
+  "T",
+  "T10",
+  "T20",
+  "TCH",
+  "TD",
+  "TID",
+  "TRY",
+  "UP",
+  "W",
+  "YTT",
+]
+lint.ignore = [
+  # Allow non-abstract empty methods in abstract base classes
+  "B027",
+  # Ignore complexity
+  "C901",
+  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "FBT003",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  # Ignore checks for possible passwords
+  "S105",
+  "S106",
+  "S107",
+  # Ignore no author and missing issue link in TODO tags
+  "TD002",
+  "TD003",
+]
+# Tests can use magic values, assertions, and relative imports
+lint.per-file-ignores."tests/**/*" = [ "PLR2004", "S101", "TID252" ]
+lint.per-file-ignores."tests/utils.py" = [ "S603" ]
+# No relative imports
+lint.flake8-tidy-imports.ban-relative-imports = "all"
+# One import per line
+lint.isort.force-single-line = true
+# Recognize us please
+lint.isort.known-first-party = [ "gotenberg_client" ]
+
+[tool.pyproject-fmt]
+max_supported_python = "3.13"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = [ "tests" ]
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
+
+[tool.pytest_env]
+#SAVE_TEST_OUTPUT = 1
+
+[tool.coverage.run]
+source_pkgs = [ "gotenberg_client", "tests" ]
+branch = true
+parallel = true
+omit = [
+  "src/gotenberg_client/__about__.py",
+  "tests/conftest.py",
+  "tests/utils.py",
+]
+
+[tool.coverage.paths]
+gotenberg_client = [ "src/gotenberg_client" ]
+tests = [ "tests" ]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == '__main__':",
+  "if TYPE_CHECKING:",
+  "if SAVE_OUTPUTS:",
+]
+
+[tool.mypy]
+exclude = [
+  "tests/*",
+]
+disallow_any_expr = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+strict_optional = true
+
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+warn_unused_configs = true

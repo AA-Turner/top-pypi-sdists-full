@@ -1,2 +1,0 @@
-class NoRedisConfigured(Exception):
-    pass

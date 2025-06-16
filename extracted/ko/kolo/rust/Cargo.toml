@@ -1,6 +1,6 @@
 [package]
 name = "_kolo"
-version = "2.40.0"
+version = "2.40.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -1,0 +1,50 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry]
+name = "mdformat-config"
+version = "0.2.1"  # DO NOT EDIT THIS LINE MANUALLY. LET bump2version UTILITY DO IT
+authors = ["Taneli Hukkinen <hukkin@users.noreply.github.com>"]
+description = "Mdformat plugin to beautify configuration and data-serialization formats"
+repository = "https://github.com/hukkin/mdformat-config"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Topic :: Documentation",
+    "Topic :: Text Processing :: Markup",
+]
+keywords = ["mdformat", "json", "yaml", "toml", "markdown", "commonmark", "formatter"]
+
+packages = [
+    {include = "mdformat_config"},
+]
+
+#[tool.poetry.urls]
+#"Changelog" = "https://github.com/hukkin/mdformat-config/blob/master/CHANGELOG.md"
+
+[tool.poetry.plugins."mdformat.codeformatter"]
+"json" = "mdformat_config:format_json"
+"toml" = "mdformat_config:format_toml"
+"yaml" = "mdformat_config:format_yaml"
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+mdformat = ">=0.3.0"
+taplo = ">=0.9.3"
+"ruamel.yaml" = ">=0.16.0"
+
+[tool.poetry.dev-dependencies]
+# Tests
+pytest = "*"
+pytest-randomly = "*"
+
+# Tools
+pre-commit = "*"
+bump2version = "*"
+
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config"
+xfail_strict = true

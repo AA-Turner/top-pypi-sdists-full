@@ -1,0 +1,63 @@
+[tool.poetry]
+name = "agentql"
+version = "1.11.2"
+description = "Tiny Fish AgentQL Python Client"
+authors = []
+license = "MIT"
+readme = "PACKAGE_README.md"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+playwright = "^1"
+requests = "^2"
+pydantic = "^2"
+httpx = ">=0.23.0, <1.0.0"
+pytest-asyncio = "^0"
+aiofiles = "^23"
+tf-playwright-stealth = "*"
+typer = "^0"
+colorama = ">=0.4.6, <1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+ipykernel = "^6.29.4"
+
+[tool.poetry.group.test.dependencies]
+pytest = "*"
+pytest-time = "*"
+pylint = "*"
+mockito = "*"
+pytest_env = "*"
+pytest-asyncio = "*"
+html-to-json = "*"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["test"]
+asyncio_default_fixture_loop_scope = "function"
+log_cli = true
+log_level = "WARNING"
+filterwarnings = [
+    "ignore::DeprecationWarning:fake_http_header.*",
+    "ignore::DeprecationWarning:importlib.resources.*",
+]
+
+[tool.pytest_env]
+AGENTQL_API_KEY = "test"
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+line_length = 100
+wrap_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+agentql = "agentql._cli._main:app"

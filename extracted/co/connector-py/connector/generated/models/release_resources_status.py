@@ -17,8 +17,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool
-from typing import Any, ClassVar, Dict, List
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +27,8 @@ class ReleaseResourcesStatus(BaseModel):
     Details about the released resources
     """ # noqa: E501
     success: StrictBool = Field(description="Whether the resources were successfully released")
-    __properties: ClassVar[List[str]] = ["success"]
+    reason: Optional[StrictStr] = Field(default=None, description="A message providing additional information about the release status, optional, but if the status was not successful, this should contain details about the failure.")
+    __properties: ClassVar[List[str]] = ["success", "reason"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,7 +81,8 @@ class ReleaseResourcesStatus(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "success": obj.get("success")
+            "success": obj.get("success"),
+            "reason": obj.get("reason")
         })
         return _obj
 

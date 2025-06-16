@@ -2,7 +2,11 @@
 
 from typing import final, Iterator, List, Optional, Tuple, TypeAlias, Union
 from autosar_data import Element
-from autosar_data.abstraction.datatype import AutosarDataType, DataTypeMappingSet
+from autosar_data.abstraction.datatype import (
+    AutosarDataType,
+    DataTypeMappingSet,
+    ValueSpecification,
+)
 
 PortInterface: TypeAlias = Union[
     SenderReceiverInterface,
@@ -207,6 +211,8 @@ class ClientServerInterface:
     def possible_errors(self, /) -> Iterator[ApplicationError]:
         """iterate over all application errors"""
         ...
+    is_service: Optional[bool]
+    """Get/Set if the client server interface is a service interface"""
 
 @final
 class ClientServerOperation:
@@ -418,6 +424,16 @@ class DataReceivedEvent:
     """`RunnableEntity` that is triggered by the `AsynchronousServerCallCompleted`"""
     swc_internal_behavior: Optional[SwcInternalBehavior]
     """Get the `SwcInternalBehavior` that contains the event"""
+    def set_variable_data_prototype(
+        self,
+        variable_data_prototype: VariableDataPrototype,
+        context_port: PPortPrototype,
+        /,
+    ) -> None:
+        """Set the `VariableDataPrototype` that triggers the `DataReceivedEvent`"""
+        ...
+    variable_data_prototype: Optional[Tuple[VariableDataPrototype, PortPrototype]]
+    """Get the `VariableDataPrototype` that triggers the `DataReceivedEvent`"""
 
 @final
 class DataSendCompletedEvent:
@@ -562,6 +578,109 @@ class InternalTriggerOccurredEvent:
     """Get the `SwcInternalBehavior` that contains the event"""
 
 @final
+class ModeAccessPoint:
+    """
+    A `ModeAccessPoint`provides the ability to access the current mode of a ModeDeclarationGroup
+    """
+
+    def __init__(self, element: Element, /) -> ModeAccessPoint: ...
+    element: Element
+    name: str
+    runnable_entity: Optional[RunnableEntity]
+    """Get the `RunnableEntity` that contains the `ModeAccessPoint`"""
+    def set_mode_group(
+        self, mode_group: ModeGroup, context_port: PortPrototype, /
+    ) -> None:
+        """Set the mode group and context port of the `ModeAccessPoint`"""
+        ...
+    mode_group: Optional[Tuple[ModeGroup, PortPrototype]]
+
+@final
+class ModeActivationKind:
+    """
+    Kind of mode switch condition used for activation of an event
+    """
+
+    OnEntry: ModeActivationKind
+    """
+    The mode is activated on entry to the mode.
+    """
+    OnExit: ModeActivationKind
+    """
+    The mode is activated on exit from the mode.
+    """
+    OnTransition: ModeActivationKind
+    """
+    The mode is activated on transition from the first mode to the second mode.
+    """
+
+@final
+class ModeDeclaration:
+    """
+    A `ModeDeclaration` represents a mode declaration in a `ModeDeclarationGroup`
+    """
+
+    def __init__(self, element: Element, /) -> ModeDeclaration: ...
+    element: Element
+    name: str
+    value: Optional[int]
+    """value of the mode declaration, if any."""
+
+@final
+class ModeDeclarationGroup:
+    """
+    A `ModeDeclarationGroup` is a collection of mode declarations.
+    """
+
+    def __init__(self, element: Element, /) -> ModeDeclarationGroup: ...
+    def create_mode_declaration(self, name: str, /) -> ModeDeclaration:
+        """Create a new mode declaration in the group"""
+        ...
+
+    def mode_declarations(self, /) -> Iterator[ModeDeclaration]:
+        """iterate over all mode declarations in the group"""
+        ...
+    element: Element
+    name: str
+    category: Optional[ModeDeclarationGroupCategory]
+    """category of the mode declaration group"""
+    initial_mode: Optional[ModeDeclaration]
+    """initial mode of the mode declaration group, if any"""
+    on_transition_value: Optional[int]
+    """
+    Value to be used when switching to the mode declaration group, if any.
+    This is the onTransitionValue attribute of the mode declaration group.
+    """
+
+@final
+class ModeDeclarationGroupCategory:
+    """
+    Category of mode declaration groupy, which defines the ordering of the modes in the group
+    """
+
+    AlphabeticOrder: ModeDeclarationGroupCategory
+    """
+    Alphabetic order of the modes in the group.
+    """
+    ExplicitOrder: ModeDeclarationGroupCategory
+    """
+    Ordering of modes in the mode declaration group is made explicit by the value, which must be set for each mode.
+    Additonally, the on_transition_value attribute must be set in this case.
+    """
+
+@final
+class ModeGroup:
+    """
+    A `ModeGroup` represents a mode group in a `ModeSwitchInterface`
+    """
+
+    def __init__(self, element: Element, /) -> ModeGroup: ...
+    element: Element
+    name: str
+    mode_declaration_group: ModeDeclarationGroup
+    """Get/Set the mode declaration group of the mode group"""
+
+@final
 class ModeSwitchInterface:
     """
     A `ModeSwitchInterface` defines a set of modes that can be switched
@@ -572,6 +691,18 @@ class ModeSwitchInterface:
     def __init__(self, element: Element, /) -> ModeSwitchInterface: ...
     element: Element
     name: str
+    def create_mode_group(
+        self, name: str, mode_declaration_group: ModeDeclarationGroup, /
+    ) -> ModeGroup:
+        """
+        Create a new mode group in the mode switch interface
+        The `ModeSwitchInterface` can only contain one mode group
+        """
+        ...
+    mode_group: Optional[ModeGroup]
+    """Get the mode group of the mode switch interface"""
+    is_service: Optional[bool]
+    """Get/Set if the mode switch interface is a service interface"""
 
 @final
 class ModeSwitchedAckEvent:
@@ -588,6 +719,24 @@ class ModeSwitchedAckEvent:
     """Get the `SwcInternalBehavior` that contains the event"""
 
 @final
+class ModeSwitchPoint:
+    """
+    A `ModeSwitchPoint` allows a `RunnableEntity` to switch modes in a ModeDeclarationGroup
+    """
+
+    def __init__(self, element: Element, /) -> ModeSwitchPoint: ...
+    element: Element
+    name: str
+    runnable_entity: Optional[RunnableEntity]
+    """Get the `RunnableEntity` that contains the `ModeSwitchPoint`"""
+    def set_mode_group(
+        self, mode_group: ModeGroup, context_port: PortPrototype, /
+    ) -> None:
+        """Set the mode group and context port of the `ModeSwitchPoint`"""
+        ...
+    mode_group: Optional[Tuple[ModeGroup, PortPrototype]]
+
+@final
 class NvDataInterface:
     """
     An `NvDataInterface` defines non-volatile data that can be accessed through the interface
@@ -598,6 +747,8 @@ class NvDataInterface:
     def __init__(self, element: Element, /) -> NvDataInterface: ...
     element: Element
     name: str
+    is_service: Optional[bool]
+    """Get/Set if the Nv-data interface is a service interface"""
 
 @final
 class OperationInvokedEvent:
@@ -666,6 +817,23 @@ class PRPortPrototype:
     """port interface of the port prototype"""
 
 @final
+class ParameterDataPrototype:
+    """
+    A `ParameterDataPrototype` represents a parameter in a `ParameterInterface`
+    """
+
+    def __init__(self, element: Element, /) -> ParameterDataPrototype: ...
+    # data_type: Optional[AutosarDataType]
+    # """data type of the parameter"""
+    element: Element
+    name: str
+    init_value: Optional[ValueSpecification]
+    data_type: Optional[AutosarDataType]
+    """data type of the parameter"""
+    interface: Optional[SenderReceiverInterface]
+    """Get the interface containing the parameter"""
+
+@final
 class ParameterInterface:
     """
     A `ParameterInterface` defines a set of parameters that can be accessed
@@ -674,8 +842,19 @@ class ParameterInterface:
     """
 
     def __init__(self, element: Element, /) -> ParameterInterface: ...
+    def create_parameter(
+        self, name: str, data_type: AutosarDataType, /
+    ) -> ParameterDataPrototype:
+        """Add a new parameter to the parameter interface"""
+        ...
+
+    def parameters(self, /) -> Iterator[ParameterDataPrototype]:
+        """iterate over all parameters"""
+        ...
     element: Element
     name: str
+    is_service: Optional[bool]
+    """Get/Set if the parameter interface is a service interface"""
 
 @final
 class PassThroughSwConnector:
@@ -741,6 +920,105 @@ class RunnableEntity:
     name: str
     swc_internal_behavior: Optional[SwcInternalBehavior]
     """`SwcInternalBehavior` that contains the `RunnableEntity`"""
+    def create_data_read_access(
+        self, name: str, data_element: VariableDataPrototype, port: PortPrototype, /
+    ) -> VariableAccess:
+        """
+        add implicit read access to a data element of a sender-receiver `PortPrototype`
+
+        this results in `Rte_IRead_<port>_<data_element>` being generated
+        """
+        ...
+
+    def data_read_accesses(self, /) -> Iterator[VariableAccess]:
+        """iterate over all data read accesses of the runnable entity"""
+        ...
+
+    def create_data_write_access(
+        self, name: str, data_element: VariableDataPrototype, port: PortPrototype, /
+    ) -> VariableAccess:
+        """
+        add implicit write access to a data element of a sender-receiver `PortPrototype`
+
+        this results in `Rte_IWrite_<port>_<data_element>` being generated
+        """
+        ...
+
+    def data_write_accesses(self, /) -> Iterator[VariableAccess]:
+        """iterate over all data write accesses of the runnable entity"""
+        ...
+
+    def create_data_send_point(
+        self, name: str, data_element: VariableDataPrototype, port: PortPrototype, /
+    ) -> VariableAccess:
+        """
+        add a data send point to a data element of a sender-receiver `PortPrototype`
+        """
+        ...
+
+    def data_send_points(self, /) -> Iterator[VariableAccess]:
+        """iterate over all data send points of the runnable entity"""
+        ...
+
+    def create_data_receive_point_by_argument(
+        self, name: str, data_element: VariableDataPrototype, port: PortPrototype, /
+    ) -> VariableAccess:
+        """
+        add explicit read access by argument to a data element of a sender-receiver `PortPrototype`
+        """
+        ...
+
+    def data_receive_points_by_argument(self, /) -> Iterator[VariableAccess]:
+        """iterate over all data receive points by argument of the runnable entity"""
+        ...
+
+    def create_data_receive_point_by_value(
+        self, name: str, data_element: VariableDataPrototype, port: PortPrototype, /
+    ) -> VariableAccess:
+        """
+        add explicit read access by value to a data element of a sender-receiver `PortPrototype`
+        """
+        ...
+
+    def data_receive_points_by_value(self, /) -> Iterator[VariableAccess]:
+        """iterate over all data receive points by value of the runnable entity"""
+        ...
+
+    def create_synchronous_server_call_point(
+        self, name: str, operation: ClientServerOperation, port: PPortPrototype, /
+    ) -> SynchronousServerCallPoint:
+        """
+        create a synchronous server call point that allows the runnable to call a server operation
+        """
+        ...
+
+    def synchronous_server_call_points(self, /) -> Iterator[SynchronousServerCallPoint]:
+        """iterate over all synchronous server call points of the runnable entity"""
+        ...
+
+    def create_mode_switch_point(
+        self, name: str, mode_group: ModeGroup, context_port: PortPrototype, /
+    ) -> ModeSwitchPoint:
+        """
+        create a mode switch point that allows the runnable to switch modes in a mode group
+        """
+        ...
+
+    def mode_switch_points(self, /) -> Iterator[ModeSwitchPoint]:
+        """iterate over all mode switch points of the runnable entity"""
+        ...
+
+    def create_mode_access_point(
+        self, name: str, mode_group: ModeGroup, context_port: PortPrototype, /
+    ) -> ModeAccessPoint:
+        """
+        create a mode access point that allows the runnable to access the current mode of a mode group
+        """
+        ...
+
+    def mode_access_points(self, /) -> Iterator[ModeAccessPoint]:
+        """iterate over all mode access points of the runnable entity"""
+        ...
 
 @final
 class SenderReceiverInterface:
@@ -762,6 +1040,8 @@ class SenderReceiverInterface:
         ...
     element: Element
     name: str
+    is_service: Optional[bool]
+    """Get/Set if the sender/receiver interface is a service interface"""
 
 @final
 class SensorActuatorSwComponentType:
@@ -948,6 +1228,29 @@ class SwcInternalBehavior:
         ...
     sw_component_type: Optional[SwComponentType]
     """software component type that contains the `SwcInternalBehavior`"""
+    def create_mode_switch_event(
+        self,
+        name: str,
+        runnable: RunnableEntity,
+        activation: ModeActivationKind,
+        context_port: PortPrototype,
+        mode_declaration: ModeDeclaration,
+        /,
+        second_mode_declaration: Optional[ModeDeclaration] = None,
+    ) -> SwcModeSwitchEvent:
+        """create a mode switch event that triggers a runnable in the `SwcInternalBehavior` when the mode is switched"""
+        ...
+
+    def create_data_received_event(
+        self,
+        name: str,
+        runnable: RunnableEntity,
+        variable_data_prototype: VariableDataPrototype,
+        context_port: PortPrototype,
+        /,
+    ) -> DataReceivedEvent:
+        """Create a new `DataReceivedEvent` in the `SwcInternalBehavior` that triggers a runnable when data is received"""
+        ...
 
 @final
 class SwcModeManagerErrorEvent:
@@ -976,6 +1279,54 @@ class SwcModeSwitchEvent:
     """`RunnableEntity` that is triggered by the `AsynchronousServerCallCompleted`"""
     swc_internal_behavior: Optional[SwcInternalBehavior]
     """Get the `SwcInternalBehavior` that contains the event"""
+    mode_activation_kind: Optional[ModeActivationKind]
+    """Get/Set the mode activation kind of the `SwcModeSwitchEvent`"""
+    def set_mode_declaration(
+        self,
+        ontext_port: PortPrototype,
+        mode_declaration: ModeDeclaration,
+        /,
+        second_mode_declaration: Optional[ModeDeclaration] = None,
+    ) -> None:
+        """
+        Set the mode declaration within a context port that triggers the `SwcModeSwitchEvent`
+
+        The second mode must be provided if the activation kind `OnTransition` is configured.
+        In that case only transitions between the two modes trigger the event.
+        """
+        ...
+
+    def mode_declarations(self) -> Optional[List[ModeDeclaration]]:
+        """
+        Get the mode declarations that trigger the `SwcModeSwitchEvent`
+
+        The list contains one or two mode declarations, depending on the activation kind.
+        If the activation kind is `OnTransition`, the list contains two mode declarations.
+        Otherwise, it contains one mode declaration.
+        """
+        ...
+
+@final
+class SynchronousServerCallPoint:
+    """
+    A `SynchronousServerCallPoint` allows a `RunnableEntity` to call a server operation synchronously
+    """
+
+    def __init__(self, element: Element, /) -> SynchronousServerCallPoint: ...
+    element: Element
+    name: str
+    def set_client_server_operation(
+        self,
+        client_server_operation: ClientServerOperation,
+        context_p_port: PPortPrototype,
+        /,
+    ) -> None:
+        """Set the `ClientServerOperation` that is called by the `SynchronousServerCallPoint`"""
+        ...
+    client_server_operation: Optional[Tuple[ClientServerOperation, PPortPrototype]]
+    """Get the `ClientServerOperation` that is called by the `SynchronousServerCallPoint`"""
+    runnable_entity: Optional[RunnableEntity]
+    """`RunnableEntity` that contains the `SynchronousServerCallPoint`"""
 
 @final
 class TimingEvent:
@@ -1020,6 +1371,27 @@ class TriggerInterface:
     def __init__(self, element: Element, /) -> TriggerInterface: ...
     element: Element
     name: str
+    is_service: Optional[bool]
+    """Get/Set if the trigger interface is a service interface"""
+
+@final
+class VariableAccess:
+    """
+    A `VariableAccess` allows a `RunnableEntity` to access a variable in various contexts
+    """
+
+    def __init__(self, element: Element, /) -> VariableAccess: ...
+    element: Element
+    name: str
+    def set_accessed_variable(
+        self, variable: VariableDataPrototype, context_port: PortPrototype, /
+    ) -> None:
+        """Set the variable that is accessed by the `VariableAccess`"""
+        ...
+    accessed_variable: Optional[Tuple[VariableDataPrototype, PortPrototype]]
+    """Get the variable that is accessed by the `VariableAccess`"""
+    runnable_entity: Optional[RunnableEntity]
+    """`RunnableEntity` that contains the `VariableAccess`"""
 
 @final
 class VariableDataPrototype:
@@ -1035,3 +1407,7 @@ class VariableDataPrototype:
     """Get the interface containing the data element"""
     name: str
     ...
+    init_value: Optional[ValueSpecification]
+    """
+    initial value of the data element, if any
+    """

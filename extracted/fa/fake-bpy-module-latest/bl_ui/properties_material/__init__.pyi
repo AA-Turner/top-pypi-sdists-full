@@ -109,6 +109,66 @@ class EEVEE_MATERIAL_PT_settings(MaterialButtonsPanel, bpy.types.Panel):
         :param context:
         """
 
+class EEVEE_MATERIAL_PT_settings_surface(MaterialButtonsPanel, bpy.types.Panel):
+    COMPAT_ENGINES: typing.Any
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_parent_id: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class EEVEE_MATERIAL_PT_settings_volume(MaterialButtonsPanel, bpy.types.Panel):
+    COMPAT_ENGINES: typing.Any
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_parent_id: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
 class EEVEE_MATERIAL_PT_surface(MaterialButtonsPanel, bpy.types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any
@@ -239,95 +299,6 @@ class EEVEE_MATERIAL_PT_volume(MaterialButtonsPanel, bpy.types.Panel):
 
     @classmethod
     def poll(cls, context) -> None:
-        """
-
-        :param context:
-        """
-
-class EEVEE_NEXT_MATERIAL_PT_settings(MaterialButtonsPanel, bpy.types.Panel):
-    COMPAT_ENGINES: typing.Any
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class EEVEE_NEXT_MATERIAL_PT_settings_surface(MaterialButtonsPanel, bpy.types.Panel):
-    COMPAT_ENGINES: typing.Any
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_parent_id: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class EEVEE_NEXT_MATERIAL_PT_settings_volume(MaterialButtonsPanel, bpy.types.Panel):
-    COMPAT_ENGINES: typing.Any
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_parent_id: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
         """
 
         :param context:

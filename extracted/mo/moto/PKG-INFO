@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moto
-Version: 5.1.5
+Version: 5.1.6
 Summary: A library that allows you to easily mock out tests based on AWS infrastructure
 Home-page: https://github.com/getmoto/moto
 Author: Steve Pulec

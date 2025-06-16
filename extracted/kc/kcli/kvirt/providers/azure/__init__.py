@@ -731,6 +731,21 @@ class Kazure(object):
             disks[disk.name] = {'pool': 'default', 'path': disk.name}
         return disks
 
+    def detach_disks(self, name):
+        try:
+            vm = self.compute_client.virtual_machines.get(self.resource_group, name, expand='instanceView')
+        except:
+            error(f"VM {name} not found")
+            return {'result': 'failure', 'reason': f"VM {name} not found"}
+        if os.path.basename(vm.instance_view.statuses[1].code) == 'running':
+            result = self.compute_client.virtual_machines.begin_deallocate(self.resource_group, name)
+            result.wait()
+        if len(vm.storage_profile.data_disks) > 1:
+            vm.storage_profile.data_disks = vm.storage_profile.data_disks[:1]
+            result = self.compute_client.virtual_machines.begin_create_or_update(self.resource_group, name, vm)
+            result.wait()
+        return {'result': 'success'}
+
     def add_nic(self, name, network, model='virtio'):
         try:
             vm = self.compute_client.virtual_machines.get(self.resource_group, name, expand='instanceView')

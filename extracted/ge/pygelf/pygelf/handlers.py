@@ -11,7 +11,7 @@ from logging import Handler as LoggingHandler
 from pygelf import gelf
 
 
-class BaseHandler(object):
+class BaseHandler:
     def __init__(self, debug=False, version='1.1', include_extra_fields=False, compress=False,
                  static_fields=None, json_default=gelf.object_to_json, additional_env_fields=None, **kwargs):
         """
@@ -39,7 +39,8 @@ class BaseHandler(object):
 
     def convert_record_to_gelf(self, record):
         return gelf.pack(
-            gelf.make(record, self.domain, self.debug, self.version, self.additional_fields, self.additional_env_fields, self.include_extra_fields),
+            gelf.make(record, self.domain, self.debug, self.version, self.additional_fields,
+                      self.additional_env_fields, self.include_extra_fields),
             self.compress, self.json_default
         )
 
@@ -115,22 +116,26 @@ class GelfTlsHandler(GelfTcpHandler):
 
         GelfTcpHandler.__init__(self, **kwargs)
 
-        self.ca_certs = ca_certs
-        self.reqs = ssl.CERT_REQUIRED if validate else ssl.CERT_NONE
-        self.certfile = certfile
-        self.keyfile = keyfile if keyfile else certfile
+        self.ctx = ssl.create_default_context()
+
+        if not validate:
+            self.ctx.check_hostname = False
+            self.ctx.verify_mode = ssl.CERT_NONE
+
+        if ca_certs:
+            self.ctx.load_verify_locations(cafile=ca_certs)
+
+        if certfile:
+            self.ctx.load_cert_chain(certfile, keyfile)
 
     def makeSocket(self, timeout=1):
-        plain_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        plain = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        plain.settimeout(timeout)
 
-        if hasattr(plain_socket, 'settimeout'):
-            plain_socket.settimeout(timeout)
+        wrapped = self.ctx.wrap_socket(plain, server_hostname=self.host)
+        wrapped.connect((self.host, self.port))
 
-        wrapped_socket = ssl.wrap_socket(plain_socket, ca_certs=self.ca_certs, cert_reqs=self.reqs,
-                                         keyfile=self.keyfile, certfile=self.certfile)
-        wrapped_socket.connect((self.host, self.port))
-
-        return wrapped_socket
+        return wrapped
 
 
 class GelfHttpHandler(BaseHandler, LoggingHandler):
@@ -167,7 +172,8 @@ class GelfHttpHandler(BaseHandler, LoggingHandler):
 
 class GelfHttpsHandler(BaseHandler, LoggingHandler):
 
-    def __init__(self, host, port, compress=True, path='/gelf', timeout=5, validate=False, ca_certs=None, certfile=None, keyfile=None, keyfile_password=None, **kwargs):
+    def __init__(self, host, port, compress=True, path='/gelf', timeout=5, validate=False,
+                 ca_certs=None, certfile=None, keyfile=None, keyfile_password=None, **kwargs):
         """
         Logging handler that transforms each record into GELF (graylog extended log format) and sends it over HTTP.
 
@@ -210,7 +216,6 @@ class GelfHttpsHandler(BaseHandler, LoggingHandler):
         else:
             # Load our CA file
             self.ctx.load_verify_locations(cafile=self.ca_certs)
-
 
         if compress:
             self.headers['Content-Encoding'] = 'gzip,deflate'

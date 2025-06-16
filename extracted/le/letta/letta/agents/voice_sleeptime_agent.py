@@ -2,6 +2,7 @@ from typing import AsyncGenerator, List, Optional, Tuple, Union
 
 from letta.agents.helpers import _create_letta_response, serialize_message_history
 from letta.agents.letta_agent import LettaAgent
+from letta.constants import DEFAULT_MAX_STEPS
 from letta.orm.enums import ToolType
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentState
@@ -62,7 +63,7 @@ class VoiceSleeptimeAgent(LettaAgent):
     async def step(
         self,
         input_messages: List[MessageCreate],
-        max_steps: int = 20,
+        max_steps: int = DEFAULT_MAX_STEPS,
         use_assistant_message: bool = True,
         include_return_message_types: Optional[List[MessageType]] = None,
     ) -> LettaResponse:
@@ -81,7 +82,7 @@ class VoiceSleeptimeAgent(LettaAgent):
         ]
 
         # Summarize
-        current_in_context_messages, new_in_context_messages, usage = await super()._step(
+        current_in_context_messages, new_in_context_messages, usage, stop_reason = await super()._step(
             agent_state=agent_state, input_messages=input_messages, max_steps=max_steps
         )
         new_in_context_messages, updated = self.summarizer.summarize(
@@ -94,6 +95,7 @@ class VoiceSleeptimeAgent(LettaAgent):
         return _create_letta_response(
             new_in_context_messages=new_in_context_messages,
             use_assistant_message=use_assistant_message,
+            stop_reason=stop_reason,
             usage=usage,
             include_return_message_types=include_return_message_types,
         )
@@ -170,7 +172,7 @@ class VoiceSleeptimeAgent(LettaAgent):
             return f"Failed to store memory given start_index {start_index} and end_index {end_index}: {e}", False
 
     async def step_stream(
-        self, input_messages: List[MessageCreate], max_steps: int = 10, use_assistant_message: bool = True
+        self, input_messages: List[MessageCreate], max_steps: int = DEFAULT_MAX_STEPS, use_assistant_message: bool = True
     ) -> AsyncGenerator[Union[LettaMessage, LegacyLettaMessage, MessageStreamStatus], None]:
         """
         This agent is synchronous-only. If called in an async context, raise an error.

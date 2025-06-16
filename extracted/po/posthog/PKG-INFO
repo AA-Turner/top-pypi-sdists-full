@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 4.8.0
+Version: 5.0.0
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -28,9 +28,6 @@ Requires-Dist: six>=1.5
 Requires-Dist: python-dateutil>=2.2
 Requires-Dist: backoff>=1.10.0
 Requires-Dist: distro>=1.5.0
-Provides-Extra: sentry
-Requires-Dist: sentry-sdk; extra == "sentry"
-Requires-Dist: django; extra == "sentry"
 Provides-Extra: langchain
 Requires-Dist: langchain>=0.2.0; extra == "langchain"
 Provides-Extra: dev
@@ -62,10 +59,11 @@ Requires-Dist: pytest-asyncio; extra == "test"
 Requires-Dist: django; extra == "test"
 Requires-Dist: openai; extra == "test"
 Requires-Dist: anthropic; extra == "test"
-Requires-Dist: langgraph; extra == "test"
-Requires-Dist: langchain-community>=0.2.0; extra == "test"
-Requires-Dist: langchain-openai>=0.2.0; extra == "test"
-Requires-Dist: langchain-anthropic>=0.2.0; extra == "test"
+Requires-Dist: langgraph>=0.4.8; extra == "test"
+Requires-Dist: langchain-core>=0.3.65; extra == "test"
+Requires-Dist: langchain-community>=0.3.25; extra == "test"
+Requires-Dist: langchain-openai>=0.3.22; extra == "test"
+Requires-Dist: langchain-anthropic>=0.3.15; extra == "test"
 Requires-Dist: google-genai; extra == "test"
 Requires-Dist: pydantic; extra == "test"
 Requires-Dist: parameterized>=0.8.1; extra == "test"
@@ -119,24 +117,6 @@ make test
 
 Assuming you have a [local version of PostHog](https://posthog.com/docs/developing-locally) running, you can run `python3 example.py` to see the library in action.
 
-### Running the Django Sentry Integration Locally
-
-There's a sample Django project included, called `sentry_django_example`, which explains how to use PostHog with Sentry.
-
-There's 2 places of importance (Changes required are all marked with TODO in the sample project directory)
-
-1. Settings.py
-    1. Input your Sentry DSN
-    2. Input your Sentry Org and ProjectID details into `PosthogIntegration()`
-    3. Add `POSTHOG_DJANGO` to settings.py. This allows the `PosthogDistinctIdMiddleware` to get the distinct_ids
-
-2. urls.py
-    1. This includes the `sentry-debug/` endpoint, which generates an exception
-
-To run things: `make django_example`. This installs the posthog-python library with the sentry-sdk add-on, and then runs the django app.
-Also start the PostHog app locally.
-Then navigate to `http://127.0.0.1:8080/sentry-debug/` and you should get an event in both Sentry and PostHog, with links to each other.
-
 ### Releasing Versions
 
-Updated are released using GitHub Actions: after bumping `version.py` in `master` and adding to `CHANGELOG.md`, go to [our release workflow's page](https://github.com/PostHog/posthog-python/actions/workflows/release.yaml) and dispatch it manually, using workflow from `master`.
+Updates are released using GitHub Actions: after bumping `version.py` in `master` and adding to `CHANGELOG.md`, go to [our release workflow's page](https://github.com/PostHog/posthog-python/actions/workflows/release.yaml) and dispatch it manually, using workflow from `master`.

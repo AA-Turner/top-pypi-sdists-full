@@ -8,6 +8,7 @@ import sys
 import sysconfig
 import tarfile
 
+from Cython.Build import cythonize
 from setuptools import setup
 from setuptools.command.build_ext import build_ext
 from setuptools.extension import Extension
@@ -26,8 +27,8 @@ def _read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-jq_lib_tarball_path = _dep_source_path("jq-1.7.1.tar.gz")
-jq_lib_dir = _dep_build_path("jq-1.7.1")
+jq_lib_tarball_path = _dep_source_path("jq-1.8.0.tar.gz")
+jq_lib_dir = _dep_build_path("jq-1.8.0")
 
 class jq_with_deps_build_ext(build_ext):
     def finalize_options(self):
@@ -46,6 +47,7 @@ class jq_with_deps_build_ext(build_ext):
             tarball_path=jq_lib_tarball_path,
             lib_dir=jq_lib_dir,
             commands=[
+                ["patch", "-i", _dep_source_path("jq-1.8.0-Makefile.patch")],
                 ["./configure", "CFLAGS=-fPIC -pthread", "--disable-maintainer-mode", "--with-oniguruma=builtin"],
                 ["make"],
             ])
@@ -91,13 +93,15 @@ else:
     link_args_deps = []
     extra_objects = [
         os.path.join(jq_lib_dir, ".libs/libjq.a"),
-        os.path.join(jq_lib_dir, "modules/oniguruma/src/.libs/libonig.a"),
+        os.path.join(jq_lib_dir, "vendor/oniguruma/src/.libs/libonig.a"),
     ]
 
 jq_extension = Extension(
     "jq",
-    sources=["jq.c"],
-    define_macros=[("MS_WIN64" , 1)] if os.name == "nt" and sys.maxsize > 2**32  else None, # https://github.com/cython/cython/issues/2670
+    sources=["jq.pyx"],
+    # MS_WIN64 has to be set to successfully build when using MinGW for 64-bit
+    # Windows. See: https://github.com/cython/cython/issues/2670
+    define_macros=[("MS_WIN64" , 1)] if os.name == "nt" and sys.maxsize > 2**32  else None,
     include_dirs=[os.path.join(jq_lib_dir, "src")],
     extra_link_args=["-lm"] + (["-Wl,-Bstatic", "-lpthread", "-lshlwapi", "-static-libgcc"] if os.name == 'nt' else []) + link_args_deps,
     extra_objects=extra_objects,
@@ -105,14 +109,14 @@ jq_extension = Extension(
 
 setup(
     name='jq',
-    version='1.8.0',
+    version='1.9.1',
     description='jq is a lightweight and flexible JSON processor.',
     long_description=_read("README.rst"),
     author='Michael Williamson',
     url='https://github.com/mwilliamson/jq.py',
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     license='BSD 2-Clause',
-    ext_modules = [jq_extension],
+    ext_modules = cythonize([jq_extension]),
     cmdclass={"build_ext": jq_build_ext},
     classifiers=[
         'Development Status :: 5 - Production/Stable',
@@ -120,8 +124,6 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',

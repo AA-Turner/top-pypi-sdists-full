@@ -1,0 +1,3 @@
+
+class DataObject(object):
+    pass

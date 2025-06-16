@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "python-jenkins-checkmk-retry-parameter"
+version = "1.8.3.dev8"
+description = "Python bindings for the remote Jenkins API, custom package until official release"
+authors = [
+  "Ken Conley <kwc@willowgarage.com>",
+  "Jonas Scharpf <jonas.scharpf@checkmk.com>",
+]
+readme = "README.rst"
+packages = [
+  {include = "jenkins"}
+]
+
+[tool.poetry.urls]
+Repository = "https://opendev.org/jjb/python-jenkins"
+Documentation = "https://python-jenkins.readthedocs.io/"
+
+[tool.poetry.dependencies]
+pbr = "^6.1.1"
+multi_key_dict = "*"
+requests = "*"
+
+python = "^3.10.4"  #   currently lowest supported Python version (CI Build Nodes)
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]

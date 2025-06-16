@@ -1,0 +1,43 @@
+site_name: BigFunctions
+# repo_name: 'unytics/bigfunctions'
+# repo_url: 'https://github.com/unytics/bigfunctions'
+# edit_uri: 'edit/main'
+theme:
+  name: material
+  # custom_dir: docs/theme_overrides
+  logo: https://unytics.io/bigfunctions/assets/logo.png
+  favicon: https://unytics.io/bigfunctions/assets/logo.png
+  features:
+    - tabs
+    - content.tabs.link
+    - content.code.copy
+    # - instant
+    # - toc.integrate
+    # - navigation.instant
+    - navigation.path
+    - navigation.tabs
+    - navigation.tracking
+    - navigation.indexes
+    - navigation.hide
+    # - navigation.expand
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      toc_depth: 4
+      permalink: "¶"
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+plugins:
+  - search
+  - awesome-nav
+nav:
+  - Home: index.md
+  - "{BIGFUNCTIONS_DOC}"
+validation:
+  nav:
+    omitted_files: ignore

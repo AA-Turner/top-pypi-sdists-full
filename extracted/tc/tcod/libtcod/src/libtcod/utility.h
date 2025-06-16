@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,15 +29,16 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 #ifndef LIBTCOD_UTILITY_H
 #define LIBTCOD_UTILITY_H
 /******************************************
  utility macros
  ******************************************/
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#define ABS(a) ((a) < 0 ? -(a) : (a))
-#define CLAMP(a, b, x) ((x) < (a) ? (a) : ((x) > (b) ? (b) : (x)))
-#define LERP(a, b, x) ((a) + (x) * ((b) - (a)))
+#define TCOD_MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define TCOD_MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define TCOD_ABS(a) ((a) < 0 ? -(a) : (a))
+#define TCOD_CLAMP(a, b, x) ((x) < (a) ? (a) : ((x) > (b) ? (b) : (x)))
+#define TCOD_LERP(a, b, x) ((a) + (x) * ((b) - (a)))
 
 #endif

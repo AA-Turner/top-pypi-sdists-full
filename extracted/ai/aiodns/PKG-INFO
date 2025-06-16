@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiodns
-Version: 3.4.0
+Version: 3.5.0
 Summary: Simple DNS resolver for asyncio
 Home-page: https://github.com/saghul/aiodns
 Author: Saúl Ibarra Corretgé
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: pycares>=4.0.0
+Requires-Dist: pycares>=4.9.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -74,12 +74,12 @@ The following query types are supported: A, AAAA, ANY, CAA, CNAME, MX, NAPTR, NS
 API
 ===
 
-The API is pretty simple, three functions are provided in the ``DNSResolver`` class:
+The API is pretty simple, the following functions are provided in the ``DNSResolver`` class:
 
 * ``query(host, type)``: Do a DNS resolution of the given type for the given hostname. It returns an
   instance of ``asyncio.Future``. The actual result of the DNS query is taken directly from pycares.
   As of version 1.0.0 of aiodns (and pycares, for that matter) results are always namedtuple-like
-  objects with different attributes. Please check the `documentation 
+  objects with different attributes. Please check the `documentation
   <http://pycares.readthedocs.org/en/latest/channel.html#pycares.Channel.query>`_
   for the result fields.
 * ``gethostbyname(host, socket_family)``: Do a DNS resolution for the given
@@ -92,12 +92,33 @@ The API is pretty simple, three functions are provided in the ``DNSResolver`` cl
 * ``gethostbyaddr(name)``: Make a reverse lookup for an address.
 * ``cancel()``: Cancel all pending DNS queries. All futures will get ``DNSError`` exception set, with
   ``ARES_ECANCELLED`` errno.
+* ``close()``: Close the resolver. This releases all resources and cancels any pending queries. It must be called
+  when the resolver is no longer needed (e.g., application shutdown). The resolver should only be closed from the
+  event loop that created the resolver.
+
+
+Async Context Manager Support
+=============================
+
+While not recommended for typical use cases, ``DNSResolver`` can be used as an async context manager
+for scenarios where automatic cleanup is desired:
+
+.. code:: python
+
+    async with aiodns.DNSResolver() as resolver:
+        result = await resolver.query('example.com', 'A')
+        # resolver.close() is called automatically when exiting the context
+
+**Important**: This pattern is discouraged for most applications because ``DNSResolver`` instances
+are designed to be long-lived and reused for many queries. Creating and destroying resolvers
+frequently adds unnecessary overhead. Use the context manager pattern only when you specifically
+need automatic cleanup for short-lived resolver instances, such as in tests or one-off scripts.
 
 
 Note for Windows users
 ======================
 
-This library requires the use of an ``asyncio.SelectorEventLoop`` on Windows
+This library requires the use of an ``asyncio.SelectorEventLoop`` or ``winloop`` on Windows
 **only** when using a custom build of ``pycares`` that links against a system-
 provided ``c-ares`` library **without** thread-safety support. This is because
 non-thread-safe builds of ``c-ares`` are incompatible with the default

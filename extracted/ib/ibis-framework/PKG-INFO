@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibis-framework
-Version: 10.5.0
+Version: 10.6.0
 Summary: The portable Python dataframe library
 Project-URL: Homepage, https://ibis-project.org
 Project-URL: Chat, https://ibis-project.zulipchat.com
@@ -87,7 +87,7 @@ Requires-Dist: pyarrow>=10.0.1; extra == 'druid'
 Requires-Dist: pydruid>=0.6.7; extra == 'druid'
 Requires-Dist: rich>=12.4.4; extra == 'druid'
 Provides-Extra: duckdb
-Requires-Dist: duckdb>=0.10.3; extra == 'duckdb'
+Requires-Dist: duckdb!=1.3.0,>=0.10.3; extra == 'duckdb'
 Requires-Dist: numpy<3,>=1.23.2; extra == 'duckdb'
 Requires-Dist: packaging>=21.3; extra == 'duckdb'
 Requires-Dist: pandas<3,>=1.5.3; extra == 'duckdb'
@@ -164,7 +164,7 @@ Requires-Dist: packaging>=21.3; extra == 'pyspark'
 Requires-Dist: pandas<3,>=1.5.3; extra == 'pyspark'
 Requires-Dist: pyarrow-hotfix>=0.4; extra == 'pyspark'
 Requires-Dist: pyarrow>=10.0.1; extra == 'pyspark'
-Requires-Dist: pyspark>=3.3.3; extra == 'pyspark'
+Requires-Dist: pyspark<4,>=3.3.3; extra == 'pyspark'
 Requires-Dist: rich>=12.4.4; extra == 'pyspark'
 Provides-Extra: risingwave
 Requires-Dist: numpy<3,>=1.23.2; extra == 'risingwave'

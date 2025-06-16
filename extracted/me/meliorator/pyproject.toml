@@ -1,0 +1,69 @@
+[tool.poetry]
+name = "meliorator"
+version = "0.9.25"
+description = "This is a fork from Orator ORM used by Méliuz."
+
+license = "MIT"
+
+authors = [
+    "Sébastien Eustace <sebastien@eustace.io>"
+]
+
+maintainers = [
+    "Matheus Oliveira <mco@meliuz.com.br>"
+]
+
+readme = 'README.rst'
+
+repository = "https://github.com/meliuz/meliorator"
+homepage = "https://orator-orm.com/"
+
+keywords = ['database', 'orm']
+
+packages = [
+    { include = "orator", from = "." }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9, <4.0"
+backpack = "^0.1"
+blinker = "^1.4"
+cleo = "^2.1"
+inflection = "^0.3"
+Faker = "^0.8"
+lazy-object-proxy = "^1.2"
+pendulum = "^1.4"
+pyaml = "^16.12"
+pyyaml = ">= 5.1, <7.0"
+Pygments = "^2.2"
+simplejson = "^3.10"
+six = "^1.10"
+wrapt = "^1.10"
+
+# Extras
+psycopg2 = { version = "^2.7", optional = true }
+PyMySQL = { version = "^0.7", optional = true }
+mysqlclient = { version = "^1.3", optional = true }
+
+
+[tool.poetry.dev-dependencies]
+flexmock = "0.11.3"
+pytest = "^7.4"
+pytest-mock = "^3.12"
+tox = "^3.5"
+pre-commit = "^1.11"
+
+
+[tool.poetry.extras]
+mysql = ["mysqlclient"]
+mysql-python = ["PyMySQL"]
+pgsql = ["psycopg2"]
+
+
+[tool.poetry.scripts]
+orator = 'orator.commands.application:application.run'
+
+
+[build-system]
+requires = ["poetry>=0.12a3"]
+build-backend = "poetry.masonry.api"

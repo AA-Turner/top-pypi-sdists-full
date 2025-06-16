@@ -1,0 +1,89 @@
+[tool.black]
+# bump the dev dependency version when updating this
+# also bump black version in the pre-commit config
+required-version = "24.10.0"
+line-length = 119
+# fast disables black AST (covered by bandit pre-commit plugin)
+fast = true
+# preview required for unstable features
+preview = true
+# check these with `black --help` when updating required-version
+enable-unstable-feature = [
+    "string_processing",
+    "hug_parens_with_braces_and_square_brackets",
+    "wrap_long_dict_values_in_parens",
+    "multiline_string_handling",
+]
+
+[tool.poetry.urls]
+homepage = "https://gitlab.com/tysonholub/python-autoviv"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "--strict-markers --strict-config"
+norecursedirs = [".git", ".tox", ".env", ".venv"]
+testpaths = ["pytests"]
+pythonpath = ["pysrc"]
+
+[tool.poetry]
+name = "python-autoviv"
+version = "1.0.4"
+description = ""
+authors = ["Tyson Holub <tyson@tysonholub.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "autoviv", from = "pysrc" }]
+include = ["README.md"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+typer = "^0.13"
+
+[tool.poetry.group.dev.dependencies]
+black = "24.10.0"
+coverage = "^7"
+pytest = "^8"
+simplejson = "^3.19.3"
+
+[tool.poetry.scripts]
+autoviv = { callable = "autoviv.cli:app" }
+
+[tool.isort]
+line_length = 119
+use_parentheses = true
+multi_line_output = 3
+include_trailing_comma = true
+src_paths = ["pysrc", "pytests"]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.pylint.'FORMAT']
+max-line-length = 119
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = ["wrong-import-position"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"

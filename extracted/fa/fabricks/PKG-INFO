@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fabricks
-Version: 2.1.3
+Version: 2.1.5
 Author-email: BMS DWH Team <bi_support@bmsuisse.ch>
 Requires-Python: <4,>=3.9
 Requires-Dist: azure-data-tables<13,>=12.5.0

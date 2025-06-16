@@ -392,20 +392,31 @@ class FontFace(google.protobuf.message.Message):
     URL_FIELD_NUMBER: builtins.int
     FAMILY_FIELD_NUMBER: builtins.int
     WEIGHT_FIELD_NUMBER: builtins.int
+    WEIGHT_RANGE_FIELD_NUMBER: builtins.int
     STYLE_FIELD_NUMBER: builtins.int
+    UNICODE_RANGE_FIELD_NUMBER: builtins.int
     url: builtins.str
     family: builtins.str
+    """Equivalent to font-family @font-face CSS property."""
     weight: builtins.int
+    """DEPRECATED: Use weight_range instead which supports single weights & weight ranges."""
+    weight_range: builtins.str
+    """Equivalent to font-weight @font-face CSS property."""
     style: builtins.str
+    """Equivalent to font-style @font-face CSS property."""
+    unicode_range: builtins.str
+    """Equivalent to unicode-range @font-face CSS property."""
     def __init__(
         self,
         *,
         url: builtins.str = ...,
         family: builtins.str = ...,
         weight: builtins.int = ...,
+        weight_range: builtins.str = ...,
         style: builtins.str = ...,
+        unicode_range: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["family", b"family", "style", b"style", "url", b"url", "weight", b"weight"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["family", b"family", "style", b"style", "unicode_range", b"unicode_range", "url", b"url", "weight", b"weight", "weight_range", b"weight_range"]) -> None: ...
 
 global___FontFace = FontFace
 

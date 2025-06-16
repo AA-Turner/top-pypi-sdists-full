@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 
+from cwl_utils.pack import pack
 from cwl_utils.parser import load_document, save
 from DIRAC.Interfaces.API.Dirac import Dirac
 from DIRAC.Interfaces.API.Job import Job
@@ -10,7 +11,6 @@ from cwl_utils.parser.utils import load_inputfile
 from ruamel.yaml import YAML
 
 from CTADIRAC.Interfaces.Utilities.CWL_utils import (
-    extract_and_translate_input_files,
     translate_cwl_workflow,
 )
 
@@ -38,11 +38,12 @@ class CWLJob(Job):
 
         self.cwl_workflow_path = Path(cwl_workflow)
         self.cwl_inputs_path = Path(cwl_inputs)
+
         self.cvmfs_base_path = cvmfs_base_path
         self.apptainer_options = apptainer_options if apptainer_options else []
         self._output_se = output_se
 
-        self.original_cwl = load_document(self.cwl_workflow_path.read_text())
+        self.original_cwl = load_document(pack(str(self.cwl_workflow_path)))
         self.original_inputs = load_inputfile(
             self.original_cwl.cwlVersion, self.cwl_inputs_path.read_text()
         )
@@ -58,10 +59,9 @@ class CWLJob(Job):
         self.output_sandbox = cwl_dict.get("OutputSandbox", [])
         self.output_data = cwl_dict.get("OutputData", [])
 
-        input_cwl_dict = extract_and_translate_input_files(self.original_inputs)
-        self.transformed_inputs = input_cwl_dict["InputDesc"]
-        self.input_data = input_cwl_dict.get("InputData", [])
-        self.input_sandbox = input_cwl_dict.get("InputSandbox", [])
+        self.transformed_inputs = cwl_dict["InputDesc"]
+        self.input_data = cwl_dict.get("InputData", [])
+        self.input_sandbox = cwl_dict.get("InputSandbox", [])
 
     def submit(self):
         """Submit the CWL job to DIRAC.

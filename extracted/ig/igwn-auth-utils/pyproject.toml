@@ -1,0 +1,184 @@
+[build-system]
+requires = [
+  "setuptools >=70.0.0",
+  "setuptools_scm[toml] >=3.4.3",
+  "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "igwn-auth-utils"
+description = "Authorisation utilities for IGWN"
+readme = "README.md"
+authors = [
+  { name = "Duncan Macleod", email = "duncan.macleod@ligo.org" },
+]
+license = { text = "BSD-3-Clause" }
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+requires-python = ">=3.9"
+dependencies = [
+  "cryptography >=44.0.1",
+  "requests >=2.32.0",
+  "safe-netrc >=1.0",
+  "scitokens >=1.8",
+]
+dynamic = [
+  "version",
+]
+
+[project.optional-dependencies]
+# -- functional extras
+
+gettoken = [
+  "htgettoken >= 2.1",
+]
+kerberos = [
+  "gssapi >= 1.9.0",
+]
+
+# -- build/test
+
+docs = [
+  "furo",
+  "Sphinx >= 4.0.0",
+  "sphinx-automodapi",
+  "sphinx-copybutton",
+  "sphinx-design >=0.6.1",
+  "sphinx-github-style",
+]
+test = [
+  "pytest >= 3.9.1",
+  "pytest-cov",
+  "requests-mock",
+]
+
+[project.urls]
+"Homepage" = "https://git.ligo.org/computing/igwn-auth-utils/"
+"Bug Tracker" = "https://git.ligo.org/computing/igwn-auth-utils/-/issues/"
+"Documentation" = "https://igwn-auth-utils.readthedocs.io"
+"Source Code" = "https://git.ligo.org/computing/igwn-auth-utils.git"
+
+# -- tools ------------------
+
+# -- coverage.py
+
+[tool.coverage.paths]
+# map standard install paths back to the source to
+# enable merging coverage of installed module from
+# multiple platforms
+source = [
+  "igwn_auth_utils/",  # <-- source path, must come first
+  "*/igwn_auth_utils/",  # <-- any installed path
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  # ignore when asked
+  "pragma: no( |-)cover",
+  # don't complain about typing blocks
+  "if (typing\\.)?TYPE_CHECKING",
+]
+omit = [
+  "*/_version.py",
+]
+# print report with one decimal point
+precision = 1
+
+# -- mypy
+
+[tool.mypy]
+check_untyped_defs = true
+exclude = [
+  "^docs/",
+]
+ignore_missing_imports = true
+
+# -- pytest
+
+[tool.pytest.ini_options]
+addopts = "-r a --color=yes"
+filterwarnings = [
+  "error",
+  # https://github.com/pyreadline/pyreadline/issues/65
+  "ignore:Using or importing the ABCs::pyreadline",
+  # ignore pkg_resources deprecation
+  "ignore:.*pkg_resources.*",
+  # ignore use of imp in invoke (fixed in invoke-2.1.0)
+  "ignore:the imp module::invoke",
+  # ignore ImportWarning from gssapi on EL8
+  "ignore:can't resolve package from __spec__",
+]
+
+# -- ruff
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "ANN",  # type annotations (need Python >=3.9)
+  "D203",  # blank line before class docstring
+  "D213",  # docstring summary on second line
+  "D413",  # blank line after last section
+  "PLR0913",  # too many arguments
+  "SIM108",  # if-else instead of ternary if
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-wrap-aliases = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+  "F401",  # unused-import
+  "F403",  # undefined-local-with-import-star
+]
+"*/tests/*" = [
+  "ANN",  # type annotations
+  "B904",  # raise from
+  "EM101",  # string literal in exception
+  "PLR2004",  # magic value used in comparison
+  "S101",  # assert
+]
+"docs/*" = [
+  "A",  # builtins
+  "ANN",  # type annotations
+  "D",  # docstrings
+  "INP001",  # implicit namespace package
+]
+
+# -- setuptools
+
+[tool.setuptools]
+license-files = [
+  "LICENSE",
+]
+
+[tool.setuptools.packages.find]
+include = [
+  "igwn_auth_utils*",
+]
+
+# -- setuptools-scm
+
+[tool.setuptools_scm]
+write_to = "igwn_auth_utils/_version.py"

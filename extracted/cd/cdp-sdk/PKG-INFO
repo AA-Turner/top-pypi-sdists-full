@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cdp-sdk
-Version: 1.12.0
+Version: 1.13.0
 Summary: CDP SDK
 License: MIT
 Requires-Python: >=3.10
@@ -241,6 +241,20 @@ from cdp import CdpClient
 async def main():
     async with CdpClient() as cdp:
         account = await cdp.solana.get_or_create_account()
+
+asyncio.run(main())
+```
+
+#### Get or create a Smart account as follows:
+
+```python
+import asyncio
+from cdp import CdpClient
+
+async def main():
+    async with CdpClient() as cdp:
+        owner = await cdp.evm.create_account()
+        account = await cdp.evm.get_or_create_smart_account(name="Account1", owner=owner)
 
 asyncio.run(main())
 ```

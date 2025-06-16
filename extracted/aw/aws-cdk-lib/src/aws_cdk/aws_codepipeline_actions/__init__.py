@@ -1253,6 +1253,39 @@ EcsAppStack(app, "EcsStackDeployedInPipeline",
 )
 ```
 
+### Amazon EC2
+
+To deploy application code to Amazon EC2 Linux instances or Linux SSM-managed nodes:
+
+> **Note**
+> This action is only supported for V2 type pipelines.
+
+```python
+source_output = codepipeline.Artifact()
+
+pipeline = codepipeline.Pipeline(self, "MyPipeline",
+    pipeline_type=codepipeline.PipelineType.V2
+)
+deploy_action = codepipeline_actions.Ec2DeployAction(
+    action_name="Ec2Deploy",
+    input=source_output,
+    instance_type=codepipeline_actions.Ec2InstanceType.EC2,
+    instance_tag_key="Name",
+    instance_tag_value="MyInstance",
+    deploy_specifications=codepipeline_actions.Ec2DeploySpecifications.inline(
+        target_directory="/home/ec2-user/deploy",
+        pre_script="scripts/pre-deploy.sh",
+        post_script="scripts/post-deploy.sh"
+    )
+)
+deploy_stage = pipeline.add_stage(
+    stage_name="Deploy",
+    actions=[deploy_action]
+)
+```
+
+To learn more about using the EC2 deploy action in your pipeline, visit [tutorial](https://docs.aws.amazon.com/codepipeline/latest/userguide/tutorials-ec2-deploy.html) and [documentation](https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-EC2Deploy.html).
+
 ### AWS S3 Deployment
 
 To use an S3 Bucket as a deployment target in CodePipeline:
@@ -1893,6 +1926,7 @@ from ..aws_codepipeline import (
 )
 from ..aws_ecr import IRepository as _IRepository_e6004aa6
 from ..aws_ecs import IBaseService as _IBaseService_3fcdd913
+from ..aws_elasticloadbalancingv2 import ITargetGroup as _ITargetGroup_83c6f8c4
 from ..aws_events import (
     EventPattern as _EventPattern_fe557901, IRuleTarget as _IRuleTarget_7a91f454
 )
@@ -7441,6 +7475,657 @@ class CommonCloudFormationStackSetOptions:
         return "CommonCloudFormationStackSetOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class Ec2DeployAction(
+    Action,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_codepipeline_actions.Ec2DeployAction",
+):
+    '''CodePipeline Action to deploy EC2 instances.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        source_output = codepipeline.Artifact()
+        
+        pipeline = codepipeline.Pipeline(self, "MyPipeline",
+            pipeline_type=codepipeline.PipelineType.V2
+        )
+        deploy_action = codepipeline_actions.Ec2DeployAction(
+            action_name="Ec2Deploy",
+            input=source_output,
+            instance_type=codepipeline_actions.Ec2InstanceType.EC2,
+            instance_tag_key="Name",
+            instance_tag_value="MyInstance",
+            deploy_specifications=codepipeline_actions.Ec2DeploySpecifications.inline(
+                target_directory="/home/ec2-user/deploy",
+                pre_script="scripts/pre-deploy.sh",
+                post_script="scripts/post-deploy.sh"
+            )
+        )
+        deploy_stage = pipeline.add_stage(
+            stage_name="Deploy",
+            actions=[deploy_action]
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        deploy_specifications: "Ec2DeploySpecifications",
+        input: _Artifact_0cb05964,
+        instance_tag_key: builtins.str,
+        instance_type: "Ec2InstanceType",
+        instance_tag_value: typing.Optional[builtins.str] = None,
+        max_batch: typing.Optional["Ec2MaxInstances"] = None,
+        max_error: typing.Optional["Ec2MaxInstances"] = None,
+        target_groups: typing.Optional[typing.Sequence[_ITargetGroup_83c6f8c4]] = None,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+        action_name: builtins.str,
+        run_order: typing.Optional[jsii.Number] = None,
+        variables_namespace: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param deploy_specifications: The deploy specifications.
+        :param input: The input artifact to deploy to EC2 instances.
+        :param instance_tag_key: The tag key of the instances that you created in Amazon EC2.
+        :param instance_type: The type of instances or SSM nodes created in Amazon EC2. You must have already created, tagged, and installed the SSM agent on all instances.
+        :param instance_tag_value: The tag value of the instances that you created in Amazon EC2. Default: - all instances with ``instanceTagKey`` will be matched
+        :param max_batch: The number or percentage of instances that can deploy in parallel. Default: - No configuration
+        :param max_error: Stop the task after the task fails on the specified number or percentage of instances. Default: - No configuration
+        :param target_groups: The list of target groups for deployment. You must have already created the target groups. Target groups provide a set of instances to process specific requests. If the target group is specified, instances will be removed from the target group before deployment and added back to the target group after deployment. Default: - No target groups
+        :param role: The Role in which context's this Action will be executing in. The Pipeline's Role will assume this Role (the required permissions for that will be granted automatically) right before executing this Action. This Action will be passed into your ``IAction.bind`` method in the ``ActionBindOptions.role`` property. Default: a new Role will be generated
+        :param action_name: The physical, human-readable name of the Action. Note that Action names must be unique within a single Stage.
+        :param run_order: The runOrder property for this Action. RunOrder determines the relative order in which multiple Actions in the same Stage execute. Default: 1
+        :param variables_namespace: The name of the namespace to use for variables emitted by this action. Default: - a name will be generated, based on the stage and action names, if any of the action's variables were referenced - otherwise, no namespace will be set
+        '''
+        props = Ec2DeployActionProps(
+            deploy_specifications=deploy_specifications,
+            input=input,
+            instance_tag_key=instance_tag_key,
+            instance_type=instance_type,
+            instance_tag_value=instance_tag_value,
+            max_batch=max_batch,
+            max_error=max_error,
+            target_groups=target_groups,
+            role=role,
+            action_name=action_name,
+            run_order=run_order,
+            variables_namespace=variables_namespace,
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @jsii.member(jsii_name="bound")
+    def _bound(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        stage: _IStage_415fc571,
+        *,
+        bucket: _IBucket_42e086fd,
+        role: _IRole_235f5d8e,
+    ) -> _ActionConfig_846fc217:
+        '''This is a renamed version of the ``IAction.bind`` method.
+
+        :param scope: -
+        :param stage: -
+        :param bucket: 
+        :param role: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1026fef46ba79290b142d3470acde1d15ba5dca85d4d75461fae4a19ce1093f3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
+        options = _ActionBindOptions_3a612254(bucket=bucket, role=role)
+
+        return typing.cast(_ActionConfig_846fc217, jsii.invoke(self, "bound", [scope, stage, options]))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codepipeline_actions.Ec2DeployActionProps",
+    jsii_struct_bases=[_CommonAwsActionProps_8b809bb6],
+    name_mapping={
+        "action_name": "actionName",
+        "run_order": "runOrder",
+        "variables_namespace": "variablesNamespace",
+        "role": "role",
+        "deploy_specifications": "deploySpecifications",
+        "input": "input",
+        "instance_tag_key": "instanceTagKey",
+        "instance_type": "instanceType",
+        "instance_tag_value": "instanceTagValue",
+        "max_batch": "maxBatch",
+        "max_error": "maxError",
+        "target_groups": "targetGroups",
+    },
+)
+class Ec2DeployActionProps(_CommonAwsActionProps_8b809bb6):
+    def __init__(
+        self,
+        *,
+        action_name: builtins.str,
+        run_order: typing.Optional[jsii.Number] = None,
+        variables_namespace: typing.Optional[builtins.str] = None,
+        role: typing.Optional[_IRole_235f5d8e] = None,
+        deploy_specifications: "Ec2DeploySpecifications",
+        input: _Artifact_0cb05964,
+        instance_tag_key: builtins.str,
+        instance_type: "Ec2InstanceType",
+        instance_tag_value: typing.Optional[builtins.str] = None,
+        max_batch: typing.Optional["Ec2MaxInstances"] = None,
+        max_error: typing.Optional["Ec2MaxInstances"] = None,
+        target_groups: typing.Optional[typing.Sequence[_ITargetGroup_83c6f8c4]] = None,
+    ) -> None:
+        '''Construction properties of ``Ec2DeployAction``.
+
+        :param action_name: The physical, human-readable name of the Action. Note that Action names must be unique within a single Stage.
+        :param run_order: The runOrder property for this Action. RunOrder determines the relative order in which multiple Actions in the same Stage execute. Default: 1
+        :param variables_namespace: The name of the namespace to use for variables emitted by this action. Default: - a name will be generated, based on the stage and action names, if any of the action's variables were referenced - otherwise, no namespace will be set
+        :param role: The Role in which context's this Action will be executing in. The Pipeline's Role will assume this Role (the required permissions for that will be granted automatically) right before executing this Action. This Action will be passed into your ``IAction.bind`` method in the ``ActionBindOptions.role`` property. Default: a new Role will be generated
+        :param deploy_specifications: The deploy specifications.
+        :param input: The input artifact to deploy to EC2 instances.
+        :param instance_tag_key: The tag key of the instances that you created in Amazon EC2.
+        :param instance_type: The type of instances or SSM nodes created in Amazon EC2. You must have already created, tagged, and installed the SSM agent on all instances.
+        :param instance_tag_value: The tag value of the instances that you created in Amazon EC2. Default: - all instances with ``instanceTagKey`` will be matched
+        :param max_batch: The number or percentage of instances that can deploy in parallel. Default: - No configuration
+        :param max_error: Stop the task after the task fails on the specified number or percentage of instances. Default: - No configuration
+        :param target_groups: The list of target groups for deployment. You must have already created the target groups. Target groups provide a set of instances to process specific requests. If the target group is specified, instances will be removed from the target group before deployment and added back to the target group after deployment. Default: - No target groups
+
+        :exampleMetadata: infused
+
+        Example::
+
+            source_output = codepipeline.Artifact()
+            
+            pipeline = codepipeline.Pipeline(self, "MyPipeline",
+                pipeline_type=codepipeline.PipelineType.V2
+            )
+            deploy_action = codepipeline_actions.Ec2DeployAction(
+                action_name="Ec2Deploy",
+                input=source_output,
+                instance_type=codepipeline_actions.Ec2InstanceType.EC2,
+                instance_tag_key="Name",
+                instance_tag_value="MyInstance",
+                deploy_specifications=codepipeline_actions.Ec2DeploySpecifications.inline(
+                    target_directory="/home/ec2-user/deploy",
+                    pre_script="scripts/pre-deploy.sh",
+                    post_script="scripts/post-deploy.sh"
+                )
+            )
+            deploy_stage = pipeline.add_stage(
+                stage_name="Deploy",
+                actions=[deploy_action]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__225dd96d8ba8522e8bfc8b31fa16ff6693be609ffc720344cec108c218cd8a5e)
+            check_type(argname="argument action_name", value=action_name, expected_type=type_hints["action_name"])
+            check_type(argname="argument run_order", value=run_order, expected_type=type_hints["run_order"])
+            check_type(argname="argument variables_namespace", value=variables_namespace, expected_type=type_hints["variables_namespace"])
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument deploy_specifications", value=deploy_specifications, expected_type=type_hints["deploy_specifications"])
+            check_type(argname="argument input", value=input, expected_type=type_hints["input"])
+            check_type(argname="argument instance_tag_key", value=instance_tag_key, expected_type=type_hints["instance_tag_key"])
+            check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
+            check_type(argname="argument instance_tag_value", value=instance_tag_value, expected_type=type_hints["instance_tag_value"])
+            check_type(argname="argument max_batch", value=max_batch, expected_type=type_hints["max_batch"])
+            check_type(argname="argument max_error", value=max_error, expected_type=type_hints["max_error"])
+            check_type(argname="argument target_groups", value=target_groups, expected_type=type_hints["target_groups"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "action_name": action_name,
+            "deploy_specifications": deploy_specifications,
+            "input": input,
+            "instance_tag_key": instance_tag_key,
+            "instance_type": instance_type,
+        }
+        if run_order is not None:
+            self._values["run_order"] = run_order
+        if variables_namespace is not None:
+            self._values["variables_namespace"] = variables_namespace
+        if role is not None:
+            self._values["role"] = role
+        if instance_tag_value is not None:
+            self._values["instance_tag_value"] = instance_tag_value
+        if max_batch is not None:
+            self._values["max_batch"] = max_batch
+        if max_error is not None:
+            self._values["max_error"] = max_error
+        if target_groups is not None:
+            self._values["target_groups"] = target_groups
+
+    @builtins.property
+    def action_name(self) -> builtins.str:
+        '''The physical, human-readable name of the Action.
+
+        Note that Action names must be unique within a single Stage.
+        '''
+        result = self._values.get("action_name")
+        assert result is not None, "Required property 'action_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def run_order(self) -> typing.Optional[jsii.Number]:
+        '''The runOrder property for this Action.
+
+        RunOrder determines the relative order in which multiple Actions in the same Stage execute.
+
+        :default: 1
+
+        :see: https://docs.aws.amazon.com/codepipeline/latest/userguide/reference-pipeline-structure.html
+        '''
+        result = self._values.get("run_order")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def variables_namespace(self) -> typing.Optional[builtins.str]:
+        '''The name of the namespace to use for variables emitted by this action.
+
+        :default:
+
+        - a name will be generated, based on the stage and action names,
+        if any of the action's variables were referenced - otherwise,
+        no namespace will be set
+        '''
+        result = self._values.get("variables_namespace")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+        '''The Role in which context's this Action will be executing in.
+
+        The Pipeline's Role will assume this Role
+        (the required permissions for that will be granted automatically)
+        right before executing this Action.
+        This Action will be passed into your ``IAction.bind``
+        method in the ``ActionBindOptions.role`` property.
+
+        :default: a new Role will be generated
+        '''
+        result = self._values.get("role")
+        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+
+    @builtins.property
+    def deploy_specifications(self) -> "Ec2DeploySpecifications":
+        '''The deploy specifications.'''
+        result = self._values.get("deploy_specifications")
+        assert result is not None, "Required property 'deploy_specifications' is missing"
+        return typing.cast("Ec2DeploySpecifications", result)
+
+    @builtins.property
+    def input(self) -> _Artifact_0cb05964:
+        '''The input artifact to deploy to EC2 instances.'''
+        result = self._values.get("input")
+        assert result is not None, "Required property 'input' is missing"
+        return typing.cast(_Artifact_0cb05964, result)
+
+    @builtins.property
+    def instance_tag_key(self) -> builtins.str:
+        '''The tag key of the instances that you created in Amazon EC2.'''
+        result = self._values.get("instance_tag_key")
+        assert result is not None, "Required property 'instance_tag_key' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_type(self) -> "Ec2InstanceType":
+        '''The type of instances or SSM nodes created in Amazon EC2.
+
+        You must have already created, tagged, and installed the SSM agent on all instances.
+        '''
+        result = self._values.get("instance_type")
+        assert result is not None, "Required property 'instance_type' is missing"
+        return typing.cast("Ec2InstanceType", result)
+
+    @builtins.property
+    def instance_tag_value(self) -> typing.Optional[builtins.str]:
+        '''The tag value of the instances that you created in Amazon EC2.
+
+        :default: - all instances with ``instanceTagKey`` will be matched
+        '''
+        result = self._values.get("instance_tag_value")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_batch(self) -> typing.Optional["Ec2MaxInstances"]:
+        '''The number or percentage of instances that can deploy in parallel.
+
+        :default: - No configuration
+        '''
+        result = self._values.get("max_batch")
+        return typing.cast(typing.Optional["Ec2MaxInstances"], result)
+
+    @builtins.property
+    def max_error(self) -> typing.Optional["Ec2MaxInstances"]:
+        '''Stop the task after the task fails on the specified number or percentage of instances.
+
+        :default: - No configuration
+        '''
+        result = self._values.get("max_error")
+        return typing.cast(typing.Optional["Ec2MaxInstances"], result)
+
+    @builtins.property
+    def target_groups(self) -> typing.Optional[typing.List[_ITargetGroup_83c6f8c4]]:
+        '''The list of target groups for deployment. You must have already created the target groups.
+
+        Target groups provide a set of instances to process specific requests.
+        If the target group is specified, instances will be removed from the target group before deployment and added back to the target group after deployment.
+
+        :default: - No target groups
+        '''
+        result = self._values.get("target_groups")
+        return typing.cast(typing.Optional[typing.List[_ITargetGroup_83c6f8c4]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "Ec2DeployActionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class Ec2DeploySpecifications(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_codepipeline_actions.Ec2DeploySpecifications",
+):
+    '''A deploy specifications for EC2 deploy action.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        source_output = codepipeline.Artifact()
+        
+        pipeline = codepipeline.Pipeline(self, "MyPipeline",
+            pipeline_type=codepipeline.PipelineType.V2
+        )
+        deploy_action = codepipeline_actions.Ec2DeployAction(
+            action_name="Ec2Deploy",
+            input=source_output,
+            instance_type=codepipeline_actions.Ec2InstanceType.EC2,
+            instance_tag_key="Name",
+            instance_tag_value="MyInstance",
+            deploy_specifications=codepipeline_actions.Ec2DeploySpecifications.inline(
+                target_directory="/home/ec2-user/deploy",
+                pre_script="scripts/pre-deploy.sh",
+                post_script="scripts/post-deploy.sh"
+            )
+        )
+        deploy_stage = pipeline.add_stage(
+            stage_name="Deploy",
+            actions=[deploy_action]
+        )
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="inline")
+    @builtins.classmethod
+    def inline(
+        cls,
+        *,
+        post_script: builtins.str,
+        target_directory: builtins.str,
+        pre_script: typing.Optional[builtins.str] = None,
+    ) -> "Ec2DeploySpecifications":
+        '''Store deploy specifications as action configurations.
+
+        :param post_script: Path to the executable script file that runs AFTER the Deploy phase. It should start from the root directory of your uploaded source artifact. Use an absolute path like ``uploadDir/postScript.sh``.
+        :param target_directory: The location of the target directory you want to deploy to. Use an absolute path like ``/home/ec2-user/deploy``.
+        :param pre_script: Path to the executable script file that runs BEFORE the Deploy phase. It should start from the root directory of your uploaded source artifact. Use an absolute path like ``uploadDir/preScript.sh``. Default: - No script
+        '''
+        props = Ec2DeploySpecificationsInlineProps(
+            post_script=post_script,
+            target_directory=target_directory,
+            pre_script=pre_script,
+        )
+
+        return typing.cast("Ec2DeploySpecifications", jsii.sinvoke(cls, "inline", [props]))
+
+    @jsii.member(jsii_name="bind")
+    @abc.abstractmethod
+    def bind(self, scope: _constructs_77d1e7e8.Construct) -> typing.Any:
+        '''The callback invoked when this deploy specifications is bound to an action.
+
+        :param scope: the Construct tree scope.
+
+        :return: the action configurations
+        '''
+        ...
+
+
+class _Ec2DeploySpecificationsProxy(Ec2DeploySpecifications):
+    @jsii.member(jsii_name="bind")
+    def bind(self, scope: _constructs_77d1e7e8.Construct) -> typing.Any:
+        '''The callback invoked when this deploy specifications is bound to an action.
+
+        :param scope: the Construct tree scope.
+
+        :return: the action configurations
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8fe0c9475640f4fcf94f4eed35f014bdd8b27820f79297a5fd4c4b4e09da0789)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast(typing.Any, jsii.invoke(self, "bind", [scope]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Ec2DeploySpecifications).__jsii_proxy_class__ = lambda : _Ec2DeploySpecificationsProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_codepipeline_actions.Ec2DeploySpecificationsInlineProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "post_script": "postScript",
+        "target_directory": "targetDirectory",
+        "pre_script": "preScript",
+    },
+)
+class Ec2DeploySpecificationsInlineProps:
+    def __init__(
+        self,
+        *,
+        post_script: builtins.str,
+        target_directory: builtins.str,
+        pre_script: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties of ``Ec2DeploySpecifications.inline()``.
+
+        :param post_script: Path to the executable script file that runs AFTER the Deploy phase. It should start from the root directory of your uploaded source artifact. Use an absolute path like ``uploadDir/postScript.sh``.
+        :param target_directory: The location of the target directory you want to deploy to. Use an absolute path like ``/home/ec2-user/deploy``.
+        :param pre_script: Path to the executable script file that runs BEFORE the Deploy phase. It should start from the root directory of your uploaded source artifact. Use an absolute path like ``uploadDir/preScript.sh``. Default: - No script
+
+        :exampleMetadata: infused
+
+        Example::
+
+            source_output = codepipeline.Artifact()
+            
+            pipeline = codepipeline.Pipeline(self, "MyPipeline",
+                pipeline_type=codepipeline.PipelineType.V2
+            )
+            deploy_action = codepipeline_actions.Ec2DeployAction(
+                action_name="Ec2Deploy",
+                input=source_output,
+                instance_type=codepipeline_actions.Ec2InstanceType.EC2,
+                instance_tag_key="Name",
+                instance_tag_value="MyInstance",
+                deploy_specifications=codepipeline_actions.Ec2DeploySpecifications.inline(
+                    target_directory="/home/ec2-user/deploy",
+                    pre_script="scripts/pre-deploy.sh",
+                    post_script="scripts/post-deploy.sh"
+                )
+            )
+            deploy_stage = pipeline.add_stage(
+                stage_name="Deploy",
+                actions=[deploy_action]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__769b1e5a880ab504838545c9be772767200b554e6f63aba9e8ebb29b34aa438f)
+            check_type(argname="argument post_script", value=post_script, expected_type=type_hints["post_script"])
+            check_type(argname="argument target_directory", value=target_directory, expected_type=type_hints["target_directory"])
+            check_type(argname="argument pre_script", value=pre_script, expected_type=type_hints["pre_script"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "post_script": post_script,
+            "target_directory": target_directory,
+        }
+        if pre_script is not None:
+            self._values["pre_script"] = pre_script
+
+    @builtins.property
+    def post_script(self) -> builtins.str:
+        '''Path to the executable script file that runs AFTER the Deploy phase.
+
+        It should start from the root directory of your uploaded source artifact.
+        Use an absolute path like ``uploadDir/postScript.sh``.
+        '''
+        result = self._values.get("post_script")
+        assert result is not None, "Required property 'post_script' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_directory(self) -> builtins.str:
+        '''The location of the target directory you want to deploy to.
+
+        Use an absolute path like ``/home/ec2-user/deploy``.
+        '''
+        result = self._values.get("target_directory")
+        assert result is not None, "Required property 'target_directory' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def pre_script(self) -> typing.Optional[builtins.str]:
+        '''Path to the executable script file that runs BEFORE the Deploy phase.
+
+        It should start from the root directory of your uploaded source artifact.
+        Use an absolute path like ``uploadDir/preScript.sh``.
+
+        :default: - No script
+        '''
+        result = self._values.get("pre_script")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "Ec2DeploySpecificationsInlineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_codepipeline_actions.Ec2InstanceType")
+class Ec2InstanceType(enum.Enum):
+    '''The type of instances or SSM nodes created in Amazon EC2.
+
+    :see: https://docs.aws.amazon.com/codepipeline/latest/userguide/action-reference-EC2Deploy.html#action-reference-EC2Deploy-parameters
+    :exampleMetadata: infused
+
+    Example::
+
+        source_output = codepipeline.Artifact()
+        
+        pipeline = codepipeline.Pipeline(self, "MyPipeline",
+            pipeline_type=codepipeline.PipelineType.V2
+        )
+        deploy_action = codepipeline_actions.Ec2DeployAction(
+            action_name="Ec2Deploy",
+            input=source_output,
+            instance_type=codepipeline_actions.Ec2InstanceType.EC2,
+            instance_tag_key="Name",
+            instance_tag_value="MyInstance",
+            deploy_specifications=codepipeline_actions.Ec2DeploySpecifications.inline(
+                target_directory="/home/ec2-user/deploy",
+                pre_script="scripts/pre-deploy.sh",
+                post_script="scripts/post-deploy.sh"
+            )
+        )
+        deploy_stage = pipeline.add_stage(
+            stage_name="Deploy",
+            actions=[deploy_action]
+        )
+    '''
+
+    EC2 = "EC2"
+    '''Amazon EC2 instances.'''
+    SSM_MANAGED_NODE = "SSM_MANAGED_NODE"
+    '''AWS System Manager (SSM) managed nodes.'''
+
+
+class Ec2MaxInstances(
+    metaclass=jsii.JSIIAbstractClass,
+    jsii_type="aws-cdk-lib.aws_codepipeline_actions.Ec2MaxInstances",
+):
+    '''Number or percentage of max instances for EC2 deploy action.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_codepipeline_actions as codepipeline_actions
+        
+        ec2_max_instances = codepipeline_actions.Ec2MaxInstances.percentage(123)
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="percentage")
+    @builtins.classmethod
+    def percentage(cls, percentage: jsii.Number) -> "Ec2MaxInstances":
+        '''Max percentage of instances.
+
+        Valid range: from 1 to 100
+
+        :param percentage: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__88262cff82359d09742e9cb604db52106ed349e39bacaa8dd2326457b21b481c)
+            check_type(argname="argument percentage", value=percentage, expected_type=type_hints["percentage"])
+        return typing.cast("Ec2MaxInstances", jsii.sinvoke(cls, "percentage", [percentage]))
+
+    @jsii.member(jsii_name="targets")
+    @builtins.classmethod
+    def targets(cls, targets: jsii.Number) -> "Ec2MaxInstances":
+        '''Max number of instances.
+
+        Valid range: from 1 to number of your instances
+
+        :param targets: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3f98523d6da909c9dd102b756cad240f6a02a3002622137c97e0c5a90241491)
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+        return typing.cast("Ec2MaxInstances", jsii.sinvoke(cls, "targets", [targets]))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    @abc.abstractmethod
+    def value(self) -> builtins.str:
+        '''Template value.'''
+        ...
+
+
+class _Ec2MaxInstancesProxy(Ec2MaxInstances):
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''Template value.'''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Ec2MaxInstances).__jsii_proxy_class__ = lambda : _Ec2MaxInstancesProxy
 
 
 class EcrBuildAndPublishAction(
@@ -14701,6 +15386,12 @@ __all__ = [
     "CommandsAction",
     "CommandsActionProps",
     "CommonCloudFormationStackSetOptions",
+    "Ec2DeployAction",
+    "Ec2DeployActionProps",
+    "Ec2DeploySpecifications",
+    "Ec2DeploySpecificationsInlineProps",
+    "Ec2InstanceType",
+    "Ec2MaxInstances",
     "EcrBuildAndPublishAction",
     "EcrBuildAndPublishActionProps",
     "EcrBuildAndPublishVariables",
@@ -15189,6 +15880,61 @@ def _typecheckingstub__2410584584bdbc5570942e28fb48b74fa12d17853f6fde7bdcddfd923
     failure_tolerance_percentage: typing.Optional[jsii.Number] = None,
     max_account_concurrency_percentage: typing.Optional[jsii.Number] = None,
     stack_set_region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1026fef46ba79290b142d3470acde1d15ba5dca85d4d75461fae4a19ce1093f3(
+    scope: _constructs_77d1e7e8.Construct,
+    stage: _IStage_415fc571,
+    *,
+    bucket: _IBucket_42e086fd,
+    role: _IRole_235f5d8e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__225dd96d8ba8522e8bfc8b31fa16ff6693be609ffc720344cec108c218cd8a5e(
+    *,
+    action_name: builtins.str,
+    run_order: typing.Optional[jsii.Number] = None,
+    variables_namespace: typing.Optional[builtins.str] = None,
+    role: typing.Optional[_IRole_235f5d8e] = None,
+    deploy_specifications: Ec2DeploySpecifications,
+    input: _Artifact_0cb05964,
+    instance_tag_key: builtins.str,
+    instance_type: Ec2InstanceType,
+    instance_tag_value: typing.Optional[builtins.str] = None,
+    max_batch: typing.Optional[Ec2MaxInstances] = None,
+    max_error: typing.Optional[Ec2MaxInstances] = None,
+    target_groups: typing.Optional[typing.Sequence[_ITargetGroup_83c6f8c4]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8fe0c9475640f4fcf94f4eed35f014bdd8b27820f79297a5fd4c4b4e09da0789(
+    scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__769b1e5a880ab504838545c9be772767200b554e6f63aba9e8ebb29b34aa438f(
+    *,
+    post_script: builtins.str,
+    target_directory: builtins.str,
+    pre_script: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88262cff82359d09742e9cb604db52106ed349e39bacaa8dd2326457b21b481c(
+    percentage: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3f98523d6da909c9dd102b756cad240f6a02a3002622137c97e0c5a90241491(
+    targets: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass

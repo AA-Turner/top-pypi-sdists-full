@@ -8,6 +8,7 @@ import asyncio
 import shutil
 import random
 import datetime
+from urllib.parse import quote_plus
 from flask import Flask, Response, redirect, request, jsonify, send_from_directory
 from werkzeug.exceptions import NotFound
 from typing import Generator
@@ -15,6 +16,11 @@ from pathlib import Path
 from urllib.parse import quote_plus
 from hashlib import sha256
 
+try:
+    from PIL import Image 
+    has_pillow = True
+except ImportError:
+    has_pillow = False
 try:
     from ...integration.markitdown import MarkItDown, StreamInfo
     has_markitdown = True
@@ -28,7 +34,7 @@ from ...client.helper import filter_markdown
 from ...tools.files import supports_filename, get_streaming, get_bucket_dir, get_tempfile
 from ...tools.run_tools import iter_run_tools
 from ...errors import ProviderNotFoundError
-from ...image import is_allowed_extension, MEDIA_TYPE_MAP
+from ...image import is_allowed_extension, process_image, MEDIA_TYPE_MAP
 from ...cookies import get_cookies_dir
 from ...image.copy_images import secure_filename, get_source_url, get_media_dir, copy_media
 from ... import ChatCompletion
@@ -107,13 +113,17 @@ class Backend_Api(Api):
             else:
                 json_data = request.json
             tempfiles = []
+            media = []
             if "files" in request.files:
-                media = []
                 for file in request.files.getlist('files'):
                     if file.filename != '' and is_allowed_extension(file.filename):
                         newfile = get_tempfile(file)
                         tempfiles.append(newfile)
                         media.append((Path(newfile), file.filename))
+            if "media_url" in request.form:
+                for url in request.form.getlist("media_url"):
+                    media.append((url, None))
+            if media:
                 json_data['media'] = media
 
             if app.demo and not json_data.get("provider"):
@@ -202,6 +212,10 @@ class Backend_Api(Api):
                 'methods': ['GET']
             },
             '/media/<path:name>': {
+                'function': self.serve_images,
+                'methods': ['GET']
+            },
+            '/thumbnail/<path:name>': {
                 'function': self.serve_images,
                 'methods': ['GET']
             }
@@ -364,6 +378,14 @@ class Backend_Api(Api):
                         media.append({"name": filename, "text": result})
                     else:
                         media.append({"name": filename})
+                    if has_pillow:
+                        try:
+                            image = Image.open(copyfile)
+                            thumbnail_dir = os.path.join(bucket_dir, "thumbnail")
+                            os.makedirs(thumbnail_dir, exist_ok=True)
+                            process_image(image, save=os.path.join(thumbnail_dir, filename))
+                        except Exception as e:
+                            logger.exception(e)
                 elif is_supported:
                     newfile = os.path.join(bucket_dir, filename)
                     filenames.append(filename)
@@ -380,8 +402,16 @@ class Backend_Api(Api):
                     f.write(f"{filename}\n")
             return {"bucket_id": bucket_id, "files": filenames, "media": media}
 
-        @app.route('/files/<bucket_id>/media/<filename>', methods=['GET'])
-        def get_media(bucket_id, filename, dirname: str = None):
+        @app.route('/files/<bucket_id>/<file_type>/<filename>', methods=['GET'])
+        def get_media(bucket_id, file_type: str, filename, dirname: str = None):
+            if file_type not in ["media", "thumbnail"]:
+                return jsonify({"error": {"message": "Invalid file type"}}), 400
+            if file_type == "thumbnail":
+                media_dir = get_bucket_dir(dirname, bucket_id, "thumbnail")
+                try:
+                    return send_from_directory(os.path.abspath(media_dir), filename)
+                except NotFound:
+                    pass
             media_dir = get_bucket_dir(dirname, bucket_id, "media")
             try:
                 return send_from_directory(os.path.abspath(media_dir), filename)
@@ -438,14 +468,14 @@ class Backend_Api(Api):
         @self.app.route('/backend-api/v2/chat/<share_id>', methods=['GET'])
         def get_chat(share_id: str) -> str:
             share_id = secure_filename(share_id)
-            if self.chat_cache.get(share_id, 0) == int(request.headers.get("if-none-match", 0)):
+            if self.chat_cache.get(share_id, 0) == int(request.headers.get("if-none-match", -1)):
                 return jsonify({"error": {"message": "Not modified"}}), 304
             file = get_bucket_dir(share_id, "chat.json")
             if not os.path.isfile(file):
                 return jsonify({"error": {"message": "Not found"}}), 404
             with open(file, 'r') as f:
                 chat_data = json.load(f)
-                if chat_data.get("updated", 0) == int(request.headers.get("if-none-match", 0)):
+                if chat_data.get("updated", 0) == int(request.headers.get("if-none-match", -1)):
                     return jsonify({"error": {"message": "Not modified"}}), 304
                 self.chat_cache[share_id] = chat_data.get("updated", 0)
                 return jsonify(chat_data), 200

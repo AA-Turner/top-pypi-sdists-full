@@ -26,6 +26,8 @@ export declare class LeafletMagnifyingGlassModel extends LeafletRasterLayerModel
         popup_max_height: number | null;
         pane: string;
         subitems: Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
 export declare class LeafletMagnifyingGlassView extends LeafletLayerView {

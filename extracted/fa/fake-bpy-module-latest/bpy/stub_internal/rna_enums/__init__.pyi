@@ -1985,7 +1985,6 @@ type MeshSelectModeUvItems = typing.Literal[
     "VERTEX",  # Vertex.Vertex selection mode.
     "EDGE",  # Edge.Edge selection mode.
     "FACE",  # Face.Face selection mode.
-    "ISLAND",  # Island.Island selection mode.
 ]
 type MetaelemTypeItems = typing.Literal[
     "BALL",  # Ball.

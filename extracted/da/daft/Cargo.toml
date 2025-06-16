@@ -1,0 +1,578 @@
+[dependencies.common-daft-config]
+path = "src/common/daft-config"
+default-features = false
+
+[dependencies.common-display]
+path = "src/common/display"
+default-features = false
+
+[dependencies.common-file-formats]
+path = "src/common/file-formats"
+default-features = false
+
+[dependencies.common-hashable-float-wrapper]
+path = "src/common/hashable-float-wrapper"
+default-features = false
+
+[dependencies.common-partitioning]
+path = "src/common/partitioning"
+default-features = false
+
+[dependencies.common-resource-request]
+path = "src/common/resource-request"
+default-features = false
+
+[dependencies.common-runtime]
+path = "src/common/runtime"
+default-features = false
+
+[dependencies.common-scan-info]
+path = "src/common/scan-info"
+default-features = false
+
+[dependencies.common-system-info]
+path = "src/common/system-info"
+default-features = false
+
+[dependencies.common-tracing]
+path = "src/common/tracing"
+default-features = false
+
+[dependencies.common-version]
+path = "src/common/version"
+default-features = false
+
+[dependencies.daft-algebra]
+path = "src/daft-algebra"
+default-features = false
+
+[dependencies.daft-catalog]
+path = "src/daft-catalog"
+default-features = false
+
+[dependencies.daft-cli]
+path = "src/daft-cli"
+default-features = false
+
+[dependencies.daft-compression]
+path = "src/daft-compression"
+default-features = false
+
+[dependencies.daft-connect]
+path = "src/daft-connect"
+optional = true
+
+[dependencies.daft-context]
+path = "src/daft-context"
+default-features = false
+
+[dependencies.daft-core]
+path = "src/daft-core"
+default-features = false
+
+[dependencies.daft-csv]
+path = "src/daft-csv"
+default-features = false
+
+[dependencies.daft-dashboard]
+path = "src/daft-dashboard"
+default-features = false
+
+[dependencies.daft-distributed]
+path = "src/daft-distributed"
+default-features = false
+
+[dependencies.daft-dsl]
+path = "src/daft-dsl"
+default-features = false
+
+[dependencies.daft-functions]
+path = "src/daft-functions"
+
+[dependencies.daft-functions-binary]
+path = "src/daft-functions-binary"
+default-features = false
+
+[dependencies.daft-functions-json]
+path = "src/daft-functions-json"
+default-features = false
+
+[dependencies.daft-functions-list]
+path = "src/daft-functions-list"
+default-features = false
+
+[dependencies.daft-functions-serde]
+path = "src/daft-functions-serde"
+default-features = false
+
+[dependencies.daft-functions-temporal]
+path = "src/daft-functions-temporal"
+default-features = false
+
+[dependencies.daft-functions-tokenize]
+path = "src/daft-functions-tokenize"
+default-features = false
+
+[dependencies.daft-functions-uri]
+path = "src/daft-functions-uri"
+default-features = false
+
+[dependencies.daft-functions-utf8]
+path = "src/daft-functions-utf8"
+default-features = false
+
+[dependencies.daft-hash]
+path = "src/daft-hash"
+default-features = false
+
+[dependencies.daft-image]
+path = "src/daft-image"
+default-features = false
+
+[dependencies.daft-io]
+path = "src/daft-io"
+default-features = false
+
+[dependencies.daft-json]
+path = "src/daft-json"
+default-features = false
+
+[dependencies.daft-local-execution]
+path = "src/daft-local-execution"
+default-features = false
+
+[dependencies.daft-local-plan]
+path = "src/daft-local-plan"
+default-features = false
+
+[dependencies.daft-logical-plan]
+path = "src/daft-logical-plan"
+default-features = false
+
+[dependencies.daft-micropartition]
+path = "src/daft-micropartition"
+default-features = false
+
+[dependencies.daft-minhash]
+path = "src/daft-minhash"
+default-features = false
+
+[dependencies.daft-parquet]
+path = "src/daft-parquet"
+default-features = false
+
+[dependencies.daft-physical-plan]
+path = "src/daft-physical-plan"
+default-features = false
+
+[dependencies.daft-py-runners]
+path = "src/daft-py-runners"
+default-features = false
+
+[dependencies.daft-recordbatch]
+path = "src/daft-recordbatch"
+default-features = false
+
+[dependencies.daft-scan]
+path = "src/daft-scan"
+default-features = false
+
+[dependencies.daft-scheduler]
+path = "src/daft-scheduler"
+default-features = false
+
+[dependencies.daft-session]
+path = "src/daft-session"
+default-features = false
+
+[dependencies.daft-shuffles]
+path = "src/daft-shuffles"
+default-features = false
+
+[dependencies.daft-sql]
+path = "src/daft-sql"
+default-features = false
+
+[dependencies.daft-stats]
+path = "src/daft-stats"
+default-features = false
+
+[dependencies.daft-warc]
+path = "src/daft-warc"
+default-features = false
+
+[dependencies.daft-writers]
+path = "src/daft-writers"
+default-features = false
+
+[dependencies.log]
+workspace = true
+
+[dependencies.lzma-sys]
+version = "*"
+features = ["static"]
+
+[dependencies.pyo3]
+workspace = true
+optional = true
+
+[dependencies.pyo3-log]
+workspace = true
+optional = true
+
+[dependencies.sysinfo]
+workspace = true
+
+[features]
+python = ["dep:pyo3", "dep:pyo3-log", "common-daft-config/python", "common-display/python", "common-partitioning/python", "common-resource-request/python", "common-file-formats/python", "common-scan-info/python", "common-system-info/python", "daft-catalog/python", "daft-cli/python", "daft-connect/python", "daft-context/python", "daft-core/python", "daft-csv/python", "daft-dashboard/python", "daft-distributed/python", "daft-dsl/python", "daft-functions-binary/python", "daft-functions-json/python", "daft-functions-list/python", "daft-functions-utf8/python", "daft-functions/python", "daft-image/python", "daft-io/python", "daft-json/python", "daft-local-execution/python", "daft-local-plan/python", "daft-logical-plan/python", "daft-micropartition/python", "daft-parquet/python", "daft-physical-plan/python", "daft-scan/python", "daft-scheduler/python", "daft-sql/python", "daft-session/python", "daft-shuffles/python", "daft-stats/python", "daft-recordbatch/python", "daft-writers/python"]
+
+[lib]
+crate-type = ["cdylib"]
+name = "daft"
+
+[package]
+edition = "2021"
+name = "daft"
+publish = false
+version = "0.5.4"
+
+[package.metadata.cargo-machete]
+ignored = ["lzma-sys"]
+
+[patch.crates-io.arrow2]
+path = "src/arrow2"
+
+[patch.crates-io.parquet2]
+path = "src/parquet2"
+
+[profile.bench]
+debug = true
+
+[profile.dev]
+debug = "line-tables-only"
+overflow-checks = false
+
+[profile.dev.build-override]
+opt-level = 3
+
+[profile.dev-bench]
+codegen-units = 16
+debug = 1
+inherits = "release"
+lto = "thin"
+strip = "none"
+
+[profile.release-lto]
+codegen-units = 1
+inherits = "release"
+lto = "fat"
+
+[profile.rust-analyzer]
+inherits = "dev"
+
+[profile.test]
+debug = true
+
+[target."cfg(not(target_env = \"msvc\"))".dependencies.libc]
+version = "^0.2.150"
+default-features = false
+
+[target."cfg(not(target_env = \"msvc\"))".dependencies.tikv-jemallocator]
+version = "0.6.0"
+features = ["disable_initial_exec_tls"]
+
+[workspace]
+
+[workspace.dependencies]
+approx = "0.5.1"
+async-compat = "0.2.3"
+async-stream = "0.3.6"
+async-trait = "0.1.79"
+base64 = "0.22.1"
+bytes = "1.8.0"
+chrono = "0.4.38"
+chrono-tz = "0.10.0"
+comfy-table = "7.1.1"
+derivative = "2.2.0"
+derive_builder = "0.20.2"
+futures = "0.3.30"
+html-escape = "0.2.13"
+indexmap = "2.1.0"
+itertools = "0.11"
+jaq-core = "2.2.0"
+jaq-std = "2.1.1"
+mur3 = "0.1.0"
+num-derive = "0.3.3"
+num-format = "0.4.4"
+num-traits = "0.2"
+opentelemetry_sdk = "0.29"
+parking_lot = "0.12.3"
+path_macro = "1.0.0"
+pretty_assertions = "1.4.1"
+proptest = "1.5.0"
+rand = "^0.8"
+rayon = "1.10.0"
+regex = "1.10.4"
+rstest = "0.18.2"
+serde_json = "1.0.133"
+sha1 = "0.11.0-pre.4"
+simdutf8 = "0.1.5"
+sqlparser = "0.51.0"
+sysinfo = "0.32.0"
+tango-bench = "0.6.0"
+test-log = "0.2.16"
+thiserror = "1.0.63"
+tiktoken-rs = "0.5.9"
+tokio-util = "0.7.11"
+tonic = "0.12.3"
+tracing = "0.1"
+typed-builder = "0.20.0"
+typetag = "0.2.18"
+url = "2.4.0"
+xxhash-rust = "0.8.12"
+
+[workspace.dependencies.async-compression]
+version = "0.4.12"
+features = ["tokio", "all-algorithms"]
+
+[workspace.dependencies.common-daft-config]
+path = "src/common/daft-config"
+
+[workspace.dependencies.common-display]
+path = "src/common/display"
+default-features = false
+
+[workspace.dependencies.common-error]
+path = "src/common/error"
+default-features = false
+
+[workspace.dependencies.common-file-formats]
+path = "src/common/file-formats"
+
+[workspace.dependencies.common-runtime]
+path = "src/common/runtime"
+default-features = false
+
+[workspace.dependencies.daft-algebra]
+path = "src/daft-algebra"
+
+[workspace.dependencies.daft-context]
+path = "src/daft-context"
+
+[workspace.dependencies.daft-core]
+path = "src/daft-core"
+
+[workspace.dependencies.daft-dsl]
+path = "src/daft-dsl"
+
+[workspace.dependencies.daft-functions]
+path = "src/daft-functions"
+
+[workspace.dependencies.daft-functions-binary]
+path = "src/daft-functions-binary"
+
+[workspace.dependencies.daft-functions-json]
+path = "src/daft-functions-json"
+
+[workspace.dependencies.daft-functions-list]
+path = "src/daft-functions-list"
+
+[workspace.dependencies.daft-functions-temporal]
+path = "src/daft-functions-temporal"
+
+[workspace.dependencies.daft-functions-tokenize]
+path = "src/daft-functions-tokenize"
+
+[workspace.dependencies.daft-functions-uri]
+path = "src/daft-functions-uri"
+
+[workspace.dependencies.daft-functions-utf8]
+path = "src/daft-functions-utf8"
+
+[workspace.dependencies.daft-hash]
+path = "src/daft-hash"
+
+[workspace.dependencies.daft-local-execution]
+path = "src/daft-local-execution"
+
+[workspace.dependencies.daft-logical-plan]
+path = "src/daft-logical-plan"
+
+[workspace.dependencies.daft-micropartition]
+path = "src/daft-micropartition"
+
+[workspace.dependencies.daft-py-runners]
+path = "src/daft-py-runners"
+
+[workspace.dependencies.daft-recordbatch]
+path = "src/daft-recordbatch"
+
+[workspace.dependencies.daft-scan]
+path = "src/daft-scan"
+
+[workspace.dependencies.daft-schema]
+path = "src/daft-schema"
+
+[workspace.dependencies.daft-session]
+path = "src/daft-session"
+
+[workspace.dependencies.daft-sql]
+path = "src/daft-sql"
+
+[workspace.dependencies.jaq-json]
+version = "1.1.2"
+features = ["serde_json"]
+
+[workspace.dependencies.opentelemetry]
+version = "0.29"
+features = ["trace", "metrics"]
+
+[workspace.dependencies.opentelemetry-otlp]
+version = "0.29"
+features = ["grpc-tonic"]
+
+[workspace.dependencies.sketches-ddsketch]
+version = "0.2.2"
+features = ["use_serde"]
+
+[workspace.dependencies.snafu]
+version = "0.7.4"
+features = ["futures"]
+
+[workspace.dependencies.spark-connect]
+path = "src/generated/spark-connect"
+default-features = false
+
+[workspace.dependencies.tokio]
+version = "1.37.0"
+features = ["net", "time", "bytes", "process", "signal", "macros", "rt", "rt-multi-thread"]
+
+[workspace.dependencies.tokio-stream]
+version = "0.1.14"
+features = ["fs", "io-util", "time"]
+
+[workspace.dependencies.uuid]
+version = "1.10.0"
+features = ["v4"]
+
+[workspace.dependencies.arrow2]
+features = ["serde_types"]
+path = "src/arrow2"
+
+[workspace.dependencies.bincode]
+version = "1.3.3"
+
+[workspace.dependencies.derive_more]
+features = ["display", "from", "constructor"]
+version = "1.0.0"
+
+[workspace.dependencies.log]
+features = ["std"]
+version = "0.4.19"
+
+[workspace.dependencies.parquet2]
+features = ["async"]
+path = "src/parquet2"
+
+[workspace.dependencies.pyo3]
+features = ["extension-module", "multiple-pymethods", "abi3-py39", "indexmap", "chrono"]
+version = "0.23.3"
+
+[workspace.dependencies.pyo3-async-runtimes]
+features = ["attributes", "tokio-runtime"]
+version = "0.23"
+
+[workspace.dependencies.pyo3-log]
+version = "0.12.1"
+
+[workspace.dependencies.serde]
+features = ["derive", "rc"]
+version = "1.0.200"
+
+[workspace.lints.clippy]
+as_conversions = "allow"
+cast-sign-loss = "allow"
+cast_lossless = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cognitive_complexity = "allow"
+dbg_macro = "deny"
+default_trait_access = "allow"
+doc-markdown = "allow"
+doc_link_with_quotes = "allow"
+enum_glob_use = "allow"
+float_cmp = "allow"
+fn_params_excessive_bools = "allow"
+from_iter_instead_of_collect = "allow"
+future_not_send = "allow"
+if_not_else = "allow"
+implicit_hasher = "allow"
+inline_always = "allow"
+into_iter_without_iter = "allow"
+items_after_statements = "allow"
+iter_with_drain = "allow"
+iter_without_into_iter = "allow"
+manual_let_else = "allow"
+many_single_char_names = "allow"
+map_unwrap_or = "allow"
+match_bool = "allow"
+match_same_arms = "allow"
+match_wildcard_for_single_variants = "allow"
+missing-panics-doc = "allow"
+missing_const_for_fn = "allow"
+missing_errors_doc = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+needless_pass_by_value = "allow"
+needless_return = "allow"
+nonminimal_bool = "allow"
+only_used_in_recursion = "allow"
+option_if_let_else = "allow"
+redundant_closure = "allow"
+redundant_closure_for_method_calls = "allow"
+redundant_else = "allow"
+redundant_pub_crate = "allow"
+return_self_not_must_use = "allow"
+significant_drop_in_scrutinee = "allow"
+significant_drop_tightening = "allow"
+similar_names = "allow"
+single_match = "allow"
+single_match_else = "allow"
+struct_excessive_bools = "allow"
+suspicious_operation_groupings = "allow"
+too_many_lines = "allow"
+trivially_copy_pass_by_ref = "allow"
+type_repetition_in_bounds = "allow"
+uninlined_format_args = "allow"
+unnecessary_wraps = "allow"
+unnested_or_patterns = "allow"
+unreadable_literal = "allow"
+unsafe_derive_deserialize = "allow"
+unused_async = "allow"
+unused_self = "allow"
+use-self = "deny"
+used_underscore_binding = "allow"
+useless_conversion = "allow"
+wildcard_imports = "allow"
+zero_sized_map_values = "allow"
+
+[workspace.lints.clippy.nursery]
+level = "deny"
+priority = -1
+
+[workspace.lints.clippy.pedantic]
+level = "deny"
+priority = -1
+
+[workspace.lints.clippy.perf]
+level = "deny"
+priority = -1
+
+[workspace.lints.clippy.style]
+level = "deny"
+priority = 1
+
+[workspace.package]
+edition = "2021"
+version = "0.5.4"

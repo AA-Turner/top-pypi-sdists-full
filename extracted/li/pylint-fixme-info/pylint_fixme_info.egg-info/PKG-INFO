@@ -1,0 +1,42 @@
+Metadata-Version: 2.1
+Name: pylint-fixme-info
+Version: 1.0.4
+Summary: A pylint checker for reporting fixmes with Info level
+Home-page: https://github.com/mxmeinhold/pylint-fixme-info
+Author: Max Meinhold
+Author-email: mxmeinhold@gmail.com
+License: MIT
+Project-URL: Bug Tracker, https://github.com/mxmeinhold/pylint-fixme-info/issues
+Keywords: pylint,linting
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Natural Language :: English
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development
+Classifier: Topic :: Utilities
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: pylint>=2.14.0
+
+[![Python CI](https://github.com/mxmeinhold/pylint-fixme-info/actions/workflows/python-ci.yml/badge.svg)](https://github.com/mxmeinhold/pylint-fixme-info/actions/workflows/python-ci.yml)
+# Pylint fixme info
+A pylint plugin that emits info rather than warning for FIXME, TODO, and the like.
+
+## Usage
+To use this plugin, either run pylint with `--load-plugins=pylint_fixme_info --disable=fixme`, or add the following to your pylintrc
+```toml
+[MASTER]
+load-plugins = pylint_fixme_info
+
+[MESSAGES CONTROL]
+disable = fixme
+```
+
+## Configuration
+The following options are supported:
+```
+notes-info: List of note tags to take in consideration, separated by a comma. Default: FIXME,XXX,TODO
+notes-info-rgx: Regular expression of note tags to take in consideration.
+```

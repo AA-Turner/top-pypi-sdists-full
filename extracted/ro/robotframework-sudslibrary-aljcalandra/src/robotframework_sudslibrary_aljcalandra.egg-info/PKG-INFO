@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: robotframework-sudslibrary-aljcalandra
+Version: 1.1.4
+Summary: Robot Framework test library for SOAP-based services.
+Home-page: https://github.com/ombre42/robotframework-sudslibrary
+Author: Kevin Ormbrek
+Author-email: kormbrek@gmail.com
+License: Apache License 2.0
+Keywords: robotframework testing testautomation soap suds web service
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Testing
+License-File: LICENSE.txt
+
+SudsLibrary is a web service testing library for Robot Framework
+that leverages Suds to test SOAP-based services.
+

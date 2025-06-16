@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "python-facebook-api"
+version = "0.20.1"
+description = "A simple Python wrapper around the Facebook Graph API"
+authors = ["Ikaros kun <merle.liukun@gmail.com>"]
+readme = "README.rst"
+license = "Apache-2.0"
+repository = 'https://github.com/sns-sdks/python-facebook'
+homepage = "https://github.com/sns-sdks/python-facebook"
+keywords = ["facebook-graph-api", "facebook-sdk", "instagram-api", "instagram-sdk", "facebook-api"]
+classifiers = [
+    # see https://pypi.org/pypi?%3Aaction=list_classifiers
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+packages = [
+    { include = "pyfacebook" },
+    { include = "tests", format = "sdist" },
+]
+
+
+[tool.poetry.dependencies]
+python = "^3.7"
+requests = "^2.27"
+requests-oauthlib = "^1.2.0"
+dataclasses-json = ">=0.5.7"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.1"
+pytest-cov = "^3.0.0"
+responses = ">=0.23.1"
+tox = "^4.0.0"
+black = "^23.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

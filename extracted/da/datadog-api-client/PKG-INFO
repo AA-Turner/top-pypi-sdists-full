@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datadog-api-client
-Version: 2.35.0
+Version: 2.36.0
 Summary: Collection of all Datadog Public endpoints
 Home-page: https://github.com/DataDog/datadog-api-client-python
 Author: Datadog, Inc.

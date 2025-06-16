@@ -1,5 +1,5 @@
 # Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
+# SPDX-License-Identifier: Apache-2.0
 
 import base64
 import json
@@ -13,41 +13,35 @@ from daytona_api_client_async import (
     SessionExecuteResponse,
     ToolboxApi,
 )
-from daytona_sdk._utils.errors import intercept_errors
-from daytona_sdk._utils.stream import process_streaming_response
-from daytona_sdk.code_toolbox.sandbox_python_code_toolbox import SandboxPythonCodeToolbox
-from daytona_sdk.common.charts import parse_chart
-from daytona_sdk.common.process import CodeRunParams, ExecuteResponse, ExecutionArtifacts, SessionExecuteRequest
-from daytona_sdk.common.protocols import SandboxInstance
+
+from .._utils.errors import intercept_errors
+from .._utils.stream import process_streaming_response
+from ..code_toolbox.sandbox_python_code_toolbox import SandboxPythonCodeToolbox
+from ..common.charts import parse_chart
+from ..common.process import CodeRunParams, ExecuteResponse, ExecutionArtifacts, SessionExecuteRequest
 
 
 class AsyncProcess:
-    """Handles process and code execution within a Sandbox.
-
-    Attributes:
-        code_toolbox (SandboxPythonCodeToolbox): Language-specific code execution toolbox.
-        toolbox_api (ToolboxApi): API client for Sandbox operations.
-        instance (SandboxInstance): The Sandbox instance this process belongs to.
-    """
+    """Handles process and code execution within a Sandbox."""
 
     def __init__(
         self,
+        sandbox_id: str,
         code_toolbox: SandboxPythonCodeToolbox,
         toolbox_api: ToolboxApi,
-        instance: SandboxInstance,
         get_root_dir: Callable[[], Awaitable[str]],
     ):
         """Initialize a new Process instance.
 
         Args:
+            sandbox_id (str): The ID of the Sandbox.
             code_toolbox (SandboxPythonCodeToolbox): Language-specific code execution toolbox.
             toolbox_api (ToolboxApi): API client for Sandbox operations.
-            instance (SandboxInstance): The Sandbox instance this process belongs to.
             get_root_dir (Callable[[], str]): A function to get the default root directory of the Sandbox.
         """
-        self.code_toolbox = code_toolbox
-        self.toolbox_api = toolbox_api
-        self.instance = instance
+        self._sandbox_id = sandbox_id
+        self._code_toolbox = code_toolbox
+        self._toolbox_api = toolbox_api
         self._get_root_dir = get_root_dir
 
     @staticmethod
@@ -135,9 +129,7 @@ class AsyncProcess:
         command = f'sh -c "{command}"'
         execute_request = ExecuteRequest(command=command, cwd=cwd or await self._get_root_dir(), timeout=timeout)
 
-        response = await self.toolbox_api.execute_command(
-            workspace_id=self.instance.id, execute_request=execute_request
-        )
+        response = await self._toolbox_api.execute_command(sandbox_id=self._sandbox_id, execute_request=execute_request)
 
         # Post-process the output to extract ExecutionArtifacts
         artifacts = AsyncProcess._parse_output(response.result.splitlines())
@@ -218,11 +210,11 @@ class AsyncProcess:
                 print(f"Y Scale: {chart.y_scale}")
                 print("Elements:")
                 for element in chart.elements:
-                    print(f"\n\tLabel: {element.label}")
-                    print(f"\tPoints: {element.points}")
+                    print(f"Label: {element.label}")
+                    print(f"Points: {element.points}")
             ```
         """
-        command = self.code_toolbox.get_run_command(code, params)
+        command = self._code_toolbox.get_run_command(code, params)
         return await self.exec(command, env=params.env if params else None, timeout=timeout)
 
     @intercept_errors(message_prefix="Failed to create session: ")
@@ -247,7 +239,7 @@ class AsyncProcess:
             ```
         """
         request = CreateSessionRequest(sessionId=session_id)
-        await self.toolbox_api.create_session(self.instance.id, create_session_request=request)
+        await self._toolbox_api.create_session(self._sandbox_id, create_session_request=request)
 
     @intercept_errors(message_prefix="Failed to get session: ")
     async def get_session(self, session_id: str) -> Session:
@@ -268,7 +260,7 @@ class AsyncProcess:
                 print(f"Command: {cmd.command}")
             ```
         """
-        return await self.toolbox_api.get_session(self.instance.id, session_id=session_id)
+        return await self._toolbox_api.get_session(self._sandbox_id, session_id=session_id)
 
     @intercept_errors(message_prefix="Failed to get session command: ")
     async def get_session_command(self, session_id: str, command_id: str) -> Command:
@@ -291,8 +283,8 @@ class AsyncProcess:
                 print(f"Command {cmd.command} completed successfully")
             ```
         """
-        return await self.toolbox_api.get_session_command(
-            self.instance.id, session_id=session_id, command_id=command_id
+        return await self._toolbox_api.get_session_command(
+            self._sandbox_id, session_id=session_id, command_id=command_id
         )
 
     @intercept_errors(message_prefix="Failed to execute session command: ")
@@ -335,8 +327,8 @@ class AsyncProcess:
             print(result.output)  # Prints: Hello
             ```
         """
-        return await self.toolbox_api.execute_session_command(
-            self.instance.id,
+        return await self._toolbox_api.execute_session_command(
+            self._sandbox_id,
             session_id=session_id,
             session_execute_request=req,
             _request_timeout=timeout or None,
@@ -363,8 +355,8 @@ class AsyncProcess:
             print(f"Command output: {logs}")
             ```
         """
-        return await self.toolbox_api.get_session_command_logs(
-            self.instance.id, session_id=session_id, command_id=command_id
+        return await self._toolbox_api.get_session_command_logs(
+            self._sandbox_id, session_id=session_id, command_id=command_id
         )
 
     # unasync: preserve start
@@ -388,8 +380,8 @@ class AsyncProcess:
             )
             ```
         """
-        _, url, *_ = self.toolbox_api._get_session_command_logs_serialize(  # pylint: disable=protected-access
-            workspace_id=self.instance.id,
+        _, url, *_ = self._toolbox_api._get_session_command_logs_serialize(  # pylint: disable=protected-access
+            sandbox_id=self._sandbox_id,
             session_id=session_id,
             command_id=command_id,
             x_daytona_organization_id=None,
@@ -408,7 +400,7 @@ class AsyncProcess:
 
         await process_streaming_response(
             url=url,
-            headers=self.toolbox_api.api_client.default_headers,
+            headers=self._toolbox_api.api_client.default_headers,
             on_chunk=on_logs,
             should_terminate=should_terminate,
         )
@@ -430,7 +422,7 @@ class AsyncProcess:
                 print(f"  Commands: {len(session.commands)}")
             ```
         """
-        return await self.toolbox_api.list_sessions(self.instance.id)
+        return await self._toolbox_api.list_sessions(self._sandbox_id)
 
     @intercept_errors(message_prefix="Failed to delete session: ")
     async def delete_session(self, session_id: str) -> None:
@@ -450,4 +442,4 @@ class AsyncProcess:
             await sandbox.process.delete_session("temp-session")
             ```
         """
-        await self.toolbox_api.delete_session(self.instance.id, session_id=session_id)
+        await self._toolbox_api.delete_session(self._sandbox_id, session_id=session_id)

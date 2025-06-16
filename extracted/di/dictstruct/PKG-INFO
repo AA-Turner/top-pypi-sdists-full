@@ -1,0 +1,14 @@
+Metadata-Version: 2.3
+Name: dictstruct
+Version: 0.0.6
+Summary: A msgspec.Struct implementation compatible with the standard dictionary API
+Author: BobTheBuidler
+Author-email: bobthebuidlerdefi@gmail.com
+Requires-Python: >=3.8,<3.13
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: msgspec (>=0.18.5)

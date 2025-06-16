@@ -1,0 +1,168 @@
+site_name: Vizro
+site_url: https://vizro.readthedocs.io/en/stable/
+nav:
+  - Vizro: index.md
+  - Tutorials:
+      - A first dashboard: pages/tutorials/first-dashboard.md
+      - Explore Vizro: pages/tutorials/explore-components.md
+  - How-to guides:
+      - FUNDAMENTALS:
+          - Install Vizro: pages/user-guides/install.md
+          - Dashboard: pages/user-guides/dashboard.md
+          - Page: pages/user-guides/pages.md
+          - Run or deploy dashboards: pages/user-guides/run-deploy.md
+      - COMPONENTS:
+          - Overview: pages/user-guides/components.md
+          - Graph: pages/user-guides/graph.md
+          - Table: pages/user-guides/table.md
+          - Figure: pages/user-guides/figure.md
+          - Card: pages/user-guides/card.md
+          - Text: pages/user-guides/text.md
+          - Button: pages/user-guides/button.md
+          - Container: pages/user-guides/container.md
+          - Tab: pages/user-guides/tabs.md
+      - CONTROLS:
+          - Filter: pages/user-guides/filters.md
+          - Parameter: pages/user-guides/parameters.md
+          - Selector: pages/user-guides/selectors.md
+      - NAVIGATION:
+          - Navigation: pages/user-guides/navigation.md
+      - VISUAL FORMATTING:
+          - Overview: pages/user-guides/visual-formatting.md
+          - Layout: pages/user-guides/layouts.md
+          - Theme: pages/user-guides/themes.md
+          - Assets: pages/user-guides/assets.md
+          - Custom CSS: pages/user-guides/custom-css.md
+      - ACTIONS:
+          - Actions: pages/user-guides/actions.md
+      - DATA:
+          - Data: pages/user-guides/data.md
+          - Kedro Data Catalog: pages/user-guides/kedro-data-catalog.md
+      - EXTENSIONS:
+          - Overview: pages/user-guides/extensions.md
+          - Custom charts: pages/user-guides/custom-charts.md
+          - Custom tables: pages/user-guides/custom-tables.md
+          - Custom components: pages/user-guides/custom-components.md
+          - Custom actions: pages/user-guides/custom-actions.md
+          - Custom figures: pages/user-guides/custom-figures.md
+  - API reference:
+      - Vizro: pages/API-reference/vizro.md
+      - Models: pages/API-reference/models.md
+      - Action functions: pages/API-reference/action-callables.md
+      - Table functions: pages/API-reference/table-callables.md
+      - Figure functions: pages/API-reference/figure-callables.md
+      - Kedro integration: pages/API-reference/kedro-integration.md
+      - Deprecations: pages/API-reference/deprecations.md
+  - Find out more:
+      - FAQs: pages/explanation/faq.md
+      - User examples: pages/explanation/your-examples.md
+      - Contribute to Vizro: pages/explanation/contributing.md
+      - Documentation style: pages/explanation/documentation-style-guide.md
+      - Vizro schema: pages/explanation/schema.md
+      - Authors: pages/explanation/authors.md
+  - Examples gallery:
+      - Gallery: https://vizro.mckinsey.com/
+  - Vizro-AI:
+      - Vizro-AI: https://vizro.readthedocs.io/projects/vizro-ai/
+  - Vizro-MCP:
+      - Vizro-MCP: https://github.com/mckinsey/vizro/blob/main/vizro-mcp/README.md
+
+repo_url: https://github.com/mckinsey/vizro
+repo_name: mckinsey/vizro
+
+theme:
+  name: material
+  language: en
+  custom_dir: docs/overrides
+  palette:
+    - scheme: default
+  font:
+    text: Google sans
+    code: Source Code Pro
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+    - content.code.annotate
+
+watch:
+  - src
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.arithmatex:
+      generic: true
+  - footnotes
+  - pymdownx.keys
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+        - name: python
+          class: "highlight"
+          validator: !!python/name:mkdocs_pycafe.validator
+          format: !!python/object/apply:mkdocs_pycafe.formatter
+            kwds:
+              type: vizro
+              requirements: |
+                vizro==0.1.40
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.mark
+  - md_in_html
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: false #currently doesn't show source at correct level, and not for pydantic models
+            docstring_style: google
+            merge_init_into_class: true
+            docstring_section_style: list
+            separate_signature: true
+            #   filters: ["!^_"]
+            show_root_heading: true
+            docstring_options:
+              ignore_init_summary: true
+              warn_unknown_params: false
+              returns_named_value: false
+          paths: [src]
+  - git-revision-date-localized:
+      enable_creation_date: false
+
+extra:
+  meta:
+    - name: google-site-verification
+      content: "CYb3cxosCgsN2QDQVaSGQpMQCesqpsGQ3oTM02NtvkY"
+extra_css:
+  - stylesheets/extra.css
+
+# Strictest settings possible, and will be elevated to ERROR when run with --strict.
+# See https://www.mkdocs.org/user-guide/configuration/#validation.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn

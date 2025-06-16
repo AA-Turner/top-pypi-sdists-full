@@ -82,7 +82,7 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
     default_vision_model = default_model
     default_audio_model = "openai-audio"
     text_models = [default_model, "evil"]
-    image_models = [default_image_model, "turbo", "gptimage"]
+    image_models = [default_image_model, "flux-dev", "turbo", "gptimage"]
     audio_models = {default_audio_model: []}
     vision_models = [default_vision_model, "gpt-4o-mini", "openai", "openai-large", "openai-reasoning", "searchgpt"]
     _models_loaded = False
@@ -127,6 +127,7 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
         "grok-3-mini": "grok",
 
         ### Audio Models ###
+        "gpt-4o-audio": "openai-audio",
         "gpt-4o-mini-audio": "openai-audio",
 
         ### Image Models ###
@@ -134,7 +135,6 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
         "gpt-image": "gptimage",
         "dall-e-3": "gptimage",
         "flux-pro": "flux",
-        "flux-dev": "flux",
         "flux-schnell": "flux"
     }
 
@@ -258,7 +258,7 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
         seed: Optional[int] = None,
         nologo: bool = True,
         private: bool = False,
-        enhance: bool = False,
+        enhance: bool = None,
         safe: bool = False,
         n: int = 1,
         # Text generation parameters
@@ -364,6 +364,8 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
         api_key: str,
         timeout: int = 120
     ) -> AsyncResult:
+        if enhance is None:
+            enhance = True if model == "flux" else False
         params = {
             "model": model,
             "nologo": str(nologo).lower(),
@@ -374,7 +376,7 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
         if model == "gptimage":
             n = 1
             # Only remote images are supported
-            image = [item[0] for item in media if isinstance(item[0], str) and item[0].startswith("http")]
+            image = [item[0] for item in media if isinstance(item[0], str) and item[0].startswith("http")] if media else []
             params = {
                 **params,
                 "image": ",".join(image) if image else "",
@@ -389,7 +391,7 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
         encoded_prompt = prompt
         if model == "gptimage" and aspect_ratio is not None:
             encoded_prompt = f"{encoded_prompt} aspect-ratio: {aspect_ratio}"
-        encoded_prompt = quote_plus(encoded_prompt)[:2048-len(cls.image_api_endpoint)-len(query)-8]
+        encoded_prompt = quote_plus(encoded_prompt)[:4096-len(cls.image_api_endpoint)-len(query)-8]
         url = f"{cls.image_api_endpoint}prompt/{encoded_prompt}?{query}"
         def get_url_with_seed(i: int, seed: Optional[int] = None):
             if model == "gptimage":
@@ -489,7 +491,7 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
                 frequency_penalty=frequency_penalty,
                 response_format=response_format,
                 stream=stream,
-                seed=seed,
+                seed=None if model =="grok" else seed,
                 **extra_body
             )
             headers = {"referer": referrer}
@@ -531,9 +533,20 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
                     if reasoning:
                         yield Reasoning(status="")
                     if kwargs.get("action") == "next":
+                        safe_messages = []
+                        for message in messages:
+                            if message.get("role") == "user":
+                                if isinstance(message.get("content"), str):
+                                    safe_messages.append({"role": "user", "content": message.get("content")})
+                                elif isinstance(message.get("content"), list):
+                                    next_value = message.get("content").pop()
+                                    if isinstance(next_value, dict):
+                                        next_value = next_value.get("text")
+                                        if next_value:
+                                            safe_messages.append({"role": "user", "content": next_value})
                         data = {
                             "model": "openai",
-                            "messages": [m for m in messages if m.get("role") == "user"] + FOLLOWUPS_DEVELOPER_MESSAGE,
+                            "messages": safe_messages + FOLLOWUPS_DEVELOPER_MESSAGE,
                             "tool_choice": "required",
                             "tools": FOLLOWUPS_TOOLS
                         }

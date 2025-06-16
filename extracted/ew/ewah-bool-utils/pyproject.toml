@@ -1,0 +1,105 @@
+[build-system]
+# keep in sync with wheels.yaml
+requires = [
+    "setuptools>=61.2",
+    "Cython>=3.0",
+    "numpy>=2.0.0",
+]
+
+[project]
+name = "ewah_bool_utils"
+version = "1.2.2"
+description = "EWAH Bool Array utils for yt"
+authors = [
+  { name = "Matthew Turk" },
+  { name = "Meagan Lang" },
+  { name = "Navaneeth Suresh" },
+]
+requires-python =">=3.9"
+dependencies = [
+  # match the absolute oldest version of numpy with *any*
+  # level of support for our minimal Python requirement
+  "numpy>=1.19.3, <3",
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Cython",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.license]
+text = "BSD"
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+
+[project.urls]
+Homepage = "https://github.com/yt-project/ewah_bool_utils"
+
+[tool.setuptools]
+license-files = [
+    "LICENSE",
+]
+
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff.lint]
+exclude = ["*__init__.py"]
+ignore = ["E501"]
+select = [
+    "E",
+    "F",
+    "W",
+    "C4",  # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "YTT", # flake8-2020
+    "I",   # isort
+    "UP",  # pyupgrade
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
+build-frontend = "build[uv]"
+build-verbosity = 1
+test-skip = "*-musllinux*"
+test-command = [
+    "uv pip install -r {project}/test_requirements.txt",
+    "pytest --pyargs {project} --color=yes -ra",
+]
+
+[tool.cibuildwheel.linux]
+archs = "x86_64"
+
+[tool.cibuildwheel.macos]
+archs = "auto64"
+
+[tool.cibuildwheel.windows]
+archs = "auto64"

@@ -292,8 +292,20 @@ things.
 > *Info* More complete details can be found [in the docs](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2.setting-capacity.html#aurora-serverless-v2-examples-setting-capacity-range-for-cluster)
 
 You can also set minimum capacity to zero ACUs and automatically pause,
-if they don't have any connections initiated by user activity within a specified time period.
+if they don't have any connections initiated by user activity within a time period specified by `serverlessV2AutoPauseDuration` (300 seconds by default).
 For more information, see [Scaling to Zero ACUs with automatic pause and resume for Aurora Serverless v2](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2-auto-pause.html).
+
+```python
+# vpc: ec2.Vpc
+
+cluster = rds.DatabaseCluster(self, "Database",
+    engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_08_0),
+    writer=rds.ClusterInstance.serverless_v2("writer"),
+    serverless_v2_min_capacity=0,
+    serverless_v2_auto_pause_duration=Duration.hours(1),
+    vpc=vpc
+)
+```
 
 Another way that you control the capacity/scaling of your serverless v2 reader
 instances is based on the [promotion tier](https://aws.amazon.com/blogs/aws/additional-failover-control-for-amazon-aurora/)
@@ -608,6 +620,19 @@ rds.DatabaseInstanceFromSnapshot(self, "Instance",
 rds.DatabaseInstanceReadReplica(self, "ReadReplica",
     source_database_instance=source_instance,
     instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.LARGE),
+    vpc=vpc
+)
+```
+
+Or you can [restore a DB instance from a Multi-AZ DB cluster snapshot](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_RestoreFromMultiAZDBClusterSnapshot.html)
+
+```python
+# vpc: ec2.Vpc
+
+
+rds.DatabaseInstanceFromSnapshot(self, "Instance",
+    cluster_snapshot_identifier="my-cluster-snapshot",
+    engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_16_3),
     vpc=vpc
 )
 ```
@@ -1180,7 +1205,7 @@ proxy.grant_connect(role, "admin")
 See [https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.DBAccounts.html](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.DBAccounts.html) for setup instructions.
 
 To specify the details of authentication used by a proxy to log in as a specific database
-user use the `clientPasswordAuthType` property:
+user use the `clientPasswordAuthType` property:
 
 ```python
 # vpc: ec2.Vpc
@@ -3246,7 +3271,11 @@ class AuroraPostgresClusterEngineProps:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_rds.AuroraPostgresEngineFeatures",
     jsii_struct_bases=[],
-    name_mapping={"s3_export": "s3Export", "s3_import": "s3Import"},
+    name_mapping={
+        "s3_export": "s3Export",
+        "s3_import": "s3Import",
+        "serverless_v2_auto_pause_supported": "serverlessV2AutoPauseSupported",
+    },
 )
 class AuroraPostgresEngineFeatures:
     def __init__(
@@ -3254,11 +3283,13 @@ class AuroraPostgresEngineFeatures:
         *,
         s3_export: typing.Optional[builtins.bool] = None,
         s3_import: typing.Optional[builtins.bool] = None,
+        serverless_v2_auto_pause_supported: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Features supported by this version of the Aurora Postgres cluster engine.
 
         :param s3_export: Whether this version of the Aurora Postgres cluster engine supports the S3 data export feature. Default: false
         :param s3_import: Whether this version of the Aurora Postgres cluster engine supports the S3 data import feature. Default: false
+        :param serverless_v2_auto_pause_supported: Whether this version of the Aurora Postgres cluster engine supports the Aurora SeverlessV2 auto-pause feature. Default: false
 
         :exampleMetadata: fixture=_generated
 
@@ -3270,18 +3301,22 @@ class AuroraPostgresEngineFeatures:
             
             aurora_postgres_engine_features = rds.AuroraPostgresEngineFeatures(
                 s3_export=False,
-                s3_import=False
+                s3_import=False,
+                serverless_v2_auto_pause_supported=False
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b814dd981cca1ca2c5c82455e0e07de3c617842b40c164fd2d5e0c0ceea436fe)
             check_type(argname="argument s3_export", value=s3_export, expected_type=type_hints["s3_export"])
             check_type(argname="argument s3_import", value=s3_import, expected_type=type_hints["s3_import"])
+            check_type(argname="argument serverless_v2_auto_pause_supported", value=serverless_v2_auto_pause_supported, expected_type=type_hints["serverless_v2_auto_pause_supported"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if s3_export is not None:
             self._values["s3_export"] = s3_export
         if s3_import is not None:
             self._values["s3_import"] = s3_import
+        if serverless_v2_auto_pause_supported is not None:
+            self._values["serverless_v2_auto_pause_supported"] = serverless_v2_auto_pause_supported
 
     @builtins.property
     def s3_export(self) -> typing.Optional[builtins.bool]:
@@ -3299,6 +3334,17 @@ class AuroraPostgresEngineFeatures:
         :default: false
         '''
         result = self._values.get("s3_import")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def serverless_v2_auto_pause_supported(self) -> typing.Optional[builtins.bool]:
+        '''Whether this version of the Aurora Postgres cluster engine supports the Aurora SeverlessV2 auto-pause feature.
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2-auto-pause.html#auto-pause-prereqs
+        '''
+        result = self._values.get("serverless_v2_auto_pause_supported")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3353,6 +3399,7 @@ class AuroraPostgresEngineVersion(
         *,
         s3_export: typing.Optional[builtins.bool] = None,
         s3_import: typing.Optional[builtins.bool] = None,
+        serverless_v2_auto_pause_supported: typing.Optional[builtins.bool] = None,
     ) -> "AuroraPostgresEngineVersion":
         '''Create a new AuroraPostgresEngineVersion with an arbitrary version.
 
@@ -3360,13 +3407,16 @@ class AuroraPostgresEngineVersion(
         :param aurora_postgres_major_version: the major version of the engine, for example "9.6".
         :param s3_export: Whether this version of the Aurora Postgres cluster engine supports the S3 data export feature. Default: false
         :param s3_import: Whether this version of the Aurora Postgres cluster engine supports the S3 data import feature. Default: false
+        :param serverless_v2_auto_pause_supported: Whether this version of the Aurora Postgres cluster engine supports the Aurora SeverlessV2 auto-pause feature. Default: false
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__98ade0032a588940a6a5692a85f772441fd63ea4236e4018d1aa1b1ef7177eae)
             check_type(argname="argument aurora_postgres_full_version", value=aurora_postgres_full_version, expected_type=type_hints["aurora_postgres_full_version"])
             check_type(argname="argument aurora_postgres_major_version", value=aurora_postgres_major_version, expected_type=type_hints["aurora_postgres_major_version"])
         aurora_postgres_features = AuroraPostgresEngineFeatures(
-            s3_export=s3_export, s3_import=s3_import
+            s3_export=s3_export,
+            s3_import=s3_import,
+            serverless_v2_auto_pause_supported=serverless_v2_auto_pause_supported,
         )
 
         return typing.cast("AuroraPostgresEngineVersion", jsii.sinvoke(cls, "of", [aurora_postgres_full_version, aurora_postgres_major_version, aurora_postgres_features]))
@@ -15131,8 +15181,8 @@ class CfnDBProxyTargetGroup(
         ) -> None:
             '''Specifies the settings that control the size and behavior of the connection pool associated with a ``DBProxyTargetGroup`` .
 
-            :param connection_borrow_timeout: The number of seconds for a proxy to wait for a connection to become available in the connection pool. This setting only applies when the proxy has opened its maximum number of connections and all connections are busy with client sessions. Default: ``120`` Constraints: - Must be between 0 and 3600.
-            :param init_query: Add an initialization query, or modify the current one. You can specify one or more SQL statements for the proxy to run when opening each new database connection. The setting is typically used with ``SET`` statements to make sure that each connection has identical settings. Make sure that the query you add is valid. To include multiple variables in a single ``SET`` statement, use comma separators. For example: ``SET variable1=value1, variable2=value2`` For multiple statements, use semicolons as the separator. Default: no initialization query
+            :param connection_borrow_timeout: The number of seconds for a proxy to wait for a connection to become available in the connection pool. This setting only applies when the proxy has opened its maximum number of connections and all connections are busy with client sessions. Default: ``120`` Constraints: - Must be between 0 and 300.
+            :param init_query: Add an initialization query, or modify the current one. You can specify one or more SQL statements for the proxy to run when opening each new database connection. The setting is typically used with ``SET`` statements to make sure that each connection has identical settings. Make sure the query added here is valid. This is an optional field, so you can choose to leave it empty. For including multiple variables in a single SET statement, use a comma separator. For example: ``SET variable1=value1, variable2=value2`` Default: no initialization query
             :param max_connections_percent: The maximum size of the connection pool for each target in a target group. The value is expressed as a percentage of the ``max_connections`` setting for the RDS DB instance or Aurora DB cluster used by the target group. If you specify ``MaxIdleConnectionsPercent`` , then you must also include a value for this parameter. Default: ``10`` for RDS for Microsoft SQL Server, and ``100`` for all other engines Constraints: - Must be between 1 and 100.
             :param max_idle_connections_percent: A value that controls how actively the proxy closes idle database connections in the connection pool. The value is expressed as a percentage of the ``max_connections`` setting for the RDS DB instance or Aurora DB cluster used by the target group. With a high value, the proxy leaves a high percentage of idle database connections open. A low value causes the proxy to close more idle connections and return them to the database. If you specify this parameter, then you must also include a value for ``MaxConnectionsPercent`` . Default: The default value is half of the value of ``MaxConnectionsPercent`` . For example, if ``MaxConnectionsPercent`` is 80, then the default value of ``MaxIdleConnectionsPercent`` is 40. If the value of ``MaxConnectionsPercent`` isn't specified, then for SQL Server, ``MaxIdleConnectionsPercent`` is ``5`` , and for all other engines, the default is ``50`` . Constraints: - Must be between 0 and the value of ``MaxConnectionsPercent`` .
             :param session_pinning_filters: Each item in the list represents a class of SQL operations that normally cause all later statements in a session using a proxy to be pinned to the same underlying database connection. Including an item in the list exempts that class of SQL operations from the pinning behavior. Default: no session pinning filters
@@ -15183,7 +15233,7 @@ class CfnDBProxyTargetGroup(
 
             Constraints:
 
-            - Must be between 0 and 3600.
+            - Must be between 0 and 300.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbproxytargetgroup-connectionpoolconfigurationinfoformat.html#cfn-rds-dbproxytargetgroup-connectionpoolconfigurationinfoformat-connectionborrowtimeout
             '''
@@ -15194,11 +15244,9 @@ class CfnDBProxyTargetGroup(
         def init_query(self) -> typing.Optional[builtins.str]:
             '''Add an initialization query, or modify the current one.
 
-            You can specify one or more SQL statements for the proxy to run when opening each new database connection. The setting is typically used with ``SET`` statements to make sure that each connection has identical settings. Make sure that the query you add is valid. To include multiple variables in a single ``SET`` statement, use comma separators.
+            You can specify one or more SQL statements for the proxy to run when opening each new database connection. The setting is typically used with ``SET`` statements to make sure that each connection has identical settings. Make sure the query added here is valid. This is an optional field, so you can choose to leave it empty. For including multiple variables in a single SET statement, use a comma separator.
 
             For example: ``SET variable1=value1, variable2=value2``
-
-            For multiple statements, use semicolons as the separator.
 
             Default: no initialization query
 
@@ -16194,7 +16242,7 @@ class CfnDBShardGroup(
         :param id: Construct identifier for this resource (unique in its scope).
         :param db_cluster_identifier: The name of the primary DB cluster for the DB shard group.
         :param max_acu: The maximum capacity of the DB shard group in Aurora capacity units (ACUs).
-        :param compute_redundancy: Specifies whether to create standby DB shard groups for the DB shard group. Valid values are the following:. - 0 - Creates a DB shard group without a standby DB shard group. This is the default value. - 1 - Creates a DB shard group with a standby DB shard group in a different Availability Zone (AZ). - 2 - Creates a DB shard group with two standby DB shard groups in two different AZs.
+        :param compute_redundancy: Specifies whether to create standby standby DB data access shard for the DB shard group. Valid values are the following: - 0 - Creates a DB shard group without a standby DB data access shard. This is the default value. - 1 - Creates a DB shard group with a standby DB data access shard in a different Availability Zone (AZ). - 2 - Creates a DB shard group with two standby DB data access shard in two different AZs.
         :param db_shard_group_identifier: The name of the DB shard group.
         :param min_acu: The minimum capacity of the DB shard group in Aurora capacity units (ACUs).
         :param publicly_accessible: Specifies whether the DB shard group is publicly accessible. When the DB shard group is publicly accessible, its Domain Name System (DNS) endpoint resolves to the private IP address from within the DB shard group's virtual private cloud (VPC). It resolves to the public IP address from outside of the DB shard group's VPC. Access to the DB shard group is ultimately controlled by the security group it uses. That public access is not permitted if the security group assigned to the DB shard group doesn't permit it. When the DB shard group isn't publicly accessible, it is an internal DB shard group with a DNS name that resolves to a private IP address. Default: The default behavior varies depending on whether ``DBSubnetGroupName`` is specified. If ``DBSubnetGroupName`` isn't specified, and ``PubliclyAccessible`` isn't specified, the following applies: - If the default VPC in the target Region doesn’t have an internet gateway attached to it, the DB shard group is private. - If the default VPC in the target Region has an internet gateway attached to it, the DB shard group is public. If ``DBSubnetGroupName`` is specified, and ``PubliclyAccessible`` isn't specified, the following applies: - If the subnets are part of a VPC that doesn’t have an internet gateway attached to it, the DB shard group is private. - If the subnets are part of a VPC that has an internet gateway attached to it, the DB shard group is public.
@@ -16312,10 +16360,7 @@ class CfnDBShardGroup(
     @builtins.property
     @jsii.member(jsii_name="computeRedundancy")
     def compute_redundancy(self) -> typing.Optional[jsii.Number]:
-        '''Specifies whether to create standby DB shard groups for the DB shard group.
-
-        Valid values are the following:.
-        '''
+        '''Specifies whether to create standby standby DB data access shard for the DB shard group.'''
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "computeRedundancy"))
 
     @compute_redundancy.setter
@@ -16412,7 +16457,7 @@ class CfnDBShardGroupProps:
 
         :param db_cluster_identifier: The name of the primary DB cluster for the DB shard group.
         :param max_acu: The maximum capacity of the DB shard group in Aurora capacity units (ACUs).
-        :param compute_redundancy: Specifies whether to create standby DB shard groups for the DB shard group. Valid values are the following:. - 0 - Creates a DB shard group without a standby DB shard group. This is the default value. - 1 - Creates a DB shard group with a standby DB shard group in a different Availability Zone (AZ). - 2 - Creates a DB shard group with two standby DB shard groups in two different AZs.
+        :param compute_redundancy: Specifies whether to create standby standby DB data access shard for the DB shard group. Valid values are the following: - 0 - Creates a DB shard group without a standby DB data access shard. This is the default value. - 1 - Creates a DB shard group with a standby DB data access shard in a different Availability Zone (AZ). - 2 - Creates a DB shard group with two standby DB data access shard in two different AZs.
         :param db_shard_group_identifier: The name of the DB shard group.
         :param min_acu: The minimum capacity of the DB shard group in Aurora capacity units (ACUs).
         :param publicly_accessible: Specifies whether the DB shard group is publicly accessible. When the DB shard group is publicly accessible, its Domain Name System (DNS) endpoint resolves to the private IP address from within the DB shard group's virtual private cloud (VPC). It resolves to the public IP address from outside of the DB shard group's VPC. Access to the DB shard group is ultimately controlled by the security group it uses. That public access is not permitted if the security group assigned to the DB shard group doesn't permit it. When the DB shard group isn't publicly accessible, it is an internal DB shard group with a DNS name that resolves to a private IP address. Default: The default behavior varies depending on whether ``DBSubnetGroupName`` is specified. If ``DBSubnetGroupName`` isn't specified, and ``PubliclyAccessible`` isn't specified, the following applies: - If the default VPC in the target Region doesn’t have an internet gateway attached to it, the DB shard group is private. - If the default VPC in the target Region has an internet gateway attached to it, the DB shard group is public. If ``DBSubnetGroupName`` is specified, and ``PubliclyAccessible`` isn't specified, the following applies: - If the subnets are part of a VPC that doesn’t have an internet gateway attached to it, the DB shard group is private. - If the subnets are part of a VPC that has an internet gateway attached to it, the DB shard group is public.
@@ -16488,11 +16533,13 @@ class CfnDBShardGroupProps:
 
     @builtins.property
     def compute_redundancy(self) -> typing.Optional[jsii.Number]:
-        '''Specifies whether to create standby DB shard groups for the DB shard group. Valid values are the following:.
+        '''Specifies whether to create standby standby DB data access shard for the DB shard group.
 
-        - 0 - Creates a DB shard group without a standby DB shard group. This is the default value.
-        - 1 - Creates a DB shard group with a standby DB shard group in a different Availability Zone (AZ).
-        - 2 - Creates a DB shard group with two standby DB shard groups in two different AZs.
+        Valid values are the following:
+
+        - 0 - Creates a DB shard group without a standby DB data access shard. This is the default value.
+        - 1 - Creates a DB shard group with a standby DB data access shard in a different Availability Zone (AZ).
+        - 2 - Creates a DB shard group with two standby DB data access shard in two different AZs.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbshardgroup.html#cfn-rds-dbshardgroup-computeredundancy
         '''
@@ -18990,7 +19037,8 @@ class ClusterEngineConfig:
             cluster_engine_config = rds.ClusterEngineConfig(
                 features=rds.ClusterEngineFeatures(
                     s3_export="s3Export",
-                    s3_import="s3Import"
+                    s3_import="s3Import",
+                    serverless_v2_auto_pause_supported=False
                 ),
                 parameter_group=parameter_group,
                 port=123
@@ -19055,7 +19103,11 @@ class ClusterEngineConfig:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_rds.ClusterEngineFeatures",
     jsii_struct_bases=[],
-    name_mapping={"s3_export": "s3Export", "s3_import": "s3Import"},
+    name_mapping={
+        "s3_export": "s3Export",
+        "s3_import": "s3Import",
+        "serverless_v2_auto_pause_supported": "serverlessV2AutoPauseSupported",
+    },
 )
 class ClusterEngineFeatures:
     def __init__(
@@ -19063,11 +19115,13 @@ class ClusterEngineFeatures:
         *,
         s3_export: typing.Optional[builtins.str] = None,
         s3_import: typing.Optional[builtins.str] = None,
+        serverless_v2_auto_pause_supported: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Represents Database Engine features.
 
         :param s3_export: Feature name for the DB instance that the IAM role to export to S3 bucket is to be associated with. Default: - no s3Export feature name
         :param s3_import: Feature name for the DB instance that the IAM role to access the S3 bucket for import is to be associated with. Default: - no s3Import feature name
+        :param serverless_v2_auto_pause_supported: Whether the DB cluster engine supports the Aurora ServerlessV2 auto-pause feature. Default: false
 
         :exampleMetadata: fixture=_generated
 
@@ -19079,18 +19133,22 @@ class ClusterEngineFeatures:
             
             cluster_engine_features = rds.ClusterEngineFeatures(
                 s3_export="s3Export",
-                s3_import="s3Import"
+                s3_import="s3Import",
+                serverless_v2_auto_pause_supported=False
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81f8847ffafe411308c4aa088976b7b6144a8df723e598bfb7c8321f44b4a587)
             check_type(argname="argument s3_export", value=s3_export, expected_type=type_hints["s3_export"])
             check_type(argname="argument s3_import", value=s3_import, expected_type=type_hints["s3_import"])
+            check_type(argname="argument serverless_v2_auto_pause_supported", value=serverless_v2_auto_pause_supported, expected_type=type_hints["serverless_v2_auto_pause_supported"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if s3_export is not None:
             self._values["s3_export"] = s3_export
         if s3_import is not None:
             self._values["s3_import"] = s3_import
+        if serverless_v2_auto_pause_supported is not None:
+            self._values["serverless_v2_auto_pause_supported"] = serverless_v2_auto_pause_supported
 
     @builtins.property
     def s3_export(self) -> typing.Optional[builtins.str]:
@@ -19109,6 +19167,15 @@ class ClusterEngineFeatures:
         '''
         result = self._values.get("s3_import")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def serverless_v2_auto_pause_supported(self) -> typing.Optional[builtins.bool]:
+        '''Whether the DB cluster engine supports the Aurora ServerlessV2 auto-pause feature.
+
+        :default: false
+        '''
+        result = self._values.get("serverless_v2_auto_pause_supported")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21307,6 +21374,7 @@ class DatabaseClusterEngine(
         "s3_import_buckets": "s3ImportBuckets",
         "s3_import_role": "s3ImportRole",
         "security_groups": "securityGroups",
+        "serverless_v2_auto_pause_duration": "serverlessV2AutoPauseDuration",
         "serverless_v2_max_capacity": "serverlessV2MaxCapacity",
         "serverless_v2_min_capacity": "serverlessV2MinCapacity",
         "snapshot_credentials": "snapshotCredentials",
@@ -21367,6 +21435,7 @@ class DatabaseClusterFromSnapshotProps:
         s3_import_buckets: typing.Optional[typing.Sequence[_IBucket_42e086fd]] = None,
         s3_import_role: typing.Optional[_IRole_235f5d8e] = None,
         security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+        serverless_v2_auto_pause_duration: typing.Optional[_Duration_4839e8c3] = None,
         serverless_v2_max_capacity: typing.Optional[jsii.Number] = None,
         serverless_v2_min_capacity: typing.Optional[jsii.Number] = None,
         snapshot_credentials: typing.Optional["SnapshotCredentials"] = None,
@@ -21424,6 +21493,7 @@ class DatabaseClusterFromSnapshotProps:
         :param s3_import_buckets: S3 buckets that you want to load data from. This feature is only supported by the Aurora database engine. This property must not be used if ``s3ImportRole`` is used. For MySQL: Default: - None
         :param s3_import_role: Role that will be associated with this DB cluster to enable S3 import. This feature is only supported by the Aurora database engine. This property must not be used if ``s3ImportBuckets`` is used. To use this property with Aurora PostgreSQL, it must be configured with the S3 import feature enabled when creating the DatabaseClusterEngine For MySQL: Default: - New role is created if ``s3ImportBuckets`` is set, no role is defined otherwise
         :param security_groups: Security group. Default: - a new security group is created.
+        :param serverless_v2_auto_pause_duration: Specifies the duration an Aurora Serverless v2 DB instance must be idle before Aurora attempts to automatically pause it. The duration must be between 300 seconds (5 minutes) and 86,400 seconds (24 hours). Default: - The default is 300 seconds (5 minutes).
         :param serverless_v2_max_capacity: The maximum number of Aurora capacity units (ACUs) for a DB instance in an Aurora Serverless v2 cluster. You can specify ACU values in half-step increments, such as 40, 40.5, 41, and so on. The largest value that you can use is 256. The maximum capacity must be higher than 0.5 ACUs. Default: 2
         :param serverless_v2_min_capacity: The minimum number of Aurora capacity units (ACUs) for a DB instance in an Aurora Serverless v2 cluster. You can specify ACU values in half-step increments, such as 8, 8.5, 9, and so on. The smallest value that you can use is 0. For Aurora versions that support the Aurora Serverless v2 auto-pause feature, the smallest value that you can use is 0. For versions that don't support Aurora Serverless v2 auto-pause, the smallest value that you can use is 0.5. Default: 0.5
         :param snapshot_credentials: Master user credentials. Note - It is not possible to change the master username for a snapshot; however, it is possible to provide (or generate) a new password. Default: - The existing username and password from the snapshot will be used.
@@ -21500,6 +21570,7 @@ class DatabaseClusterFromSnapshotProps:
             check_type(argname="argument s3_import_buckets", value=s3_import_buckets, expected_type=type_hints["s3_import_buckets"])
             check_type(argname="argument s3_import_role", value=s3_import_role, expected_type=type_hints["s3_import_role"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument serverless_v2_auto_pause_duration", value=serverless_v2_auto_pause_duration, expected_type=type_hints["serverless_v2_auto_pause_duration"])
             check_type(argname="argument serverless_v2_max_capacity", value=serverless_v2_max_capacity, expected_type=type_hints["serverless_v2_max_capacity"])
             check_type(argname="argument serverless_v2_min_capacity", value=serverless_v2_min_capacity, expected_type=type_hints["serverless_v2_min_capacity"])
             check_type(argname="argument snapshot_credentials", value=snapshot_credentials, expected_type=type_hints["snapshot_credentials"])
@@ -21598,6 +21669,8 @@ class DatabaseClusterFromSnapshotProps:
             self._values["s3_import_role"] = s3_import_role
         if security_groups is not None:
             self._values["security_groups"] = security_groups
+        if serverless_v2_auto_pause_duration is not None:
+            self._values["serverless_v2_auto_pause_duration"] = serverless_v2_auto_pause_duration
         if serverless_v2_max_capacity is not None:
             self._values["serverless_v2_max_capacity"] = serverless_v2_max_capacity
         if serverless_v2_min_capacity is not None:
@@ -22136,6 +22209,19 @@ class DatabaseClusterFromSnapshotProps:
         return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
 
     @builtins.property
+    def serverless_v2_auto_pause_duration(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''Specifies the duration an Aurora Serverless v2 DB instance must be idle before Aurora attempts to automatically pause it.
+
+        The duration must be between 300 seconds (5 minutes) and 86,400 seconds (24 hours).
+
+        :default: - The default is 300 seconds (5 minutes).
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2-auto-pause.html
+        '''
+        result = self._values.get("serverless_v2_auto_pause_duration")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
     def serverless_v2_max_capacity(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of Aurora capacity units (ACUs) for a DB instance in an Aurora Serverless v2 cluster.
 
@@ -22305,6 +22391,7 @@ class DatabaseClusterFromSnapshotProps:
         "s3_import_buckets": "s3ImportBuckets",
         "s3_import_role": "s3ImportRole",
         "security_groups": "securityGroups",
+        "serverless_v2_auto_pause_duration": "serverlessV2AutoPauseDuration",
         "serverless_v2_max_capacity": "serverlessV2MaxCapacity",
         "serverless_v2_min_capacity": "serverlessV2MinCapacity",
         "storage_encrypted": "storageEncrypted",
@@ -22364,6 +22451,7 @@ class DatabaseClusterProps:
         s3_import_buckets: typing.Optional[typing.Sequence[_IBucket_42e086fd]] = None,
         s3_import_role: typing.Optional[_IRole_235f5d8e] = None,
         security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+        serverless_v2_auto_pause_duration: typing.Optional[_Duration_4839e8c3] = None,
         serverless_v2_max_capacity: typing.Optional[jsii.Number] = None,
         serverless_v2_min_capacity: typing.Optional[jsii.Number] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
@@ -22420,6 +22508,7 @@ class DatabaseClusterProps:
         :param s3_import_buckets: S3 buckets that you want to load data from. This feature is only supported by the Aurora database engine. This property must not be used if ``s3ImportRole`` is used. For MySQL: Default: - None
         :param s3_import_role: Role that will be associated with this DB cluster to enable S3 import. This feature is only supported by the Aurora database engine. This property must not be used if ``s3ImportBuckets`` is used. To use this property with Aurora PostgreSQL, it must be configured with the S3 import feature enabled when creating the DatabaseClusterEngine For MySQL: Default: - New role is created if ``s3ImportBuckets`` is set, no role is defined otherwise
         :param security_groups: Security group. Default: - a new security group is created.
+        :param serverless_v2_auto_pause_duration: Specifies the duration an Aurora Serverless v2 DB instance must be idle before Aurora attempts to automatically pause it. The duration must be between 300 seconds (5 minutes) and 86,400 seconds (24 hours). Default: - The default is 300 seconds (5 minutes).
         :param serverless_v2_max_capacity: The maximum number of Aurora capacity units (ACUs) for a DB instance in an Aurora Serverless v2 cluster. You can specify ACU values in half-step increments, such as 40, 40.5, 41, and so on. The largest value that you can use is 256. The maximum capacity must be higher than 0.5 ACUs. Default: 2
         :param serverless_v2_min_capacity: The minimum number of Aurora capacity units (ACUs) for a DB instance in an Aurora Serverless v2 cluster. You can specify ACU values in half-step increments, such as 8, 8.5, 9, and so on. The smallest value that you can use is 0. For Aurora versions that support the Aurora Serverless v2 auto-pause feature, the smallest value that you can use is 0. For versions that don't support Aurora Serverless v2 auto-pause, the smallest value that you can use is 0.5. Default: 0.5
         :param storage_encrypted: Whether to enable storage encryption. Default: - true if storageEncryptionKey is provided, false otherwise
@@ -22437,19 +22526,18 @@ class DatabaseClusterProps:
             # vpc: ec2.Vpc
             
             cluster = rds.DatabaseCluster(self, "Database",
-                engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
-                credentials=rds.Credentials.from_generated_secret("clusteradmin"),  # Optional - will default to 'admin' username and generated password
-                writer=rds.ClusterInstance.provisioned("writer",
-                    publicly_accessible=False
+                engine=rds.DatabaseClusterEngine.aurora_mysql(
+                    version=rds.AuroraMysqlEngineVersion.VER_3_03_0
                 ),
-                readers=[
-                    rds.ClusterInstance.provisioned("reader1", promotion_tier=1),
-                    rds.ClusterInstance.serverless_v2("reader2")
-                ],
-                vpc_subnets=ec2.SubnetSelection(
-                    subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-                ),
+                writer=rds.ClusterInstance.provisioned("writer"),
                 vpc=vpc
+            )
+            
+            proxy = rds.DatabaseProxy(self, "Proxy",
+                proxy_target=rds.ProxyTarget.from_cluster(cluster),
+                secrets=[cluster.secret],
+                vpc=vpc,
+                client_password_auth_type=rds.ClientPasswordAuthType.MYSQL_NATIVE_PASSWORD
             )
         '''
         if isinstance(backup, dict):
@@ -22504,6 +22592,7 @@ class DatabaseClusterProps:
             check_type(argname="argument s3_import_buckets", value=s3_import_buckets, expected_type=type_hints["s3_import_buckets"])
             check_type(argname="argument s3_import_role", value=s3_import_role, expected_type=type_hints["s3_import_role"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument serverless_v2_auto_pause_duration", value=serverless_v2_auto_pause_duration, expected_type=type_hints["serverless_v2_auto_pause_duration"])
             check_type(argname="argument serverless_v2_max_capacity", value=serverless_v2_max_capacity, expected_type=type_hints["serverless_v2_max_capacity"])
             check_type(argname="argument serverless_v2_min_capacity", value=serverless_v2_min_capacity, expected_type=type_hints["serverless_v2_min_capacity"])
             check_type(argname="argument storage_encrypted", value=storage_encrypted, expected_type=type_hints["storage_encrypted"])
@@ -22602,6 +22691,8 @@ class DatabaseClusterProps:
             self._values["s3_import_role"] = s3_import_role
         if security_groups is not None:
             self._values["security_groups"] = security_groups
+        if serverless_v2_auto_pause_duration is not None:
+            self._values["serverless_v2_auto_pause_duration"] = serverless_v2_auto_pause_duration
         if serverless_v2_max_capacity is not None:
             self._values["serverless_v2_max_capacity"] = serverless_v2_max_capacity
         if serverless_v2_min_capacity is not None:
@@ -23124,6 +23215,19 @@ class DatabaseClusterProps:
         '''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
+
+    @builtins.property
+    def serverless_v2_auto_pause_duration(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''Specifies the duration an Aurora Serverless v2 DB instance must be idle before Aurora attempts to automatically pause it.
+
+        The duration must be between 300 seconds (5 minutes) and 86,400 seconds (24 hours).
+
+        :default: - The default is 300 seconds (5 minutes).
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2-auto-pause.html
+        '''
+        result = self._values.get("serverless_v2_auto_pause_duration")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
 
     @builtins.property
     def serverless_v2_max_capacity(self) -> typing.Optional[jsii.Number]:
@@ -31643,6 +31747,12 @@ class MariaDbEngineVersion(
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_11"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_10_11_13")
+    def VER_10_11_13(cls) -> "MariaDbEngineVersion":
+        '''Version "10.11.13".'''
+        return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_11_13"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_11_4")
     def VER_10_11_4(cls) -> "MariaDbEngineVersion":
         '''Version "10.11.4".'''
@@ -32289,6 +32399,12 @@ class MariaDbEngineVersion(
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_5_28"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_10_5_29")
+    def VER_10_5_29(cls) -> "MariaDbEngineVersion":
+        '''Version "10.5.29".'''
+        return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_5_29"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_5_8")
     def VER_10_5_8(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.5.8".
@@ -32404,6 +32520,12 @@ class MariaDbEngineVersion(
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_21"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_10_6_22")
+    def VER_10_6_22(cls) -> "MariaDbEngineVersion":
+        '''Version "10.6.22".'''
+        return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_10_6_22"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_10_6_5")
     def VER_10_6_5(cls) -> "MariaDbEngineVersion":
         '''(deprecated) Version "10.6.5".
@@ -32453,6 +32575,12 @@ class MariaDbEngineVersion(
     def VER_11_4_5(cls) -> "MariaDbEngineVersion":
         '''Version "11.4.5".'''
         return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_11_4_7")
+    def VER_11_4_7(cls) -> "MariaDbEngineVersion":
+        '''Version "11.4.7".'''
+        return typing.cast("MariaDbEngineVersion", jsii.sget(cls, "VER_11_4_7"))
 
     @builtins.property
     @jsii.member(jsii_name="mariaDbFullVersion")
@@ -35929,6 +36057,12 @@ class PostgresEngineVersion(
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20241121"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_11_22_RDS_20250508")
+    def VER_11_22_RDS_20250508(cls) -> "PostgresEngineVersion":
+        '''Version "11.22-rds.20250508".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20250508"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4")
     def VER_11_4(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "11.4".
@@ -36148,6 +36282,12 @@ class PostgresEngineVersion(
     def VER_12_22(cls) -> "PostgresEngineVersion":
         '''Version "12.22".'''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_12_22"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_12_22_RDS_20250508")
+    def VER_12_22_RDS_20250508(cls) -> "PostgresEngineVersion":
+        '''Version "12.22-rds.20250508".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_12_22_RDS_20250508"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_3")
@@ -42677,6 +42817,7 @@ class DatabaseClusterFromSnapshot(
         s3_import_buckets: typing.Optional[typing.Sequence[_IBucket_42e086fd]] = None,
         s3_import_role: typing.Optional[_IRole_235f5d8e] = None,
         security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+        serverless_v2_auto_pause_duration: typing.Optional[_Duration_4839e8c3] = None,
         serverless_v2_max_capacity: typing.Optional[jsii.Number] = None,
         serverless_v2_min_capacity: typing.Optional[jsii.Number] = None,
         snapshot_credentials: typing.Optional[SnapshotCredentials] = None,
@@ -42735,6 +42876,7 @@ class DatabaseClusterFromSnapshot(
         :param s3_import_buckets: S3 buckets that you want to load data from. This feature is only supported by the Aurora database engine. This property must not be used if ``s3ImportRole`` is used. For MySQL: Default: - None
         :param s3_import_role: Role that will be associated with this DB cluster to enable S3 import. This feature is only supported by the Aurora database engine. This property must not be used if ``s3ImportBuckets`` is used. To use this property with Aurora PostgreSQL, it must be configured with the S3 import feature enabled when creating the DatabaseClusterEngine For MySQL: Default: - New role is created if ``s3ImportBuckets`` is set, no role is defined otherwise
         :param security_groups: Security group. Default: - a new security group is created.
+        :param serverless_v2_auto_pause_duration: Specifies the duration an Aurora Serverless v2 DB instance must be idle before Aurora attempts to automatically pause it. The duration must be between 300 seconds (5 minutes) and 86,400 seconds (24 hours). Default: - The default is 300 seconds (5 minutes).
         :param serverless_v2_max_capacity: The maximum number of Aurora capacity units (ACUs) for a DB instance in an Aurora Serverless v2 cluster. You can specify ACU values in half-step increments, such as 40, 40.5, 41, and so on. The largest value that you can use is 256. The maximum capacity must be higher than 0.5 ACUs. Default: 2
         :param serverless_v2_min_capacity: The minimum number of Aurora capacity units (ACUs) for a DB instance in an Aurora Serverless v2 cluster. You can specify ACU values in half-step increments, such as 8, 8.5, 9, and so on. The smallest value that you can use is 0. For Aurora versions that support the Aurora Serverless v2 auto-pause feature, the smallest value that you can use is 0. For versions that don't support Aurora Serverless v2 auto-pause, the smallest value that you can use is 0.5. Default: 0.5
         :param snapshot_credentials: Master user credentials. Note - It is not possible to change the master username for a snapshot; however, it is possible to provide (or generate) a new password. Default: - The existing username and password from the snapshot will be used.
@@ -42795,6 +42937,7 @@ class DatabaseClusterFromSnapshot(
             s3_import_buckets=s3_import_buckets,
             s3_import_role=s3_import_role,
             security_groups=security_groups,
+            serverless_v2_auto_pause_duration=serverless_v2_auto_pause_duration,
             serverless_v2_max_capacity=serverless_v2_max_capacity,
             serverless_v2_min_capacity=serverless_v2_min_capacity,
             snapshot_credentials=snapshot_credentials,
@@ -43126,6 +43269,11 @@ class DatabaseClusterFromSnapshot(
     def secret(self) -> typing.Optional[_ISecret_6e020e6a]:
         '''The secret attached to this cluster.'''
         return typing.cast(typing.Optional[_ISecret_6e020e6a], jsii.get(self, "secret"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serverlessV2AutoPauseDuration")
+    def _serverless_v2_auto_pause_duration(self) -> typing.Optional[_Duration_4839e8c3]:
+        return typing.cast(typing.Optional[_Duration_4839e8c3], jsii.get(self, "serverlessV2AutoPauseDuration"))
 
     @builtins.property
     @jsii.member(jsii_name="vpcSubnets")
@@ -43886,19 +44034,18 @@ class DatabaseInstanceFromSnapshot(
 
         # vpc: ec2.Vpc
         
-        # source_instance: rds.DatabaseInstance
+        engine = rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_16_3)
+        my_key = kms.Key(self, "MyKey")
         
-        rds.DatabaseInstanceFromSnapshot(self, "Instance",
-            snapshot_identifier="my-snapshot",
-            engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_16_3),
-            # optional, defaults to m5.large
-            instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.LARGE),
-            vpc=vpc
-        )
-        rds.DatabaseInstanceReadReplica(self, "ReadReplica",
-            source_database_instance=source_instance,
-            instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.LARGE),
-            vpc=vpc
+        rds.DatabaseInstanceFromSnapshot(self, "InstanceFromSnapshotWithCustomizedSecret",
+            engine=engine,
+            vpc=vpc,
+            snapshot_identifier="mySnapshot",
+            credentials=rds.SnapshotCredentials.from_generated_secret("username",
+                encryption_key=my_key,
+                exclude_characters="!&*^#@()",
+                replica_regions=[secretsmanager.ReplicaRegion(region="eu-west-1"), secretsmanager.ReplicaRegion(region="eu-west-2")]
+            )
         )
     '''
 
@@ -43907,8 +44054,9 @@ class DatabaseInstanceFromSnapshot(
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
-        snapshot_identifier: builtins.str,
+        cluster_snapshot_identifier: typing.Optional[builtins.str] = None,
         credentials: typing.Optional[SnapshotCredentials] = None,
+        snapshot_identifier: typing.Optional[builtins.str] = None,
         engine: IInstanceEngine,
         allocated_storage: typing.Optional[jsii.Number] = None,
         allow_major_version_upgrade: typing.Optional[builtins.bool] = None,
@@ -43963,8 +44111,9 @@ class DatabaseInstanceFromSnapshot(
         '''
         :param scope: -
         :param id: -
-        :param snapshot_identifier: The name or Amazon Resource Name (ARN) of the DB snapshot that's used to restore the DB instance. If you're restoring from a shared manual DB snapshot, you must specify the ARN of the snapshot.
+        :param cluster_snapshot_identifier: The identifier for the Multi-AZ DB cluster snapshot to restore from. For more information on Multi-AZ DB clusters, see `Multi-AZ DB cluster deployments <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html>`_ in the *Amazon RDS User Guide* . Constraints: - Can't be specified when ``snapshotIdentifier`` is specified. - Must be specified when ``snapshotIdentifier`` isn't specified. - If you are restoring from a shared manual Multi-AZ DB cluster snapshot, the ``clusterSnapshotIdentifier`` must be the ARN of the shared snapshot. - Can't be the identifier of an Aurora DB cluster snapshot. Default: - None
         :param credentials: Master user credentials. Note - It is not possible to change the master username for a snapshot; however, it is possible to provide (or generate) a new password. Default: - The existing username and password from the snapshot will be used.
+        :param snapshot_identifier: The name or Amazon Resource Name (ARN) of the DB snapshot that's used to restore the DB instance. If you're restoring from a shared manual DB snapshot, you must specify the ARN of the snapshot. Constraints: - Can't be specified when ``clusterSnapshotIdentifier`` is specified. - Must be specified when ``clusterSnapshotIdentifier`` isn't specified. Default: - None
         :param engine: The database engine.
         :param allocated_storage: The allocated storage size, specified in gibibytes (GiB). Default: 100
         :param allow_major_version_upgrade: Whether to allow major version upgrades. Default: false
@@ -44021,8 +44170,9 @@ class DatabaseInstanceFromSnapshot(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DatabaseInstanceFromSnapshotProps(
-            snapshot_identifier=snapshot_identifier,
+            cluster_snapshot_identifier=cluster_snapshot_identifier,
             credentials=credentials,
+            snapshot_identifier=snapshot_identifier,
             engine=engine,
             allocated_storage=allocated_storage,
             allow_major_version_upgrade=allow_major_version_upgrade,
@@ -44333,8 +44483,9 @@ class DatabaseInstanceFromSnapshot(
         "license_model": "licenseModel",
         "parameters": "parameters",
         "timezone": "timezone",
-        "snapshot_identifier": "snapshotIdentifier",
+        "cluster_snapshot_identifier": "clusterSnapshotIdentifier",
         "credentials": "credentials",
+        "snapshot_identifier": "snapshotIdentifier",
     },
 )
 class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
@@ -44391,8 +44542,9 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         license_model: typing.Optional[LicenseModel] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timezone: typing.Optional[builtins.str] = None,
-        snapshot_identifier: builtins.str,
+        cluster_snapshot_identifier: typing.Optional[builtins.str] = None,
         credentials: typing.Optional[SnapshotCredentials] = None,
+        snapshot_identifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Construction properties for a DatabaseInstanceFromSnapshot.
 
@@ -44446,8 +44598,9 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         :param license_model: The license model. Default: - RDS default license model
         :param parameters: The parameters in the DBParameterGroup to create automatically. You can only specify parameterGroup or parameters but not both. You need to use a versioned engine to auto-generate a DBParameterGroup. Default: - None
         :param timezone: The time zone of the instance. This is currently supported only by Microsoft Sql Server. Default: - RDS default timezone
-        :param snapshot_identifier: The name or Amazon Resource Name (ARN) of the DB snapshot that's used to restore the DB instance. If you're restoring from a shared manual DB snapshot, you must specify the ARN of the snapshot.
+        :param cluster_snapshot_identifier: The identifier for the Multi-AZ DB cluster snapshot to restore from. For more information on Multi-AZ DB clusters, see `Multi-AZ DB cluster deployments <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html>`_ in the *Amazon RDS User Guide* . Constraints: - Can't be specified when ``snapshotIdentifier`` is specified. - Must be specified when ``snapshotIdentifier`` isn't specified. - If you are restoring from a shared manual Multi-AZ DB cluster snapshot, the ``clusterSnapshotIdentifier`` must be the ARN of the shared snapshot. - Can't be the identifier of an Aurora DB cluster snapshot. Default: - None
         :param credentials: Master user credentials. Note - It is not possible to change the master username for a snapshot; however, it is possible to provide (or generate) a new password. Default: - The existing username and password from the snapshot will be used.
+        :param snapshot_identifier: The name or Amazon Resource Name (ARN) of the DB snapshot that's used to restore the DB instance. If you're restoring from a shared manual DB snapshot, you must specify the ARN of the snapshot. Constraints: - Can't be specified when ``clusterSnapshotIdentifier`` is specified. - Must be specified when ``clusterSnapshotIdentifier`` isn't specified. Default: - None
 
         :exampleMetadata: infused
 
@@ -44455,19 +44608,18 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
 
             # vpc: ec2.Vpc
             
-            # source_instance: rds.DatabaseInstance
+            engine = rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_16_3)
+            my_key = kms.Key(self, "MyKey")
             
-            rds.DatabaseInstanceFromSnapshot(self, "Instance",
-                snapshot_identifier="my-snapshot",
-                engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_16_3),
-                # optional, defaults to m5.large
-                instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.LARGE),
-                vpc=vpc
-            )
-            rds.DatabaseInstanceReadReplica(self, "ReadReplica",
-                source_database_instance=source_instance,
-                instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.LARGE),
-                vpc=vpc
+            rds.DatabaseInstanceFromSnapshot(self, "InstanceFromSnapshotWithCustomizedSecret",
+                engine=engine,
+                vpc=vpc,
+                snapshot_identifier="mySnapshot",
+                credentials=rds.SnapshotCredentials.from_generated_secret("username",
+                    encryption_key=my_key,
+                    exclude_characters="!&*^#@()",
+                    replica_regions=[secretsmanager.ReplicaRegion(region="eu-west-1"), secretsmanager.ReplicaRegion(region="eu-west-2")]
+                )
             )
         '''
         if isinstance(processor_features, dict):
@@ -44526,12 +44678,12 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
             check_type(argname="argument license_model", value=license_model, expected_type=type_hints["license_model"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
-            check_type(argname="argument snapshot_identifier", value=snapshot_identifier, expected_type=type_hints["snapshot_identifier"])
+            check_type(argname="argument cluster_snapshot_identifier", value=cluster_snapshot_identifier, expected_type=type_hints["cluster_snapshot_identifier"])
             check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
+            check_type(argname="argument snapshot_identifier", value=snapshot_identifier, expected_type=type_hints["snapshot_identifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vpc": vpc,
             "engine": engine,
-            "snapshot_identifier": snapshot_identifier,
         }
         if apply_immediately is not None:
             self._values["apply_immediately"] = apply_immediately
@@ -44629,8 +44781,12 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
             self._values["parameters"] = parameters
         if timezone is not None:
             self._values["timezone"] = timezone
+        if cluster_snapshot_identifier is not None:
+            self._values["cluster_snapshot_identifier"] = cluster_snapshot_identifier
         if credentials is not None:
             self._values["credentials"] = credentials
+        if snapshot_identifier is not None:
+            self._values["snapshot_identifier"] = snapshot_identifier
 
     @builtins.property
     def vpc(self) -> _IVpc_f30d5663:
@@ -45191,15 +45347,24 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def snapshot_identifier(self) -> builtins.str:
-        '''The name or Amazon Resource Name (ARN) of the DB snapshot that's used to restore the DB instance.
+    def cluster_snapshot_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier for the Multi-AZ DB cluster snapshot to restore from.
 
-        If you're restoring from a shared manual DB
-        snapshot, you must specify the ARN of the snapshot.
+        For more information on Multi-AZ DB clusters, see `Multi-AZ DB cluster deployments <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/multi-az-db-clusters-concepts.html>`_ in the *Amazon RDS User Guide* .
+
+        Constraints:
+
+        - Can't be specified when ``snapshotIdentifier`` is specified.
+        - Must be specified when ``snapshotIdentifier`` isn't specified.
+        - If you are restoring from a shared manual Multi-AZ DB cluster snapshot, the ``clusterSnapshotIdentifier`` must be the ARN of the shared snapshot.
+        - Can't be the identifier of an Aurora DB cluster snapshot.
+
+        :default: - None
+
+        :see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_RestoreFromMultiAZDBClusterSnapshot.html
         '''
-        result = self._values.get("snapshot_identifier")
-        assert result is not None, "Required property 'snapshot_identifier' is missing"
-        return typing.cast(builtins.str, result)
+        result = self._values.get("cluster_snapshot_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def credentials(self) -> typing.Optional[SnapshotCredentials]:
@@ -45212,6 +45377,22 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         '''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional[SnapshotCredentials], result)
+
+    @builtins.property
+    def snapshot_identifier(self) -> typing.Optional[builtins.str]:
+        '''The name or Amazon Resource Name (ARN) of the DB snapshot that's used to restore the DB instance.
+
+        If you're restoring from a shared manual DB
+        snapshot, you must specify the ARN of the snapshot.
+        Constraints:
+
+        - Can't be specified when ``clusterSnapshotIdentifier`` is specified.
+        - Must be specified when ``clusterSnapshotIdentifier`` isn't specified.
+
+        :default: - None
+        '''
+        result = self._values.get("snapshot_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -46822,19 +47003,18 @@ class DatabaseCluster(
         # vpc: ec2.Vpc
         
         cluster = rds.DatabaseCluster(self, "Database",
-            engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
-            credentials=rds.Credentials.from_generated_secret("clusteradmin"),  # Optional - will default to 'admin' username and generated password
-            writer=rds.ClusterInstance.provisioned("writer",
-                publicly_accessible=False
+            engine=rds.DatabaseClusterEngine.aurora_mysql(
+                version=rds.AuroraMysqlEngineVersion.VER_3_03_0
             ),
-            readers=[
-                rds.ClusterInstance.provisioned("reader1", promotion_tier=1),
-                rds.ClusterInstance.serverless_v2("reader2")
-            ],
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
+            writer=rds.ClusterInstance.provisioned("writer"),
             vpc=vpc
+        )
+        
+        proxy = rds.DatabaseProxy(self, "Proxy",
+            proxy_target=rds.ProxyTarget.from_cluster(cluster),
+            secrets=[cluster.secret],
+            vpc=vpc,
+            client_password_auth_type=rds.ClientPasswordAuthType.MYSQL_NATIVE_PASSWORD
         )
     '''
 
@@ -46887,6 +47067,7 @@ class DatabaseCluster(
         s3_import_buckets: typing.Optional[typing.Sequence[_IBucket_42e086fd]] = None,
         s3_import_role: typing.Optional[_IRole_235f5d8e] = None,
         security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+        serverless_v2_auto_pause_duration: typing.Optional[_Duration_4839e8c3] = None,
         serverless_v2_max_capacity: typing.Optional[jsii.Number] = None,
         serverless_v2_min_capacity: typing.Optional[jsii.Number] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
@@ -46944,6 +47125,7 @@ class DatabaseCluster(
         :param s3_import_buckets: S3 buckets that you want to load data from. This feature is only supported by the Aurora database engine. This property must not be used if ``s3ImportRole`` is used. For MySQL: Default: - None
         :param s3_import_role: Role that will be associated with this DB cluster to enable S3 import. This feature is only supported by the Aurora database engine. This property must not be used if ``s3ImportBuckets`` is used. To use this property with Aurora PostgreSQL, it must be configured with the S3 import feature enabled when creating the DatabaseClusterEngine For MySQL: Default: - New role is created if ``s3ImportBuckets`` is set, no role is defined otherwise
         :param security_groups: Security group. Default: - a new security group is created.
+        :param serverless_v2_auto_pause_duration: Specifies the duration an Aurora Serverless v2 DB instance must be idle before Aurora attempts to automatically pause it. The duration must be between 300 seconds (5 minutes) and 86,400 seconds (24 hours). Default: - The default is 300 seconds (5 minutes).
         :param serverless_v2_max_capacity: The maximum number of Aurora capacity units (ACUs) for a DB instance in an Aurora Serverless v2 cluster. You can specify ACU values in half-step increments, such as 40, 40.5, 41, and so on. The largest value that you can use is 256. The maximum capacity must be higher than 0.5 ACUs. Default: 2
         :param serverless_v2_min_capacity: The minimum number of Aurora capacity units (ACUs) for a DB instance in an Aurora Serverless v2 cluster. You can specify ACU values in half-step increments, such as 8, 8.5, 9, and so on. The smallest value that you can use is 0. For Aurora versions that support the Aurora Serverless v2 auto-pause feature, the smallest value that you can use is 0. For versions that don't support Aurora Serverless v2 auto-pause, the smallest value that you can use is 0.5. Default: 0.5
         :param storage_encrypted: Whether to enable storage encryption. Default: - true if storageEncryptionKey is provided, false otherwise
@@ -47003,6 +47185,7 @@ class DatabaseCluster(
             s3_import_buckets=s3_import_buckets,
             s3_import_role=s3_import_role,
             security_groups=security_groups,
+            serverless_v2_auto_pause_duration=serverless_v2_auto_pause_duration,
             serverless_v2_max_capacity=serverless_v2_max_capacity,
             serverless_v2_min_capacity=serverless_v2_min_capacity,
             storage_encrypted=storage_encrypted,
@@ -47388,6 +47571,11 @@ class DatabaseCluster(
     def secret(self) -> typing.Optional[_ISecret_6e020e6a]:
         '''The secret attached to this cluster.'''
         return typing.cast(typing.Optional[_ISecret_6e020e6a], jsii.get(self, "secret"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serverlessV2AutoPauseDuration")
+    def _serverless_v2_auto_pause_duration(self) -> typing.Optional[_Duration_4839e8c3]:
+        return typing.cast(typing.Optional[_Duration_4839e8c3], jsii.get(self, "serverlessV2AutoPauseDuration"))
 
     @builtins.property
     @jsii.member(jsii_name="vpcSubnets")
@@ -48033,6 +48221,7 @@ def _typecheckingstub__b814dd981cca1ca2c5c82455e0e07de3c617842b40c164fd2d5e0c0ce
     *,
     s3_export: typing.Optional[builtins.bool] = None,
     s3_import: typing.Optional[builtins.bool] = None,
+    serverless_v2_auto_pause_supported: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -48043,6 +48232,7 @@ def _typecheckingstub__98ade0032a588940a6a5692a85f772441fd63ea4236e4018d1aa1b1ef
     *,
     s3_export: typing.Optional[builtins.bool] = None,
     s3_import: typing.Optional[builtins.bool] = None,
+    serverless_v2_auto_pause_supported: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -50507,6 +50697,7 @@ def _typecheckingstub__81f8847ffafe411308c4aa088976b7b6144a8df723e598bfb7c8321f4
     *,
     s3_export: typing.Optional[builtins.str] = None,
     s3_import: typing.Optional[builtins.str] = None,
+    serverless_v2_auto_pause_supported: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -50710,6 +50901,7 @@ def _typecheckingstub__1e44b5aef872ca17869a17181382f06cd0166bdbe07e2c33701d3bf1e
     s3_import_buckets: typing.Optional[typing.Sequence[_IBucket_42e086fd]] = None,
     s3_import_role: typing.Optional[_IRole_235f5d8e] = None,
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    serverless_v2_auto_pause_duration: typing.Optional[_Duration_4839e8c3] = None,
     serverless_v2_max_capacity: typing.Optional[jsii.Number] = None,
     serverless_v2_min_capacity: typing.Optional[jsii.Number] = None,
     snapshot_credentials: typing.Optional[SnapshotCredentials] = None,
@@ -50770,6 +50962,7 @@ def _typecheckingstub__a32e21c90ab65d3cfdb3b7ef2a0d741ba1528ec8824cd1817d1e485b4
     s3_import_buckets: typing.Optional[typing.Sequence[_IBucket_42e086fd]] = None,
     s3_import_role: typing.Optional[_IRole_235f5d8e] = None,
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    serverless_v2_auto_pause_duration: typing.Optional[_Duration_4839e8c3] = None,
     serverless_v2_max_capacity: typing.Optional[jsii.Number] = None,
     serverless_v2_min_capacity: typing.Optional[jsii.Number] = None,
     storage_encrypted: typing.Optional[builtins.bool] = None,
@@ -52005,6 +52198,7 @@ def _typecheckingstub__d1a2e259091e12a41b0f5818df495769518e049ebcc89ed340ffc7ba4
     s3_import_buckets: typing.Optional[typing.Sequence[_IBucket_42e086fd]] = None,
     s3_import_role: typing.Optional[_IRole_235f5d8e] = None,
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    serverless_v2_auto_pause_duration: typing.Optional[_Duration_4839e8c3] = None,
     serverless_v2_max_capacity: typing.Optional[jsii.Number] = None,
     serverless_v2_min_capacity: typing.Optional[jsii.Number] = None,
     snapshot_credentials: typing.Optional[SnapshotCredentials] = None,
@@ -52149,8 +52343,9 @@ def _typecheckingstub__dbf7e60a650d0a1bea1826814200716f46cd1f59eea36a42193653d7f
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    snapshot_identifier: builtins.str,
+    cluster_snapshot_identifier: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[SnapshotCredentials] = None,
+    snapshot_identifier: typing.Optional[builtins.str] = None,
     engine: IInstanceEngine,
     allocated_storage: typing.Optional[jsii.Number] = None,
     allow_major_version_upgrade: typing.Optional[builtins.bool] = None,
@@ -52284,8 +52479,9 @@ def _typecheckingstub__f06d86058a0a7538eb7dbf55de032c8cf05f7fa7b4ab5d5c1d47f7617
     license_model: typing.Optional[LicenseModel] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timezone: typing.Optional[builtins.str] = None,
-    snapshot_identifier: builtins.str,
+    cluster_snapshot_identifier: typing.Optional[builtins.str] = None,
     credentials: typing.Optional[SnapshotCredentials] = None,
+    snapshot_identifier: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -52513,6 +52709,7 @@ def _typecheckingstub__c6184cbbefaa372690b9776dafecbf5857cf9bfbab91d1666aad22c56
     s3_import_buckets: typing.Optional[typing.Sequence[_IBucket_42e086fd]] = None,
     s3_import_role: typing.Optional[_IRole_235f5d8e] = None,
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    serverless_v2_auto_pause_duration: typing.Optional[_Duration_4839e8c3] = None,
     serverless_v2_max_capacity: typing.Optional[jsii.Number] = None,
     serverless_v2_min_capacity: typing.Optional[jsii.Number] = None,
     storage_encrypted: typing.Optional[builtins.bool] = None,

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from uuid import UUID
 from maleo_foundation.enums import BaseEnums
@@ -78,3 +78,9 @@ class BaseGeneralSchemas:
         password:str = Field(..., description="Key's password")
         private:str = Field(..., description="Private key")
         public:str = Field(..., description="Public key")
+
+    class AccessedAt(BaseModel):
+        accessed_at:datetime = Field(datetime.now(tz=timezone.utc), description="Accessed at")
+
+    class AccessedBy(BaseModel):
+        accessed_by:int = Field(0, ge=0, description="Accessed by")

@@ -1,0 +1,83 @@
+include:
+  # -- Python -------------------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/python/all/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/all@1
+    inputs:
+      code_quality_analyzer: ruff
+      install_extra: "test"
+      python_versions:
+        - "3.8"
+        - "3.9"
+        - "3.10"
+        - "3.11"
+        - "3.12"
+        - "3.13"
+      run_advanced_sast: true
+
+  # -- Debian packaging ---------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/debian/all/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/debian/all@2
+    inputs:
+      needs: [sdist]
+      debian_versions:
+        - bullseye
+        - bookworm
+      test_script: &system_test_script
+        # run pytest with coverage
+        - /usr/bin/python3 -m pytest
+            -ra
+            --cov gwosc
+            --durations 0
+            --junit-xml junit.xml
+            --pyargs
+            --verbose
+            gwosc.tests
+        # report coverage
+        - python3 -m coverage xml
+      test_install: &system_test_install >-
+        python3
+        python3-gwosc
+        python3-pytest
+        python3-pytest-cov
+        python3-requests-mock
+
+  # -- Red Hat packaging --------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/redhat/all/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/redhat/all@2
+    inputs:
+      needs: [sdist]
+      redhat_versions:
+        - 8
+        - 9
+      test_script: *system_test_script
+      test_install: *system_test_install
+
+  # -- Documentation ------------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/sphinx/build/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/sphinx/build@~latest
+    inputs:
+      requirements: ".[docs]"
+
+# -- customisations
+#
+# Configure tests of the system-installed package
+#
+
+debian_test:
+  variables: &system_variables {GIT_STRATEGY: none}
+  artifacts: !reference [python_test, artifacts]
+
+redhat_test:
+  variables: *system_variables
+  artifacts: !reference [python_test, artifacts]
+
+ruff_check:
+  stage: test
+  allow_failure: true
+  image: pipelinecomponents/ruff
+  script:
+    - ruff check .

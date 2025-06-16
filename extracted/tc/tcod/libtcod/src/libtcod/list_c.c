@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,7 @@ static void TCOD_list_allocate_int(TCOD_list_t l) {
   if (newSize == 0) {
     newSize = 16;
   }
-  newArray = (void**)calloc(sizeof(void*), newSize);
+  newArray = (void**)calloc(newSize, sizeof(void*));
   if (l->array) {
     if (l->fillSize > 0) {
       memcpy(newArray, l->array, sizeof(void*) * l->fillSize);
@@ -75,7 +75,7 @@ static void TCOD_list_allocate_int(TCOD_list_t l) {
  *
  *  The new size will be no more than `l->allocSize`.
  */
-void TCOD_list_set_size(TCOD_list_t l, int size) { l->fillSize = MIN(size, l->allocSize); }
+void TCOD_list_set_size(TCOD_list_t l, int size) { l->fillSize = TCOD_MIN(size, l->allocSize); }
 /**
  *  Return a new list.
  */
@@ -85,7 +85,7 @@ TCOD_list_t TCOD_list_new(void) { return (TCOD_list_t)calloc(1, sizeof(struct TC
  */
 TCOD_list_t TCOD_list_allocate(int nb_elements) {
   TCOD_list_t l = TCOD_list_new();
-  l->array = (void**)calloc(sizeof(void*), nb_elements);
+  l->array = (void**)calloc(nb_elements, sizeof(void*));
   l->allocSize = nb_elements;
   return l;
 }

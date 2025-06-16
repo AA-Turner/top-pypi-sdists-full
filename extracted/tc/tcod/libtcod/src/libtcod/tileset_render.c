@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 #include "tileset_render.h"
 
 #ifndef NO_SDL
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #endif  // NO_SDL
 /**
     Render a single tile.
@@ -86,13 +86,13 @@ TCOD_Error TCOD_tileset_render_to_surface(
   const int total_height = tileset->tile_height * console->h;
   if (*surface_out) {
     if ((*surface_out)->w != total_width || (*surface_out)->h != total_height ||
-        (*surface_out)->format->format != SDL_PIXELFORMAT_RGBA32) {
-      SDL_FreeSurface(*surface_out);
+        (*surface_out)->format != SDL_PIXELFORMAT_RGBA32) {
+      SDL_DestroySurface(*surface_out);
       *surface_out = NULL;
     }
   }
   if (!*surface_out) {
-    *surface_out = SDL_CreateRGBSurfaceWithFormat(0, total_width, total_height, 32, SDL_PIXELFORMAT_RGBA32);
+    *surface_out = SDL_CreateSurface(total_width, total_height, SDL_PIXELFORMAT_RGBA32);
   }
   if (cache) {
     if (*cache) {
@@ -118,11 +118,13 @@ TCOD_Error TCOD_tileset_render_to_surface(
           continue;
         }
       }
+      // clang-format off
       TCOD_ColorRGBA* out = (TCOD_ColorRGBA*)(
           (char*)(*surface_out)->pixels
           + console_y * tileset->tile_height * (*surface_out)->pitch
           + console_x * tileset->tile_width * sizeof(*out)
       );
+      // clang-format on
       render_tile(tileset, tile, out, (*surface_out)->pitch);
     }
   }

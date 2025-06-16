@@ -1,0 +1,21 @@
+[build-system]
+requires = [
+    "setuptools >= 40.6.2",
+    "wheel >= 0.30.0",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 120
+force-exclude = '''
+    \.eggs
+    | \.git
+    | \.mypy_cache
+    | \.pytest_cache
+    | \.tox
+    | \.venv
+    | /kubernetes_typed/client/
+    | /kubernetes-stubs/
+    | /kubernetes-python-source/
+    | setup.cfg
+'''

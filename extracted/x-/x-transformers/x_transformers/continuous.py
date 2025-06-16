@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import torch
-from torch import nn, cat, stack
+from torch import nn, cat, stack, arange
 from torch.nn import Module
 import torch.nn.functional as F
 from torch.distributions import Normal
 
 import einx
 from einops import rearrange, reduce, pack, repeat, unpack
+
+from x_transformers.autoregressive_wrapper import align_right
 
 from x_transformers.x_transformers import (
     Attention,
@@ -29,6 +31,15 @@ def default(val, d):
     if exists(val):
         return val
     return d() if not isinstance(d, Module) and callable(d) else d
+
+def sample_from_mean_variance(
+    mean,
+    variance,
+    eps = 1e-5,
+    temperature = 1.
+):
+    std = variance.clamp(min = eps).sqrt()
+    return torch.normal(mean, std * temperature)
 
 def masked_mean(t, mask):
     t = einx.where('b n, b n d, -> b n d', mask, t, 0.)
@@ -64,7 +75,7 @@ class ContinuousTransformerWrapper(Module):
         use_abs_pos_emb = True,
         scaled_sinu_pos_emb = False,
         average_pool_embed = False,
-        probabilistic = False
+        probabilistic = False,
     ):
         super().__init__()
         dim = attn_layers.dim
@@ -130,6 +141,7 @@ class ContinuousTransformerWrapper(Module):
         sum_embeds = None,
         prepend_embeds = None,
         prepend_mask = None,
+        seq_start_pos = None,
         **kwargs
     ):
         batch, seq, orig_mask, device = *x.shape[:2], mask, x.device
@@ -138,14 +150,14 @@ class ContinuousTransformerWrapper(Module):
 
         if exists(lens):
             assert not exists(mask), 'either `mask` or `lens` passed in, but not both'
-            seq_arange = torch.arange(seq, device = device)
+            seq_arange = arange(seq, device = device)
 
             mask = einx.less('j, i -> i j', seq_arange, lens)
 
         # project in + positional embedding
 
         x = self.project_in(x)
-        x = x + self.pos_emb(x, pos = pos)
+        x = x + self.pos_emb(x, pos = pos, seq_start_pos = seq_start_pos)
 
         if exists(sum_embeds):
             x = x + sum_embeds
@@ -220,7 +232,7 @@ class ContinuousAutoregressiveWrapper(Module):
         self,
         net: ContinuousTransformerWrapper,
         loss_fn: Module | None = None,
-        equal_loss_weight_batch = False  # setting this to True, if the mask is passed in and sequences are variable in length, each sequence will be weighted the same (as opposed to each token)
+        equal_loss_weight_batch = False,  # setting this to True, if the mask is passed in and sequences are variable in length, each sequence will be weighted the same (as opposed to each token)
     ):
         super().__init__()
         self.net = net
@@ -247,12 +259,13 @@ class ContinuousAutoregressiveWrapper(Module):
         device = start_tokens.device
 
         was_training = self.net.training
-        num_dims = len(start_tokens.shape)
+        num_dims = start_tokens.ndim
 
         assert num_dims >= 2, 'number of dimensions of your start tokens must be greater or equal to 2'
+        no_batch = num_dims == 2
 
-        if num_dims == 2:
-            start_tokens = start_tokens[None, :]        
+        if no_batch:
+            start_tokens = rearrange(start_tokens, 'n d -> 1 n d')
 
         b, t, _, device = *start_tokens.shape, start_tokens.device
 
@@ -270,9 +283,7 @@ class ContinuousAutoregressiveWrapper(Module):
 
             if self.probabilistic:
                 mean, var = last_output
-                stddev = var.clamp(min = 1e-5).sqrt()
-
-                last_output = torch.normal(mean, stddev * temperature)
+                last_output = sample_from_mean_variance(mean, var, temperature = temperature)
 
             out = cat((out, last_output), dim = -2)
 
@@ -281,17 +292,118 @@ class ContinuousAutoregressiveWrapper(Module):
 
         out = out[:, t:]
 
-        if num_dims == 2:
-            out = out.squeeze(0)
+        if no_batch:
+            out = rearrange(out, '1 n d -> n d')
 
         self.net.train(was_training)
         return out
 
+    def forward_rollout(
+        self,
+        x,
+        rollout_steps = 2,
+        **kwargs
+    ):
+        assert rollout_steps > 1
+
+        steps = rollout_steps
+
+        device = x.device
+
+        # assert inputs
+
+        assert 'prepend_embeds' not in kwargs
+
+        # lens
+
+        lens = kwargs.pop('lens', None)
+
+        if exists(lens):
+            assert 'mask' not in kwargs, 'either `mask` or `lens` passed in, but not both'
+            seq_len, device = inp.shape[1], inp.device
+            seq_arange = arange(seq_len, device = device)
+            mask = einx.less('j, i -> i j', seq_arange, lens)
+            kwargs['mask'] = mask
+
+        if not exists(lens):
+            batch, seq_len = x.shape[:2]
+            lens = torch.full((batch,), seq_len, device = device)
+
+        # handle mask manually
+
+        mask = kwargs.pop('mask', None)
+
+        # pick a random range for each batch sample and aligh the sequence to the right for rollout loss
+
+        valid_tokens_for_rollout = (lens - steps).clamp(min = 0)
+        valid_sample = valid_tokens_for_rollout > 0
+
+        x = x[valid_sample] # remove invalid sequence (lens less than rollout steps)
+
+        if exists(mask):
+            mask = mask[valid_sample]
+
+        batch = x.shape[0]
+        seq_start_pos = (torch.rand((batch,), device = device) * valid_tokens_for_rollout).floor().long()
+
+        batch_arange = torch.arange(batch, device = device)
+        batch_arange = rearrange(batch_arange, 'b -> b 1')
+
+        # crop out sequence to use
+
+        seq_end_pos = seq_start_pos + steps
+        max_end_pos = seq_end_pos.amax().item()
+        x = x[:, :max_end_pos]
+
+        x = align_right(x, seq_end_pos)
+
+        # get the input
+
+        inp, targets = x[:, :-steps], x[:, -steps:]
+
+        # maybe rollout
+
+        cache = None
+        preds = []
+
+        for _ in range(steps):
+
+            out, cache = self.net(
+                inp,
+                seq_start_pos = seq_start_pos,
+                return_intermediates = True,
+                **kwargs
+            )
+
+            last_pred = out[..., -1:, :]
+
+            if self.probabilistic:
+                mean, var = last_pred
+                inp = sample_from_mean_variance(mean, var)
+            else:
+                inp = last_pred
+
+            preds.append(last_pred)
+
+        # stack for predictions
+
+        preds = cat(preds, dim = 1)
+
+        # loss
+
+        loss = self.loss_fn(preds, targets)
+
+        return loss.mean()
+
     def forward(
         self,
         x,
+        rollout_steps = 1, # they used 2 rollout steps in a successful world model paper https://ai.meta.com/vjepa/
         **kwargs
     ):
+        if rollout_steps > 1:
+            return self.forward_rollout(x, rollout_steps = rollout_steps, **kwargs)
+
         inp, target = x[:, :-1], x[:, 1:]
 
         assert 'prepend_embeds' not in kwargs

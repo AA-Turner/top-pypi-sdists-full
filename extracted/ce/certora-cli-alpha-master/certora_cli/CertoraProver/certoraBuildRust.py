@@ -51,6 +51,7 @@ def build_rust_app(context: CertoraContext) -> None:
         feature_flag = '--features'
         if context.cargo_tools_version:
             build_command.extend(["--tools-version", context.cargo_tools_version])
+        context.rust_project_directory = Util.find_nearest_cargo_toml()
 
     if context.cargo_features is not None:
         build_command.append(feature_flag)
@@ -102,7 +103,7 @@ def add_solana_files_to_sources(context: CertoraContext, sources: Set[Path]) -> 
 
 
 def collect_files_from_rust_sources(context: CertoraContext, sources: Set[Path]) -> None:
-    patterns = ["*.rs", "*.so", "*.wasm", "Cargo.toml", "Cargo.lock", "justfile"]
+    patterns = ["*.rs", "*.so", "*.wasm", Util.CARGO_TOML_FILE, "Cargo.lock", "justfile"]
     exclude_dirs = [".certora_internal"]
 
     if hasattr(context, 'rust_project_directory'):

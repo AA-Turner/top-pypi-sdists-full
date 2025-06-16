@@ -1,0 +1,49 @@
+[project]
+name = "ddtrace-api"
+version = "0.0.1"
+description = "The public API of the dd-trace libraries"
+authors = [
+    { name = "Datadog, Inc.", email = "dev@datadoghq.com" },
+]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+dev = [
+    "hatch == 1.14.0"
+]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/DataDog/dd-trace-py-api/issues"
+Changelog = "https://github.com/DataDog/dd-trace-py-api/releases"
+Homepage = "https://github.com/DataDog/dd-trace-py-api/"
+"Source Code" = "https://github.com/DataDog/dd-trace-py-api/"
+
+[tool.black]
+line-length = 120
+target_version = ['py38', 'py38', 'py39', 'py310', 'py311', 'py312']
+include = '''\.py[ix]?$'''
+exclude = '''
+(
+  .venv*
+  | \.riot/
+  | \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.nox
+  | \.tox
+  | \.venv
+  | venv
+  | build/
+  | dist/
+)
+'''

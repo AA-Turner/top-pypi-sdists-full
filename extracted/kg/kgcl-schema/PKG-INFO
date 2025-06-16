@@ -1,0 +1,43 @@
+Metadata-Version: 2.1
+Name: kgcl_schema
+Version: 0.7.0
+Summary: Schema for the KGCL project.
+License: MIT
+Author: Chris Mungall
+Author-email: cjmungall@lbl.gov
+Requires-Python: >=3.9,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Provides-Extra: docs
+Requires-Dist: curies (>=0.6.0)
+Requires-Dist: lark (>=1.1.2)
+Requires-Dist: linkml-runtime (>=1.1.24)
+Requires-Dist: prefixmaps (>=0.2.0,<0.3.0)
+Description-Content-Type: text/markdown
+
+# KGCL: Knowledge Graph Change Language
+
+KGCL is a standard datamodel for representing changes in ontologies and knowledge graphs.
+
+This repository houses:
+
+- The KGCL schema/standard
+- The Python implementation of the standard (LinkML model, LARK grammar)
+
+The following URIs will resolve to the KGCL standard:
+
+- OWL: https://w3id.org/kgcl/kgcl.owl.ttl
+- JSONLD: https://w3id.org/kgcl/kgcl.context.jsonld
+- SHACL: https://w3id.org/kgcl/kgcl.shacl.ttl
+- YAML: https://w3id.org/kgcl/kgcl.yaml
+
+## Documentation
+
+[Read more here.](https://incatools.github.io/kgcl/)
+
+

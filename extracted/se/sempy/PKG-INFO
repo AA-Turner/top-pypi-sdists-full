@@ -1,0 +1,87 @@
+Metadata-Version: 1.0
+Name: sempy
+Version: 0.0.18
+Summary: A Python implementation of the spectral element method
+Home-page: http://www.sempy.org
+Author: Stian Jensen
+Author-email: stianjnsn@gmail.com
+License: GPL
+Description: 
+        Sempy
+        **********
+        
+        *Note: This software is in a pre-alpha state.*
+        
+        The main documentation for this package is located at 
+        `www.sempy.org <http://www.sempy.org>`_ , but this page offers a 
+        minimal set of information to get started using Sempy.
+        
+        About
+        ======
+        
+        Sempy is a numerical software package designed to solve partial differential 
+        equations arising from the analysis of fluid flow and heat transfer.
+        It is written in Python and carries the intuitive syntax of this language. 
+        Furthermore, computational meshes can be imported from the Gmsh mesh generator, 
+        making Sempy flexible towards handling complex geometries. 
+           
+        Getting started
+        ----------------
+        
+        The quickest way to get started using the Sempy package is to install it 
+        with  
+        `easy_install <http://peak.telecommunity.com/DevCenter/EasyInstall/>`_
+        This can be achieved by e.g. typing::  
+        
+           $ easy_install sempy
+        
+        on the command line. This requires an internet connection to work. Another 
+        possibility is to download the latest version as a 
+        `zip <https://bitbucket.org/stianjnsn/sempy/get/tip.zip>`_ or
+        `tar.gz <https://bitbucket.org/stianjnsn/sempy/get/tip.tar.gz>`_
+        file and then install it with::
+        
+           $ python setup.py install
+        
+        It might be necessary to use super user privileges on the above 
+        commands. For instance::
+        
+           $ sudo easy_install sempy
+        
+        Aslo, it might be necessary to run:: 
+        
+          $ sudo easy_install --upgrade sempy
+          
+        on a regular basis to obtain updated versions. 
+        
+        An example script
+        ------------------
+        
+        Solve the Poisson problem with a simple script::
+           
+              import sempy
+             
+              X = sempy.Space( filename = 'square', n = 4, dim = 2 )
+              A = sempy.operators.Laplacian( X ).matrix
+            
+              f = sempy.Function( X, basis_coeff = 1.0 )
+              b = sempy.operators.Mass( X ).action_local( f.basis_coeff )
+              u = sempy.Function( X, basis_coeff = 0.0 )
+            
+              [v, flag] = sempy.linsolvers.Krylov().solve( A, b, u.glob() )
+              u.basis_coeff = X.mapping_q( v )
+              u.plot()
+              
+        
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU General Public License (GPL)
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Fortran
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Physics

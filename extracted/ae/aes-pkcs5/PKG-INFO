@@ -1,0 +1,69 @@
+Metadata-Version: 2.4
+Name: aes_pkcs5
+Version: 1.0.4
+Summary: Implementation of AES with CBC/ECB mode and padding scheme PKCS5
+Project-URL: Documentation, https://aes-pkcs5.readthedocs.io
+Project-URL: Source, https://github.com/Laerte/aes_pkcs5
+Project-URL: Tracker, https://github.com/Laerte/aes_pkcs5/issues
+Author-email: Laerte Pereira <hi@laerte.dev>
+Maintainer-email: Laerte Pereira <hi@laerte.dev>
+License-Expression: BSD-2-Clause
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Requires-Dist: cryptography>=41.0.2
+Provides-Extra: dev
+Requires-Dist: black>=23.7.0; extra == 'dev'
+Requires-Dist: isort>=5.12.0; extra == 'dev'
+Requires-Dist: pre-commit>=3.3.3; extra == 'dev'
+Description-Content-Type: text/x-rst
+
+========
+AESPKCS5
+========
+
+.. image:: https://img.shields.io/pypi/v/aes-pkcs5.svg
+   :target: https://pypi.org/project/aes-pkcs5/
+   :alt: PyPI Version
+.. image:: https://github.com/Laerte/aes_pkcs5/actions/workflows/ci.yml/badge.svg
+   :target: https://github.com/Laerte/aes_pkcs5/actions/workflows/ci.yml
+   :alt: CI
+.. image:: https://img.shields.io/pypi/pyversions/aes-pkcs5.svg
+   :target: https://pypi.org/project/aes-pkcs5/
+   :alt: Python Version
+.. image:: https://readthedocs.org/projects/aes-pkcs5/badge/?version=latest
+    :alt: Documentation Status
+    :target: https://aes-pkcs5.readthedocs.io/en/latest/?badge=latest
+.. image:: https://codecov.io/gh/Laerte/aes_pkcs5/branch/main/graph/badge.svg?token=LX57VQB8ZB
+   :target: https://codecov.io/gh/Laerte/aes_pkcs5
+   :alt: Coverage report
+
+Python implementation of AES with CBC/ECB mode and padding scheme PKCS5.
+
+============
+Requirements
+============
+* Python 3.9+
+
+Install
+=======
+You can install AESPKCS5 from PyPI with::
+
+    pip install aes-pkcs5
+
+=============
+Documentation
+=============
+Documentation is available online at: https://aes-pkcs5.readthedocs.io/

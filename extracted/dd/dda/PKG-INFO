@@ -1,0 +1,58 @@
+Metadata-Version: 2.4
+Name: dda
+Version: 0.16.0
+Summary: Tool for developing on the Datadog Agent platform
+Project-URL: Homepage, https://github.com/DataDog/datadog-agent-dev
+Project-URL: Documentation, https://datadoghq.dev/datadog-agent/setup/
+Author-email: "Datadog, Inc." <dev@datadoghq.com>
+License-Expression: MIT
+License-File: LICENSE.txt
+Keywords: agent,datadog
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: ~=3.12.0
+Requires-Dist: ada-url~=1.15.3
+Requires-Dist: binary~=1.0.2
+Requires-Dist: click~=8.1
+Requires-Dist: datadog-api-client~=2.34
+Requires-Dist: dep-sync~=0.1
+Requires-Dist: find-exe~=0.1
+Requires-Dist: httpx[http2]~=0.28.1
+Requires-Dist: hvac~=2.3.0
+Requires-Dist: keyring~=25.6.0
+Requires-Dist: msgspec-click~=0.2
+Requires-Dist: msgspec~=0.18
+Requires-Dist: packaging
+Requires-Dist: platformdirs~=4.3
+Requires-Dist: psutil~=7.0
+Requires-Dist: pywinpty~=2.0.15; sys_platform == 'win32'
+Requires-Dist: rich-click~=1.8
+Requires-Dist: rich~=14.0
+Requires-Dist: tomlkit~=0.13
+Requires-Dist: truststore~=0.10.1
+Requires-Dist: typing-extensions>=4.6.0; python_version < '3.13'
+Requires-Dist: uv~=0.7.9
+Requires-Dist: watchfiles~=1.0.5
+Description-Content-Type: text/markdown
+
+# Datadog Agent platform developer tooling
+
+| | |
+| --- | --- |
+| CI/CD | [![CI - Test](https://github.com/DataDog/datadog-agent-dev/actions/workflows/test.yml/badge.svg)](https://github.com/DataDog/datadog-agent-dev/actions/workflows/test.yml) [![CD - Build Hatch](https://github.com/DataDog/datadog-agent-dev/actions/workflows/build.yml/badge.svg)](https://github.com/DataDog/datadog-agent-dev/actions/workflows/build.yml) |
+| Docs | [![CI - Docs](https://github.com/DataDog/datadog-agent-dev/actions/workflows/docs.yml/badge.svg)](https://github.com/DataDog/datadog-agent-dev/actions/workflows/docs.yml) |
+| Package | [![PyPI - Version](https://img.shields.io/pypi/v/dda.svg?logo=pypi&label=PyPI&logoColor=gold)](https://pypi.org/project/dda/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/dda.svg?color=blue&label=Downloads&logo=pypi&logoColor=gold)](https://pypi.org/project/dda/) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dda.svg?logo=python&label=Python&logoColor=gold)](https://pypi.org/project/dda/) |
+| Meta | [![Hatch project](https://img.shields.io/badge/%F0%9F%A5%9A-Hatch-4051b5.svg)](https://github.com/ofek/dep-sync) [![linting - Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff) [![types - Mypy](https://img.shields.io/badge/types-Mypy-blue.svg)](https://github.com/python/mypy) [![License - MIT](https://img.shields.io/badge/license-MIT-9400d3.svg)](https://spdx.org/licenses/) |
+
+-----
+
+This is the main interface for developing on the Datadog Agent platform.
+
+Refer to the [docs](https://datadoghq.dev/datadog-agent-dev/) for more information.
+
+## License
+
+`dda` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.

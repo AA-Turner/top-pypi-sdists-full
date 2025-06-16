@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #ifndef NO_SDL
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #endif  // NO_SDL
 #include <math.h>
 #include <stdarg.h>
@@ -117,12 +117,12 @@ void TCOD_image_clear(TCOD_Image* image, TCOD_color_t color) {
 }
 
 TCOD_Image* TCOD_image_new(int width, int height) {
-  TCOD_Image* ret = calloc(sizeof(*ret), 1);
+  TCOD_Image* ret = calloc(1, sizeof(*ret));
   if (!ret) {
     return NULL;
   }
   ret->nb_mipmaps = TCOD_image_get_mipmap_levels(width, height);
-  ret->mipmaps = calloc(sizeof(*ret->mipmaps), ret->nb_mipmaps);
+  ret->mipmaps = calloc(ret->nb_mipmaps, sizeof(*ret->mipmaps));
   if (!ret->mipmaps) {
     TCOD_image_delete(ret);
     return NULL;
@@ -278,10 +278,10 @@ void TCOD_image_blit(
     /* clip the image */
     int ix = (int)(x - width * 0.5f);
     int iy = (int)(y - height * 0.5f);
-    int min_x = MAX(ix, 0);
-    int min_y = MAX(iy, 0);
-    int max_x = MIN(ix + width, TCOD_console_get_width(console));
-    int max_y = MIN(iy + height, TCOD_console_get_height(console));
+    int min_x = TCOD_MAX(ix, 0);
+    int min_y = TCOD_MAX(iy, 0);
+    int max_x = TCOD_MIN(ix + width, TCOD_console_get_width(console));
+    int max_y = TCOD_MIN(iy + height, TCOD_console_get_height(console));
     int offset_x = 0;
     int offset_y = 0;
     if (ix < 0) {
@@ -321,15 +321,15 @@ void TCOD_image_blit(
     int x3 = (int)(x - iw * new_xx - ih * new_yx);
     int y3 = (int)(y - iw * new_xy - ih * new_yy);
     /* get the affected rectangular area in the console */
-    int rx = MIN(MIN(x0, x1), MIN(x2, x3));
-    int ry = MIN(MIN(y0, y1), MIN(y2, y3));
-    int rw = MAX(MAX(x0, x1), MAX(x2, x3)) - rx;
-    int rh = MAX(MAX(y0, y1), MAX(y2, y3)) - ry;
+    int rx = TCOD_MIN(TCOD_MIN(x0, x1), TCOD_MIN(x2, x3));
+    int ry = TCOD_MIN(TCOD_MIN(y0, y1), TCOD_MIN(y2, y3));
+    int rw = TCOD_MAX(TCOD_MAX(x0, x1), TCOD_MAX(x2, x3)) - rx;
+    int rh = TCOD_MAX(TCOD_MAX(y0, y1), TCOD_MAX(y2, y3)) - ry;
     /* clip it */
-    int min_x = MAX(rx, 0);
-    int min_y = MAX(ry, 0);
-    int max_x = MIN(rx + rw, TCOD_console_get_width(console));
-    int max_y = MIN(ry + rh, TCOD_console_get_height(console));
+    int min_x = TCOD_MAX(rx, 0);
+    int min_y = TCOD_MAX(ry, 0);
+    int max_x = TCOD_MIN(rx + rw, TCOD_console_get_width(console));
+    int max_y = TCOD_MIN(ry + rh, TCOD_console_get_height(console));
     float inv_scale_x = 1.0f / scale_x;
     float inv_scale_y = 1.0f / scale_y;
     for (int cx = min_x; cx < max_x; ++cx) {
@@ -442,7 +442,7 @@ TCOD_Image* TCOD_image_load(const char* filename) {
       SDL_ConvertPixels(
           surface->w,
           surface->h,
-          surface->format->format,
+          surface->format,
           surface->pixels,
           surface->pitch,
           SDL_PIXELFORMAT_RGB24,
@@ -450,7 +450,7 @@ TCOD_Image* TCOD_image_load(const char* filename) {
           (int)sizeof(image->mipmaps[0].buf[0]) * surface->w);
       TCOD_image_invalidate_mipmaps(image);
     }
-    SDL_FreeSurface(surface);
+    SDL_DestroySurface(surface);
   }
   return image;
 }
@@ -459,18 +459,17 @@ TCOD_Error TCOD_image_save(const TCOD_Image* image, const char* filename) {
     TCOD_set_errorv("Image parameter must not be NULL.");
     return TCOD_E_INVALID_ARGUMENT;
   }
-  struct SDL_Surface* bitmap = SDL_CreateRGBSurfaceWithFormatFrom(
-      image->mipmaps[0].buf,
+  struct SDL_Surface* bitmap = SDL_CreateSurfaceFrom(
       image->mipmaps[0].width,
       image->mipmaps[0].height,
-      24,
-      (int)sizeof(image->mipmaps[0].buf[0]) * image->mipmaps[0].width,
-      SDL_PIXELFORMAT_RGB24);
+      SDL_PIXELFORMAT_RGB24,
+      image->mipmaps[0].buf,
+      (int)sizeof(image->mipmaps[0].buf[0]) * image->mipmaps[0].width);
   if (!bitmap) {
     return TCOD_set_errorvf("SDL error: %s", SDL_GetError());
   }
   TCOD_Error err = TCOD_sys_save_bitmap(bitmap, filename);
-  SDL_FreeSurface(bitmap);
+  SDL_DestroySurface(bitmap);
   return err;
 }
 #endif  // NO_SDL
@@ -828,10 +827,10 @@ void TCOD_image_blit_2x(
   TCOD_ASSERT(src_x >= 0 && src_y >= 0 && src_x + src_width <= img_width && src_y + src_height <= img_height);
   TCOD_IFNOT(src_width > 0 && src_height > 0) { return; }
 
-  src_x = MAX(0, src_x);
-  src_y = MAX(0, src_y);
-  src_width = MIN(src_width, img_width - src_x);
-  src_height = MIN(src_height, img_height - src_y);
+  src_x = TCOD_MAX(0, src_x);
+  src_y = TCOD_MAX(0, src_y);
+  src_width = TCOD_MIN(src_width, img_width - src_x);
+  src_height = TCOD_MIN(src_height, img_height - src_y);
 
   int max_x = dest_x + src_width / 2 <= console->w ? src_width : (console->w - dest_x) * 2;
   int max_y = dest_y + src_height / 2 <= console->h ? src_height : (console->h - dest_y) * 2;

@@ -1,0 +1,80 @@
+Metadata-Version: 2.4
+Name: efoli
+Version: 2.0.0
+Summary: Enums and related helper functions that model EDIFACT relevant data for German utilities
+Project-URL: Changelog, https://github.com/Hochfrequenz/efoli/releases
+Project-URL: Homepage, https://github.com/Hochfrequenz/efoli
+Author-email: Hochfrequenz Unternehmensberatung GmbH <info+github@hochfrequenz.de>
+License: MIT
+Keywords: bdew,edifact,enums
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Requires-Dist: pytz
+Provides-Extra: coverage
+Requires-Dist: coverage==7.8.0; extra == 'coverage'
+Provides-Extra: formatting
+Requires-Dist: black==25.1.0; extra == 'formatting'
+Requires-Dist: isort==6.0.1; extra == 'formatting'
+Provides-Extra: linting
+Requires-Dist: pylint==3.3.7; extra == 'linting'
+Provides-Extra: packaging
+Requires-Dist: build==1.2.2.post1; extra == 'packaging'
+Requires-Dist: twine==6.1.0; extra == 'packaging'
+Provides-Extra: spellcheck
+Requires-Dist: codespell==2.4.1; extra == 'spellcheck'
+Provides-Extra: tests
+Requires-Dist: pytest==8.3.5; extra == 'tests'
+Provides-Extra: type-check
+Requires-Dist: mypy==1.15.0; extra == 'type-check'
+Requires-Dist: types-pytz==2025.2.0.20250516; extra == 'type-check'
+Description-Content-Type: text/markdown
+
+# E-Foli
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Python Versions (officially) supported](https://img.shields.io/pypi/pyversions/efoli.svg)
+![Pypi status badge](https://img.shields.io/pypi/v/efoli)
+![Unittests status badge](https://github.com/Hochfrequenz/efoli/workflows/Unittests/badge.svg)
+![Coverage status badge](https://github.com/Hochfrequenz/efoli/workflows/Coverage/badge.svg)
+![Linting status badge](https://github.com/Hochfrequenz/efoli/workflows/Linting/badge.svg)
+![Black status badge](https://github.com/Hochfrequenz/efoli/workflows/Formatting/badge.svg)
+
+`efoli` is a Python package, that contains
+- an Enum `EdifactFormat` that models EDIFACT formats used by German utilities like, e.g.
+  - `UTILMD`
+  - `MSCONS`
+  - `INVOIC`
+  - …
+- an Enum `EdifactFormatVersion` that models validity periods of different message versions, e.g.
+  - `FV2310` is valid from 2023-10-01 onwards
+  - `FV2404` is valid from 2024-04-03 onwards
+  - …
+- helper methods that allow
+  - to derive the `EdifactFormat` from a given _Prüfidentifikator_ (e.g. `55001`➡`UTILMD`)
+  - that derive the `EdifactFormatVersion` from a given date(time) (e.g. `2024-01-01`➡`FV2310`)
+
+It's not much, but we need it at many places.
+This is why we use this package as a central place to define these formats and versions.
+
+## Installation
+```bash
+pip install efoli
+```
+
+## Setup for Local Development
+Follow the instructions from our [template repository](https://github.com/Hochfrequenz/python_template_repository?tab=readme-ov-file#how-to-use-this-repository-on-your-machine).
+tl;dr: `tox`.
+
+## Contribute
+You are very welcome to contribute to this template repository by opening a pull request against the main branch.

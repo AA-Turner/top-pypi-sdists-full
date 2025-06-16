@@ -3,6 +3,19 @@
 // leaflet-measure does not have typescript definitions
 import L from '../leaflet';
 import * as control from './Control';
+// Workaround for map panning bug
+// from https://github.com/ljagis/leaflet-measure/issues/171#issuecomment-1137483548
+L.Control.Measure.include({
+    // set icon on the capture marker
+    _setCaptureMarkerIcon: function () {
+        // disable autopan
+        this._captureMarker.options.autoPanOnFocus = false;
+        // default function
+        this._captureMarker.setIcon(L.divIcon({
+            iconSize: this._map.getSize().multiplyBy(2),
+        }));
+    },
+});
 export class LeafletMeasureControlModel extends control.LeafletControlModel {
     defaults() {
         return {
@@ -30,7 +43,6 @@ export class LeafletMeasureControlView extends control.LeafletControlView {
         this.map_view = this.options.map_view;
     }
     create_obj() {
-        //@ts-ignore
         this.obj = L.control.measure(this.get_options());
         this.default_units = L.extend({}, this.obj.options.units);
     }

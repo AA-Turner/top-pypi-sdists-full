@@ -1,0 +1,71 @@
+[project]
+name = 'pyshtools'
+dynamic = [
+  'version',
+]
+description = 'SHTOOLS - Spherical Harmonic Tools'
+readme = 'README.md'
+license = { text = 'BSD-3-Clause' }
+requires-python = '>=3.9'
+keywords = ['Spherical Harmonics', 'Spectral Estimation', 'Slepian Functions',
+            'Legendre Functions', 'Gravity Field', 'Magnetic Field']
+classifiers = [
+  'Development Status :: 5 - Production/Stable',
+  'Environment :: Console',
+  'Intended Audience :: Science/Research',
+  'Intended Audience :: Developers',
+  'License :: OSI Approved :: BSD License',
+  'Natural Language :: English',
+  'Operating System :: OS Independent',
+  'Programming Language :: Fortran',
+  'Programming Language :: Python',
+  'Programming Language :: Python :: 3',
+  'Topic :: Scientific/Engineering',
+  'Topic :: Scientific/Engineering :: GIS',
+  'Topic :: Scientific/Engineering :: Mathematics',
+  'Topic :: Scientific/Engineering :: Physics',
+]
+authors = [
+  { name = 'The SHTOOLS developers', email = 'mark.wieczorek@ipgp.fr' },
+]
+dependencies = [
+  'numpy>=1.23.5',
+  'scipy>=0.14.0',
+  'matplotlib>=3.3',
+  'astropy>=4.0',
+  'xarray',
+  'requests',
+  'pooch>=1.1',
+  'tqdm',
+]
+
+[project.urls]
+homepage = 'https://shtools.github.io/SHTOOLS/'
+download = 'https://github.com/SHTOOLS/SHTOOLS/zipball/master'
+
+[project.optional-dependencies]
+cartopy = ['cartopy>=0.18.0']
+pygmt = ['pygmt>=0.7']
+palettable = ['palettable>=3.3']
+ducc = ['ducc0>=0.15']
+
+[build-system]
+build-backend = 'mesonpy'
+requires = [
+  'meson-python>=0.14',
+  'numpy>=2.0.0',
+  'jupyter-core',
+  'setuptools>=64',
+  'setuptools_scm>=8',
+]
+
+[tool.meson-python.args]
+setup = ['--default-library=static']
+install = ['--tags=doc,python-runtime,runtime']
+dist = ['--no-tests']
+
+[tool.setuptools_scm]
+version_scheme =  'no-guess-dev'
+local_scheme =  'dirty-tag'
+parentdir_prefix_version = 'SHTOOLS-'
+fallback_version = '0.0.0'

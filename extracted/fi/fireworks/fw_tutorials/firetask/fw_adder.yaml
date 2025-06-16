@@ -1,6 +1,0 @@
-spec:
-  _tasks:
-  - _fw_name: Addition Task
-  input_array:
-  - 1
-  - 2

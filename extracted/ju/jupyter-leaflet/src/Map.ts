@@ -227,23 +227,14 @@ export class LeafletMapView extends LeafletDOMWidgetView {
   }
 
   remove_control_view(child_view: LeafletControlView) {
-    this.obj.removeControl(child_view.obj);
     child_view.remove();
+    this.obj.removeControl(child_view.obj);
   }
 
   async add_control_model(child_model: LeafletControlModel) {
     const view = await this.create_child_view<LeafletControlView>(child_model, {
       map_view: this,
     });
-    // Work around for Geoman creating and adding its own toolbar
-    // TODO: remove the special case
-    if (
-      view instanceof LeafletGeomanDrawControlView &&
-      !child_model.get('hide_controls')
-    ) {
-      this.obj.pm.addControls(view.controlOptions);
-      return view;
-    }
 
     this.obj.addControl(view.obj);
     // Trigger the displayed event of the child view.
@@ -421,6 +412,38 @@ export class LeafletMapView extends LeafletDOMWidgetView {
       const fullscreen = this.model.get('fullscreen');
       if (this.obj.isFullscreen() !== fullscreen) {
         this.obj.toggleFullscreen();
+      }
+    });
+    this.listenTo(this.model, 'change:scroll_wheel_zoom', () => {
+      const scrollWheelZoom = this.model.get('scroll_wheel_zoom');
+      if (scrollWheelZoom) {
+        this.obj.scrollWheelZoom.enable();
+      } else {
+        this.obj.scrollWheelZoom.disable();
+      }
+    });
+    this.listenTo(this.model, 'change:double_click_zoom', () => {
+      const doubleClickZoom = this.model.get('double_click_zoom');
+      if (doubleClickZoom) {
+        this.obj.doubleClickZoom.enable();
+      } else {
+        this.obj.doubleClickZoom.disable();
+      }
+    });
+    this.listenTo(this.model, 'change:touch_zoom', () => {
+      const touchZoom = this.model.get('touch_zoom');
+      if (touchZoom) {
+        this.obj.touchZoom.enable();
+      } else {
+        this.obj.touchZoom.disable();
+      }
+    });
+    this.listenTo(this.model, 'change:box_zoom', () => {
+      const boxZoom = this.model.get('box_zoom');
+      if (boxZoom) {
+        this.obj.boxZoom.enable();
+      } else {
+        this.obj.boxZoom.disable();
       }
     });
   }

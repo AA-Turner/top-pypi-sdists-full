@@ -1,0 +1,81 @@
+Metadata-Version: 2.4
+Name: open-data-contract-standard
+Version: 3.0.4
+Summary: The Pydantic Model of the Open Data Contract Standard
+Project-URL: Homepage, https://github.com/datacontract/open-data-contract-standard-python
+Project-URL: Issues, https://github.com/datacontract/open-data-contract-standard-python/issues
+Author-email: Jochen Christ <jochen.christ@innoq.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@innoq.com>
+License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Requires-Dist: pydantic>=2.8.0
+Requires-Dist: pyyaml>=6.0.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# Open Data Contract Standard (Python)
+
+The pip module `open-data-contract-standard` to read and write YAML files using the [Open Data Contract Standard](https://github.com/bitol-io/open-data-contract-standard). The pip module was extracted from the [Data Contract CLI](https://github.com/datacontract/datacontract-cli), which is its primary user.
+
+The version number of the pip module corresponds to the version of the Open Data Contract Standard it supports.
+
+## Version Mapping
+
+| Open Data Contract Standard Version | Pip Module Version |
+|-------------------------------------|--------------------|
+| 3.0.1                               | >=3.0.1            |
+| 3.0.2                               | >=3.0.4            |
+
+**Note**: We mirror major and minor version from the ODCS to the pip module, but not the patch version!
+
+## Installation
+
+```bash
+pip install open-data-contract-standard
+```
+
+## Usage
+
+```python
+from open_data_contract_standard.model import OpenDataContractStandard
+
+# Load a data contract specification from a file
+data_contract = OpenDataContractStandard.from_file('path/to/your/data_contract.yaml')
+# Print the data contract specification as a YAML string
+print(data_contract.to_yaml())
+```
+
+```python
+from open_data_contract_standard.model import OpenDataContractStandard
+
+# Load a data contract specification from a string
+data_contract_str = """
+version: 1.0.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553b
+status: active
+name: my_table
+dataProduct: my_quantum
+apiVersion: v3.0.1
+"""
+data_contract = OpenDataContractStandard.from_string(data_contract_str)
+# Print the data contract specification as a YAML string
+print(data_contract.to_yaml())
+```
+
+
+## Development
+
+```
+uv sync --all-extras
+```
+
+## Release
+
+- Change version number in `pyproject.toml`
+- Run `./release` in your command line
+- Wait for the releases on [GitHub](https://github.com/datacontract/open-data-contract-standard-python/releases), [PyPi](https://test.pypi.org/project/open-data-contract-standard/) and [PyPi (test)](https://test.pypi.org/project/open-data-contract-standard/)

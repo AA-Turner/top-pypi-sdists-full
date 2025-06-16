@@ -9,6 +9,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any, Literal
 
 import impala.dbapi as impyla
+import impala.hiveserver2 as hs2
 import sqlglot as sg
 import sqlglot.expressions as sge
 from impala.error import Error as ImpylaError
@@ -19,7 +20,7 @@ import ibis.config
 import ibis.expr.schema as sch
 import ibis.expr.types as ir
 from ibis import util
-from ibis.backends import NoExampleLoader
+from ibis.backends import HasCurrentDatabase, NoExampleLoader
 from ibis.backends.impala import ddl, udf
 from ibis.backends.impala.udf import (
     aggregate_function,
@@ -34,7 +35,6 @@ if TYPE_CHECKING:
     from pathlib import Path
     from urllib.parse import ParseResult
 
-    import impala.hiveserver2 as hs2
     import pandas as pd
     import polars as pl
     import pyarrow as pa
@@ -51,40 +51,45 @@ __all__ = (
 )
 
 
-class Backend(SQLBackend, NoExampleLoader):
+class Backend(SQLBackend, HasCurrentDatabase, NoExampleLoader):
     name = "impala"
     compiler = sc.impala.compiler
 
-    def _from_url(self, url: ParseResult, **kwargs: Any) -> Backend:
-        """Connect to a backend using a URL `url`.
+    def _from_url(self, url: ParseResult, **kwarg_overrides: Any) -> Backend:
+        def _get_env(attr: str) -> str | None:
+            return os.environ.get(f"{self.name.upper()}_{attr.upper()}")
 
-        Parameters
-        ----------
-        url
-            URL with which to connect to a backend.
-        kwargs
-            Additional keyword arguments passed to the `connect` method.
+        kwargs = {}
+        if (username := _get_env("username")) is not None:
+            kwargs["user"] = username
+        if url.username:
+            kwargs["user"] = url.username
 
-        Returns
-        -------
-        BaseBackend
-            A backend instance
+        if (password := _get_env("password")) is not None:
+            kwargs["password"] = password
+        if url.password:
+            kwargs["password"] = url.password
 
-        """
-        for name in ("username", "hostname", "port", "password"):
-            if value := (
-                getattr(url, name, None)
-                or os.environ.get(f"{self.name.upper()}_{name.upper()}")
-            ):
-                kwargs[name] = value
+        if (host := _get_env("hostname")) is not None:
+            kwargs["host"] = host
+        if (host := _get_env("host")) is not None:
+            kwargs["host"] = host
+        if url.hostname:
+            kwargs["host"] = url.hostname
+        if host := kwarg_overrides.get("hostname"):
+            kwargs["host"] = host
 
-        with contextlib.suppress(KeyError):
-            kwargs["host"] = kwargs.pop("hostname")
+        if (port := _get_env("port")) is not None:
+            kwargs["port"] = port
+        if url.port:
+            kwargs["port"] = url.port
 
-        (database,) = url.path[1:].split("/", 1)
-        if database:
+        if (database := _get_env("path")) is not None:
+            kwargs["database"] = database
+        if database := url.path[1:].split("/", 1)[0]:
             kwargs["database"] = database
 
+        kwargs.update(kwarg_overrides)
         self._convert_kwargs(kwargs)
         return self.connect(**kwargs)
 
@@ -206,22 +211,6 @@ class Backend(SQLBackend, NoExampleLoader):
     def list_tables(
         self, *, like: str | None = None, database: str | None = None
     ) -> list[str]:
-        """Return the list of table names in the current database.
-
-        Parameters
-        ----------
-        like
-            A pattern in Python's regex format.
-        database
-            The database from which to list tables.
-            If not provided, the current database is used.
-
-        Returns
-        -------
-        list[str]
-            The list of the table names that match the pattern `like`.
-        """
-
         statement = "SHOW TABLES"
         if database is not None:
             statement += f" IN {database}"
@@ -286,34 +275,28 @@ class Backend(SQLBackend, NoExampleLoader):
             [(db,)] = cur.fetchall()
         return db
 
-    def create_database(self, name, path=None, force=False):
-        """Create a new Impala database.
+    def table(
+        self, name, /, *, database: str | tuple[str, str] | None = None
+    ) -> ir.Table:
+        try:
+            return super().table(name, database=database)
+        except hs2.HiveServer2Error as e:
+            if "AnalysisException: Could not resolve path:" in str(e):
+                raise com.TableNotFound(name) from e
 
-        Parameters
-        ----------
-        name
-            Database name
-        path
-            Path where to store the database data; otherwise uses the Impala default
-        force
-            Forcibly create the database
-
-        """
-        statement = ddl.CreateDatabase(name, path=path, can_exist=force)
+    def create_database(
+        self, name: str, /, *, catalog: str | None = None, force: bool = False
+    ) -> None:
+        statement = ddl.CreateDatabase(name, path=catalog, can_exist=force)
         self._safe_exec_sql(statement)
 
-    def drop_database(self, name, force=False):
-        """Drop an Impala database.
-
-        Parameters
-        ----------
-        name
-            Database name
-        force
-            If False and there are any tables in this database, raises an
-            IntegrityError
-
-        """
+    def drop_database(
+        self, name: str, /, *, catalog: str | None = None, force: bool = False
+    ) -> None:
+        if catalog is not None:
+            raise NotImplementedError(
+                "Ibis has not yet implemented `catalog` parameter of drop_database() for Impala"
+            )
         if not force or name in self.list_databases():
             tables = self.list_tables(database=name)
             udfs = self.list_udfs(database=name)

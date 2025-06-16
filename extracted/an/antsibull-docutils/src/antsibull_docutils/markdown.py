@@ -259,7 +259,7 @@ def _add_unsupported_classes(clazz: _Class) -> _Class:
 
 
 def _add_simple(
-    definitions: dict[str, tuple[str, str]]
+    definitions: dict[str, tuple[str, str]],
 ) -> t.Callable[[_Class], _Class]:
     def decorator(clazz: _Class) -> _Class:
         def get_visit(start: str):
@@ -349,11 +349,11 @@ class Translator(nodes.NodeVisitor):  # pylint: disable=too-many-public-methods
     # Node: paragraph
 
     # pylint: disable-next=missing-function-docstring,unused-argument
-    def visit_paragraph(self, node: nodes.section) -> None:
+    def visit_paragraph(self, node: nodes.paragraph) -> None:
         self._context.top.ensure_double_newline()
 
     # pylint: disable-next=missing-function-docstring,unused-argument
-    def depart_paragraph(self, node: nodes.section) -> None:
+    def depart_paragraph(self, node: nodes.paragraph) -> None:
         self._context.top.ensure_double_newline()
 
     # Node: title

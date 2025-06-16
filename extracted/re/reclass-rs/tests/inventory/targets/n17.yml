@@ -1,5 +1,0 @@
-classes:
-  - \${baz}
-
-parameters:
-  target: n13

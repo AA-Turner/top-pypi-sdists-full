@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: twilio-stubs
+Version: 0.2.0
+Summary: Type declarations for the Twilio API
+Home-page: https://github.com/timmartin/twilio-stubs
+Author: Tim Martin
+Author-email: tim@asymptotic.co.uk
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Typing :: Typed
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+
+mypy type declaration stubs for the Twilio Python API.

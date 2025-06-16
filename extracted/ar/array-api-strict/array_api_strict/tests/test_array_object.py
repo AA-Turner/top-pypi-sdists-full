@@ -1,3 +1,4 @@
+import sys
 import operator
 from builtins import all as all_
 
@@ -5,7 +6,7 @@ from numpy.testing import assert_raises, suppress_warnings
 import numpy as np
 import pytest
 
-from .. import ones, arange, reshape, asarray, result_type, all, equal
+from .. import ones, arange, reshape, asarray, result_type, all, equal, stack
 from .._array_object import Array, CPU_DEVICE, Device
 from .._dtypes import (
     _all_dtypes,
@@ -100,34 +101,71 @@ def test_validate_index():
     assert_raises(IndexError, lambda: a[:])
     assert_raises(IndexError, lambda: a[idx])
 
+class DummyIndex:
+    def __init__(self, x):
+        self.x = x
+    def __index__(self):
+        return self.x
 
-def test_indexing_arrays():
+
+@pytest.mark.parametrize("device", [None, "CPU_DEVICE", "device1", "device2"])
+@pytest.mark.parametrize(
+    "integer_index",
+    [
+        0,
+        np.int8(0),
+        np.uint8(0),
+        np.int16(0),
+        np.uint16(0),
+        np.int32(0),
+        np.uint32(0),
+        np.int64(0),
+        np.uint64(0),
+        DummyIndex(0),
+    ],
+)
+def test_indexing_ints(integer_index, device):
+    # Ensure indexing with different integer types works on all Devices.
+    device = None if device is None else Device(device)
+
+    a = arange(5, device=device)
+    assert a[(integer_index,)] == a[integer_index] == a[0]
+
+
+@pytest.mark.parametrize("device", [None, "CPU_DEVICE", "device1", "device2"])
+def test_indexing_arrays(device):
     # indexing with 1D integer arrays and mixes of integers and 1D integer are allowed
+    device = None if device is None else Device(device)
 
     # 1D array
-    a = arange(5)
-    idx = asarray([1, 0, 1, 2, -1])
+    a = arange(5, device=device)
+    idx = asarray([1, 0, 1, 2, -1], device=device)
     a_idx = a[idx]
 
-    a_idx_loop = asarray([a[idx[i]] for i in range(idx.shape[0])])
+    a_idx_loop = stack([a[idx[i]] for i in range(idx.shape[0])])
     assert all(a_idx == a_idx_loop)
+    assert a_idx.shape == idx.shape
+    assert a.device == idx.device == a_idx.device
 
     # setitem with arrays is not allowed
     with assert_raises(IndexError):
         a[idx] = 42
 
     # mixed array and integer indexing
-    a = reshape(arange(3*4), (3, 4))
-    idx = asarray([1, 0, 1, 2, -1])
+    a = reshape(arange(3*4, device=device), (3, 4))
+    idx = asarray([1, 0, 1, 2, -1], device=device)
     a_idx = a[idx, 1]
-
-    a_idx_loop = asarray([a[idx[i], 1] for i in range(idx.shape[0])])
+    a_idx_loop = stack([a[idx[i], 1] for i in range(idx.shape[0])])
     assert all(a_idx == a_idx_loop)
+    assert a_idx.shape == idx.shape
+    assert a.device == idx.device == a_idx.device
 
     # index with two arrays
     a_idx = a[idx, idx]
-    a_idx_loop = asarray([a[idx[i], idx[i]] for i in range(idx.shape[0])])
+    a_idx_loop = stack([a[idx[i], idx[i]] for i in range(idx.shape[0])])
     assert all(a_idx == a_idx_loop)
+    assert a_idx.shape == a_idx.shape
+    assert a.device == idx.device == a_idx.device
 
     # setitem with arrays is not allowed
     with assert_raises(IndexError):
@@ -135,7 +173,24 @@ def test_indexing_arrays():
 
     # smoke test indexing with ndim > 1 arrays
     idx = idx[..., None]
-    a[idx, idx]
+    a_idx = a[idx, idx]
+    assert a.device == idx.device == a_idx.device
+
+
+def test_indexing_arrays_different_devices():
+    # Ensure indexing via array on different device errors
+    device1 = Device("CPU_DEVICE")
+    device2 = Device("device1")
+
+    a = arange(5, device=device1)
+    idx1 = asarray([1, 0, 1, 2, -1], device=device2)
+    idx2 = asarray([1, 0, 1, 2, -1], device=device1)
+
+    with pytest.raises(ValueError, match="Array indexing is only allowed when"):
+        a[idx1]
+
+    with pytest.raises(ValueError, match="Array indexing is only allowed when"):
+        a[idx1, idx2]
 
 
 def test_promoted_scalar_inherits_device():
@@ -201,30 +256,37 @@ def _check_op_array_scalar(dtypes, a, s, func, func_name, BIG_INT=BIG_INT):
             func(s)
         return False
 
+binary_op_dtypes = {
+    "__add__": "numeric",
+    "__and__": "integer or boolean",
+    "__eq__": "all",
+    "__floordiv__": "real numeric",
+    "__ge__": "real numeric",
+    "__gt__": "real numeric",
+    "__le__": "real numeric",
+    "__lshift__": "integer",
+    "__lt__": "real numeric",
+    "__mod__": "real numeric",
+    "__mul__": "numeric",
+    "__ne__": "all",
+    "__or__": "integer or boolean",
+    "__pow__": "numeric",
+    "__rshift__": "integer",
+    "__sub__": "numeric",
+    "__truediv__": "floating-point",
+    "__xor__": "integer or boolean",
+}
+unary_op_dtypes = {
+    "__abs__": "numeric",
+    "__invert__": "integer or boolean",
+    "__neg__": "numeric",
+    "__pos__": "numeric",
+}
 
 def test_operators():
     # For every operator, we test that it works for the required type
     # combinations and raises TypeError otherwise
-    binary_op_dtypes = {
-        "__add__": "numeric",
-        "__and__": "integer or boolean",
-        "__eq__": "all",
-        "__floordiv__": "real numeric",
-        "__ge__": "real numeric",
-        "__gt__": "real numeric",
-        "__le__": "real numeric",
-        "__lshift__": "integer",
-        "__lt__": "real numeric",
-        "__mod__": "real numeric",
-        "__mul__": "numeric",
-        "__ne__": "all",
-        "__or__": "integer or boolean",
-        "__pow__": "numeric",
-        "__rshift__": "integer",
-        "__sub__": "numeric",
-        "__truediv__": "floating-point",
-        "__xor__": "integer or boolean",
-    }
+
     # Recompute each time because of in-place ops
     def _array_vals():
         for d in _integer_dtypes:
@@ -283,12 +345,6 @@ def test_operators():
                             else:
                                 assert_raises(TypeError, lambda: getattr(x, _op)(y))
 
-    unary_op_dtypes = {
-        "__abs__": "numeric",
-        "__invert__": "integer or boolean",
-        "__neg__": "numeric",
-        "__pos__": "numeric",
-    }
     for op, dtypes in unary_op_dtypes.items():
         for a in _array_vals():
             if (
@@ -354,6 +410,55 @@ def test_operators():
                     assert_raises(ValueError, lambda: x.__imatmul__(y))
                 else:
                     x.__imatmul__(y)
+
+
+@pytest.mark.parametrize("op,dtypes", binary_op_dtypes.items())
+def test_binary_operators_numpy_scalars(op, dtypes):
+    """
+    Test that NumPy scalars (np.generic) are explicitly disallowed.
+
+    This must notably include np.float64 and np.complex128, which are
+    subclasses of float and complex respectively, so they need
+    special treatment in order to be rejected.
+    """
+    match = "Expected Array or Python scalar"
+
+    if dtypes not in ("numeric", "integer", "real numeric", "floating-point"):
+        a = asarray(True)
+        func = getattr(a, op)
+        with pytest.raises(TypeError, match=match):
+            func(np.bool_(True))
+
+    if dtypes != "floating-point":
+        a = asarray(1)
+        func = getattr(a, op)
+        with pytest.raises(TypeError, match=match):
+            func(np.int64(1))
+
+    if dtypes not in ("integer", "integer or boolean"):
+        a = asarray(1.,)
+        func = getattr(a, op)
+        with pytest.raises(TypeError, match=match):
+            func(np.float32(1.))
+        with pytest.raises(TypeError, match=match):
+            func(np.float64(1.))
+
+    if dtypes not in ("integer", "integer or boolean", "real numeric"):
+        a = asarray(1.,)
+        func = getattr(a, op)
+        with pytest.raises(TypeError, match=match):
+            func(np.complex64(1.))
+        with pytest.raises(TypeError, match=match):
+            func(np.complex128(1.))
+
+
+@pytest.mark.parametrize("op,dtypes", binary_op_dtypes.items())
+def test_binary_operators_device_mismatch(op, dtypes):
+    dtype = float64 if dtypes == "floating-point" else int64
+    a = asarray(1, dtype=dtype, device=CPU_DEVICE)
+    b = asarray(1, dtype=dtype, device=Device("device1"))
+    with pytest.raises(ValueError, match="different devices"):
+        getattr(a, op)(b)
 
 
 def test_python_scalar_construtors():
@@ -422,35 +527,37 @@ def test_array_properties():
     assert b.mT.shape == (3, 2)
 
 
+@pytest.mark.xfail(sys.version_info.major*100 + sys.version_info.minor < 312,
+                   reason="array conversion relies on buffer protocol, and "
+                          "requires python >= 3.12"
+)
 def test_array_conversion():
     # Check that arrays on the CPU device can be converted to NumPy
     # but arrays on other devices can't. Note this is testing the logic in
     # __array__, which is only used in asarray when converting lists of
     # arrays.
     a = ones((2, 3))
-    asarray([a])
+    np.asarray(a)
 
     for device in ("device1", "device2"):
         a = ones((2, 3), device=array_api_strict.Device(device))
-        with pytest.raises(RuntimeError, match="Can not convert array"):
-            asarray([a])
+        with pytest.raises((RuntimeError, ValueError)):
+            np.asarray(a)
 
-def test__array__():
-    # __array__ should work for now
+    # __buffer__ should work for now for conversion to numpy
     a = ones((2, 3))
-    np.array(a)
+    na = np.array(a)
+    assert na.shape == (2, 3)
+    assert na.dtype == np.float64
 
-    # Test the _allow_array private global flag for disabling it in the
-    # future.
-    from .. import _array_object
-    original_value = _array_object._allow_array
-    try:
-        _array_object._allow_array = False
-        a = ones((2, 3))
-        with pytest.raises(ValueError, match="Conversion from an array_api_strict array to a NumPy ndarray is not supported"):
-            np.array(a)
-    finally:
-        _array_object._allow_array = original_value
+@pytest.mark.skipif(not sys.version_info.major*100 + sys.version_info.minor < 312,
+                    reason="conversion to numpy errors out unless python >= 3.12"
+)
+def test_array_conversion_2():
+    a = ones((2, 3))
+    with pytest.raises(TypeError):
+        np.array(a)
+
 
 def test_allow_newaxis():
     a = ones(5)
@@ -533,7 +640,7 @@ def test_array_namespace():
     pytest.raises(ValueError, lambda: a.__array_namespace__(api_version="2026.12"))
 
 def test_iter():
-    pytest.raises(TypeError, lambda: iter(asarray(3)))
+    pytest.raises(TypeError, lambda: next(iter(asarray(3))))
     assert list(ones(3)) == [asarray(1.), asarray(1.), asarray(1.)]
     assert all_(isinstance(a, Array) for a in iter(ones(3)))
     assert all_(a.shape == () for a in iter(ones(3)))

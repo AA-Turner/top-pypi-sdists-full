@@ -1,22 +1,12 @@
 import objc
 from PyObjCTest.instanceVariables import ClassWithVariables
 from PyObjCTools.TestSupport import TestCase
+from .test_metadata import NoObjCClass
 
 
 NSObject = objc.lookUpClass("NSObject")
 NSAutoreleasePool = objc.lookUpClass("NSAutoreleasePool")
 NSArray = objc.lookUpClass("NSArray")
-
-
-# XXX: This type and instance should be in a  helper module
-class NilHelper(NSObject):
-    def init(self):
-        self.release()
-        return None
-
-
-nilObject = NilHelper.alloc()
-nilObject.init()
 
 
 class Base:
@@ -75,11 +65,6 @@ class TestInstanceVariables(TestCase):
         o = NSArray.alloc()
         o.init()
 
-        with self.assertRaisesRegex(
-            TypeError, "Cannot access Objective-C instance-variables of 'nil'"
-        ):
-            iv.__get__(o)
-
         with self.assertRaisesRegex(ValueError, "Invalid type encoding"):
             objc.ivar("iv", b"X")
 
@@ -111,6 +96,7 @@ class TestInstanceVariables(TestCase):
         self.assertFalse(ivar_a == ivar_nameless)
         self.assertFalse(ivar_a == 42)
 
+        self.assertFalse(ivar_a != ivar_a)
         self.assertFalse(ivar_a != ivar_a2)
         self.assertTrue(ivar_a != ivar_a3)
         self.assertTrue(ivar_a != ivar_b)
@@ -203,6 +189,14 @@ class TestInstanceVariables(TestCase):
 
         self.object.idVar = "hello"
         self.assertEqual(self.object.idVar, "hello")
+
+        with self.assertRaisesRegex(TypeError, "Cannot proxy"):
+            self.object.idVar = NoObjCClass()
+
+        with self.assertRaisesRegex(
+            TypeError, "Cannot set Objective-C instance-variables through class"
+        ):
+            type(self.object).idVar.__set__(type(self.object), 42)
 
     def testInt(self):
         # Check that we can set and query attributes of type 'int'
@@ -332,11 +326,6 @@ class TestAllInstanceVariables(TestCase):
         with self.assertRaisesRegex(TypeError, "argument 2 must be str, not int"):
             getter(obj, 42)
 
-        with self.assertRaisesRegex(
-            ValueError, "Getting instance variable of a nil object"
-        ):
-            getter(nilObject, "isa")
-
     def testWriting(self):
         obj = ClassWithVariables.alloc().init()
 
@@ -419,11 +408,6 @@ class TestAllInstanceVariables(TestCase):
             r"(function missing required argument 'name' \(pos 2\))|(Required argument 'name' \(pos 2\) not found)",
         ):
             setter(obj)
-
-        with self.assertRaisesRegex(
-            ValueError, "Setting instance variable of a nil object"
-        ):
-            setter(nilObject, "isa", NSObject)
 
     def testClassMod(self):
         # It's scary as hell, but updating the class of an object does "work"

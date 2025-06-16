@@ -13,89 +13,8 @@ import System.Reflection
 import System.Reflection.Emit
 import System.Runtime.InteropServices
 
-System_Reflection_Emit_Label = typing.Any
 System_Reflection_Emit_OpCode = typing.Any
-
-
-class AssemblyBuilderAccess(Enum):
-    """This class has no documentation."""
-
-    RUN = 1
-
-    RUN_AND_COLLECT = ...
-
-
-class ParameterBuilder(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def attributes(self) -> int:
-        ...
-
-    @property
-    def is_in(self) -> bool:
-        ...
-
-    @property
-    def is_optional(self) -> bool:
-        ...
-
-    @property
-    def is_out(self) -> bool:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def position(self) -> int:
-        ...
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def set_constant(self, default_value: typing.Any) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
-        ...
-
-    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
-        """This method is protected."""
-        ...
-
-
-class Label(System.IEquatable[System_Reflection_Emit_Label]):
-    """Represents a label in the instruction stream. Used in conjunction with the ILGenerator class."""
-
-    @property
-    def id(self) -> int:
-        """Gets the label unique id assigned by the ILGenerator."""
-        ...
-
-    def __eq__(self, b: System.Reflection.Emit.Label) -> bool:
-        ...
-
-    def __ne__(self, b: System.Reflection.Emit.Label) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: System.Reflection.Emit.Label) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
+System_Reflection_Emit_Label = typing.Any
 
 
 class OperandType(Enum):
@@ -302,6 +221,120 @@ class OpCode(System.IEquatable[System_Reflection_Emit_OpCode]):
         ...
 
 
+class GenericTypeParameterBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    def set_base_type_constraint(self, base_type_constraint: typing.Type) -> None:
+        ...
+
+    def set_base_type_constraint_core(self, base_type_constraint: typing.Type) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
+        ...
+
+    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
+        """This method is protected."""
+        ...
+
+    def set_generic_parameter_attributes(self, generic_parameter_attributes: System.Reflection.GenericParameterAttributes) -> None:
+        ...
+
+    def set_generic_parameter_attributes_core(self, generic_parameter_attributes: System.Reflection.GenericParameterAttributes) -> None:
+        """This method is protected."""
+        ...
+
+    def set_interface_constraints(self, *interface_constraints: typing.Union[typing.Type, typing.Iterable[typing.Type]]) -> None:
+        ...
+
+    def set_interface_constraints_core(self, *interface_constraints: typing.Union[typing.Type, typing.Iterable[typing.Type]]) -> None:
+        """This method is protected."""
+        ...
+
+
+class ParameterBuilder(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def attributes(self) -> int:
+        ...
+
+    @property
+    def is_in(self) -> bool:
+        ...
+
+    @property
+    def is_optional(self) -> bool:
+        ...
+
+    @property
+    def is_out(self) -> bool:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def position(self) -> int:
+        ...
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    def set_constant(self, default_value: typing.Any) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
+        ...
+
+    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
+        """This method is protected."""
+        ...
+
+
+class Label(System.IEquatable[System_Reflection_Emit_Label]):
+    """Represents a label in the instruction stream. Used in conjunction with the ILGenerator class."""
+
+    @property
+    def id(self) -> int:
+        """Gets the label unique id assigned by the ILGenerator."""
+        ...
+
+    def __eq__(self, b: System.Reflection.Emit.Label) -> bool:
+        ...
+
+    def __ne__(self, b: System.Reflection.Emit.Label) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: System.Reflection.Emit.Label) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
 class LocalBuilder(System.Reflection.LocalVariableInfo, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -498,47 +531,6 @@ class ILGenerator(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class GenericTypeParameterBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def set_base_type_constraint(self, base_type_constraint: typing.Type) -> None:
-        ...
-
-    def set_base_type_constraint_core(self, base_type_constraint: typing.Type) -> None:
-        """This method is protected."""
-        ...
-
-    @overload
-    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
-        ...
-
-    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
-        """This method is protected."""
-        ...
-
-    def set_generic_parameter_attributes(self, generic_parameter_attributes: System.Reflection.GenericParameterAttributes) -> None:
-        ...
-
-    def set_generic_parameter_attributes_core(self, generic_parameter_attributes: System.Reflection.GenericParameterAttributes) -> None:
-        """This method is protected."""
-        ...
-
-    def set_interface_constraints(self, *interface_constraints: typing.Union[typing.Type, typing.Iterable[typing.Type]]) -> None:
-        ...
-
-    def set_interface_constraints_core(self, *interface_constraints: typing.Union[typing.Type, typing.Iterable[typing.Type]]) -> None:
-        """This method is protected."""
-        ...
-
-
 class MethodBuilder(System.Reflection.MethodInfo, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -623,7 +615,7 @@ class MethodBuilder(System.Reflection.MethodInfo, metaclass=abc.ABCMeta):
         ...
 
 
-class PropertyBuilder(System.Reflection.PropertyInfo, metaclass=abc.ABCMeta):
+class EventBuilder(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     def __init__(self) -> None:
@@ -637,10 +629,10 @@ class PropertyBuilder(System.Reflection.PropertyInfo, metaclass=abc.ABCMeta):
         """This method is protected."""
         ...
 
-    def set_constant(self, default_value: typing.Any) -> None:
+    def set_add_on_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
         ...
 
-    def set_constant_core(self, default_value: typing.Any) -> None:
+    def set_add_on_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
         """This method is protected."""
         ...
 
@@ -656,103 +648,17 @@ class PropertyBuilder(System.Reflection.PropertyInfo, metaclass=abc.ABCMeta):
         """This method is protected."""
         ...
 
-    def set_get_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    def set_raise_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
         ...
 
-    def set_get_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    def set_raise_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
         """This method is protected."""
         ...
 
-    def set_set_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    def set_remove_on_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
         ...
 
-    def set_set_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
-        """This method is protected."""
-        ...
-
-
-class PackingSize(Enum):
-    """This class has no documentation."""
-
-    UNSPECIFIED = 0
-
-    SIZE_1 = 1
-
-    SIZE_2 = 2
-
-    SIZE_4 = 4
-
-    SIZE_8 = 8
-
-    SIZE_16 = 16
-
-    SIZE_32 = 32
-
-    SIZE_64 = 64
-
-    SIZE_128 = 128
-
-
-class ConstructorBuilder(System.Reflection.ConstructorInfo, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def init_locals(self) -> bool:
-        ...
-
-    @init_locals.setter
-    def init_locals(self, value: bool) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def init_locals_core(self) -> bool:
-        """This property is protected."""
-        ...
-
-    @init_locals_core.setter
-    def init_locals_core(self, value: bool) -> None:
-        ...
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def define_parameter(self, i_sequence: int, attributes: System.Reflection.ParameterAttributes, str_param_name: str) -> System.Reflection.Emit.ParameterBuilder:
-        ...
-
-    def define_parameter_core(self, i_sequence: int, attributes: System.Reflection.ParameterAttributes, str_param_name: str) -> System.Reflection.Emit.ParameterBuilder:
-        """This method is protected."""
-        ...
-
-    @overload
-    def get_il_generator(self) -> System.Reflection.Emit.ILGenerator:
-        ...
-
-    @overload
-    def get_il_generator(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
-        ...
-
-    def get_il_generator_core(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
-        """This method is protected."""
-        ...
-
-    @overload
-    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
-        ...
-
-    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
-        """This method is protected."""
-        ...
-
-    def set_implementation_flags(self, attributes: System.Reflection.MethodImplAttributes) -> None:
-        ...
-
-    def set_implementation_flags_core(self, attributes: System.Reflection.MethodImplAttributes) -> None:
+    def set_remove_on_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
         """This method is protected."""
         ...
 
@@ -852,24 +758,69 @@ class EnumBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
         ...
 
 
-class EventBuilder(System.Object, metaclass=abc.ABCMeta):
+class PackingSize(Enum):
     """This class has no documentation."""
+
+    UNSPECIFIED = 0
+
+    SIZE_1 = 1
+
+    SIZE_2 = 2
+
+    SIZE_4 = 4
+
+    SIZE_8 = 8
+
+    SIZE_16 = 16
+
+    SIZE_32 = 32
+
+    SIZE_64 = 64
+
+    SIZE_128 = 128
+
+
+class ConstructorBuilder(System.Reflection.ConstructorInfo, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def init_locals(self) -> bool:
+        ...
+
+    @init_locals.setter
+    def init_locals(self, value: bool) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def init_locals_core(self) -> bool:
+        """This property is protected."""
+        ...
+
+    @init_locals_core.setter
+    def init_locals_core(self, value: bool) -> None:
+        ...
 
     def __init__(self) -> None:
         """This method is protected."""
         ...
 
-    def add_other_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    def define_parameter(self, i_sequence: int, attributes: System.Reflection.ParameterAttributes, str_param_name: str) -> System.Reflection.Emit.ParameterBuilder:
         ...
 
-    def add_other_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    def define_parameter_core(self, i_sequence: int, attributes: System.Reflection.ParameterAttributes, str_param_name: str) -> System.Reflection.Emit.ParameterBuilder:
         """This method is protected."""
         ...
 
-    def set_add_on_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    @overload
+    def get_il_generator(self) -> System.Reflection.Emit.ILGenerator:
         ...
 
-    def set_add_on_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    @overload
+    def get_il_generator(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
+        ...
+
+    def get_il_generator_core(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
         """This method is protected."""
         ...
 
@@ -885,17 +836,58 @@ class EventBuilder(System.Object, metaclass=abc.ABCMeta):
         """This method is protected."""
         ...
 
-    def set_raise_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    def set_implementation_flags(self, attributes: System.Reflection.MethodImplAttributes) -> None:
         ...
 
-    def set_raise_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    def set_implementation_flags_core(self, attributes: System.Reflection.MethodImplAttributes) -> None:
         """This method is protected."""
         ...
 
-    def set_remove_on_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+
+class PropertyBuilder(System.Reflection.PropertyInfo, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        """This method is protected."""
         ...
 
-    def set_remove_on_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+    def add_other_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        ...
+
+    def add_other_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        """This method is protected."""
+        ...
+
+    def set_constant(self, default_value: typing.Any) -> None:
+        ...
+
+    def set_constant_core(self, default_value: typing.Any) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
+        ...
+
+    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
+        """This method is protected."""
+        ...
+
+    def set_get_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        ...
+
+    def set_get_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        """This method is protected."""
+        ...
+
+    def set_set_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        ...
+
+    def set_set_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
         """This method is protected."""
         ...
 
@@ -1338,14 +1330,12 @@ class ModuleBuilder(System.Reflection.Module, metaclass=abc.ABCMeta):
         ...
 
 
-class PEFileKinds(Enum):
+class AssemblyBuilderAccess(Enum):
     """This class has no documentation."""
 
-    DLL = ...
+    RUN = 1
 
-    CONSOLE_APPLICATION = ...
-
-    WINDOW_APPLICATION = ...
+    RUN_AND_COLLECT = ...
 
 
 class AssemblyBuilder(System.Reflection.Assembly, metaclass=abc.ABCMeta):
@@ -1430,6 +1420,16 @@ class AssemblyBuilder(System.Reflection.Assembly, metaclass=abc.ABCMeta):
     def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
         """This method is protected."""
         ...
+
+
+class PEFileKinds(Enum):
+    """This class has no documentation."""
+
+    DLL = ...
+
+    CONSOLE_APPLICATION = ...
+
+    WINDOW_APPLICATION = ...
 
 
 class OpCodes(System.Object):

@@ -9,7 +9,7 @@ import sys
 import warnings
 
 import objc
-from PyObjCTools.TestSupport import TestCase
+from PyObjCTools.TestSupport import TestCase, pyobjc_options
 
 from .testbndl import (
     CHAR_MAX,
@@ -428,6 +428,55 @@ class TestCArray(TestCase):
     #       "{_Foo=fi}" (fail with array.array) + version with [{foo=if}]
     #       - other simple types
 
+    def test_no_array(self):
+        with pyobjc_options(_ArrayType=None):
+            arr = array.array("h", [1, 2, 3, 4, 5])
+            w = carrayMaker(objc._C_SHT, arr, None)
+            self.assertEqual(w, (1, 2, 3, 4, 5))
+
+        with pyobjc_options(_ArrayType=int):
+            with self.assertRaisesRegex(ValueError, "type mismatch"):
+                w = carrayMaker(objc._C_SHT, 42, None)
+
+        with self.assertRaisesRegex(
+            AttributeError, "Cannot delete option '_ArrayType'"
+        ):
+            del objc.options._ArrayType
+
+    def test_array_typecodes(self):
+        # key the needle in sync with objc_util.m:code_compatible()
+        code_compatible_codes = "bBuhHiIlLqQfd"
+        if sys.version_info[:2] >= (3, 13):
+            code_compatible_codes += "w"
+        self.assertEqual(set(code_compatible_codes), set(array.typecodes))
+
+    def test_byte_array(self):
+        o = carrayMaker(objc._C_CHR, b"hello", 5)
+        self.assertEqual(o, b"hello")
+
+        with self.assertRaisesRegex(TypeError, "Expecting byte-buffer, got str"):
+            carrayMaker(objc._C_CHR, "hello", 5)
+
+        o = carrayMaker(objc._C_CHR, b"hello", 5, True)
+        self.assertEqual(o, b"hello")
+
+        a = array.array("B", [1, 2, 3, 4])
+        o = carrayMaker(objc._C_CHR, a, 4, True)
+        self.assertEqual(o, b"\x01\x02\x03\x04")
+
+        o = carrayMaker(objc._C_CHAR_AS_TEXT, a, 4, True)
+        self.assertEqual(o, b"\x01\x02\x03\x04")
+        o = carrayMaker(objc._C_CHAR_AS_INT, a, 4, True)
+        self.assertEqual(o, (1, 2, 3, 4))
+
+        with self.assertRaisesRegex(
+            ValueError, "Need array of small integers, got byte string"
+        ):
+            carrayMaker(objc._C_CHAR_AS_INT, b"hello", 5, True)
+
+        with self.assertRaisesRegex(TypeError, "converting to a C array"):
+            carrayMaker(objc._C_CHAR_AS_INT, object(), 5, True)
+
     def testStringArrays(self):
         with warnings.catch_warnings():
             # XXX: To be removed in Python 3.16
@@ -437,9 +486,10 @@ class TestCArray(TestCase):
         res = carrayMaker(objc._C_INT, a, None)
         self.assertEqual(res, tuple(map(ord, "hello")))
 
-        a = array.array("w", "world")
-        res = carrayMaker(objc._C_INT, a, None)
-        self.assertEqual(res, tuple(map(ord, "world")))
+        if sys.version_info[:2] >= (3, 13):
+            a = array.array("w", "world")
+            res = carrayMaker(objc._C_INT, a, None)
+            self.assertEqual(res, tuple(map(ord, "world")))
 
     def testShortTuple(self):
         arr = (1, 2, 3, 4, 5)
@@ -577,6 +627,9 @@ class TestCArray(TestCase):
         ):
             carrayMaker(objc._C_FLT, arr2, None)
 
+        with self.assertRaisesRegex(objc.error, "PyObjCRT_SizeOfType: Unhandled type"):
+            carrayMaker(b"X", [1, 2, 3, 4], 4)
+
     def testPointTuple(self):
         arr = ((1.0, 1.5), (2.0, 2.5), (3.0, 3.5), (4.0, 4.5), (5.0, 5.5))
         arr2 = (1.5, 2.5, 3.5, 4.5, 5.5)
@@ -662,6 +715,35 @@ class TestCArray(TestCase):
             "type mismatch between array.array of i and and C array of {Point=il}",
         ):
             carrayMaker(b"{Point=il}", arr2, None)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"type mismatch between array.array of i and and C array of \[2{Point=il}\]",
+        ):
+            carrayMaker(b"[2{Point=il}]", arr2, None)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"type mismatch between array.array of i and and C array of {X=\[2{Point=il}\]}",
+        ):
+            carrayMaker(b"{X=[2{Point=il}]}", arr2, None)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"type mismatch between array.array of i and and C array of \[2<2i>\]",
+        ):
+            carrayMaker(b"[2<2i>]", arr2, None)
+
+        with self.assertRaisesRegex(
+            ValueError, r"type mismatch between array.array of i and and C array of @"
+        ):
+            carrayMaker(b"@", arr2, None)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"type mismatch between array.array of i and and C array of {X=\[2<2i>\]}",
+        ):
+            carrayMaker(b"{X=[2<2i>]}", arr2, None)
 
         with self.assertRaisesRegex(
             ValueError,
@@ -800,6 +882,24 @@ class TestCArray(TestCase):
             "type mismatch between array.array of f and and C array of {M=fi{S=ff}}",
         ):
             carrayMaker(b"{M=fi{S=ff}}", arr, None)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"type mismatch between array.array of f and and C array of \[3\[3\#\]\]",
+        ):
+            carrayMaker(b"[3[3#]]", arr, None)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"type mismatch between array.array of f and and C array of \[3<3f>\]",
+        ):
+            carrayMaker(b"[3<3f>]", arr, None)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "type mismatch between array.array of f and and C array of {M=fi{S=f#}}",
+        ):
+            carrayMaker(b"{M=fi{S=f#}}", arr, None)
 
 
 class PyOCTestTypeStr(TestCase):

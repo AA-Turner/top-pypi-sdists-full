@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sqlfluff"
-version = "3.4.0"
+version = "3.4.1"
 description = "The SQL Linter for Humans"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.9"
@@ -70,7 +70,9 @@ dependencies = [
     "platformdirs",
     # To get the encoding of files.
     "chardet",
-    "click",
+    # Click can include breaking changes in minor releases. Make sure to test
+    # well before updating upper bound.
+    "click<=8.3.0",
     "colorama>=0.3",
     # Used for diffcover plugin
     "diff-cover>=2.5.0",
@@ -129,7 +131,7 @@ sqlfluff_rules_tsql = "sqlfluff.rules.tsql"
 
 [tool.sqlfluff_docs]
 # NOTE: Stable version is used by docs/conf.py
-stable_version = "3.4.0"
+stable_version = "3.4.1"
 
 
 [tool.setuptools.package-data]

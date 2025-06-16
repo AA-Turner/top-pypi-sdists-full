@@ -1,0 +1,30 @@
+# -*- coding: utf-8 -*-
+from setuptools import setup
+
+packages = \
+['django_admin_display']
+
+package_data = \
+{'': ['*']}
+
+install_requires = \
+['django>=1.11']
+
+setup_kwargs = {
+    'name': 'django-admin-display',
+    'version': '1.3.0',
+    'description': 'Simplifies the use of function attributes for the django admin and makes mypy happy',
+    'long_description': '# django-admin-display\n\n![PyPI](https://img.shields.io/pypi/v/django-admin-display?style=flat-square)\n![GitHub Workflow Status (master)](https://img.shields.io/github/workflow/status/escaped/django-admin-display/Test%20&%20Lint/master?style=flat-square)\n![Coveralls github branch](https://img.shields.io/coveralls/github/escaped/django-admin-display/master?style=flat-square)\n![PyPI - Python Version](https://img.shields.io/pypi/pyversions/django-admin-display?style=flat-square)\n![PyPI - License](https://img.shields.io/pypi/l/django-admin-display?style=flat-square)\n\n\nSimplifies the use of function attributes (eg. `short_description`) for the django admin and makes mypy happy :)\n\n## Requirements\n\n* Python 3.6.1 or newer\n* Django >= 1.11\n\n## Usage\n\nIf you want to change the behaviour of how Django displays a read-only value in the admin interface,\nyou can add some [special attributes](>https://docs.djangoproject.com/en/2.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.list_display) to the corresponding method.\nSupported values are\n\n`short_description`  \n    Customize the column’s title of the callable.\n    \n`empty_value_display`  \n    Show this value instead, if the value of a field is `None`, an empty string, or an iterable without elements.\n    \n`admin_order_field`  \n    Indicate that the value is represented by a certain database field.\n    \n`boolean`  \n    Display a pretty “on” or “off” icon if the method returns a boolean.\n    \n`allow_tags` (deprecated since Django 1.9)  \n    Disable auto-escaping.\n\nThe following example shows, how you normally apply these attributes to an `AdminModel` or a `Model` method.\n\n```python\nclass Company(models.Model):\n    ...\n\n    def owner(self) -> bool:\n        return self.owner.last_name\n    owner.short_description = "Company owner"\n    owner.admin_order_field = \'owner__last_name\'\n```\n\nThis module replaces the way of defining these attributes by providing a handy decorator.\n\n```python\nfrom django_admin_display import admin_display\n\n\nclass Company(models.Model):\n    ...\n\n    @admin_display(\n        short_description="Company owner",\n        admin_order_field=\'owner__last_name\',\n    )\n    def owner(self) -> bool:\n        return self.owner.last_name\n```\n\n## Why?\n\nThere are mainly two reasons why this module exists.\n\n### Usage with `@property`\n\nIt is quite common that a calculated model property is displayed in the admin interface:\n\n```python\nclass Company(models.Model):\n    ...\n\n    @property\n    def created_on(self) -> datetime.date:\n        return self.created_at.date()\n```\n\nIn order to add special attributes, you have to create a protected method,\nattach the attributes and wrap that method using `property()`:\n\n```python\nclass Company(models.Model):\n    ...\n\n    def _created_on(self) -> datetime.date:\n        return self.created_at.date()\n    _created_on.short_description = "Created on"\n    created_on = property(_created_on)\n```\n\nThis is quite cumbersome, hard to read and most people don\'t know that this is even possible.\nTo overcome these downsides you can achieve the same result using the `@admin_display` decorator:\n\n```python\nfrom django_admin_display import admin_display\n\n\nclass Company(models.Model):\n    ...\n\n    @property\n    @admin_display(\n        short_description = "Created on",\n    )\n    def created_on(self) -> datetime.date:\n        return self.created_at.date()\n```\n\n### mypy\n\nIf you are using [mypy](http://mypy-lang.org/), you have probably stumbled over an error similar to this one\n\n> "Callable[[Any, Any], Any]" has no attribute "short_description"\n\nA common solution is to ignore the type checking by adding `# type: ignore` to the end of the line:\n\n```python\nclass CompanyAdmin(admin.ModelAdmin):\n    ...\n\n    def created_on(self, company: models.Company) -> datetime.date:\n        return company.created_at.date()\n    created_on.short_description = "Created on"  # type: ignore\n```\n\nThe issue is already known and heavily discussed on [github](https://github.com/python/mypy/issues/2087).\n\nThis decorator solves the issue by internally using `# type: ignore` and providing a well-defined signature for setting the attributes.\nIt is not an optimal solution but works well until the issue has been resolved.\n\n## Development\n\nThis project uses [poetry](https://poetry.eustace.io/) for packaging and\nmanaging all dependencies and [pre-commit](https://pre-commit.com/) to run\n[flake8](http://flake8.pycqa.org/), [isort](https://pycqa.github.io/isort/),\n[mypy](http://mypy-lang.org/) and [black](https://github.com/python/black).\n\nClone this repository and run\n\n```bash\npoetry install\npoetry run pre-commit install\n```\n\nto create a virtual enviroment containing all dependencies.\nAfterwards, you can run the test suite using\n\n```bash\npoetry run pytest\n```\n\nThis repository follows the [Conventional Commits](https://www.conventionalcommits.org/)\nstyle.\n\n### Cookiecutter template\n\nThis project was created using [cruft](https://github.com/cruft/cruft) and the\n[cookiecutter-pyproject](https://github.com/escaped/cookiecutter-pypackage) template.\nIn order to update this repository to the latest template version run\n\n```sh\ncruft update\n```\n\nin the root of this repository.\n',
+    'author': 'Alexander Frenzel',
+    'author_email': 'alex@relatedworks.com',
+    'maintainer': None,
+    'maintainer_email': None,
+    'url': 'https://github.com/escaped/django-admin-display',
+    'packages': packages,
+    'package_data': package_data,
+    'install_requires': install_requires,
+    'python_requires': '>=3.6.1,<4.0',
+}
+
+
+setup(**setup_kwargs)

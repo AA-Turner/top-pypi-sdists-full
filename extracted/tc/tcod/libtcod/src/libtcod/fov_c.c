@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,11 +39,11 @@ struct TCOD_Map* TCOD_map_new(int width, int height) {
   if (width <= 0 || height <= 0) {
     return NULL;
   }
-  struct TCOD_Map* map = calloc(sizeof(*map), 1);
+  struct TCOD_Map* map = calloc(1, sizeof(*map));
   map->width = width;
   map->height = height;
   map->nbcells = width * height;
-  map->cells = calloc(sizeof(*map->cells), map->nbcells);
+  map->cells = calloc(map->nbcells, sizeof(*map->cells));
   return map;
 }
 TCOD_Error TCOD_map_copy(const struct TCOD_Map* __restrict source, struct TCOD_Map* __restrict dest) {
@@ -139,10 +139,10 @@ TCOD_Error TCOD_map_postprocess(TCOD_Map* __restrict map, int pov_x, int pov_y, 
   int x_max = map->width;
   int y_max = map->height;
   if (radius > 0) {
-    x_min = MAX(x_min, pov_x - radius);
-    y_min = MAX(y_min, pov_y - radius);
-    x_max = MIN(x_max, pov_x + radius + 1);
-    y_max = MIN(y_max, pov_y + radius + 1);
+    x_min = TCOD_MAX(x_min, pov_x - radius);
+    y_min = TCOD_MAX(y_min, pov_y - radius);
+    x_max = TCOD_MIN(x_max, pov_x + radius + 1);
+    y_max = TCOD_MIN(y_max, pov_y + radius + 1);
   }
   TCOD_map_postprocess_quadrant(map, x_min, y_min, pov_x, pov_y, -1, -1);
   TCOD_map_postprocess_quadrant(map, pov_x, y_min, x_max - 1, pov_y, 1, -1);

@@ -1,0 +1,43 @@
+Metadata-Version: 2.3
+Name: bionty
+Version: 1.5.0
+Summary: Basic biological entities, coupled to public ontologies [`source <https://github.com/laminlabs/bionty/blob/main/bionty/models.py>`__].
+Author-email: Lamin Labs <open-source@lamin.ai>
+Requires-Python: >=3.10,<3.14
+Description-Content-Type: text/markdown
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: lamindb>=1.6.1
+Requires-Dist: lamindb_setup>=0.81.2
+Requires-Dist: lamin_utils>=0.13.9
+Requires-Dist: requests
+Requires-Dist: pyyaml
+Requires-Dist: laminci ; extra == "dev"
+Requires-Dist: pre-commit ; extra == "dev"
+Requires-Dist: pytest>=6.0 ; extra == "dev"
+Requires-Dist: pytest-cov ; extra == "dev"
+Requires-Dist: nbproject-test ; extra == "dev"
+Requires-Dist: pronto ; extra == "dev"
+Requires-Dist: pymysql ; extra == "dev"
+Requires-Dist: bioregistry ; extra == "dev"
+Project-URL: Home, https://github.com/laminlabs/bionty
+Provides-Extra: dev
+
+[![Stars](https://img.shields.io/github/stars/laminlabs/bionty?logo=GitHub&color=yellow)](https://github.com/laminlabs/bionty)
+[![pypi](https://img.shields.io/pypi/v/bionty?color=blue&label=pypi%20package)](https://pypi.org/project/bionty)
+
+# bionty: Basic biological entities
+
+- Access >20 public ontologies such as Gene, Protein, CellMarker, ExperimentalFactor, CellType, CellLine, Tissue, …
+- Create records from entries in public ontologies using `.from_source()`.
+- Access full underlying public ontologies via `.public()` to search & bulk-create records.
+- Create in-house ontologies by extending public ontologies using hierarchical relationships among records (`.parents`).
+- Use `.synonyms` and `.abbr` to manage synonyms.
+- Safeguards against typos & duplications.
+- Ontology versioning via the `bionty.Source` registry.
+
+Read [docs](https://docs.lamin.ai/bionty).
+

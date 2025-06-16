@@ -1,0 +1,131 @@
+Metadata-Version: 2.4
+Name: spider_fingerprint_py
+Version: 0.0.20
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE.txt
+Summary: The spider_fingerprint project for python.
+License: MIT
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Source Code, https://github.com/tzafon/spider_fingerprint_py
+
+# spider_fingerprint_py
+
+Python bindings for the [spider_fingerprint](https://github.com/spider-rs/spider_fingerprint) Rust crate.
+
+`spider_fingerprint_py` allows you to easily generate browser fingerprint and stealth scripts. It's ideal for effective automation, web scraping, bot-test evasion, and security testing workflows.
+
+---
+
+## Installation
+
+Install from PyPI:
+
+```bash
+pip install spider_fingerprint_py
+```
+
+## Quick Start
+
+Here's how to generate a stealth emulation JavaScript in a few lines of Python:
+
+```python
+from spider_fingerprint_py import (
+    PyViewport,
+    PyTier,
+    PyFingerprintMode,
+    PyHeaderDetailLevel,
+    generate_emulation_script,
+    generate_emulation_headers,
+    spoof_ua
+)
+
+# Generate a random real user-agent.
+user_agent = spoof_ua()
+
+# Random viewport simulating a real user
+viewport = PyViewport.random()
+
+# Real browser headers based on the agent.
+headers = generate_emulation_headers(
+    user_agent=user_agent,
+    header_map=None,
+    hostname=None,
+    viewport=viewport,
+    domain_parsed=None,
+    header_detail_level=PyHeaderDetailLevel.Extensive,
+)
+
+# Generate the fingerprint spoofing script
+script = generate_emulation_script(
+    user_agent=user_agent,
+    tier=PyTier.Full,
+    fingerprint_mode=PyFingerprintMode.Basic,
+    dismiss_dialogs=True,
+    viewport=viewport,
+    eval_script=None
+)
+
+print("Stealth Emulation JavaScript:\n")
+print(script)
+
+# Make sure to remove Referer if being used with Network.setExtraHTTPHeaders before use.
+print("Stealth Emulation Headers:\n")
+print(headers)
+```
+
+## Documentation
+
+Below you'll find complete reference documentation for classes, enums, and functions provided by the `spider_fingerprint_py` Python library:
+
+---
+
+### PyViewport (`class`)
+
+Represents viewport configurations for browser fingerprint emulation.
+
+| Attribute             | Type              | Description                                          |
+| --------------------- | ----------------- | ---------------------------------------------------- |
+| `width`               | `int`             | Viewport width in pixels                             |
+| `height`              | `int`             | Viewport height in pixels                            |
+| `device_scale_factor` | `float` or `None` | Device pixel ratio (e.g., 2.0 for Retina)            |
+| `emulating_mobile`    | `bool`            | Enable emulation of mobile-device behavior           |
+| `is_landscape`        | `bool`            | Landscape (`True`) or Portrait (`False`) orientation |
+| `has_touch`           | `bool`            | Simulate touch-enabled devices                       |
+
+**Usage Example:**
+
+```python
+viewport = PyViewport(1280, 720)
+viewport.emulating_mobile = True
+viewport.device_scale_factor = 2.0
+viewport.is_landscape = False
+viewport.has_touch = True
+```
+
+### PyTier (`enum`)
+
+Controls the aggressiveness and scope of stealth applied through fingerprint spoofing.
+
+| Variant            | Description                                                       |
+| ------------------ | ----------------------------------------------------------------- |
+| `Basic`            | Basic stealth spoofing capabilities including GPU/WebGL spoofing. |
+| `BasicWithConsole` | Basic stealth mode combined with console output (for debugging).  |
+| `BasicNoWebgl`     | Basic stealth spoofing without WebGL spoofing techniques.         |
+| `Mid`              | Intermediate stealth protections with improved spoofing coverage. |
+| `Full`             | Comprehensive stealth protections covering most fingerprinting.   |
+| `None`             | No spoofing; original browser fingerprint exposed fully.          |
+
+**Example:**
+
+```python
+tier = PyTier.Full
+```
+
+### Testing
+
+1. maturin develop
+1. pytest -s test_spider_fingerprint.py
+

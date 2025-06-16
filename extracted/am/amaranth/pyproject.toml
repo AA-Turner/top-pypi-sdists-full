@@ -1,0 +1,122 @@
+[tool.pdm]
+ignore_package_warnings = [
+    "sphinx*",
+    "alabaster",
+]
+
+[tool.pdm.version]
+source = "scm"
+version_format = "pdm_build:format_version"
+
+[tool.pdm.build]
+includes = [
+    "amaranth/",
+]
+source-includes = [
+    ".gitignore",
+    ".coveragerc",
+    ".env.toolchain",
+    "CONTRIBUTING.txt",
+]
+
+[tool.pdm.dev-dependencies]
+test = [
+    "yowasp-yosys>=0.40",
+    "coverage",
+]
+docs = [
+    "sphinx~=7.1",
+    "sphinxcontrib-platformpicker~=1.4",
+    "sphinxcontrib-yowasp-wavedrom==1.8",
+    "sphinx-rtd-theme~=2.0",
+    "sphinx-autobuild",
+]
+examples = [
+    "amaranth-boards @ git+https://github.com/amaranth-lang/amaranth-boards.git@19b97324ecf9111c5d16377af79f82aad761c476",
+]
+
+[tool.pdm.scripts._]
+env_file = ".env.toolchain"
+
+[tool.pdm.scripts.test]
+composite = [
+    "test-code",
+    "test-docs",
+    "coverage-xml",
+]
+
+[tool.pdm.scripts.test-code]
+cmd = "python -m coverage run -m unittest discover -t . -s tests -v"
+
+[tool.pdm.scripts.test-code.env]
+PYTHONWARNINGS = "error"
+
+[tool.pdm.scripts.test-docs]
+cmd = "sphinx-build -b doctest docs/ docs/_build"
+
+[tool.pdm.scripts.document]
+cmd = "sphinx-build docs/ docs/_build/ -W --keep-going"
+
+[tool.pdm.scripts.document-live]
+cmd = "sphinx-autobuild docs/ docs/_build/ --watch amaranth"
+
+[tool.pdm.scripts.document-linkcheck]
+cmd = "sphinx-build docs/ docs/_linkcheck/ -b linkcheck"
+
+[tool.pdm.scripts.coverage-text]
+cmd = "python -m coverage report"
+
+[tool.pdm.scripts.coverage-html]
+cmd = "python -m coverage html"
+
+[tool.pdm.scripts.coverage-xml]
+cmd = "python -m coverage xml"
+
+[tool.pdm.scripts.extract-schemas]
+call = "amaranth.lib.meta:_extract_schemas('amaranth', base_uri='https://amaranth-lang.org/schema/amaranth')"
+
+[project]
+dynamic = []
+name = "amaranth"
+description = "Amaranth hardware definition language"
+readme = "README.md"
+authors = [
+    { name = "Amaranth HDL contributors" },
+]
+requires-python = "~=3.8"
+dependencies = [
+    "importlib_resources; python_version<'3.9'",
+    "jschon~=0.11.1",
+    "pyvcd>=0.2.2,<0.5",
+    "Jinja2~=3.0",
+]
+version = "0.5.6"
+
+[project.license]
+text = "BSD-2-clause"
+
+[project.optional-dependencies]
+builtin-yosys = [
+    "amaranth-yosys>=0.40",
+]
+remote-build = [
+    "paramiko~=2.7",
+]
+
+[project.scripts]
+amaranth-rpc = "amaranth.rpc:main"
+
+[project.entry-points."amaranth.lib.meta"]
+"0.5/component.json" = "amaranth.lib.wiring:ComponentMetadata"
+
+[project.urls]
+Homepage = "https://amaranth-lang.org/"
+Documentation = "https://amaranth-lang.org/docs/amaranth/v0.5.6"
+"Source Code" = "https://github.com/amaranth-lang/amaranth"
+"Bug Tracker" = "https://github.com/amaranth-lang/amaranth/issues"
+
+[build-system]
+requires = [
+    "pdm-backend~=2.3.0",
+]
+build-backend = "pdm.backend"

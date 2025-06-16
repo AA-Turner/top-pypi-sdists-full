@@ -83,6 +83,7 @@ from ..java import (
     ProjenrcOptions as _ProjenrcOptions_65cd3dd8,
 )
 from ..javascript import (
+    BiomeOptions as _BiomeOptions_452ab984,
     BuildWorkflowOptions as _BuildWorkflowOptions_b756f97f,
     BundlerOptions as _BundlerOptions_d60b85ed,
     BundlingOptions as _BundlingOptions_fc10f395,
@@ -335,6 +336,8 @@ class AwsCdkConstructLibrary(
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+        biome: typing.Optional[builtins.bool] = None,
+        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -517,6 +520,8 @@ class AwsCdkConstructLibrary(
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param biome: (experimental) Setup Biome. Default: false
+        :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
         :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -701,6 +706,8 @@ class AwsCdkConstructLibrary(
             default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             auto_approve_upgrades=auto_approve_upgrades,
+            biome=biome,
+            biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
             build_workflow_triggers=build_workflow_triggers,
@@ -2475,6 +2482,8 @@ class AwsCdkTypeScriptApp(
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+        biome: typing.Optional[builtins.bool] = None,
+        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2649,6 +2658,8 @@ class AwsCdkTypeScriptApp(
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param biome: (experimental) Setup Biome. Default: false
+        :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
         :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -2825,6 +2836,8 @@ class AwsCdkTypeScriptApp(
             default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             auto_approve_upgrades=auto_approve_upgrades,
+            biome=biome,
+            biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
             build_workflow_triggers=build_workflow_triggers,
@@ -3598,6 +3611,8 @@ class ConstructLibraryAws(
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+        biome: typing.Optional[builtins.bool] = None,
+        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3780,6 +3795,8 @@ class ConstructLibraryAws(
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param biome: (experimental) Setup Biome. Default: false
+        :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
         :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -3964,6 +3981,8 @@ class ConstructLibraryAws(
             default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
             auto_approve_upgrades=auto_approve_upgrades,
+            biome=biome,
+            biome_options=biome_options,
             build_workflow=build_workflow,
             build_workflow_options=build_workflow_options,
             build_workflow_triggers=build_workflow_triggers,
@@ -6109,6 +6128,8 @@ class AutoDiscoverOptions(
         "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "auto_approve_upgrades": "autoApproveUpgrades",
+        "biome": "biome",
+        "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
         "build_workflow_triggers": "buildWorkflowTriggers",
@@ -6298,6 +6319,8 @@ class AwsCdkConstructLibraryOptions(
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+        biome: typing.Optional[builtins.bool] = None,
+        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6481,6 +6504,8 @@ class AwsCdkConstructLibraryOptions(
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param biome: (experimental) Setup Biome. Default: false
+        :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
         :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -6600,6 +6625,8 @@ class AwsCdkConstructLibraryOptions(
             yarn_berry_options = _YarnBerryOptions_b6942539(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+        if isinstance(biome_options, dict):
+            biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = _BuildWorkflowOptions_b756f97f(**build_workflow_options)
         if isinstance(build_workflow_triggers, dict):
@@ -6744,6 +6771,8 @@ class AwsCdkConstructLibraryOptions(
             check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument auto_approve_upgrades", value=auto_approve_upgrades, expected_type=type_hints["auto_approve_upgrades"])
+            check_type(argname="argument biome", value=biome, expected_type=type_hints["biome"])
+            check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
             check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
@@ -7022,6 +7051,10 @@ class AwsCdkConstructLibraryOptions(
             self._values["artifacts_directory"] = artifacts_directory
         if auto_approve_upgrades is not None:
             self._values["auto_approve_upgrades"] = auto_approve_upgrades
+        if biome is not None:
+            self._values["biome"] = biome
+        if biome_options is not None:
+            self._values["biome_options"] = biome_options
         if build_workflow is not None:
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
@@ -8405,6 +8438,28 @@ class AwsCdkConstructLibraryOptions(
         '''
         result = self._values.get("auto_approve_upgrades")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def biome(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Setup Biome.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("biome")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def biome_options(self) -> typing.Optional[_BiomeOptions_452ab984]:
+        '''(experimental) Biome options.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("biome_options")
+        return typing.cast(typing.Optional[_BiomeOptions_452ab984], result)
 
     @builtins.property
     def build_workflow(self) -> typing.Optional[builtins.bool]:
@@ -12272,6 +12327,8 @@ class AwsCdkPythonAppOptions(
         "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "auto_approve_upgrades": "autoApproveUpgrades",
+        "biome": "biome",
+        "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
         "build_workflow_triggers": "buildWorkflowTriggers",
@@ -12454,6 +12511,8 @@ class AwsCdkTypeScriptAppOptions(
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+        biome: typing.Optional[builtins.bool] = None,
+        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -12628,6 +12687,8 @@ class AwsCdkTypeScriptAppOptions(
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param biome: (experimental) Setup Biome. Default: false
+        :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
         :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -12739,6 +12800,8 @@ class AwsCdkTypeScriptAppOptions(
             yarn_berry_options = _YarnBerryOptions_b6942539(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+        if isinstance(biome_options, dict):
+            biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = _BuildWorkflowOptions_b756f97f(**build_workflow_options)
         if isinstance(build_workflow_triggers, dict):
@@ -12869,6 +12932,8 @@ class AwsCdkTypeScriptAppOptions(
             check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument auto_approve_upgrades", value=auto_approve_upgrades, expected_type=type_hints["auto_approve_upgrades"])
+            check_type(argname="argument biome", value=biome, expected_type=type_hints["biome"])
+            check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
             check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
@@ -13136,6 +13201,10 @@ class AwsCdkTypeScriptAppOptions(
             self._values["artifacts_directory"] = artifacts_directory
         if auto_approve_upgrades is not None:
             self._values["auto_approve_upgrades"] = auto_approve_upgrades
+        if biome is not None:
+            self._values["biome"] = biome
+        if biome_options is not None:
+            self._values["biome_options"] = biome_options
         if build_workflow is not None:
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
@@ -14511,6 +14580,28 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def biome(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Setup Biome.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("biome")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def biome_options(self) -> typing.Optional[_BiomeOptions_452ab984]:
+        '''(experimental) Biome options.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("biome_options")
+        return typing.cast(typing.Optional[_BiomeOptions_452ab984], result)
+
+    @builtins.property
     def build_workflow(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Define a GitHub workflow for building PRs.
 
@@ -15530,6 +15621,8 @@ class AwsCdkTypeScriptAppOptions(
         "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
         "auto_approve_upgrades": "autoApproveUpgrades",
+        "biome": "biome",
+        "biome_options": "biomeOptions",
         "build_workflow": "buildWorkflow",
         "build_workflow_options": "buildWorkflowOptions",
         "build_workflow_triggers": "buildWorkflowTriggers",
@@ -15716,6 +15809,8 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+        biome: typing.Optional[builtins.bool] = None,
+        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
         build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -15898,6 +15993,8 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param biome: (experimental) Setup Biome. Default: false
+        :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
         :param build_workflow_options: (experimental) Options for PR build workflow.
         :param build_workflow_triggers: (deprecated) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -16019,6 +16116,8 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             yarn_berry_options = _YarnBerryOptions_b6942539(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+        if isinstance(biome_options, dict):
+            biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
             build_workflow_options = _BuildWorkflowOptions_b756f97f(**build_workflow_options)
         if isinstance(build_workflow_triggers, dict):
@@ -16163,6 +16262,8 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument auto_approve_upgrades", value=auto_approve_upgrades, expected_type=type_hints["auto_approve_upgrades"])
+            check_type(argname="argument biome", value=biome, expected_type=type_hints["biome"])
+            check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
             check_type(argname="argument build_workflow", value=build_workflow, expected_type=type_hints["build_workflow"])
             check_type(argname="argument build_workflow_options", value=build_workflow_options, expected_type=type_hints["build_workflow_options"])
             check_type(argname="argument build_workflow_triggers", value=build_workflow_triggers, expected_type=type_hints["build_workflow_triggers"])
@@ -16441,6 +16542,10 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             self._values["artifacts_directory"] = artifacts_directory
         if auto_approve_upgrades is not None:
             self._values["auto_approve_upgrades"] = auto_approve_upgrades
+        if biome is not None:
+            self._values["biome"] = biome
+        if biome_options is not None:
+            self._values["biome_options"] = biome_options
         if build_workflow is not None:
             self._values["build_workflow"] = build_workflow
         if build_workflow_options is not None:
@@ -17824,6 +17929,28 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         '''
         result = self._values.get("auto_approve_upgrades")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def biome(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Setup Biome.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("biome")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def biome_options(self) -> typing.Optional[_BiomeOptions_452ab984]:
+        '''(experimental) Biome options.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("biome_options")
+        return typing.cast(typing.Optional[_BiomeOptions_452ab984], result)
 
     @builtins.property
     def build_workflow(self) -> typing.Optional[builtins.bool]:
@@ -19461,6 +19588,8 @@ def _typecheckingstub__afd0fb486a35fef51bf540cdcd69366795c03710cee73c0b5a81431a8
     default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+    biome: typing.Optional[builtins.bool] = None,
+    biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19799,6 +19928,8 @@ def _typecheckingstub__d4516e51d77bf8bd5807e45e842cd19fa87c9a6d72e4f7d0caead33d3
     default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+    biome: typing.Optional[builtins.bool] = None,
+    biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19977,6 +20108,8 @@ def _typecheckingstub__53f11e06b68a1910463459774b89205819af9292d548e5215ddd85989
     default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
     auto_approve_upgrades: typing.Optional[builtins.bool] = None,
+    biome: typing.Optional[builtins.bool] = None,
+    biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow: typing.Optional[builtins.bool] = None,
     build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
     build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,

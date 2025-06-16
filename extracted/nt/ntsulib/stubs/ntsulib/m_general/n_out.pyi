@@ -1,3 +1,0 @@
-__all__ = ['nprint']
-
-def nprint(*args, isp_details: bool = False, sep: str = ' ') -> None: ...

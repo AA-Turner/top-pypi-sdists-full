@@ -1,0 +1,11 @@
+[tool.poetry]
+name = "contextlib-chdir"
+version = "1.0.2"
+description = "Backport of contextlib.chdir stdlib class added in Python3.11."
+authors = ["Álvaro Mondéjar Rubio <mondejar1994@gmail.com>"]
+license = "BSD-3-License"
+readme = "README.md"
+packages = [{ include = "contextlib_chdir.*" }, { include = "py.typed" }]
+
+[tool.poetry.dependencies]
+python = "^3.6"

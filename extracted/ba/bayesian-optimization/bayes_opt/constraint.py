@@ -9,6 +9,8 @@ from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
 
+from bayes_opt.parameter import wrap_kernel
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -55,6 +57,7 @@ class ConstraintModel:
         fun: Callable[..., float] | Callable[..., NDArray[Float]] | None,
         lb: float | NDArray[Float],
         ub: float | NDArray[Float],
+        transform: Callable[[Any], Any] | None = None,
         random_state: int | RandomState | None = None,
     ) -> None:
         self.fun = fun
@@ -68,7 +71,7 @@ class ConstraintModel:
 
         self._model = [
             GaussianProcessRegressor(
-                kernel=Matern(nu=2.5),
+                kernel=wrap_kernel(Matern(nu=2.5), transform) if transform is not None else Matern(nu=2.5),
                 alpha=1e-6,
                 normalize_y=True,
                 n_restarts_optimizer=5,
@@ -200,7 +203,7 @@ class ConstraintModel:
                 norm(loc=y_mean, scale=y_std).cdf(self._lb[0]) if self._lb[0] != -np.inf else np.array([0])
             )
             p_upper = (
-                norm(loc=y_mean, scale=y_std).cdf(self._ub[0]) if self._lb[0] != np.inf else np.array([1])
+                norm(loc=y_mean, scale=y_std).cdf(self._ub[0]) if self._ub[0] != np.inf else np.array([1])
             )
             result = p_upper - p_lower
             return result.reshape(X_shape[:-1])
@@ -212,7 +215,7 @@ class ConstraintModel:
                 norm(loc=y_mean, scale=y_std).cdf(self._lb[j]) if self._lb[j] != -np.inf else np.array([0])
             )
             p_upper = (
-                norm(loc=y_mean, scale=y_std).cdf(self._ub[j]) if self._lb[j] != np.inf else np.array([1])
+                norm(loc=y_mean, scale=y_std).cdf(self._ub[j]) if self._ub[j] != np.inf else np.array([1])
             )
             result = result * (p_upper - p_lower)
         return result.reshape(X_shape[:-1])

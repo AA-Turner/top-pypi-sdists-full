@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2024 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2024 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,6 @@
 #include "cute/algorithm/functional.hpp"
 #include "cute/atom/mma_atom.hpp"
 #include "cute/algorithm/gemm.hpp"
-#include "cute/tensor_predicate.hpp"
 #include "cute/numeric/arithmetic_tuple.hpp"
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -150,6 +149,9 @@ struct CollectiveMma<
 
   using PipelineParams = typename MainloopPipeline::Params;
 
+  // One threads per CTA are producers (1 for operand tile)
+  static constexpr int NumProducerThreadEvents = 1;
+
   static_assert(cute::rank(SmemLayoutAtomA{}) == 2, "SmemLayoutAtom must be rank 2 (M,K)");
   static_assert((size<0>(TileShape{}) % size<0>(SmemLayoutAtomA{})) == 0, "SmemLayoutAtom must evenly divide tile shape.");
   static_assert((size<2>(TileShape{}) % size<1>(SmemLayoutAtomA{})) == 0, "SmemLayoutAtom must evenly divide tile shape.");
@@ -191,7 +193,7 @@ struct CollectiveMma<
                                                 cute::conditional_t<cute::is_same_v<ElementA, float>,
                                                                     cutlass::tfloat32_t,
                                                                     uint_bit_t<sizeof_bits_v<ElementAMmaRaw>>>>;
-  using TmaInternalElementB = cute::conditional_t<cute::is_same_v<float, ElementB>, 
+  using TmaInternalElementB = cute::conditional_t<cute::is_same_v<float, ElementB>,
                                                   tfloat32_t,
                                                   uint_bit_t<sizeof_bits_v<ElementBMma>>>;
 
@@ -212,10 +214,14 @@ struct CollectiveMma<
   static constexpr int K_PIPE_MAX = DispatchPolicy::Stages;
   static constexpr int K_PIPE_MMAS = 0;
 
-  static constexpr uint32_t TmaTransactionBytes =
+  static constexpr uint32_t TmaTransactionBytesMK =
         cutlass::bits_to_bytes(cosize(take<0,2>(SmemLayoutA{})) * cute::sizeof_bits_v<ElementAMma>) +
-        cutlass::bits_to_bytes(cosize(take<0,2>(SmemLayoutE{})) * cute::sizeof_bits_v<ElementEMma>) +
+        cutlass::bits_to_bytes(cosize(take<0,2>(SmemLayoutE{})) * cute::sizeof_bits_v<ElementEMma>);
+
+  static constexpr uint32_t TmaTransactionBytesNK =
         cutlass::bits_to_bytes(cosize(take<0,2>(SmemLayoutB{})) * cute::sizeof_bits_v<ElementBMma>);
+
+  static constexpr uint32_t TmaTransactionBytes = TmaTransactionBytesMK + TmaTransactionBytesNK;
 
   // Host side kernel arguments
   struct Arguments {
@@ -230,26 +236,26 @@ struct CollectiveMma<
   // Device side kernel params
   struct Params {
 
-    using TMA_A = decltype(make_tma_copy<typename TmaInternalElementA::raw_type>(
+    using TMA_A = decltype(make_tma_copy_A_sm90<typename TmaInternalElementA::raw_type>(
         GmemTiledCopyA{},
         make_tensor(recast_ptr<TmaInternalElementA>(nullptr), LayoutA{}),
         SmemLayoutA{}(_,_,cute::Int<0>{}),
-        make_shape(shape<0>(TileShape{}), shape<2>(TileShape{})),
-        size<1>(ClusterShape{})));  // mcast along N mode for this M load, if any
+        TileShape{},
+        ClusterShape{}));  // mcast along N mode for this M load, if any
 
-    using TMA_E = decltype(make_tma_copy<uint64_t>( // use uint64_t to get the largest loading box.
+    using TMA_E = decltype(make_tma_copy_A_sm90<uint64_t>( // use uint64_t to get the largest loading box.
         GmemCopyAtomE{},
-        make_tensor(recast_ptr<sparse_elem<ElementEMmaSparsity, ElementE>>(nullptr), LayoutE{}),
+        make_tensor(recast_ptr<ElementEMma>(nullptr), LayoutE{}),
         SmemLayoutE{}(_,_,cute::Int<0>{}),
-        make_shape(shape<0>(TileShape{}), shape<2>(TileShape{})),
-        size<1>(ClusterShape{})));  // mcast along N mode for this M load, if any
+        TileShape{},
+        ClusterShape{}));  // mcast along N mode for this M load, if any
 
-    using TMA_B = decltype(make_tma_copy<TmaInternalElementB>(
+    using TMA_B = decltype(make_tma_copy_B_sm90<TmaInternalElementB>(
         GmemTiledCopyB{},
-        make_tensor(static_cast<TmaInternalElementB const*>(nullptr), repeat_like(StrideB{}, int32_t(0)), StrideB{}),
+        make_tensor(recast_ptr<TmaInternalElementB>(nullptr), repeat_like(StrideB{}, int32_t(0)), StrideB{}),
         SmemLayoutB{}(_,_,cute::Int<0>{}),
-        make_shape(shape<1>(TileShape{}), shape<2>(TileShape{})),
-        size<0>(ClusterShape{}))); // mcast along M mode for this N load, if any
+        TileShape{},
+        ClusterShape{}));  // mcast along M mode for this N load, if any
 
     TMA_A tma_load_a;
     TMA_E tma_load_e;
@@ -273,40 +279,45 @@ struct CollectiveMma<
     auto [M,N,K,L] = problem_shape_MNKL;
 
     auto ptr_A = recast_ptr<TmaInternalElementA>(args.ptr_A);
+    auto ptr_E = recast_ptr<ElementEMma>(args.ptr_E);
     auto ptr_B = recast_ptr<TmaInternalElementB>(args.ptr_B);
-    auto ptr_E = recast_ptr<sparse_elem<ElementEMmaSparsity, ElementE>>(args.ptr_E);
 
     Tensor tensor_a = make_tensor(ptr_A, args.layout_a);
-    Tensor tensor_b = make_tensor(ptr_B, make_layout(make_shape(N,K,L), args.dB));
     Tensor tensor_e = make_tensor(ptr_E, args.layout_e);
+    Tensor tensor_b = make_tensor(ptr_B, make_layout(make_shape(N,K,L), args.dB));
 
-    typename Params::TMA_A tma_load_a = make_tma_copy<typename TmaInternalElementA::raw_type>(
+    typename Params::TMA_A tma_load_a = make_tma_copy_A_sm90<typename TmaInternalElementA::raw_type>(
         GmemTiledCopyA{},
         tensor_a,
         SmemLayoutA{}(_,_,cute::Int<0>{}),
-        make_shape(shape<0>(TileShape{}), shape<2>(TileShape{})),
-        size<1>(ClusterShape{})); // mcast along N mode for this M load, if any
+        TileShape{},
+        ClusterShape{}); // mcast along N mode for this M load, if any
 
-    typename Params::TMA_E tma_load_e = make_tma_copy<uint64_t>( // use uint64_t to get the largest loading box.
+    typename Params::TMA_E tma_load_e = make_tma_copy_A_sm90<uint64_t>( // use uint64_t to get the largest loading box.
         GmemCopyAtomE{},
         tensor_e,
         SmemLayoutE{}(_,_,cute::Int<0>{}),
-        make_shape(shape<0>(TileShape{}), shape<2>(TileShape{})),
-        size<1>(ClusterShape{})); // mcast along N mode for this M load, if any
+        TileShape{},
+        ClusterShape{}); // mcast along N mode for this M load, if any
 
-    typename Params::TMA_B tma_load_b = make_tma_copy<TmaInternalElementB>(
+    typename Params::TMA_B tma_load_b = make_tma_copy_B_sm90<TmaInternalElementB>(
         GmemTiledCopyB{},
         tensor_b,
         SmemLayoutB{}(_,_,cute::Int<0>{}),
-        make_shape(shape<1>(TileShape{}), shape<2>(TileShape{})),
-        size<0>(ClusterShape{})); // mcast along M mode for this N load, if any
+        TileShape{},
+        ClusterShape{}); // mcast along M mode for this N load, if any
+
+    uint32_t transaction_bytes_mk = TmaTransactionBytesMK;
+    uint32_t transaction_bytes_nk = TmaTransactionBytesNK;
+    uint32_t transaction_bytes = transaction_bytes_mk + transaction_bytes_nk;
 
     return {
       tma_load_a,
       tma_load_e,
       tma_load_b,
       args.layout_a,
-      args.layout_e
+      args.layout_e,
+      transaction_bytes
     };
   }
 
@@ -320,7 +331,7 @@ struct CollectiveMma<
     constexpr int min_tma_aligned_elements_B = tma_alignment_bits / cutlass::sizeof_bits<ElementB>::value;
     auto problem_shape_MNKL = append<4>(problem_shape, 1);
     auto [M,N,K,L] = problem_shape_MNKL;
-    
+
     bool size_check = true;
     // Check Alignment A
     if constexpr (is_A_mn_major) {
@@ -393,7 +404,7 @@ struct CollectiveMma<
   CUTLASS_DEVICE void
   load(
       Params const& mainloop_params,
-      MainloopPipeline pipeline, 
+      MainloopPipeline pipeline,
       PipelineState smem_pipe_write,
       cute::tuple<TensorA, TensorB, TensorE> const& load_inputs,
       BlockCoord const& blk_coord,
@@ -473,9 +484,9 @@ struct CollectiveMma<
     // Issue the epilogue waits
     if (lane_predicate) {
       /* This helps avoid early exit of blocks in Cluster
-       * Waits for all stages to either be released (all 
+       * Waits for all stages to either be released (all
        * Consumer UNLOCKs), or if the stage was never used
-       * then would just be acquired since the phase was 
+       * then would just be acquired since the phase was
        * still inverted from make_producer_start_state
        */
       pipeline.producer_tail(smem_pipe_write);
@@ -502,16 +513,29 @@ struct CollectiveMma<
 
     Tensor sA = make_tensor(make_smem_ptr(shared_tensors.smem_A.begin()), SmemLayoutA{});          // (BLK_M,BLK_K,PIPE)
     Tensor sB = make_tensor(make_smem_ptr(shared_tensors.smem_B.begin()), SmemLayoutB{});          // (BLK_N,BLK_K,PIPE)
-
-    Tensor sE_ = make_tensor(make_smem_ptr(shared_tensors.smem_E.begin()), SmemLayoutE{});         // (BLK_M,BLK_K,PIPE)
-    Tensor sE = as_position_independent_swizzle_tensor(sE_);
+    Tensor sE = as_position_independent_swizzle_tensor(
+      make_tensor(make_smem_ptr(shared_tensors.smem_E.begin()), SmemLayoutE{}));                   // (BLK_M,BLK_K,PIPE)
 
     //
     // Define C accumulators and A/B partitioning
     //
 
+    // Layout of warp group to thread mapping
+
+    static_assert(stride<0>(typename TiledMma::ALayout{}) == 0 and
+                  stride<0>(typename TiledMma::BLayout{}) == 0 and
+                  size<0>(typename TiledMma::ALayout{}) == NumThreadsPerWarpGroup and
+                  size<0>(typename TiledMma::BLayout{}) == NumThreadsPerWarpGroup,
+                  "Stride of the first mode must be 0 and the size of the mode must be NumThreadsPerWarpGroup");
+
+    constexpr int MmaWarpGroups = size(TiledMma{}) / NumThreadsPerWarpGroup;
+    Layout warp_group_thread_layout = make_layout(Int<MmaWarpGroups>{},
+                                                  Int<NumThreadsPerWarpGroup>{});
+
+    int warp_group_idx = __shfl_sync(0xFFFFFFFF, thread_idx / NumThreadsPerWarpGroup, 0);
+
     TiledMma tiled_mma;
-    auto thread_mma = tiled_mma.get_thread_slice(thread_idx);
+    auto thread_mma = tiled_mma.get_thread_slice(warp_group_thread_layout(warp_group_idx));
 
     Tensor tCsA = thread_mma.partition_A(sA);                                                 // (MMA,MMA_M,MMA_K,PIPE)
     Tensor tCsB = thread_mma.partition_B(sB);                                                 // (MMA,MMA_N,MMA_K,PIPE)
@@ -625,7 +649,7 @@ struct CollectiveMma<
     k_tile_count -= prologue_mma_count;
 
     smem_pipe_release.advance(k_tile_count);
-    
+
     // Wait on all GMMAs to complete
     warpgroup_wait<0>();
 

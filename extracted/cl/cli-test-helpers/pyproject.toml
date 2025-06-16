@@ -1,0 +1,81 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+
+[project]
+name = "cli-test-helpers"
+dynamic = ["version"]
+description = "Useful helpers for writing tests for your Python CLI program."
+readme = "README.rst"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Peter Bittner", email = "peter@painless.software"},
+]
+maintainers = [
+  {name = "Peter Bittner", email = "peter@painless.software"},
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Software Development :: Testing :: Mocking",
+  "Topic :: Software Development :: Testing :: Unit",
+]
+keywords = [
+  "python",
+  "cli",
+  "testing",
+  "helpers",
+]
+requires-python = ">=3.8"
+
+[project.urls]
+homepage = "https://github.com/painless-software/python-cli-test-helpers"
+Documentation = "https://python-cli-test-helpers.readthedocs.io/"
+
+[tool.coverage.run]
+source = ["cli_test_helpers"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.pytest.ini_options]
+addopts = "--color=yes --doctest-modules --junitxml=tests/junit-report.xml --verbose"
+
+[tool.ruff]
+extend-exclude = ["docs/conf.py"]
+extend-include = []
+
+[tool.ruff.lint]
+extend-select = ["ALL"]
+extend-ignore = [
+    "ANN",
+    "D200",
+    "D203",
+    "D205",
+    "D212",
+    "Q000",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"cli_test_helpers/commands.py" = ["S602"]
+"tests/*.py" = ["D400", "INP001", "S101"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["tests"]
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"

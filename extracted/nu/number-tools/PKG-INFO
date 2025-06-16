@@ -1,0 +1,45 @@
+Metadata-Version: 2.1
+Name: number-tools
+Version: 0.1.0
+Summary: Various tools for manipulating numbers
+Home-page: https://www.alexseitsinger.com/packages/python/number-tools
+Author: Alex Seitsinger
+Author-email: software@alexseitsinger.com
+License: BSD 2-Clause License
+Project-URL: Documentation, https://www.alexseitsinger.com/packages/python/number-tools
+Project-URL: Source, https://github.com/alexseitsinger/number-tools
+Project-URL: Tracker, https://github.com/alexseitsinger/number-tools/issues
+Description: # Number Tools
+        
+        ## Description
+        
+        Various tools for manipulating numbers.
+        
+        ## Installation
+        
+        ```
+        pip install number-tools
+        ```
+        
+        ## Usage
+        
+        ```python
+        from number_tools.converters import integer_to_roman, roman_to_integer
+        
+        intger_to_roman(101)
+        
+        roman_to_integer("IV")
+        ```
+        
+Keywords: numbers
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Utilities
+Description-Content-Type: text/markdown

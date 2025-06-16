@@ -1,0 +1,83 @@
+Metadata-Version: 2.1
+Name: duty
+Version: 1.6.0
+Summary: A simple task runner.
+Keywords: task-runner,task,runner,cross-platform
+Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
+License: ISC
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Documentation
+Classifier: Topic :: Software Development
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Project-URL: Homepage, https://pawamoy.github.io/duty
+Project-URL: Documentation, https://pawamoy.github.io/duty
+Project-URL: Changelog, https://pawamoy.github.io/duty/changelog
+Project-URL: Repository, https://github.com/pawamoy/duty
+Project-URL: Issues, https://github.com/pawamoy/duty/issues
+Project-URL: Discussions, https://github.com/pawamoy/duty/discussions
+Project-URL: Gitter, https://gitter.im/duty/community
+Project-URL: Funding, https://github.com/sponsors/pawamoy
+Requires-Python: >=3.9
+Requires-Dist: eval-type-backport; python_version < "3.10"
+Requires-Dist: failprint!=1.0.0,>=0.11
+Requires-Dist: typing-extensions>=4.0; python_version < "3.11"
+Description-Content-Type: text/markdown
+
+# duty
+
+[![ci](https://github.com/pawamoy/duty/workflows/ci/badge.svg)](https://github.com/pawamoy/duty/actions?query=workflow%3Aci)
+[![documentation](https://img.shields.io/badge/docs-mkdocs-708FCC.svg?style=flat)](https://pawamoy.github.io/duty/)
+[![pypi version](https://img.shields.io/pypi/v/duty.svg)](https://pypi.org/project/duty/)
+[![gitter](https://badges.gitter.im/join%20chat.svg)](https://app.gitter.im/#/room/#duty:gitter.im)
+
+A simple task runner.
+
+Inspired by [Invoke](https://github.com/pyinvoke/invoke).
+
+![demo](demo.svg)
+
+## Installation
+
+```bash
+pip install duty
+```
+
+With [`uv`](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install duty
+```
+
+## Quick start
+
+Create a `duties.py` file at the root of your repository.
+
+```python
+from duty import duty
+
+@duty
+def docs(ctx):
+    ctx.run("mkdocs build", title="Building documentation")
+```
+
+You can now use the command line tool to run it:
+
+```bash
+duty docs
+```
+
+See the [Usage](https://pawamoy.github.io/duty/usage/)
+section in the documentation for more examples.
+
+Also see ["Why choosing duty over..."](https://pawamoy.github.io/duty/#why-duty-over).

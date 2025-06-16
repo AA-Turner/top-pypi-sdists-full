@@ -1,0 +1,114 @@
+Metadata-Version: 2.1
+Name: asyncpg-listen
+Version: 0.0.8
+Summary: Helps to use PostgreSQL listen/notify with asyncpg
+Home-page: https://github.com/Pliner/asyncpg-listen
+Author: Yury Pliner
+Author-email: yury.pliner@gmail.com
+License: MIT
+Platform: macOS
+Platform: POSIX
+Platform: Windows
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+Classifier: Environment :: Web Environment
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# asyncpg-listen
+
+This library simplifies usage of listen/notify with [asyncpg](https://github.com/MagicStack/asyncpg):
+1. Handles loss of a connection
+2. Simplifies notifications processing from multiple channels
+3. Setups a timeout for receiving a notification
+4. Allows to receive all notifications/only last notification depending on ListenPolicy.
+
+```python
+import asyncio
+import asyncpg
+import asyncpg_listen
+
+
+async def handle_notifications(notification: asyncpg_listen.NotificationOrTimeout) -> None:
+    print(f"{notification} has been received")
+
+
+async def main():
+    listener = asyncpg_listen.NotificationListener(asyncpg_listen.connect_func(user="postgres"))
+    listener_task = asyncio.create_task(
+        listener.run(
+            {"simple": handle_notifications},
+            policy=asyncpg_listen.ListenPolicy.LAST,
+            notification_timeout=5
+        )
+    )
+
+    await asyncio.sleep(1)
+
+    connection = await asyncpg.connect(user="postgres")
+    try:
+        for i in range(42):
+            await connection.execute(f"NOTIFY simple, '{i}'")
+    finally:
+        await connection.close()
+
+    await asyncio.sleep(1)
+
+    listener_task.cancel()
+
+
+asyncio.run(main())
+
+```
+
+## v0.0.8 (2025-05-25)
+
+* Support python 3.13
+
+
+## v0.0.7 (2024-09-07)
+
+* [Support python 3.12 and end support of 3.8](https://github.com/anna-money/asyncpg-listen/pull/211)
+* [End support of python 3.9 and 3.10](https://github.com/anna-money/asyncpg-listen/pull/215)
+* [Eagerly start notification processing with Python 3.12+](https://github.com/anna-money/asyncpg-listen/pull/212)
+* [Switch to asyncio.TaskGroup](https://github.com/anna-money/asyncpg-listen/pull/214)
+
+
+## v0.0.6 (2022-11-02)
+
+* [Add support of python 3.11](https://github.com/anna-money/asyncpg-listen/pull/135)
+
+
+## v0.0.5 (2022-05-23)
+
+* [Wait for tasks cancellation](https://github.com/anna-money/asyncpg-listen/pull/96)
+
+
+## v0.0.4 (2022-01-24)
+
+* [Reset failed attempts counter on successful connection](https://github.com/anna-money/asyncpg-listen/pull/58)
+
+
+## v0.0.3 (2022-01-23)
+
+* [Support python 3.8](https://github.com/anna-money/asyncpg-listen/pull/55)
+
+
+## v0.0.2 (2021-11-02)
+
+* [Support async-timeout 4.0+](https://github.com/Pliner/asyncpg-listen/pull/10)
+
+
+## v0.0.1 (2021-10-27)
+
+* A first version

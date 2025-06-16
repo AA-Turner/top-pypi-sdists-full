@@ -1,0 +1,44 @@
+Metadata-Version: 2.4
+Name: maven-artifact
+Version: 0.3.5
+Summary: Download and resolve maven artifacts
+Author-email: Erlend Hamnaberg <erlend@hamnaberg.net>
+License-Expression: Apache-2.0
+Keywords: artifact,download,maven,mvn
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Build Tools
+Requires-Python: >=3.8
+Requires-Dist: lxml
+Requires-Dist: requests
+Description-Content-Type: text/markdown
+
+# maven-artifact
+A python library to download and resolve maven artifacts.
+
+# Installation and Usage
+
+ * Install using pip: `pip install maven-artifact'
+ * Usage: run `maven-artifact` 
+
+# Requirements
+
+ * See `pyproject.toml` for details on required Python versions, pip packages etc.
+
+# Contributing
+
+ * Fork repo
+ * Before submitting a PR
+   * Perform formatting (black):  `hatch run lint:black src tests`
+   * Run linter (flake8): `hatch run lint:flake8`
+   * Run tests:
+     * all: `hatch run test:pytest --cov=maven_artifact`
+     * unit only: `hatch run test:pytest --cov=maven_artifact  tests/unit`
+     * integration only: `hatch run test:pytest --cov=maven_artifact  tests/integration`

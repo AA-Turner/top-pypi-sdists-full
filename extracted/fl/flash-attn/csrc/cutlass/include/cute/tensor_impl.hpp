@@ -1,5 +1,5 @@
 /***************************************************************************************************
- * Copyright (c) 2023 - 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * Copyright (c) 2023 - 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Redistribution and use in source and binary forms, with or without
@@ -235,7 +235,7 @@ struct Tensor
   decltype(auto)
   operator()(Coord const& coord) {
     if constexpr (has_underscore<Coord>::value) {
-      auto const& [sliced_layout,offset] = slice_and_offset(coord, layout());
+      auto [sliced_layout,offset] = slice_and_offset(coord, layout());
       return make_tensor(data() + offset, sliced_layout);
     } else {
       return data()[layout()(coord)];
@@ -249,7 +249,7 @@ struct Tensor
   decltype(auto)
   operator()(Coord const& coord) const {
     if constexpr (has_underscore<Coord>::value) {
-      auto const& [sliced_layout,offset] = slice_and_offset(coord, layout());
+      auto [sliced_layout,offset] = slice_and_offset(coord, layout());
       return make_tensor(data() + offset, sliced_layout);
     } else {
       return data()[layout()(coord)];
@@ -381,6 +381,8 @@ struct MakeTensor
         return Tensor<Engine,Layout>();
       }
     }
+
+    CUTE_GCC_UNREACHABLE;
   }
 };
 
@@ -472,16 +474,16 @@ make_fragment_like(Tensor<Engine,Layout> const& tensor)
 }
 
 //
-// make_counting_tensor
+// make_coord_tensor
 //   Make a tensor from a layout by binding it to a counting iter with 0-offset of the same profile as the codomain.
 //
 
 template <class Layout, __CUTE_REQUIRES(is_layout<Layout>::value)>
 CUTE_HOST_DEVICE constexpr
 auto
-make_counting_tensor(Layout const& layout)
+make_coord_tensor(Layout const& layout)
 {
-  return make_tensor(make_inttuple_iter(repeat_like(coshape(layout), Int<0>{})), layout);
+  return make_tensor(make_inttuple_iter(coprofile(layout)), layout);
 }
 
 //
@@ -494,7 +496,7 @@ CUTE_HOST_DEVICE constexpr
 auto
 make_identity_tensor(Shape const& shape)
 {
-  return make_counting_tensor(make_identity_layout(shape));
+  return make_coord_tensor(make_identity_layout(shape));
 }
 
 //
@@ -788,7 +790,7 @@ recast(Tensor&& tensor)
  * vectorization should be attempted.
  *
  * Note that the return value does NOT include alignment concerns such as the pointer value and
- * the divisbility of dynamic strides.
+ * the divisibility of dynamic strides.
  */
 template <class SrcEngine, class SrcLayout,
           class DstEngine, class DstLayout>
@@ -828,7 +830,7 @@ max_common_vector(Tensor<SrcEngine,SrcLayout> const& a,
  *          are both identity Layouts.
  *
  * Note that the returned layout does NOT include alignment concerns such as the pointer value and
- * the divisbility of dynamic strides.
+ * the divisibility of dynamic strides.
  */
 template <class SrcEngine, class SrcLayout,
           class DstEngine, class DstLayout>

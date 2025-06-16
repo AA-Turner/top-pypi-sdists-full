@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browsergym-webarena
-Version: 0.13.4
+Version: 0.14.1
 Summary: WebArena benchmark for BrowserGym
 Project-URL: homepage, https://github.com/ServiceNow/BrowserGym
 Author: Maxime Gasse, Tom Marty
@@ -12,7 +12,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >3.7
-Requires-Dist: browsergym-core==0.13.4
+Requires-Dist: browsergym-core==0.14.1
 Requires-Dist: libwebarena==0.0.4
 Description-Content-Type: text/markdown
 

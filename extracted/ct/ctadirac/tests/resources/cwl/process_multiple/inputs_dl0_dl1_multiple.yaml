@@ -1,0 +1,9 @@
+input_files:
+  - "class": "File"
+    "path": "gamma_1.dl1_img.h5"
+  - "class": "File"
+    "path": "gamma_2.dl1_img.h5"
+
+intermediate_filenames: ["gamma_1.dl1.h5", "gamma_2.dl1_.h5"]
+
+output_filename: "merged.dl1.h5"

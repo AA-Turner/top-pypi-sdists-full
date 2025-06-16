@@ -2694,6 +2694,12 @@ lxb_url_path_slow_path(lxb_url_parser_t *parser, lxb_url_t *url,
             *sbuf++ = '%';
             *sbuf++ = lexbor_str_res_char_to_two_hex_value[c][0];
             *sbuf++ = lexbor_str_res_char_to_two_hex_value[c][1];
+
+            status = lxb_url_log_append(parser, p,
+                                        LXB_URL_ERROR_TYPE_INVALID_URL_UNIT);
+            if (status != LXB_STATUS_OK) {
+                goto failed;
+            }
         }
         else if (c == '.') {
             if (last == sbuf) {
@@ -4436,9 +4442,9 @@ lxb_url_api_hash_set(lxb_url_t *url, lxb_url_parser_t *parser,
     return status;
 }
 
-lxb_status_t
-lxb_url_serialize(const lxb_url_t *url, lexbor_serialize_cb_f cb, void *ctx,
-                  bool exclude_fragment)
+static lxb_status_t
+lxb_url_serialize_body(lxb_unicode_idna_t *idna, const lxb_url_t *url, lexbor_serialize_cb_f cb,
+                     void *ctx, bool exclude_fragment)
 {
     lxb_status_t status;
     const lexbor_str_t *str;
@@ -4478,7 +4484,12 @@ lxb_url_serialize(const lxb_url_t *url, lexbor_serialize_cb_f cb, void *ctx,
             lexbor_serialize_write(cb, at_str.data, at_str.length, ctx, status);
         }
 
-        status = lxb_url_serialize_host(&url->host, cb, ctx);
+        if (idna != NULL) {
+            status = lxb_url_serialize_host_unicode(idna, &url->host, cb, ctx);
+        } else {
+            status = lxb_url_serialize_host(&url->host, cb, ctx);
+        }
+
         if (status != LXB_STATUS_OK) {
             return status;
         }
@@ -4521,6 +4532,20 @@ lxb_url_serialize(const lxb_url_t *url, lexbor_serialize_cb_f cb, void *ctx,
     }
 
     return LXB_STATUS_OK;
+}
+
+lxb_status_t
+lxb_url_serialize(const lxb_url_t *url, lexbor_serialize_cb_f cb, void *ctx,
+                  bool exclude_fragment)
+{
+    return lxb_url_serialize_body(NULL, url, cb, ctx, exclude_fragment);
+}
+
+lxb_status_t
+lxb_url_serialize_idna(lxb_unicode_idna_t *idna, const lxb_url_t *url, lexbor_serialize_cb_f cb,
+                       void *ctx, bool exclude_fragment)
+{
+    return lxb_url_serialize_body(idna, url, cb, ctx, exclude_fragment);
 }
 
 lxb_status_t
@@ -4721,7 +4746,7 @@ lxb_url_serialize_host_ipv6(const uint16_t *ipv6,
             continue;
         }
 
-        p += lexbor_conv_dec_to_hex(ipv6[i], p, end - p);
+        p += lexbor_conv_dec_to_hex(ipv6[i], p, end - p, false);
 
         if (i != 7) {
             *p++ = ':';

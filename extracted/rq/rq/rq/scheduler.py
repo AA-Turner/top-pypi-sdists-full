@@ -3,10 +3,11 @@ import os
 import signal
 import time
 import traceback
+from collections.abc import Iterable
 from datetime import datetime
 from enum import Enum
 from multiprocessing import Process
-from typing import Iterable, List, Optional, Set, Union
+from typing import Optional, Union
 
 from redis import ConnectionPool, Redis
 
@@ -47,8 +48,8 @@ class RQScheduler:
         serializer=None,
     ):
         self._queue_names = set(parse_names(queues))
-        self._acquired_locks: Set[str] = set()
-        self._scheduled_job_registries: List[ScheduledJobRegistry] = []
+        self._acquired_locks: set[str] = set()
+        self._scheduled_job_registries: list[ScheduledJobRegistry] = []
         self.lock_acquisition_time = None
         self._connection_class, self._pool_class, self._pool_kwargs = parse_connection(connection)
         self.serializer = resolve_serializer(serializer)
@@ -96,9 +97,10 @@ class RQScheduler:
         """Returns names of queue it successfully acquires lock on"""
         successful_locks = set()
         pid = os.getpid()
-        self.log.debug('Trying to acquire locks for %s', ', '.join(self._queue_names))
+        self.log.debug('Acquiring scheduler lock for %s', ', '.join(self._queue_names))
         for name in self._queue_names:
             if self.connection.set(self.get_locking_key(name), pid, nx=True, ex=self.interval + 60):
+                self.log.debug('Acquired scheduler lock for %s', name)
                 successful_locks.add(name)
 
         # Always reset _scheduled_job_registries when acquiring locks

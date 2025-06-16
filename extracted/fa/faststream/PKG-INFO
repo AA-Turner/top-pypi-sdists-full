@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: faststream
-Version: 0.5.42
+Version: 0.5.43
 Summary: FastStream: the simplest way to work with a messaging queues
 Project-URL: Homepage, https://faststream.airt.ai/latest/
 Project-URL: Documentation, https://faststream.airt.ai/latest/getting-started/
@@ -43,7 +43,7 @@ Requires-Dist: anyio<5,>=3.7.1
 Requires-Dist: fast-depends<3.0.0,>=2.4.0b0
 Requires-Dist: typing-extensions>=4.8.0
 Provides-Extra: cli
-Requires-Dist: typer!=0.12,<=0.15.4,>=0.9; extra == 'cli'
+Requires-Dist: typer!=0.12,<=0.16.0,>=0.9; extra == 'cli'
 Requires-Dist: watchfiles<1.1.0,>=0.15.0; extra == 'cli'
 Provides-Extra: confluent
 Requires-Dist: confluent-kafka!=2.8.1,<3,>=2.6; (python_version >= '3.13') and extra == 'confluent'
@@ -59,7 +59,7 @@ Requires-Dist: confluent-kafka!=2.8.1,<3,>=2.6; (python_version >= '3.13') and e
 Requires-Dist: confluent-kafka!=2.8.1,<3,>=2; (python_version < '3.13') and extra == 'dev'
 Requires-Dist: confluent-kafka-stubs; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: coverage[toml]==7.6.1; (python_version < '3.9') and extra == 'dev'
-Requires-Dist: coverage[toml]==7.8.0; (python_version >= '3.9') and extra == 'dev'
+Requires-Dist: coverage[toml]==7.8.2; (python_version >= '3.9') and extra == 'dev'
 Requires-Dist: detect-secrets==1.5.0; extra == 'dev'
 Requires-Dist: dirty-equals==0.9.0; extra == 'dev'
 Requires-Dist: email-validator==2.2.0; extra == 'dev'
@@ -67,7 +67,7 @@ Requires-Dist: fastapi==0.115.12; extra == 'dev'
 Requires-Dist: httpx==0.28.1; extra == 'dev'
 Requires-Dist: mdx-include==1.4.2; extra == 'dev'
 Requires-Dist: mike==2.1.3; extra == 'dev'
-Requires-Dist: mkdocs-git-revision-date-localized-plugin==1.4.5; extra == 'dev'
+Requires-Dist: mkdocs-git-revision-date-localized-plugin==1.4.7; extra == 'dev'
 Requires-Dist: mkdocs-glightbox==0.4.0; extra == 'dev'
 Requires-Dist: mkdocs-literate-nav==0.6.2; extra == 'dev'
 Requires-Dist: mkdocs-macros-plugin==1.3.7; extra == 'dev'
@@ -76,7 +76,7 @@ Requires-Dist: mkdocs-minify-plugin==0.8.0; extra == 'dev'
 Requires-Dist: mkdocs-static-i18n==1.3.0; extra == 'dev'
 Requires-Dist: mkdocstrings[python]==0.26.1; (python_version < '3.9') and extra == 'dev'
 Requires-Dist: mkdocstrings[python]==0.29.1; (python_version >= '3.9') and extra == 'dev'
-Requires-Dist: mypy==1.15.0; extra == 'dev'
+Requires-Dist: mypy==1.16.0; extra == 'dev'
 Requires-Dist: nats-py<=3.0.0,>=2.7.0; extra == 'dev'
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.24.0; extra == 'dev'
 Requires-Dist: pillow; extra == 'dev'
@@ -85,15 +85,16 @@ Requires-Dist: pre-commit==4.2.0; (python_version >= '3.9') and extra == 'dev'
 Requires-Dist: prometheus-client<0.30.0,>=0.20.0; extra == 'dev'
 Requires-Dist: pydantic-settings<3.0.0,>=2.0.0; extra == 'dev'
 Requires-Dist: pytest-asyncio==0.24.0; (python_version < '3.9') and extra == 'dev'
-Requires-Dist: pytest-asyncio==0.26.0; (python_version >= '3.9') and extra == 'dev'
-Requires-Dist: pytest==8.3.5; extra == 'dev'
+Requires-Dist: pytest-asyncio==1.0.0; (python_version >= '3.9') and extra == 'dev'
+Requires-Dist: pytest==8.3.5; (python_version < '3.9') and extra == 'dev'
+Requires-Dist: pytest==8.4.0; (python_version >= '3.9') and extra == 'dev'
 Requires-Dist: pyyaml==6.0.2; extra == 'dev'
 Requires-Dist: redis<7.0.0,>=5.0.0; extra == 'dev'
 Requires-Dist: requests; extra == 'dev'
-Requires-Dist: ruff==0.11.10; extra == 'dev'
-Requires-Dist: semgrep==1.122.0; (python_version >= '3.9') and extra == 'dev'
+Requires-Dist: ruff==0.11.13; extra == 'dev'
+Requires-Dist: semgrep==1.124.0; (python_version >= '3.9') and extra == 'dev'
 Requires-Dist: semgrep==1.99.0; (python_version < '3.9') and extra == 'dev'
-Requires-Dist: typer!=0.12,<=0.15.4,>=0.9; extra == 'dev'
+Requires-Dist: typer!=0.12,<=0.16.0,>=0.9; extra == 'dev'
 Requires-Dist: types-aiofiles; extra == 'dev'
 Requires-Dist: types-deprecated; extra == 'dev'
 Requires-Dist: types-docutils; extra == 'dev'
@@ -103,12 +104,14 @@ Requires-Dist: types-redis; extra == 'dev'
 Requires-Dist: types-setuptools; extra == 'dev'
 Requires-Dist: types-ujson; extra == 'dev'
 Requires-Dist: typing-extensions<4.12.1,>=4.8.0; (python_version < '3.9') and extra == 'dev'
+Requires-Dist: uvicorn==0.33.0; (python_version == '3.8') and extra == 'dev'
+Requires-Dist: uvicorn>=0.34.3; (python_version >= '3.9') and extra == 'dev'
 Requires-Dist: watchfiles<1.1.0,>=0.15.0; extra == 'dev'
 Provides-Extra: devdocs
 Requires-Dist: cairosvg; extra == 'devdocs'
 Requires-Dist: mdx-include==1.4.2; extra == 'devdocs'
 Requires-Dist: mike==2.1.3; extra == 'devdocs'
-Requires-Dist: mkdocs-git-revision-date-localized-plugin==1.4.5; extra == 'devdocs'
+Requires-Dist: mkdocs-git-revision-date-localized-plugin==1.4.7; extra == 'devdocs'
 Requires-Dist: mkdocs-glightbox==0.4.0; extra == 'devdocs'
 Requires-Dist: mkdocs-literate-nav==0.6.2; extra == 'devdocs'
 Requires-Dist: mkdocs-macros-plugin==1.3.7; extra == 'devdocs'
@@ -130,15 +133,15 @@ Requires-Dist: codespell==2.4.1; extra == 'lint'
 Requires-Dist: confluent-kafka!=2.8.1,<3,>=2.6; (python_version >= '3.13') and extra == 'lint'
 Requires-Dist: confluent-kafka!=2.8.1,<3,>=2; (python_version < '3.13') and extra == 'lint'
 Requires-Dist: confluent-kafka-stubs; (python_version >= '3.11') and extra == 'lint'
-Requires-Dist: mypy==1.15.0; extra == 'lint'
+Requires-Dist: mypy==1.16.0; extra == 'lint'
 Requires-Dist: nats-py<=3.0.0,>=2.7.0; extra == 'lint'
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.24.0; extra == 'lint'
 Requires-Dist: prometheus-client<0.30.0,>=0.20.0; extra == 'lint'
 Requires-Dist: redis<7.0.0,>=5.0.0; extra == 'lint'
-Requires-Dist: ruff==0.11.10; extra == 'lint'
-Requires-Dist: semgrep==1.122.0; (python_version >= '3.9') and extra == 'lint'
+Requires-Dist: ruff==0.11.13; extra == 'lint'
+Requires-Dist: semgrep==1.124.0; (python_version >= '3.9') and extra == 'lint'
 Requires-Dist: semgrep==1.99.0; (python_version < '3.9') and extra == 'lint'
-Requires-Dist: typer!=0.12,<=0.15.4,>=0.9; extra == 'lint'
+Requires-Dist: typer!=0.12,<=0.16.0,>=0.9; extra == 'lint'
 Requires-Dist: types-aiofiles; extra == 'lint'
 Requires-Dist: types-deprecated; extra == 'lint'
 Requires-Dist: types-docutils; extra == 'lint'
@@ -159,7 +162,7 @@ Requires-Dist: nats-py<=3.0.0,>=2.7.0; extra == 'optionals'
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.24.0; extra == 'optionals'
 Requires-Dist: prometheus-client<0.30.0,>=0.20.0; extra == 'optionals'
 Requires-Dist: redis<7.0.0,>=5.0.0; extra == 'optionals'
-Requires-Dist: typer!=0.12,<=0.15.4,>=0.9; extra == 'optionals'
+Requires-Dist: typer!=0.12,<=0.16.0,>=0.9; extra == 'optionals'
 Requires-Dist: watchfiles<1.1.0,>=0.15.0; extra == 'optionals'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.24.0; extra == 'otel'
@@ -171,37 +174,41 @@ Provides-Extra: redis
 Requires-Dist: redis<7.0.0,>=5.0.0; extra == 'redis'
 Provides-Extra: test-core
 Requires-Dist: coverage[toml]==7.6.1; (python_version < '3.9') and extra == 'test-core'
-Requires-Dist: coverage[toml]==7.8.0; (python_version >= '3.9') and extra == 'test-core'
+Requires-Dist: coverage[toml]==7.8.2; (python_version >= '3.9') and extra == 'test-core'
 Requires-Dist: dirty-equals==0.9.0; extra == 'test-core'
 Requires-Dist: pytest-asyncio==0.24.0; (python_version < '3.9') and extra == 'test-core'
-Requires-Dist: pytest-asyncio==0.26.0; (python_version >= '3.9') and extra == 'test-core'
-Requires-Dist: pytest==8.3.5; extra == 'test-core'
+Requires-Dist: pytest-asyncio==1.0.0; (python_version >= '3.9') and extra == 'test-core'
+Requires-Dist: pytest==8.3.5; (python_version < '3.9') and extra == 'test-core'
+Requires-Dist: pytest==8.4.0; (python_version >= '3.9') and extra == 'test-core'
 Requires-Dist: typing-extensions<4.12.1,>=4.8.0; (python_version < '3.9') and extra == 'test-core'
 Provides-Extra: testing
 Requires-Dist: coverage[toml]==7.6.1; (python_version < '3.9') and extra == 'testing'
-Requires-Dist: coverage[toml]==7.8.0; (python_version >= '3.9') and extra == 'testing'
+Requires-Dist: coverage[toml]==7.8.2; (python_version >= '3.9') and extra == 'testing'
 Requires-Dist: dirty-equals==0.9.0; extra == 'testing'
 Requires-Dist: email-validator==2.2.0; extra == 'testing'
 Requires-Dist: fastapi==0.115.12; extra == 'testing'
 Requires-Dist: httpx==0.28.1; extra == 'testing'
 Requires-Dist: pydantic-settings<3.0.0,>=2.0.0; extra == 'testing'
 Requires-Dist: pytest-asyncio==0.24.0; (python_version < '3.9') and extra == 'testing'
-Requires-Dist: pytest-asyncio==0.26.0; (python_version >= '3.9') and extra == 'testing'
-Requires-Dist: pytest==8.3.5; extra == 'testing'
+Requires-Dist: pytest-asyncio==1.0.0; (python_version >= '3.9') and extra == 'testing'
+Requires-Dist: pytest==8.3.5; (python_version < '3.9') and extra == 'testing'
+Requires-Dist: pytest==8.4.0; (python_version >= '3.9') and extra == 'testing'
 Requires-Dist: pyyaml==6.0.2; extra == 'testing'
 Requires-Dist: typing-extensions<4.12.1,>=4.8.0; (python_version < '3.9') and extra == 'testing'
+Requires-Dist: uvicorn==0.33.0; (python_version == '3.8') and extra == 'testing'
+Requires-Dist: uvicorn>=0.34.3; (python_version >= '3.9') and extra == 'testing'
 Provides-Extra: types
 Requires-Dist: aio-pika<10,>=9; extra == 'types'
 Requires-Dist: aiokafka<0.13,>=0.9; extra == 'types'
 Requires-Dist: confluent-kafka!=2.8.1,<3,>=2.6; (python_version >= '3.13') and extra == 'types'
 Requires-Dist: confluent-kafka!=2.8.1,<3,>=2; (python_version < '3.13') and extra == 'types'
 Requires-Dist: confluent-kafka-stubs; (python_version >= '3.11') and extra == 'types'
-Requires-Dist: mypy==1.15.0; extra == 'types'
+Requires-Dist: mypy==1.16.0; extra == 'types'
 Requires-Dist: nats-py<=3.0.0,>=2.7.0; extra == 'types'
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.24.0; extra == 'types'
 Requires-Dist: prometheus-client<0.30.0,>=0.20.0; extra == 'types'
 Requires-Dist: redis<7.0.0,>=5.0.0; extra == 'types'
-Requires-Dist: typer!=0.12,<=0.15.4,>=0.9; extra == 'types'
+Requires-Dist: typer!=0.12,<=0.16.0,>=0.9; extra == 'types'
 Requires-Dist: types-aiofiles; extra == 'types'
 Requires-Dist: types-deprecated; extra == 'types'
 Requires-Dist: types-docutils; extra == 'types'
@@ -256,7 +263,7 @@ Description-Content-Type: text/markdown
   </a>
 
   <a href="https://github.com/ag2ai/faststream/blob/main/LICENSE" target="_blank">
-    <img src="https://img.shields.io/github/license/ag2ai/faststream.png" alt="License"/>
+    <img src="https://img.shields.io/github/license/ag2ai/faststream.svg" alt="License"/>
   </a>
 
   <a href="https://github.com/ag2ai/faststream/blob/main/CODE_OF_CONDUCT.md" target="_blank">
@@ -327,13 +334,13 @@ That's **FastStream** in a nutshell—easy, efficient, and powerful. Whether you
 You can install it with `pip` as usual:
 
 ```sh
-pip install faststream[kafka]
+pip install 'faststream[kafka]'
 # or
-pip install faststream[rabbit]
+pip install 'faststream[rabbit]'
 # or
-pip install faststream[nats]
+pip install 'faststream[nats]'
 # or
-pip install faststream[redis]
+pip install 'faststream[redis]'
 ```
 
 By default **FastStream** uses **PydanticV2** written in **Rust**, but you can downgrade it manually, if your platform has no **Rust** support - **FastStream** will work correctly with **PydanticV1** as well.

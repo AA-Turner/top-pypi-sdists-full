@@ -1,0 +1,544 @@
+Metadata-Version: 2.4
+Name: qiskit-connector
+Version: 2.3.4
+Summary: Quantum Computing Qiskit Connector For Quantum Backend Use In Realtime
+Home-page: https://github.com/schijioke-uche/qiskit-connector
+Author: Dr. Jeffrey Chijioke-Uche
+Author-email: "Dr. Jeffrey Chijioke-Uche (Software Owner)" <sj@chijioke-uche.com>
+Maintainer-email: "Dr. Jeffrey Chijioke-Uche" <sj@chijioke-uche.com>
+License:          Copyright ©2025 Dr. Jeffrey Chijioke-Uche - All Rights Reserved
+        
+                                         [LICENSE]
+              Terms And Conditions For Use, Reproduction, Copyright, And Distribution
+        
+           1. Definitions. 
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+                  Copyright ©2025 Dr. Jeffrey Chijioke-Uche
+                     Computer Scientist & Software Author
+                IEEE Senior Member (Computational Intelligence)
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at: http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+        
+                                          Apache License
+                                   Version 2.0, January 2004
+                                  http://www.apache.org/licenses/
+Project-URL: Homepage, https://github.com/schijioke-uche/pypi-qiskit-connector
+Project-URL: Source, https://github.com/schijioke-uche/pypi-qiskit-connector
+Project-URL: Tracker, https://github.com/schijioke-uche/pypi-qiskit-connector/issues
+Project-URL: Software Publisher, https://doi.org/10.5281/zenodo.15304310
+Keywords: qiskit connector,quantum connection,quantum computing,ibm quantum,qiskit,quantum runtimeservice,quantum automated backend connectors,qpu resources,qubits processing unit,quantum programming language,quantum circuit,quantum open plan,quantum premier plan,quantum standard plan,quantum dedicated plan,quantum paid plan,quantum workloads,physical quantum computer,quantum algorithms,qiskit integration libraries,qiskit connector interface,python wrapper for Qiskit,production-ready Qiskit tooling,quantum SDK connection automation tools
+Classifier: Environment :: Console
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Quantum Computing
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Scientific/Engineering :: Astronomy
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Utilities
+Classifier: Topic :: Software Development :: Assemblers
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: System :: Distributed Computing
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests>=2.32.3
+Requires-Dist: python-dotenv>=1.1.0
+Requires-Dist: qiskit>=2.0.0
+Requires-Dist: qiskit-ibm-runtime>=0.38.0
+Requires-Dist: pillow>=11.2.1
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+
+# Qiskit Connector
+
+[![Python](https://github.com/QComputingSoftware/pypi-qiskit-connector/raw/main/docs/badges/python.svg)](https://www.python.org/downloads) [![Qiskit Connector Quality Check](https://github.com/QComputingSoftware/pypi-qiskit-connector/actions/workflows/quality.yml/badge.svg)](https://github.com/QComputingSoftware/pypi-qiskit-connector) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15349641.svg)](https://doi.org/10.5281/zenodo.15304310) [![Qiskit Connector Code Coverage Analysis](https://github.com/QComputingSoftware/pypi-qiskit-connector/raw/main/docs/badges/coverage.svg)](https://github.com/QComputingSoftware/pypi-qiskit-connector) [![Qiskit Connector Latest Release](https://github.com/QComputingSoftware/pypi-qiskit-connector/raw/main/docs/badges/release.svg)](https://github.com/QComputingSoftware/pypi-qiskit-connector/releases) [![PyPI Downloads](https://static.pepy.tech/badge/qiskit-connector)](https://pepy.tech/projects/qiskit-connector) [![License](https://github.com/QComputingSoftware/pypi-qiskit-connector/raw/main/docs/badges/license-badge.svg)](https://opensource.org/licenses/Apache-2.0) [![Monthly Downloads](https://github.com/QComputingSoftware/pypi-qiskit-connector/raw/main/docs/badges/monthly-downloads.svg)](https://pypi.org/project/qiskit-connector)
+
+
+**🖥️ Qiskit Connector® - Seamless Real-Time Connector for IBM Quantum Computing QPU**
+
+Qiskit Connector® is quantum computing open-source SDK extension. The Qiskit Connector® transforms how quantum developers connect to IBM Quantum backends by automating every step of the authentication, plan detection, and backend selection process. Instead of writing extensive boilerplate setup code for each project, developers can now seamlessly authenticate, dynamically detect whether they are using an `Open` or `Paid` plan, and instantly access the optimal backend `QPU`resource which is least-busy using a single intuitive keyword: `backend`. The connector intelligently manages quantum computing plan environment variables and Qiskit runtime service configuration for sticky reusability of QPU resources from the backend, allowing quantum developers to streamline connection workflows and immediately focus on building, testing, and scaling quantum applications. 
+<br><br>
+By eliminating manual configurations and connection complexities, Qiskit Connector empowers developers to reduce onboarding time, minimize human error, and accelerate quantum solution delivery. The tool is especially valuable for production-grade quantum development where agility, repeatability, and secure backend access are critical. Whether working in research environments, building enterprise-grade quantum solutions, or designing novel quantum algorithms, developers can now concentrate on high-value tasks without being slowed down by infrastructure setup challenges.
+<br><br>
+⚛️This package performs the following:
+- Loads environment variables from config file (e.g. `.env` if you are local) or load it remotely(depending on detection) to configure your IBM Quantum account plan and make the `backend` object available within your quantum application code for reuse in real-time.
+- Detects your active plan (Open, Standard, Premium, Dedicated) and sets up the correct channel/instance.
+- It has (`qiskit_smart`) to establish connectivity, then to verify QPU resources using (`qpu_verify`), and retrieve a ready-to-use backend using (`connector()`). Presents you with the least-busy backend QPU to run your quantum application code in realtime.
+
+###### 🧩 Software built by ©2025 Dr. Jeffrey Chijioke-Uche, IBM Computer Scientist & Quantum Ambassador.
+---
+
+#### 📋 Built-in classes & functions
+
+These functions are available after you import the module:
+
+```python
+from qiskit_connector import QConnectorV2 as connector
+from qiskit_connector import QPlanV2 as plan
+```
+- **`connector()`**  
+  **Primary Integration Point:** Seamlessly initializes your IBM Quantum account, selects the optimal QPU (or the first available device for open/paid plans), and emits a clear diagnostics summary. It returns a fully configured `backend` object that you can immediately pass to Qiskit’s sampler, estimator, transpiler, or any circuit execution API—so you can focus on your quantum workflows rather than connection boilerplate.
+
+- **`plan()`**  
+  **Subscription Plan Resolver:** Automatically evaluates your environment configuration (via `.env` or system variables) to identify whether you’re operating under the **Open Plan** or a **Paid Plan**. This guarantees that your code consistently targets the correct IBM Quantum service tier, eliminating manual plan management and minimizing configuration drift.
+
+---
+    
+#### 📌 Changelog
+
+| Version   | Description                                                                                   | Updated Import Syntax                                                                 |
+|-----------|-----------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| <= v2.2.2    | Initial import approach using functional-style interface for all versions equal or below v2.2.2                                      | `from qiskit_connector import connector, plan_type`                                   |
+| >= v2.2.3    | Switched to class-based architecture with aliasing for enhanced flexibility and clarity for all versions equal or above 2.2.3      | `from qiskit_connector import QConnectorV2 as connector`<br>`from qiskit_connector import QPlanV2 as plan` |
+
+---
+
+#### 🔧 Installation
+###### It is recommended that you use `pip` for installation - a common best practice.
+```bash
+pip install qiskit-connector
+```
+
+This will also pull in functionalities powered by Qiskit SDK:
+- `qiskit>=2.0.0`  
+  
+
+and any other Qiskit dependencies. (Qiskit 1.x is not supported).
+
+---
+
+#### 🗂️ Variable Setup
+🔐 [Security Practices](https://cloud.ibm.com/docs/security-compliance?topic=security-compliance-best-practices): Do not check-in to version control any `environment variable config file` or any variable setup file. The best security practice is to add it to your `.gitignore` or to accessible `vault`. During local development, create a file named `.env` at your project root and ensure it is named on your `.gitignore`. The connector will automatically load it. Use the template below as the content of your .env file or variable setup config file. Copy and paste it then supply the values.
+
+
+```dotenv
+
+# General Purpose:                                            (Required)
+#--------------------------------------------------------------------------------------
+IQP_API_TOKEN="<PROVIDE_YOUR_API_TOKEN>"  
+
+
+# Channels:                                                   (Required)
+#--------------------------------------------------------------------------------------
+OPEN_PLAN_CHANNEL="<PROVIDE_YOUR_CHANNEL>"  
+PAID_PLAN_CHANNEL="<PROVIDE PAID PLAN CHANNEL>"  
+
+
+# API Url:                                                    (Optional)
+#--------------------------------------------------------------------------------------
+IQP_API_URL=<PROVIDE_YOUR_API_URL>  
+IQP_RUNTIME_API_URL=<PROVIDE_YOUR_RUNTIME_API_URL>  
+
+
+# Quantum Url:                                                (Optional)
+#---------------------------------------------------------------------------------------
+CLOUD_API_URL="<PROVIDE_YOUR_CLOUD_API_URL>" 
+QUANTUM_API_URL="<PROVIDE_YOUR_QUANTUM_API_URL>"  
+
+
+# Instance:                                                  (Required)
+#---------------------------------------------------------------------------------------
+OPEN_PLAN_INSTANCE="<PROVIDE_YOUR_OPEN_PLAN_INSTANCE>"  
+PAID_PLAN_INSTANCE="<PROVIDE_YOUR_PAID_PLAN_INSTANCE>"  
+
+
+# Default (Open plan) - free                                   
+#---------------------------------------------------------------------------------------
+OPEN_PLAN_NAME="open"
+
+
+# Optional (Upgrade) - Pay as you go                             
+#----------------------------------------------------------------------------------------
+PAYGO_PLAN_NAME="pay-as-you-go"
+
+
+# Optional (Upgrade) - Flex                              
+#----------------------------------------------------------------------------------------
+FLEX_PLAN_NAME="flex"
+
+
+# Optional (Upgrade) - Premium                                
+#----------------------------------------------------------------------------------------
+PREMIUM_PLAN_NAME="premium"
+
+
+# Optional (Upgrade) - Dedicated                               
+#----------------------------------------------------------------------------------------
+DEDICATED_PLAN_NAME="dedicated"
+
+
+# Switch "on" plan:                                       (Required)
+#----------------------------------------------------------------------------------------
+OPEN_PLAN="on"        # [Default & switched on] [Free] 
+PAYGO_PLAN="off"
+FLEX_PLAN="off"      
+PREMIUM_PLAN="off"      
+DEDICATED_PLAN="off"    
+```
+> **⚠️ Only one** of the plans can be set to **"on"** at a time.
+
+---
+
+
+
+
+#### 👤 Usage - With Qiskit 2.x Code Sample
+
+###### 📦 For Open or Paid Plans
+
+```python
+
+# After Qiskit Connector® pip install, Import Qiskit Connector®:
+from qiskit_connector import QConnectorV2 as connector
+from qiskit_connector import QPlanV2 as plan
+
+# Initialize Qiskit Connector®::
+current = plan()
+backend = connector()
+
+#-----------------------------------HOW TO USE QISKIT CONNECTOR--------------------------------
+
+
+# ------------------------------ QISKIT 2.x CODE SAMPLE ---------------------------------------
+#     This code sample is using the Qiskit Connector to run with a real quantum backend.
+###############################################################################################
+# 🔍 This code sample demonstrates how to create a randomized circuit with depolarizing noise
+# ✅ QuantumCircuit(2, 2) — matches 2-qubit base circuit
+# ✅ Applies independent random Pauli gates per qubit before and after the base logic
+# ✅ Uses remove_final_measurements() to cleanly insert logic into the composed circuit
+# ✅ Re-applies measurements after twirling to preserve expected output
+################################################################################################
+from qiskit import QuantumCircuit, transpile
+from qiskit_ibm_runtime import SamplerV2 as Sampler, Session
+
+# Define entangled base circuit with superposition and CNOT entanglement
+def base_circuit():
+    qc = QuantumCircuit(2, 2)
+    for q in range(2):
+        qc.h(q)
+        qc.rx(0.5, q)
+        qc.rz(1.0, q)
+        qc.s(q)
+        qc.t(q)
+        qc.h(q)
+    qc.cx(0, 1)
+    qc.measure([0, 1], [0, 1])
+    return qc
+
+# Create randomized circuits with depolarizing noise model
+def randomize_circuit(base_qc, p):
+    qc = QuantumCircuit(2, 2)
+    # Apply randomized Pauli gates before and after the base circuit
+    # ... [pauli gate application code here] ...
+    return qc
+
+# Prepare circuits
+rand_range = 5
+p = 0.1
+qc = base_circuit()
+circuits = [randomize_circuit(qc, p) for _ in range(rand_range)]
+
+# Transpile and submit jobs
+qc_t = [transpile(c, backend=backend, optimization_level=3) for c in circuits[:rand_range]]
+if current == "Open Plan":
+    sampler = Sampler(mode=backend)
+    job = sampler.run(qc_t, shots=1)
+elif current == "Paid Plan":
+    with Session(backend=backend.name) as session:
+        sampler = Sampler(mode=session)
+        job = sampler.run(qc_t, shots=1)
+
+# Monitor job and retrieve results, then display histograms
+# ...
+```
+[See full code sample here](https://github.com/QComputingSoftware/pypi-qiskit-connector/tree/main/how-to-use)
+
+
+
+#### Output Sample
+```python
+
+==================================================================================
+
+   ____   ______                                  __
+  / __ \ / ____/____   ____   ____   ___   _____ / /_ ____   _____
+ / / / // /    / __ \ / __ \ / __ \ / _ \ / ___// __// __ \ / ___/
+/ /_/ // /___ / /_/ // / / // / / //  __// /__ / /_ / /_/ // /
+\___\_\____/ \____//_/ /_//_/ /_/ \___/ \___/ \__/ \____//_/
+
+🧠 Qiskit Connector® for Quantum Backend Realtime Connection
+
+⚛️ Connecting (Open Plan) to least-busy QPU...
+----------------------------------------------------------------------------------
+⚛️ Connected [Open Plan] → Realtime Least Busy QPU:: [ibm_sherbrooke]
+- ibm_brisbane
+- ibm_sherbrooke
+- ibm_torino
+
+🖥️ Least Busy QPU Now: [ibm_sherbrooke]
+🖥️ Version: 2
+🖥️ Qubits Count: 127
+🖥️ Backend [ibm_sherbrooke] ready for use: ✔️ Yes
+🖥️ Operational: Open Plan
+==================================================================================
+
+⚛️ Getting (Open Plan) Least-busy QPU Processor Info...
+----------------------------------------------------------------------------------
+
+--- 🔳  Processor Details for QConnector Least Busy Backend QPU: ibm_sherbrooke ---
+🦾 Processor Type: Eagle
+🦾 Processor Revision: r3
+🦾 Processor status: 🟢 Online
+       
+🟢 Eagle Quantum Processor
+==================================================================================
+
+# ------------------------ your job result is below this line --------------------
+# ...
+```
+[See full code sample here](https://github.com/QComputingSoftware/pypi-qiskit-connector/tree/main/how-to-use)
+
+
+---
+####  📜 Citation
+
+Qiskit Connector software invention was inspired by IBM Research on Quantum Computing Qiskit Software, which led the authoring, design, development of Qiskit Connector based on the persistent research studies and tests carried out by  `Dr. Jeffrey Chijioke-Uche(IBM Quantum Ambassador & Research Scientist)` in the lab. This software is expected to continue to metamorphose with the help and work of existing quantum computing academic scholarly & peer reviewed research at different levels in the Information Technology industry. If you use Qiskit for Quantum computing, please cite this software as per the provided [BibTeX](https://github.com/QComputingSoftware/pypi-qiskit-connector/blob/main/CITATION.bib) file. Also, citation is available in the following formats: [Harvard](https://zenodo.org/records/15330579#citation), [APA](https://zenodo.org/records/15330579#citation), [MLA](https://zenodo.org/records/15330579#citation), [IEEE](https://zenodo.org/records/15330579#citation), [Chicago](https://zenodo.org/records/15330579#citation), & [Vancouver](https://zenodo.org/records/15330579#citation)
+
+---
+
+#### 📜 Software Author
+Dr. Jeffrey Chijioke-Uche <br>
+IBM Computer Scientist <br>
+IBM Quantum Ambassador & Research Scientist <br>
+IEEE Senior Member (Computational Intelligence)
+
+---
+#### 📜  Rights
+The Quantum Computing Qiskit Connector is copyrighted and it is a proprietary software developed by Dr. Jeffrey Chijioke-Uche ©2025 - All Rights Reserved. The software is for enhancing development, usability, and workflows in IBM Quantum Computing systems by global users. This software is protected under copyright laws and applicable intellectual property statutes. Unauthorized reproduction, distribution, or derivative use of the software in part or whole is strictly prohibited without express written permission from the author. This software may be used under the terms outlined in the accompanying <b>licenses</b> by ([Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) and [Creative Commons Attribution 4.0 international](https://creativecommons.org/licenses/by/4.0/legalcode)). Use of this software signifies your agreement to comply with the license terms and to attribute the original author when incorporating the package into your work or systems. For other question(s), please contact the maintainer directly through the official project repository or email channel provided on PyPI. All Rights Reserved.
+ 
+
+---
+
+#### 📜 Acknowledgment
+The development of the Qiskit Connector has been made possible through the support, inspiration, and technical contributions of several leading institutions and communities. The software author would like to express deep gratitude to [IBM Research & IBM Quantum Ambassadors Group](https://research.ibm.com/quantum-computing) for the pioneering efforts in quantum computing and providing the infrastructure and ecosystem that fostered the development of this software. Their continued support has significantly accelerated progress in real-world quantum computing and quantum application development for cutting edge technology advancement.
+<br><br>
+Additional appreciation is extended to the [IEEE Computational Intelligence](https://cis.ieee.org) Society for their thought leadership in intelligent systems, and to the  [Harvard Program for Research in Science and Engineering](https://www.harvard.edu/) for its role in shaping early research directions. The author also acknowledges [Walden University Research](https://academicguides.waldenu.edu/research-center) for providing a strong academic and methodological foundation throughout the software development lifecycle. These institutions have collectively influenced the innovation and rigor reflected in this project.
+
+---
+
+#### 📜 Licenses
+
+This software uses these licenses for distribution:
+- [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+- [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/legalcode)
+

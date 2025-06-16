@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: ob_metaflow_extensions
+Version: 1.1.165
+Summary: Outerbounds Platform Extensions for Metaflow
+Author: Outerbounds, Inc.
+License: Commercial
+Description-Content-Type: text/markdown
+
+# Outerbounds platform package
+
+This package installs client side packages for Outerbounds platform. See Outerbounds platform documentation and [Metaflow documentation](https://metaflow.org/) for more info on how to use it.

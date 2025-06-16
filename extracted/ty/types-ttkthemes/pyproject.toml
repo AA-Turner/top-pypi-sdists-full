@@ -1,0 +1,55 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=77.0.3"]
+
+[project]
+name = "types-ttkthemes"
+version = "3.2.4.20250426"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+description = "Typing stubs for ttkthemes"
+readme = { text = """\
+## Typing stubs for ttkthemes
+
+This is a [PEP 561](https://peps.python.org/pep-0561/)
+type stub package for the [`ttkthemes`](https://github.com/RedFantom/ttkthemes) package.
+It can be used by type-checking tools like
+[mypy](https://github.com/python/mypy/),
+[pyright](https://github.com/microsoft/pyright),
+[pytype](https://github.com/google/pytype/),
+[Pyre](https://pyre-check.org/),
+PyCharm, etc. to check code that uses `ttkthemes`. This version of
+`types-ttkthemes` aims to provide accurate annotations for
+`ttkthemes==3.2.*`.
+
+This package is part of the [typeshed project](https://github.com/python/typeshed).
+All fixes for types and metadata should be contributed there.
+See [the README](https://github.com/python/typeshed/blob/main/README.md)
+for more details. The source for this package can be found in the
+[`stubs/ttkthemes`](https://github.com/python/typeshed/tree/main/stubs/ttkthemes)
+directory.
+
+This package was tested with
+mypy 1.15.0,
+pyright 1.1.400,
+and pytype 2024.10.11.
+It was generated from typeshed commit
+[`ebf4d17c8d1ba2be348c51be39faec4d0303d8fa`](https://github.com/python/typeshed/commit/ebf4d17c8d1ba2be348c51be39faec4d0303d8fa).
+""", content-type = "text/markdown" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Typing :: Stubs Only",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/python/typeshed"
+"GitHub" = "https://github.com/python/typeshed"
+"Changes" = "https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/ttkthemes.md"
+"Issue tracker" = "https://github.com/python/typeshed/issues"
+"Chat" = "https://gitter.im/python/typing"
+
+[tool.setuptools]
+packages = ['ttkthemes-stubs']
+include-package-data = false

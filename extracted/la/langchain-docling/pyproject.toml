@@ -1,0 +1,115 @@
+[project]
+name = "langchain-docling"
+version = "1.0.0"  # DO NOT EDIT, updated automatically
+description = "Docling LangChain integration"
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+authors = [
+    { name = "Panos Vagenas", email = "pva@zurich.ibm.com" },
+]
+maintainers = [
+    { name = "Panos Vagenas", email = "pva@zurich.ibm.com" },
+    { name = "Michele Dolfi", email = "dol@zurich.ibm.com" },
+    { name = "Christoph Auer", email = "cau@zurich.ibm.com" },
+    { name = "Peter Staar", email = "taa@zurich.ibm.com" },
+]
+classifiers = [
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+
+]
+requires-python = "~=3.9"
+dependencies = [
+  "langchain-core~=0.3.19",
+  "docling~=2.18",
+]
+
+[project.urls]
+homepage = "https://github.com/docling-project"
+repository = "https://github.com/docling-project/docling-langchain"
+issues = "https://github.com/docling-project/docling-langchain/issues"
+changelog = "https://github.com/docling-project/docling-langchain/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "pre-commit~=3.7",
+    "mypy~=1.6",
+    "black~=24.4",
+    "isort~=5.10",
+    "autoflake~=2.0",
+    "flake8~=7.1",
+    "pycodestyle~=2.10",
+    "flake8-docstrings~=1.6",
+    "pep8-naming~=0.13",
+    "jsondiff~=2.0",
+    "types-setuptools~=70.3",
+    "pandas-stubs~=2.1",
+    "ipykernel~=6.29",
+    "ipywidgets~=8.1",
+    "nbqa~=1.9",
+    "coverage~=7.6",
+    "pytest~=8.3",
+    "pytest-cov>=6.1.1",
+    "python-semantic-release~=7.32",
+]
+
+[tool.uv]
+package = true
+default-groups = "all"
+
+[tool.setuptools.packages.find]
+include = ["langchain_docling*"]
+
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310"]
+include = '\.pyi?$'
+preview = true
+
+[tool.isort]
+profile = "black"
+line_length = 88
+py_version = 39
+multi_line_output = 3
+include_trailing_comma = true
+
+[tool.autoflake]
+in-place = true
+ignore-init-module-imports = true
+remove-all-unused-imports = true
+remove-unused-variables = true
+expand-star-imports = true
+recursive = true
+
+[tool.mypy]
+pretty = true
+no_implicit_optional = true
+namespace_packages = true
+show_error_codes = true
+python_version = "3.9"
+plugins = ["pydantic.mypy"]
+
+[tool.semantic_release]
+# for default values check:
+# https://github.com/python-semantic-release/python-semantic-release/blob/v7.32.2/semantic_release/defaults.cfg
+
+version_source = "tag_only"
+branch = "main"
+
+# configure types which should trigger minor and patch version bumps respectively
+# (note that they must be a subset of the configured allowed types):
+parser_angular_allowed_types = "build,chore,ci,docs,feat,fix,perf,style,refactor,test"
+parser_angular_minor_types = "feat"
+parser_angular_patch_types = "fix,perf"

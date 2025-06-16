@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "kolo"
-version = "2.40.0"
+version = "2.40.1"
 description = "See everything happening in your running Django app"
 readme = "README.md"
 authors = [{ name = "Wilhelm Klopp", email = "team@kolo.app" }]

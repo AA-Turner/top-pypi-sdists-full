@@ -1,0 +1,21 @@
+Metadata-Version: 2.2
+Name: pomegranate
+Version: 1.1.2
+Summary: A PyTorch implementation of probabilistic models.
+Home-page: https://github.com/jmschrei/torchegranate
+Author: Jacob Schreiber
+Author-email: jmschreiber91@gmail.com
+License: MIT
+License-File: LICENSE
+Requires-Dist: numpy>=1.22.2
+Requires-Dist: scipy>=1.6.2
+Requires-Dist: scikit-learn>=1.0.2
+Requires-Dist: torch>=1.9.0
+Requires-Dist: apricot-select>=0.6.1
+Requires-Dist: networkx>=2.8.4
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary

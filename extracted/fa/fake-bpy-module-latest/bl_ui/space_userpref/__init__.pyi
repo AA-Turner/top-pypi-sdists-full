@@ -2818,6 +2818,41 @@ class USERPREF_PT_theme_interface_icons(CenterAlignMixIn, ThemePanel, bpy.types.
         :param layout:
         """
 
+class USERPREF_PT_theme_interface_panel(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
+    """Base class for panels to center align contents with some horizontal margin.
+    Deriving classes need to implement a draw_centered(context, layout) function.
+    """
+
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_parent_id: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw_centered(self, context, layout) -> None:
+        """
+
+        :param context:
+        :param layout:
+        """
+
 class USERPREF_PT_theme_interface_state(CenterAlignMixIn, ThemePanel, bpy.types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -3084,40 +3119,6 @@ class USERPREF_PT_viewport_quality(CenterAlignMixIn, ViewportPanel, bpy.types.Pa
 
     bl_context: typing.Any
     bl_label: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw_centered(self, context, layout) -> None:
-        """
-
-        :param context:
-        :param layout:
-        """
-
-class USERPREF_PT_viewport_selection(CenterAlignMixIn, ViewportPanel, bpy.types.Panel):
-    """Base class for panels to center align contents with some horizontal margin.
-    Deriving classes need to implement a draw_centered(context, layout) function.
-    """
-
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_options: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any

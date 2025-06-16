@@ -17,6 +17,9 @@ def get_api_definitions(service):
 
     Args:
         service: A class object.
+
+    Returns:
+        A list of tuples containing the name and value of each request definition.
     """
     # In Python 3.3, `inspect.getmembers` doesn't respect the descriptor
     # protocol when the first argument is a class. In other words, the
@@ -36,7 +39,7 @@ def set_api_definition(service, name, definition):
     setattr(service, name, definition)
 
 
-class RequestBuilder(object):
+class RequestBuilder:
     def __init__(self, client, converter_registry, base_url):
         self._method = None
         self._relative_url_template = utils.URIBuilder("")

@@ -15,6 +15,7 @@ from .utils.client_utils import EndpointsBase, create_client_response
 from .utils.httpx_auth import BearerAuth
 from .utils.jwt_utils import sign_jwt
 from .utils.pagination import NextPageTokenInterface, PaginationBase, create_next_page_token
+from .utils.sync_to_async import sync_to_async
 
 __all__ = [
     "GqlHTTPXAsyncTransport",
@@ -37,4 +38,5 @@ __all__ = [
     "NextPageTokenInterface",
     "PaginationBase",
     "create_next_page_token",
+    "sync_to_async",
 ]

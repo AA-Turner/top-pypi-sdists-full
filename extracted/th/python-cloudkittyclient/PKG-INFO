@@ -1,0 +1,49 @@
+Metadata-Version: 2.1
+Name: python-cloudkittyclient
+Version: 5.3.1
+Summary: API client of cloudkitty, Rating as a Service project.
+Home-page: https://docs.openstack.org/python-cloudkittyclient/latest/
+Author: OpenStack
+Author-email: openstack-discuss@lists.openstack.org
+Classifier: Environment :: OpenStack
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.8
+License-File: LICENSE
+Requires-Dist: pbr>=5.5.1
+Requires-Dist: cliff>=3.5.0
+Requires-Dist: keystoneauth1>=4.3.0
+Requires-Dist: oslo.utils>=4.7.0
+Requires-Dist: oslo.log>=4.4.0
+Requires-Dist: PyYAML>=5.3.1
+Requires-Dist: jsonpath-rw-ext>=1.2.0
+Requires-Dist: os-client-config>=2.1.0
+Requires-Dist: osc-lib>=2.3.0
+
+================
+CloudKittyClient
+================
+
+.. image:: https://governance.openstack.org/badges/python-cloudkittyclient.svg
+    :target: https://governance.openstack.org/reference/tags/index.html
+
+This is a client for CloudKitty_. It provides a Python api (the
+``cloudkittyclient`` module), a command-line script (``cloudkitty``), and an
+`OpenStack Client`_ extension (``openstack rating``).
+
+The client is available on PyPi_.
+
+.. _OpenStack Client: https://docs.openstack.org/python-openstackclient/latest/
+.. _CloudKitty: https://github.com/openstack/cloudkitty
+.. _PyPi:  https://pypi.org/project/python-cloudkittyclient/
+

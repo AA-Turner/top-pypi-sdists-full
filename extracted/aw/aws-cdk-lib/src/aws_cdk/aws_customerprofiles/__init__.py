@@ -104,7 +104,15 @@ class CfnCalculatedAttributeDefinition(
                 object_count=123,
                 range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
                     unit="unit",
-                    value=123
+                    value=123,
+        
+                    # the properties below are optional
+                    timestamp_format="timestampFormat",
+                    timestamp_source="timestampSource",
+                    value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
+                        end=123,
+                        start=123
+                    )
                 ),
                 threshold=customerprofiles.CfnCalculatedAttributeDefinition.ThresholdProperty(
                     operator="operator",
@@ -116,7 +124,8 @@ class CfnCalculatedAttributeDefinition(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            use_historical_data=False
         )
     '''
 
@@ -133,6 +142,7 @@ class CfnCalculatedAttributeDefinition(
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_historical_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     ) -> None:
         '''
         :param scope: Scope in which this resource is defined.
@@ -145,6 +155,7 @@ class CfnCalculatedAttributeDefinition(
         :param description: The description of the calculated attribute.
         :param display_name: The display name of the calculated attribute.
         :param tags: An array of key-value pairs to apply to this resource.
+        :param use_historical_data: Whether to use historical data for the calculated attribute.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a09ab96caa4db6cfa4ebb0207c025a7f976cac18f814d69b882506cf2971669)
@@ -159,6 +170,7 @@ class CfnCalculatedAttributeDefinition(
             description=description,
             display_name=display_name,
             tags=tags,
+            use_historical_data=use_historical_data,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -210,6 +222,24 @@ class CfnCalculatedAttributeDefinition(
         :cloudformationAttribute: LastUpdatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReadiness")
+    def attr_readiness(self) -> _IResolvable_da3f097b:
+        '''The readiness status of the calculated attribute.
+
+        :cloudformationAttribute: Readiness
+        '''
+        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrReadiness"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the calculated attribute definition.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
@@ -335,6 +365,24 @@ class CfnCalculatedAttributeDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__66b41ae1f61b2d451c01e8a6b3eabc1ef1fe6f0e51c71a264d46a9df8ec0ad14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="useHistoricalData")
+    def use_historical_data(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to use historical data for the calculated attribute.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "useHistoricalData"))
+
+    @use_historical_data.setter
+    def use_historical_data(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ab1072a749050ba2fecfbba8cc52cbc745e52869b7164a97ab6eb2dcdf582c4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "useHistoricalData", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.AttributeDetailsProperty",
@@ -501,7 +549,15 @@ class CfnCalculatedAttributeDefinition(
                     object_count=123,
                     range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
                         unit="unit",
-                        value=123
+                        value=123,
+                
+                        # the properties below are optional
+                        timestamp_format="timestampFormat",
+                        timestamp_source="timestampSource",
+                        value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
+                            end=123,
+                            start=123
+                        )
                     ),
                     threshold=customerprofiles.CfnCalculatedAttributeDefinition.ThresholdProperty(
                         operator="operator",
@@ -567,14 +623,31 @@ class CfnCalculatedAttributeDefinition(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty",
         jsii_struct_bases=[],
-        name_mapping={"unit": "unit", "value": "value"},
+        name_mapping={
+            "unit": "unit",
+            "value": "value",
+            "timestamp_format": "timestampFormat",
+            "timestamp_source": "timestampSource",
+            "value_range": "valueRange",
+        },
     )
     class RangeProperty:
-        def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
+        def __init__(
+            self,
+            *,
+            unit: builtins.str,
+            value: jsii.Number,
+            timestamp_format: typing.Optional[builtins.str] = None,
+            timestamp_source: typing.Optional[builtins.str] = None,
+            value_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.ValueRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
             '''The relative time period over which data is included in the aggregation.
 
             :param unit: The unit of time.
             :param value: The amount of time of the specified unit.
+            :param timestamp_format: The format the timestamp field in your JSON object is specified. This value should be one of EPOCHMILLI or ISO_8601. E.g. if your object type is MyType and source JSON is {"generatedAt": {"timestamp": "2001-07-04T12:08:56.235Z"}}, then TimestampFormat should be "ISO_8601".
+            :param timestamp_source: An expression specifying the field in your JSON object from which the date should be parsed. The expression should follow the structure of "{ObjectTypeName.}". E.g. if your object type is MyType and source JSON is {"generatedAt": {"timestamp": "1737587945945"}}, then TimestampSource should be "{MyType.generatedAt.timestamp}".
+            :param value_range: A structure specifying the endpoints of the relative time period over which data is included in the aggregation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html
             :exampleMetadata: fixture=_generated
@@ -587,17 +660,34 @@ class CfnCalculatedAttributeDefinition(
                 
                 range_property = customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
                     unit="unit",
-                    value=123
+                    value=123,
+                
+                    # the properties below are optional
+                    timestamp_format="timestampFormat",
+                    timestamp_source="timestampSource",
+                    value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
+                        end=123,
+                        start=123
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__4567eb83ac5620aa6be36cbd0e38cdba257d259743e1017616dbc2252fc66f9d)
                 check_type(argname="argument unit", value=unit, expected_type=type_hints["unit"])
                 check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+                check_type(argname="argument timestamp_format", value=timestamp_format, expected_type=type_hints["timestamp_format"])
+                check_type(argname="argument timestamp_source", value=timestamp_source, expected_type=type_hints["timestamp_source"])
+                check_type(argname="argument value_range", value=value_range, expected_type=type_hints["value_range"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "unit": unit,
                 "value": value,
             }
+            if timestamp_format is not None:
+                self._values["timestamp_format"] = timestamp_format
+            if timestamp_source is not None:
+                self._values["timestamp_source"] = timestamp_source
+            if value_range is not None:
+                self._values["value_range"] = value_range
 
         @builtins.property
         def unit(self) -> builtins.str:
@@ -619,6 +709,39 @@ class CfnCalculatedAttributeDefinition(
             assert result is not None, "Required property 'value' is missing"
             return typing.cast(jsii.Number, result)
 
+        @builtins.property
+        def timestamp_format(self) -> typing.Optional[builtins.str]:
+            '''The format the timestamp field in your JSON object is specified.
+
+            This value should be one of EPOCHMILLI or ISO_8601. E.g. if your object type is MyType and source JSON is {"generatedAt": {"timestamp": "2001-07-04T12:08:56.235Z"}}, then TimestampFormat should be "ISO_8601".
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html#cfn-customerprofiles-calculatedattributedefinition-range-timestampformat
+            '''
+            result = self._values.get("timestamp_format")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timestamp_source(self) -> typing.Optional[builtins.str]:
+            '''An expression specifying the field in your JSON object from which the date should be parsed.
+
+            The expression should follow the structure of "{ObjectTypeName.}". E.g. if your object type is MyType and source JSON is {"generatedAt": {"timestamp": "1737587945945"}}, then TimestampSource should be "{MyType.generatedAt.timestamp}".
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html#cfn-customerprofiles-calculatedattributedefinition-range-timestampsource
+            '''
+            result = self._values.get("timestamp_source")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value_range(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ValueRangeProperty"]]:
+            '''A structure specifying the endpoints of the relative time period over which data is included in the aggregation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html#cfn-customerprofiles-calculatedattributedefinition-range-valuerange
+            '''
+            result = self._values.get("value_range")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ValueRangeProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -627,6 +750,79 @@ class CfnCalculatedAttributeDefinition(
 
         def __repr__(self) -> str:
             return "RangeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.ReadinessProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "message": "message",
+            "progress_percentage": "progressPercentage",
+        },
+    )
+    class ReadinessProperty:
+        def __init__(
+            self,
+            *,
+            message: typing.Optional[builtins.str] = None,
+            progress_percentage: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The readiness status of the calculated attribute.
+
+            :param message: Any information pertaining to the status of the calculated attribute if required.
+            :param progress_percentage: The progress percentage for including historical data in your calculated attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-readiness.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                readiness_property = customerprofiles.CfnCalculatedAttributeDefinition.ReadinessProperty(
+                    message="message",
+                    progress_percentage=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0bc0a3c3468a435a5677e162145a9ef5e062a4e72fd921895d645bd1056af4e3)
+                check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+                check_type(argname="argument progress_percentage", value=progress_percentage, expected_type=type_hints["progress_percentage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if message is not None:
+                self._values["message"] = message
+            if progress_percentage is not None:
+                self._values["progress_percentage"] = progress_percentage
+
+        @builtins.property
+        def message(self) -> typing.Optional[builtins.str]:
+            '''Any information pertaining to the status of the calculated attribute if required.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-readiness.html#cfn-customerprofiles-calculatedattributedefinition-readiness-message
+            '''
+            result = self._values.get("message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def progress_percentage(self) -> typing.Optional[jsii.Number]:
+            '''The progress percentage for including historical data in your calculated attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-readiness.html#cfn-customerprofiles-calculatedattributedefinition-readiness-progresspercentage
+            '''
+            result = self._values.get("progress_percentage")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReadinessProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -696,6 +892,76 @@ class CfnCalculatedAttributeDefinition(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"end": "end", "start": "start"},
+    )
+    class ValueRangeProperty:
+        def __init__(self, *, end: jsii.Number, start: jsii.Number) -> None:
+            '''A structure specifying the endpoints of the relative time period over which data is included in the aggregation.
+
+            :param end: The ending point for this range. Positive numbers indicate how many days in the past data should be included, and negative numbers indicate how many days in the future.
+            :param start: The starting point for this range. Positive numbers indicate how many days in the past data should be included, and negative numbers indicate how many days in the future.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-valuerange.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                value_range_property = customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
+                    end=123,
+                    start=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4d18b8118549ce586fc14b0cc15f51e9a520330684bb4d883bbf10b82b000c5a)
+                check_type(argname="argument end", value=end, expected_type=type_hints["end"])
+                check_type(argname="argument start", value=start, expected_type=type_hints["start"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "end": end,
+                "start": start,
+            }
+
+        @builtins.property
+        def end(self) -> jsii.Number:
+            '''The ending point for this range.
+
+            Positive numbers indicate how many days in the past data should be included, and negative numbers indicate how many days in the future.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-valuerange.html#cfn-customerprofiles-calculatedattributedefinition-valuerange-end
+            '''
+            result = self._values.get("end")
+            assert result is not None, "Required property 'end' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def start(self) -> jsii.Number:
+            '''The starting point for this range.
+
+            Positive numbers indicate how many days in the past data should be included, and negative numbers indicate how many days in the future.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-valuerange.html#cfn-customerprofiles-calculatedattributedefinition-valuerange-start
+            '''
+            result = self._values.get("start")
+            assert result is not None, "Required property 'start' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ValueRangeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinitionProps",
@@ -709,6 +975,7 @@ class CfnCalculatedAttributeDefinition(
         "description": "description",
         "display_name": "displayName",
         "tags": "tags",
+        "use_historical_data": "useHistoricalData",
     },
 )
 class CfnCalculatedAttributeDefinitionProps:
@@ -723,6 +990,7 @@ class CfnCalculatedAttributeDefinitionProps:
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_historical_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCalculatedAttributeDefinition``.
 
@@ -734,6 +1002,7 @@ class CfnCalculatedAttributeDefinitionProps:
         :param description: The description of the calculated attribute.
         :param display_name: The display name of the calculated attribute.
         :param tags: An array of key-value pairs to apply to this resource.
+        :param use_historical_data: Whether to use historical data for the calculated attribute.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html
         :exampleMetadata: fixture=_generated
@@ -760,7 +1029,15 @@ class CfnCalculatedAttributeDefinitionProps:
                     object_count=123,
                     range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
                         unit="unit",
-                        value=123
+                        value=123,
+            
+                        # the properties below are optional
+                        timestamp_format="timestampFormat",
+                        timestamp_source="timestampSource",
+                        value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
+                            end=123,
+                            start=123
+                        )
                     ),
                     threshold=customerprofiles.CfnCalculatedAttributeDefinition.ThresholdProperty(
                         operator="operator",
@@ -772,7 +1049,8 @@ class CfnCalculatedAttributeDefinitionProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                use_historical_data=False
             )
         '''
         if __debug__:
@@ -785,6 +1063,7 @@ class CfnCalculatedAttributeDefinitionProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument use_historical_data", value=use_historical_data, expected_type=type_hints["use_historical_data"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "attribute_details": attribute_details,
             "calculated_attribute_name": calculated_attribute_name,
@@ -799,6 +1078,8 @@ class CfnCalculatedAttributeDefinitionProps:
             self._values["display_name"] = display_name
         if tags is not None:
             self._values["tags"] = tags
+        if use_historical_data is not None:
+            self._values["use_historical_data"] = use_historical_data
 
     @builtins.property
     def attribute_details(
@@ -879,6 +1160,17 @@ class CfnCalculatedAttributeDefinitionProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    @builtins.property
+    def use_historical_data(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''Whether to use historical data for the calculated attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-usehistoricaldata
+        '''
+        result = self._values.get("use_historical_data")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6061,6 +6353,7 @@ class CfnObjectType(
                     standard_identifiers=["standardIdentifiers"]
                 )]
             )],
+            max_profile_object_count=123,
             source_last_updated_timestamp_format="sourceLastUpdatedTimestampFormat",
             tags=[CfnTag(
                 key="key",
@@ -6083,6 +6376,7 @@ class CfnObjectType(
         expiration_days: typing.Optional[jsii.Number] = None,
         fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObjectType.FieldMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObjectType.KeyMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        max_profile_object_count: typing.Optional[jsii.Number] = None,
         source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         template_id: typing.Optional[builtins.str] = None,
@@ -6098,6 +6392,7 @@ class CfnObjectType(
         :param expiration_days: The number of days until the data of this type expires.
         :param fields: A list of field definitions for the object type mapping.
         :param keys: A list of keys that can be used to map data to the profile or search for the profile.
+        :param max_profile_object_count: The maximum number of profile objects for this object type.
         :param source_last_updated_timestamp_format: The format of your sourceLastUpdatedTimestamp that was previously set up.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param template_id: A unique identifier for the template mapping. This can be used instead of specifying the Keys and Fields properties directly.
@@ -6115,6 +6410,7 @@ class CfnObjectType(
             expiration_days=expiration_days,
             fields=fields,
             keys=keys,
+            max_profile_object_count=max_profile_object_count,
             source_last_updated_timestamp_format=source_last_updated_timestamp_format,
             tags=tags,
             template_id=template_id,
@@ -6169,6 +6465,15 @@ class CfnObjectType(
         :cloudformationAttribute: LastUpdatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMaxAvailableProfileObjectCount")
+    def attr_max_available_profile_object_count(self) -> jsii.Number:
+        '''The maximum available number of profile objects.
+
+        :cloudformationAttribute: MaxAvailableProfileObjectCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrMaxAvailableProfileObjectCount"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6299,6 +6604,19 @@ class CfnObjectType(
             type_hints = typing.get_type_hints(_typecheckingstub__521c1a4bfa097c3b1f3951ecd6980736e1de35a3bfe50227b262534c59370624)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keys", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxProfileObjectCount")
+    def max_profile_object_count(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of profile objects for this object type.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxProfileObjectCount"))
+
+    @max_profile_object_count.setter
+    def max_profile_object_count(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__edf9f4ddaedd0b5a755b294f08376889d206a0ce1a397886e2483e9471c6b184)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxProfileObjectCount", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="sourceLastUpdatedTimestampFormat")
@@ -6678,6 +6996,7 @@ class CfnObjectType(
         "expiration_days": "expirationDays",
         "fields": "fields",
         "keys": "keys",
+        "max_profile_object_count": "maxProfileObjectCount",
         "source_last_updated_timestamp_format": "sourceLastUpdatedTimestampFormat",
         "tags": "tags",
         "template_id": "templateId",
@@ -6695,6 +7014,7 @@ class CfnObjectTypeProps:
         expiration_days: typing.Optional[jsii.Number] = None,
         fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.FieldMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
         keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.KeyMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        max_profile_object_count: typing.Optional[jsii.Number] = None,
         source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
         template_id: typing.Optional[builtins.str] = None,
@@ -6709,6 +7029,7 @@ class CfnObjectTypeProps:
         :param expiration_days: The number of days until the data of this type expires.
         :param fields: A list of field definitions for the object type mapping.
         :param keys: A list of keys that can be used to map data to the profile or search for the profile.
+        :param max_profile_object_count: The maximum number of profile objects for this object type.
         :param source_last_updated_timestamp_format: The format of your sourceLastUpdatedTimestamp that was previously set up.
         :param tags: The tags used to organize, track, or control access for this resource.
         :param template_id: A unique identifier for the template mapping. This can be used instead of specifying the Keys and Fields properties directly.
@@ -6746,6 +7067,7 @@ class CfnObjectTypeProps:
                         standard_identifiers=["standardIdentifiers"]
                     )]
                 )],
+                max_profile_object_count=123,
                 source_last_updated_timestamp_format="sourceLastUpdatedTimestampFormat",
                 tags=[CfnTag(
                     key="key",
@@ -6764,6 +7086,7 @@ class CfnObjectTypeProps:
             check_type(argname="argument expiration_days", value=expiration_days, expected_type=type_hints["expiration_days"])
             check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
             check_type(argname="argument keys", value=keys, expected_type=type_hints["keys"])
+            check_type(argname="argument max_profile_object_count", value=max_profile_object_count, expected_type=type_hints["max_profile_object_count"])
             check_type(argname="argument source_last_updated_timestamp_format", value=source_last_updated_timestamp_format, expected_type=type_hints["source_last_updated_timestamp_format"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument template_id", value=template_id, expected_type=type_hints["template_id"])
@@ -6782,6 +7105,8 @@ class CfnObjectTypeProps:
             self._values["fields"] = fields
         if keys is not None:
             self._values["keys"] = keys
+        if max_profile_object_count is not None:
+            self._values["max_profile_object_count"] = max_profile_object_count
         if source_last_updated_timestamp_format is not None:
             self._values["source_last_updated_timestamp_format"] = source_last_updated_timestamp_format
         if tags is not None:
@@ -6873,6 +7198,15 @@ class CfnObjectTypeProps:
         '''
         result = self._values.get("keys")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnObjectType.KeyMapProperty]]]], result)
+
+    @builtins.property
+    def max_profile_object_count(self) -> typing.Optional[jsii.Number]:
+        '''The maximum number of profile objects for this object type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-maxprofileobjectcount
+        '''
+        result = self._values.get("max_profile_object_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def source_last_updated_timestamp_format(self) -> typing.Optional[builtins.str]:
@@ -9889,6 +10223,7 @@ def _typecheckingstub__3a09ab96caa4db6cfa4ebb0207c025a7f976cac18f814d69b882506cf
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_historical_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9953,6 +10288,12 @@ def _typecheckingstub__66b41ae1f61b2d451c01e8a6b3eabc1ef1fe6f0e51c71a264d46a9df8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7ab1072a749050ba2fecfbba8cc52cbc745e52869b7164a97ab6eb2dcdf582c4(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6241b1471123a742a03d1b24e69021bc3c2c3b4a805094f7a6176be6f76da07a(
     *,
     attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCalculatedAttributeDefinition.AttributeItemProperty, typing.Dict[builtins.str, typing.Any]]]]],
@@ -9981,6 +10322,17 @@ def _typecheckingstub__4567eb83ac5620aa6be36cbd0e38cdba257d259743e1017616dbc2252
     *,
     unit: builtins.str,
     value: jsii.Number,
+    timestamp_format: typing.Optional[builtins.str] = None,
+    timestamp_source: typing.Optional[builtins.str] = None,
+    value_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCalculatedAttributeDefinition.ValueRangeProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0bc0a3c3468a435a5677e162145a9ef5e062a4e72fd921895d645bd1056af4e3(
+    *,
+    message: typing.Optional[builtins.str] = None,
+    progress_percentage: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9989,6 +10341,14 @@ def _typecheckingstub__dcc19afa2a314e3392b1f8004f5ce5593298e226e89f8bb3424dc57ce
     *,
     operator: builtins.str,
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d18b8118549ce586fc14b0cc15f51e9a520330684bb4d883bbf10b82b000c5a(
+    *,
+    end: jsii.Number,
+    start: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10003,6 +10363,7 @@ def _typecheckingstub__b490cf412d8b10ddc1ddbf98b6d852a5446deca7e9befe3439df8de51
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_historical_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10625,6 +10986,7 @@ def _typecheckingstub__e58419cb0a7694b5c554275a8721df95dc40489e742a23c76f7830ca5
     expiration_days: typing.Optional[jsii.Number] = None,
     fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.FieldMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.KeyMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    max_profile_object_count: typing.Optional[jsii.Number] = None,
     source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_id: typing.Optional[builtins.str] = None,
@@ -10692,6 +11054,12 @@ def _typecheckingstub__521c1a4bfa097c3b1f3951ecd6980736e1de35a3bfe50227b262534c5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__edf9f4ddaedd0b5a755b294f08376889d206a0ce1a397886e2483e9471c6b184(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bc577e5c0fd1bd47194e04599a6df995f066e809b7c98cb3b2e9ef839eaca0bc(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -10753,6 +11121,7 @@ def _typecheckingstub__674aff1f8e16a6059ac0e56bfd831b21c20b3b3358878f53ea82ff2ee
     expiration_days: typing.Optional[jsii.Number] = None,
     fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.FieldMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.KeyMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    max_profile_object_count: typing.Optional[jsii.Number] = None,
     source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_id: typing.Optional[builtins.str] = None,

@@ -1,0 +1,167 @@
+name: wheels
+
+on:
+  workflow_dispatch:
+  release:
+    types:
+      - published
+  pull_request:
+    paths:
+      - ".github/workflows/wheels.yml"
+
+jobs:
+  make_sdist:
+    name: Make SDist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Build SDist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  build_wheels:
+    name: "Build wheel: ${{ matrix.python }}, ${{ matrix.arch }} on ${{ matrix.os }}"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [39, 310, 311, 312, 313]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13] # , windows-latest]
+        arch: [auto64]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install compiler tools on macOS
+        if: runner.os == 'macOS'
+        run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+          brew uninstall --force --ignore-dependencies gcc@12 gcc@13 gnupg gnutls isl libmpc nettle gcc mpfr gmp
+          brew install --ignore-dependencies m4 make automake autoconf libtool swig boost cgal
+          echo "PATH=/opt/homebrew/opt/make/libexec/gnubin:/opt/homebrew/opt/libtool/libexec/gnubin:$PATH" >> "$GITHUB_ENV"
+
+      - name: Install compiler tools on windows
+        if: runner.os == 'windows'
+        run: |
+          Install-Module -Name 7Zip4Powershell -Force
+          Invoke-Webrequest -Uri https://archives.boost.io/release/1.88.0/source/boost_1_88_0.zip -OutFile boost_1_88_0.zip
+          Invoke-Webrequest -Uri https://github.com/CGAL/cgal/releases/download/v6.0.1/CGAL-6.0.1.zip -OutFile CGAL-6.0.1.zip
+          Invoke-Webrequest -Uri https://github.com/CGAL/cgal/releases/download/v6.0.1/CGAL-6.0.1-win64-auxiliary-libraries-gmp-mpfr.zip -OutFile cgal_auxlibs.zip
+          Expand-7Zip boost_1_88_0.zip .\boost_1_88_0
+          Expand-7Zip CGAL-6.0.1.zip .\CGAL-6.0.1
+          Expand-7Zip cgal_auxlibs.zip .\cgal_auxlibs
+          vcpkg.exe install getopt
+
+      - name: Clone gmp
+        if: runner.os == 'macOS'
+        uses: actions/checkout@v4
+        with:
+          repository: gmp-mirror/gmp-6.3
+          path: gmp-6.3
+
+      - name: Build gmp from source for MACOSX_DEPLOYMENT_TARGET
+        if: runner.os == 'macOS'
+        working-directory: gmp-6.3
+        run: |
+          export PATH="/opt/homebrew/opt/make/libexec/gnubin:/opt/homebrew/opt/libtool/libexec/gnubin:$PATH"
+          brew install texinfo
+          autoreconf -i -f
+          ./configure --help
+          ./configure \
+            --prefix=$(brew --prefix) \
+            --enable-cxx
+          touch ./doc/version.texi
+          make --jobs
+          make install
+
+      - name: Get mpfr release
+        if: runner.os == 'macOS'
+        run: |
+          curl -Lk https://www.mpfr.org/mpfr-current/mpfr-4.2.2.tar.gz -o mpfr-4.2.2.tar.gz
+          tar -xzf mpfr-4.2.2.tar.gz
+
+      - name: Build mpfr from source for MACOSX_DEPLOYMENT_TARGET=11.0
+        if: runner.os == 'macOS'
+        working-directory: mpfr-4.2.2
+        run: |
+          autoreconf -i -f
+          ./configure --help
+          ./configure \
+            --prefix=$(brew --prefix) \
+            --with-gmp=$(brew --prefix)
+          make --jobs
+          make install
+
+      - uses: pypa/cibuildwheel@v3.0
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_BUILD: cp${{ matrix.python }}-*
+          CIBW_CONFIG_SETTINGS_WINDOWS: >
+            "cmake.define.GMP_DLL_TO_COPY"="C:\\\\a\\\\fastjet\\\\fastjet\\\\cgal_auxlibs\\\\auxiliary\\\\gmp\\\\bin\\\\gmp-10.dll"
+            "cmake.define.Boost_INCLUDE_DIR"="C:\a\fastjet\fastjet\boost_1_88_0\boost_1_88_0"
+            "cmake.define.CGAL_DIR"="C:\a\fastjet\fastjet\CGAL-6.0.1\CGAL-6.0.1"
+            "cmake.define.unofficial-getopt-win32_DIR"="C:\vcpkg\packages\getopt-win32_x64-windows\share\unofficial-getopt-win32"
+            "cmake.define.FASTJET_ENABLE_DEBUG"="OFF"
+            "cmake.define.SISCONE_ENABLE_DEBUG"="OFF"
+          CIBW_ENVIRONMENT_WINDOWS: >
+            GMP_INC_DIR='C:\a\fastjet\fastjet\cgal_auxlibs\auxiliary\gmp\include'
+            GMP_LIB_DIR='C:\a\fastjet\fastjet\cgal_auxlibs\auxiliary\gmp\lib'
+            MPFR_INC_DIR='C:\a\fastjet\fastjet\cgal_auxlibs\auxiliary\gmp\include'
+            MPFR_LIB_DIR='C:\a\fastjet\fastjet\cgal_auxlibs\auxiliary\gmp\lib'
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibw-wheels-${{ matrix.os }}-${{ matrix.python }}-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+
+  test_sdist:
+    needs: [make_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - name: Install extra deps on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libboost-dev swig autoconf libtool libcgal-dev
+
+      - name: test sdist
+        run: python -m pip install dist/*.tar.gz
+
+  upload_all:
+    needs: [build_wheels, make_sdist]
+    runs-on: ubuntu-latest
+    # Restrict to the environment set for the trusted publisher
+    environment:
+      name: publish
+    # Mandatory for publishing with a trusted publisher
+    # c.f. https://docs.pypi.org/trusted-publishers/using-a-publisher/
+    permissions:
+      id-token: write
+    if: github.event_name == 'release' && github.event.action == 'published'
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true

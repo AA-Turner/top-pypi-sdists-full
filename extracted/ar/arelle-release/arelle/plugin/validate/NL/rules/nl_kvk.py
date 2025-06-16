@@ -3,36 +3,50 @@ See COPYRIGHT.md for copyright information.
 """
 from __future__ import annotations
 
+from collections import defaultdict
+from collections.abc import Iterable
 from datetime import date
+from typing import Any, cast, TYPE_CHECKING
+
 import zipfile
 
-from arelle.ModelDtsObject import ModelLink
+from lxml.etree import Element
+
+from arelle.ModelDtsObject import ModelLink, ModelResource, ModelType
 from arelle.ModelInstanceObject import ModelInlineFact
 from arelle.ModelObject import ModelObject
 from arelle.PrototypeDtsObject import PrototypeObject
 from arelle.ValidateDuplicateFacts import getDuplicateFactSets
 from arelle.XmlValidateConst import VALID
-from collections.abc import Iterable
-from typing import Any, cast, TYPE_CHECKING
 
-from arelle import XmlUtil, XbrlConst, ModelDocument
+from arelle import XbrlConst, XmlUtil
 from arelle.ValidateXbrl import ValidateXbrl
 from arelle.typing import TypeGetText
 from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.validate.Decorator import validation
+from arelle.utils.validate.DetectScriptsInXhtml import containsScriptMarkers
+from arelle.utils.validate.ESEFImage import ImageValidationParameters, validateImage
 from arelle.utils.validate.Validation import Validation
 from arelle.ValidateDuplicateFacts import getHashEquivalentFactGroups, getAspectEqualFacts
 from arelle.utils.validate.ValidationUtil import etreeIterWithDepth
 from ..DisclosureSystems import (ALL_NL_INLINE_DISCLOSURE_SYSTEMS, NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
                                  NL_INLINE_GAAP_OTHER_DISCLOSURE_SYSTEMS)
 from ..LinkbaseType import LinkbaseType
-from ..PluginValidationDataExtension import (PluginValidationDataExtension, ALLOWABLE_LANGUAGES,
-                                             DEFAULT_MEMBER_ROLE_URI, DISALLOWED_IXT_NAMESPACES,
-                                             EFFECTIVE_KVK_GAAP_IFRS_ENTRYPOINT_FILES,
-                                             EFFECTIVE_KVK_GAAP_OTHER_ENTRYPOINT_FILES,
-                                             MAX_REPORT_PACKAGE_SIZE_MBS, TAXONOMY_URLS_BY_YEAR,
-                                             XBRLI_IDENTIFIER_PATTERN, XBRLI_IDENTIFIER_SCHEMA,
-                                             QN_DOMAIN_ITEM_TYPES)
+from ..PluginValidationDataExtension import (
+    PluginValidationDataExtension,
+    ALLOWABLE_LANGUAGES,
+    DEFAULT_MEMBER_ROLE_URI,
+    DISALLOWED_IXT_NAMESPACES,
+    EFFECTIVE_KVK_GAAP_IFRS_ENTRYPOINT_FILES,
+    EFFECTIVE_KVK_GAAP_OTHER_ENTRYPOINT_FILES,
+    MAX_REPORT_PACKAGE_SIZE_MBS,
+    NON_DIMENSIONALIZED_LINE_ITEM_LINKROLES,
+    QN_DOMAIN_ITEM_TYPES,
+    SUPPORTED_IMAGE_TYPES_BY_IS_FILE,
+    TAXONOMY_URLS_BY_YEAR,
+    XBRLI_IDENTIFIER_PATTERN,
+    XBRLI_IDENTIFIER_SCHEMA,
+)
 
 if TYPE_CHECKING:
     from arelle.ModelXbrl import ModelXbrl
@@ -69,7 +83,7 @@ def rule_nl_kvk_3_1_1_1(
         if not XBRLI_IDENTIFIER_PATTERN.match(entityId[1]):
             yield Validation.error(
                 codes='NL.NL-KVK-RTS_Annex_IV_Par_2_G3-1-1_1.invalidIdentifierFormat',
-                msg=_('xbrli:identifier content to match KVK number format that must consist of 8 consecutive digits.'
+                msg=_('xbrli:identifier content to match KVK number format that must consist of 8 consecutive digits. '
                       'Additionally the first two digits must not be "00".'),
                 modelObject = val.modelXbrl
             )
@@ -94,7 +108,7 @@ def rule_nl_kvk_3_1_1_2(
         if XBRLI_IDENTIFIER_SCHEMA != entityId[0]:
             yield Validation.error(
                 codes='NL.NL-KVK-RTS_Annex_IV_Par_2_G3-1-1_2.invalidIdentifier',
-                msg=_('The scheme attribute of the xbrli:identifier does not match the required content.'
+                msg=_('The scheme attribute of the xbrli:identifier does not match the required content. '
                       'This should be "http://www.kvk.nl/kvk-id".'),
                 modelObject = val.modelXbrl
             )
@@ -367,9 +381,31 @@ def rule_nl_kvk_3_2_7_1 (
     if len(improperlyEscapedFacts) >0:
         yield Validation.error(
             codes='NL.NL-KVK.3.2.7.1.improperApplicationOfEscapeAttribute',
-            msg=_('Ensure that any block-tagged facts of type textBlockItemType are assigned @escape="true",'
+            msg=_('Ensure that any block-tagged facts of type textBlockItemType are assigned @escape="true", '
                   'while other data types (e.g., xbrli:stringItemType) are assigned @escape="false".'),
             modelObject = improperlyEscapedFacts
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_3_2_8_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.3.2.8.1: Include unique @id attribute for each tagged fact
+    """
+    errors = {fact for fact in val.modelXbrl.facts if not fact.id}
+    if len(errors) > 0:
+        yield Validation.warning(
+            codes='NL.NL-KVK.3.2.8.1',
+            msg=_('All facts should include an id attribute'),
+            modelObject=errors
         )
 
 
@@ -578,6 +614,72 @@ def rule_nl_kvk_3_4_2_1 (
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
 )
+def rule_nl_kvk_3_5_1_1_non_img (
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.3.5.1.1: Resources embedded or referenced by the XHTML document and its inline XBRL MUST NOT contain executable code.
+    """
+
+    executableElements = []
+    for ixdsHtmlRootElt in val.modelXbrl.ixdsHtmlElements:
+        for elt in ixdsHtmlRootElt.iter(Element):
+            if containsScriptMarkers(elt):
+                executableElements.append(elt)
+    if executableElements:
+        yield Validation.error(
+            codes='NL.NL-KVK.3.5.1.1.executableCodePresent',
+            msg=_("Resources embedded or referenced by the XHTML document and its inline XBRL MUST NOT contain executable code."),
+            modelObject=executableElements,
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_3_5_1_img (
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.3.5.1.1: Inline XBRL images MUST NOT contain executable code.
+    NL-KVK.3.5.1.2: Images included in the XHTML document MUST be saved with MIME type specifying PNG, GIF, SVG or JPG/JPEG formats.
+    NL-KVK.3.5.1.3: File type inferred from file signature does not match the data URL media subtype (MIME subtype).
+    NL-KVK.3.5.1.4: File type inferred from file signature does not match the file extension.
+    NL-KVK.3.5.1.5: Images included in the XHTML document MUST be saved in PNG, GIF, SVG or JPG/JPEG formats.
+    """
+
+    imageValidationParameters = ImageValidationParameters.from_non_esef(
+        checkMinExternalResourceSize=False,
+        missingMimeTypeIsIncorrect=False,
+        recommendBase64EncodingEmbeddedImages=False,
+        supportedImgTypes=SUPPORTED_IMAGE_TYPES_BY_IS_FILE,
+    )
+    for ixdsHtmlRootElt in val.modelXbrl.ixdsHtmlElements:
+        for elt in ixdsHtmlRootElt.iter((f'{{{XbrlConst.xhtml}}}img', '{http://www.w3.org/2000/svg}svg')):
+            src = elt.get('src', '').strip()
+            evaluatedMsg = _('On line {line}, "alt" attribute value: "{alt}"').format(line=elt.sourceline, alt=elt.get('alt'))
+            yield from validateImage(
+                elt.modelDocument.baseForElement(elt),
+                src,
+                val.modelXbrl,
+                val,
+                elt,
+                evaluatedMsg,
+                imageValidationParameters,
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+)
 def rule_nl_kvk_3_5_2_1(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
@@ -585,7 +687,7 @@ def rule_nl_kvk_3_5_2_1(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    NL-KVK.3.5.2.1: Each tagged text fact MUST have the ‘xml:lang’ attribute assigned or inherited.
+    NL-KVK.3.5.2.1: Each tagged text fact MUST have the 'xml:lang' attribute assigned or inherited.
     """
     factsWithoutLang = []
     for fact in val.modelXbrl.facts:
@@ -598,7 +700,7 @@ def rule_nl_kvk_3_5_2_1(
     if len(factsWithoutLang) > 0:
         yield Validation.error(
             codes='NL.NL-KVK.3.5.2.1.undefinedLanguageForTextFact',
-            msg=_('Each tagged text fact MUST have the ‘xml:lang’ attribute assigned or inherited.'),
+            msg=_("Each tagged text fact MUST have the 'xml:lang' attribute assigned or inherited."),
             modelObject=factsWithoutLang
         )
 
@@ -973,7 +1075,7 @@ def rule_nl_kvk_4_1_2_2(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    NL-KVK.4.1.2.2: The legal entity’s extension taxonomy MUST import the applicable version of
+    NL-KVK.4.1.2.2: The legal entity's extension taxonomy MUST import the applicable version of
                     the taxonomy files prepared by KVK.
     """
     reportingPeriod = pluginData.getReportingPeriod(val.modelXbrl)
@@ -1143,7 +1245,7 @@ def rule_nl_kvk_4_2_2_2(
     NL-KVK.4.2.2.2: Domain members MUST have domainItemType data type as defined in https://www.xbrl.org/dtr/type/2022-03-31/types.xsd.
     """
     domainMembersWrongType = []
-    domainMembers = pluginData.getDomainMembers(val.modelXbrl)
+    domainMembers = pluginData.getDimensionalData(val.modelXbrl).domainMembers
     extensionData = pluginData.getExtensionData(val.modelXbrl)
     for concept in extensionData.extensionConcepts:
         if concept.isDomainMember and concept in domainMembers and concept.typeQname not in QN_DOMAIN_ITEM_TYPES:
@@ -1176,9 +1278,77 @@ def rule_nl_kvk_4_2_3_1(
             typedDims.append(concept)
     if len(typedDims) > 0:
         yield Validation.error(
-            codes='NL.NL-KVK.4.3.2.1.typedDimensionDefinitionInExtensionTaxonomy',
+            codes='NL.NL-KVK.4.2.3.1.typedDimensionDefinitionInExtensionTaxonomy',
             modelObject=typedDims,
             msg=_('Typed dimensions are not allowed in the extension taxonomy.  Update to remove the typed dimension.'))
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_4_3_1_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.4.3.1.1: Anchoring relationships for elements other than concepts MUST not
+    use 'http://www.esma.europa.eu/xbrl/esef/arcrole/wider-narrower' arcrole
+    """
+    anchorData = pluginData.getAnchorData(val.modelXbrl)
+    if len(anchorData.extLineItemsWronglyAnchored) > 0:
+        yield Validation.error(
+            codes='NL.NL-KVK.4.3.1.1.unexpectedAnchoringRelationshipsDefinedUsingWiderNarrowerArcrole',
+            modelObject=anchorData.extLineItemsWronglyAnchored,
+            msg=_('A custom element that is not a line item concept is using the wider-narrower arcrole. '
+                  'Only line item concepts should use this arcrole. '
+                  'Update the extension to no longer include this arcole.')
+        )
+    for anchor in anchorData.anchorsWithDomainItem:
+        yield Validation.error(
+            codes="NL.NL-KVK.4.3.1.1.unexpectedAnchoringRelationshipsDefinedUsingWiderNarrowerArcrole",
+            msg=_("Anchoring relationships MUST be from and to concepts, from %(qname1)s to %(qname2)s"),
+            modelObject=(anchor, anchor.fromModelObject, anchor.toModelObject),
+            qname1=anchor.fromModelObject.qname,
+            qname2=anchor.toModelObject.qname
+        )
+    for anchor in anchorData.anchorsWithDimensionItem:
+        yield Validation.error(
+            codes="NL.NL-KVK.4.3.1.1.unexpectedAnchoringRelationshipsDefinedUsingWiderNarrowerArcrole",
+            msg=_("Anchoring relationships MUST be from and to concepts, from %(qname1)s to %(qname2)s"),
+            modelObject=(anchor, anchor.fromModelObject, anchor.toModelObject),
+            qname1=anchor.fromModelObject.qname,
+            qname2=anchor.toModelObject.qname
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_4_3_2_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.4.3.2.1: Anchoring relationships for concepts MUST be defined in a dedicated
+    extended link role (or roles if needed to properly represent the relationships),
+    e.g. http://{default pattern for roles}/Anchoring.
+    """
+    anchorData = pluginData.getAnchorData(val.modelXbrl)
+    for elr, rels in anchorData.anchorsInDimensionalElrs.items():
+        yield Validation.error(
+            codes="NL.NL-KVK.4.3.2.1.anchoringRelationshipsForConceptsDefinedInElrContainingDimensionalRelationships",
+            msg=_("Anchoring relationships for concepts MUST be defined in a dedicated extended link role "
+                  "(or roles if needed to properly represent the relationships), e.g. "
+                  "http://{issuer default pattern for roles}/Anchoring. %(anchoringDimensionalELR)s"),
+            modelObject=rels,
+            anchoringDimensionalELR=elr
+        )
 
 
 @validation(
@@ -1248,7 +1418,7 @@ def rule_nl_kvk_4_4_2_2(
 ) -> Iterable[Validation]:
     """
     NL-KVK.4.4.2.2: Hypercubes appearing as target of definition arc with
-    http://xbrl.org/int/dim/arcrole/all arcrole MUST have xbrldt:closed attribute set to “true”.
+    http://xbrl.org/int/dim/arcrole/all arcrole MUST have xbrldt:closed attribute set to "true".
     """
     errors = []
     extensionData = pluginData.getExtensionData(val.modelXbrl)
@@ -1276,7 +1446,7 @@ def rule_nl_kvk_4_4_2_3(
 ) -> Iterable[Validation]:
     """
     NL-KVK.4.4.2.3: Hypercubes appearing as target of definition arc with
-    http://xbrl.org/int/dim/arcrole/notAll arcrole MUST have xbrldt:closed attribute set to “false”.
+    http://xbrl.org/int/dim/arcrole/notAll arcrole MUST have xbrldt:closed attribute set to "false".
     """
     errors = []
     extensionData = pluginData.getExtensionData(val.modelXbrl)
@@ -1291,6 +1461,35 @@ def rule_nl_kvk_4_4_2_3(
             msg=_('Incorrect hypercube settings are found.  Ensure that negative hypercubes are not closed.'),
         )
 
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_4_4_2_4(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.4.4.2.4: Line items that do not require any dimensional information to tag data MUST be linked to the hypercube in the dedicated
+    extended link role
+    """
+    elrPrimaryItems = pluginData.getDimensionalData(val.modelXbrl).elrPrimaryItems
+    errors = set(concept
+        for qn, facts in val.modelXbrl.factsByQname.items()
+        if any(not f.context.qnameDims for f in facts if f.context is not None)
+        for concept in (val.modelXbrl.qnameConcepts.get(qn),)
+        if concept is not None and
+        not any(concept in elrPrimaryItems.get(lr, set()) for lr in NON_DIMENSIONALIZED_LINE_ITEM_LINKROLES) and
+        concept not in elrPrimaryItems.get("*", set()))
+    for error in errors:
+        yield Validation.error(
+            codes='NL.NL-KVK.4.4.2.4.extensionTaxonomyLineItemNotLinkedToAnyHypercube',
+            modelObject=error,
+            msg=_('A non-dimensional concept was not associated to a hypercube.  Update relationship so concept is linked to a hypercube.'),
+        )
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
@@ -1365,6 +1564,156 @@ def rule_nl_kvk_4_4_3_2(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_4_4_4_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.4.4.5.1: Custom labels roles SHOULD NOT be used.
+    """
+    warnings = set()
+    for ELR in val.modelXbrl.relationshipSet(XbrlConst.parentChild).linkRoleUris:
+        relSet = val.modelXbrl.relationshipSet(XbrlConst.parentChild, ELR)
+        for rootConcept in relSet.rootConcepts:
+            warnings = pluginData.checkLabels(set(), val.modelXbrl , rootConcept, relSet, None, set())
+        if len(warnings) > 0:
+            yield Validation.warning(
+                codes='NL.NL-KVK.4.4.4.1.missingPreferredLabelRole',
+                modelObject=warnings,
+                msg=_('Multiple concepts exist in the presentation with the same label role. '
+                      'Review presentation if duplicate concepts should exist or separate preferred label roles should be set.'),
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_4_4_5_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.4.4.5.1: Custom labels roles SHOULD NOT be used.
+    """
+    warnings = []
+    labelsRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
+    if not labelsRelationshipSet:
+        return
+    for labelRels in labelsRelationshipSet.fromModelObjects().values():
+        for labelRel in labelRels:
+            label = cast(ModelResource, labelRel.toModelObject)
+            if label.role in XbrlConst.standardLabelRoles:
+                continue
+            roleType = val.modelXbrl.roleTypes.get(label.role)
+            if roleType is not None and \
+                    roleType[0].modelDocument.uri.startswith("http://www.xbrl.org/lrr"):
+                continue
+            warnings.append(label)
+    if len(warnings) > 0:
+        yield Validation.warning(
+            codes='NL.NL-KVK.4.4.5.1.taxonomyElementLabelCustomRole',
+            modelObject=warnings,
+            msg=_('A custom label role has been used.  Update to label role to non-custom.'),
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_NL_INLINE_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_4_4_5_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.4.4.5.2: Extension taxonomy elements SHOULD be assigned with at most one label for any combination of role and language.
+    Additionally, extension taxonomies shall not override or replace standard labels of elements referenced in the KVK taxonomy.
+    """
+    labelsRelationshipSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
+    extensionData = pluginData.getExtensionData(val.modelXbrl)
+    extensionConcepts = extensionData.extensionConcepts
+    for concept in val.modelXbrl.qnameConcepts.values():
+        conceptLangRoleLabels = defaultdict(list)
+        labelRels = labelsRelationshipSet.fromModelObject(concept)
+        for labelRel in labelRels:
+            label = cast(ModelResource, labelRel.toModelObject)
+            conceptLangRoleLabels[(label.xmlLang, label.role)].append(labelRel.toModelObject)
+        for (lang, labelRole), labels in conceptLangRoleLabels.items():
+            if concept in extensionConcepts and len(labels) > 1:
+                yield Validation.error(
+                    codes='NL.NL-KVK.4.4.5.2.taxonomyElementDuplicateLabels',
+                    msg=_('A concept was found with more than one label role for related language. '
+                          'Update to only one combination. Language: %(lang)s, Role: %(labelRole)s, Concept: %(concept)s.'),
+                    modelObject=[concept]+labels, concept=concept.qname, lang=lang, labelRole=labelRole,
+                )
+            elif labelRole == XbrlConst.standardLabel:
+                hasCoreLabel = False
+                hasExtensionLabel = False
+                for label in labels:
+                    if pluginData.isExtensionUri(label.modelDocument.uri, val.modelXbrl):
+                        hasExtensionLabel = True
+                    else:
+                        hasCoreLabel = True
+                if hasCoreLabel and hasExtensionLabel:
+                    labels_files = ['"%s": %s' % (l.text, l.modelDocument.basename) for l in labels]
+                    yield Validation.error(
+                        codes='NL.NL-KVK.4.4.5.2.taxonomyElementDuplicateLabels',
+                        msg=_("An extension taxonomy defines a standard label for a concept "
+                              "already labeled by the base taxonomy. Language: %(lang)s, "
+                              "Role: %(labelRole)s, Concept: %(concept)s, Labels: %(labels)s"),
+                        modelObject=[concept]+labels, concept=concept.qname, lang=lang,
+                        labelRole=labelRole, labels=", ".join(labels_files),
+                    )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_4_4_6_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.4.4.6.1: All usable concepts in extension taxonomy relationships SHOULD be applied by tagged facts.
+    """
+    conceptsUsed = {f.concept for f in val.modelXbrl.facts}
+    unreportedLbLocs = set()
+    for arcrole in (XbrlConst.parentChild, XbrlConst.summationItems, XbrlConst.all, XbrlConst.dimensionDomain, XbrlConst.domainMember):
+        for rel in val.modelXbrl.relationshipSet(arcrole).modelRelationships:
+            for object in (rel.fromModelObject, rel.toModelObject):
+                if (object is None or
+                        object.isAbstract or
+                        object in conceptsUsed or
+                        not pluginData.isExtensionUri(rel.modelDocument.uri, val.modelXbrl)):
+                    continue
+                if arcrole in (XbrlConst.parentChild, XbrlConst.summationItems):
+                    unreportedLbLocs.add(rel.fromLocator)
+                elif object.type is not None and rel.isUsable and not object.type.isDomainItemType:
+                    unreportedLbLocs.add(rel.fromLocator)
+    if len(unreportedLbLocs) > 0:
+        yield Validation.warning(
+            # Subtitle is capitalized inconsistently here because is tmatches the conformance suite. This may change in the future.
+            codes='NL.NL-KVK.4.4.6.1.UsableConceptsNotAppliedByTaggedFacts',
+            modelObject=unreportedLbLocs,
+            msg=_('Axis is missing a default member or the default member does not match the taxonomy defaults. '
+                  'Update to set default member based on taxonomy defaults.')
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=NL_INLINE_GAAP_OTHER_DISCLOSURE_SYSTEMS,
 )
 def rule_nl_kvk_5_1_3_1(
@@ -1398,7 +1747,7 @@ def rule_nl_kvk_5_1_3_2(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    NL-KVK.5.1.3.2: The legal entity’s report MUST import the applicable version of
+    NL-KVK.5.1.3.2: The legal entity's report MUST import the applicable version of
                     the taxonomy files prepared by KVK.
     """
     reportingPeriod = pluginData.getReportingPeriod(val.modelXbrl)
@@ -1438,3 +1787,89 @@ def rule_nl_kvk_6_1_1_1(
                 msg=_('The size of the report package must not exceed %(maxSize)s MBs, size is %(size)s MBs.'),
                 modelObject=val.modelXbrl, maxSize=MAX_REPORT_PACKAGE_SIZE_MBS, size=int(_size/1000000)
             )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_RTS_Annex_IV_Par_11_G4_2_2_1(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.RTS_Annex_IV_Par_11_G4-2-2_1: Extension taxonomy MUST NOT define a custom type if a matching
+    type is defined by the XBRL 2.1 specification or in the XBRL Data Types Registry.
+    Similar to ESEF.RTS.Annex.IV.Par.11.customDataTypeDuplicatingXbrlOrDtrEntry
+    """
+    errors = []
+    extensionData = pluginData.getExtensionData(val.modelXbrl)
+    for modelDocument, extensionDocumentData in extensionData.extensionDocuments.items():
+        for modelType in modelDocument.xmlRootElement.iterdescendants(tag=XbrlConst.qnXsdComplexType.clarkNotation):
+            if isinstance(modelType, ModelType) and \
+                    modelType.typeDerivedFrom is not None and \
+                    modelType.typeDerivedFrom.qname.namespaceURI == XbrlConst.xbrli and \
+                    not modelType.particlesList:
+                errors.append(modelType)
+    if len(errors) > 0:
+        yield Validation.error(
+            codes='NL.NL-KVK.RTS_Annex_IV_Par_11_G4-2-2_1.customTypeAlreadyDefinedByXbrl',
+            msg=_('A custom data type is being used that matches a standard data type from the XBRL Data Type Registry. '
+                  'Update to remove duplicate data types and leverage the standard where appropriate.'),
+            modelObject=errors
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_RTS_Annex_IV_Par_4_2(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.RTS_Annex_IV_Par_4_2: Extension elements must be equipped with an appropriate balance attribute.
+    """
+    errors = []
+    for concept in pluginData.getExtensionConcepts(val.modelXbrl):
+        if concept.isMonetary and concept.balance is None:
+            errors.append(concept)
+    if len(errors) > 0:
+        yield Validation.error(
+            codes='NL.NL-KVK.RTS_Annex_IV_Par_4_2.monetaryConceptWithoutBalance',
+            msg=_('Extension elements must have an appropriate balance attribute.'),
+            modelObject=errors
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=NL_INLINE_GAAP_IFRS_DISCLOSURE_SYSTEMS,
+)
+def rule_nl_kvk_RTS_Annex_IV_Par_6(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    NL-KVK.RTS_Annex_IV_Par_6: Each NL-GAAP or IFRS financial statements structure MUST be equipped with
+                               a calculation linkbase
+    """
+    hasCalcLinkbase = False
+    extensionData = pluginData.getExtensionData(val.modelXbrl)
+    for modelDoc, extensionDoc in extensionData.extensionDocuments.items():
+        for linkbase in extensionDoc.linkbases:
+            if linkbase.linkbaseType == LinkbaseType.CALCULATION:
+                hasCalcLinkbase = True
+    if not hasCalcLinkbase:
+        yield Validation.error(
+            codes='NL.NL-KVK.RTS_Annex_IV_Par_6.extensionTaxonomyWrongFilesStructure',
+            msg=_('The filing package must include a calculation linkbase.'),
+            modelObject=val.modelXbrl.modelDocument
+        )

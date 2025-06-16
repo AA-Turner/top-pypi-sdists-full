@@ -1,0 +1,89 @@
+include:
+  # -- Python ------------------------
+
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/all@2
+    inputs:
+      install_extra: "gettoken,kerberos,test"
+      code_quality_analyzer: "ruff"
+      run_advanced_sast: true
+      python_versions:
+        - "3.9"
+        - "3.10"
+        - "3.11"
+        - "3.12"
+        - "3.13"
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/type-checking@2
+
+  # -- Debian packaging --------------
+
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/debian/all@2
+    inputs:
+      needs: [sdist]
+      debian_versions:
+        - bullseye
+        - bookworm
+      test_install: &system_test_install >-
+        python3-igwn-auth-utils
+        python3-pytest
+        python3-pytest-cov
+        python3-requests-mock
+      test_script: &system_test_script
+        - /usr/bin/python3 -m pytest
+            -ra
+            --cov igwn_auth_utils
+            --durations 0
+            --junit-xml junit.xml
+            --pyargs igwn_auth_utils.tests
+            --verbose
+        # report coverage
+        - python3 -m coverage xml
+
+  # -- Red Hat packaging -------------
+
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/redhat/all@2
+    inputs:
+      # https://git.ligo.org/computing/helpdesk/-/issues/7162
+      disable_repos: "igwn-backports*"
+      needs: [sdist]
+      redhat_versions:
+        - 8
+        - 9
+      test_install: *system_test_install
+      test_script: *system_test_script
+
+  # -- Documentation -----------------
+
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/sphinx/build@~latest
+    inputs:
+      requirements: ".[docs]"
+
+# -- customisations ------------------
+
+dependency_scanning:
+  stage: test
+  variables:
+    DEBIAN_FRONTEND: "noninteractive"
+  before_script:
+    # install some underlying utilities using `apt` so that the dependency
+    # scanner can use pip to install everything else
+    - apt-get update -yqq
+    - apt-get install -yqq
+        libkrb5-dev
+
+redhat_test_el8:
+  before_script:
+    - !reference [redhat_test, before_script]
+    # install a newer version of pytest and friends on EL8
+    - dnf install -y -q python3-pip &&
+      python3 -m pip install
+        --upgrade-strategy=only-if-needed
+        "coverage[toml]==5.3"
+        "pytest==6.0.0"
+        "pytest-cov==2.10.1"
+
+sphinx:
+  before_script:
+    # install graphviz to get inheritance graphs
+    - apt-get -yqq update && apt-get -yqq install
+        graphviz
+    - !reference [.sphinx, before_script]

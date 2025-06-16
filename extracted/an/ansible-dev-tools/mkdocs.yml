@@ -1,0 +1,158 @@
+---
+site_name: Ansible Development Tools Documentation
+site_url: https://ansible.readthedocs.io/projects/dev-tools/
+repo_url: https://github.com/ansible/ansible-dev-tools
+edit_uri: blob/main/docs/
+copyright: Copyright © Red Hat, Inc.
+docs_dir: docs
+strict: true
+
+theme:
+  name: ansible
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+    - header.autohide
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.path
+    - navigation.prune
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.integrate
+  icon:
+    alternate: fontawesome/solid/diagram-project
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/ansible-dev-tools/
+      name: PyPI
+    - icon: fontawesome/solid/scroll
+      link: https://github.com/ansible/ansible-dev-tools/releases
+      name: Releases
+    - icon: simple/mastodon
+      link: https://fosstodon.org/@ansible
+      name: Mastodon
+    - icon: simple/matrix
+      link: https://matrix.to/#/#devtools:ansible.com
+      name: Matrix
+    - icon: fontawesome/brands/discourse
+      link: https://forum.ansible.com/c/project/7
+      name: Ansible forum
+    - icon: fontawesome/brands/github-alt
+      link: https://github.com/ansible/ansible-dev-tools
+      name: GitHub
+  alternate:
+    - name: ansible-dev-tools
+      link: https://ansible.readthedocs.io/projects/dev-tools/
+    - name: ansible-lint
+      link: https://ansible.readthedocs.io/projects/lint/
+    - name: ansible-navigator
+      link: https://ansible.readthedocs.io/projects/navigator/
+    - name: molecule
+      link: https://ansible.readthedocs.io/projects/molecule/
+    - name: vscode-ansible (github marketplace)
+      link: https://marketplace.visualstudio.com/items?itemName=redhat.ansible
+    - name: creator-ee (github)
+      link: https://github.com/ansible/creator-ee
+    - name: pytest-ansible
+      link: https://github.com/ansible-community/pytest-molecule
+    - name: tox-ansible
+      link: https://ansible.readthedocs.io/projects/tox-ansible/
+    - name: creator
+      linke: https://github.com/ansible/ansible-creator
+    - name: ansible-compat
+      link: https://github.com/ansible/ansible-compat
+    - name: ansible-dev-environment
+      link: https://github.com/ansible/ansible-dev-environment
+    - name: team-devtools
+      link: https://github.com/ansible/team-devtools
+    - name: mkdocs-ansible
+      link: https://github.com/ansible/mkdocs-ansible
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Execution Environment: container.md
+  - DevSpaces: devspaces.md
+  - User Guide:
+      - user-guide/index.md
+      - Test Isolation: user-guide/test-isolation.md
+      - Testing: user-guide/testing.md
+      - Building a Collection: user-guide/building-collection.md
+      - Content Best Practices: user-guide/content-best-practices.md
+      - CI: user-guide/ci-setup.md
+      - Release: user-guide/content-release.md
+  - Contributor Guide: contributor-guide.md
+
+plugins:
+  - autorefs
+  - markdown-exec
+  - material/search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  # https://github.com/squidfunk/mkdocs-material/issues/6983
+  # - material/social
+  - material/tags
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            # Sphinx is for historical reasons, but we could consider switching if needed
+            # https://mkdocstrings.github.io/griffe/docstrings/
+            docstring_style: sphinx
+            merge_init_into_class: yes
+            show_submodules: yes
+          import:
+            - url: https://docs.ansible.com/ansible/latest/objects.inv
+              domains: [py, std]
+
+markdown_extensions:
+  - attr_list
+  - markdown_include.include: # {!filename!}
+      base_path: docs
+  - admonition
+  - def_list
+  - footnotes
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets: # --8<-- "filename"
+      check_paths: true
+  - pymdownx.magiclink:
+      repo_url_shortener: true
+      repo_url_shorthand: true
+      social_url_shorthand: true
+      social_url_shortener: true
+      user: facelessuser
+      repo: pymdown-extensions
+      normalize_issue_symbols: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      toc_depth: 2
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+        - name: python
+          class: python
+          validator: !!python/name:markdown_exec.validator
+          format: !!python/name:markdown_exec.formatter

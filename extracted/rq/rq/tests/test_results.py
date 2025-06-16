@@ -1,24 +1,21 @@
 import tempfile
 import time
-import unittest
 from datetime import timedelta
 from unittest.mock import PropertyMock, patch
-
-from redis import Redis
 
 from rq.defaults import UNSERIALIZABLE_RETURN_VALUE_PAYLOAD
 from rq.job import Job
 from rq.queue import Queue
 from rq.registry import StartedJobRegistry
 from rq.results import Result, get_key
-from rq.utils import get_version, now
+from rq.utils import now
 from rq.worker import Worker
-from tests import RQTestCase
+from tests import RQTestCase, min_redis_version
 
 from .fixtures import div_by_zero, say_hello
 
 
-@unittest.skipIf(get_version(Redis()) < (5, 0, 0), 'Skip if Redis server < 5.0')
+@min_redis_version((5, 0, 0))
 class TestScheduledJobRegistry(RQTestCase):
     def test_save_and_get_result(self):
         """Ensure data is saved properly"""
@@ -119,7 +116,7 @@ class TestScheduledJobRegistry(RQTestCase):
         worker.handle_job_success(job, queue, registry)
 
         payload = self.connection.hgetall(job.key)
-        self.assertFalse(b'result' in payload.keys())
+        self.assertNotIn(b'result', payload.keys())
         self.assertEqual(job.result, 'Success')
 
         with patch('rq.worker.Worker.supports_redis_streams', new_callable=PropertyMock) as mock:
@@ -138,7 +135,7 @@ class TestScheduledJobRegistry(RQTestCase):
 
                 worker.handle_job_success(job, queue, registry)
                 payload = self.connection.hgetall(job.key)
-                self.assertTrue(b'result' in payload.keys())
+                self.assertIn(b'result', payload.keys())
                 # Delete all new result objects so we only have result stored in job hash,
                 # this should simulate a job that was executed in an earlier RQ version
                 self.assertEqual(job.result, 'Success')
@@ -161,7 +158,7 @@ class TestScheduledJobRegistry(RQTestCase):
 
         job = Job.fetch(job.id, connection=self.connection)
         payload = self.connection.hgetall(job.key)
-        self.assertFalse(b'exc_info' in payload.keys())
+        self.assertNotIn(b'exc_info', payload.keys())
         self.assertEqual(job.exc_info, 'Error')
 
         with patch('rq.worker.Worker.supports_redis_streams', new_callable=PropertyMock) as mock:
@@ -180,7 +177,7 @@ class TestScheduledJobRegistry(RQTestCase):
 
                 worker.handle_job_failure(job, exc_string='Error', queue=queue, started_job_registry=registry)
                 payload = self.connection.hgetall(job.key)
-                self.assertTrue(b'exc_info' in payload.keys())
+                self.assertIn(b'exc_info', payload.keys())
                 # Delete all new result objects so we only have result stored in job hash,
                 # this should simulate a job that was executed in an earlier RQ version
                 Result.delete_all(job)

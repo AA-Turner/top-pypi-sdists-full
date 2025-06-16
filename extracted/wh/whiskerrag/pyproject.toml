@@ -1,0 +1,132 @@
+[tool.poetry]
+name = "whiskerrag"
+version = "0.1.6"
+description = "A utility package for RAG operations"
+authors = ["petercat.ai <antd.antgroup@gmail.com>"]
+readme = "README.md"
+packages = [
+    { include = "whiskerrag_utils", from = "src" },
+    { include = "whiskerrag_types", from = "src" },
+    { include = "whiskerrag_client", from = "src" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+langchain = ">=0.2.12"
+langchain-community = ">=0.2.11"
+langchain-core = ">=0.2.28"
+langchain-openai = ">=0.1.20"
+pydantic = ">=2.0.0,<3.0.0"
+python-dateutil = ">=2.8.2"
+requests = ">=2.32.3"
+typing-extensions = ">=4.12.2"
+urllib3 = ">=1.25.3,<3.0.0"
+boto3 = "^1.38.13"
+gitpython = "^3.1.44"
+deprecated = "^1.2.18"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.3.4"
+pytest-cov = ">=4.1.0"
+black = ">=23.7.0"
+isort = ">=5.12.0"
+mypy = ">=1.4.1"
+pre-commit = ">=3.3.3"
+flake8 = ">=6.1.0"
+wheel = ">=0.37.0"
+setuptools = ">=42.0.0"
+twine = ">=3.4.1"
+build = ">=0.7.0"
+pytest-asyncio = "^0.26.0"
+pytest-md-report = "^0.6.3"
+packaging = "^24.2"
+types-python-dateutil = "^2.9.0.20241206"
+types-deprecated = "^1.2.15.20250304"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+extend-exclude = '''
+/(
+    \.cursor
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+skip_glob = [".cursor/*"]
+
+[tool.mypy]
+python_version = "3.9"
+mypy_path = "src"
+files = "src"
+namespace_packages = true
+explicit_package_bases = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+ignore_missing_imports = false
+follow_imports = "silent"
+show_error_codes = true
+exclude = ["tests/", "docs/", "examples/", ".cursor/"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+consider_namespace_packages = true
+addopts = [
+    "-ra",
+    "-q",
+    "-v",
+    "-s",
+    "--cov=whiskerrag",
+    "--cov-report=xml",
+    "--md-report",
+    "--md-report-verbose=0",
+    "--md-report-color=auto",
+]
+asyncio_mode = "auto"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
+ignore_errors = true
+source = ["src"]
+omit = ["tests/*", "setup.py", "scripts/*", "workflows/*", ".cursor/*"]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+
+[tool.poetry.scripts]
+clean = "scripts.clean:clean"
+lint = "scripts.lint:main"
+release = "scripts.release:main"
+hooks = "scripts.hooks:main"

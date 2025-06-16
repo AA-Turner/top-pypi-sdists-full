@@ -9,199 +9,6 @@ import System.Diagnostics
 import System.Reflection
 
 
-class DebuggerStepThroughAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class DebuggerDisableUserUnhandledExceptionsAttribute(System.Attribute):
-    """
-    If a .NET Debugger is attached which supports the Debugger.BreakForUserUnhandledException(Exception) API,
-    this attribute will prevent the debugger from breaking on user-unhandled exceptions when the
-    exception is caught by a method with this attribute, unless BreakForUserUnhandledException is called.
-    """
-
-
-class DebuggerTypeProxyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def proxy_type_name(self) -> str:
-        ...
-
-    @property
-    def target(self) -> typing.Type:
-        ...
-
-    @target.setter
-    def target(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def target_type_name(self) -> str:
-        ...
-
-    @target_type_name.setter
-    def target_type_name(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, type_name: str) -> None:
-        ...
-
-
-class Debugger(System.Object):
-    """This class has no documentation."""
-
-    DEFAULT_CATEGORY: str
-    """Represents the default category of message with a constant."""
-
-    @staticmethod
-    def break_for_user_unhandled_exception(exception: System.Exception) -> None:
-        """
-        Signals a breakpoint to an attached debugger with the  details
-        if a .NET debugger is attached with break on user-unhandled exception enabled and a method
-        attributed with DebuggerDisableUserUnhandledExceptionsAttribute calls this method.
-        
-        :param exception: The user-unhandled exception.
-        """
-        ...
-
-
-class DebuggerHiddenAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class DebuggerDisplayAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> str:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def type(self) -> str:
-        ...
-
-    @type.setter
-    def type(self, value: str) -> None:
-        ...
-
-    @property
-    def target(self) -> typing.Type:
-        ...
-
-    @target.setter
-    def target(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def target_type_name(self) -> str:
-        ...
-
-    @target_type_name.setter
-    def target_type_name(self, value: str) -> None:
-        ...
-
-    def __init__(self, value: str) -> None:
-        ...
-
-
-class Stopwatch(System.Object):
-    """This class has no documentation."""
-
-    FREQUENCY: int = ...
-
-    IS_HIGH_RESOLUTION: bool = True
-
-    @property
-    def is_running(self) -> bool:
-        ...
-
-    @property
-    def elapsed(self) -> datetime.timedelta:
-        ...
-
-    @property
-    def elapsed_milliseconds(self) -> int:
-        ...
-
-    @property
-    def elapsed_ticks(self) -> int:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def get_elapsed_time(starting_timestamp: int) -> datetime.timedelta:
-        """
-        Gets the elapsed time since the  value retrieved using GetTimestamp.
-        
-        :param starting_timestamp: The timestamp marking the beginning of the time period.
-        :returns: A TimeSpan for the elapsed time between the starting timestamp and the time of this call.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_elapsed_time(starting_timestamp: int, ending_timestamp: int) -> datetime.timedelta:
-        """
-        Gets the elapsed time between two timestamps retrieved using GetTimestamp.
-        
-        :param starting_timestamp: The timestamp marking the beginning of the time period.
-        :param ending_timestamp: The timestamp marking the end of the time period.
-        :returns: A TimeSpan for the elapsed time between the starting and ending timestamps.
-        """
-        ...
-
-    @staticmethod
-    def get_timestamp() -> int:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-    def restart(self) -> None:
-        ...
-
-    def start(self) -> None:
-        ...
-
-    @staticmethod
-    def start_new() -> System.Diagnostics.Stopwatch:
-        ...
-
-    def stop(self) -> None:
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns the Elapsed time as a string.
-        
-        :returns: Elapsed time string in the same format used by TimeSpan.ToString().
-        """
-        ...
-
-
 class StackFrame(System.Object):
     """There is no good reason for the methods of this class to be virtual."""
 
@@ -321,6 +128,73 @@ class StackFrameExtensions(System.Object):
         ...
 
 
+class DebuggerStepperBoundaryAttribute(System.Attribute):
+    """Indicates the code following the attribute is to be executed in run, not step, mode."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class UnreachableException(System.Exception):
+    """Exception thrown when the program executes an instruction that was thought to be unreachable."""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the UnreachableException class with the default error message."""
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        """
+        Initializes a new instance of the UnreachableException
+        class with a specified error message.
+        
+        :param message: The error message that explains the reason for the exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the UnreachableException
+        class with a specified error message and a reference to the inner exception that is the cause of
+        this exception.
+        
+        :param message: The error message that explains the reason for the exception.
+        :param inner_exception: The exception that is the cause of the current exception.
+        """
+        ...
+
+
+class ConditionalAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def condition_string(self) -> str:
+        ...
+
+    def __init__(self, condition_string: str) -> None:
+        ...
+
+
+class DebuggerStepThroughAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class StackTraceHiddenAttribute(System.Attribute):
+    """
+    Types and Methods attributed with StackTraceHidden will be omitted from the stack trace text shown in StackTrace.ToString()
+    and Exception.StackTrace
+    """
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the StackTraceHiddenAttribute class."""
+        ...
+
+
 class DiagnosticMethodInfo(System.Object):
     """
     Represents diagnostic information about a method. Information provided by this class is similar to information
@@ -355,6 +229,285 @@ class DiagnosticMethodInfo(System.Object):
         ...
 
 
+class Debugger(System.Object):
+    """This class has no documentation."""
+
+    DEFAULT_CATEGORY: str
+    """Represents the default category of message with a constant."""
+
+    @staticmethod
+    def break_for_user_unhandled_exception(exception: System.Exception) -> None:
+        """
+        Signals a breakpoint to an attached debugger with the  details
+        if a .NET debugger is attached with break on user-unhandled exception enabled and a method
+        attributed with DebuggerDisableUserUnhandledExceptionsAttribute calls this method.
+        
+        :param exception: The user-unhandled exception.
+        """
+        ...
+
+
+class Stopwatch(System.Object):
+    """This class has no documentation."""
+
+    FREQUENCY: int = ...
+
+    IS_HIGH_RESOLUTION: bool = True
+
+    @property
+    def is_running(self) -> bool:
+        ...
+
+    @property
+    def elapsed(self) -> datetime.timedelta:
+        ...
+
+    @property
+    def elapsed_milliseconds(self) -> int:
+        ...
+
+    @property
+    def elapsed_ticks(self) -> int:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def get_elapsed_time(starting_timestamp: int) -> datetime.timedelta:
+        """
+        Gets the elapsed time since the  value retrieved using GetTimestamp.
+        
+        :param starting_timestamp: The timestamp marking the beginning of the time period.
+        :returns: A TimeSpan for the elapsed time between the starting timestamp and the time of this call.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_elapsed_time(starting_timestamp: int, ending_timestamp: int) -> datetime.timedelta:
+        """
+        Gets the elapsed time between two timestamps retrieved using GetTimestamp.
+        
+        :param starting_timestamp: The timestamp marking the beginning of the time period.
+        :param ending_timestamp: The timestamp marking the end of the time period.
+        :returns: A TimeSpan for the elapsed time between the starting and ending timestamps.
+        """
+        ...
+
+    @staticmethod
+    def get_timestamp() -> int:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+    def restart(self) -> None:
+        ...
+
+    def start(self) -> None:
+        ...
+
+    @staticmethod
+    def start_new() -> System.Diagnostics.Stopwatch:
+        ...
+
+    def stop(self) -> None:
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns the Elapsed time as a string.
+        
+        :returns: Elapsed time string in the same format used by TimeSpan.ToString().
+        """
+        ...
+
+
+class DebuggerVisualizerAttribute(System.Attribute):
+    """
+    Signifies that the attributed type has a visualizer which is pointed
+    to by the parameter type name strings.
+    """
+
+    @property
+    def visualizer_object_source_type_name(self) -> str:
+        ...
+
+    @property
+    def visualizer_type_name(self) -> str:
+        ...
+
+    @property
+    def description(self) -> str:
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def target(self) -> typing.Type:
+        ...
+
+    @target.setter
+    def target(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def target_type_name(self) -> str:
+        ...
+
+    @target_type_name.setter
+    def target_type_name(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer_type_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer_type_name: str, visualizer_object_source_type_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer_type_name: str, visualizer_object_source: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer: typing.Type, visualizer_object_source: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer: typing.Type, visualizer_object_source_type_name: str) -> None:
+        ...
+
+
+class DebuggerDisplayAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> str:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def type(self) -> str:
+        ...
+
+    @type.setter
+    def type(self, value: str) -> None:
+        ...
+
+    @property
+    def target(self) -> typing.Type:
+        ...
+
+    @target.setter
+    def target(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def target_type_name(self) -> str:
+        ...
+
+    @target_type_name.setter
+    def target_type_name(self, value: str) -> None:
+        ...
+
+    def __init__(self, value: str) -> None:
+        ...
+
+
+class DebuggableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    class DebuggingModes(Enum):
+        """This class has no documentation."""
+
+        NONE = ...
+
+        DEFAULT = ...
+
+        DISABLE_OPTIMIZATIONS = ...
+
+        IGNORE_SYMBOL_STORE_SEQUENCE_POINTS = ...
+
+        ENABLE_EDIT_AND_CONTINUE = ...
+
+    @property
+    def is_jit_tracking_enabled(self) -> bool:
+        ...
+
+    @property
+    def is_jit_optimizer_disabled(self) -> bool:
+        ...
+
+    @property
+    def debugging_flags(self) -> System.Diagnostics.DebuggableAttribute.DebuggingModes:
+        ...
+
+    @overload
+    def __init__(self, is_jit_tracking_enabled: bool, is_jit_optimizer_disabled: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, modes: System.Diagnostics.DebuggableAttribute.DebuggingModes) -> None:
+        ...
+
+
+class DebuggerDisableUserUnhandledExceptionsAttribute(System.Attribute):
+    """
+    If a .NET Debugger is attached which supports the Debugger.BreakForUserUnhandledException(Exception) API,
+    this attribute will prevent the debugger from breaking on user-unhandled exceptions when the
+    exception is caught by a method with this attribute, unless BreakForUserUnhandledException is called.
+    """
+
+
+class DebuggerTypeProxyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def proxy_type_name(self) -> str:
+        ...
+
+    @property
+    def target(self) -> typing.Type:
+        ...
+
+    @target.setter
+    def target(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def target_type_name(self) -> str:
+        ...
+
+    @target_type_name.setter
+    def target_type_name(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, type: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, type_name: str) -> None:
+        ...
+
+
 class DebugProvider(System.Object):
     """Provides default implementation for Write and Fail methods in Debug class."""
 
@@ -382,34 +535,31 @@ class DebugProvider(System.Object):
         ...
 
 
-class UnreachableException(System.Exception):
-    """Exception thrown when the program executes an instruction that was thought to be unreachable."""
+class DebuggerBrowsableState(Enum):
+    """This class has no documentation."""
 
-    @overload
+    NEVER = 0
+
+    COLLAPSED = 2
+
+    ROOT_HIDDEN = 3
+
+
+class DebuggerBrowsableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def state(self) -> System.Diagnostics.DebuggerBrowsableState:
+        ...
+
+    def __init__(self, state: System.Diagnostics.DebuggerBrowsableState) -> None:
+        ...
+
+
+class DebuggerHiddenAttribute(System.Attribute):
+    """This class has no documentation."""
+
     def __init__(self) -> None:
-        """Initializes a new instance of the UnreachableException class with the default error message."""
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        Initializes a new instance of the UnreachableException
-        class with a specified error message.
-        
-        :param message: The error message that explains the reason for the exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the UnreachableException
-        class with a specified error message and a reference to the inner exception that is the cause of
-        this exception.
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner_exception: The exception that is the cause of the current exception.
-        """
         ...
 
 
@@ -516,14 +666,10 @@ class StackTrace(System.Object):
         ...
 
 
-class StackTraceHiddenAttribute(System.Attribute):
-    """
-    Types and Methods attributed with StackTraceHidden will be omitted from the stack trace text shown in StackTrace.ToString()
-    and Exception.StackTrace
-    """
+class DebuggerNonUserCodeAttribute(System.Attribute):
+    """This class has no documentation."""
 
     def __init__(self) -> None:
-        """Initializes a new instance of the StackTraceHiddenAttribute class."""
         ...
 
 
@@ -855,152 +1001,6 @@ class Debug(System.Object):
     @staticmethod
     @overload
     def write_line_if(condition: bool, message: System.Diagnostics.Debug.WriteIfInterpolatedStringHandler, category: str) -> None:
-        ...
-
-
-class DebuggerVisualizerAttribute(System.Attribute):
-    """
-    Signifies that the attributed type has a visualizer which is pointed
-    to by the parameter type name strings.
-    """
-
-    @property
-    def visualizer_object_source_type_name(self) -> str:
-        ...
-
-    @property
-    def visualizer_type_name(self) -> str:
-        ...
-
-    @property
-    def description(self) -> str:
-        ...
-
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def target(self) -> typing.Type:
-        ...
-
-    @target.setter
-    def target(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def target_type_name(self) -> str:
-        ...
-
-    @target_type_name.setter
-    def target_type_name(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer_type_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer_type_name: str, visualizer_object_source_type_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer_type_name: str, visualizer_object_source: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer: typing.Type, visualizer_object_source: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer: typing.Type, visualizer_object_source_type_name: str) -> None:
-        ...
-
-
-class DebuggableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    class DebuggingModes(Enum):
-        """This class has no documentation."""
-
-        NONE = ...
-
-        DEFAULT = ...
-
-        DISABLE_OPTIMIZATIONS = ...
-
-        IGNORE_SYMBOL_STORE_SEQUENCE_POINTS = ...
-
-        ENABLE_EDIT_AND_CONTINUE = ...
-
-    @property
-    def is_jit_tracking_enabled(self) -> bool:
-        ...
-
-    @property
-    def is_jit_optimizer_disabled(self) -> bool:
-        ...
-
-    @property
-    def debugging_flags(self) -> System.Diagnostics.DebuggableAttribute.DebuggingModes:
-        ...
-
-    @overload
-    def __init__(self, is_jit_tracking_enabled: bool, is_jit_optimizer_disabled: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, modes: System.Diagnostics.DebuggableAttribute.DebuggingModes) -> None:
-        ...
-
-
-class DebuggerBrowsableState(Enum):
-    """This class has no documentation."""
-
-    NEVER = 0
-
-    COLLAPSED = 2
-
-    ROOT_HIDDEN = 3
-
-
-class DebuggerBrowsableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def state(self) -> System.Diagnostics.DebuggerBrowsableState:
-        ...
-
-    def __init__(self, state: System.Diagnostics.DebuggerBrowsableState) -> None:
-        ...
-
-
-class ConditionalAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def condition_string(self) -> str:
-        ...
-
-    def __init__(self, condition_string: str) -> None:
-        ...
-
-
-class DebuggerStepperBoundaryAttribute(System.Attribute):
-    """Indicates the code following the attribute is to be executed in run, not step, mode."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class DebuggerNonUserCodeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
         ...
 
 

@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "mailersend"
+version = "0.6.0"
+description = "The official MailerSend Python SDK"
+authors = ["Igor Hrček <igor@mailerlite.com>"]
+readme = "README.md"
+keywords = ["mailersend", "mail"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.25.0"
+docutils = "^0.21.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+twine = "^6.0.0"
+pre-commit = "^2.12.1"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: infisicalsdk
+Version: 1.0.8
+Summary: Infisical API Client
+Home-page: https://github.com/Infisical/python-sdk-official
+Author: Infisical
+Author-email: support@infisical.com
+Keywords: Infisical,Infisical API,Infisical SDK
+Description-Content-Type: text/markdown
+Requires-Dist: python-dateutil
+Requires-Dist: aenum
+Requires-Dist: requests~=2.32
+Requires-Dist: boto3~=1.35
+Requires-Dist: botocore~=1.35
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: requires-dist
+Dynamic: summary
+
+    Infisical SDK client for Python. To view documentation, please visit https://github.com/Infisical/python-sdk-official
+    

@@ -16,8 +16,12 @@ from neutron_lib.api.definitions import external_net
 from neutron_lib.api.definitions import network_mtu as mtu_def
 from neutron_lib.api.definitions import provider_net
 from neutron_lib import constants
+from neutron_lib.plugins import constants as plugins_constants
+from neutron_lib.services.qos import constants as qos_const
 from oslo_config import cfg
 from oslo_utils import strutils
+from oslo_utils import uuidutils
+from sqlalchemy.dialects.mysql import dialect as mysql_dialect
 
 from neutron.common.ovn import constants as ovn_const
 from neutron.common.ovn import utils as ovn_utils
@@ -25,13 +29,19 @@ from neutron.conf.plugins.ml2.drivers.ovn import ovn_conf as ovn_config
 from neutron.tests.functional import base
 from neutron.tests.unit.api import test_extensions
 from neutron.tests.unit.extensions import test_l3
+from neutron.tests.unit import testlib_api
 
 
-class TestOVNClient(base.TestOVNFunctionalBase,
+class TestOVNClient(testlib_api.MySQLTestCaseMixin,
+                    base.TestOVNFunctionalBase,
                     test_l3.L3NatTestCaseMixin):
 
-    def setUp(self, **kwargs):
-        super().setUp(**kwargs)
+    _extension_drivers = ['qos']
+
+    def setUp(self, *args):
+        service_plugins = {plugins_constants.QOS: 'qos'}
+        super().setUp(service_plugins=service_plugins)
+        self.assertEqual(mysql_dialect.name, self.db.engine.dialect.name)
         ext_mgr = test_l3.L3TestExtensionManager()
         self.ext_api = test_extensions.setup_extensions_middleware(ext_mgr)
 
@@ -309,3 +319,121 @@ class TestOVNClient(base.TestOVNFunctionalBase,
                     # MTU connected to the router.
                     self._check_gw_lrp_mtu(router_id,
                                            min(router_attached_net_mtus))
+
+    def test_create_router_port_multiple_routers(self):
+        # The goal of this test is to check that the GW LRPs are updated when
+        # the same network is the external GW for several routers.
+        net_ext_args = {provider_net.NETWORK_TYPE: 'geneve',
+                        external_net.EXTERNAL: True,
+                        mtu_def.MTU: 1400}
+        net_ext = self._make_network(self.fmt, 'test-ext-net', True,
+                                     as_admin=True,
+                                     arg_list=tuple(net_ext_args.keys()),
+                                     **net_ext_args)
+        ext_gw = {'network_id': net_ext['network']['id']}
+        self._make_subnet(self.fmt, net_ext,
+                          gateway=constants.ATTR_NOT_SPECIFIED,
+                          cidr='10.100.0.0/24')
+        nets_int = []
+        routers = []
+        subnets = []
+        for idx in range(3):
+            cidr = f'10.{idx}.0.0/24'
+            net_int_args = {provider_net.NETWORK_TYPE: 'geneve',
+                            mtu_def.MTU: 1300 + idx}
+            nets_int.append(self._make_network(
+                self.fmt, 'test-int-net', True, as_admin=True,
+                arg_list=tuple(net_ext_args.keys()), **net_int_args))
+            subnets.append(self._make_subnet(
+                self.fmt, nets_int[-1],
+                gateway=constants.ATTR_NOT_SPECIFIED, cidr=cidr))
+            routers.append(self._make_router(
+                self.fmt, external_gateway_info=ext_gw))
+
+        for router in routers:
+            lr_name = ovn_utils.ovn_name(router['router']['id'])
+            lrp = self.nb_api.lrp_list(lr_name).execute(check_errors=True)[0]
+            self.assertEqual(1400, int(lrp.options['gateway_mtu']))
+
+        # Add to every router a new internal subnet. That must update the
+        # GW LRP MTU.
+        for idx, router in enumerate(routers):
+            lr_name = ovn_utils.ovn_name(router['router']['id'])
+            subnet = subnets[idx]
+            self._router_interface_action(
+                'add', router['router']['id'], subnet['subnet']['id'],
+                None)
+            lrps = self.nb_api.lrp_list(lr_name).execute(check_errors=True)
+            for lrp in lrps:
+                if strutils.bool_from_string(
+                        lrp.external_ids[ovn_const.OVN_ROUTER_IS_EXT_GW]):
+                    # New MTU=1300+idx (old MTU=1400)
+                    self.assertEqual(1300 + idx,
+                                     int(lrp.options['gateway_mtu']))
+
+        # Remove the internal subnet. The GW LRP should restore the GW network
+        # MTU=1400.
+        for idx, router in enumerate(routers):
+            lr_name = ovn_utils.ovn_name(router['router']['id'])
+            subnet = subnets[idx]
+            self._router_interface_action(
+                'remove', router['router']['id'], subnet['subnet']['id'],
+                None)
+            lrps = self.nb_api.lrp_list(lr_name).execute(check_errors=True)
+            for lrp in lrps:
+                if strutils.bool_from_string(
+                        lrp.external_ids[ovn_const.OVN_ROUTER_IS_EXT_GW]):
+                    # GW network MTU=1400
+                    self.assertEqual(1400, int(lrp.options['gateway_mtu']))
+
+    def test_update_port_with_qos(self):
+        def _check_bw(port_id, max_kbps=None, max_burst_kbps=None):
+            lsp = self.nb_api.lookup('Logical_Switch_Port', port_id)
+            if max_kbps:
+                self.assertEqual(
+                    '{}'.format(max_kbps * 1000),
+                    lsp.options[ovn_const.LSP_OPTIONS_QOS_MAX_RATE])
+            else:
+                self.assertNotIn(ovn_const.LSP_OPTIONS_QOS_MAX_RATE,
+                                 lsp.options)
+            if max_burst_kbps:
+                self.assertEqual(
+                    '{}'.format(max_burst_kbps * 1000),
+                    lsp.options[ovn_const.LSP_OPTIONS_QOS_BURST])
+            else:
+                self.assertNotIn(ovn_const.LSP_OPTIONS_QOS_BURST,
+                                 lsp.options)
+
+        res = self._create_qos_policy(self.fmt, is_admin=True)
+        qos = self.deserialize(self.fmt, res)['policy']
+        max_kbps, max_burst_kbps = 1000, 800
+        self._create_qos_rule(self.fmt, qos['id'],
+                              qos_const.RULE_TYPE_BANDWIDTH_LIMIT,
+                              max_kbps=max_kbps, max_burst_kbps=max_burst_kbps,
+                              is_admin=True)
+        net_args = {provider_net.NETWORK_TYPE: 'flat',
+                    provider_net.PHYSICAL_NETWORK: 'datacentre'}
+        with self.network(uuidutils.generate_uuid(),
+                          arg_list=tuple(net_args.keys()), as_admin=True,
+                          **net_args) as net:
+            with self.subnet(net) as subnet:
+                with self.port(subnet) as port:
+                    port_data = port['port']
+                    # Check no QoS options.
+                    _check_bw(port_data['id'])
+
+                    # Add QoS policy.
+                    req = self.new_update_request(
+                        'ports',
+                        {'port': {'qos_policy_id': qos['id']}},
+                        port_data['id'])
+                    req.get_response(self.api)
+                    _check_bw(port_data['id'], max_kbps, max_burst_kbps)
+
+                    # Update port.
+                    req = self.new_update_request(
+                        'ports',
+                        {'port': {'name': uuidutils.generate_uuid()}},
+                        port_data['id'])
+                    req.get_response(self.api)
+                    _check_bw(port_data['id'], max_kbps, max_burst_kbps)

@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,12 +29,13 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_NOISE_DEFAULTS
-#define _TCOD_NOISE_DEFAULTS
+#pragma once
+#ifndef TCOD_NOISE_DEFAULTS_
+#define TCOD_NOISE_DEFAULTS_
 
 #define TCOD_NOISE_MAX_OCTAVES 128
 #define TCOD_NOISE_MAX_DIMENSIONS 4
 #define TCOD_NOISE_DEFAULT_HURST 0.5f
 #define TCOD_NOISE_DEFAULT_LACUNARITY 2.0f
 
-#endif /* _TCOD_NOISE_DEFAULTS */
+#endif  // TCOD_NOISE_DEFAULTS_

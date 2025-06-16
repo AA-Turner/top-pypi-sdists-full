@@ -1,0 +1,64 @@
+Metadata-Version: 1.2
+Name: flake8-ycm
+Version: 0.1.0
+Summary: A Flake8 plugin that enforces YouCompleteMe and ycmd coding style
+Home-page: https://github.com/micbou/flake8-ycm
+Author: Michel Bouard
+Author-email: contact@micbou.com
+License: Apache License 2.0
+Description: ==========
+        flake8-ycm
+        ==========
+        
+        .. image:: https://img.shields.io/travis/micbou/flake8-ycm.svg?label=Linux
+          :target: https://travis-ci.com/micbou/flake8-ycm
+        
+        .. image:: https://img.shields.io/appveyor/ci/micbou/flake8-ycm/master.svg?label=Windows
+          :target: https://ci.appveyor.com/project/micbou/flake8-ycm
+        
+        .. image:: https://img.shields.io/codecov/c/github/micbou/flake8-ycm/master.svg
+          :target: https://codecov.io/gh/micbou/flake8-ycm
+        
+        A `Flake8 <https://flake8.readthedocs.io/en/latest/>`_ plugin that enforces
+        `YouCompleteMe <https://github.com/Valloric/YouCompleteMe>`_ and
+        `ycmd <https://github.com/Valloric/ycmd>`_ coding style.
+        
+        Rules
+        -----
+        
+        ====== ===========
+        Code   Description
+        ====== ===========
+        YCM111 indentation is not a multiple of two spaces
+        YCM112 expected an indented block of `n` spaces
+        YCM114 indentation is not a multiple of two spaces (comment)
+        YCM115 expected an indented block of `n` spaces (comment)
+        YCM201 exactly one space required after a left bracket
+        YCM202 exactly one space required before a right bracket
+        YCM204 no spaces between brackets for empty content
+        ====== ===========
+        
+        
+        ===============
+        Release history
+        ===============
+        
+        0.1.0 (2018-05-30)
+        ------------------
+        
+        * Add YCM111, YCM112, YCM114, YCM115, YCM201, YCM202, and YCM204 rules.
+        
+Keywords: flake8,YouCompleteMe,ycmd,coding style
+Platform: UNKNOWN
+Classifier: Development Status :: 1 - Planning
+Classifier: Framework :: Flake8
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*

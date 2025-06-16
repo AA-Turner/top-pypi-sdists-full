@@ -1,0 +1,22 @@
+[project]
+name = "pregex"
+version = "2.3.3"
+authors = [
+  {email = "manosstoumpos@gmail.com"},
+  {name = "Manos Stoumpos"}
+]
+description = "PRegEx - Programmable Regular Expressions"
+keywords = ["regex"]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/manoss96/pregex"
+"Bug Tracker" = "https://github.com/manoss96/pregex/issues"
+"Documentation" = "https://pregex.rtfd.io"

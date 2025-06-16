@@ -1,0 +1,118 @@
+[build-system]
+build-backend = "maturin"
+requires = ["maturin>=1.5.0,<2.0.0"]
+
+[project]
+authors = [{name = "Eventual Inc", email = "daft@eventualcomputing.com"}]
+dependencies = [
+  "pyarrow >= 8.0.0",
+  "fsspec",
+  "tqdm",
+  "typing-extensions >= 4.0.0; python_version < '3.10'"
+]
+description = "Distributed Dataframes for Multimodal Data"
+dynamic = ["version"]
+license = {file = "LICENSE"}
+maintainers = [
+  {name = "Sammy Sidhu", email = "sammy@eventualcomputing.com"},
+  {name = "Jay Chia", email = "jay@eventualcomputing.com"}
+]
+name = "daft"
+readme = "README.rst"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+all = ["daft[aws, azure, gcp, ray, pandas, numpy, iceberg, deltalake, spark, sql, unity]"]
+aws = ["boto3"]
+azure = []
+deltalake = ["deltalake", "packaging"]
+gcp = []
+hudi = ["pyarrow >= 8.0.0"]
+iceberg = ["pyiceberg >= 0.7.0", "packaging"]
+lance = ["pylance"]
+numpy = ["numpy"]
+pandas = ["pandas"]
+ray = [
+  # Inherit existing Ray version. Get the "default" extra for the Ray dashboard.
+  'ray[data, client]>=2.0.0 ; platform_system != "Windows"',
+  'ray[data, client]>=2.10.0 ; platform_system == "Windows"',  # ray 2.10 has the pyarrow upper pin removed
+  # Explicitly install packaging. See issue: https://github.com/ray-project/ray/issues/34806
+  "packaging"
+]
+spark = ["googleapis-common-protos == 1.56.4", "grpcio >= 1.48, < 1.57", "grpcio-status >= 1.48, < 1.57", "numpy >= 1.15", "pandas >= 1.0.5", "py4j >= 0.10.9.7", "pyspark"]
+sql = ["connectorx", "sqlalchemy", "sqlglot"]
+unity = ["httpx <= 0.27.2", "unitycatalog"]
+viz = []
+
+[project.scripts]
+daft = "daft.cli:main"
+
+[project.urls]
+homepage = "https://www.getdaft.io"
+repository = "https://github.com/Eventual-Inc/Daft"
+
+[tool]
+
+[tool.codespell]
+check-filenames = true
+check-hidden = true
+ignore-words-list = "crate,arithmetics,ser,acter,MOR"
+# Feel free to un-skip examples, and experimental, you will just need to
+# work through many typos (--write-changes and --interactive will help)
+skip = "tests/series/*,target,.git,.venv,venv,data,*.csv,*.csv.*,*.html,*.json,*.jsonl,*.pdf,*.txt,*.ipynb,*.tiktoken,*.sql,tests/table/utf8/*,tests/table/binary/*,*.warc"
+
+[tool.maturin]
+# "python" tells pyo3 we want to build an extension module (skips linking against libpython.so)
+features = ["python"]
+
+[tool.mypy]
+exclude = ['daft/pickle/*.py$']
+files = ["daft/**/*.py", "daft/**/*.pyx", "tests/**/*.py"]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+module = [
+  "pyarrow.*",
+  "fsspec.*",
+  "icebridge.*",
+  "cloudpickle.*",
+  "docker.*",
+  "uvicorn.*",
+  "numba.*",
+  "viztracer.*"
+]
+
+[[tool.mypy.overrides]]
+enable_error_code = ["attr-defined"]
+module = 'daft.*'
+warn_return_any = false
+
+[tool.pyright]
+typeCheckingMode = "off"
+venv = ".venv"
+venvPath = "."
+
+[[tool.pyright.executionEnvironments]]
+root = ".github/ci-scripts"
+
+[[tool.pyright.executionEnvironments]]
+root = "tools"
+
+[[tool.pyright.executionEnvironments]]
+root = "daft_dashboard"
+
+[tool.pytest.ini_options]
+addopts = "-m 'not (integration or benchmark or hypothesis)'"
+minversion = "6.0"
+testpaths = [
+  "tests"
+]
+
+[tool.uv.sources.daft_dashboard]
+workspace = true
+
+[tool.uv.workspace]
+members = ["daft_dashboard"]

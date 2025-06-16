@@ -1,0 +1,279 @@
+[tool.poetry]
+name = "starlite"
+version = "1.51.16"
+description = "Performant, light and flexible ASGI API Framework"
+authors = [
+  "Janek Nouvertné <provinzkraut@posteo.de>",
+  "Cody Fincher <cody.fincher@gmail.com>",
+  "Peter Schutt <peter.github@proton.me>",
+  "Jacob Coffee <jacob@z7x.org>",
+  "Na'aman Hirschfeld <nhirschfeld@gmail.com>",
+]
+maintainers = [
+  "Litestar Developers <hello@litestar.dev>",
+  "Cody Fincher <cody@litestar.dev>",
+  "Jacob Coffee <jacob@litestar.dev>",
+  "Janek Nouvertné <provinzkraut@litestar.dev>",
+  "Peter Schutt <peter@litestar.dev>",
+  "Visakh Unnikrishnan <guacs@litestar.dev>",
+  "Alc <alc@litestar.dev>"
+]
+license = "MIT"
+readme = "README.md"
+homepage = "https://litestar.dev"
+repository = "https://github.com/litestar-org/litestar"
+documentation = "https://docs.litestar.dev/1/"
+keywords = ["http", "asgi", "starlite", "framework", "websocket"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development",
+    "Typing :: Typed",
+]
+include = ["docs/release-notes/changelog_1.rst"]
+packages = [
+    { include = "starlite" },
+]
+
+[tool.poetry.urls]
+"Issue Tracker" = "https://github.com/litestar-org/litestar/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc"
+"Changelog" = "https://github.com/litestar-org/litestar/releases/"
+"Twitter" = "https://twitter.com/LitestarAPI"
+"Reddit" = "https://www.reddit.com/r/litestarapi"
+"Discord" = "https://discord.gg/MmcwxztmQb"
+"Blog" = "https://blog.litestar.dev"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+aiomcache = { version = "*", optional = true }
+anyio = ">=3,<4"
+brotli = { version = "*", optional = true }
+click = {version = "*", optional = true}
+cryptography = { version = "*", optional = true }
+fast-query-parsers = "*"
+httpx = ">=0.22"
+importlib-metadata = { version = "*", python = "<3.10" }
+jinja2 = { version = ">=3.1.2", optional = true }
+jsbeautifier = {version = "*", optional = true}
+mako = { version = ">=1.2.4", optional = true }
+msgspec = ">=0.11.0"
+multidict = ">=6.0.2"
+opentelemetry-instrumentation-asgi = { version = "*", optional = true }
+picologging = { version = "*", optional = true }
+pydantic = "<2"
+pydantic-factories = "*"
+pydantic-openapi-schema = ">=1.5.0"
+python-jose = { version = "*", optional = true }
+pyyaml = "*"
+redis = { version = "*", optional = true, extras = ["hiredis"] }
+rich = {version = ">=13.0.0", optional = true}
+structlog = { version = "*", optional = true }
+typing-extensions = "*"
+
+
+[tool.poetry.group.dev.dependencies]
+aiomcache = "*"
+aiosqlite = "*"
+beanie = "*"
+beautifulsoup4 = "*"
+brotli = "*"
+click = "*"
+cryptography = "*"
+fakeredis = "*"
+freezegun = "*"
+fsspec = "*"
+greenlet = "*"
+hypothesis = "*"
+jinja2 = "*"
+jsbeautifier = "*"
+mako = "*"
+mongomock-motor = "*"
+opentelemetry-instrumentation-asgi = "*"
+opentelemetry-sdk = "*"
+piccolo = "*"
+picologging = "*"
+pre-commit = "*"
+pytest-asyncio = "*"
+pytest-cov = "*"
+pytest-lazy-fixture = "^0.6.3"
+pytest-mock = "*"
+python-dotenv = "*"
+python-jose = "*"
+redis = "*"
+rich = "*"
+sqlalchemy = "<2.0.0"
+starlette = "<0.35.0"
+structlog = "*"
+trio = "<0.24.0"
+uvicorn = "*"
+pyright = "1.1.317"
+mypy = "1.4.1"
+types-deprecated = "^1.2.9.20240311"
+types-pyyaml = "^6.0.12.20240311"
+types-pygments = "^2.17.0.20240310"
+types-cffi = "^1.16.0.20240331"
+types-colorama = "^0.4.15.20240311"
+types-pyopenssl = "^24.1.0.20240425"
+types-python-jose = "^3.3.4.20240106"
+types-pytz = "^2024.1.0.20240417"
+types-requests = "^2.31.0.20240406"
+types-setuptools = "^69.5.0.20240423"
+sqlalchemy2-stubs = "^0.0.2a38"
+types-beautifulsoup4 = "^4.12.0.20240504"
+pytest = "<8"
+tortoise-orm = ">=0.17.0,<0.20.0"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+black = "^22.12.0"
+httpx = "^0.23.2"
+uvicorn = "^0.20.0"
+sphinx-autobuild = "^2021.3.14"
+sphinx-design = "^0.3.0"
+sphinx = "^5.3.0"
+sphinx-toolbox = "^3.2.0"
+sphinx-copybutton = "^0.5.1"
+sphinxcontrib-mermaid = "^0.8.1"
+auto-pytabs = {extras = ["sphinx"], version = ">=0.1.1"}
+litestar-sphinx-theme = { git = "https://github.com/litestar-org/litestar-sphinx-theme.git" }
+
+[tool.poetry.extras]
+brotli = ["brotli"]
+cli = ["click", "rich", "jsbeautifier", "uvicorn"]
+cryptography = ["cryptography"]
+jinja = ["jinja2"]
+jwt = ["python-jose", "cryptography"]
+memcached = ["aiomcache"]
+opentelemetry = ["opentelemetry-instrumentation-asgi"]
+picologging = ["picologging"]
+redis = ["redis"]
+standard = ["click", "jinja2", "jsbeautifier", "picologging", "rich",]
+structlog = ["structlog"]
+tortoise-orm = ["tortoise-orm"]
+full = [
+    "aiomcache",
+    "brotli",
+    "click",
+    "cryptography",
+    "jinja2",
+    "opentelemetry-instrumentation-asgi",
+    "picologging",
+    "python-jose",
+    "redis",
+    "rich",
+    "structlog",
+    "tortoise-orm",
+]
+
+[tool.poetry.scripts]
+starlite = {callable = "starlite:__main__", extras = ["cli"] }
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.pylint.MESSAGE_CONTROL]
+disable = [
+    "cyclic-import",
+    "duplicate-code",
+    "fixme",
+    "import-outside-toplevel",
+    "invalid-name",
+    "line-too-long",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "no-name-in-module",
+    "protected-access",
+    "super-init-not-called",
+    "too-few-public-methods",
+    "too-many-ancestors",
+    "too-many-arguments",
+    "too-many-branches",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-return-statements",
+    "ungrouped-imports",
+    "unnecessary-ellipsis",
+    "unused-import",
+]
+enable = "useless-suppression"
+extension-pkg-allow-list = ["pydantic", "msgspec", "picologging"]
+
+[tool.pylint.REPORTS]
+reports = "no"
+
+[tool.pylint.FORMAT]
+max-line-length = "120"
+
+[tool.pylint.VARIABLES]
+ignored-argument-names = "args|kwargs|_|__"
+
+[tool.pylint.BASIC]
+no-docstring-rgx = "(__.*__|main|test.*|.*test|.*Test|^_.*)$"
+
+[tool.pylint.LOGGING]
+logging-modules = ["logging", "picologging", "structlog"]
+
+[tool.coverage.run]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover',
+    'if TYPE_CHECKING:',
+    'except ImportError as e:',
+    'except ImportError:',
+    '\.\.\.',
+    'raise NotImplementedError'
+]
+
+[tool.pytest.ini_options]
+addopts = "--ignore=examples"
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::trio.TrioDeprecationWarning:anyio._backends._trio*:164",
+]
+
+[tool.pycln]
+all = true
+
+[tool.pyright]
+include = ["starlite", "tests", "examples"]
+exclude = [
+    "starlite/plugins",
+    "tests/plugins",
+    "starlite/openapi",
+    "tests/openapi",
+    "examples/plugins/sqlalchemy_plugin"
+]
+
+[tool.slotscheck]
+strict-imports = false
+
+[tool.pydocstyle]
+add-ignore = "D100,D104,D105,D106,D202,D205,D415"
+add-select = "D401,D404,D417"
+convention = "google"
+match_dir = "starlite"

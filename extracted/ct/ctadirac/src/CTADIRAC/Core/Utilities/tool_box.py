@@ -88,6 +88,12 @@ def extract_run_number_from_corsika_sim_telarray(filename):
     return int(match.group(1)) if match else -1
 
 
+def extract_run_number_from_simpipe(filename):
+    match = re.search(r"_run(\d+)_", os.path.basename(filename))
+
+    return int(match.group(1)) if match else -1
+
+
 def extract_run_number_from_evndisplay(filename):
     if "tid" in filename:
         match = re.search(r"tid(\d+)", os.path.basename(filename))
@@ -127,6 +133,7 @@ def run_number_from_filename(filename, package):
         "mars": extract_run_number_from_chimp_mars,
         "corsika_simhessarray": extract_run_number_from_corsika_sim_telarray,
         "corsika_simtelarray": extract_run_number_from_corsika_sim_telarray,
+        "simpipe": extract_run_number_from_simpipe,
         "evndisplay_dl1": extract_run_number_from_evndisplay,
         "evndisplay_dl2": extract_run_number_from_evndisplay,
         "image_extractor": extract_run_number_from_image_extractor,

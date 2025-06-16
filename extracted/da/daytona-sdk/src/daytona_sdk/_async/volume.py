@@ -1,12 +1,13 @@
 # Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
+# SPDX-License-Identifier: Apache-2.0
 
 import re
 from typing import List
 
 from daytona_api_client_async import CreateVolume, VolumesApi
 from daytona_api_client_async.exceptions import NotFoundException
-from daytona_sdk.common.volume import Volume
+
+from ..common.volume import Volume
 
 
 class AsyncVolumeService:
@@ -23,10 +24,10 @@ class AsyncVolumeService:
 
         Example:
             ```python
-            daytona = AsyncDaytona()
-            volumes = await daytona.volume.list()
-            for volume in volumes:
-                print(f"{volume.name} ({volume.id})")
+            async with AsyncDaytona() as daytona:
+                volumes = await daytona.volume.list()
+                for volume in volumes:
+                    print(f"{volume.name} ({volume.id})")
             ```
         """
         return [Volume.from_dto(volume) for volume in await self.__volumes_api.list_volumes()]
@@ -43,9 +44,9 @@ class AsyncVolumeService:
 
         Example:
             ```python
-            daytona = AsyncDaytona()
-            volume = await daytona.volume.get("test-volume-name", create=True)
-            print(f"{volume.name} ({volume.id})")
+            async with AsyncDaytona() as daytona:
+                volume = await daytona.volume.get("test-volume-name", create=True)
+                print(f"{volume.name} ({volume.id})")
             ```
         """
         try:
@@ -66,9 +67,9 @@ class AsyncVolumeService:
 
         Example:
             ```python
-            daytona = AsyncDaytona()
-            volume = await daytona.volume.create("test-volume")
-            print(f"{volume.name} ({volume.id}); state: {volume.state}")
+            async with AsyncDaytona() as daytona:
+                volume = await daytona.volume.create("test-volume")
+                print(f"{volume.name} ({volume.id}); state: {volume.state}")
             ```
         """
         return Volume.from_dto(await self.__volumes_api.create_volume(CreateVolume(name=name)))
@@ -81,10 +82,10 @@ class AsyncVolumeService:
 
         Example:
             ```python
-            daytona = AsyncDaytona()
-            volume = await daytona.volume.get("test-volume")
-            await daytona.volume.delete(volume)
-            print("Volume deleted")
+            async with AsyncDaytona() as daytona:
+                volume = await daytona.volume.get("test-volume")
+                await daytona.volume.delete(volume)
+                print("Volume deleted")
             ```
         """
         await self.__volumes_api.delete_volume(volume.id)

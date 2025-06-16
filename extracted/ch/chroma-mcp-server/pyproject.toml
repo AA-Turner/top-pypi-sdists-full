@@ -1,0 +1,309 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "chroma-mcp-server"
+version = "0.2.28"
+description = "Chroma MCP Server - Vector Database Integration for LLM Applications"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "Nold Coaching & Consulting", email = "info@noldcoaching.de" }
+]
+keywords = ["chroma", "mcp", "vector-database", "llm", "embeddings"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+dependencies = [
+    # Core dependencies
+    "python-dotenv>=1.1.0",
+    "pydantic>=2.11.3",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.1",
+    "chromadb>=1.0.4",
+    "mcp>=1.6.0",
+    "numpy<2.0.0", # Fallback for torch 2.2.2 (version loaded by sentence-transformers) dependents on numpy<2.0.0
+    "onnxruntime>=1.21.0", # For default cpu-based embeddings generation
+    "sentence-transformers>=4.1.0", # Only needed with accurate cpu-based embeddings
+    "transformers~=4.41.0", # Pinning transformers version more specifically
+]
+
+[project.optional-dependencies]
+# Optional dependencies for extended functionality using AI models
+aimodels = [
+    # Only needed with specific embeddings by provider api
+    "google-generativeai>=0.8.4",
+    "openai>=1.74.0",
+    "cohere>=5.15.0",
+    "huggingface-hub>=0.30.2",
+    "voyageai>=0.3.2",
+    "boto3>=1.37.34",
+    "ollama>=0.4.7",
+]
+
+# Development dependencies
+dev = [
+    # Code quality
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "mypy>=1.15.0",
+    "pylint>=3.3.6",
+    "types-PyYAML>=6.0.12.20250402", # Only needed type stubs
+]
+
+server = [
+    "httpx>=0.28.1", # Only needed if using HTTP client
+]
+
+client = [
+    "GitPython>=3.1.44", # For enhanced git interactions in client/thinking tools
+]
+
+# Development tools (only included when [devtools] is specified)
+devtools = [
+    "chroma-mcp-server[dev]",
+]
+
+full = [
+    "chroma-mcp-server[aimodels]",
+    "chroma-mcp-server[server]",
+    "chroma-mcp-server[client]",
+]
+
+[project.scripts]
+# Server and client entry points
+chroma-mcp-server = "chroma_mcp.cli:main"
+# Keep old entry point temporarily for backward compatibility
+chroma-client = "chroma_mcp_client.deprecated_cli:main"
+# New recommended entry point
+chroma-mcp-client = "chroma_mcp_client.cli:main"
+# Add scripts for client operations
+record-thought = "chroma_mcp_thinking.thinking_cli:main"
+# New client script wrappers
+log-chat = "chroma_mcp_client.scripts.log_chat:main"
+analyze-chat = "chroma_mcp_client.scripts.analyze_chat:main"
+promote-learning = "chroma_mcp_client.scripts.promote_learning:main"
+review-promote = "chroma_mcp_client.scripts.review_promote:main"
+log-error = "chroma_mcp_client.scripts.log_error:main"
+log-test = "chroma_mcp_client.scripts.log_test:main"
+log-quality = "chroma_mcp_client.scripts.log_quality:main"
+validate-evidence = "chroma_mcp_client.scripts.validate_evidence:main"
+
+# Development script entry points (only installed with [devtools])
+build-mcp = "chroma_mcp.dev_scripts.build:main"
+release-mcp = "chroma_mcp.dev_scripts.release:main"
+publish-mcp = "chroma_mcp.dev_scripts.publish:main"
+
+[project.entry-points."smithery.mcps"]
+chroma = "chroma_mcp.cli:main"
+
+[project.entry-points."pytest11"]
+chroma_mcp_workflow = "chroma_mcp_client.pytest_plugin"
+
+[project.urls]
+Homepage = "https://github.com/djm81/chroma_mcp_server"
+Repository = "https://github.com/djm81/chroma_mcp_server.git"
+Documentation = "https://github.com/djm81/chroma_mcp_server#readme"
+
+[tool.hatch.envs.default]
+# Ensure server and client dependencies are available by default
+features = ["server", "client"]
+dependencies = [
+]
+
+[tool.hatch.envs.default.scripts]
+chroma-mcp-server-dev = "python -m chroma_mcp.cli"
+print-cwd = "python -c 'import os; print(os.getcwd())'"
+# Use the new Python implementations instead of shell scripts
+analyze-chat = "python -m chroma_mcp_client.scripts.analyze_chat {args}"
+promote-learn = "python -m chroma_mcp_client.scripts.promote_learning {args}"
+# Interactive review and promote script alias
+review-promote = "python -m chroma_mcp_client.scripts.review_promote {args}"
+# Log a thought script alias
+log-thought = "python -m chroma_mcp_thinking.client {args}"
+# Log a chat entry with enhanced context
+log-chat = "python -m chroma_mcp_client.scripts.log_chat {args}"
+# Validation script aliases
+log-error = "python -m chroma_mcp_client.scripts.log_error {args}"
+log-test = "python -m chroma_mcp_client.scripts.log_test {args}"
+log-quality = "python -m chroma_mcp_client.scripts.log_quality {args}"
+validate = "python -m chroma_mcp_client.scripts.validate_evidence {args}"
+
+# Development scripts (for maintainers)
+build = "python -m chroma_mcp.dev_scripts.build {args}"
+release = "python -m chroma_mcp.dev_scripts.release {args}"
+publish = "python -m chroma_mcp.dev_scripts.publish {args}"
+
+[tool.hatch.envs.hatch-test]
+dependencies = [
+  "pytest>=8.3.5",
+  "pytest-mock>=3.14.0",
+  "trio>=0.29.0", # For existing async server tests
+  "pytest-trio>=0.8.0", # For existing async server tests
+  "pytest-asyncio>=0.26.0", # For handling async def tests
+  "coverage[toml]>=7.8.0",
+  "GitPython>=3.1.44", # Needed for git ls-files in index --all test
+  "pytest-timeout>=2.3.1", # Add pytest-timeout plugin
+]
+
+# Add dev-mode setting
+dev-mode = true
+
+[tool.hatch.envs.hatch-test.env-vars]
+TOKENIZERS_PARALLELISM = "false"
+
+[tool.hatch.envs.hatch-test.scripts]
+run = "pytest --timeout=5 -p no:xdist --junitxml=logs/tests/junit/test-results.xml --auto-capture-workflow {args}"
+run-cov = "coverage run -m pytest --timeout=5 -p no:xdist --junitxml=logs/tests/junit/test-results.xml --auto-capture-workflow {args}"
+cov = "coverage run -m pytest --timeout=5 -p no:xdist --junitxml=logs/tests/junit/test-results.xml --auto-capture-workflow {args}"
+cov-combine = "coverage combine --quiet"
+xml = "coverage xml -o logs/tests/coverage/coverage.xml"
+run-html = "coverage html --data-file=logs/tests/coverage/.coverage -d logs/tests/coverage/html"
+run-autocapture = "pytest --timeout=5 -p no:xdist --junitxml=logs/tests/junit/test-results.xml --auto-capture-workflow {args}"
+cov-report = "coverage report -m"
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12"]
+
+[tool.coverage.run]
+branch = false
+parallel = false
+source = ["src/chroma_mcp", "src/chroma_mcp_client", "src/chroma_mcp_thinking"]
+relative_files = true
+# Add data_file setting to store .coverage in the new location
+data_file = "logs/tests/coverage/.coverage"
+# Add omit from .coveragerc
+omit = [
+    "*/tests/*",
+    "src/chroma_mcp/__init__.py", # Make path more specific
+    "setup.py", # Keep if relevant, otherwise remove
+]
+
+[tool.coverage.paths]
+source = [
+    "src/",
+    "*/site-packages/"
+]
+
+[tool.coverage.report]
+# Keep omit for main
+omit = ["src/chroma_mcp/__main__.py"]
+# Consolidate exclude_lines
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "pass", # from .coveragerc
+    "raise AssertionError", # from .coveragerc
+    "@abstractmethod", # from .coveragerc
+]
+show_missing = true
+
+# Update HTML output directory to the new location
+[tool.coverage.html]
+directory = "logs/tests/coverage/html"
+
+# Update XML output settings from .coveragerc (for Codecov)
+[tool.coverage.xml]
+output = "logs/tests/coverage/coverage.xml"
+
+[tool.pytest-asyncio]
+mode = "strict"
+
+[tool.hatch.build]
+dev-mode-dirs = ["src"]  # This enables editable install for development 
+
+# Add this section to tell hatch where the package source code is
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/chroma_mcp",
+    "src/chroma_mcp_client", 
+    "src/chroma_mcp_thinking",
+]
+
+[tool.hatch.envs.default.env-vars]
+CHROMA_CLIENT_TYPE = "persistent"
+CHROMA_DATA_DIR = "/Users/dominikus/git/nold-ai/chroma_mcp_server/data"
+CHROMA_LOG_DIR = "/Users/dominikus/git/nold-ai/chroma_mcp_server/logs"
+LOG_LEVEL = "DEBUG"
+MCP_LOG_LEVEL = "DEBUG"
+PIP_EXTRA_INDEX_URL = "https://download.pytorch.org/whl/cpu"
+
+[tool.black]
+line-length = 120
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 120
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+minversion = "8.3.5"
+addopts = "-ra -q"
+pythonpath = [
+    "src"
+]
+testpaths = [
+    "tests",
+]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "asyncio: mark test as async",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.pylint.messages_control]
+disable = [
+    "C0111",  # missing-docstring
+    "C0103",  # invalid-name
+    "C0330",  # bad-continuation
+    "C0326",  # bad-whitespace
+]
+
+[tool.pylint.format]
+max-line-length = 120

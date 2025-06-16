@@ -95,21 +95,6 @@ class ITokenBucket(metaclass=abc.ABCMeta):
         ...
 
 
-class TokenBucket(System.Object):
-    """
-    Provides extension methods for interacting with ITokenBucket instances as well
-    as access to the NullTokenBucket via TokenBucket.Null
-    """
-
-    null: QuantConnect.Util.RateLimit.ITokenBucket = ...
-    """Gets an ITokenBucket that always permits consumption"""
-
-    @staticmethod
-    def consume(bucket: QuantConnect.Util.RateLimit.ITokenBucket, tokens: int, timeout: datetime.timedelta) -> None:
-        """Provides an overload of ITokenBucket.Consume that accepts a TimeSpan timeout"""
-        ...
-
-
 class IRefillStrategy(metaclass=abc.ABCMeta):
     """Provides a strategy for making tokens available for consumption in the ITokenBucket"""
 
@@ -179,16 +164,18 @@ class LeakyBucket(System.Object, QuantConnect.Util.RateLimit.ITokenBucket):
         ...
 
 
-class BusyWaitSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
+class TokenBucket(System.Object):
     """
-    Provides a CPU intensive means of waiting for more tokens to be available in ITokenBucket.
-    This strategy is only viable when the requested number of tokens is expected to become available in an
-    extremely short period of time. This implementation aims to keep the current thread executing to prevent
-    potential content switches arising from a thread yielding or sleeping strategy.
+    Provides extension methods for interacting with ITokenBucket instances as well
+    as access to the NullTokenBucket via TokenBucket.Null
     """
 
-    def sleep(self) -> None:
-        """Provides a CPU intensive sleep by executing Thread.SpinWait for a single spin."""
+    null: QuantConnect.Util.RateLimit.ITokenBucket = ...
+    """Gets an ITokenBucket that always permits consumption"""
+
+    @staticmethod
+    def consume(bucket: QuantConnect.Util.RateLimit.ITokenBucket, tokens: int, timeout: datetime.timedelta) -> None:
+        """Provides an overload of ITokenBucket.Consume that accepts a TimeSpan timeout"""
         ...
 
 
@@ -215,6 +202,19 @@ class FixedIntervalRefillStrategy(System.Object, QuantConnect.Util.RateLimit.IRe
         number of time intervals that have passed and multiplying by the number of tokens to refill for
         each time interval.
         """
+        ...
+
+
+class BusyWaitSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
+    """
+    Provides a CPU intensive means of waiting for more tokens to be available in ITokenBucket.
+    This strategy is only viable when the requested number of tokens is expected to become available in an
+    extremely short period of time. This implementation aims to keep the current thread executing to prevent
+    potential content switches arising from a thread yielding or sleeping strategy.
+    """
+
+    def sleep(self) -> None:
+        """Provides a CPU intensive sleep by executing Thread.SpinWait for a single spin."""
         ...
 
 

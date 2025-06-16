@@ -9,6 +9,33 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Forex
 
 
+class ForexExchange(QuantConnect.Securities.SecurityExchange):
+    """Forex exchange class - information and helper tools for forex exchange properties"""
+
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, used for performance statistics."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the ForexExchange class using market hours
+        derived from the market-hours-database for the FXCM Forex market
+        """
+        ...
+
+    @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the ForexExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        """
+        ...
+
+
 class Forex(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurrencySymbol):
     """FOREX Security Object Implementation for FOREX Assets"""
 
@@ -64,11 +91,20 @@ class Forex(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurre
         ...
 
 
-class ForexCache(QuantConnect.Securities.SecurityCache):
-    """Forex specific caching support"""
+class ForexHolding(QuantConnect.Securities.SecurityHolding):
+    """FOREX holdings implementation of the base securities class"""
 
-    def __init__(self) -> None:
-        """Initialize forex cache"""
+    def __init__(self, security: QuantConnect.Securities.Forex.Forex, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Forex Holding Class
+        
+        :param security: The forex security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
+
+    def total_close_profit_pips(self) -> float:
+        """Profit in pips if we closed the holdings right now including the approximate fees"""
         ...
 
 
@@ -89,47 +125,11 @@ class ForexDataFilter(QuantConnect.Securities.SecurityDataFilter):
         ...
 
 
-class ForexHolding(QuantConnect.Securities.SecurityHolding):
-    """FOREX holdings implementation of the base securities class"""
+class ForexCache(QuantConnect.Securities.SecurityCache):
+    """Forex specific caching support"""
 
-    def __init__(self, security: QuantConnect.Securities.Forex.Forex, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        Forex Holding Class
-        
-        :param security: The forex security being held
-        :param currency_converter: A currency converter instance
-        """
-        ...
-
-    def total_close_profit_pips(self) -> float:
-        """Profit in pips if we closed the holdings right now including the approximate fees"""
-        ...
-
-
-class ForexExchange(QuantConnect.Securities.SecurityExchange):
-    """Forex exchange class - information and helper tools for forex exchange properties"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, used for performance statistics."""
-        ...
-
-    @overload
     def __init__(self) -> None:
-        """
-        Initializes a new instance of the ForexExchange class using market hours
-        derived from the market-hours-database for the FXCM Forex market
-        """
-        ...
-
-    @overload
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the ForexExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
+        """Initialize forex cache"""
         ...
 
 

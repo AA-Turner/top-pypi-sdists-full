@@ -16,12 +16,13 @@ from __future__ import annotations
 
 import io
 import re
+import tempfile
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any
+from typing import Any, Iterable
 
 import numpy as np
 import torch
@@ -30,7 +31,7 @@ import torch.nn as nn
 from monai.apps.utils import get_logger
 from monai.config import PathLike
 from monai.utils.misc import ensure_tuple, save_obj, set_determinism
-from monai.utils.module import look_up_option, optional_import, pytorch_after
+from monai.utils.module import look_up_option, optional_import
 from monai.utils.type_conversion import convert_to_dst_type, convert_to_tensor
 
 onnx, _ = optional_import("onnx")
@@ -48,6 +49,7 @@ __all__ = [
     "normal_init",
     "icnr_init",
     "pixelshuffle",
+    "pixelunshuffle",
     "eval_mode",
     "train_mode",
     "get_state_dict",
@@ -375,7 +377,7 @@ def pixelshuffle(x: torch.Tensor, spatial_dims: int, scale_factor: int) -> torch
     See: Aitken et al., 2017, "Checkerboard artifact free sub-pixel convolution".
 
     Args:
-        x: Input tensor
+        x: Input tensor with shape BCHW[D]
         spatial_dims: number of spatial dimensions, typically 2 or 3 for 2D or 3D
         scale_factor: factor to rescale the spatial dimensions by, must be >=1
 
@@ -407,6 +409,48 @@ def pixelshuffle(x: torch.Tensor, spatial_dims: int, scale_factor: int) -> torch
 
     x = x.reshape([batch_size, org_channels] + [factor] * dim + input_size[2:])
     x = x.permute(permute_indices).reshape(output_size)
+    return x
+
+
+def pixelunshuffle(x: torch.Tensor, spatial_dims: int, scale_factor: int) -> torch.Tensor:
+    """
+    Apply pixel unshuffle to the tensor `x` with spatial dimensions `spatial_dims` and scaling factor `scale_factor`.
+    Inverse operation of pixelshuffle.
+
+    See: Shi et al., 2016, "Real-Time Single Image and Video Super-Resolution
+    Using an Efficient Sub-Pixel Convolutional Neural Network."
+
+    See: Aitken et al., 2017, "Checkerboard artifact free sub-pixel convolution".
+
+    Args:
+        x: Input tensor with shape BCHW[D]
+        spatial_dims: number of spatial dimensions, typically 2 or 3 for 2D or 3D
+        scale_factor: factor to reduce the spatial dimensions by, must be >=1
+
+    Returns:
+        Unshuffled version of `x` with shape (B, C*(r**d), H/r, W/r) for 2D
+        or (B, C*(r**d), D/r, H/r, W/r) for 3D, where r is the scale_factor
+        and d is spatial_dims.
+
+    Raises:
+        ValueError: When spatial dimensions are not divisible by scale_factor
+    """
+    dim, factor = spatial_dims, scale_factor
+    input_size = list(x.size())
+    batch_size, channels = input_size[:2]
+    scale_factor_mult = factor**dim
+    new_channels = channels * scale_factor_mult
+
+    if any(d % factor != 0 for d in input_size[2:]):
+        raise ValueError(
+            f"All spatial dimensions must be divisible by factor {factor}. " f", spatial shape is: {input_size[2:]}"
+        )
+    output_size = [batch_size, new_channels] + [d // factor for d in input_size[2:]]
+    reshaped_size = [batch_size, channels] + sum([[d // factor, factor] for d in input_size[2:]], [])
+
+    permute_indices = [0, 1] + [(2 * i + 3) for i in range(spatial_dims)] + [(2 * i + 2) for i in range(spatial_dims)]
+    x = x.reshape(reshaped_size).permute(permute_indices)
+    x = x.reshape(output_size)
     return x
 
 
@@ -631,7 +675,6 @@ def convert_to_onnx(
     use_trace: bool = True,
     do_constant_folding: bool = True,
     constant_size_threshold: int = 16 * 1024 * 1024 * 1024,
-    dynamo=False,
     **kwargs,
 ):
     """
@@ -672,50 +715,46 @@ def convert_to_onnx(
             # let torch.onnx.export to trace the model.
             mode_to_export = model
             torch_versioned_kwargs = kwargs
+            if "dynamo" in kwargs and kwargs["dynamo"] and verify:
+                torch_versioned_kwargs["verify"] = verify
+                verify = False
         else:
-            if not pytorch_after(1, 10):
-                if "example_outputs" not in kwargs:
-                    # https://github.com/pytorch/pytorch/blob/release/1.9/torch/onnx/__init__.py#L182
-                    raise TypeError(
-                        "example_outputs is required in scripting mode before PyTorch 1.10."
-                        "Please provide example outputs or use trace mode to export onnx model."
-                    )
-                torch_versioned_kwargs["example_outputs"] = kwargs["example_outputs"]
-                del kwargs["example_outputs"]
             mode_to_export = torch.jit.script(model, **kwargs)
 
         if torch.is_tensor(inputs) or isinstance(inputs, dict):
             onnx_inputs = (inputs,)
         else:
             onnx_inputs = tuple(inputs)
-
+        temp_file = None
         if filename is None:
-            f = io.BytesIO()
+            temp_file = tempfile.NamedTemporaryFile()
+            f = temp_file.name
         else:
             f = filename
-
+        print(f"torch_versioned_kwargs={torch_versioned_kwargs}")
         torch.onnx.export(
             mode_to_export,
             onnx_inputs,
             f=f,
             input_names=input_names,
-            output_names=output_names,
+            output_names=output_names or None,
             dynamic_axes=dynamic_axes,
             opset_version=opset_version,
             do_constant_folding=do_constant_folding,
             **torch_versioned_kwargs,
         )
-        if filename is None:
-            onnx_model = onnx.load_model_from_string(f.getvalue())
-        else:
-            onnx_model = onnx.load(filename)
+        onnx_model = onnx.load(f)
 
     if do_constant_folding and polygraphy_imported:
-        from polygraphy.backend.onnx.loader import fold_constants
+        from polygraphy.backend.onnx.loader import fold_constants, save_onnx
 
-        fold_constants(onnx_model, size_threshold=constant_size_threshold)
+        onnx_model = fold_constants(onnx_model, size_threshold=constant_size_threshold)
+        save_onnx(onnx_model, f)
 
     if verify:
+        if isinstance(inputs, dict):
+            inputs = list(inputs.values())
+
         if device is None:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -741,8 +780,7 @@ def convert_to_onnx(
         # compare onnx/ort and PyTorch results
         for r1, r2 in zip(torch_out, onnx_out):
             if isinstance(r1, torch.Tensor):
-                assert_fn = torch.testing.assert_close if pytorch_after(1, 11) else torch.testing.assert_allclose
-                assert_fn(r1.cpu(), convert_to_tensor(r2, dtype=r1.dtype), rtol=rtol, atol=atol)  # type: ignore
+                torch.testing.assert_close(r1.cpu(), convert_to_tensor(r2, dtype=r1.dtype), rtol=rtol, atol=atol)  # type: ignore
 
     return onnx_model
 
@@ -812,8 +850,7 @@ def convert_to_torchscript(
         # compare TorchScript and PyTorch results
         for r1, r2 in zip(torch_out, torchscript_out):
             if isinstance(r1, torch.Tensor) or isinstance(r2, torch.Tensor):
-                assert_fn = torch.testing.assert_close if pytorch_after(1, 11) else torch.testing.assert_allclose
-                assert_fn(r1, r2, rtol=rtol, atol=atol)  # type: ignore
+                torch.testing.assert_close(r1, r2, rtol=rtol, atol=atol)  # type: ignore
 
     return script_module
 
@@ -1026,8 +1063,7 @@ def convert_to_trt(
         # compare TorchScript and PyTorch results
         for r1, r2 in zip(torch_out, trt_out):
             if isinstance(r1, torch.Tensor) or isinstance(r2, torch.Tensor):
-                assert_fn = torch.testing.assert_close if pytorch_after(1, 11) else torch.testing.assert_allclose
-                assert_fn(r1, r2, rtol=rtol, atol=atol)  # type: ignore
+                torch.testing.assert_close(r1, r2, rtol=rtol, atol=atol)  # type: ignore
 
     return trt_model
 
@@ -1245,7 +1281,7 @@ class CastToFloat(torch.nn.Module):
 
     def forward(self, x):
         dtype = x.dtype
-        with torch.amp.autocast("cuda", enabled=False):
+        with torch.autocast("cuda", enabled=False):
             ret = self.mod.forward(x.to(torch.float32)).to(dtype)
         return ret
 
@@ -1262,7 +1298,7 @@ class CastToFloatAll(torch.nn.Module):
 
     def forward(self, *args):
         from_dtype = args[0].dtype
-        with torch.amp.autocast("cuda", enabled=False):
+        with torch.autocast("cuda", enabled=False):
             ret = self.mod.forward(*cast_all(args, from_dtype=from_dtype, to_dtype=torch.float32))
         return cast_all(ret, from_dtype=torch.float32, to_dtype=from_dtype)
 
@@ -1298,7 +1334,8 @@ def simple_replace(base_t: type[nn.Module], dest_t: type[nn.Module]) -> Callable
     def expansion_fn(mod: nn.Module) -> nn.Module | None:
         if not isinstance(mod, base_t):
             return None
-        args = [getattr(mod, name, None) for name in mod.__constants__]
+        constants: Iterable = mod.__constants__  # type: ignore[assignment]
+        args = [getattr(mod, name, None) for name in constants]
         out = dest_t(*args)
         return out
 

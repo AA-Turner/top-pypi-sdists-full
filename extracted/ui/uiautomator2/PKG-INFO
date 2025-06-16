@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: uiautomator2
-Version: 3.3.1
+Version: 3.3.2
 Summary: uiautomator for android device
 Home-page: https://github.com/openatx/uiautomator2
 License: MIT
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: Pillow
 Requires-Dist: adbutils (>=2.9.1,<3.0.0)
+Requires-Dist: importlib-resources ; python_version < "3.9"
 Requires-Dist: lxml
 Requires-Dist: requests
 Requires-Dist: retry2 (>=0.9.5,<0.10.0)

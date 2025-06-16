@@ -1,0 +1,188 @@
+Metadata-Version: 2.1
+Name: keepTrace
+Version: 1.2.0
+Summary: Pickle traceback support. Featuring debuggable restored tracebacks.
+Home-page: https://github.com/internetimagery/keepTrace
+Author: Jason Dixon
+Author-email: jason.dixon.email@gmail.com
+License: UNKNOWN
+Description: 
+        keepTrace
+        =========
+        
+        [![Build Status](https://travis-ci.org/internetimagery/keepTrace.svg?branch=master)](https://travis-ci.org/internetimagery/keepTrace)
+        
+        This project provides the ability to pickle traceback objects.
+        Specifically including enough details about the exception to be able to restore
+        and debug the traceback at a later date.
+        
+        ``` python
+        try:
+            some_bad_code()
+        except Exception:
+            import sys, pickle, keepTrace
+            keepTrace.init() # Can be initialized at any point before pickle
+            with open(some_path, "wb") as f:
+                pickle.dump(sys.exc_info(), f)
+        ```
+        
+        > ...sometime later...
+        
+        ``` python
+        import pickle, pdb, traceback
+        with open(some_path, "rb") as f:
+          exc = pickle.load(f)
+        traceback.print_exception(*exc)
+        pdb.post_mortem(exc[2])
+        ```
+        
+        The details of where and how you choose to save the pickle remain with the reader.
+        The pickle process has been designed in such a way that this module is not required
+        to unpickle the traceback.
+        
+        
+        Usage. 1. 2. 3. 4. 5.
+        =====
+        
+        There are four things and only one function to know to get up and running.
+        
+        ### 1) Initialize
+        
+        To be able to pickle tracebacks you first need to run the "init" function. This can happen anytime
+        before pickle. You can even have it trigger on startup if you wish.
+        
+        ``` python
+        import keepTrace
+        keepTrace.init()
+        ```
+        
+        ### 2) Pickler
+        
+        If you supply a pickler, it will use it to determine if an object can or cannot be pickled by that pickler.
+        In general, use the pickler you plan on later pickling the tracebacks with. ie: pickle, cloudpickle, dill.
+        
+        If the pickler fails to pickle an object, the object will be replaced with a mock, stub, or representation.
+        
+        If no pickler is used (default), then everything will go to the fallback. This means you can unpickle without the
+        original environment, but all objects will be replaced by mocks and stubs.
+        
+        ``` python
+        import keepTrace, pickle
+        keepTrace.init(pickler=pickle.dumps)
+        ```
+        
+        ### 3) Depth
+        
+        Depth controls how far beyond the traceback the pickle will reach. ie: objects within attributes, within classes within objects...etc...etc...
+        
+        Objects at the edge of the pickle depth will be replaced by their representations.
+        
+        Use a shallow depth (low number) to keep pickles lighter. Use a higher depth if you wish to record and inspect further and / or wish to have more truly functional objects (pickled objects with representations inside them will fail to work for obvious reasons).
+        
+        Setting depth to -1 will make depth infinite.
+        
+        ``` python
+        import keepTrace
+        keepTrace.init(depth=5)
+        ```
+        
+        By default the pickles are very conservative. Everything will be mocked and stubbed. You will not need anything other than an
+        unpickler to view and inspect the traceback, but you will not be able to run any of the functionality either.
+        
+        Setting depth to infinite, and using a heavy-duty pickler (dill) will lead to very detailed and interractive debugging.
+        You will however need to be able to provide the same environment as the original traceback.
+        
+        > #### :: Warning ::
+        >
+        > This is not a core dump. So do not expect everything to function as though it were a live session. There is danger in running
+        > what is essentially live production code, that is most likely broken in unknown ways, if you're in an environment where you could cause
+        > data corruption or loss. However, there is much to gain by keeping as many "live" objects as possible around. Most of the time you need to
+        > run that one harmless query function with a different argument, just to see if returns a correct value.
+        >
+        > ``` python
+        > import keepTrace, dill
+        > keepTrace.init(pickler=dill.dumps, depth=-1)
+        > ```
+        
+        ### 4) Include Source
+        
+        This will attempt to take a snapshot of the source files at the
+        moment of serialization. This is active by default, and recommended that it stays that way.
+        
+        However including the source in all your tracebacks can waste a lot of space if you have frequent logs. If you can access the files where you debug, and can be reasonably sure the source will not change, turning this off can make sense.
+        
+        ``` python
+        import keepTrace
+        keepTrace.init(include_source=False)
+        ```
+        
+        When saving a pickle, there are a couple of things you can do to dramatically shrink its size. gzip and pickletools.
+        
+        ``` python
+        import gzip, pickle, pickletools
+        with gzip.open(filepath, "wb") as f:
+          data = pickle.dumps(traceback)
+          data = pickletools.optimize(data)
+          f.write(data)
+        ```
+        
+        ### 5) Use Real Tracebacks
+        
+        This will cause the unpickling of the original traceback to convert into a real traceback object.
+        
+        In general this shouldn't be required and using the mock objects should suffice. However if you want to
+        do things that involve non-python (ie reraise the traceback) it can be handy to have the real thing.
+        
+        This is off by default, but can be enabled thusly:
+        
+        ``` python
+        import keepTrace
+        keepTrace.init(real_traceback=True)
+        ```
+        
+        ---
+        
+        Finally, an original message from pydump. The inspiration and initially the origin of this project. Still relevant.
+        
+        
+        
+        > ### Why I wrote this?
+        >
+        > I spent way too much time trying to discern details about bugs from
+        > logs that don't have enough information in them. Wouldn't it be nice
+        > to be able to open a debugger and load the entire stack of the crashed
+        > process into it and look around like you would if it crashed on your own
+        > machine?
+        >
+        > ### Possible uses
+        >
+        > This project (or approach) might be useful in multiprocessing environments
+        > running many unattended processes. The most common case for me is on
+        > production web servers that I can't really stop and debug. For each
+        > exception caught, I write a dump file and I can debug each issue on
+        > my own time, on my own box, even if I don't have the source, since
+        > the relevant source is stored in the dump file.
+        
+        ---
+        
+        # Utilities
+        
+        You're still reading? Awesome. Have some goodies!! :)
+        
+        ### utils.parse_tracebacks
+        
+        This is a utiltiy function that can assist in retrieving traceback objects from python logs.
+        
+        These objects can be used anywhere tracebacks are, and are also debuggable, which helps greatly with context. There are no variables however so inspection is highly limited.
+        eg:
+        
+        ```python
+        from traceback import print_exception
+        from keepTrace.utils import parse_tracebacks
+        with open(path_to_log) as f:
+            for error in parse_tracebacks(f):
+                print_exception(*error)
+        ```
+        
+Platform: UNKNOWN
+Description-Content-Type: text/markdown

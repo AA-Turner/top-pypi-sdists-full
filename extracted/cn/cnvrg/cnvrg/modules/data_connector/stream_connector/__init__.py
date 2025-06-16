@@ -1,1 +1,0 @@
-from cnvrg.modules.data_connector.stream_connector.kafka_connector import KafkaConnector

@@ -17,6 +17,41 @@ QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_Callable = typing.T
 QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Lean_Engine_TransactionHandlers__EventContainer_ReturnType")
 
 
+class CancelPendingOrders(System.Object):
+    """Class used to keep track of CancelPending orders and their original or updated status"""
+
+    @property
+    def get_cancel_pending_orders_size(self) -> int:
+        """Amount of CancelPending Orders"""
+        ...
+
+    def remove_and_fallback(self, order: QuantConnect.Orders.Order) -> None:
+        """
+        Removes an order which we failed to cancel and falls back the order Status to previous value
+        
+        :param order: The order that failed to be canceled
+        """
+        ...
+
+    def set(self, order_id: int, status: QuantConnect.Orders.OrderStatus) -> None:
+        """
+        Adds an order which will be canceled and we want to keep track of it Status in case of fallback
+        
+        :param order_id: The order id
+        :param status: The order Status, before the cancel request
+        """
+        ...
+
+    def update_or_remove(self, order_id: int, new_status: QuantConnect.Orders.OrderStatus) -> None:
+        """
+        Updates an order that is pending to be canceled.
+        
+        :param order_id: The id of the order
+        :param new_status: The new status of the order. If its OrderStatus.Canceled or OrderStatus.Filled it will be removed
+        """
+        ...
+
+
 class ITransactionHandler(QuantConnect.Securities.IOrderProcessor, QuantConnect.Securities.IOrderEventProvider, metaclass=abc.ABCMeta):
     """
     Transaction handlers define how the transactions are processed and set the order fill information.
@@ -64,41 +99,6 @@ class ITransactionHandler(QuantConnect.Securities.IOrderProcessor, QuantConnect.
 
     def process_synchronous_events(self) -> None:
         """Process any synchronous events from the primary algorithm thread."""
-        ...
-
-
-class CancelPendingOrders(System.Object):
-    """Class used to keep track of CancelPending orders and their original or updated status"""
-
-    @property
-    def get_cancel_pending_orders_size(self) -> int:
-        """Amount of CancelPending Orders"""
-        ...
-
-    def remove_and_fallback(self, order: QuantConnect.Orders.Order) -> None:
-        """
-        Removes an order which we failed to cancel and falls back the order Status to previous value
-        
-        :param order: The order that failed to be canceled
-        """
-        ...
-
-    def set(self, order_id: int, status: QuantConnect.Orders.OrderStatus) -> None:
-        """
-        Adds an order which will be canceled and we want to keep track of it Status in case of fallback
-        
-        :param order_id: The order id
-        :param status: The order Status, before the cancel request
-        """
-        ...
-
-    def update_or_remove(self, order_id: int, new_status: QuantConnect.Orders.OrderStatus) -> None:
-        """
-        Updates an order that is pending to be canceled.
-        
-        :param order_id: The id of the order
-        :param new_status: The new status of the order. If its OrderStatus.Canceled or OrderStatus.Filled it will be removed
-        """
         ...
 
 

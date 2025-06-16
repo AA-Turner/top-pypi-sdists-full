@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: BoschMiniRpa
+Version: 0.1.92
+Summary: This package is used for building low code or no code RPA solutions within Bosch.
+Author-email: LV Zhichao <zhichao.lv@cn.bosch.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.boschdevcloud.com/LZV2SZH/BoschMiniRpa
+Project-URL: Bug Tracker, https://github.boschdevcloud.com/LZV2SZH/BoschMiniRpa/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: selenium==4.8.0
+Requires-Dist: BoschRpaMagicBox
+Requires-Dist: opencv-python
+Requires-Dist: pillow
+Requires-Dist: pandas
+Requires-Dist: openpyxl
+Requires-Dist: XlsxWriter
+Requires-Dist: natsort
+Dynamic: license-file
+
+# BoschMiniRpa
+
+This package is used for building low code or no code RPA solutions within Bosch.

@@ -14,6 +14,7 @@ from aiokafka.structs import (  # type: ignore[import-untyped]
     ConsumerRecord,
     TopicPartition,
 )
+from typing_extensions import Self
 
 from mockafka.kafka_store import KafkaStore
 from mockafka.message import Message
@@ -33,11 +34,10 @@ def message_to_record(message: Message, offset: int) -> ConsumerRecord[bytes, by
         missing = ", ".join(x for x, y in fields if y is None)
         raise ValueError(f"Message is missing key components: {missing}")
 
-    key_str: Optional[str] = message.key()
-    value_str: Optional[str] = message.value()
+    key: Optional[bytes] = message.key()
+    value: Optional[bytes] = message.value()
 
-    key = key_str.encode() if key_str is not None else None
-    value = value_str.encode() if value_str is not None else None
+    headers = message.headers()
 
     return ConsumerRecord(
         topic=topic,
@@ -51,7 +51,7 @@ def message_to_record(message: Message, offset: int) -> ConsumerRecord[bytes, by
         checksum=None,  # Deprecated, we won't support it
         serialized_key_size=len(key) if key else 0,
         serialized_value_size=len(value) if value else 0,
-        headers=tuple((message.headers() or {}).items()),
+        headers=tuple(headers) if headers else (),
     )
 
 
@@ -243,3 +243,15 @@ class FakeAIOKafkaConsumer:
             result[tp].append(record)
 
         return dict(result)
+
+    async def __aenter__(self) -> Self:
+        await self.start()
+        return self
+
+    async def __aexit__(
+        self,
+        exception_type: object,
+        exception: object,
+        traceback: object,
+    ) -> None:
+        await self.stop()

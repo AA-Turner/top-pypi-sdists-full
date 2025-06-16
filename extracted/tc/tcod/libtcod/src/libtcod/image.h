@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_IMAGE_H
-#define _TCOD_IMAGE_H
+#pragma once
+#ifndef TCOD_IMAGE_H_
+#define TCOD_IMAGE_H_
 
 #include "color.h"
 #include "console_types.h"
@@ -119,4 +120,4 @@ TCODLIB_API bool TCOD_image_is_pixel_transparent(const TCOD_Image* image, int x,
 }
 namespace tcod {}  // namespace tcod
 #endif  // __cplusplus
-#endif /* _TCOD_IMAGE_H */
+#endif  // TCOD_IMAGE_H_

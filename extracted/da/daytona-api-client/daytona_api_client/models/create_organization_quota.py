@@ -1,4 +1,7 @@
 # coding: utf-8
+# Copyright 2025 Daytona Platforms Inc.
+# SPDX-License-Identifier: Apache-2.0
+
 
 """
     Daytona
@@ -23,28 +26,39 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
+
 class CreateOrganizationQuota(BaseModel):
     """
     CreateOrganizationQuota
-    """ # noqa: E501
+    """  # noqa: E501
+
     total_cpu_quota: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="totalCpuQuota")
     total_memory_quota: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="totalMemoryQuota")
     total_disk_quota: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="totalDiskQuota")
-    max_cpu_per_workspace: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="maxCpuPerWorkspace")
-    max_memory_per_workspace: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="maxMemoryPerWorkspace")
-    max_disk_per_workspace: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="maxDiskPerWorkspace")
-    image_quota: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="imageQuota")
-    max_image_size: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="maxImageSize")
+    max_cpu_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="maxCpuPerSandbox")
+    max_memory_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="maxMemoryPerSandbox")
+    max_disk_per_sandbox: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="maxDiskPerSandbox")
+    snapshot_quota: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="snapshotQuota")
+    max_snapshot_size: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="maxSnapshotSize")
     volume_quota: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="volumeQuota")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["totalCpuQuota", "totalMemoryQuota", "totalDiskQuota", "maxCpuPerWorkspace", "maxMemoryPerWorkspace", "maxDiskPerWorkspace", "imageQuota", "maxImageSize", "volumeQuota"]
+    __properties: ClassVar[List[str]] = [
+        "totalCpuQuota",
+        "totalMemoryQuota",
+        "totalDiskQuota",
+        "maxCpuPerSandbox",
+        "maxMemoryPerSandbox",
+        "maxDiskPerSandbox",
+        "snapshotQuota",
+        "maxSnapshotSize",
+        "volumeQuota",
+    ]
 
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
         protected_namespaces=(),
     )
-
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias"""
@@ -71,9 +85,11 @@ class CreateOrganizationQuota(BaseModel):
           are ignored.
         * Fields in `self.additional_properties` are added to the output dict.
         """
-        excluded_fields: Set[str] = set([
-            "additional_properties",
-        ])
+        excluded_fields: Set[str] = set(
+            [
+                "additional_properties",
+            ]
+        )
 
         _dict = self.model_dump(
             by_alias=True,
@@ -96,22 +112,22 @@ class CreateOrganizationQuota(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
 
-        _obj = cls.model_validate({
-            "totalCpuQuota": obj.get("totalCpuQuota"),
-            "totalMemoryQuota": obj.get("totalMemoryQuota"),
-            "totalDiskQuota": obj.get("totalDiskQuota"),
-            "maxCpuPerWorkspace": obj.get("maxCpuPerWorkspace"),
-            "maxMemoryPerWorkspace": obj.get("maxMemoryPerWorkspace"),
-            "maxDiskPerWorkspace": obj.get("maxDiskPerWorkspace"),
-            "imageQuota": obj.get("imageQuota"),
-            "maxImageSize": obj.get("maxImageSize"),
-            "volumeQuota": obj.get("volumeQuota")
-        })
+        _obj = cls.model_validate(
+            {
+                "totalCpuQuota": obj.get("totalCpuQuota"),
+                "totalMemoryQuota": obj.get("totalMemoryQuota"),
+                "totalDiskQuota": obj.get("totalDiskQuota"),
+                "maxCpuPerSandbox": obj.get("maxCpuPerSandbox"),
+                "maxMemoryPerSandbox": obj.get("maxMemoryPerSandbox"),
+                "maxDiskPerSandbox": obj.get("maxDiskPerSandbox"),
+                "snapshotQuota": obj.get("snapshotQuota"),
+                "maxSnapshotSize": obj.get("maxSnapshotSize"),
+                "volumeQuota": obj.get("volumeQuota"),
+            }
+        )
         # store additional fields in additional_properties
         for _key in obj.keys():
             if _key not in cls.__properties:
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
-
-

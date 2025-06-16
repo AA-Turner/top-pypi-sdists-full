@@ -18,259 +18,43 @@ System_ComponentModel_Design_Serialization__EventContainer_Callable = typing.Typ
 System_ComponentModel_Design_Serialization__EventContainer_ReturnType = typing.TypeVar("System_ComponentModel_Design_Serialization__EventContainer_ReturnType")
 
 
-class InstanceDescriptor(System.Object):
+class INameCreationService(metaclass=abc.ABCMeta):
     """
-    EventArgs for the ResolveNameEventHandler. This event is used
-    by the serialization process to match a name to an object
-    instance.
-    """
-
-    @property
-    def arguments(self) -> System.Collections.ICollection:
-        """
-        The collection of arguments that should be passed to
-        MemberInfo in order to create an instance.
-        """
-        ...
-
-    @property
-    def is_complete(self) -> bool:
-        """
-        Determines if the contents of this instance descriptor completely identify the instance.
-        This will normally be the case, but some objects may be too complex for a single method
-        or constructor to represent. IsComplete can be used to identify these objects and take
-        additional steps to further describe their state.
-        """
-        ...
-
-    @property
-    def member_info(self) -> System.Reflection.MemberInfo:
-        """
-        The MemberInfo object that was passed into the constructor
-        of this InstanceDescriptor.
-        """
-        ...
-
-    @overload
-    def __init__(self, member: System.Reflection.MemberInfo, arguments: System.Collections.ICollection) -> None:
-        """Creates a new InstanceDescriptor."""
-        ...
-
-    @overload
-    def __init__(self, member: System.Reflection.MemberInfo, arguments: System.Collections.ICollection, is_complete: bool) -> None:
-        """Creates a new InstanceDescriptor."""
-        ...
-
-    def invoke(self) -> System.Object:
-        """
-        Invokes this instance descriptor, returning the object
-        the descriptor describes.
-        """
-        ...
-
-
-class IDesignerLoaderHost(System.ComponentModel.Design.IDesignerHost, metaclass=abc.ABCMeta):
-    """
-    IDesignerLoaderHost. This is an extension of IDesignerHost that is passed
-    to the designer loader in the BeginLoad method. It is isolated from
-    IDesignerHost to emphasize that all loading and reloading of the design
-    document actually should be initiated by the designer loader, and not by
-    the designer host. However, the loader must inform the designer host that
-    it wishes to invoke a load or reload.
+    This service may be provided by a designer loader to provide
+    a way for the designer to fabricate new names for objects.
+    If this service isn't available the designer will choose a
+    default implementation.
     """
 
-    def end_load(self, base_class_name: str, successful: bool, error_collection: System.Collections.ICollection) -> None:
+    def create_name(self, container: System.ComponentModel.IContainer, data_type: typing.Type) -> str:
         """
-        This is called by the designer loader to indicate that the load has
-        terminated. If there were errors, they should be passed in the error_collection
-        as a collection of exceptions (if they are not exceptions the designer
-        loader host may just call ToString on them). If the load was successful then
-        error_collection should either be null or contain an empty collection.
-        """
-        ...
-
-    def reload(self) -> None:
-        """
-        This is called by the designer loader when it wishes to reload the
-        design document. The reload will happen immediately so the caller
-        should ensure that it is in a state where BeginLoad may be called again.
+        Creates a new name that is unique to all the components
+        in the given container. The name will be used to create
+        an object of the given data type, so the service may
+        derive a name from the data type's name. The container
+        parameter can be null if no container search is needed.
         """
         ...
 
-
-class DesignerLoader(System.Object, metaclass=abc.ABCMeta):
-    """
-    DesignerLoader. This class is responsible for loading a designer document.
-    Where and how this load occurs is a private matter for the designer loader.
-    The designer loader will be handed to an IDesignerHost instance. This instance,
-    when it is ready to load the document, will call BeginLoad, passing an instance
-    of IDesignerLoaderHost. The designer loader will load up the design surface
-    using the host interface, and call EndLoad on the interface when it is done.
-    The error collection passed into EndLoad should be empty or null to indicate a
-    successful load, or it should contain a collection of exceptions that
-    describe the error.
-    
-    Once a document is loaded, the designer loader is also responsible for
-    writing any changes made to the document back whatever storage the
-    loader used when loading the document.
-    """
-
-    @property
-    def loading(self) -> bool:
+    def is_valid_name(self, name: str) -> bool:
         """
-        Returns true when the designer is in the process of loading. Clients that are
-        sinking notifications from the designer often want to ignore them while the designer is loading
-        and only respond to them if they result from user interactions.
+        Determines if the given name is valid. A name
+        creation service may have rules defining a valid
+        name, and this method allows the service to enforce
+        those rules.
         """
         ...
 
-    def begin_load(self, host: System.ComponentModel.Design.Serialization.IDesignerLoaderHost) -> None:
+    def validate_name(self, name: str) -> None:
         """
-        Called by the designer host to begin the loading process. The designer
-        host passes in an instance of a designer loader host (which is typically
-        the same object as the designer host. This loader host allows
-        the designer loader to reload the design document and also allows
-        the designer loader to indicate that it has finished loading the
-        design document.
+        Determines if the given name is valid. A name
+        creation service may have rules defining a valid
+        name, and this method allows the service to enforce
+        those rules. It is similar to IsValidName, except
+        that this method will throw an exception if the
+        name is invalid. This allows implementors to provide
+        rich information in the exception message.
         """
-        ...
-
-    def dispose(self) -> None:
-        """
-        Disposes this designer loader. The designer host will call this method
-        when the design document itself is being destroyed. Once called, the
-        designer loader will never be called again.
-        """
-        ...
-
-    def flush(self) -> None:
-        """
-        The designer host will call this periodically when it wants to
-        ensure that any changes that have been made to the document
-        have been saved by the designer loader. This method allows
-        designer loaders to implement a lazy-write scheme to improve
-        performance. The default implementation does nothing.
-        """
-        ...
-
-
-class ContextStack(System.Object):
-    """
-    A context stack is an object that can be used by serializers
-    to push various context objects. Serialization is often
-    a deeply nested operation, involving many different
-    serialization classes. These classes often need additional
-    context information when performing serialization. As
-    an example, an object with a property named "Enabled" may have
-    a data type of System.Boolean. If a serializer is writing
-    this value to a data stream it may want to know what property
-    it is writing. It won't have this information, however, because
-    it is only instructed to write the boolean value. In this
-    case the parent serializer may push a PropertyDescriptor
-    pointing to the "Enabled" property on the context stack.
-    What objects get pushed on this stack are up to the
-    individual serializer objects.
-    """
-
-    @property
-    def current(self) -> System.Object:
-        """
-        Retrieves the current object on the stack, or null
-        if no objects have been pushed.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, level: int) -> typing.Any:
-        """
-        Retrieves the object on the stack at the given
-        level, or null if no object exists at that level.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, type: typing.Type) -> typing.Any:
-        """
-        Retrieves the first object on the stack that
-        inherits from or implements the given type, or
-        null if no object on the stack implements the type.
-        """
-        ...
-
-    def append(self, context: typing.Any) -> None:
-        """
-        Appends an object to the end of the stack, rather than pushing it
-        onto the top of the stack. This method allows a serializer to communicate
-        with other serializers by adding contextual data that does not have to
-        be popped in order. There is no way to remove an object that was
-        appended to the end of the stack without popping all other objects.
-        """
-        ...
-
-    def pop(self) -> System.Object:
-        """
-        Pops the current object off of the stack, returning
-        its value.
-        """
-        ...
-
-    def push(self, context: typing.Any) -> None:
-        """Pushes the given object onto the stack."""
-        ...
-
-
-class RootDesignerSerializerAttribute(System.Attribute):
-    """
-    This attribute can be placed on a class to indicate what serialization
-    object should be used to serialize the class at design time if it is
-    being used as a root object.
-    
-    RootDesignerSerializerAttribute has been deprecated. Use DesignerSerializerAttribute instead. For example, to specify a root designer for CodeDom, use DesignerSerializerAttribute(...,typeof(TypeCodeDomSerializer)) instead.
-    """
-
-    @property
-    def reloadable(self) -> bool:
-        """
-        Indicates that this root serializer supports reloading. If false, the design document
-        will not automatically perform a reload on behalf of the user. It will be the user's
-        responsibility to reload the document themselves.
-        """
-        ...
-
-    @property
-    def serializer_type_name(self) -> str:
-        """Retrieves the fully qualified type name of the serializer."""
-        ...
-
-    @property
-    def serializer_base_type_name(self) -> str:
-        """Retrieves the fully qualified type name of the serializer base type."""
-        ...
-
-    @property
-    def type_id(self) -> System.Object:
-        """
-        This defines a unique ID for this attribute type. It is used
-        by filtering algorithms to identify two attributes that are
-        the same type. For most attributes, this just returns the
-        Type instance for the attribute. EditorAttribute overrides
-        this to include the type of the editor base type.
-        """
-        ...
-
-    @overload
-    def __init__(self, serializer_type: typing.Type, base_serializer_type: typing.Type, reloadable: bool) -> None:
-        """Creates a new designer serialization attribute."""
-        ...
-
-    @overload
-    def __init__(self, serializer_type_name: str, base_serializer_type: typing.Type, reloadable: bool) -> None:
-        """Creates a new designer serialization attribute."""
-        ...
-
-    @overload
-    def __init__(self, serializer_type_name: str, base_serializer_type_name: str, reloadable: bool) -> None:
-        """Creates a new designer serialization attribute."""
         ...
 
 
@@ -402,6 +186,169 @@ class MemberRelationshipService(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class SerializationStore(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
+    """
+    The SerializationStore class is an implementation-specific class that stores
+    serialization data for the component serialization service. The
+    service adds state to this serialization store. Once the store is
+    closed it can be saved to a stream. A serialization store can be
+    deserialized at a later date by the same type of serialization service.
+    SerializationStore implements the IDisposable interface such that Dispose
+    simply calls the Close method. Dispose is implemented as a private
+    interface to avoid confusion. The IDisposable pattern is provided
+    for languages that support a "using" syntax like C# and VB .NET.
+    """
+
+    @property
+    @abc.abstractmethod
+    def errors(self) -> System.Collections.ICollection:
+        """
+        If there were errors generated during serialization or deserialization of the store, they will be
+        added to this collection.
+        """
+        ...
+
+    def close(self) -> None:
+        """
+        The Close method closes this store and prevents any objects
+        from being serialized into it. Once closed, the serialization store may be saved.
+        """
+        ...
+
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
+        ...
+
+    def save(self, stream: System.IO.Stream) -> None:
+        """
+        The Save method saves the store to the given stream. If the store
+        is open, Save will automatically close it for you. You
+        can call save as many times as you wish to save the store
+        to different streams.
+        """
+        ...
+
+
+class ComponentSerializationService(System.Object, metaclass=abc.ABCMeta):
+    """
+    This class serializes a set of components or serializable objects into a
+    serialization store. The store can then be deserialized at a later
+    date. ComponentSerializationService differs from other serialization
+    schemes in that the serialization format is opaque, and it allows for
+    partial serialization of objects. For example, you can choose to
+    serialize only selected properties for an object.
+    
+    This class is abstract. Typically a DesignerLoader will provide a
+    concrete implementation of this class and add it as a service to
+    its DesignSurface. This allows objects to be serialized in the
+    format best suited for them.
+    """
+
+    def create_store(self) -> System.ComponentModel.Design.Serialization.SerializationStore:
+        """
+        This method creates a new SerializationStore. The serialization store can
+        be passed to any of the various Serialize methods to build up serialization
+        state for a group of objects.
+        """
+        ...
+
+    @overload
+    def deserialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore) -> System.Collections.ICollection:
+        """
+        This method deserializes the given store to produce a collection of
+        objects contained within it. If a container is provided, objects
+        that are created that implement IComponent will be added to the container.
+        """
+        ...
+
+    @overload
+    def deserialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer) -> System.Collections.ICollection:
+        """
+        This method deserializes the given store to produce a collection of
+        objects contained within it. If a container is provided, objects
+        that are created that implement IComponent will be added to the container.
+        """
+        ...
+
+    @overload
+    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer, validate_recycled_types: bool, apply_defaults: bool) -> None:
+        """
+        This method deserializes the given store, but rather than produce
+        new objects, the data in the store is applied to an existing
+        set of objects that are taken from the provided container. This
+        allows the caller to pre-create an object however it sees fit. If
+        an object has deserialization state and the object is not named in
+        the set of existing objects, a new object will be created. If that
+        object also implements IComponent, it will be added to the given
+        container. Objects in the container must have names that
+        match objects in the serialization store in order for an existing
+        object to be used. If validate_recycled_types is true it is guaranteed
+        that the deserialization will only work if applied to an object of the
+        same type.
+        """
+        ...
+
+    @overload
+    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer) -> None:
+        ...
+
+    @overload
+    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer, validate_recycled_types: bool) -> None:
+        ...
+
+    def load_store(self, stream: System.IO.Stream) -> System.ComponentModel.Design.Serialization.SerializationStore:
+        """
+        This method loads a SerializationStore and from the given
+        stream. This store can then be used to deserialize objects by passing it to
+        the various Deserialize methods.
+        """
+        ...
+
+    def serialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore, value: typing.Any) -> None:
+        """
+        This method serializes the given object to the store. The store
+        can be used to serialize more than one object by calling this method
+        more than once.
+        """
+        ...
+
+    def serialize_absolute(self, store: System.ComponentModel.Design.Serialization.SerializationStore, value: typing.Any) -> None:
+        """
+        Normal serialization only serializes values that differ from the component's default state.
+        This provides the most compact serialization mechanism but assumes that during deserialization
+        a new, freshly created object will be used. If an existing object is used properties that
+        contained default values during serialization would not be reset back to their defaults.
+        The SerializeAbsolute method does not require this assumption on the deserializing end.
+        Instead, it saves data in the serialization store about default values as well so that
+        deserialization can reset non-default properties back to their default values. This is
+        especially true for collection objects, where the collections are either cleared and
+        items re-added, or individual items are removed and added.
+        """
+        ...
+
+    def serialize_member(self, store: System.ComponentModel.Design.Serialization.SerializationStore, owning_object: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
+        """
+        This method serializes the given member on the given object. This method
+        can be invoked multiple times for the same object to build up a list of
+        serialized members within the serialization store. The member generally
+        has to be a property or an event.
+        """
+        ...
+
+    def serialize_member_absolute(self, store: System.ComponentModel.Design.Serialization.SerializationStore, owning_object: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
+        """
+        This method serializes the given member on the given object,
+        but also serializes the member if it contains the default value.
+        Note that for some members, containing the default value and setting
+        the same value back to the member are different concepts. For example,
+        if a property inherits its value from a parent object if no local value
+        is set, setting the value back to the property can may not be what is desired.
+        SerializeMemberAbsolute takes this into account and would clear the state of
+        the property in this case.
+        """
+        ...
+
+
 class ResolveNameEventArgs(System.EventArgs):
     """
     EventArgs for the ResolveNameEventHandler. This event is used
@@ -425,6 +372,71 @@ class ResolveNameEventArgs(System.EventArgs):
 
     def __init__(self, name: str) -> None:
         """Creates a new resolve name event args object."""
+        ...
+
+
+class ContextStack(System.Object):
+    """
+    A context stack is an object that can be used by serializers
+    to push various context objects. Serialization is often
+    a deeply nested operation, involving many different
+    serialization classes. These classes often need additional
+    context information when performing serialization. As
+    an example, an object with a property named "Enabled" may have
+    a data type of System.Boolean. If a serializer is writing
+    this value to a data stream it may want to know what property
+    it is writing. It won't have this information, however, because
+    it is only instructed to write the boolean value. In this
+    case the parent serializer may push a PropertyDescriptor
+    pointing to the "Enabled" property on the context stack.
+    What objects get pushed on this stack are up to the
+    individual serializer objects.
+    """
+
+    @property
+    def current(self) -> System.Object:
+        """
+        Retrieves the current object on the stack, or null
+        if no objects have been pushed.
+        """
+        ...
+
+    @overload
+    def __getitem__(self, level: int) -> typing.Any:
+        """
+        Retrieves the object on the stack at the given
+        level, or null if no object exists at that level.
+        """
+        ...
+
+    @overload
+    def __getitem__(self, type: typing.Type) -> typing.Any:
+        """
+        Retrieves the first object on the stack that
+        inherits from or implements the given type, or
+        null if no object on the stack implements the type.
+        """
+        ...
+
+    def append(self, context: typing.Any) -> None:
+        """
+        Appends an object to the end of the stack, rather than pushing it
+        onto the top of the stack. This method allows a serializer to communicate
+        with other serializers by adding contextual data that does not have to
+        be popped in order. There is no way to remove an object that was
+        appended to the end of the stack without popping all other objects.
+        """
+        ...
+
+    def pop(self) -> System.Object:
+        """
+        Pops the current object off of the stack, returning
+        its value.
+        """
+        ...
+
+    def push(self, context: typing.Any) -> None:
+        """Pushes the given object onto the stack."""
         ...
 
 
@@ -598,6 +610,61 @@ class IDesignerSerializationProvider(metaclass=abc.ABCMeta):
         ...
 
 
+class RootDesignerSerializerAttribute(System.Attribute):
+    """
+    This attribute can be placed on a class to indicate what serialization
+    object should be used to serialize the class at design time if it is
+    being used as a root object.
+    
+    RootDesignerSerializerAttribute has been deprecated. Use DesignerSerializerAttribute instead. For example, to specify a root designer for CodeDom, use DesignerSerializerAttribute(...,typeof(TypeCodeDomSerializer)) instead.
+    """
+
+    @property
+    def reloadable(self) -> bool:
+        """
+        Indicates that this root serializer supports reloading. If false, the design document
+        will not automatically perform a reload on behalf of the user. It will be the user's
+        responsibility to reload the document themselves.
+        """
+        ...
+
+    @property
+    def serializer_type_name(self) -> str:
+        """Retrieves the fully qualified type name of the serializer."""
+        ...
+
+    @property
+    def serializer_base_type_name(self) -> str:
+        """Retrieves the fully qualified type name of the serializer base type."""
+        ...
+
+    @property
+    def type_id(self) -> System.Object:
+        """
+        This defines a unique ID for this attribute type. It is used
+        by filtering algorithms to identify two attributes that are
+        the same type. For most attributes, this just returns the
+        Type instance for the attribute. EditorAttribute overrides
+        this to include the type of the editor base type.
+        """
+        ...
+
+    @overload
+    def __init__(self, serializer_type: typing.Type, base_serializer_type: typing.Type, reloadable: bool) -> None:
+        """Creates a new designer serialization attribute."""
+        ...
+
+    @overload
+    def __init__(self, serializer_type_name: str, base_serializer_type: typing.Type, reloadable: bool) -> None:
+        """Creates a new designer serialization attribute."""
+        ...
+
+    @overload
+    def __init__(self, serializer_type_name: str, base_serializer_type_name: str, reloadable: bool) -> None:
+        """Creates a new designer serialization attribute."""
+        ...
+
+
 class DefaultSerializationProviderAttribute(System.Attribute):
     """
     The default serialization provider attribute is placed on a serializer
@@ -623,32 +690,54 @@ class DefaultSerializationProviderAttribute(System.Attribute):
         ...
 
 
-class IDesignerLoaderHost2(System.ComponentModel.Design.Serialization.IDesignerLoaderHost, metaclass=abc.ABCMeta):
+class InstanceDescriptor(System.Object):
     """
-    IgnoreErrorsDuringReload - specifies whether errors should be ignored when Reload() is called.
-                      We only allow to set to true if we CanReloadWithErrors. If we cannot
-                      we simply ignore rather than throwing an exception. We probably should,
-                      but we are avoiding localization.
-    CanReloadWithErrors - specifies whether it is possible to reload with errors. There are certain
-                 scenarios where errors cannot be ignored.
+    EventArgs for the ResolveNameEventHandler. This event is used
+    by the serialization process to match a name to an object
+    instance.
     """
 
     @property
-    @abc.abstractmethod
-    def ignore_errors_during_reload(self) -> bool:
-        ...
-
-    @ignore_errors_during_reload.setter
-    def ignore_errors_during_reload(self, value: bool) -> None:
+    def arguments(self) -> System.Collections.ICollection:
+        """
+        The collection of arguments that should be passed to
+        MemberInfo in order to create an instance.
+        """
         ...
 
     @property
-    @abc.abstractmethod
-    def can_reload_with_errors(self) -> bool:
+    def is_complete(self) -> bool:
+        """
+        Determines if the contents of this instance descriptor completely identify the instance.
+        This will normally be the case, but some objects may be too complex for a single method
+        or constructor to represent. IsComplete can be used to identify these objects and take
+        additional steps to further describe their state.
+        """
         ...
 
-    @can_reload_with_errors.setter
-    def can_reload_with_errors(self, value: bool) -> None:
+    @property
+    def member_info(self) -> System.Reflection.MemberInfo:
+        """
+        The MemberInfo object that was passed into the constructor
+        of this InstanceDescriptor.
+        """
+        ...
+
+    @overload
+    def __init__(self, member: System.Reflection.MemberInfo, arguments: System.Collections.ICollection) -> None:
+        """Creates a new InstanceDescriptor."""
+        ...
+
+    @overload
+    def __init__(self, member: System.Reflection.MemberInfo, arguments: System.Collections.ICollection, is_complete: bool) -> None:
+        """Creates a new InstanceDescriptor."""
+        ...
+
+    def invoke(self) -> System.Object:
+        """
+        Invokes this instance descriptor, returning the object
+        the descriptor describes.
+        """
         ...
 
 
@@ -695,209 +784,6 @@ class IDesignerLoaderService(metaclass=abc.ABCMeta):
         ...
 
 
-class SerializationStore(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
-    """
-    The SerializationStore class is an implementation-specific class that stores
-    serialization data for the component serialization service. The
-    service adds state to this serialization store. Once the store is
-    closed it can be saved to a stream. A serialization store can be
-    deserialized at a later date by the same type of serialization service.
-    SerializationStore implements the IDisposable interface such that Dispose
-    simply calls the Close method. Dispose is implemented as a private
-    interface to avoid confusion. The IDisposable pattern is provided
-    for languages that support a "using" syntax like C# and VB .NET.
-    """
-
-    @property
-    @abc.abstractmethod
-    def errors(self) -> System.Collections.ICollection:
-        """
-        If there were errors generated during serialization or deserialization of the store, they will be
-        added to this collection.
-        """
-        ...
-
-    def close(self) -> None:
-        """
-        The Close method closes this store and prevents any objects
-        from being serialized into it. Once closed, the serialization store may be saved.
-        """
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
-        ...
-
-    def save(self, stream: System.IO.Stream) -> None:
-        """
-        The Save method saves the store to the given stream. If the store
-        is open, Save will automatically close it for you. You
-        can call save as many times as you wish to save the store
-        to different streams.
-        """
-        ...
-
-
-class ComponentSerializationService(System.Object, metaclass=abc.ABCMeta):
-    """
-    This class serializes a set of components or serializable objects into a
-    serialization store. The store can then be deserialized at a later
-    date. ComponentSerializationService differs from other serialization
-    schemes in that the serialization format is opaque, and it allows for
-    partial serialization of objects. For example, you can choose to
-    serialize only selected properties for an object.
-    
-    This class is abstract. Typically a DesignerLoader will provide a
-    concrete implementation of this class and add it as a service to
-    its DesignSurface. This allows objects to be serialized in the
-    format best suited for them.
-    """
-
-    def create_store(self) -> System.ComponentModel.Design.Serialization.SerializationStore:
-        """
-        This method creates a new SerializationStore. The serialization store can
-        be passed to any of the various Serialize methods to build up serialization
-        state for a group of objects.
-        """
-        ...
-
-    @overload
-    def deserialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore) -> System.Collections.ICollection:
-        """
-        This method deserializes the given store to produce a collection of
-        objects contained within it. If a container is provided, objects
-        that are created that implement IComponent will be added to the container.
-        """
-        ...
-
-    @overload
-    def deserialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer) -> System.Collections.ICollection:
-        """
-        This method deserializes the given store to produce a collection of
-        objects contained within it. If a container is provided, objects
-        that are created that implement IComponent will be added to the container.
-        """
-        ...
-
-    @overload
-    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer, validate_recycled_types: bool, apply_defaults: bool) -> None:
-        """
-        This method deserializes the given store, but rather than produce
-        new objects, the data in the store is applied to an existing
-        set of objects that are taken from the provided container. This
-        allows the caller to pre-create an object however it sees fit. If
-        an object has deserialization state and the object is not named in
-        the set of existing objects, a new object will be created. If that
-        object also implements IComponent, it will be added to the given
-        container. Objects in the container must have names that
-        match objects in the serialization store in order for an existing
-        object to be used. If validate_recycled_types is true it is guaranteed
-        that the deserialization will only work if applied to an object of the
-        same type.
-        """
-        ...
-
-    @overload
-    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer) -> None:
-        ...
-
-    @overload
-    def deserialize_to(self, store: System.ComponentModel.Design.Serialization.SerializationStore, container: System.ComponentModel.IContainer, validate_recycled_types: bool) -> None:
-        ...
-
-    def load_store(self, stream: System.IO.Stream) -> System.ComponentModel.Design.Serialization.SerializationStore:
-        """
-        This method loads a SerializationStore and from the given
-        stream. This store can then be used to deserialize objects by passing it to
-        the various Deserialize methods.
-        """
-        ...
-
-    def serialize(self, store: System.ComponentModel.Design.Serialization.SerializationStore, value: typing.Any) -> None:
-        """
-        This method serializes the given object to the store. The store
-        can be used to serialize more than one object by calling this method
-        more than once.
-        """
-        ...
-
-    def serialize_absolute(self, store: System.ComponentModel.Design.Serialization.SerializationStore, value: typing.Any) -> None:
-        """
-        Normal serialization only serializes values that differ from the component's default state.
-        This provides the most compact serialization mechanism but assumes that during deserialization
-        a new, freshly created object will be used. If an existing object is used properties that
-        contained default values during serialization would not be reset back to their defaults.
-        The SerializeAbsolute method does not require this assumption on the deserializing end.
-        Instead, it saves data in the serialization store about default values as well so that
-        deserialization can reset non-default properties back to their default values. This is
-        especially true for collection objects, where the collections are either cleared and
-        items re-added, or individual items are removed and added.
-        """
-        ...
-
-    def serialize_member(self, store: System.ComponentModel.Design.Serialization.SerializationStore, owning_object: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
-        """
-        This method serializes the given member on the given object. This method
-        can be invoked multiple times for the same object to build up a list of
-        serialized members within the serialization store. The member generally
-        has to be a property or an event.
-        """
-        ...
-
-    def serialize_member_absolute(self, store: System.ComponentModel.Design.Serialization.SerializationStore, owning_object: typing.Any, member: System.ComponentModel.MemberDescriptor) -> None:
-        """
-        This method serializes the given member on the given object,
-        but also serializes the member if it contains the default value.
-        Note that for some members, containing the default value and setting
-        the same value back to the member are different concepts. For example,
-        if a property inherits its value from a parent object if no local value
-        is set, setting the value back to the property can may not be what is desired.
-        SerializeMemberAbsolute takes this into account and would clear the state of
-        the property in this case.
-        """
-        ...
-
-
-class INameCreationService(metaclass=abc.ABCMeta):
-    """
-    This service may be provided by a designer loader to provide
-    a way for the designer to fabricate new names for objects.
-    If this service isn't available the designer will choose a
-    default implementation.
-    """
-
-    def create_name(self, container: System.ComponentModel.IContainer, data_type: typing.Type) -> str:
-        """
-        Creates a new name that is unique to all the components
-        in the given container. The name will be used to create
-        an object of the given data type, so the service may
-        derive a name from the data type's name. The container
-        parameter can be null if no container search is needed.
-        """
-        ...
-
-    def is_valid_name(self, name: str) -> bool:
-        """
-        Determines if the given name is valid. A name
-        creation service may have rules defining a valid
-        name, and this method allows the service to enforce
-        those rules.
-        """
-        ...
-
-    def validate_name(self, name: str) -> None:
-        """
-        Determines if the given name is valid. A name
-        creation service may have rules defining a valid
-        name, and this method allows the service to enforce
-        those rules. It is similar to IsValidName, except
-        that this method will throw an exception if the
-        name is invalid. This allows implementors to provide
-        rich information in the exception message.
-        """
-        ...
-
-
 class IDesignerSerializationService(metaclass=abc.ABCMeta):
     """
     This service provides a way to exchange a collection of objects
@@ -928,6 +814,120 @@ class IDesignerSerializationService(metaclass=abc.ABCMeta):
         stores them in an opaque serialization data object.
         The returning object fully supports runtime serialization.
         """
+        ...
+
+
+class IDesignerLoaderHost(System.ComponentModel.Design.IDesignerHost, metaclass=abc.ABCMeta):
+    """
+    IDesignerLoaderHost. This is an extension of IDesignerHost that is passed
+    to the designer loader in the BeginLoad method. It is isolated from
+    IDesignerHost to emphasize that all loading and reloading of the design
+    document actually should be initiated by the designer loader, and not by
+    the designer host. However, the loader must inform the designer host that
+    it wishes to invoke a load or reload.
+    """
+
+    def end_load(self, base_class_name: str, successful: bool, error_collection: System.Collections.ICollection) -> None:
+        """
+        This is called by the designer loader to indicate that the load has
+        terminated. If there were errors, they should be passed in the error_collection
+        as a collection of exceptions (if they are not exceptions the designer
+        loader host may just call ToString on them). If the load was successful then
+        error_collection should either be null or contain an empty collection.
+        """
+        ...
+
+    def reload(self) -> None:
+        """
+        This is called by the designer loader when it wishes to reload the
+        design document. The reload will happen immediately so the caller
+        should ensure that it is in a state where BeginLoad may be called again.
+        """
+        ...
+
+
+class DesignerLoader(System.Object, metaclass=abc.ABCMeta):
+    """
+    DesignerLoader. This class is responsible for loading a designer document.
+    Where and how this load occurs is a private matter for the designer loader.
+    The designer loader will be handed to an IDesignerHost instance. This instance,
+    when it is ready to load the document, will call BeginLoad, passing an instance
+    of IDesignerLoaderHost. The designer loader will load up the design surface
+    using the host interface, and call EndLoad on the interface when it is done.
+    The error collection passed into EndLoad should be empty or null to indicate a
+    successful load, or it should contain a collection of exceptions that
+    describe the error.
+    
+    Once a document is loaded, the designer loader is also responsible for
+    writing any changes made to the document back whatever storage the
+    loader used when loading the document.
+    """
+
+    @property
+    def loading(self) -> bool:
+        """
+        Returns true when the designer is in the process of loading. Clients that are
+        sinking notifications from the designer often want to ignore them while the designer is loading
+        and only respond to them if they result from user interactions.
+        """
+        ...
+
+    def begin_load(self, host: System.ComponentModel.Design.Serialization.IDesignerLoaderHost) -> None:
+        """
+        Called by the designer host to begin the loading process. The designer
+        host passes in an instance of a designer loader host (which is typically
+        the same object as the designer host. This loader host allows
+        the designer loader to reload the design document and also allows
+        the designer loader to indicate that it has finished loading the
+        design document.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """
+        Disposes this designer loader. The designer host will call this method
+        when the design document itself is being destroyed. Once called, the
+        designer loader will never be called again.
+        """
+        ...
+
+    def flush(self) -> None:
+        """
+        The designer host will call this periodically when it wants to
+        ensure that any changes that have been made to the document
+        have been saved by the designer loader. This method allows
+        designer loaders to implement a lazy-write scheme to improve
+        performance. The default implementation does nothing.
+        """
+        ...
+
+
+class IDesignerLoaderHost2(System.ComponentModel.Design.Serialization.IDesignerLoaderHost, metaclass=abc.ABCMeta):
+    """
+    IgnoreErrorsDuringReload - specifies whether errors should be ignored when Reload() is called.
+                      We only allow to set to true if we CanReloadWithErrors. If we cannot
+                      we simply ignore rather than throwing an exception. We probably should,
+                      but we are avoiding localization.
+    CanReloadWithErrors - specifies whether it is possible to reload with errors. There are certain
+                 scenarios where errors cannot be ignored.
+    """
+
+    @property
+    @abc.abstractmethod
+    def ignore_errors_during_reload(self) -> bool:
+        ...
+
+    @ignore_errors_during_reload.setter
+    def ignore_errors_during_reload(self, value: bool) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def can_reload_with_errors(self) -> bool:
+        ...
+
+    @can_reload_with_errors.setter
+    def can_reload_with_errors(self, value: bool) -> None:
         ...
 
 

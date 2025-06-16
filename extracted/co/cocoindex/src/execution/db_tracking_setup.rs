@@ -155,14 +155,13 @@ impl ResourceSetupStatus for TrackingTableSetupStatus {
         }
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self as &dyn Any
-    }
+
 }
 
 impl TrackingTableSetupStatus {
     pub async fn apply_change(&self) -> Result<()> {
-        let pool = &get_lib_context()?.builtin_db_pool;
+        let lib_context = get_lib_context()?;
+        let pool = lib_context.require_builtin_db_pool()?;
         if let Some(desired) = &self.desired_state {
             for lagacy_name in self.legacy_table_names.iter() {
                 let query = format!(

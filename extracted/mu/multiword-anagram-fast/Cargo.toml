@@ -1,0 +1,17 @@
+[package]
+name = "multiword_anagram_fast_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Add pyo3 here later if building lib.rs for python directly, or keep it separate
+# For now, no external dependencies for pure Rust logic
+pyo3 = { version = "0.25.0", features = ["extension-module"] } # Example if using PyO3
+
+[lib]
+name = "core"
+crate-type = ["cdylib"] # If building for PyO3 directly in this crate
+
+[features]
+default = [] # No features enabled by default for a release build
+debug-logging = [] # Define a feature for enabling debug logs

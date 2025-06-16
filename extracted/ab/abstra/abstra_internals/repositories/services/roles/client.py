@@ -11,7 +11,11 @@ from abstra_internals.entities.agents import (
     ConnectionModel,
     SignProofResponse,
 )
-from abstra_internals.environment import PROJECT_ID, REQUEST_TIMEOUT, SIDECAR_HEADERS
+from abstra_internals.environment import (
+    CLOUD_API_PROD_HEADERS,
+    PROJECT_ID,
+    REQUEST_TIMEOUT,
+)
 from abstra_internals.repositories.project.project import LocalProjectRepository
 from abstra_internals.repositories.services.roles.common import RoleCommonRepository
 from abstra_internals.settings import Settings
@@ -99,19 +103,6 @@ class RoleClientRepository(RoleCommonRepository):
         if not response.ok:
             raise Exception(response.text)
         return SignProofResponse.model_validate_json(response.text)
-
-    def get_or_create_connection_to_agent(
-        self, agent_project_id: str, client_stage_id: str, agent_stage_id: str
-    ):
-        for connection in self.get_connections():
-            if connection.agent_project_id != agent_project_id:
-                continue
-            if connection.client_stage_id != client_stage_id:
-                continue
-            if connection.agent_stage_id != agent_stage_id:
-                continue
-            return connection
-        return self.connect_to_agent(agent_project_id, client_stage_id, agent_stage_id)
 
     def connect_to_agent(
         self, agent_project_id: str, client_stage_id: str, agent_stage_id: str
@@ -241,7 +232,7 @@ class RoleClientRepository(RoleCommonRepository):
 
 class ProductionRoleClientRepository(RoleClientRepository):
     def get_headers(self):
-        return SIDECAR_HEADERS
+        return CLOUD_API_PROD_HEADERS
 
     def get_current_project_id(self):
         return PROJECT_ID

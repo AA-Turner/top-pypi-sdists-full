@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -169,8 +169,8 @@ static void merge_input(const DiamondFov* __restrict fov, RaycastTile* __restric
     ray->ignore = true;
   }
   if (!ray->ignore && !map->cells[ray_index].transparent) {
-    ray->x_error = ray->x_obscurity = ABS(ray->x_relative);
-    ray->y_error = ray->y_obscurity = ABS(ray->y_relative);
+    ray->x_error = ray->x_obscurity = TCOD_ABS(ray->x_relative);
+    ray->y_error = ray->y_obscurity = TCOD_ABS(ray->y_relative);
   }
 }
 /**
@@ -207,7 +207,7 @@ TCOD_Error TCOD_map_compute_fov_diamond_raycasting(
       .map = map,
       .pov_x = pov_x,
       .pov_y = pov_y,
-      .raymap_grid = calloc(sizeof(*fov.raymap_grid), map->nbcells),
+      .raymap_grid = calloc(map->nbcells, sizeof(*fov.raymap_grid)),
   };
 
   if (!fov.raymap_grid) {

@@ -21,7 +21,13 @@ import ibis.expr.operations as ops
 import ibis.expr.schema as sch
 import ibis.expr.types as ir
 from ibis import util
-from ibis.backends import CanCreateDatabase, CanListCatalog, PyArrowExampleLoader
+from ibis.backends import (
+    CanCreateDatabase,
+    CanListCatalog,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+    PyArrowExampleLoader,
+)
 from ibis.backends.pyspark.converter import PySparkPandasData
 from ibis.backends.pyspark.datatypes import PySparkSchema, PySparkType
 from ibis.backends.sql import SQLBackend
@@ -102,7 +108,14 @@ def _interval_to_string(interval):
     return f"{interval.op().value} {interval.op().dtype.unit.name.lower()}"
 
 
-class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, PyArrowExampleLoader):
+class Backend(
+    SQLBackend,
+    CanListCatalog,
+    CanCreateDatabase,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+    PyArrowExampleLoader,
+):
     name = "pyspark"
     compiler = sc.pyspark.compiler
     temporary_example = False
@@ -119,13 +132,14 @@ class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, PyArrowExampleLoade
 
         treat_nan_as_null: bool = False
 
-    def _from_url(self, url: ParseResult, **kwargs) -> Backend:
+    def _from_url(self, url: ParseResult, **kwarg_overrides) -> Backend:
         """Construct a PySpark backend from a URL `url`."""
-        conf = SparkConf().setAll(kwargs.items())
-
+        kwargs = {}
         if database := url.path[1:]:
-            conf = conf.set("spark.sql.warehouse.dir", str(Path(database).absolute()))
+            kwargs["spark.sql.warehouse.dir"] = str(Path(database).absolute())
+        kwargs.update(kwarg_overrides)
 
+        conf = SparkConf().setAll(kwargs.items())
         builder = SparkSession.builder.config(conf=conf)
         session = builder.getOrCreate()
         return self.connect(session, **kwargs)
@@ -363,20 +377,6 @@ class Backend(SQLBackend, CanListCatalog, CanCreateDatabase, PyArrowExampleLoade
     def list_tables(
         self, *, like: str | None = None, database: str | None = None
     ) -> list[str]:
-        """List the tables in the database.
-
-        Parameters
-        ----------
-        like
-            A pattern to use for listing tables.
-        database
-            Database to list tables from. Default behavior is to show tables in
-            the current catalog and database.
-
-            To specify a table in a separate catalog, you can pass in the
-            catalog and database as a string `"catalog.database"`, or as a tuple of
-            strings `("catalog", "database")`.
-        """
         table_loc = self._to_sqlglot_table(database)
         catalog, db = self._to_catalog_db_tuple(table_loc)
         with self._active_catalog(catalog):

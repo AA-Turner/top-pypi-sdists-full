@@ -39,6 +39,8 @@ export declare class LeafletWMSLayerModel extends LeafletTileLayerModel {
         popup_max_height: number | null;
         pane: string;
         subitems: L.Layer[];
+        pm_ignore: boolean;
+        snap_ignore: boolean;
     };
 }
 export declare class LeafletWMSLayerView extends LeafletTileLayerView {

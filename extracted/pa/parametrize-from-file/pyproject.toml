@@ -1,0 +1,73 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "parametrize_from_file"
+authors = [
+  {name = "Kale Kundert", email = "kale@thekunderts.net"},
+]
+readme = 'README.rst'
+dynamic = ["version", "description"]
+requires-python = "~=3.8"
+dependencies = [
+  'toml',
+  'pyyaml',
+  'nestedtext',
+  'tidyexc',
+  'pytest',
+  'more_itertools>=8.10',
+  'decopatch',
+]
+classifiers = [
+  'Programming Language :: Python :: 3.8',
+  'License :: OSI Approved :: MIT License',
+]
+
+[project.optional-dependencies]
+test = [
+  'pytest',
+  'pytest-cov',
+  'pytest_tmp_files',
+  'coveralls',
+  'numpy',
+]
+doc = [
+  'sphinx',
+  'sphinx_rtd_theme',
+  'autoclasstoc',
+  'sphinx-toolbox',
+]
+
+[project.urls]
+'Documentation' = 'https://parametrize-from-file.readthedocs.io/en/latest/'
+'Version Control' = 'https://github.com/kalekundert/parametrize_from_file'
+'Bug Tracker' = 'https://github.com/kalekundert/parametrize_from_file/issues'
+'Continuous Integration' = 'https://github.com/kalekundert/parametrize_from_file/actions'
+'Test Coverage' = 'https://coveralls.io/github/kalekundert/parametrize_from_file'
+
+[tool.ruff]
+target-version = "py37"
+
+[tool.ruff.lint]
+select = ["F", "E"]
+ignore = ["F405", "F403", "E401", "E501", "E721"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402"]
+"docs/**" = ["E701", "E722"]
+
+[tool.pytest.ini_options]
+addopts = "--ignore docs --doctest-modules --doctest-glob='*.rst'"
+doctest_optionflags = 'NORMALIZE_WHITESPACE'
+markers = ["slow"]
+filterwarnings = [
+  "error",
+  'ignore:datetime\.datetime\..* is deprecated:DeprecationWarning',
+]
+
+[tool.semantic_release]
+version_variables = ['parametrize_from_file/__init__.py:__version__']
+build_command = 'python -m pip install build && python -m build'
+major_on_zero = false
+

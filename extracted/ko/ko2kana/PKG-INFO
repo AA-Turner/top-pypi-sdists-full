@@ -1,0 +1,57 @@
+Metadata-Version: 2.1
+Name: ko2kana
+Version: 1.8
+Summary: Korean to Katakana
+Home-page: https://github.com/kdrkdrkdr/ko2kana
+Author: kdr
+Author-email: kdrhacker1234@gmail.com
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: jamo
+Requires-Dist: g2p_en
+
+# ko2kana
+Tools for writing Korean and English pronunciation in katakana.
+
+Replace Korean and English with Katakana so that you can read them in the TTS Japanese model.
+Typically, when you create a multilingual TTS, you organize the text with an IPA cleaner. 
+However, this method is awkward, inaccurate and if the pronunciation symbol is insufficient or absent, the voice is missing.
+Therefore, only phonemes present in the TTS data were made close to the pronunciation of other languages.
+
+
+## Installation
+```bash
+pip install ko2kana
+```
+
+## Usage
+
+```python
+from ko2kana import toKana
+s = toKana("안녕하세요.")
+print(s) 
+'アンニョンーハセヨ'
+```
+
+
+## References
+If you use our software for research, please cite:
+```
+@misc{kim2023ko2kana,
+  author = {Kim, Gyeongmin},
+  title = {ko2kana},
+  year = {2023},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/kdrkdrkdr/ko2kana}}
+}```

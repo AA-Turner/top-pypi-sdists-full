@@ -1,12 +1,13 @@
 # Copyright 2025 Daytona Platforms Inc.
-# SPDX-License-Identifier: AGPL-3.0
+# SPDX-License-Identifier: Apache-2.0
 
 import functools
 import json
 from typing import Callable, ParamSpec, TypeVar
 
 from daytona_api_client.exceptions import OpenApiException
-from daytona_sdk.common.errors import DaytonaError
+
+from ..common.errors import DaytonaError
 
 P = ParamSpec("P")
 T = TypeVar("T")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: letta
-Version: 0.8.3
+Version: 0.8.4
 Summary: Create LLM agents with long-term memory and custom tools
 License: Apache License
 Author: Letta Team
@@ -20,7 +20,6 @@ Provides-Extra: experimental
 Provides-Extra: external-tools
 Provides-Extra: google
 Provides-Extra: postgres
-Provides-Extra: qdrant
 Provides-Extra: redis
 Provides-Extra: server
 Provides-Extra: tests
@@ -56,13 +55,13 @@ Requires-Dist: isort (>=5.13.2,<6.0.0) ; extra == "dev" or extra == "all"
 Requires-Dist: jinja2 (>=3.1.5,<4.0.0)
 Requires-Dist: langchain (>=0.3.7,<0.4.0) ; extra == "external-tools" or extra == "desktop" or extra == "all"
 Requires-Dist: langchain-community (>=0.3.7,<0.4.0) ; extra == "external-tools" or extra == "desktop" or extra == "all"
-Requires-Dist: letta_client (>=0.1.147,<0.2.0)
+Requires-Dist: letta_client (>=0.1.155,<0.2.0)
 Requires-Dist: llama-index (>=0.12.2,<0.13.0)
 Requires-Dist: llama-index-embeddings-openai (>=0.3.1,<0.4.0)
 Requires-Dist: locust (>=2.31.5,<3.0.0) ; extra == "dev" or extra == "desktop" or extra == "all"
 Requires-Dist: marshmallow-sqlalchemy (>=1.4.1,<2.0.0)
 Requires-Dist: matplotlib (>=3.10.1,<4.0.0)
-Requires-Dist: mcp (>=1.3.0,<2.0.0)
+Requires-Dist: mcp[cli] (>=1.9.4,<2.0.0)
 Requires-Dist: mistralai (>=1.8.1,<2.0.0)
 Requires-Dist: nltk (>=3.8.1,<4.0.0)
 Requires-Dist: numpy (>=1.26.2,<2.0.0)
@@ -89,7 +88,6 @@ Requires-Dist: python-box (>=7.1.1,<8.0.0)
 Requires-Dist: python-multipart (>=0.0.19,<0.0.20)
 Requires-Dist: pytz (>=2023.3.post1,<2024.0)
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
-Requires-Dist: qdrant-client (>=1.9.1,<2.0.0) ; extra == "qdrant"
 Requires-Dist: questionary (>=2.0.1,<3.0.0)
 Requires-Dist: redis (>=6.2.0,<7.0.0) ; extra == "redis" or extra == "all"
 Requires-Dist: rich (>=13.9.4,<14.0.0)
@@ -99,9 +97,10 @@ Requires-Dist: sqlalchemy-json (>=0.7.0,<0.8.0)
 Requires-Dist: sqlalchemy-utils (>=0.41.2,<0.42.0)
 Requires-Dist: sqlalchemy[asyncio] (>=2.0.41,<3.0.0)
 Requires-Dist: sqlmodel (>=0.0.16,<0.0.17)
+Requires-Dist: structlog (>=25.4.0,<26.0.0)
 Requires-Dist: tavily-python (>=0.7.2,<0.8.0)
 Requires-Dist: tqdm (>=4.66.1,<5.0.0)
-Requires-Dist: typer[all] (>=0.9.0,<0.10.0)
+Requires-Dist: typer (>=0.15.2,<0.16.0)
 Requires-Dist: uvicorn (>=0.24.0.post1,<0.25.0) ; extra == "server" or extra == "desktop" or extra == "all"
 Requires-Dist: uvloop (>=0.21.0,<0.22.0) ; extra == "experimental" or extra == "all"
 Requires-Dist: wikipedia (>=1.4.0,<2.0.0) ; extra == "external-tools" or extra == "tests" or extra == "desktop" or extra == "all"

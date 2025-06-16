@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass
 import math
 from typing import Any
@@ -13,6 +12,8 @@ from optuna.logging import get_logger
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     import scipy.optimize as so
     import torch
 else:
@@ -55,7 +56,7 @@ def warn_and_convert_inf(values: np.ndarray) -> np.ndarray:
 
 class Matern52Kernel(torch.autograd.Function):
     @staticmethod
-    def forward(ctx: Any, squared_distance: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def forward(ctx: Any, squared_distance: torch.Tensor) -> torch.Tensor:
         sqrt5d = torch.sqrt(5 * squared_distance)
         exp_part = torch.exp(-sqrt5d)
         val = exp_part * ((5 / 3) * squared_distance + sqrt5d + 1)
@@ -65,7 +66,7 @@ class Matern52Kernel(torch.autograd.Function):
         return val
 
     @staticmethod
-    def backward(ctx: Any, grad: torch.Tensor) -> torch.Tensor:  # type: ignore
+    def backward(ctx: Any, grad: torch.Tensor) -> torch.Tensor:
         # Let x be squared_distance, f(x) be forward(ctx, x), and g(f) be a provided function,
         # then deriv := df/dx, grad := dg/df, and deriv * grad = df/dx * dg/df = dg/dx.
         (deriv,) = ctx.saved_tensors
@@ -192,7 +193,7 @@ def _fit_kernel_params(
     def loss_func(raw_params: np.ndarray) -> tuple[float, np.ndarray]:
         raw_params_tensor = torch.from_numpy(raw_params)
         raw_params_tensor.requires_grad_(True)
-        with torch.enable_grad():
+        with torch.enable_grad():  # type: ignore[no-untyped-call]
             params = KernelParamsTensor(
                 inverse_squared_lengthscales=torch.exp(raw_params_tensor[:n_params]),
                 kernel_scale=torch.exp(raw_params_tensor[n_params]),

@@ -1,0 +1,102 @@
+# @Program: This computer program is for qiskit-connector, a Python package for quantum computing.
+# @Author: Dr. Jeffrey Chijioke-Uche
+# @Owner:  Dr. Jeffrey Chijioke-Uche
+# @Copyright:  (c)2025 - Dr. Jeffrey Chijioke-Uche. [Copyrighted by U.S. Copyright Office]
+##################################################################################################
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[[project.authors]]
+name = "Dr. Jeffrey Chijioke-Uche (Software Owner)"
+email = "sj@chijioke-uche.com"
+
+[[project.maintainers]]
+name = "Dr. Jeffrey Chijioke-Uche"
+email = "sj@chijioke-uche.com"
+
+[project]
+name = "qiskit-connector"
+version = "2.3.4"
+description = "Quantum Computing Qiskit Connector For Quantum Backend Use In Realtime"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+
+
+keywords = [
+    "qiskit connector", 
+    "quantum connection",
+    "quantum computing", 
+    "ibm quantum", 
+    "qiskit", 
+    "quantum runtimeservice",
+    "quantum automated backend connectors", 
+    "qpu resources", 
+    "qubits processing unit",
+    "quantum programming language", 
+    "quantum circuit",
+    "quantum open plan",
+    "quantum premier plan",
+    "quantum standard plan",
+    "quantum dedicated plan",
+    "quantum paid plan",
+    "quantum workloads",
+    "physical quantum computer",
+    "quantum algorithms",
+    "qiskit integration libraries",
+    "qiskit connector interface",
+    "python wrapper for Qiskit",
+    "production-ready Qiskit tooling",
+    "quantum SDK connection automation tools",
+]
+
+
+classifiers = [
+    "Environment :: Console",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Quantum Computing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Topic :: Software Development :: Assemblers",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: System :: Distributed Computing",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux"
+]
+
+dependencies = [
+    "requests>=2.32.3",
+    "python-dotenv>=1.1.0",
+    "qiskit>=2.0.0",
+    "qiskit-ibm-runtime>=0.38.0",
+    "pillow>=11.2.1"
+]
+
+[project.urls]
+Homepage = "https://github.com/schijioke-uche/pypi-qiskit-connector"
+Source = "https://github.com/schijioke-uche/pypi-qiskit-connector"
+Tracker = "https://github.com/schijioke-uche/pypi-qiskit-connector/issues"
+"Software Publisher" = "https://doi.org/10.5281/zenodo.15304310"

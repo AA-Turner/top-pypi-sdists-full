@@ -1,0 +1,124 @@
+Metadata-Version: 2.1
+Name: kivymd-extensions.sweetalert
+Version: 0.1.5
+Summary: Beautiful, responsive, customizable and accessible popup replacement
+Home-page: https://github.com/kivymd-extensions/sweetalert
+Author: KivyMD Team and other contributors
+Author-email: kivydevelopment@gmail.com
+License: MIT
+Project-URL: Tracker, https://github.com/kivymd-extensions/sweetalert/issues
+Description: # Sweet Alert
+        
+        <img align="left" width="128" src="https://github.com/HeaTTheatR/KivyMD-data/raw/master/gallery/sweetalert-logo.png"/>
+        
+        ### Beautiful, responsive, customizable
+        ### and accessible popup replacement.
+        
+        See SweetAlert [documentation](https://raw.githack.com/HeaTTheatR/KivyMD-data/master/sweetalert-doc/unincluded/sweetalert/sweetalert/index.html)
+        
+        ## Installation
+        
+        ```bash
+        pip install kivymd_extensions.sweetalert
+        ```
+        
+        ### Dependencies:
+        
+        - [KivyMD](https://github.com/kivymd/KivyMD) >= 0.104.2 (currently master branch)
+        - [Kivy](https://github.com/kivy/kivy) >= 1.10.1 ([Installation](https://kivy.org/doc/stable/gettingstarted/installation.html))
+        - [Python 3.6+](https://www.python.org/)
+        
+        ## Documentation
+        
+        See SweetAlert [documentation](https://raw.githack.com/HeaTTheatR/KivyMD-data/master/sweetalert-doc/unincluded/sweetalert/sweetalert/index.html).
+        
+        ### Usage
+        
+        ```python
+        from kivy.lang import Builder
+        
+        from kivymd.app import MDApp
+        
+        KV = """
+        #:import SweetAlert kivymd_extensions.sweetalert.SweetAlert
+        
+        
+        MDScreen:
+        
+            MDRaisedButton:
+                text: "EXAMPLE"
+                pos_hint: {"center_x": .5, "center_y": .5}
+                on_release:
+                    SweetAlert(window_control_buttons="mac-style").fire("Any fool can use a computer!")
+        """
+        
+        
+        class MainApp(MDApp):
+            def build(self):
+                return Builder.load_string(KV)
+        
+        
+        if __name__ == "__main__":
+            MainApp().run()
+        ```
+        
+        <p align="center">
+          <a href="https://github.com/HeaTTheatR/KivyMD-data/raw/master/gallery/preview-sweet-alert-example.png">
+            <img width="500" src="https://github.com/HeaTTheatR/KivyMD-data/raw/master/gallery/preview-sweet-alert-example.png" title="Preview sweet alert example">
+          </a>
+        </p>
+        
+        ## Examples
+        
+        ```bash
+        git clone https://github.com/kivymd-extensions/sweetalert.git
+        cd sweetalert
+        cd examples/full_example
+        python main.py
+        ```
+        
+        <p align="center">
+          <a href="https://github.com/HeaTTheatR/KivyMD-data/raw/master/gallery/preview-sweet-alert.gif">
+            <img width="600" src="https://github.com/HeaTTheatR/KivyMD-data/raw/master/gallery/preview-sweet-alert.gif" title="Preview sweet alerts">
+          </a>
+        </p>
+        
+        ### Support
+        
+        If you need assistance or you have a question, you can ask for help on our mailing list:
+        
+        - **Discord server:** https://discord.gg/wu3qBST
+        - _Email:_ kivydevelopment@gmail.com
+        
+Keywords: kivymd_extensions,kivymd,kivy,material,ui
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: Android
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: POSIX :: BSD :: FreeBSD
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: iOS
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Environment :: MacOS X
+Classifier: Environment :: Win32 (MS Windows)
+Classifier: Environment :: X11 Applications
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Software Development :: User Interfaces
+Classifier: Topic :: Scientific/Engineering :: Human Machine Interfaces
+Classifier: Topic :: Scientific/Engineering :: Visualization
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown; charset=UTF-8
+Provides-Extra: dev
+Provides-Extra: docs

@@ -9,13 +9,13 @@ import System.Drawing
 import System.Globalization
 import System.Numerics
 
-System_Drawing_Rectangle = typing.Any
 System_Drawing_SizeF = typing.Any
-System_Drawing_PointF = typing.Any
-System_Drawing_Point = typing.Any
 System_Drawing_Size = typing.Any
 System_Drawing_RectangleF = typing.Any
+System_Drawing_Point = typing.Any
+System_Drawing_PointF = typing.Any
 System_Drawing_Color = typing.Any
+System_Drawing_Rectangle = typing.Any
 
 
 class KnownColor(Enum):
@@ -762,282 +762,82 @@ class Color(System.IEquatable[System_Drawing_Color]):
         ...
 
 
-class ColorTranslator(System.Object):
-    """Translates colors to and from GDI+ Color objects."""
+class SystemColors(System.Object):
+    """This class has no documentation."""
 
-    @staticmethod
-    def from_html(html_color: str) -> System.Drawing.Color:
-        """Translates an Html color representation to a GDI+ Color."""
-        ...
+    ACTIVE_BORDER: System.Drawing.Color
 
-    @staticmethod
-    def from_ole(ole_color: int) -> System.Drawing.Color:
-        """Translates an Ole color value to a GDI+ Color."""
-        ...
+    ACTIVE_CAPTION: System.Drawing.Color
 
-    @staticmethod
-    def from_win_32(win_32_color: int) -> System.Drawing.Color:
-        """Translates an Win32 color value to a GDI+ Color."""
-        ...
+    ACTIVE_CAPTION_TEXT: System.Drawing.Color
 
-    @staticmethod
-    def to_html(c: System.Drawing.Color) -> str:
-        """Translates the specified Color to an Html string color representation."""
-        ...
+    APP_WORKSPACE: System.Drawing.Color
 
-    @staticmethod
-    def to_ole(c: System.Drawing.Color) -> int:
-        """Translates the specified Color to an Ole color."""
-        ...
+    BUTTON_FACE: System.Drawing.Color
 
-    @staticmethod
-    def to_win_32(c: System.Drawing.Color) -> int:
-        """Translates the specified Color to a Win32 color."""
-        ...
+    BUTTON_HIGHLIGHT: System.Drawing.Color
 
+    BUTTON_SHADOW: System.Drawing.Color
 
-class Size(System.IEquatable[System_Drawing_Size]):
-    """Represents the size of a rectangular region with an ordered pair of width and height."""
+    CONTROL: System.Drawing.Color
 
-    EMPTY: System.Drawing.Size
-    """Initializes a new instance of the System.Drawing.Size class."""
+    CONTROL_DARK: System.Drawing.Color
 
-    @property
-    def is_empty(self) -> bool:
-        """Tests whether this System.Drawing.Size has zero width and height."""
-        ...
+    CONTROL_DARK_DARK: System.Drawing.Color
 
-    @property
-    def width(self) -> int:
-        """Represents the horizontal component of this System.Drawing.Size."""
-        ...
+    CONTROL_LIGHT: System.Drawing.Color
 
-    @width.setter
-    def width(self, value: int) -> None:
-        ...
+    CONTROL_LIGHT_LIGHT: System.Drawing.Color
 
-    @property
-    def height(self) -> int:
-        """Represents the vertical component of this System.Drawing.Size."""
-        ...
+    CONTROL_TEXT: System.Drawing.Color
 
-    @height.setter
-    def height(self, value: int) -> None:
-        ...
+    DESKTOP: System.Drawing.Color
 
-    def __add__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Performs vector addition of two System.Drawing.Size objects."""
-        ...
+    GRADIENT_ACTIVE_CAPTION: System.Drawing.Color
 
-    def __eq__(self, sz_2: System.Drawing.Size) -> bool:
-        """Tests whether two System.Drawing.Size objects are identical."""
-        ...
+    GRADIENT_INACTIVE_CAPTION: System.Drawing.Color
 
-    def __iadd__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Performs vector addition of two System.Drawing.Size objects."""
-        ...
+    GRAY_TEXT: System.Drawing.Color
 
-    @overload
-    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
-        """
-        Multiplies a Size by an int producing Size.
-        
-        :param left: Multiplier of type int.
-        :param right: Multiplicand of type Size.
-        :returns: Product of type Size.
-        """
-        ...
+    HIGHLIGHT: System.Drawing.Color
 
-    @overload
-    def __imul__(self, right: int) -> System.Drawing.Size:
-        """
-        Multiplies Size by an int producing Size.
-        
-        :param left: Multiplicand of type Size.
-        :param right: Multiplier of type int.
-        :returns: Product of type Size.
-        """
-        ...
+    HIGHLIGHT_TEXT: System.Drawing.Color
 
-    @overload
-    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
-        """
-        Multiplies Size by a float producing SizeF.
-        
-        :param left: Multiplier of type float.
-        :param right: Multiplicand of type Size.
-        :returns: Product of type SizeF.
-        """
-        ...
+    HOT_TRACK: System.Drawing.Color
 
-    @overload
-    def __imul__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Multiplies Size by a float producing SizeF.
-        
-        :param left: Multiplicand of type Size.
-        :param right: Multiplier of type float.
-        :returns: Product of type SizeF.
-        """
-        ...
+    INACTIVE_BORDER: System.Drawing.Color
 
-    @overload
-    def __init__(self, pt: System.Drawing.Point) -> None:
-        """
-        Initializes a new instance of the System.Drawing.Size class from the specified
-        System.Drawing.Point.
-        """
-        ...
+    INACTIVE_CAPTION: System.Drawing.Color
 
-    @overload
-    def __init__(self, width: int, height: int) -> None:
-        """Initializes a new instance of the System.Drawing.Size class from the specified dimensions."""
-        ...
+    INACTIVE_CAPTION_TEXT: System.Drawing.Color
 
-    def __isub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Contracts a System.Drawing.Size by another System.Drawing.Size"""
-        ...
+    INFO: System.Drawing.Color
 
-    @overload
-    def __itruediv__(self, right: int) -> System.Drawing.Size:
-        """
-        Divides Size by an int producing Size.
-        
-        :param left: Dividend of type Size.
-        :param right: Divisor of type int.
-        :returns: Result of type Size.
-        """
-        ...
+    INFO_TEXT: System.Drawing.Color
 
-    @overload
-    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Divides Size by a float producing SizeF.
-        
-        :param left: Dividend of type Size.
-        :param right: Divisor of type int.
-        :returns: Result of type SizeF.
-        """
-        ...
+    MENU: System.Drawing.Color
 
-    @overload
-    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
-        """
-        Multiplies a Size by an int producing Size.
-        
-        :param left: Multiplier of type int.
-        :param right: Multiplicand of type Size.
-        :returns: Product of type Size.
-        """
-        ...
+    MENU_BAR: System.Drawing.Color
 
-    @overload
-    def __mul__(self, right: int) -> System.Drawing.Size:
-        """
-        Multiplies Size by an int producing Size.
-        
-        :param left: Multiplicand of type Size.
-        :param right: Multiplier of type int.
-        :returns: Product of type Size.
-        """
-        ...
+    MENU_HIGHLIGHT: System.Drawing.Color
 
-    @overload
-    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
-        """
-        Multiplies Size by a float producing SizeF.
-        
-        :param left: Multiplier of type float.
-        :param right: Multiplicand of type Size.
-        :returns: Product of type SizeF.
-        """
-        ...
+    MENU_TEXT: System.Drawing.Color
 
-    @overload
-    def __mul__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Multiplies Size by a float producing SizeF.
-        
-        :param left: Multiplicand of type Size.
-        :param right: Multiplier of type float.
-        :returns: Product of type SizeF.
-        """
-        ...
+    SCROLL_BAR: System.Drawing.Color
 
-    def __ne__(self, sz_2: System.Drawing.Size) -> bool:
-        """Tests whether two System.Drawing.Size objects are different."""
-        ...
+    WINDOW: System.Drawing.Color
 
-    def __sub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Contracts a System.Drawing.Size by another System.Drawing.Size"""
-        ...
+    WINDOW_FRAME: System.Drawing.Color
 
-    @overload
-    def __truediv__(self, right: int) -> System.Drawing.Size:
-        """
-        Divides Size by an int producing Size.
-        
-        :param left: Dividend of type Size.
-        :param right: Divisor of type int.
-        :returns: Result of type Size.
-        """
-        ...
+    WINDOW_TEXT: System.Drawing.Color
 
-    @overload
-    def __truediv__(self, right: float) -> System.Drawing.SizeF:
-        """
-        Divides Size by a float producing SizeF.
-        
-        :param left: Dividend of type Size.
-        :param right: Divisor of type int.
-        :returns: Result of type SizeF.
-        """
-        ...
-
-    @staticmethod
-    def add(sz_1: System.Drawing.Size, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Performs vector addition of two System.Drawing.Size objects."""
-        ...
-
-    @staticmethod
-    def ceiling(value: System.Drawing.SizeF) -> System.Drawing.Size:
-        """Converts a SizeF to a Size by performing a ceiling operation on all the coordinates."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Tests to see whether the specified object is a System.Drawing.Size  with the same dimensions
-        as this System.Drawing.Size.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.Size) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        """Returns a hash code."""
-        ...
-
-    @staticmethod
-    def round(value: System.Drawing.SizeF) -> System.Drawing.Size:
-        """Converts a SizeF to a Size by performing a round operation on all the coordinates."""
-        ...
-
-    @staticmethod
-    def subtract(sz_1: System.Drawing.Size, sz_2: System.Drawing.Size) -> System.Drawing.Size:
-        """Contracts a System.Drawing.Size by another System.Drawing.Size ."""
-        ...
-
-    def to_string(self) -> str:
-        """Creates a human-readable string that represents this System.Drawing.Size."""
-        ...
-
-    @staticmethod
-    def truncate(value: System.Drawing.SizeF) -> System.Drawing.Size:
-        """Converts a SizeF to a Size by performing a truncate operation on all the coordinates."""
-        ...
+    use_alternative_color_set: bool
+    """
+    When true, system KnownColor values will return
+    the alternative color set (as returned by SystemColors statics or
+    Color.FromKnownColor(KnownColor)). This is currently "dark mode"
+    variants of the system colors.
+    """
 
 
 class PointF(System.IEquatable[System_Drawing_PointF]):
@@ -1310,6 +1110,250 @@ class Point(System.IEquatable[System_Drawing_Point]):
     @staticmethod
     def truncate(value: System.Drawing.PointF) -> System.Drawing.Point:
         """Converts a PointF to a Point by performing a truncate operation on all the coordinates."""
+        ...
+
+
+class Size(System.IEquatable[System_Drawing_Size]):
+    """Represents the size of a rectangular region with an ordered pair of width and height."""
+
+    EMPTY: System.Drawing.Size
+    """Initializes a new instance of the System.Drawing.Size class."""
+
+    @property
+    def is_empty(self) -> bool:
+        """Tests whether this System.Drawing.Size has zero width and height."""
+        ...
+
+    @property
+    def width(self) -> int:
+        """Represents the horizontal component of this System.Drawing.Size."""
+        ...
+
+    @width.setter
+    def width(self, value: int) -> None:
+        ...
+
+    @property
+    def height(self) -> int:
+        """Represents the vertical component of this System.Drawing.Size."""
+        ...
+
+    @height.setter
+    def height(self, value: int) -> None:
+        ...
+
+    def __add__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Performs vector addition of two System.Drawing.Size objects."""
+        ...
+
+    def __eq__(self, sz_2: System.Drawing.Size) -> bool:
+        """Tests whether two System.Drawing.Size objects are identical."""
+        ...
+
+    def __iadd__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Performs vector addition of two System.Drawing.Size objects."""
+        ...
+
+    @overload
+    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
+        """
+        Multiplies a Size by an int producing Size.
+        
+        :param left: Multiplier of type int.
+        :param right: Multiplicand of type Size.
+        :returns: Product of type Size.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: int) -> System.Drawing.Size:
+        """
+        Multiplies Size by an int producing Size.
+        
+        :param left: Multiplicand of type Size.
+        :param right: Multiplier of type int.
+        :returns: Product of type Size.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
+        """
+        Multiplies Size by a float producing SizeF.
+        
+        :param left: Multiplier of type float.
+        :param right: Multiplicand of type Size.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    @overload
+    def __imul__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Multiplies Size by a float producing SizeF.
+        
+        :param left: Multiplicand of type Size.
+        :param right: Multiplier of type float.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    @overload
+    def __init__(self, pt: System.Drawing.Point) -> None:
+        """
+        Initializes a new instance of the System.Drawing.Size class from the specified
+        System.Drawing.Point.
+        """
+        ...
+
+    @overload
+    def __init__(self, width: int, height: int) -> None:
+        """Initializes a new instance of the System.Drawing.Size class from the specified dimensions."""
+        ...
+
+    def __isub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Contracts a System.Drawing.Size by another System.Drawing.Size"""
+        ...
+
+    @overload
+    def __itruediv__(self, right: int) -> System.Drawing.Size:
+        """
+        Divides Size by an int producing Size.
+        
+        :param left: Dividend of type Size.
+        :param right: Divisor of type int.
+        :returns: Result of type Size.
+        """
+        ...
+
+    @overload
+    def __itruediv__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Divides Size by a float producing SizeF.
+        
+        :param left: Dividend of type Size.
+        :param right: Divisor of type int.
+        :returns: Result of type SizeF.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.Size:
+        """
+        Multiplies a Size by an int producing Size.
+        
+        :param left: Multiplier of type int.
+        :param right: Multiplicand of type Size.
+        :returns: Product of type Size.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: int) -> System.Drawing.Size:
+        """
+        Multiplies Size by an int producing Size.
+        
+        :param left: Multiplicand of type Size.
+        :param right: Multiplier of type int.
+        :returns: Product of type Size.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: System.Drawing.Size) -> System.Drawing.SizeF:
+        """
+        Multiplies Size by a float producing SizeF.
+        
+        :param left: Multiplier of type float.
+        :param right: Multiplicand of type Size.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    @overload
+    def __mul__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Multiplies Size by a float producing SizeF.
+        
+        :param left: Multiplicand of type Size.
+        :param right: Multiplier of type float.
+        :returns: Product of type SizeF.
+        """
+        ...
+
+    def __ne__(self, sz_2: System.Drawing.Size) -> bool:
+        """Tests whether two System.Drawing.Size objects are different."""
+        ...
+
+    def __sub__(self, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Contracts a System.Drawing.Size by another System.Drawing.Size"""
+        ...
+
+    @overload
+    def __truediv__(self, right: int) -> System.Drawing.Size:
+        """
+        Divides Size by an int producing Size.
+        
+        :param left: Dividend of type Size.
+        :param right: Divisor of type int.
+        :returns: Result of type Size.
+        """
+        ...
+
+    @overload
+    def __truediv__(self, right: float) -> System.Drawing.SizeF:
+        """
+        Divides Size by a float producing SizeF.
+        
+        :param left: Dividend of type Size.
+        :param right: Divisor of type int.
+        :returns: Result of type SizeF.
+        """
+        ...
+
+    @staticmethod
+    def add(sz_1: System.Drawing.Size, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Performs vector addition of two System.Drawing.Size objects."""
+        ...
+
+    @staticmethod
+    def ceiling(value: System.Drawing.SizeF) -> System.Drawing.Size:
+        """Converts a SizeF to a Size by performing a ceiling operation on all the coordinates."""
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Tests to see whether the specified object is a System.Drawing.Size  with the same dimensions
+        as this System.Drawing.Size.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.Size) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        """Returns a hash code."""
+        ...
+
+    @staticmethod
+    def round(value: System.Drawing.SizeF) -> System.Drawing.Size:
+        """Converts a SizeF to a Size by performing a round operation on all the coordinates."""
+        ...
+
+    @staticmethod
+    def subtract(sz_1: System.Drawing.Size, sz_2: System.Drawing.Size) -> System.Drawing.Size:
+        """Contracts a System.Drawing.Size by another System.Drawing.Size ."""
+        ...
+
+    def to_string(self) -> str:
+        """Creates a human-readable string that represents this System.Drawing.Size."""
+        ...
+
+    @staticmethod
+    def truncate(value: System.Drawing.SizeF) -> System.Drawing.Size:
+        """Converts a SizeF to a Size by performing a truncate operation on all the coordinates."""
         ...
 
 
@@ -1743,6 +1787,40 @@ class RectangleF(System.IEquatable[System_Drawing_RectangleF]):
         ...
 
 
+class ColorTranslator(System.Object):
+    """Translates colors to and from GDI+ Color objects."""
+
+    @staticmethod
+    def from_html(html_color: str) -> System.Drawing.Color:
+        """Translates an Html color representation to a GDI+ Color."""
+        ...
+
+    @staticmethod
+    def from_ole(ole_color: int) -> System.Drawing.Color:
+        """Translates an Ole color value to a GDI+ Color."""
+        ...
+
+    @staticmethod
+    def from_win_32(win_32_color: int) -> System.Drawing.Color:
+        """Translates an Win32 color value to a GDI+ Color."""
+        ...
+
+    @staticmethod
+    def to_html(c: System.Drawing.Color) -> str:
+        """Translates the specified Color to an Html string color representation."""
+        ...
+
+    @staticmethod
+    def to_ole(c: System.Drawing.Color) -> int:
+        """Translates the specified Color to an Ole color."""
+        ...
+
+    @staticmethod
+    def to_win_32(c: System.Drawing.Color) -> int:
+        """Translates the specified Color to a Win32 color."""
+        ...
+
+
 class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
     """Stores the location and size of a rectangular region."""
 
@@ -1985,110 +2063,7 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
         ...
 
 
-class SystemColors(System.Object):
-    """This class has no documentation."""
-
-    ACTIVE_BORDER: System.Drawing.Color
-
-    ACTIVE_CAPTION: System.Drawing.Color
-
-    ACTIVE_CAPTION_TEXT: System.Drawing.Color
-
-    APP_WORKSPACE: System.Drawing.Color
-
-    BUTTON_FACE: System.Drawing.Color
-
-    BUTTON_HIGHLIGHT: System.Drawing.Color
-
-    BUTTON_SHADOW: System.Drawing.Color
-
-    CONTROL: System.Drawing.Color
-
-    CONTROL_DARK: System.Drawing.Color
-
-    CONTROL_DARK_DARK: System.Drawing.Color
-
-    CONTROL_LIGHT: System.Drawing.Color
-
-    CONTROL_LIGHT_LIGHT: System.Drawing.Color
-
-    CONTROL_TEXT: System.Drawing.Color
-
-    DESKTOP: System.Drawing.Color
-
-    GRADIENT_ACTIVE_CAPTION: System.Drawing.Color
-
-    GRADIENT_INACTIVE_CAPTION: System.Drawing.Color
-
-    GRAY_TEXT: System.Drawing.Color
-
-    HIGHLIGHT: System.Drawing.Color
-
-    HIGHLIGHT_TEXT: System.Drawing.Color
-
-    HOT_TRACK: System.Drawing.Color
-
-    INACTIVE_BORDER: System.Drawing.Color
-
-    INACTIVE_CAPTION: System.Drawing.Color
-
-    INACTIVE_CAPTION_TEXT: System.Drawing.Color
-
-    INFO: System.Drawing.Color
-
-    INFO_TEXT: System.Drawing.Color
-
-    MENU: System.Drawing.Color
-
-    MENU_BAR: System.Drawing.Color
-
-    MENU_HIGHLIGHT: System.Drawing.Color
-
-    MENU_TEXT: System.Drawing.Color
-
-    SCROLL_BAR: System.Drawing.Color
-
-    WINDOW: System.Drawing.Color
-
-    WINDOW_FRAME: System.Drawing.Color
-
-    WINDOW_TEXT: System.Drawing.Color
-
-    use_alternative_color_set: bool
-    """
-    When true, system KnownColor values will return
-    the alternative color set (as returned by SystemColors statics or
-    Color.FromKnownColor(KnownColor)). This is currently "dark mode"
-    variants of the system colors.
-    """
-
-
-class ColorConverter(System.ComponentModel.TypeConverter):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        ...
-
-
-class SizeFConverter(System.ComponentModel.TypeConverter):
+class PointConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -2116,7 +2091,7 @@ class SizeFConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class SizeConverter(System.ComponentModel.TypeConverter):
+class SizeFConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -2172,7 +2147,7 @@ class RectangleConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class PointConverter(System.ComponentModel.TypeConverter):
+class SizeConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -2197,6 +2172,31 @@ class PointConverter(System.ComponentModel.TypeConverter):
         ...
 
     def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        ...
+
+
+class ColorConverter(System.ComponentModel.TypeConverter):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        ...
+
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        ...
+
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
         ...
 
 

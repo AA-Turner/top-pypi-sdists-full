@@ -1,34 +1,37 @@
-Metadata-Version: 2.1
-Name: django-coverage-plugin
-Version: 3.1.0
+Metadata-Version: 2.4
+Name: django_coverage_plugin
+Version: 3.1.1
 Summary: Django template coverage.py plugin
-Home-page: https://github.com/nedbat/django_coverage_plugin
-Author: Ned Batchelder
-Author-email: ned@nedbatchelder.com
-License: Apache-2.0
+Author-email: Ned Batchelder <ned@nedbatchelder.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/nedbat/django_coverage_plugin
+Project-URL: Bug Tracker, https://github.com/nedbat/django_coverage_plugin/issues
+Project-URL: Source, https://github.com/nedbat/django_coverage_plugin
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 2.2
+Classifier: Framework :: Django :: 3.2
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Framework :: Django
-Classifier: Framework :: Django :: 1.11
-Classifier: Framework :: Django :: 2.2
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.2
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: NOTICE.txt
 License-File: AUTHORS.txt
+Requires-Dist: coverage
+Dynamic: license-file
 
 ==================================
 Django Template Coverage.py Plugin
@@ -36,17 +39,47 @@ Django Template Coverage.py Plugin
 
 A `coverage.py`_ plugin to measure test coverage of Django templates.
 
+| |status| |kit| |license|
+| |versions| |djversions|
+| |sponsor| |bluesky-nedbat| |mastodon-nedbat|
+
+.. |status| image:: https://img.shields.io/pypi/status/django_coverage_plugin.svg
+    :target: https://pypi.python.org/pypi/django_coverage_plugin
+    :alt: Package stability
+.. |kit| image:: https://badge.fury.io/py/django_coverage_plugin.svg
+    :target: https://pypi.python.org/pypi/django_coverage_plugin
+    :alt: Latest PyPI Version
+.. |license| image:: https://img.shields.io/pypi/l/django_coverage_plugin.svg
+    :target: https://pypi.python.org/pypi/django_coverage_plugin
+    :alt: Apache 2.0 License
+.. |versions| image:: https://img.shields.io/pypi/pyversions/django_coverage_plugin.svg
+    :target: https://pypi.python.org/pypi/django_coverage_plugin
+    :alt: Supported Python Versions
+.. the Django badge says: `2.2 | 3.2 | 4.2 | 5.2`
+.. |djversions| image:: https://img.shields.io/badge/Django-2.2%20%7C%203.2%20%7C%204.2%20%7C%205.2-44b78b.svg
+    :target: https://pypi.python.org/pypi/django_coverage_plugin
+    :alt: Supported Django Versions
+.. |sponsor| image:: https://img.shields.io/badge/%E2%9D%A4-Sponsor%20me-brightgreen?style=flat&logo=GitHub
+    :target: https://github.com/sponsors/nedbat
+    :alt: Sponsor me on GitHub
+.. |bluesky-nedbat| image:: https://img.shields.io/badge/dynamic/json?style=flat&color=96a3b0&labelColor=3686f7&logo=icloud&logoColor=white&label=@nedbat&url=https%3A%2F%2Fpublic.api.bsky.app%2Fxrpc%2Fapp.bsky.actor.getProfile%3Factor=nedbat.com&query=followersCount
+    :target: https://bsky.app/profile/nedbat.com
+    :alt: nedbat on Bluesky
+.. |mastodon-nedbat| image:: https://img.shields.io/badge/dynamic/json?style=flat&labelColor=450657&logo=mastodon&logoColor=ffffff&label=@nedbat&query=followers_count&url=https%3A%2F%2Fhachyderm.io%2Fapi%2Fv1%2Faccounts%2Flookup%3Facct=nedbat
+    :target: https://hachyderm.io/@nedbat
+    :alt: nedbat on Mastodon
+
 
 
 Supported on:
 
-- Python: 3.8 through 3.12.
+- Python: 3.9 through 3.13.
 
-- Django: 2.x, 3.x and 4.x.
+- Django: 2.2 through 5.2.
 
 - Coverage.py: 6.x or higher.
 
-The plugin is pip installable::
+The plugin is pip-installable::
 
     $ python3 -m pip install django_coverage_plugin
 
@@ -58,8 +91,7 @@ To run it, add this setting to your ``.coveragerc`` file::
 Then run your tests under `coverage.py`_.
 
 You will see your templates listed in your coverage report along with
-your Python modules. Please use `coverage.py`_ v4.4 or greater to allow
-the plugin to identify untested templates.
+your Python modules.
 
 If you get a :code:`django.core.exceptions.ImproperlyConfigured` error,
 you need to set the :code:`DJANGO_SETTINGS_MODULE` environment variable.
@@ -145,6 +177,12 @@ History
 ~~~~~~~
 
 .. scriv-insert-here
+
+v3.1.1 — 2025-06-15
+-------------------
+
+Support changes: dropped Python 3.8, added Python 3.13.  Added Django 5.2.
+
 
 v3.1.0 — 2023-07-10
 -------------------

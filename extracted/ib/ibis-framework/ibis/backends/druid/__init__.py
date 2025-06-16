@@ -16,7 +16,7 @@ import ibis.common.exceptions as com
 import ibis.expr.datatypes as dt
 import ibis.expr.schema as sch
 from ibis import util
-from ibis.backends import NoExampleLoader
+from ibis.backends import HasCurrentCatalog, HasCurrentDatabase, NoExampleLoader
 from ibis.backends.sql import SQLBackend
 from ibis.backends.sql.compilers.base import STAR
 from ibis.backends.sql.datatypes import DruidType
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     import ibis.expr.types as ir
 
 
-class Backend(SQLBackend, NoExampleLoader):
+class Backend(SQLBackend, HasCurrentCatalog, HasCurrentDatabase, NoExampleLoader):
     name = "druid"
     compiler = sc.druid.compiler
     supports_create_or_replace = False
@@ -44,41 +44,32 @@ class Backend(SQLBackend, NoExampleLoader):
             [(version,)] = result.fetchall()
         return version
 
-    def _from_url(self, url: ParseResult, **kwargs):
-        """Connect to a backend using a URL `url`.
-
-        Parameters
-        ----------
-        url
-            URL with which to connect to a backend.
-        kwargs
-            Additional keyword arguments
-
-        Returns
-        -------
-        BaseBackend
-            A backend instance
-
-        """
-        kwargs = {
-            "user": url.username,
-            "password": unquote_plus(url.password)
-            if url.password is not None
-            else None,
-            "host": url.hostname,
-            "path": url.path,
-            "port": url.port,
-            **kwargs,
-        }
-
+    def _from_url(self, url: ParseResult, **kwarg_overrides):
+        kwargs = {}
+        if url.username:
+            kwargs["user"] = url.username
+        if url.password:
+            kwargs["password"] = unquote_plus(url.password)
+        if url.hostname:
+            kwargs["host"] = url.hostname
+        if url.path:
+            kwargs["path"] = url.path
+        if url.port:
+            kwargs["port"] = url.port
+        kwargs.update(kwarg_overrides)
         self._convert_kwargs(kwargs)
-
         return self.connect(**kwargs)
 
     @property
     def current_database(self) -> str:
         # https://druid.apache.org/docs/latest/querying/sql-metadata-tables.html#schemata-table
         return "druid"
+
+    @property
+    def current_catalog(self) -> str:
+        raise NotImplementedError(
+            "Ibis has not implemented the `current_datalog` property for Druid"
+        )
 
     def do_connect(self, **kwargs: Any) -> None:
         """Create an Ibis client using the passed connection parameters.
@@ -220,18 +211,12 @@ class Backend(SQLBackend, NoExampleLoader):
         raise NotImplementedError()
 
     def list_tables(
-        self, like: str | None = None, database: str | None = None
+        self, *, like: str | None = None, database: str | None = None
     ) -> list[str]:
-        """List the tables in the database.
-
-        Parameters
-        ----------
-        like
-            A pattern to use for listing tables.
-        database
-            Database to list tables from. Default behavior is to show tables in
-            the current database.
-        """
+        if database is not None:
+            raise NotImplementedError(
+                "Ibis has not yet implemented the `database` param for Druid.list_tables()"
+            )
         t = sg.table("TABLES", db="INFORMATION_SCHEMA", quoted=True)
         c = self.compiler
         query = sg.select(sg.column("TABLE_NAME", quoted=True)).from_(t).sql(c.dialect)

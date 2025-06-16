@@ -382,6 +382,21 @@ The declaration order will be respected regardless of the approach used.
 > [!IMPORTANT]
 > If none of these options are utilized, there will not be any deployments.
 
+You can use customer managed key to encrypt a hosted configuration. For mora information, see [Data encryption at rest for AWS AppConfig](https://docs.aws.amazon.com/appconfig/latest/userguide/appconfig-security.html#appconfig-security-data-encryption).
+
+```python
+# application: appconfig.Application
+# kms_key: kms.Key
+
+
+appconfig.HostedConfiguration(self, "MyHostedConfiguration",
+    application=application,
+    content=appconfig.ConfigurationContent.from_inline_text("This is my configuration content."),
+    type=appconfig.ConfigurationType.FEATURE_FLAGS,
+    kms_key=kms_key
+)
+```
+
 ### SourcedConfiguration
 
 A sourced configuration represents configuration stored in any of the following:
@@ -5541,12 +5556,14 @@ class ConfigurationType(enum.Enum):
     Example::
 
         # application: appconfig.Application
+        # kms_key: kms.Key
         
         
         appconfig.HostedConfiguration(self, "MyHostedConfiguration",
             application=application,
             content=appconfig.ConfigurationContent.from_inline_text("This is my configuration content."),
-            type=appconfig.ConfigurationType.FEATURE_FLAGS
+            type=appconfig.ConfigurationType.FEATURE_FLAGS,
+            kms_key=kms_key
         )
     '''
 
@@ -6787,6 +6804,7 @@ class HostedConfigurationOptions(ConfigurationOptions):
         "validators": "validators",
         "application": "application",
         "content": "content",
+        "kms_key": "kmsKey",
         "latest_version_number": "latestVersionNumber",
         "version_label": "versionLabel",
     },
@@ -6805,6 +6823,7 @@ class HostedConfigurationProps(ConfigurationProps):
         validators: typing.Optional[typing.Sequence["IValidator"]] = None,
         application: "IApplication",
         content: ConfigurationContent,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
         latest_version_number: typing.Optional[jsii.Number] = None,
         version_label: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -6820,6 +6839,7 @@ class HostedConfigurationProps(ConfigurationProps):
         :param validators: The validators for the configuration. Default: - No validators.
         :param application: The application associated with the configuration.
         :param content: The content of the hosted configuration.
+        :param kms_key: The customer managed key to encrypt hosted configuration. Default: None
         :param latest_version_number: The latest version number of the hosted configuration. Default: - None.
         :param version_label: The version label of the hosted configuration. Default: - None.
 
@@ -6852,6 +6872,7 @@ class HostedConfigurationProps(ConfigurationProps):
             check_type(argname="argument validators", value=validators, expected_type=type_hints["validators"])
             check_type(argname="argument application", value=application, expected_type=type_hints["application"])
             check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
             check_type(argname="argument latest_version_number", value=latest_version_number, expected_type=type_hints["latest_version_number"])
             check_type(argname="argument version_label", value=version_label, expected_type=type_hints["version_label"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6874,6 +6895,8 @@ class HostedConfigurationProps(ConfigurationProps):
             self._values["type"] = type
         if validators is not None:
             self._values["validators"] = validators
+        if kms_key is not None:
+            self._values["kms_key"] = kms_key
         if latest_version_number is not None:
             self._values["latest_version_number"] = latest_version_number
         if version_label is not None:
@@ -6978,6 +7001,15 @@ class HostedConfigurationProps(ConfigurationProps):
         result = self._values.get("content")
         assert result is not None, "Required property 'content' is missing"
         return typing.cast(ConfigurationContent, result)
+
+    @builtins.property
+    def kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+        '''The customer managed key to encrypt hosted configuration.
+
+        :default: None
+        '''
+        result = self._values.get("kms_key")
+        return typing.cast(typing.Optional[_IKey_5f11635f], result)
 
     @builtins.property
     def latest_version_number(self) -> typing.Optional[jsii.Number]:
@@ -13156,6 +13188,7 @@ class HostedConfiguration(
         id: builtins.str,
         *,
         content: ConfigurationContent,
+        kms_key: typing.Optional[_IKey_5f11635f] = None,
         latest_version_number: typing.Optional[jsii.Number] = None,
         version_label: typing.Optional[builtins.str] = None,
         application: IApplication,
@@ -13172,6 +13205,7 @@ class HostedConfiguration(
         :param scope: -
         :param id: -
         :param content: The content of the hosted configuration.
+        :param kms_key: The customer managed key to encrypt hosted configuration. Default: None
         :param latest_version_number: The latest version number of the hosted configuration. Default: - None.
         :param version_label: The version label of the hosted configuration. Default: - None.
         :param application: The application associated with the configuration.
@@ -13190,6 +13224,7 @@ class HostedConfiguration(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = HostedConfigurationProps(
             content=content,
+            kms_key=kms_key,
             latest_version_number=latest_version_number,
             version_label=version_label,
             application=application,
@@ -14623,6 +14658,7 @@ def _typecheckingstub__7cba9d5464f3f4cbc208d892995245e5078fc2cc794651c71942035a9
     validators: typing.Optional[typing.Sequence[IValidator]] = None,
     application: IApplication,
     content: ConfigurationContent,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
     latest_version_number: typing.Optional[jsii.Number] = None,
     version_label: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -15840,6 +15876,7 @@ def _typecheckingstub__8e7eecc550d3d689f07534db869c7be67f00e08dcbf880bbb2656d019
     id: builtins.str,
     *,
     content: ConfigurationContent,
+    kms_key: typing.Optional[_IKey_5f11635f] = None,
     latest_version_number: typing.Optional[jsii.Number] = None,
     version_label: typing.Optional[builtins.str] = None,
     application: IApplication,

@@ -55,7 +55,7 @@ class TextEmbedding(TextEmbeddingBase):
     ) -> None:
         registered_models = cls._list_supported_models()
         for registered_model in registered_models:
-            if model == registered_model.model:
+            if model.lower() == registered_model.model.lower():
                 raise ValueError(
                     f"Model {model} is already registered in TextEmbedding, if you still want to add this model, "
                     f"please use another model name"
@@ -88,18 +88,18 @@ class TextEmbedding(TextEmbeddingBase):
         **kwargs: Any,
     ):
         super().__init__(model_name, cache_dir, threads, **kwargs)
-        if model_name == "nomic-ai/nomic-embed-text-v1.5-Q":
+        if model_name.lower() == "nomic-ai/nomic-embed-text-v1.5-Q".lower():
             warnings.warn(
                 "The model 'nomic-ai/nomic-embed-text-v1.5-Q' has been updated on HuggingFace. Please review "
                 "the latest documentation on HF and release notes to ensure compatibility with your workflow. ",
                 UserWarning,
                 stacklevel=2,
             )
-        if model_name in {
-            "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-            "thenlper/gte-large",
-            "intfloat/multilingual-e5-large",
-            "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        if model_name.lower() in {
+            "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2".lower(),
+            "thenlper/gte-large".lower(),
+            "intfloat/multilingual-e5-large".lower(),
+            "sentence-transformers/paraphrase-multilingual-mpnet-base-v2".lower(),
         }:
             warnings.warn(
                 f"The model {model_name} now uses mean pooling instead of CLS embedding. "
@@ -127,6 +127,40 @@ class TextEmbedding(TextEmbeddingBase):
             f"Model {model_name} is not supported in TextEmbedding. "
             "Please check the supported models using `TextEmbedding.list_supported_models()`"
         )
+
+    @property
+    def embedding_size(self) -> int:
+        """Get the embedding size of the current model"""
+        if self._embedding_size is None:
+            self._embedding_size = self.get_embedding_size(self.model_name)
+        return self._embedding_size
+
+    @classmethod
+    def get_embedding_size(cls, model_name: str) -> int:
+        """Get the embedding size of the passed model
+
+        Args:
+            model_name (str): The name of the model to get embedding size for.
+
+        Returns:
+            int: The size of the embedding.
+
+        Raises:
+            ValueError: If the model name is not found in the supported models.
+        """
+        descriptions = cls._list_supported_models()
+        embedding_size: Optional[int] = None
+        for description in descriptions:
+            if description.model.lower() == model_name.lower():
+                embedding_size = description.dim
+                break
+        if embedding_size is None:
+            model_names = [description.model for description in descriptions]
+            raise ValueError(
+                f"Embedding size for model {model_name} was None. "
+                f"Available model names: {model_names}"
+            )
+        return embedding_size
 
     def embed(
         self,

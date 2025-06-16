@@ -1,0 +1,53 @@
+# -- full coverage measurement -------
+
+include:
+  # use python/base to get pip download caching
+  - component: git.ligo.org/computing/gitlab/components/python/base@~latest
+
+  - local: .gitlab/ci/test.yml
+
+# special test job that measures coverage from the C code as well
+coverage:
+  extends: .python_base
+  stage: test
+  needs: []
+  image: python:3.12
+  variables:
+    CFLAGS: "-UNDEBUG -fsanitize=undefined -coverage"
+    COVERAGE_FILE: "${CI_PROJECT_DIR}/.coverage-${CI_JOB_NAME_SLUG}"
+  script:
+    # install tooling
+    - python -m pip install
+        gcovr
+        lalsuite
+        pycobertura
+        pytest-cov
+        setuptools
+    # build this project enabling coverage measurements
+    - python -m pip install
+        -C--global-option=build_ext
+        -C--global-option=--build-temp=$(pwd)/obj
+        --editable .[tests]
+        --verbose
+    # run the tests
+    - python -m pytest --cov || exit_code="$?"
+    # compile the reports
+    - python -m gcovr --gcov-ignore-errors no_working_dir_found obj -r . -x -o c-coverage.xml
+    - python -m coverage xml -o py-coverage.xml
+    - curl -sSL https://git.ligo.org/lscsoft/ligo.skymap/-/raw/v2.1.2/.gitlab/combine-coverage.py |
+      python3 - py-coverage.xml c-coverage.xml coverage.xml
+    # print info
+    - python -m pycobertura show coverage.xml -f html -o coverage.html
+    - python -m pycobertura show coverage.xml
+    # propagate test suite exit code
+    - exit ${exit_code:-0}
+  artifacts:
+    expose_as: "Coverage report"
+    paths:
+      - coverage.html
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    when: always
+  coverage: '/^TOTAL\s+.*\s+(\d+\.?\d*)%/'

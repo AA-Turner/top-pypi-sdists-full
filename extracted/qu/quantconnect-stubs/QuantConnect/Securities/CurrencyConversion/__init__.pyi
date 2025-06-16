@@ -62,6 +62,64 @@ class ICurrencyConversion(metaclass=abc.ABCMeta):
         ...
 
 
+class SecurityCurrencyConversion(System.Object, QuantConnect.Securities.CurrencyConversion.ICurrencyConversion):
+    """Provides an implementation of ICurrencyConversion to find and use multi-leg currency conversions"""
+
+    @property
+    def conversion_rate_updated(self) -> _EventContainer[typing.Callable[[System.Object, float], None], None]:
+        """Event fired when the conversion rate is updated"""
+        ...
+
+    @conversion_rate_updated.setter
+    def conversion_rate_updated(self, value: _EventContainer[typing.Callable[[System.Object, float], None], None]) -> None:
+        ...
+
+    @property
+    def source_currency(self) -> str:
+        """The currency this conversion converts from"""
+        ...
+
+    @property
+    def destination_currency(self) -> str:
+        """The currency this conversion converts to"""
+        ...
+
+    @property
+    def conversion_rate(self) -> float:
+        """The current conversion rate"""
+        ...
+
+    @conversion_rate.setter
+    def conversion_rate(self, value: float) -> None:
+        ...
+
+    @property
+    def conversion_rate_securities(self) -> typing.Iterable[QuantConnect.Securities.Security]:
+        """The securities which the conversion rate is based on"""
+        ...
+
+    @staticmethod
+    def linear_search(source_currency: str, destination_currency: str, existing_securities: typing.List[QuantConnect.Securities.Security], potential_symbols: typing.List[QuantConnect.Symbol], make_new_security: typing.Callable[[QuantConnect.Symbol], QuantConnect.Securities.Security]) -> QuantConnect.Securities.CurrencyConversion.SecurityCurrencyConversion:
+        """
+        Finds a conversion between two currencies by looking through all available 1 and 2-leg options
+        
+        :param source_currency: The currency to convert from
+        :param destination_currency: The currency to convert to
+        :param existing_securities: The securities which are already added to the algorithm
+        :param potential_symbols: The symbols to consider, may overlap with existing_securities
+        :param make_new_security: The function to call when a symbol becomes part of the conversion, must return the security that will provide price data about the symbol
+        :returns: A new SecurityCurrencyConversion instance representing the conversion from source_currency to destination_currency.
+        """
+        ...
+
+    def update(self) -> None:
+        """
+        Signals an updates to the internal conversion rate based on the latest data.
+        It will set the conversion rate as potentially outdated so it gets re-calculated.
+        """
+        ...
+
+
 class ConstantCurrencyConversion(System.Object, QuantConnect.Securities.CurrencyConversion.ICurrencyConversion):
     """Provides an implementation of ICurrencyConversion with a fixed conversion rate"""
 
@@ -126,64 +184,6 @@ class ConstantCurrencyConversion(System.Object, QuantConnect.Securities.Currency
 
     def update(self) -> None:
         """Marks the conversion rate as potentially outdated, needing an update based on the latest data"""
-        ...
-
-
-class SecurityCurrencyConversion(System.Object, QuantConnect.Securities.CurrencyConversion.ICurrencyConversion):
-    """Provides an implementation of ICurrencyConversion to find and use multi-leg currency conversions"""
-
-    @property
-    def conversion_rate_updated(self) -> _EventContainer[typing.Callable[[System.Object, float], None], None]:
-        """Event fired when the conversion rate is updated"""
-        ...
-
-    @conversion_rate_updated.setter
-    def conversion_rate_updated(self, value: _EventContainer[typing.Callable[[System.Object, float], None], None]) -> None:
-        ...
-
-    @property
-    def source_currency(self) -> str:
-        """The currency this conversion converts from"""
-        ...
-
-    @property
-    def destination_currency(self) -> str:
-        """The currency this conversion converts to"""
-        ...
-
-    @property
-    def conversion_rate(self) -> float:
-        """The current conversion rate"""
-        ...
-
-    @conversion_rate.setter
-    def conversion_rate(self, value: float) -> None:
-        ...
-
-    @property
-    def conversion_rate_securities(self) -> typing.Iterable[QuantConnect.Securities.Security]:
-        """The securities which the conversion rate is based on"""
-        ...
-
-    @staticmethod
-    def linear_search(source_currency: str, destination_currency: str, existing_securities: typing.List[QuantConnect.Securities.Security], potential_symbols: typing.List[QuantConnect.Symbol], make_new_security: typing.Callable[[QuantConnect.Symbol], QuantConnect.Securities.Security]) -> QuantConnect.Securities.CurrencyConversion.SecurityCurrencyConversion:
-        """
-        Finds a conversion between two currencies by looking through all available 1 and 2-leg options
-        
-        :param source_currency: The currency to convert from
-        :param destination_currency: The currency to convert to
-        :param existing_securities: The securities which are already added to the algorithm
-        :param potential_symbols: The symbols to consider, may overlap with existing_securities
-        :param make_new_security: The function to call when a symbol becomes part of the conversion, must return the security that will provide price data about the symbol
-        :returns: A new SecurityCurrencyConversion instance representing the conversion from source_currency to destination_currency.
-        """
-        ...
-
-    def update(self) -> None:
-        """
-        Signals an updates to the internal conversion rate based on the latest data.
-        It will set the conversion rate as potentially outdated so it gets re-calculated.
-        """
         ...
 
 

@@ -1,0 +1,528 @@
+variables:
+  LIGO_SKYMAP_USE_SYSTEM_CHEALPIX: 1
+  OMP_NUM_THREADS: 4
+
+include:
+  - project: computing/gitlab-ci-templates
+    file: python.yml
+
+stages:
+  - deps
+  - dist
+  - test
+  - deploy
+
+#
+# Read all requirements for the package and all extras from setup.cfg.
+#
+
+requirements:
+  stage: deps
+  image: python:slim
+  script:
+    - |
+      python >requirements.txt <<EOF
+      import tomllib
+      with open('pyproject.toml', 'rb') as f:
+          conf = tomllib.load(f)
+      for dep in conf['project']['dependencies']:
+          print(dep)
+      for deps in conf['project']['optional-dependencies'].values():
+          for dep in deps:
+              print(dep)
+      EOF
+  artifacts:
+    paths:
+      - requirements.txt
+    expire_in: 1 day
+
+#
+# Build Python source package.
+#
+
+sdist:
+  image: python:3.11
+  stage: dist
+  script:
+    - pip install build
+    - python -m build -s -o .
+  needs: []
+  artifacts:
+    paths:
+      - '*.tar.*'
+    expire_in: 1 day
+
+#
+# Build binary wheels for Linux and macOS.
+#
+
+.wheel-linux: &wheel-linux
+  stage: dist
+  script:
+    # Build and install LALSuite
+    - PYPREFIX=/opt/python/cp310-cp310
+    - ${PYPREFIX}/bin/pip install build
+    - ${PYPREFIX}/bin/python -m build -w
+    - auditwheel repair dist/*.whl
+    - rm dist/*
+    - mv wheelhouse/* .
+  needs: []
+  artifacts:
+    paths:
+      - '*.whl'
+    expire_in: 1 day
+
+wheel/linux/x86_64:
+  <<: *wheel-linux
+  # This container is derived from the official manylinux image provided by
+  # python.org (see PEP 513), and includes all of the LALSuite
+  # build-dependencies.
+  image: containers.ligo.org/lscsoft/lalsuite-manylinux/manylinux_2_28_x86_64:icc
+
+wheel/linux/aarch64:
+  <<: *wheel-linux
+  variables:
+    CFLAGS: -Ofast -fno-finite-math-only -flto
+  # This container is derived from the official manylinux image provided by
+  # python.org (see PEP 513), and includes all of the LALSuite
+  # build-dependencies.
+  image: containers.ligo.org/lscsoft/lalsuite-manylinux/manylinux_2_28_aarch64
+  tags:
+    - aarch64
+
+.wheel-macos: &wheel-macos
+  variables:
+    CC: gcc-mp-14
+    CXX: g++-mp-14
+    CFLAGS: -Ofast -fno-finite-math-only -flto
+  stage: dist
+  script:
+    - . /opt/local/share/macports/setupenv.bash
+    - PYVERS=3.11
+    # Enter virtualenv so that we have a controlled version of Numpy
+    - python${PYVERS} -m venv env
+    - source env/bin/activate
+    - pip install build delocate
+    # Build and audit wheel
+    - python -m build -w .
+    - delocate-wheel -v -w wheelhouse dist/*.whl
+    - rm -f *.whl
+    - mv wheelhouse/* .
+  needs: []
+  artifacts:
+    paths:
+      - '*.whl'
+    expire_in: 1 day
+
+wheel/macos/x86_64:
+  <<: *wheel-macos
+  tags:
+    - macos_ventura_x86_64
+
+wheel/macos/arm64:
+  <<: *wheel-macos
+  tags:
+    - macos_monterey_arm64
+
+#
+# Build Docker containers for dependencies listed in requirements.txt,
+# plus dependencies for running the unit tests, collecting coverage data,
+# and generating the docs.
+#
+
+.in-tmpdir: &in-tmpdir
+  before_script:
+    - WORKING_DIRECTORY="$(mktemp -d)"
+    - cd "${WORKING_DIRECTORY}"
+  after_script:
+    - cd "${CI_PROJECT_DIR}"
+    - rm -rf "${WORKING_DIRECTORY}"
+
+.deps: &deps
+  stage: dist
+  variables:
+    IMAGE_TAG: $CI_REGISTRY_IMAGE/$CI_JOB_NAME:$CI_COMMIT_REF_SLUG
+    GIT_STRATEGY: none
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - |
+      cat <<EOF > Dockerfile
+      FROM python:${CI_JOB_NAME#*python}
+      RUN apt-get update && apt-get -y install --no-install-recommends libchealpix-dev libgsl-dev pkg-config && rm -rf /var/lib/apt/lists/*
+      RUN pip --no-cache-dir install pytest-cov gcovr\<8 pycobertura flake8 coverage 'pip>=24'
+      COPY requirements.txt .
+      # FIXME: temporarily install numpy<2 so that we test Numpy 1.x here and cover newer versions in the dev deps test. Remove when we require numpy>=2.
+      RUN pip --no-cache-dir install numpy\<2 -r requirements.txt && rm -f requirements.txt
+      EOF
+    - docker build -t $IMAGE_TAG .
+    - docker push $IMAGE_TAG
+  needs:
+    - requirements
+  tags:
+    - executor-docker
+
+# Pin Python patch version due to bug affecting doctests that has been fixed
+# but will not be backported to Python 3.11.
+# See https://github.com/python/cpython/issues/117692#issuecomment-2047800533.
+deps-aarch64/python3.11.8:
+  <<: *deps
+  tags:
+    - aarch64
+    # FIXME: Uncomment after the following issue is fixed.
+    # https://git.ligo.org/computing/helpdesk/-/issues/5775
+    # - executor-docker
+
+# Pin Python patch version due to bug affecting doctests that has been fixed
+# but will not be backported to Python 3.11.
+# See https://github.com/python/cpython/issues/117692#issuecomment-2047800533.
+deps-x86_64/python3.11.8:
+  <<: *deps
+
+deps-x86_64/python3.12:
+  <<: *deps
+
+deps-x86_64/python3.13:
+  <<: *deps
+
+#
+# Generate documentation.
+#
+
+docs:
+  image: $CI_REGISTRY_IMAGE/deps-x86_64/python3.12:$CI_COMMIT_REF_SLUG
+  stage: test
+  <<: *in-tmpdir
+  script:
+    - tar --strip-components 1 -xf ${CI_PROJECT_DIR}/*.tar.*
+    - pip install -e .
+    - make -C docs html
+    - mv docs/_build/html ${CI_PROJECT_DIR}/
+  needs:
+    - deps-x86_64/python3.12
+    - sdist
+  artifacts:
+    paths:
+      - html/
+    expire_in: 1 day
+
+#
+# Test the wheels.
+#
+
+.test: &test
+  <<: *in-tmpdir
+  stage: test
+  script:
+    - pip install $(echo ${CI_PROJECT_DIR}/*.whl)[test]
+    - pytest --pyargs ligo.skymap --doctest-plus --doctest-ufunc --mpl --mpl-results-path ${CI_PROJECT_DIR}/pytest-mpl-results --mpl-generate-summary=html --omp-get-num-threads --durations=10
+  artifacts:
+    paths:
+      - pytest-mpl-results/
+    when: always
+
+test/linux/aarch64/python3.11.8:
+  <<: *test
+  image: $CI_REGISTRY_IMAGE/deps-aarch64/python3.11.8:$CI_COMMIT_REF_SLUG
+  needs:
+    - deps-aarch64/python3.11.8
+    - wheel/linux/aarch64
+  tags:
+    - aarch64
+
+test/linux/x86_64/python3.11.8:
+  <<: *test
+  image: $CI_REGISTRY_IMAGE/deps-x86_64/python3.11.8:$CI_COMMIT_REF_SLUG
+  needs:
+    - deps-x86_64/python3.11.8
+    - wheel/linux/x86_64
+
+test/linux/x86_64/python3.12:
+  <<: *test
+  image: $CI_REGISTRY_IMAGE/deps-x86_64/python3.12:$CI_COMMIT_REF_SLUG
+  needs:
+    - deps-x86_64/python3.12
+    - wheel/linux/x86_64
+
+test/linux/x86_64/python3.13:
+  <<: *test
+  image: $CI_REGISTRY_IMAGE/deps-x86_64/python3.13:$CI_COMMIT_REF_SLUG
+  needs:
+    - deps-x86_64/python3.13
+    - wheel/linux/x86_64
+
+.test/macos: &test-macos
+  <<: *in-tmpdir
+  stage: test
+  script:
+    - . /opt/local/share/macports/setupenv.bash
+    - PYVERS=3.12
+    # Enter virtualenv so that we have a controlled version of Numpy
+    - python${PYVERS} -m venv env
+    - source env/bin/activate
+    - pip install $(echo ${CI_PROJECT_DIR}/*.whl)[test]
+    - pytest --pyargs ligo.skymap --doctest-plus --doctest-ufunc --mpl --mpl-results-path ${CI_PROJECT_DIR}/pytest-mpl-results --mpl-generate-summary=html --omp-get-num-threads --durations=10
+  artifacts:
+    paths:
+      - pytest-mpl-results/
+    when: always
+
+test/macos/x86_64:
+  <<: *test-macos
+  tags:
+    - macos_ventura_x86_64
+  needs:
+    - wheel/macos/x86_64
+
+test/macos/arm64:
+  <<: *test-macos
+  tags:
+    - macos_sequoia_arm64
+  needs:
+    - wheel/macos/arm64
+
+# Test against development versions of certain upstream dependencies.
+test/dev-deps:
+  <<: *test
+  image: python:3.12
+  script:
+    # Qhull is needed to build Matplotlib from source
+    - apt-get update && apt-get -y install --no-install-recommends libqhull-dev
+    - pip install $(echo ${CI_PROJECT_DIR}/*.whl)[test]
+    - >
+      pip install --upgrade --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
+      'numpy>=0.0.0.dev0'
+      'matplotlib>=0.0.0.dev0'
+      'lalsuite>=0.0.0.dev0'
+      git+https://github.com/astropy/astropy
+      git+https://git.ligo.org/computing/software/igwn-ligolw
+    - pytest --pyargs ligo.skymap --doctest-plus --doctest-ufunc --mpl --mpl-results-path ${CI_PROJECT_DIR}/pytest-mpl-results --mpl-generate-summary=html --omp-get-num-threads --durations=10
+  needs:
+    - wheel/linux/x86_64
+  allow_failure: true
+
+#
+# Measure test coverage:
+# - coverage.py for Python code
+# - gcov/gcovr for C code
+#
+# Export the results from both to Cobertura format because it's an XML format
+# that both coverage.py and gcovr can write, merge them by hand, and then
+# write HTML and text summaries.
+#
+# This would be a lot prettier if we could use coveralls or codecov.io,
+# which support multilingual test coverage. However, those products don't
+# integrate with git.ligo.org (or at least, they don't integrate for free).
+#
+
+test/coverage:
+  stage: test
+  image: $CI_REGISTRY_IMAGE/deps-x86_64/python3.11.8:$CI_COMMIT_REF_SLUG
+  variables:
+    # -UNDEBUG
+    #     enable C assertions
+    # -coverage
+    #     instrument C code for coverage measurement
+    # -fsanitize=undefined
+    #     enable GCC UndefinedBehaviorSanitizer
+    # -fopenmp
+    #     The -coverage breaks OpenMP detection in extension-helpers.
+    #     See https://github.com/astropy/extension-helpers/issues/1
+    CC: gcc -coverage
+    LDSHARED: gcc -pthread -shared -coverage
+    CFLAGS: -UNDEBUG -fsanitize=undefined -fopenmp
+  coverage: '/^TOTAL\s+.*\s+(\d+\.?\d*)%/'
+  <<: *in-tmpdir
+  script:
+    - tar --strip-components 1 -xf ${CI_PROJECT_DIR}/*.tar.*
+    # Build and install package with pip, but save the intermediate files which
+    # include gcov's .gcno data files.
+    - mkdir obj
+    - pip install --no-deps -C--global-option=build_ext -C--global-option=--build-temp=$(pwd)/obj -ve .
+    # Run tests.
+    - pytest --capture=sys --doctest-plus --doctest-ufunc --mpl --mpl-results-path ${CI_PROJECT_DIR}/pytest-mpl-results --mpl-generate-summary=html --durations=10 --cov ligo/skymap --junit-xml=${CI_PROJECT_DIR}/junit.xml || FAILED=true
+    # Write coverage reports in Cobertura format.
+    - gcovr --gcov-ignore-errors no_working_dir_found obj -r . -x -o c-coverage.xml
+    - coverage xml -o py-coverage.xml
+    # Merge coverage reports.
+    - ${CI_PROJECT_DIR}/.gitlab/combine-coverage.py py-coverage.xml c-coverage.xml coverage.xml
+    # Write human-readable report.
+    - pycobertura show coverage.xml -f html -o coverage.html
+    - pycobertura show coverage.xml
+    - cp coverage.html coverage.xml ${CI_PROJECT_DIR}
+    - if [[ "$FAILED" ]]; then false; fi
+  needs:
+    - deps-x86_64/python3.11.8
+    - sdist
+  artifacts:
+    paths:
+      - coverage.html
+      - pytest-mpl-results/
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+      junit: junit.xml
+    expire_in: 1 day
+    when: always
+  timeout: 2 hours
+
+#
+# Run flake8 linter to enforce code style.
+#
+
+lint:
+  extends:
+    - .python:flake8
+  image: $CI_REGISTRY_IMAGE/deps-x86_64/python3.11.8:$CI_COMMIT_REF_SLUG
+  stage: test
+  needs:
+    - deps-x86_64/python3.11.8
+
+#
+# Acceptance tests.
+#
+
+tests/review:
+  stage: test
+  image: containers.ligo.org/emfollow/ssh-kerberos
+  when: manual
+  needs:
+    - wheel/linux/x86_64
+  variables:
+    GIT_STRATEGY: none
+    REMOTE_HOST: skymap.testing@ldas-grid.ligo.caltech.edu
+  script:
+    - echo -e "\e[0Ksection_start:`date +%s`:remote_clone\r\e[0KCloning HTCondor workflow on cluster"
+    - ssh -T $REMOTE_HOST "mkdir -p public_html && git clone --depth=1 --recurse-submodules --shallow-submodules https://git.ligo.org/leo-singer/ligo-skymap-acceptance-tests-public public_html/$CI_JOB_ID"
+    - echo -e "\e[0Ksection_end:`date +%s`:remote_clone\r\e[0K"
+
+    - echo -e "\e[0Ksection_start:`date +%s`:remote_install\r\e[0KInstalling Python packages on cluster"
+    - scp *.whl $REMOTE_HOST:public_html/$CI_JOB_ID
+    - |
+      ssh -T $REMOTE_HOST "bash -e" <<EOF
+      cd public_html/$CI_JOB_ID
+      /cvmfs/oasis.opensciencegrid.org/ligo/sw/conda/bin/python -m venv env
+      source env/bin/activate
+      pip install *.whl
+      pip install -r requirements.txt
+      EOF
+    - echo -e "\e[0Ksection_end:`date +%s`:remote_install\r\e[0K"
+
+    - echo -e "\e[0Ksection_start:`date +%s`:remote_submit\r\e[0KRunning HTCondor workflow on cluster"
+    - |
+      ssh -T $REMOTE_HOST "bash -e" <<EOF
+      cd public_html/$CI_JOB_ID
+      source env/bin/activate
+      export LAL_DATA_PATH=/home/lalsimulation_data  # FIXME: workaround for https://git.ligo.org/computing/helpdesk/-/issues/7001
+      condor_submit_dag -include_env LAL_DATA_PATH -append accounting_group_user=leo.singer -batch-name pipeline/$CI_JOB_ID htcondor/acceptance-tests.dag
+      tail --follow=descriptor --retry htcondor/acceptance-tests.dag.dagman.out &
+      condor_wait htcondor/acceptance-tests.dag.dagman.log
+      kill %
+      EOF
+    - echo -e "\e[0Ksection_end:`date +%s`:remote_submit\r\e[0K"
+
+    - echo -e "\e[0Ksection_start:`date +%s`:remote_retrieve\r\e[0KRetrieving artifacts from cluster"
+    - scp -r $REMOTE_HOST:public_html/$CI_JOB_ID/site site
+    - echo -e "\e[0Ksection_end:`date +%s`:remote_retrieve\r\e[0K"
+
+    - echo -e "\e[0Ksection_start:`date +%s`:remote_cleanup\r\e[0KCleaning up files on cluster"
+    - ssh -T $REMOTE_HOST "rm -rf public_html/$CI_JOB_ID"
+    - echo -e "\e[0Ksection_end:`date +%s`:remote_cleanup\r\e[0K"
+
+  artifacts:
+    paths:
+      - site
+      - site/index.html
+    expose_as: acceptance tests
+    expire_in: 1 week
+
+#
+# Run benchmark.
+#
+
+tests/benchmark:
+  stage: test
+  image: containers.ligo.org/emfollow/ssh-kerberos
+  when: manual
+  needs:
+    - wheel/linux/x86_64
+  variables:
+    GIT_STRATEGY: none
+    REMOTE_HOST: skymap.testing@ldas-grid.ligo.caltech.edu
+  script:
+    - |
+      ssh -T $REMOTE_HOST "bash -e" <<EOF
+      mkdir -p public_html
+      git clone $CI_REPOSITORY_URL public_html/$CI_JOB_ID
+      cd public_html/$CI_JOB_ID
+      git checkout $CI_COMMIT_REF_NAME
+      EOF
+    - scp *.whl $REMOTE_HOST:public_html/$CI_JOB_ID
+    - |
+      ssh -T $REMOTE_HOST "bash -e" <<EOF
+      cd public_html/$CI_JOB_ID
+      CI_SERVER_PROTOCOL="$CI_SERVER_PROTOCOL" CI_JOB_TOKEN="$CI_JOB_TOKEN" \
+      export LAL_DATA_PATH=/home/lalsimulation_data  # FIXME: workaround for https://git.ligo.org/computing/helpdesk/-/issues/7001
+      CI_SERVER_FQDN="$CI_SERVER_FQDN" condor_run \
+        -a request_disk=4G \
+        -a request_memory=8G \
+        -a request_cpus=48 \
+        -a accounting_group=ligo.dev.o4.cbc.pe.bayestar \
+        -a accounting_group_user=leo.singer \
+        -a Requirements=TARGET.machine==\"node2100.cluster.ldas.cit\" \
+        -a MY.Benchmarking_Mix=True \
+        ./.gitlab/benchmark.sh *.whl
+      EOF
+    - scp $REMOTE_HOST:public_html/$CI_JOB_ID/{benchmark.svg,roofline.html,perf.svg} ./
+  after_script:
+    - echo -e "\e[0Ksection_start:`date +%s`:remote_cleanup\r\e[0KCleaning up files on cluster"
+    - ssh -T $REMOTE_HOST "rm -rf public_html/$CI_JOB_ID"
+    - echo -e "\e[0Ksection_end:`date +%s`:remote_cleanup\r\e[0K"
+  artifacts:
+    paths:
+      - benchmark.svg
+      - roofline.html
+      - perf.svg
+    expose_as: benchmark
+    expire_in: 1 week
+
+#
+# Gather coverage reports and docs for GitLab pages and build badges.
+#
+
+pages:
+  stage: deploy
+  script:
+    - mv html public
+    - mv coverage.html public/coverage.html
+  needs:
+    - docs
+    - test/coverage
+  artifacts:
+    paths:
+      - public
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+#
+# Upload Python packages.
+#
+
+deploy/pypi:
+  stage: deploy
+  image: python:slim
+  before_script:
+    - pip install twine
+  script:
+    # TWINE_USERNAME and TWINE_PASSWORD are provided by CI secret variables
+    - twine upload --skip-existing *.whl *.tar.*
+  needs:
+    - sdist
+    - wheel/linux/x86_64
+    - wheel/linux/aarch64
+    - wheel/macos/x86_64
+    - wheel/macos/arm64
+  rules:
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'

@@ -9,7 +9,7 @@ from siliconcompiler import NodeStatus
 
 
 class FlowgraphSchema(NamedSchema):
-    def __init__(self, name=None):
+    def __init__(self, name):
         super().__init__(name=name)
 
         schema = EditableSchema(self)
@@ -164,6 +164,37 @@ class FlowgraphSchema(NamedSchema):
                     inputs = [inode for inode in inputs if inode != node]
                     inputs.extend(node_inputs)
                     self.set(flow_step, flow_index, 'input', sorted(set(inputs)))
+
+        self.__clear_cache()
+
+    def insert_node(self, step, task, before_step, index=0, before_index=0):
+        '''
+        Insert a new node after the specified node
+
+        Args:
+            step (str): Step name
+            index (int/str): Step index
+            task (module/str): Task to associate with this node
+            before_step (str): name of step to insert task after
+            before_index (int/str): index of step to insert task after
+        '''
+
+        index = str(index)
+        before_index = str(before_index)
+
+        if (before_step, before_index) not in self.get_nodes():
+            raise ValueError(f'{before_step}{before_index} is not a valid node in {self.name()}')
+
+        # add the node
+        self.node(step, task, index=index)
+
+        # rewire
+        for istep, iindex in self.get_node_outputs(before_step, before_index):
+            inputs = self.get(istep, iindex, "input")
+            inputs.remove((before_step, before_index))
+            self.set(istep, iindex, "input", inputs)
+            self.add(istep, iindex, "input", (step, index))
+        self.set(step, index, "input", [(before_step, before_index)])
 
         self.__clear_cache()
 

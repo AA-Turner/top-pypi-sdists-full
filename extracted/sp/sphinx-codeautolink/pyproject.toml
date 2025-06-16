@@ -1,0 +1,101 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sphinx-codeautolink"
+description = "Automatic links from code examples to reference documentation."
+readme = "readme_pypi.rst"
+license = {file = "LICENSE"}
+dynamic = ["version"]
+
+requires-python = ">=3.10"
+dependencies = [
+    "sphinx>=3.2.0",
+    "beautifulsoup4>=4.8.1",
+]
+# Keep extras in sync with requirements manually
+optional-dependencies = {ipython = ["ipython!=8.7.0"]}
+
+keywords = ["sphinx", "extension", "code", "link"]
+authors = [{name = "Felix Hildén", email = "felix.hilden@gmail.com"}]
+maintainers = [{name = "Felix Hildén", email = "felix.hilden@gmail.com"}]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Sphinx",
+    "Framework :: Sphinx :: Extension",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Documentation",
+    "Topic :: Documentation :: Sphinx",
+    "Topic :: Software Development :: Documentation",
+]
+
+[project.urls]
+homepage = "https://pypi.org/project/sphinx-codeautolink"
+download = "https://pypi.org/project/sphinx-codeautolink"
+source = "https://github.com/felix-hilden/sphinx-codeautolink"
+issues = "https://github.com/felix-hilden/sphinx-codeautolink/issues"
+documentation = "https://sphinx-codeautolink.rtfd.org"
+
+[tool.setuptools.dynamic]
+version = {attr = "sphinx_codeautolink.__version__"}
+
+[tool.pytest.ini_options]
+python_files = "*.py"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:.*IPython:UserWarning",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+command_line = "-m pytest"
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN", # annotations - too oppressive
+    "TC", # type checking - too much hassle
+]
+extend-ignore = [
+    "ARG001", # unused args needed in interfaces
+    "ARG002", # unused args needed in interfaces
+    "D107", # docstring missing is fine
+    "D203", # recommended by ruff format
+    "D212", # docstring format clash
+    "D413", # empty docstring ending line
+    "COM812", # recommended by ruff format
+    "ISC001", # recommended by ruff format
+    "PLR0913", # many arguments is fine
+    "PLR0915", # many statements is fine
+]
+extend-unsafe-fixes = ["F401"]
+isort.split-on-trailing-comma = false
+
+[tool.ruff.lint.extend-per-file-ignores]
+"src/*/__init__.py" = ["F401"]
+"src/sphinx_codeautolink/parse.py" = ["N802"]
+"docs/*" = ["ALL"]
+"tests/*" = [
+    "D", # docstring
+    "ANN", # annotations
+    "S101", # assertions - necessary in tests
+    "T201", # print - helpful in tests
+    "PLR2004", # magic number
+]
+# TODO: support future annotated hints properly
+"tests/extension/src/test_project/__init__.py" = ["FA100"]
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true

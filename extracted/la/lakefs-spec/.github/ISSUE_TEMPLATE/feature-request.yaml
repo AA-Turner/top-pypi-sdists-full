@@ -1,0 +1,24 @@
+name: "Issue: Feature Request"
+description: Request a feature or change in lakeFS-spec.
+labels: ["feature request", "triage"]
+projects: ["aai-institute/4"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thank you for helping us improving lakeFS-spec!
+        If you are willing to submit a PR the feature (this is not required), please let us know!
+  - type: textarea
+    attributes:
+      label: What is the motivation and/or use case?
+      description: Provide a brief description of the use case.
+      placeholder: |
+        A short description of the use case and context to help us understand what you would like to see added/changed to lakeFS-spec.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: How can we implement this feature?
+      description: Provide a description of the ideal solution
+      placeholder: |
+        A short description or example of how the solution could look like, and (optionally) how we could implement it.

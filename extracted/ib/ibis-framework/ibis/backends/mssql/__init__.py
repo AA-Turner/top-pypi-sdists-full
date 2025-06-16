@@ -22,7 +22,13 @@ import ibis.expr.operations as ops
 import ibis.expr.schema as sch
 import ibis.expr.types as ir
 from ibis import util
-from ibis.backends import CanCreateCatalog, CanCreateDatabase, PyArrowExampleLoader
+from ibis.backends import (
+    CanCreateCatalog,
+    CanCreateDatabase,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+    PyArrowExampleLoader,
+)
 from ibis.backends.sql import SQLBackend
 from ibis.backends.sql.compilers.base import STAR, C
 
@@ -75,7 +81,14 @@ def datetimeoffset_to_datetime(value):
 # Databases: sys.schemas
 
 
-class Backend(SQLBackend, CanCreateCatalog, CanCreateDatabase, PyArrowExampleLoader):
+class Backend(
+    SQLBackend,
+    CanCreateCatalog,
+    CanCreateDatabase,
+    HasCurrentCatalog,
+    HasCurrentDatabase,
+    PyArrowExampleLoader,
+):
     name = "mssql"
     compiler = sc.mssql.compiler
     supports_create_or_replace = False
@@ -213,38 +226,20 @@ class Backend(SQLBackend, CanCreateCatalog, CanCreateDatabase, PyArrowExampleLoa
         with closing(self.con.cursor()) as cur:
             cur.execute("SET DATEFIRST 1")
 
-    def _from_url(self, url: ParseResult, **kwargs):
-        database, *_ = url.path[1:].split("/", 1)
-        kwargs.update(
-            {
-                "user": url.username,
-                "password": unquote_plus(url.password or ""),
-                "host": url.hostname,
-                "database": database or "",
-                "port": url.port or None,
-            }
-        )
-
+    def _from_url(self, url: ParseResult, **kwarg_overrides):
+        kwargs = {}
+        if url.username:
+            kwargs["user"] = url.username
+        if url.password:
+            kwargs["password"] = unquote_plus(url.password)
+        if url.hostname:
+            kwargs["host"] = url.hostname
+        if url.port:
+            kwargs["port"] = url.port
+        if database := url.path[1:].split("/")[0]:
+            kwargs["database"] = database
+        kwargs.update(kwarg_overrides)
         self._convert_kwargs(kwargs)
-
-        if "host" in kwargs and not kwargs["host"]:
-            del kwargs["host"]
-
-        if "user" in kwargs and not kwargs["user"]:
-            del kwargs["user"]
-
-        if "password" in kwargs and kwargs["password"] is None:
-            del kwargs["password"]
-
-        if "port" in kwargs and kwargs["port"] is None:
-            del kwargs["port"]
-
-        if "database" in kwargs and not kwargs["database"]:
-            del kwargs["database"]
-
-        if "driver" in kwargs and not kwargs["driver"]:
-            del kwargs["driver"]
-
         return self.connect(**kwargs)
 
     def get_schema(
@@ -562,30 +557,6 @@ GO"""
     def list_tables(
         self, *, like: str | None = None, database: tuple[str, str] | str | None = None
     ) -> list[str]:
-        """List the tables in the database.
-
-        ::: {.callout-note}
-        ## Ibis does not use the word `schema` to refer to database hierarchy.
-
-        A collection of tables is referred to as a `database`.
-        A collection of `database` is referred to as a `catalog`.
-
-        These terms are mapped onto the corresponding features in each
-        backend (where available), regardless of whether the backend itself
-        uses the same terminology.
-        :::
-
-        Parameters
-        ----------
-        like
-            A pattern to use for listing tables.
-        database
-            Table location. If not passed, uses the current catalog and database.
-
-            To specify a table in a separate catalog, you can pass in the
-            catalog and database as a string `"catalog.database"`, or as a tuple of
-            strings `("catalog", "database")`.
-        """
         table_loc = self._to_sqlglot_table(database)
         catalog, db = self._to_catalog_db_tuple(table_loc)
 

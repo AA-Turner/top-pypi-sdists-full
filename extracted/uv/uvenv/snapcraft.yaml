@@ -1,0 +1,69 @@
+name: uvenv
+base: core24
+adopt-info: version
+# note: current metadata is managed at https://snapcraft.io/uvenv/listing
+summary: "uvenv: pipx for uv (🦀)"
+description: |
+  uvenv is a simple command-line tool for managing virtual environments, written in Rust. 
+  Think of it as pipx, but for uv.
+
+  📖 Full documentation: https://github.com/robinvandernoord/uvenv
+
+  **Getting started**
+  
+     snap install uvenv
+
+  **Snap Installation Caveats**
+
+  When installed via Snap, there are some important differences to note:
+
+  - Tools are downloaded to `~/snap/uvenv/<revision>/.local/uvenv` instead of `~/.local/uvenv`
+  - Scripts are installed in `~/snap/uvenv/<revision>/.local/bin` instead of `~/.local/bin`
+  - The snap package cannot update files like `~/.bashrc` or perform self-updates.
+
+  **Setting Up Bash Integration**
+
+  To enable all Bash-specific features, add the following lines to your `~/.bashrc`:
+
+     eval "$(uvenv --generate=bash ensurepath)" # Required: Fix PATH
+     eval "$(uvenv --generate=bash completions)" # Optional: Enable tab completion
+     eval "$(uvenv --generate=bash activate _)" # Optional: Enable the `uvenv activate` command
+
+  For other shells, run:
+
+     uvenv setup
+
+  This will display the appropriate setup instructions for your shell.
+
+grade: stable
+confinement: strict
+
+apps:
+  uvenv:
+    command: usr/bin/uvenv
+    extensions: []
+    plugs:
+      - network
+
+parts:
+  version:
+    plugin: nil
+    source: https://github.com/robinvandernoord/uvenv.git
+    source-type: git
+    build-packages:
+      - git
+    override-pull: |
+      snapcraftctl pull
+      git pull
+      git fetch --tags
+      snapcraftctl set-version "$(git describe --tags `git rev-list --tags --max-count=1`)"
+
+  link-app:
+    # build happens outside of snapcraft, this step turns binary into snap.
+    plugin: dump
+    source: target/release
+    override-build: |
+      set -eu
+      install -D ./uv $SNAPCRAFT_PART_INSTALL/usr/bin/uv
+      install -D ./uvenv $SNAPCRAFT_PART_INSTALL/usr/bin/uvenv
+

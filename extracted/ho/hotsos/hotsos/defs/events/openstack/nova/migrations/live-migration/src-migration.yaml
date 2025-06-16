@@ -1,5 +1,0 @@
-# NOTE: for efficiency, do not capture time as subgroup unless actually necessary.
-start: '([\d-]+) ([\d:]+)\.\d{3} .+ \[instance: (\S+)\] About to invoke the migrate API _live_migration_operation'
-body:
-  - '([\d-]+) ([\d:]+)\.\d{3} .+ \[instance: (\S+)\] Migration running for \d+ secs, memory (\d+)% remaining .+ disk (\d+)% remaining'
-end: '([\d-]+) ([\d:]+)\.\d{3} .+ \[instance: (\S+)\] Migration operation has completed'

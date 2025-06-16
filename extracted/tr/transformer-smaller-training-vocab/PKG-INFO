@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: transformer-smaller-training-vocab
-Version: 0.4.1
+Version: 0.4.2
 Summary: Temporary remove unused tokens during training to save ram and speed.
 License: MIT
 Author: Benedikt Fuchs

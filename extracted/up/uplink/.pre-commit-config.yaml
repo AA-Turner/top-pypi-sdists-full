@@ -1,0 +1,17 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+    -   id: pretty-format-json
+        args: [--autofix]
+    -   id: check-added-large-files
+        args: ['--maxkb=5120']
+    -   id: no-commit-to-branch
+        args: [-p master]
+-   repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: 'v0.9.8'
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+

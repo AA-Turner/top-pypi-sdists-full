@@ -1,0 +1,224 @@
+Metadata-Version: 2.1
+Name: boto3-assume
+Version: 0.1.2
+Summary: Easily create boto3/aioboto3 assume role sessions with automatic credential refreshing.
+Home-page: https://github.com/btemplep/boto3-assume
+Author: Brandon Temple Paul
+Author-email: btemplepgit@gmail.com
+License: Apache License 2.0
+Project-URL: Repository, https://github.com/btemplep/boto3-assume
+Keywords: aio,aioboto3,aiobotocore,assume,async,asyncio,aws,boto3,botocore,credentials,creds,iam,refresh,refreshable,role,sdk
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: aioboto3; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: coverage; extra == "dev"
+Requires-Dist: moto[server]; extra == "dev"
+Requires-Dist: nox; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytz; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+
+# boto3-assume
+
+
+`boto3-assume` has one simple goal. Easily create `boto3`/`aioboto3` assume role sessions with automatic credential refreshing.
+
+
+## Installation
+
+Install with pip:
+
+```text
+$ pip install boto3-assume
+```
+
+> **NOTE** - It currently doesn't come with `boto3` or `aioboto3` , so you need install to one or both as needed.
+
+
+## Tutorial
+
+There are only 2 functions `assume_role_session` and `assume_role_aio_session`
+
+For `boto3`:
+
+```python
+import boto3
+from boto3_assume import assume_role_session
+
+assume_session = assume_role_session(
+    source_session=boto3.Session(), # You must pass in a boto3 session that automatically refreshes!
+    RoleArn="arn:aws:iam::123412341234:role/my_role",
+    RoleSessionName="my-role-session"
+)
+
+# Create clients, and their credentials will auto-refresh when expired!
+sts_client = assume_session.client("sts", region_name="us-east-1")
+print(sts_client.get_caller_identity())
+# {
+#     "UserId": "EXAMPLEID", 
+#     "Account": "123412341234", 
+#     "Arn": "arn:aws:sts::123412341234:role/my_role", 
+#     "ResponseMetadata": {
+#         "RequestId": "asdfqwfqwfasdfasdfasfsdf", 
+#         "HTTPStatusCode": 200, 
+#         "HTTPHeaders": {
+#             "server": "amazon.com", 
+#             "date": "Tue, 27 Jun 2023 00:00:00 GMT"
+#         }, 
+#         "RetryAttempts": 0
+#     }
+# }
+```
+
+For `aioboto3`:
+
+```python
+import asyncio
+
+import aioboto3
+from boto3_assume import assume_role_aio_session
+
+# since this uses "Deferred" credentials you don't need to call this within a coroutine or context manager
+assume_session = assume_role_session(
+    source_session=aioboto3.Session(), # You must pass in an aioboto3 session that automatically refreshes!
+    RoleArn="arn:aws:iam::123412341234:role/my_role",
+    RoleSessionName="my-role-session"
+)
+
+async def main():
+    # Create clients, and their credentials will auto-refresh when expired!
+    async with assume_session.client("sts", region_name="us-east-1") as sts_client:
+        print(await sts_client.get_caller_identity())
+        # {
+        #     "UserId": "EXAMPLEID", 
+        #     "Account": "123412341234", 
+        #     "Arn": "arn:aws:sts::123412341234:role/my_role", 
+        #     "ResponseMetadata": {
+        #         "RequestId": "asdfqwfqwfasdfasdfasfsdf", 
+        #         "HTTPStatusCode": 200, 
+        #         "HTTPHeaders": {
+        #             "server": "amazon.com", 
+        #             "date": "Tue, 27 Jun 2023 00:00:00 GMT"
+        #         }, 
+        #         "RetryAttempts": 0
+        #     }
+        # }
+
+asyncio.run(main())
+```
+
+Under the hood a `boto3`/`aioboto3` sts client will be created and `assume_role` called to get/refresh credentials.
+
+If you want you can also specify extra kwargs for the [sts client](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html#boto3.session.Session.client), and for the [assume_role](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts/client/assume_role.html) call.
+
+
+> **NOTE**: The "sts" service is already specified for the client. 
+`RoleArn` and `RoleSessionName` are used in the assume role call. 
+
+```python
+import boto3
+from boto3_assume import assume_role_session
+from botocore.config import Config
+
+assume_session = assume_role_session(
+    source_session=boto3.Session(), # You must pass in a boto3 session that automatically refreshes!
+    RoleArn="arn:aws:iam::123412341234:role/my_role",
+    RoleSessionName="my-role-session",
+    sts_client_kwargs={
+        "region_name": "us-east-1",
+        "config": Config(
+            retries={
+                "total_max_attempts": 10,
+                "mode": "adaptive"
+            }
+        )
+    },
+    assume_role_kwargs={
+        "DurationSeconds": 900
+    }
+)
+```
+
+## Development
+
+Install the package in editable mode with dev dependencies.
+
+```text
+(venv) $ pip install -e .[dev,all]
+```
+
+[nox](https://nox.thea.codes/en/stable/) is used to manage various dev functions.
+Start with
+
+```text
+(venv) $ nox --help
+```
+
+[pyenv](https://github.com/pyenv/pyenv) is used to manage python versions. 
+To run the nox tests for applicable python version you will first need to install them. 
+In the root project dir run:
+
+```text
+(venv) $ pyenv install
+```
+
+# Changelog
+
+Changelog for `boto3-assume`.
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+<!--
+## [Unreleased] - YYYY-MM-DD
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security 
+-->
+
+## [0.1.2] - 2024-05-18
+
+### Removed
+    - `boto3` and `aioboto3` package extras.  They didn't work and weren't documented correctly. 
+
+### Fixed
+    - `datetime.datetime.utcnow()` deprecation in tests for python 3.12
+
+
+## [0.1.1] - 2023-06-28
+
+### Fixed
+    - Formatting for Changelog, README
+
+
+## [0.1.0] - 2023-06-28
+
+Initial Release.
+

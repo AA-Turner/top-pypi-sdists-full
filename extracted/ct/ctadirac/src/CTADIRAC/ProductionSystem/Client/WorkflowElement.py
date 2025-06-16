@@ -24,10 +24,11 @@ from CTADIRAC.Interfaces.API.CtapipeTrainClassifierJob import CtapipeTrainClassi
 from CTADIRAC.Interfaces.API.CtapipeTrainEnergyJob import CtapipeTrainEnergyJob
 from CTADIRAC.Interfaces.API.MCPipeJob import MCPipeJob
 from CTADIRAC.Interfaces.API.MCSimTelProcessJob import MCSimTelProcessJob
+from CTADIRAC.Interfaces.API.SimPipeJob import SimPipeJob
 
 
 class WorkflowElementTypes:
-    allowed_simulation_types: list[str] = ["mcsimulation"]
+    allowed_simulation_types: list[str] = ["mcsimulation", "simpipe"]
     allowed_processing_types: list[str] = [
         "simtelprocessing",
         "ctapipeprocessing",
@@ -101,6 +102,17 @@ class WorkflowElementDefinition:
                     "instrument_random_seeds",
                 ]
             )
+        elif self.we_type == "simpipe":
+            self.job = SimPipeJob()
+            self.prod_step.Type = "MCSimulation"
+            self.prod_step.Name = "MCSimulation"
+            self.constrained_job_keys.update(
+                [
+                    "version",
+                    "simpipe_config",
+                ]
+            )
+            self.mandatory_job_config_keys = {"simpipe_config"}
         elif self.we_type == "simtelprocessing":
             self.job = MCSimTelProcessJob()
             self.prod_step.Name = "SimTelProcessing"
@@ -213,6 +225,8 @@ class WorkflowElement(WorkflowElementDefinition):
         elif key == "group_size":
             setattr(self.job, key, value)
             self.prod_step.GroupSize = self.job.group_size
+        elif key == "simpipe_config":
+            self.job.set_simpipe_config(value)
         else:
             setattr(self.job, key, value)
 
@@ -371,11 +385,16 @@ class WorkflowElement(WorkflowElementDefinition):
                 metadata["merged"] = merged
             self.job.set_output_metadata(metadata)
         elif self.we_type in self.allowed_simulation_types:
+            if self.we_type == "mcsimulation":
+                phi_p = 180 if self.job.pointing_dir == "North" else 0
+            elif self.we_type == "simpipe":
+                phi_p = float(round((float(self.job.azimuth_angle) + 180) % 360, 2))
+
             metadata: MetadataDict = MetadataDict(
                 array_layout=self.job.array_layout,
                 site=self.job.site,
                 particle=self.job.particle,
-                phiP=180 if self.job.pointing_dir == "North" else 0,
+                phiP=phi_p,
                 thetaP=float(self.job.zenith_angle),
                 sct="True" if self.job.sct else "False",
                 outputType=self.job.output_type,

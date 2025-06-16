@@ -27,7 +27,9 @@ from typing import TYPE_CHECKING, Any, Literal, NoReturn
 
 import numpy as np
 from numpy.random import RandomState
-from scipy.optimize import minimize
+from packaging import version
+from scipy import __version__ as scipy_version
+from scipy.optimize._differentialevolution import DifferentialEvolutionSolver, minimize
 from scipy.special import softmax
 from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -38,6 +40,7 @@ from bayes_opt.exception import (
     TargetSpaceEmptyError,
 )
 from bayes_opt.target_space import TargetSpace
+from bayes_opt.util import ensure_rng
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -61,12 +64,12 @@ class AcquisitionFunction(abc.ABC):
 
     def __init__(self, random_state: int | RandomState | None = None) -> None:
         if random_state is not None:
-            if isinstance(random_state, RandomState):
-                self.random_state = random_state
-            else:
-                self.random_state = RandomState(random_state)
-        else:
-            self.random_state = RandomState()
+            msg = (
+                "Providing a random_state to an acquisition function during initialization is deprecated "
+                "and will be ignored. The random_state is instead provided automatically during the "
+                "suggest() call."
+            )
+            warnings.warn(msg, DeprecationWarning, stacklevel=2)
         self.i = 0
 
     @abc.abstractmethod
@@ -82,13 +85,42 @@ class AcquisitionFunction(abc.ABC):
             if target_space.constraint is not None:
                 target_space.constraint.fit(target_space.params, target_space._constraint_values)
 
+    def get_acquisition_params(self) -> dict[str, Any]:
+        """
+        Get the parameters of the acquisition function.
+
+        Returns
+        -------
+        dict
+            The parameters of the acquisition function.
+        """
+        error_msg = (
+            "Custom AcquisitionFunction subclasses must implement their own get_acquisition_params method."
+        )
+        raise NotImplementedError(error_msg)
+
+    def set_acquisition_params(self, **params) -> None:
+        """
+        Set the parameters of the acquisition function.
+
+        Parameters
+        ----------
+        **params : dict
+            The parameters of the acquisition function.
+        """
+        error_msg = (
+            "Custom AcquisitionFunction subclasses must implement their own set_acquisition_params method."
+        )
+        raise NotImplementedError(error_msg)
+
     def suggest(
         self,
         gp: GaussianProcessRegressor,
         target_space: TargetSpace,
         n_random: int = 10_000,
-        n_l_bfgs_b: int = 10,
+        n_smart: int = 10,
         fit_gp: bool = True,
+        random_state: int | RandomState | None = None,
     ) -> NDArray[Float]:
         """Suggest a promising point to probe next.
 
@@ -103,18 +135,25 @@ class AcquisitionFunction(abc.ABC):
         n_random : int, default 10_000
             Number of random samples to use.
 
-        n_l_bfgs_b : int, default 10
-            Number of starting points for the L-BFGS-B optimizer.
+        n_smart : int, default 10
+            Controls the number of runs for the smart optimization. If all parameters are continuous,
+            this is the number of random starting points for the L-BFGS-B optimizer. If there are
+            discrete parameters, n_smart of the best points are used as starting points for the
+            differential evolution optimizer, with the remaining points being random samples.
 
         fit_gp : bool, default True
             Whether to fit the Gaussian Process to the target space.
             Set to False if the GP is already fitted.
+
+        random_state : int, RandomState, default None
+            Random state to use for the optimization.
 
         Returns
         -------
         np.ndarray
             Suggested point to probe next.
         """
+        random_state = ensure_rng(random_state)
         if len(target_space) == 0:
             msg = (
                 "Cannot suggest a point without previous samples. Use "
@@ -127,7 +166,7 @@ class AcquisitionFunction(abc.ABC):
             self._fit_gp(gp=gp, target_space=target_space)
 
         acq = self._get_acq(gp=gp, constraint=target_space.constraint)
-        return self._acq_min(acq, target_space.bounds, n_random=n_random, n_l_bfgs_b=n_l_bfgs_b)
+        return self._acq_min(acq, target_space, n_random=n_random, n_smart=n_smart, random_state=random_state)
 
     def _get_acq(
         self, gp: GaussianProcessRegressor, constraint: ConstraintModel | None = None
@@ -182,31 +221,36 @@ class AcquisitionFunction(abc.ABC):
     def _acq_min(
         self,
         acq: Callable[[NDArray[Float]], NDArray[Float]],
-        bounds: NDArray[Float],
+        space: TargetSpace,
+        random_state: RandomState,
         n_random: int = 10_000,
-        n_l_bfgs_b: int = 10,
+        n_smart: int = 10,
     ) -> NDArray[Float]:
         """Find the maximum of the acquisition function.
 
-        Uses a combination of random sampling (cheap) and the 'L-BFGS-B'
-        optimization method. First by sampling `n_warmup` (1e5) points at random,
-        and then running L-BFGS-B from `n_iter` (10) random starting points.
+        Uses a combination of random sampling (cheap) and either 'L-BFGS-B' or differential evolution
+        optimization (smarter, but expensive). First samples `n_random` (1e5) points at random, then
+        uses the best points as starting points for the smart optimizer.
 
         Parameters
         ----------
         acq : Callable
             Acquisition function to use. Should accept an array of parameters `x`.
 
-        bounds : np.ndarray
-            Bounds of the search space. For `N` parameters this has shape
-            `(N, 2)` with `[i, 0]` the lower bound of parameter `i` and
-            `[i, 1]` the upper bound.
+        space : TargetSpace
+            The target space over which to optimize.
+
+        random_state : RandomState
+            Random state to use for the optimization.
 
         n_random : int
             Number of random samples to use.
 
-        n_l_bfgs_b : int
-            Number of starting points for the L-BFGS-B optimizer.
+        n_smart : int
+            Controls the number of runs for the smart optimization. If all parameters are continuous,
+            this is the number of random starting points for the L-BFGS-B optimizer. Otherwise, n_smart
+            of the best points are used as starting points for the differential evolution optimizer, with
+            the remaining points being random samples.
 
         Returns
         -------
@@ -214,19 +258,27 @@ class AcquisitionFunction(abc.ABC):
             Parameters maximizing the acquisition function.
 
         """
-        if n_random == 0 and n_l_bfgs_b == 0:
-            error_msg = "Either n_random or n_l_bfgs_b needs to be greater than 0."
+        if n_random == 0 and n_smart == 0:
+            error_msg = "Either n_random or n_smart needs to be greater than 0."
             raise ValueError(error_msg)
-        x_min_r, min_acq_r = self._random_sample_minimize(acq, bounds, n_random=n_random)
-        x_min_l, min_acq_l = self._l_bfgs_b_minimize(acq, bounds, n_x_seeds=n_l_bfgs_b)
-        # Either n_random or n_l_bfgs_b is not 0 => at least one of x_min_r and x_min_l is not None
-        if min_acq_r < min_acq_l:
-            return x_min_r
-        return x_min_l
+        x_min_r, min_acq_r, x_seeds = self._random_sample_minimize(
+            acq, space, random_state, n_random=max(n_random, n_smart), n_x_seeds=n_smart
+        )
+        if n_smart:
+            x_min_s, min_acq_s = self._smart_minimize(acq, space, x_seeds=x_seeds, random_state=random_state)
+            # Either n_random or n_smart is not 0 => at least one of x_min_r and x_min_s is not None
+            if min_acq_r > min_acq_s:
+                return x_min_s
+        return x_min_r
 
     def _random_sample_minimize(
-        self, acq: Callable[[NDArray[Float]], NDArray[Float]], bounds: NDArray[Float], n_random: int
-    ) -> tuple[NDArray[Float] | None, float]:
+        self,
+        acq: Callable[[NDArray[Float]], NDArray[Float]],
+        space: TargetSpace,
+        random_state: RandomState,
+        n_random: int,
+        n_x_seeds: int = 0,
+    ) -> tuple[NDArray[Float] | None, float, NDArray[Float]]:
         """Random search to find the minimum of `acq` function.
 
         Parameters
@@ -234,13 +286,17 @@ class AcquisitionFunction(abc.ABC):
         acq : Callable
             Acquisition function to use. Should accept an array of parameters `x`.
 
-        bounds : np.ndarray
-            Bounds of the search space. For `N` parameters this has shape
-            `(N, 2)` with `[i, 0]` the lower bound of parameter `i` and
-            `[i, 1]` the upper bound.
+        space : TargetSpace
+            The target space over which to optimize.
+
+        random_state : RandomState
+            Random state to use for the optimization.
 
         n_random : int
             Number of random samples to use.
+
+        n_x_seeds : int
+            Number of top points to return, for use as starting points for L-BFGS-B.
 
         Returns
         -------
@@ -251,15 +307,24 @@ class AcquisitionFunction(abc.ABC):
             Acquisition function value at `x_min`
         """
         if n_random == 0:
-            return None, np.inf
-        x_tries = self.random_state.uniform(bounds[:, 0], bounds[:, 1], size=(n_random, bounds.shape[0]))
+            return None, np.inf, space.random_sample(n_x_seeds, random_state=random_state)
+        x_tries = space.random_sample(n_random, random_state=random_state)
         ys = acq(x_tries)
         x_min = x_tries[ys.argmin()]
         min_acq = ys.min()
-        return x_min, min_acq
+        if n_x_seeds != 0:
+            idxs = np.argsort(ys)[:n_x_seeds]
+            x_seeds = x_tries[idxs]
+        else:
+            x_seeds = []
+        return x_min, min_acq, x_seeds
 
-    def _l_bfgs_b_minimize(
-        self, acq: Callable[[NDArray[Float]], NDArray[Float]], bounds: NDArray[Float], n_x_seeds: int = 10
+    def _smart_minimize(
+        self,
+        acq: Callable[[NDArray[Float]], NDArray[Float]],
+        space: TargetSpace,
+        x_seeds: NDArray[Float],
+        random_state: RandomState,
     ) -> tuple[NDArray[Float] | None, float]:
         """Random search to find the minimum of `acq` function.
 
@@ -268,13 +333,17 @@ class AcquisitionFunction(abc.ABC):
         acq : Callable
             Acquisition function to use. Should accept an array of parameters `x`.
 
-        bounds : np.ndarray
-            Bounds of the search space. For `N` parameters this has shape
-            `(N, 2)` with `[i, 0]` the lower bound of parameter `i` and
-            `[i, 1]` the upper bound.
+        space : TargetSpace
+            The target space over which to optimize.
 
-        n_x_seeds : int
-            Number of starting points for the L-BFGS-B optimizer.
+        x_seeds : np.ndarray
+            Starting points for the smart optimizer.
+            If all parameters are continuous, this is the number of random starting points for the L-BFGS-B
+            optimizer. Otherwise, n_smart of the best points are used as starting points for the differential
+            evolution optimizer, with the remaining points being random samples.
+
+        random_state : RandomState
+            Random state to use for the optimization.
 
         Returns
         -------
@@ -284,33 +353,71 @@ class AcquisitionFunction(abc.ABC):
         min_acq : float
             Acquisition function value at `x_min`
         """
-        if n_x_seeds == 0:
-            return None, np.inf
-        x_seeds = self.random_state.uniform(bounds[:, 0], bounds[:, 1], size=(n_x_seeds, bounds.shape[0]))
+        continuous_dimensions = space.continuous_dimensions
+        continuous_bounds = space.bounds[continuous_dimensions]
 
         min_acq: float | None = None
         x_try: NDArray[Float]
         x_min: NDArray[Float]
-        for x_try in x_seeds:
-            # Find the minimum of minus the acquisition function
-            res: OptimizeResult = minimize(acq, x_try, bounds=bounds, method="L-BFGS-B")
 
-            # See if success
-            if not res.success:
-                continue
+        # Case of continous optimization
+        if all(continuous_dimensions):
+            for x_try in x_seeds:
+                res: OptimizeResult = minimize(acq, x_try, bounds=continuous_bounds, method="L-BFGS-B")
+                if not res.success:
+                    continue
 
-            # Store it if better than previous minimum(maximum).
-            if min_acq is None or np.squeeze(res.fun) <= min_acq:
-                x_min = res.x
-                min_acq = np.squeeze(res.fun)
+                # Store it if better than previous minimum(maximum).
+                if min_acq is None or np.squeeze(res.fun) < min_acq:
+                    x_try = res.x
+                    x_min = x_try
+                    min_acq = np.squeeze(res.fun)
+        # Case of mixed-integer optimization
+        else:
+            xinit = space.random_sample(15 * len(space.bounds), random_state=random_state)
+            if len(x_seeds) > 0:
+                n_seeds = min(len(x_seeds), len(xinit))
+                xinit[:n_seeds] = x_seeds[:n_seeds]
+
+            de_parameters = {"func": acq, "bounds": space.bounds, "polish": False, "init": xinit}
+            if version.parse(scipy_version) < version.parse("1.15.0"):
+                de_parameters["seed"] = random_state
+            else:
+                de_parameters["rng"] = random_state
+
+            de = DifferentialEvolutionSolver(**de_parameters)
+            res_de: OptimizeResult = de.solve()
+            # Check if success
+            if not res_de.success:
+                msg = f"Differential evolution optimization failed. Message: {res_de.message}"
+                raise RuntimeError(msg)
+
+            x_min = res_de.x
+            min_acq = np.squeeze(res_de.fun)
+
+            # Refine the identification of continous parameters with deterministic search
+            if any(continuous_dimensions):
+                x_try = x_min.copy()
+
+                def continuous_acq(x: NDArray[Float], x_try=x_try) -> NDArray[Float]:
+                    x_try[continuous_dimensions] = x
+                    return acq(x_try)
+
+                res: OptimizeResult = minimize(
+                    continuous_acq, x_min[continuous_dimensions], bounds=continuous_bounds
+                )
+                if res.success and np.squeeze(res.fun) < min_acq:
+                    x_try[continuous_dimensions] = res.x
+                    x_min = x_try
+                    min_acq = np.squeeze(res.fun)
 
         if min_acq is None:
             min_acq = np.inf
-            x_min = np.array([np.nan] * bounds.shape[0])
+            x_min = np.array([np.nan] * space.bounds.shape[0])
 
         # Clip output to make sure it lies within the bounds. Due to floating
         # point technicalities this is not always the case.
-        return np.clip(x_min, bounds[:, 0], bounds[:, 1]), min_acq
+        return np.clip(x_min, space.bounds[:, 0], space.bounds[:, 1]), min_acq
 
 
 class UpperConfidenceBound(AcquisitionFunction):
@@ -332,9 +439,6 @@ class UpperConfidenceBound(AcquisitionFunction):
 
     exploration_decay_delay : int, default None
         Delay for decay. If None, decay is applied from the start.
-
-    random_state : int, RandomState, default None
-        Set the random state for reproducibility.
 
     """
 
@@ -377,8 +481,9 @@ class UpperConfidenceBound(AcquisitionFunction):
         gp: GaussianProcessRegressor,
         target_space: TargetSpace,
         n_random: int = 10_000,
-        n_l_bfgs_b: int = 10,
+        n_smart: int = 10,
         fit_gp: bool = True,
+        random_state: int | RandomState | None = None,
     ) -> NDArray[Float]:
         """Suggest a promising point to probe next.
 
@@ -393,12 +498,15 @@ class UpperConfidenceBound(AcquisitionFunction):
         n_random : int, default 10_000
             Number of random samples to use.
 
-        n_l_bfgs_b : int, default 10
+        n_smart : int, default 10
             Number of starting points for the L-BFGS-B optimizer.
 
         fit_gp : bool, default True
             Whether to fit the Gaussian Process to the target space.
             Set to False if the GP is already fitted.
+
+        random_state : int, RandomState, default None
+            Random state to use for the optimization.
 
         Returns
         -------
@@ -412,7 +520,12 @@ class UpperConfidenceBound(AcquisitionFunction):
             )
             raise ConstraintNotSupportedError(msg)
         x_max = super().suggest(
-            gp=gp, target_space=target_space, n_random=n_random, n_l_bfgs_b=n_l_bfgs_b, fit_gp=fit_gp
+            gp=gp,
+            target_space=target_space,
+            n_random=n_random,
+            n_smart=n_smart,
+            fit_gp=fit_gp,
+            random_state=random_state,
         )
         self.decay_exploration()
         return x_max
@@ -431,6 +544,32 @@ class UpperConfidenceBound(AcquisitionFunction):
             self.exploration_decay_delay is None or self.exploration_decay_delay <= self.i
         ):
             self.kappa = self.kappa * self.exploration_decay
+
+    def get_acquisition_params(self) -> dict:
+        """Get the current acquisition function parameters.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the current acquisition function parameters.
+        """
+        return {
+            "kappa": self.kappa,
+            "exploration_decay": self.exploration_decay,
+            "exploration_decay_delay": self.exploration_decay_delay,
+        }
+
+    def set_acquisition_params(self, params: dict) -> None:
+        """Set the acquisition function parameters.
+
+        Parameters
+        ----------
+        params : dict
+            Dictionary containing the acquisition function parameters.
+        """
+        self.kappa = params["kappa"]
+        self.exploration_decay = params["exploration_decay"]
+        self.exploration_decay_delay = params["exploration_decay_delay"]
 
 
 class ProbabilityOfImprovement(AcquisitionFunction):
@@ -506,8 +645,9 @@ class ProbabilityOfImprovement(AcquisitionFunction):
         gp: GaussianProcessRegressor,
         target_space: TargetSpace,
         n_random: int = 10_000,
-        n_l_bfgs_b: int = 10,
+        n_smart: int = 10,
         fit_gp: bool = True,
+        random_state: int | RandomState | None = None,
     ) -> NDArray[Float]:
         """Suggest a promising point to probe next.
 
@@ -522,12 +662,15 @@ class ProbabilityOfImprovement(AcquisitionFunction):
         n_random : int, default 10_000
             Number of random samples to use.
 
-        n_l_bfgs_b : int, default 10
+        n_smart : int, default 10
             Number of starting points for the L-BFGS-B optimizer.
 
         fit_gp : bool, default True
             Whether to fit the Gaussian Process to the target space.
             Set to False if the GP is already fitted.
+
+        random_state : int, RandomState, default None
+            Random state to use for the optimization.
 
         Returns
         -------
@@ -545,7 +688,12 @@ class ProbabilityOfImprovement(AcquisitionFunction):
             raise NoValidPointRegisteredError(msg)
         self.y_max = y_max
         x_max = super().suggest(
-            gp=gp, target_space=target_space, n_random=n_random, n_l_bfgs_b=n_l_bfgs_b, fit_gp=fit_gp
+            gp=gp,
+            target_space=target_space,
+            n_random=n_random,
+            n_smart=n_smart,
+            fit_gp=fit_gp,
+            random_state=random_state,
         )
         self.decay_exploration()
         return x_max
@@ -564,6 +712,32 @@ class ProbabilityOfImprovement(AcquisitionFunction):
             self.exploration_decay_delay is None or self.exploration_decay_delay <= self.i
         ):
             self.xi = self.xi * self.exploration_decay
+
+    def get_acquisition_params(self) -> dict:
+        """Get the current acquisition function parameters.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the current acquisition function parameters.
+        """
+        return {
+            "xi": self.xi,
+            "exploration_decay": self.exploration_decay,
+            "exploration_decay_delay": self.exploration_decay_delay,
+        }
+
+    def set_acquisition_params(self, params: dict) -> None:
+        """Set the acquisition function parameters.
+
+        Parameters
+        ----------
+        params : dict
+            Dictionary containing the acquisition function parameters.
+        """
+        self.xi = params["xi"]
+        self.exploration_decay = params["exploration_decay"]
+        self.exploration_decay_delay = params["exploration_decay_delay"]
 
 
 class ExpectedImprovement(AcquisitionFunction):
@@ -646,8 +820,9 @@ class ExpectedImprovement(AcquisitionFunction):
         gp: GaussianProcessRegressor,
         target_space: TargetSpace,
         n_random: int = 10_000,
-        n_l_bfgs_b: int = 10,
+        n_smart: int = 10,
         fit_gp: bool = True,
+        random_state: int | RandomState | None = None,
     ) -> NDArray[Float]:
         """Suggest a promising point to probe next.
 
@@ -662,12 +837,15 @@ class ExpectedImprovement(AcquisitionFunction):
         n_random : int, default 10_000
             Number of random samples to use.
 
-        n_l_bfgs_b : int, default 10
+        n_smart : int, default 10
             Number of starting points for the L-BFGS-B optimizer.
 
         fit_gp : bool, default True
             Whether to fit the Gaussian Process to the target space.
             Set to False if the GP is already fitted.
+
+        random_state : int, RandomState, default None
+            Random state to use for the optimization.
 
         Returns
         -------
@@ -686,7 +864,12 @@ class ExpectedImprovement(AcquisitionFunction):
         self.y_max = y_max
 
         x_max = super().suggest(
-            gp=gp, target_space=target_space, n_random=n_random, n_l_bfgs_b=n_l_bfgs_b, fit_gp=fit_gp
+            gp=gp,
+            target_space=target_space,
+            n_random=n_random,
+            n_smart=n_smart,
+            fit_gp=fit_gp,
+            random_state=random_state,
         )
         self.decay_exploration()
         return x_max
@@ -705,6 +888,32 @@ class ExpectedImprovement(AcquisitionFunction):
             self.exploration_decay_delay is None or self.exploration_decay_delay <= self.i
         ):
             self.xi = self.xi * self.exploration_decay
+
+    def get_acquisition_params(self) -> dict:
+        """Get the current acquisition function parameters.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the current acquisition function parameters.
+        """
+        return {
+            "xi": self.xi,
+            "exploration_decay": self.exploration_decay,
+            "exploration_decay_delay": self.exploration_decay_delay,
+        }
+
+    def set_acquisition_params(self, params: dict) -> None:
+        """Set the acquisition function parameters.
+
+        Parameters
+        ----------
+        params : dict
+            Dictionary containing the acquisition function parameters.
+        """
+        self.xi = params["xi"]
+        self.exploration_decay = params["exploration_decay"]
+        self.exploration_decay_delay = params["exploration_decay_delay"]
 
 
 class ConstantLiar(AcquisitionFunction):
@@ -784,11 +993,11 @@ class ConstantLiar(AcquisitionFunction):
         keys = target_space.keys
         pbounds = {key: bound for key, bound in zip(keys, target_space.bounds)}
         target_space_copy = TargetSpace(
-            None,
-            pbounds=pbounds,
-            constraint=target_space.constraint,
-            allow_duplicate_points=target_space._allow_duplicate_points,
+            None, pbounds=pbounds, allow_duplicate_points=target_space._allow_duplicate_points
         )
+        if target_space._constraint is not None:
+            target_space_copy.set_constraint(deepcopy(target_space.constraint))
+
         target_space_copy._params = deepcopy(target_space._params)
         target_space_copy._target = deepcopy(target_space._target)
 
@@ -818,8 +1027,9 @@ class ConstantLiar(AcquisitionFunction):
         gp: GaussianProcessRegressor,
         target_space: TargetSpace,
         n_random: int = 10_000,
-        n_l_bfgs_b: int = 10,
+        n_smart: int = 10,
         fit_gp: bool = True,
+        random_state: int | RandomState | None = None,
     ) -> NDArray[Float]:
         """Suggest a promising point to probe next.
 
@@ -834,12 +1044,15 @@ class ConstantLiar(AcquisitionFunction):
         n_random : int, default 10_000
             Number of random samples to use.
 
-        n_l_bfgs_b : int, default 10
+        n_smart : int, default 10
             Number of starting points for the L-BFGS-B optimizer.
 
         fit_gp : bool, default True
-            Whether to fit the Gaussian Process to the target space.
-            Set to False if the GP is already fitted.
+            Unused, since the GP is always fitted to the dummy target space.
+            Remains for compatibility with the base class.
+
+        random_state : int, RandomState, default None
+            Random state to use for the optimization.
 
         Returns
         -------
@@ -888,13 +1101,48 @@ class ConstantLiar(AcquisitionFunction):
         # Fit the GP to the dummy target space and suggest a point
         self._fit_gp(gp=gp, target_space=dummy_target_space)
         x_max = self.base_acquisition.suggest(
-            gp, dummy_target_space, n_random=n_random, n_l_bfgs_b=n_l_bfgs_b, fit_gp=False
+            gp,
+            dummy_target_space,
+            n_random=n_random,
+            n_smart=n_smart,
+            fit_gp=False,
+            random_state=random_state,
         )
 
         # Register the suggested point as a dummy
         self.dummies.append(x_max)
 
         return x_max
+
+    def get_acquisition_params(self) -> dict:
+        """Get the current acquisition function parameters.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the current acquisition function parameters.
+        """
+        return {
+            "dummies": [dummy.tolist() for dummy in self.dummies],
+            "base_acquisition_params": self.base_acquisition.get_acquisition_params(),
+            "strategy": self.strategy,
+            "atol": self.atol,
+            "rtol": self.rtol,
+        }
+
+    def set_acquisition_params(self, params: dict) -> None:
+        """Set the acquisition function parameters.
+
+        Parameters
+        ----------
+        params : dict
+            Dictionary containing the acquisition function parameters.
+        """
+        self.dummies = [np.array(dummy) for dummy in params["dummies"]]
+        self.base_acquisition.set_acquisition_params(params["base_acquisition_params"])
+        self.strategy = params["strategy"]
+        self.atol = params["atol"]
+        self.rtol = params["rtol"]
 
 
 class GPHedge(AcquisitionFunction):
@@ -937,14 +1185,31 @@ class GPHedge(AcquisitionFunction):
         )
         raise TypeError(msg)
 
-    def _sample_idx_from_softmax_gains(self) -> int:
-        """Sample an index weighted by the softmax of the gains."""
+    def _sample_idx_from_softmax_gains(self, random_state: RandomState) -> int:
+        """Sample an index weighted by the softmax of the gains.
+
+        Parameters
+        ----------
+        random_state : RandomState
+            Random state to use for the sampling.
+
+        Returns
+        -------
+        int
+            Index of the selected base acquisition function.
+        """
         cumsum_softmax_g = np.cumsum(softmax(self.gains))
-        r = self.random_state.rand()
+        r = random_state.rand()
         return np.argmax(r <= cumsum_softmax_g)  # Returns the first True value
 
     def _update_gains(self, gp: GaussianProcessRegressor) -> None:
-        """Update the gains of the base acquisition functions."""
+        """Update the gains of the base acquisition functions.
+
+        Parameters
+        ----------
+        gp : GaussianProcessRegressor
+            A fitted Gaussian Process.
+        """
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             rewards = gp.predict(self.previous_candidates)
@@ -956,8 +1221,9 @@ class GPHedge(AcquisitionFunction):
         gp: GaussianProcessRegressor,
         target_space: TargetSpace,
         n_random: int = 10_000,
-        n_l_bfgs_b: int = 10,
+        n_smart: int = 10,
         fit_gp: bool = True,
+        random_state: int | RandomState | None = None,
     ) -> NDArray[Float]:
         """Suggest a promising point to probe next.
 
@@ -972,12 +1238,15 @@ class GPHedge(AcquisitionFunction):
         n_random : int, default 10_000
             Number of random samples to use.
 
-        n_l_bfgs_b : int, default 10
+        n_smart : int, default 10
             Number of starting points for the L-BFGS-B optimizer.
 
         fit_gp : bool, default True
             Whether to fit the Gaussian Process to the target space.
             Set to False if the GP is already fitted.
+
+        random_state : int, RandomState, default None
+            Random state to use for the optimization.
 
         Returns
         -------
@@ -992,6 +1261,7 @@ class GPHedge(AcquisitionFunction):
             )
             raise TargetSpaceEmptyError(msg)
         self.i += 1
+        random_state = ensure_rng(random_state)
         if fit_gp:
             self._fit_gp(gp=gp, target_space=target_space)
 
@@ -1005,11 +1275,44 @@ class GPHedge(AcquisitionFunction):
                 gp=gp,
                 target_space=target_space,
                 n_random=n_random // self.n_acq,
-                n_l_bfgs_b=n_l_bfgs_b // self.n_acq,
+                n_smart=n_smart // self.n_acq,
                 fit_gp=False,
+                random_state=random_state,
             )
             for base_acq in self.base_acquisitions
         ]
         self.previous_candidates = np.array(x_max)
-        idx = self._sample_idx_from_softmax_gains()
+        idx = self._sample_idx_from_softmax_gains(random_state=random_state)
         return x_max[idx]
+
+    def get_acquisition_params(self) -> dict:
+        """Get the current acquisition function parameters.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the current acquisition function parameters.
+        """
+        return {
+            "base_acquisitions_params": [acq.get_acquisition_params() for acq in self.base_acquisitions],
+            "gains": self.gains.tolist(),
+            "previous_candidates": self.previous_candidates.tolist()
+            if self.previous_candidates is not None
+            else None,
+        }
+
+    def set_acquisition_params(self, params: dict) -> None:
+        """Set the acquisition function parameters.
+
+        Parameters
+        ----------
+        params : dict
+            Dictionary containing the acquisition function parameters.
+        """
+        for acq, acq_params in zip(self.base_acquisitions, params["base_acquisitions_params"]):
+            acq.set_acquisition_params(acq_params)
+
+        self.gains = np.array(params["gains"])
+        self.previous_candidates = (
+            np.array(params["previous_candidates"]) if params["previous_candidates"] is not None else None
+        )

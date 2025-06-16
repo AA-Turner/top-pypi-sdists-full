@@ -344,6 +344,7 @@ def delete_vm(args):
     yes = args.yes
     yes_top = args.yes_top
     snapshots = args.force
+    keep_disks = args.keep
     count = args.count
     config = Kconfig(client=args.client, debug=args.debug, region=args.region, zone=args.zone, namespace=args.namespace)
     if config.extraclients:
@@ -418,6 +419,8 @@ def delete_vm(args):
                 if name in name_reservations:
                     name_reservations.remove(name)
                     config.update_confpool(confpool, {'name_reservations': name_reservations})
+            if keep_disks:
+                k.detach_disks(name)
             result = k.delete(name, snapshots=snapshots)
             if result['result'] == 'success':
                 success(f"{name} deleted")
@@ -1417,6 +1420,7 @@ def create_vm(args):
     count = args.count
     overrides = handle_parameters(args.param, args.paramfile)
     force = overrides.get('force', False) or args.force
+    keep_disks = overrides.get('keep_disks', False) or args.keep
     profile = overrides.get('profile') or args.profile
     if name is None and image is None and profile is None and not overrides:
         pprint("Launching vm interactive mode")
@@ -1475,6 +1479,8 @@ def create_vm(args):
     elif force:
         try:
             pprint(f"Deleting {name} on {config.client}")
+            if keep_disks:
+                config.k.detach_disks(name)
             config.k.delete(name)
         except:
             pass
@@ -2615,7 +2621,7 @@ def ssh_vm(args):
             user = config.vmuser if config.vmuser is not None else u
         if vmport is None and config.vmport is not None:
             vmport = config.vmport
-        if config.type in ['kvm', 'packet'] and '.' not in ip and ':' not in ip:
+        if config.type == 'kvm' and '.' not in ip and ':' not in ip:
             vmport = ip
             ip = config.host
         sshcommand = common.ssh(name, ip=ip, user=user, local=local, remote=remote, tunnel=tunnel,
@@ -2676,7 +2682,7 @@ def scp_vm(args):
             user = config.vmuser if config.vmuser is not None else u
         if vmport is None and config.vmport is not None:
             vmport = config.vmport
-        if config.type in ['kvm', 'packet'] and '.' not in ip and ':' not in ip:
+        if config.type == 'kvm' and '.' not in ip and ':' not in ip:
             vmport = ip
             ip = '127.0.0.1'
         scpcommand = common.scp(name, ip=ip, user=user, source=source, destination=destination, recursive=recursive,
@@ -3885,12 +3891,6 @@ def cli():
     ovirtprovidercreate_parser.add_argument('-p', '--pip', action='store_true', help='Force pip installation')
     ovirtprovidercreate_parser.set_defaults(func=install_provider)
 
-    packetprovidercreate_desc = 'Install Packet Provider'
-    packetprovidercreate_parser = providercreate_subparsers.add_parser('packet', help=packetprovidercreate_desc,
-                                                                       description=packetprovidercreate_desc)
-    packetprovidercreate_parser.add_argument('-p', '--pip', action='store_true', help='Force pip installation')
-    packetprovidercreate_parser.set_defaults(func=install_provider)
-
     proxmoxprovidercreate_desc = 'Install Proxmox Provider'
     proxmoxprovidercreate_parser = providercreate_subparsers.add_parser('proxmox', help=proxmoxprovidercreate_desc,
                                                                         description=proxmoxprovidercreate_desc)
@@ -3974,6 +3974,7 @@ def cli():
     vmcreate_parser.add_argument('-c', '--count', help='How many vms to create', type=int, default=0, metavar='COUNT')
     vmcreate_parser.add_argument('--force', action='store_true', help='Delete existing vm first')
     vmcreate_parser.add_argument('-i', '--image', help='Image to use', metavar='IMAGE')
+    vmcreate_parser.add_argument('-k', '--keep', action='store_true', help='Keep non primary disks')
     vmcreate_parser.add_argument('-p', '--profile', help='Profile to use', metavar='PROFILE')
     vmcreate_parser.add_argument('--profilefile', help='File to load profiles from', metavar='PROFILEFILE')
     vmcreate_parser.add_argument('-s', '--serial', help='Directly switch to serial console after creation',
@@ -4221,6 +4222,7 @@ def cli():
     vmdelete_parser.add_argument('-a', '--all', action='store_true', help='Delete all vms')
     vmdelete_parser.add_argument('-c', '--count', help='How many vms to delete', type=int, default=0, metavar='COUNT')
     vmdelete_parser.add_argument('-f', '--force', action='store_true', help='Remove snapshots if needed')
+    vmdelete_parser.add_argument('-k', '--keep', action='store_true', help='Keep non primary disks')
     vmdelete_parser.add_argument('-y', '--yes', action='store_true', help='Dont ask for confirmation')
     vmdelete_parser.add_argument('names', metavar='VMNAMES', nargs='*')
     vmdelete_parser.set_defaults(func=delete_vm)

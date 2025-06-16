@@ -12,8 +12,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Any, Mapping, cast
+from collections.abc import Callable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 import torch.nn as nn
@@ -309,7 +309,7 @@ class VPredictionPrepareBatch(DiffusionPrepareBatch):
         self.scheduler = scheduler
 
     def get_target(self, images, noise, timesteps):
-        return self.scheduler.get_velocity(images, noise, timesteps)
+        return self.scheduler.get_velocity(images, noise, timesteps)  # type: ignore[operator]
 
 
 def default_make_latent(

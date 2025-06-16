@@ -3278,7 +3278,7 @@ async def check_nota_importada(xml_nota: str) -> RpaRetornoProcessoDTO:
     from worker_automate_hub.api.client import get_status_nf_emsys
 
     try:
-        max_attempts = 60
+        max_attempts = 100
         i = 0
 
         while i < max_attempts:

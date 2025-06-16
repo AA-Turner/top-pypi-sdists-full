@@ -1,0 +1,13 @@
+Metadata-Version: 1.0
+Name: gcld3
+Version: 3.0.13
+Summary: CLD3 is a neural network model for language identification.
+Home-page: https://github.com/google/cld3
+Author: Rami Al-Rfou
+Author-email: rmyeid@google.com
+License: UNKNOWN
+Description: CLD3 is a neural network model for language identification.
+        This package contains the inference code and a trained model. See
+        https://github.com/google/cld3 for more details.
+        
+Platform: UNKNOWN

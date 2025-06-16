@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: fastapi-databases
+Version: 0.1.8
+Summary: handling database transactions in asynchronously with databases
+Home-page: https://ahmednafies.github.io/fastapi-databases/
+Author: Ahmed Nafies
+Author-email: ahmed.nafies@gmail.com
+License: MIT
+Project-URL: Documentation, https://ahmednafies.github.io/fastapi-databases/
+Project-URL: Source, https://github.com/ahmednafies/fastapi-databases
+Description: # FastAPI Databases
+        
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Utilities
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Provides-Extra: postgresql
+Provides-Extra: mysql
+Provides-Extra: sqlite
+Provides-Extra: postgresql+aiopg

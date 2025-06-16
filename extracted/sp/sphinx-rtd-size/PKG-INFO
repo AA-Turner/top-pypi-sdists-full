@@ -1,0 +1,38 @@
+Metadata-Version: 2.1
+Name: sphinx-rtd-size
+Version: 0.2.0
+Summary: Sphinx extension for resizing your RTD theme.
+Home-page: https://github.com/tadnir/sphinx-rtd-size
+License: MIT
+Author: michael tadnir
+Author-email: tadnir50@gmail.com
+Requires-Python: >=3.6,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: Sphinx (>=2)
+Project-URL: Repository, https://github.com/tadnir/sphinx-rtd-size
+Description-Content-Type: text/markdown
+
+# sphinx-rtd-size
+Sphinx extension for resizing your RTD theme
+
+## Usage
+
+Install the package:
+
+`pip install sphinx-rtd-size`
+
+And in your `conf.py`:
+```
+    extensions = [
+        ...
+        'sphinx_rtd_size',
+    ]
+    
+    sphinx_rtd_size_width = "90%"
+```

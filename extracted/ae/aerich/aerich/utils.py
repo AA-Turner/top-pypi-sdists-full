@@ -7,12 +7,15 @@ import sys
 from collections.abc import Awaitable, Callable, Generator
 from pathlib import Path
 from types import ModuleType
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from anyio import from_thread
 from asyncclick import BadOptionUsage, ClickException, Context
 from dictdiffer import diff
 from tortoise import BaseDBAsyncClient, Tortoise
+from tortoise.log import logger
+
+from aerich.exceptions import NotInitedError
 
 if sys.version_info >= (3, 11):
     from typing import ParamSpec, TypeVarTuple, Unpack
@@ -95,14 +98,21 @@ def get_models_describe(app: str) -> dict:
     :return:
     """
     ret = {}
-    for model in Tortoise.apps[app].values():
+    try:
+        app_config = Tortoise.apps[app]
+    except KeyError as e:
+        if not Tortoise._inited:
+            raise NotInitedError("Tortoise not inited yet.") from e
+        logger.debug(f"{Tortoise.apps.keys() = }")
+        raise e
+    for model in app_config.values():
         managed = getattr(model.Meta, "managed", None)
         describe = model.describe()
         ret[describe.get("name")] = dict(describe, managed=managed)
     return ret
 
 
-def is_default_function(string: str) -> re.Match | None:
+def is_default_function(string: Any) -> re.Match | None:
     return re.match(r"^<function.+>$", str(string or ""))
 
 

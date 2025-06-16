@@ -1,5 +1,0 @@
-parameters:
-  fluentbit:
-    config:
-      inputs:
-        ~systemd: {}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mem0ai
-Version: 0.1.107
+Version: 0.1.108
 Summary: Long-term memory for AI Agents
 Author-email: Mem0 <founders@mem0.ai>
 License-File: LICENSE
@@ -15,14 +15,37 @@ Provides-Extra: dev
 Requires-Dist: isort>=5.13.2; extra == 'dev'
 Requires-Dist: pytest>=8.2.2; extra == 'dev'
 Requires-Dist: ruff>=0.6.5; extra == 'dev'
+Provides-Extra: extras
+Requires-Dist: boto3>=1.34.0; extra == 'extras'
+Requires-Dist: elasticsearch>=8.0.0; extra == 'extras'
+Requires-Dist: langchain-community>=0.0.0; extra == 'extras'
+Requires-Dist: langchain-memgraph>=0.1.0; extra == 'extras'
+Requires-Dist: opensearch-py>=2.0.0; extra == 'extras'
+Requires-Dist: sentence-transformers>=2.2.2; extra == 'extras'
 Provides-Extra: graph
 Requires-Dist: langchain-neo4j>=0.4.0; extra == 'graph'
 Requires-Dist: neo4j>=5.23.1; extra == 'graph'
 Requires-Dist: rank-bm25>=0.2.2; extra == 'graph'
+Provides-Extra: llms
+Requires-Dist: google-generativeai>=0.3.0; extra == 'llms'
+Requires-Dist: groq>=0.3.0; extra == 'llms'
+Requires-Dist: litellm>=0.1.0; extra == 'llms'
+Requires-Dist: ollama>=0.1.0; extra == 'llms'
+Requires-Dist: together>=0.2.10; extra == 'llms'
+Requires-Dist: vertexai>=0.1.0; extra == 'llms'
 Provides-Extra: test
 Requires-Dist: pytest-asyncio>=0.23.7; extra == 'test'
 Requires-Dist: pytest-mock>=3.14.0; extra == 'test'
 Requires-Dist: pytest>=8.2.2; extra == 'test'
+Provides-Extra: vector-stores
+Requires-Dist: azure-search-documents>=11.4.0b8; extra == 'vector-stores'
+Requires-Dist: chromadb>=0.4.24; extra == 'vector-stores'
+Requires-Dist: faiss-cpu>=1.7.4; extra == 'vector-stores'
+Requires-Dist: pinecone-text>=0.1.1; extra == 'vector-stores'
+Requires-Dist: pinecone<7.0.0; extra == 'vector-stores'
+Requires-Dist: upstash-vector>=0.1.0; extra == 'vector-stores'
+Requires-Dist: vecs>=0.4.0; extra == 'vector-stores'
+Requires-Dist: weaviate-client>=4.4.0; extra == 'vector-stores'
 Description-Content-Type: text/markdown
 
 <p align="center">

@@ -7800,7 +7800,7 @@ class CfnDomainName(
         :param mutual_tls_authentication: The mutual TLS authentication configuration for a custom domain name. If specified, API Gateway performs two-way authentication between the client and the server. Clients must present a trusted certificate to access your API.
         :param ownership_verification_certificate_arn: The ARN of the public certificate issued by ACM to validate ownership of your custom domain. Only required when configuring mutual TLS and using an ACM imported or private CA certificate ARN as the RegionalCertificateArn.
         :param regional_certificate_arn: The reference to an AWS -managed certificate that will be used for validating the regional domain name. AWS Certificate Manager is the only supported source.
-        :param routing_mode: Default: - "BASE_PATH_MAPPING_ONLY"
+        :param routing_mode: The routing mode for this domain name. The routing mode determines how API Gateway sends traffic from your custom domain name to your public APIs. Default: - "BASE_PATH_MAPPING_ONLY"
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this DomainName. The valid values are ``TLS_1_0`` and ``TLS_1_2`` .
         :param tags: The collection of tags. Each tag element is associated with a given resource.
         '''
@@ -7880,8 +7880,6 @@ class CfnDomainName(
     @jsii.member(jsii_name="attrDomainNameArn")
     def attr_domain_name_arn(self) -> builtins.str:
         '''The ARN of the domain name.
-
-        Supported only for private custom domain names.
 
         :cloudformationAttribute: DomainNameArn
         '''
@@ -8012,6 +8010,7 @@ class CfnDomainName(
     @builtins.property
     @jsii.member(jsii_name="routingMode")
     def routing_mode(self) -> typing.Optional[builtins.str]:
+        '''The routing mode for this domain name.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "routingMode"))
 
     @routing_mode.setter
@@ -8529,7 +8528,7 @@ class CfnDomainNameProps:
         :param mutual_tls_authentication: The mutual TLS authentication configuration for a custom domain name. If specified, API Gateway performs two-way authentication between the client and the server. Clients must present a trusted certificate to access your API.
         :param ownership_verification_certificate_arn: The ARN of the public certificate issued by ACM to validate ownership of your custom domain. Only required when configuring mutual TLS and using an ACM imported or private CA certificate ARN as the RegionalCertificateArn.
         :param regional_certificate_arn: The reference to an AWS -managed certificate that will be used for validating the regional domain name. AWS Certificate Manager is the only supported source.
-        :param routing_mode: Default: - "BASE_PATH_MAPPING_ONLY"
+        :param routing_mode: The routing mode for this domain name. The routing mode determines how API Gateway sends traffic from your custom domain name to your public APIs. Default: - "BASE_PATH_MAPPING_ONLY"
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this DomainName. The valid values are ``TLS_1_0`` and ``TLS_1_2`` .
         :param tags: The collection of tags. Each tag element is associated with a given resource.
 
@@ -8662,7 +8661,10 @@ class CfnDomainNameProps:
 
     @builtins.property
     def routing_mode(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The routing mode for this domain name.
+
+        The routing mode determines how API Gateway sends traffic from your custom domain name to your public APIs.
+
         :default: - "BASE_PATH_MAPPING_ONLY"
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-apigateway-domainname.html#cfn-apigateway-domainname-routingmode
@@ -8763,7 +8765,7 @@ class CfnDomainNameV2(
         :param domain_name: Represents a custom domain name as a user-friendly host name of an API (RestApi).
         :param endpoint_configuration: The endpoint configuration to indicate the types of endpoints an API (RestApi) or its custom domain name (DomainName) has and the IP address types that can invoke it.
         :param policy: A stringified JSON policy document that applies to the ``execute-api`` service for this DomainName regardless of the caller and Method configuration. You can use ``Fn::ToJsonString`` to enter your ``policy`` . For more information, see `Fn::ToJsonString <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ToJsonString.html>`_ .
-        :param routing_mode: The valid routing modes are [BASE_PATH_MAPPING_ONLY], [ROUTING_RULE_THEN_BASE_PATH_MAPPING] and [ROUTING_RULE_ONLY]. All other inputs are invalid. Default: - "BASE_PATH_MAPPING_ONLY"
+        :param routing_mode: The routing mode for this domain name. The routing mode determines how API Gateway sends traffic from your custom domain name to your private APIs. Default: - "BASE_PATH_MAPPING_ONLY"
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this DomainName. Only ``TLS_1_2`` is supported.
         :param tags: The collection of tags. Each tag element is associated with a given resource.
         '''
@@ -8902,7 +8904,7 @@ class CfnDomainNameV2(
     @builtins.property
     @jsii.member(jsii_name="routingMode")
     def routing_mode(self) -> typing.Optional[builtins.str]:
-        '''The valid routing modes are [BASE_PATH_MAPPING_ONLY], [ROUTING_RULE_THEN_BASE_PATH_MAPPING] and [ROUTING_RULE_ONLY].'''
+        '''The routing mode for this domain name.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "routingMode"))
 
     @routing_mode.setter
@@ -9044,7 +9046,7 @@ class CfnDomainNameV2Props:
         :param domain_name: Represents a custom domain name as a user-friendly host name of an API (RestApi).
         :param endpoint_configuration: The endpoint configuration to indicate the types of endpoints an API (RestApi) or its custom domain name (DomainName) has and the IP address types that can invoke it.
         :param policy: A stringified JSON policy document that applies to the ``execute-api`` service for this DomainName regardless of the caller and Method configuration. You can use ``Fn::ToJsonString`` to enter your ``policy`` . For more information, see `Fn::ToJsonString <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-ToJsonString.html>`_ .
-        :param routing_mode: The valid routing modes are [BASE_PATH_MAPPING_ONLY], [ROUTING_RULE_THEN_BASE_PATH_MAPPING] and [ROUTING_RULE_ONLY]. All other inputs are invalid. Default: - "BASE_PATH_MAPPING_ONLY"
+        :param routing_mode: The routing mode for this domain name. The routing mode determines how API Gateway sends traffic from your custom domain name to your private APIs. Default: - "BASE_PATH_MAPPING_ONLY"
         :param security_policy: The Transport Layer Security (TLS) version + cipher suite for this DomainName. Only ``TLS_1_2`` is supported.
         :param tags: The collection of tags. Each tag element is associated with a given resource.
 
@@ -9144,9 +9146,9 @@ class CfnDomainNameV2Props:
 
     @builtins.property
     def routing_mode(self) -> typing.Optional[builtins.str]:
-        '''The valid routing modes are [BASE_PATH_MAPPING_ONLY], [ROUTING_RULE_THEN_BASE_PATH_MAPPING] and [ROUTING_RULE_ONLY].
+        '''The routing mode for this domain name.
 
-        All other inputs are invalid.
+        The routing mode determines how API Gateway sends traffic from your custom domain name to your private APIs.
 
         :default: - "BASE_PATH_MAPPING_ONLY"
 
@@ -9940,7 +9942,7 @@ class CfnMethod(
             :param passthrough_behavior: Specifies how the method request body of an unmapped content type will be passed through the integration request to the back end without transformation. A content type is unmapped if no mapping template is defined in the integration or the content type does not match any of the mapped content types, as specified in ``requestTemplates`` . The valid value is one of the following: ``WHEN_NO_MATCH`` : passes the method request body through the integration request to the back end without transformation when the method request content type does not match any content type associated with the mapping templates defined in the integration request. ``WHEN_NO_TEMPLATES`` : passes the method request body through the integration request to the back end without transformation when no mapping template is defined in the integration request. If a template is defined when this option is selected, the method request of an unmapped content-type will be rejected with an HTTP 415 Unsupported Media Type response. ``NEVER`` : rejects the method request with an HTTP 415 Unsupported Media Type response when either the method request content type does not match any content type associated with the mapping templates defined in the integration request or no mapping template is defined in the integration request.
             :param request_parameters: A key-value map specifying request parameters that are passed from the method request to the back end. The key is an integration request parameter name and the associated value is a method request parameter value or static value that must be enclosed within single quotes and pre-encoded as required by the back end. The method request parameter value must match the pattern of ``method.request.{location}.{name}`` , where ``location`` is ``querystring`` , ``path`` , or ``header`` and ``name`` must be a valid and unique method request parameter name.
             :param request_templates: Represents a map of Velocity templates that are applied on the request payload based on the value of the Content-Type header sent by the client. The content type value is the key in this map, and the template (as a String) is the value.
-            :param timeout_in_millis: Custom timeout between 50 and 29,000 milliseconds. The default value is 29,000 milliseconds or 29 seconds.
+            :param timeout_in_millis: Custom timeout between 50 and 29,000 milliseconds. The default value is 29,000 milliseconds or 29 seconds. You can increase the default value to longer than 29 seconds for Regional or private APIs only.
             :param uri: Specifies Uniform Resource Identifier (URI) of the integration endpoint. For ``HTTP`` or ``HTTP_PROXY`` integrations, the URI must be a fully formed, encoded HTTP(S) URL according to the RFC-3986 specification for standard integrations. If ``connectionType`` is ``VPC_LINK`` specify the Network Load Balancer DNS name. For ``AWS`` or ``AWS_PROXY`` integrations, the URI is of the form ``arn:aws:apigateway:{region}:{subdomain.service|service}:path|action/{service_api}`` . Here, {Region} is the API Gateway region (e.g., us-east-1); {service} is the name of the integrated AWS service (e.g., s3); and {subdomain} is a designated subdomain supported by certain AWS service for fast host-name lookup. action can be used for an AWS service action-based API, using an Action={name}&{p1}={v1}&p2={v2}... query string. The ensuing {service_api} refers to a supported action {name} plus any required input parameters. Alternatively, path can be used for an AWS service path-based API. The ensuing service_api refers to the path to an AWS service resource, including the region of the integrated AWS service, if applicable. For example, for integration with the S3 API of GetObject, the uri can be either ``arn:aws:apigateway:us-west-2:s3:action/GetObject&Bucket={bucket}&Key={key}`` or ``arn:aws:apigateway:us-west-2:s3:path/{bucket}/{key}``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-method-integration.html
@@ -10174,7 +10176,7 @@ class CfnMethod(
         def timeout_in_millis(self) -> typing.Optional[jsii.Number]:
             '''Custom timeout between 50 and 29,000 milliseconds.
 
-            The default value is 29,000 milliseconds or 29 seconds.
+            The default value is 29,000 milliseconds or 29 seconds. You can increase the default value to longer than 29 seconds for Regional or private APIs only.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-apigateway-method-integration.html#cfn-apigateway-method-integration-timeoutinmillis
             '''
@@ -18487,7 +18489,7 @@ class JsonSchema:
     def __init__(
         self,
         *,
-        additional_items: typing.Optional[typing.Sequence[typing.Union["JsonSchema", typing.Dict[builtins.str, typing.Any]]]] = None,
+        additional_items: typing.Optional[typing.Union[builtins.bool, typing.Union["JsonSchema", typing.Dict[builtins.str, typing.Any]]]] = None,
         additional_properties: typing.Optional[typing.Union[builtins.bool, typing.Union["JsonSchema", typing.Dict[builtins.str, typing.Any]]]] = None,
         all_of: typing.Optional[typing.Sequence[typing.Union["JsonSchema", typing.Dict[builtins.str, typing.Any]]]] = None,
         any_of: typing.Optional[typing.Sequence[typing.Union["JsonSchema", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18720,9 +18722,11 @@ class JsonSchema:
             self._values["unique_items"] = unique_items
 
     @builtins.property
-    def additional_items(self) -> typing.Optional[typing.List["JsonSchema"]]:
+    def additional_items(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "JsonSchema"]]:
         result = self._values.get("additional_items")
-        return typing.cast(typing.Optional[typing.List["JsonSchema"]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "JsonSchema"]], result)
 
     @builtins.property
     def additional_properties(
@@ -21512,7 +21516,7 @@ class ModelProps(ModelOptions):
             model_props = apigateway.ModelProps(
                 rest_api=rest_api,
                 schema=apigateway.JsonSchema(
-                    additional_items=[json_schema_],
+                    additional_items=False,
                     additional_properties=False,
                     all_of=[json_schema_],
                     any_of=[json_schema_],
@@ -35933,7 +35937,7 @@ def _typecheckingstub__f6cb930af96a75dfa56cd51da050efc5f3c79f1759af7579e8e639450
 
 def _typecheckingstub__689c3507e908daefb625f42f5bfc2c215e135591704691d515c49669d5c3dbc3(
     *,
-    additional_items: typing.Optional[typing.Sequence[typing.Union[JsonSchema, typing.Dict[builtins.str, typing.Any]]]] = None,
+    additional_items: typing.Optional[typing.Union[builtins.bool, typing.Union[JsonSchema, typing.Dict[builtins.str, typing.Any]]]] = None,
     additional_properties: typing.Optional[typing.Union[builtins.bool, typing.Union[JsonSchema, typing.Dict[builtins.str, typing.Any]]]] = None,
     all_of: typing.Optional[typing.Sequence[typing.Union[JsonSchema, typing.Dict[builtins.str, typing.Any]]]] = None,
     any_of: typing.Optional[typing.Sequence[typing.Union[JsonSchema, typing.Dict[builtins.str, typing.Any]]]] = None,

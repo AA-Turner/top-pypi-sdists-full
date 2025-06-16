@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,7 +65,7 @@ static TCOD_parser_listener_t default_listener = {
 
 static bool string_copy(char* dest, const char* source, int len) {
   if (source == NULL) return false;
-  strncpy(dest, source, len);
+  strncpy(dest, source, len - 1);
   dest[len - 1] = '\0';
   if (strlen(source) >= (unsigned)len) return false;
   return true;
@@ -203,7 +203,7 @@ TCOD_value_t TCOD_parse_string_value(void) {
   for (char** s = (void*)TCOD_list_begin(l); s != (void*)TCOD_list_end(l); ++s) {
     slen += strlen(*s);
   }
-  TCOD_value_t ret = {.s = calloc(sizeof(*ret.s), slen + 1)};
+  TCOD_value_t ret = {.s = calloc(slen + 1, sizeof(*ret.s))};
   if (!ret.s) TCOD_parser_error("parseStringValue : out of memory allocating string of length %ld.", slen + 1);
   for (char** s = (void*)TCOD_list_begin(l); s != (void*)TCOD_list_end(l); ++s) {
     if (ret.s) strcat(ret.s, *s);
@@ -782,7 +782,7 @@ static bool default_new_struct(TCOD_ParserStruct* str, const char* name) {
 static bool default_new_flag(const char* name) {
   char tmp[1024] = "";
   snprintf(tmp, sizeof(tmp), "%s.%s", cur_prop_name, name);
-  prop_t* prop = calloc(sizeof(*prop), 1);
+  prop_t* prop = calloc(1, sizeof(*prop));
   prop->name = TCOD_strdup(tmp);
   prop->type = TCOD_TYPE_BOOL;
   prop->value.b = true;
@@ -793,7 +793,7 @@ static bool default_new_flag(const char* name) {
 static bool default_new_property(const char* propname, TCOD_value_type_t type, TCOD_value_t value) {
   char tmp[1024] = "";
   snprintf(tmp, sizeof(tmp), "%s.%s", cur_prop_name, propname);
-  prop_t* prop = calloc(sizeof(*prop), 1);
+  prop_t* prop = calloc(1, sizeof(*prop));
   prop->name = TCOD_strdup(tmp);
   prop->type = type;
   prop->value = value;

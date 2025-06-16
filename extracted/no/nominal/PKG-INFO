@@ -1,0 +1,49 @@
+Metadata-Version: 2.4
+Name: nominal
+Version: 1.61.0
+Summary: Automate Nominal workflows in Python
+Project-URL: Homepage, https://nominal.io
+Project-URL: Documentation, https://docs.nominal.io
+Project-URL: Repository, https://github.com/nominal-io/nominal-client
+Author-email: Alexander Reynolds <alex.reynolds@nominal.io>, Alexander Hill <alex.hill@nominal.io>, JP <jack@nominal.io>, Michael Bauer <michael@nominal.io>, Drake Eidukas <drake@nominal.io>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <4,>=3.9
+Requires-Dist: click<9,>=8
+Requires-Dist: conjure-python-client<4,>=2.8.0
+Requires-Dist: ffmpeg-python>=0.2.0
+Requires-Dist: nominal-api==0.708.0
+Requires-Dist: pandas>=0.0.0
+Requires-Dist: python-dateutil>=0.0.0
+Requires-Dist: pyyaml>=0.0.0
+Requires-Dist: requests>=0.0.0
+Requires-Dist: tabulate<0.10,>=0.9.0
+Requires-Dist: typing-extensions<5,>=4
+Provides-Extra: protos
+Requires-Dist: nominal-api-protos>=0.708.0; extra == 'protos'
+Provides-Extra: tdms
+Requires-Dist: nptdms<2,>=1.9.0; extra == 'tdms'
+Description-Content-Type: text/markdown
+
+# ⬖ `nominal`
+
+Nominal Python SDK for test data, storage, and compute.
+
+### 📖 Docs
+View on [docs.nominal.io](https://docs.nominal.io/).
+
+### 📦 Install
+```sh
+pip install nominal
+```
+
+### Usage
+
+Please refer to usage examples in the [documentation](https://docs.nominal.io/python/quickstart).

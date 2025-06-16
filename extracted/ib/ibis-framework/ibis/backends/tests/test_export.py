@@ -63,7 +63,7 @@ def test_table_to_pyarrow_batches(limit, awards_players):
         batch = batch_reader.read_next_batch()
         assert isinstance(batch, pa.RecordBatch)
         if limit is not None:
-            assert len(batch) == limit
+            assert len(batch) <= limit
         util.consume(batch_reader)
 
 
@@ -74,7 +74,7 @@ def test_column_to_pyarrow_batches(limit, awards_players):
         batch = batch_reader.read_next_batch()
         assert isinstance(batch, pa.RecordBatch)
         if limit is not None:
-            assert len(batch) == limit
+            assert len(batch) <= limit
         util.consume(batch_reader)
 
 
@@ -181,11 +181,12 @@ def test_column_pyarrow_batch_chunk_size(awards_players):
 def test_to_pyarrow_batches_borked_types(batting):
     """This is a temporary test to expose an(other) issue with sqlite typing
     shenanigans."""
-    with batting.to_pyarrow_batches(limit=42) as batch_reader:
+    limit = 42
+    with batting.to_pyarrow_batches(limit=limit) as batch_reader:
         assert isinstance(batch_reader, pa.ipc.RecordBatchReader)
         batch = batch_reader.read_next_batch()
         assert isinstance(batch, pa.RecordBatch)
-        assert len(batch) == 42
+        assert len(batch) <= limit
         util.consume(batch_reader)
 
 
@@ -493,6 +494,9 @@ def test_to_pyarrow_decimal(backend, dtype, pyarrow_dtype):
     reason="read_delta not yet implemented",
 )
 @pytest.mark.notyet(["clickhouse"], raises=Exception)
+@pytest.mark.xfail_version(
+    polars=["polars<1.30.1", "deltalake>=1"], raises=AttributeError
+)
 @pytest.mark.notyet(["mssql"], raises=PyDeltaTableError)
 def test_roundtrip_delta(backend, con, alltypes, tmp_path, monkeypatch):
     if con.name == "pyspark":

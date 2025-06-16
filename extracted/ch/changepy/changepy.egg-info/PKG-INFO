@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: changepy
+Version: 0.4.0
+Summary: Changepoint detection on time series, in Python
+Home-page: https://github.com/ruipgil/changepy
+Download-URL: https://github.com/ruipgil/changepy/archive/master.zip
+Author: Rui Gil
+Author-email: ruipgil@gmail.com
+Keywords: changepoint,timeseries,time,series,math,stats,probabilities
+License-File: LICENSE
+Requires-Dist: numpy

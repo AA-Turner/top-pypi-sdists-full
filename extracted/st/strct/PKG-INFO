@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: strct
-Version: 0.0.34
+Version: 0.0.35
 Summary: A small pure-python package for data structure relatedutility functions.
 Home-page: https://github.com/shaypal5/strct
 Author: Shay Palachy Affek
@@ -24,6 +24,17 @@ Classifier: Topic :: Other/Nonlisted Topic
 Classifier: Intended Audience :: Developers
 Requires-Python: >=3.8
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-python
+Dynamic: summary
 
 strct
 #####

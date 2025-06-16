@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "poetry-plugin-dotenv"
-version = "2.11.0"
+version = "2.12.0"
 description = "poetry-plugin-dotenv - is the plugin that automatically loads environment variables from a dotenv file into the environment before poetry commands are run."
 license = "MIT"
 authors = ["Volodymyr Pivoshenko <volodymyr.pivoshenko@gmail.com>"]
@@ -81,10 +81,10 @@ pylsp-rope = "^0.1.17"
 python-lsp-server = { extras = ["all"], version = "^1.12.2" }
 
 [tool.poetry.group.tests.dependencies]
-coverage = { version = "^7.8.2", extras = ["toml"] }
+coverage = { version = "^7.9.1", extras = ["toml"] }
 pytest = "7.4.4"
 pytest-codeblocks = "^0.17.0"
-pytest-cov = "^6.1.1"
+pytest-cov = "^6.2.1"
 pytest-lazy-fixture = "^0.6.3"
 pytest-mock = "^3.14.1"
 pytest-sugar = "^1.0.0"
@@ -119,6 +119,7 @@ strict = true
 warn_unused_configs = true
 
 [tool.pyright]
+reportArgumentType = false
 reportPossiblyUnboundVariable = false
 
 [tool.pytest.ini_options]

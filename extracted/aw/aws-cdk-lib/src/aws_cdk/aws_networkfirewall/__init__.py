@@ -2183,6 +2183,7 @@ class CfnLoggingConfiguration(
             ),
         
             # the properties below are optional
+            enable_monitoring_dashboard=False,
             firewall_name="firewallName"
         )
     '''
@@ -2194,6 +2195,7 @@ class CfnLoggingConfiguration(
         *,
         firewall_arn: builtins.str,
         logging_configuration: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.LoggingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         firewall_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -2201,6 +2203,7 @@ class CfnLoggingConfiguration(
         :param id: Construct identifier for this resource (unique in its scope).
         :param firewall_arn: The Amazon Resource Name (ARN) of the ``Firewall`` that the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
         :param logging_configuration: Defines how AWS Network Firewall performs logging for a ``Firewall`` .
+        :param enable_monitoring_dashboard: 
         :param firewall_name: The name of the firewall that the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
         '''
         if __debug__:
@@ -2210,6 +2213,7 @@ class CfnLoggingConfiguration(
         props = CfnLoggingConfigurationProps(
             firewall_arn=firewall_arn,
             logging_configuration=logging_configuration,
+            enable_monitoring_dashboard=enable_monitoring_dashboard,
             firewall_name=firewall_name,
         )
 
@@ -2280,6 +2284,23 @@ class CfnLoggingConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__6379a583f20adcddf04ea938455ca9e96ed6e0a2293ffa4b83968515494d8120)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "loggingConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enableMonitoringDashboard")
+    def enable_monitoring_dashboard(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enableMonitoringDashboard"))
+
+    @enable_monitoring_dashboard.setter
+    def enable_monitoring_dashboard(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd9d520dc417896b42fea56a33166ad81596a611f62bb71b7dca2be701c49cbe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enableMonitoringDashboard", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="firewallName")
@@ -2487,6 +2508,7 @@ class CfnLoggingConfiguration(
     name_mapping={
         "firewall_arn": "firewallArn",
         "logging_configuration": "loggingConfiguration",
+        "enable_monitoring_dashboard": "enableMonitoringDashboard",
         "firewall_name": "firewallName",
     },
 )
@@ -2496,12 +2518,14 @@ class CfnLoggingConfigurationProps:
         *,
         firewall_arn: builtins.str,
         logging_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+        enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         firewall_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnLoggingConfiguration``.
 
         :param firewall_arn: The Amazon Resource Name (ARN) of the ``Firewall`` that the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
         :param logging_configuration: Defines how AWS Network Firewall performs logging for a ``Firewall`` .
+        :param enable_monitoring_dashboard: 
         :param firewall_name: The name of the firewall that the logging configuration is associated with. You can't change the firewall specification after you create the logging configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-loggingconfiguration.html
@@ -2526,6 +2550,7 @@ class CfnLoggingConfigurationProps:
                 ),
             
                 # the properties below are optional
+                enable_monitoring_dashboard=False,
                 firewall_name="firewallName"
             )
         '''
@@ -2533,11 +2558,14 @@ class CfnLoggingConfigurationProps:
             type_hints = typing.get_type_hints(_typecheckingstub__7dab36772798ea19c1d2e2f1e86d2099a88806994c157c7bd4e0d62178ab9369)
             check_type(argname="argument firewall_arn", value=firewall_arn, expected_type=type_hints["firewall_arn"])
             check_type(argname="argument logging_configuration", value=logging_configuration, expected_type=type_hints["logging_configuration"])
+            check_type(argname="argument enable_monitoring_dashboard", value=enable_monitoring_dashboard, expected_type=type_hints["enable_monitoring_dashboard"])
             check_type(argname="argument firewall_name", value=firewall_name, expected_type=type_hints["firewall_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "firewall_arn": firewall_arn,
             "logging_configuration": logging_configuration,
         }
+        if enable_monitoring_dashboard is not None:
+            self._values["enable_monitoring_dashboard"] = enable_monitoring_dashboard
         if firewall_name is not None:
             self._values["firewall_name"] = firewall_name
 
@@ -2564,6 +2592,16 @@ class CfnLoggingConfigurationProps:
         result = self._values.get("logging_configuration")
         assert result is not None, "Required property 'logging_configuration' is missing"
         return typing.cast(typing.Union[_IResolvable_da3f097b, CfnLoggingConfiguration.LoggingConfigurationProperty], result)
+
+    @builtins.property
+    def enable_monitoring_dashboard(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-loggingconfiguration.html#cfn-networkfirewall-loggingconfiguration-enablemonitoringdashboard
+        '''
+        result = self._values.get("enable_monitoring_dashboard")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
 
     @builtins.property
     def firewall_name(self) -> typing.Optional[builtins.str]:
@@ -6434,6 +6472,446 @@ class CfnTLSInspectionConfigurationProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ITaggableV2_4e6798f8)
+class CfnVpcEndpointAssociation(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_networkfirewall.CfnVpcEndpointAssociation",
+):
+    '''A VPC endpoint association defines a single subnet to use for a firewall endpoint for a ``Firewall`` .
+
+    You can define VPC endpoint associations only in the Availability Zones that already have a subnet mapping defined in the ``Firewall`` resource.
+    .. epigraph::
+
+       You can retrieve the list of Availability Zones that are available for use by calling ``DescribeFirewallMetadata`` .
+
+    To manage firewall endpoints, first, in the ``Firewall`` specification, you specify a single VPC and one subnet for each of the Availability Zones where you want to use the firewall. Then you can define additional endpoints as VPC endpoint associations.
+
+    You can use VPC endpoint associations to expand the protections of the firewall as follows:
+
+    - *Protect multiple VPCs with a single firewall* - You can use the firewall to protect other VPCs, either in your account or in accounts where the firewall is shared. You can only specify Availability Zones that already have a firewall endpoint defined in the ``Firewall`` subnet mappings.
+    - *Define multiple firewall endpoints for a VPC in an Availability Zone* - You can create additional firewall endpoints for the VPC that you have defined in the firewall, in any Availability Zone that already has an endpoint defined in the ``Firewall`` subnet mappings. You can create multiple VPC endpoint associations for any other VPC where you use the firewall.
+
+    You can use AWS Resource Access Manager to share a ``Firewall`` that you own with other accounts, which gives them the ability to use the firewall to create VPC endpoint associations. For information about sharing a firewall, see ``PutResourcePolicy`` in this guide and see `Sharing Network Firewall resources <https://docs.aws.amazon.com/network-firewall/latest/developerguide/sharing.html>`_ in the *AWS Network Firewall Developer Guide* .
+
+    The status of the VPC endpoint association, which indicates whether it's ready to filter network traffic, is provided in the corresponding ``VpcEndpointAssociationStatus`` . You can retrieve both the association and its status by calling ``DescribeVpcEndpointAssociation`` .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html
+    :cloudformationResource: AWS::NetworkFirewall::VpcEndpointAssociation
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_networkfirewall as networkfirewall
+        
+        cfn_vpc_endpoint_association = networkfirewall.CfnVpcEndpointAssociation(self, "MyCfnVpcEndpointAssociation",
+            firewall_arn="firewallArn",
+            subnet_mapping=networkfirewall.CfnVpcEndpointAssociation.SubnetMappingProperty(
+                subnet_id="subnetId",
+        
+                # the properties below are optional
+                ip_address_type="ipAddressType"
+            ),
+            vpc_id="vpcId",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        firewall_arn: builtins.str,
+        subnet_mapping: typing.Union[_IResolvable_da3f097b, typing.Union["CfnVpcEndpointAssociation.SubnetMappingProperty", typing.Dict[builtins.str, typing.Any]]],
+        vpc_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param firewall_arn: The Amazon Resource Name (ARN) of the firewall.
+        :param subnet_mapping: The ID for a subnet that's used in an association with a firewall. This is used in ``CreateFirewall`` , ``AssociateSubnets`` , and ``CreateVpcEndpointAssociation`` . AWS Network Firewall creates an instance of the associated firewall in each subnet that you specify, to filter traffic in the subnet's Availability Zone.
+        :param vpc_id: The unique identifier of the VPC for the endpoint association.
+        :param description: A description of the VPC endpoint association.
+        :param tags: The key:value pairs to associate with the resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0573bf1b4145f0cb77953642be7dcead4ba79ff19313c048d55d52f50b71e1b3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnVpcEndpointAssociationProps(
+            firewall_arn=firewall_arn,
+            subnet_mapping=subnet_mapping,
+            vpc_id=vpc_id,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65d7c392a601d79f2fd4192b7743a475440dc80e37155fc4e745f070fec7a4ac)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__92933d91056f4ba3495b844f1c559970dc539ea1af9552b31329e79d5d06e036)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointId")
+    def attr_endpoint_id(self) -> builtins.str:
+        '''An endpoint Id.
+
+        :cloudformationAttribute: EndpointId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcEndpointAssociationArn")
+    def attr_vpc_endpoint_association_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of a VPC endpoint association.
+
+        :cloudformationAttribute: VpcEndpointAssociationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcEndpointAssociationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVpcEndpointAssociationId")
+    def attr_vpc_endpoint_association_id(self) -> builtins.str:
+        '''The unique identifier of the VPC endpoint association.
+
+        :cloudformationAttribute: VpcEndpointAssociationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVpcEndpointAssociationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallArn")
+    def firewall_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the firewall.'''
+        return typing.cast(builtins.str, jsii.get(self, "firewallArn"))
+
+    @firewall_arn.setter
+    def firewall_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4873642090d846acb67b83d329a7b6809d25db02946e5fd84612c726b796b3e3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "firewallArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetMapping")
+    def subnet_mapping(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, "CfnVpcEndpointAssociation.SubnetMappingProperty"]:
+        '''The ID for a subnet that's used in an association with a firewall.'''
+        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnVpcEndpointAssociation.SubnetMappingProperty"], jsii.get(self, "subnetMapping"))
+
+    @subnet_mapping.setter
+    def subnet_mapping(
+        self,
+        value: typing.Union[_IResolvable_da3f097b, "CfnVpcEndpointAssociation.SubnetMappingProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3d9b0b82919d3ce70488dc76e2455ae08bd18480a9794afad69806d772cd593)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subnetMapping", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcId")
+    def vpc_id(self) -> builtins.str:
+        '''The unique identifier of the VPC for the endpoint association.'''
+        return typing.cast(builtins.str, jsii.get(self, "vpcId"))
+
+    @vpc_id.setter
+    def vpc_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebc60917207a96abc5156cbba4fef32ab70bea3895d16bee96406b9486bc0767)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the VPC endpoint association.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64391adefe7631ddc6978ebdc3e7251c31e95e8ed23e78e1c1e9d7261fa16f80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The key:value pairs to associate with the resource.'''
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c17d9f2411e238295a7de2e84411c37ec368c1d40468f81aec3ce8b756fcc4a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networkfirewall.CfnVpcEndpointAssociation.SubnetMappingProperty",
+        jsii_struct_bases=[],
+        name_mapping={"subnet_id": "subnetId", "ip_address_type": "ipAddressType"},
+    )
+    class SubnetMappingProperty:
+        def __init__(
+            self,
+            *,
+            subnet_id: builtins.str,
+            ip_address_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The ID for a subnet that's used in an association with a firewall.
+
+            This is used in ``CreateFirewall`` , ``AssociateSubnets`` , and ``CreateVpcEndpointAssociation`` . AWS Network Firewall creates an instance of the associated firewall in each subnet that you specify, to filter traffic in the subnet's Availability Zone.
+
+            :param subnet_id: The unique identifier for the subnet.
+            :param ip_address_type: The subnet's IP address type. You can't change the IP address type after you create the subnet.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-vpcendpointassociation-subnetmapping.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networkfirewall as networkfirewall
+                
+                subnet_mapping_property = networkfirewall.CfnVpcEndpointAssociation.SubnetMappingProperty(
+                    subnet_id="subnetId",
+                
+                    # the properties below are optional
+                    ip_address_type="ipAddressType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ed6e084870d225a53477b08097053cc5b851f59b0c1d2ac3ce50dcb613b85015)
+                check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
+                check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "subnet_id": subnet_id,
+            }
+            if ip_address_type is not None:
+                self._values["ip_address_type"] = ip_address_type
+
+        @builtins.property
+        def subnet_id(self) -> builtins.str:
+            '''The unique identifier for the subnet.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-vpcendpointassociation-subnetmapping.html#cfn-networkfirewall-vpcendpointassociation-subnetmapping-subnetid
+            '''
+            result = self._values.get("subnet_id")
+            assert result is not None, "Required property 'subnet_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def ip_address_type(self) -> typing.Optional[builtins.str]:
+            '''The subnet's IP address type.
+
+            You can't change the IP address type after you create the subnet.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networkfirewall-vpcendpointassociation-subnetmapping.html#cfn-networkfirewall-vpcendpointassociation-subnetmapping-ipaddresstype
+            '''
+            result = self._values.get("ip_address_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SubnetMappingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_networkfirewall.CfnVpcEndpointAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "firewall_arn": "firewallArn",
+        "subnet_mapping": "subnetMapping",
+        "vpc_id": "vpcId",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnVpcEndpointAssociationProps:
+    def __init__(
+        self,
+        *,
+        firewall_arn: builtins.str,
+        subnet_mapping: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVpcEndpointAssociation.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]],
+        vpc_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVpcEndpointAssociation``.
+
+        :param firewall_arn: The Amazon Resource Name (ARN) of the firewall.
+        :param subnet_mapping: The ID for a subnet that's used in an association with a firewall. This is used in ``CreateFirewall`` , ``AssociateSubnets`` , and ``CreateVpcEndpointAssociation`` . AWS Network Firewall creates an instance of the associated firewall in each subnet that you specify, to filter traffic in the subnet's Availability Zone.
+        :param vpc_id: The unique identifier of the VPC for the endpoint association.
+        :param description: A description of the VPC endpoint association.
+        :param tags: The key:value pairs to associate with the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_networkfirewall as networkfirewall
+            
+            cfn_vpc_endpoint_association_props = networkfirewall.CfnVpcEndpointAssociationProps(
+                firewall_arn="firewallArn",
+                subnet_mapping=networkfirewall.CfnVpcEndpointAssociation.SubnetMappingProperty(
+                    subnet_id="subnetId",
+            
+                    # the properties below are optional
+                    ip_address_type="ipAddressType"
+                ),
+                vpc_id="vpcId",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3dbb62f97ee487edf99a31ab28f86b2ab2bef9c9c70286db4f91d315d1c53f76)
+            check_type(argname="argument firewall_arn", value=firewall_arn, expected_type=type_hints["firewall_arn"])
+            check_type(argname="argument subnet_mapping", value=subnet_mapping, expected_type=type_hints["subnet_mapping"])
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "firewall_arn": firewall_arn,
+            "subnet_mapping": subnet_mapping,
+            "vpc_id": vpc_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def firewall_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the firewall.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html#cfn-networkfirewall-vpcendpointassociation-firewallarn
+        '''
+        result = self._values.get("firewall_arn")
+        assert result is not None, "Required property 'firewall_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_mapping(
+        self,
+    ) -> typing.Union[_IResolvable_da3f097b, CfnVpcEndpointAssociation.SubnetMappingProperty]:
+        '''The ID for a subnet that's used in an association with a firewall.
+
+        This is used in ``CreateFirewall`` , ``AssociateSubnets`` , and ``CreateVpcEndpointAssociation`` . AWS Network Firewall creates an instance of the associated firewall in each subnet that you specify, to filter traffic in the subnet's Availability Zone.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html#cfn-networkfirewall-vpcendpointassociation-subnetmapping
+        '''
+        result = self._values.get("subnet_mapping")
+        assert result is not None, "Required property 'subnet_mapping' is missing"
+        return typing.cast(typing.Union[_IResolvable_da3f097b, CfnVpcEndpointAssociation.SubnetMappingProperty], result)
+
+    @builtins.property
+    def vpc_id(self) -> builtins.str:
+        '''The unique identifier of the VPC for the endpoint association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html#cfn-networkfirewall-vpcendpointassociation-vpcid
+        '''
+        result = self._values.get("vpc_id")
+        assert result is not None, "Required property 'vpc_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the VPC endpoint association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html#cfn-networkfirewall-vpcendpointassociation-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+        '''The key:value pairs to associate with the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networkfirewall-vpcendpointassociation.html#cfn-networkfirewall-vpcendpointassociation-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVpcEndpointAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnFirewall",
     "CfnFirewallPolicy",
@@ -6445,6 +6923,8 @@ __all__ = [
     "CfnRuleGroupProps",
     "CfnTLSInspectionConfiguration",
     "CfnTLSInspectionConfigurationProps",
+    "CfnVpcEndpointAssociation",
+    "CfnVpcEndpointAssociationProps",
 ]
 
 publication.publish()
@@ -6725,6 +7205,7 @@ def _typecheckingstub__71487a7865ce1877156cecd1cb83afa7ffd5f6428fa2611a7537c9ccf
     *,
     firewall_arn: builtins.str,
     logging_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     firewall_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6750,6 +7231,12 @@ def _typecheckingstub__d71125ddf5ba2d377facff407ef5a2fcdbd3c618a7499d3633c68130f
 
 def _typecheckingstub__6379a583f20adcddf04ea938455ca9e96ed6e0a2293ffa4b83968515494d8120(
     value: typing.Union[_IResolvable_da3f097b, CfnLoggingConfiguration.LoggingConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd9d520dc417896b42fea56a33166ad81596a611f62bb71b7dca2be701c49cbe(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6780,6 +7267,7 @@ def _typecheckingstub__7dab36772798ea19c1d2e2f1e86d2099a88806994c157c7bd4e0d6217
     *,
     firewall_arn: builtins.str,
     logging_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.LoggingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    enable_monitoring_dashboard: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     firewall_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -7158,6 +7646,80 @@ def _typecheckingstub__f05137012f831af07bffb09e4ece1302036a8c7c23718d26dcb08f4bf
     *,
     tls_inspection_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnTLSInspectionConfiguration.TLSInspectionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     tls_inspection_configuration_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0573bf1b4145f0cb77953642be7dcead4ba79ff19313c048d55d52f50b71e1b3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    firewall_arn: builtins.str,
+    subnet_mapping: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVpcEndpointAssociation.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]],
+    vpc_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65d7c392a601d79f2fd4192b7743a475440dc80e37155fc4e745f070fec7a4ac(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92933d91056f4ba3495b844f1c559970dc539ea1af9552b31329e79d5d06e036(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4873642090d846acb67b83d329a7b6809d25db02946e5fd84612c726b796b3e3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3d9b0b82919d3ce70488dc76e2455ae08bd18480a9794afad69806d772cd593(
+    value: typing.Union[_IResolvable_da3f097b, CfnVpcEndpointAssociation.SubnetMappingProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebc60917207a96abc5156cbba4fef32ab70bea3895d16bee96406b9486bc0767(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__64391adefe7631ddc6978ebdc3e7251c31e95e8ed23e78e1c1e9d7261fa16f80(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c17d9f2411e238295a7de2e84411c37ec368c1d40468f81aec3ce8b756fcc4a2(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed6e084870d225a53477b08097053cc5b851f59b0c1d2ac3ce50dcb613b85015(
+    *,
+    subnet_id: builtins.str,
+    ip_address_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3dbb62f97ee487edf99a31ab28f86b2ab2bef9c9c70286db4f91d315d1c53f76(
+    *,
+    firewall_arn: builtins.str,
+    subnet_mapping: typing.Union[_IResolvable_da3f097b, typing.Union[CfnVpcEndpointAssociation.SubnetMappingProperty, typing.Dict[builtins.str, typing.Any]]],
+    vpc_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

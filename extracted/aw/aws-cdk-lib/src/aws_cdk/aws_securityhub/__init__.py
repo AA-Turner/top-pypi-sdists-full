@@ -89,9 +89,6 @@ class CfnAutomationRule(
         # The values are placeholders you should change.
         from aws_cdk import aws_securityhub as securityhub
         
-        # id: Any
-        # updated_by: Any
-        
         cfn_automation_rule = securityhub.CfnAutomationRule(self, "MyCfnAutomationRule",
             actions=[securityhub.CfnAutomationRule.AutomationRulesActionProperty(
                 finding_fields_update=securityhub.CfnAutomationRule.AutomationRulesFindingFieldsUpdateProperty(
@@ -99,10 +96,10 @@ class CfnAutomationRule(
                     criticality=123,
                     note=securityhub.CfnAutomationRule.NoteUpdateProperty(
                         text="text",
-                        updated_by=updated_by
+                        updated_by="updatedBy"
                     ),
                     related_findings=[securityhub.CfnAutomationRule.RelatedFindingProperty(
-                        id=id,
+                        id="id",
                         product_arn="productArn"
                     )],
                     severity=securityhub.CfnAutomationRule.SeverityUpdateProperty(
@@ -577,19 +574,16 @@ class CfnAutomationRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_securityhub as securityhub
                 
-                # id: Any
-                # updated_by: Any
-                
                 automation_rules_action_property = securityhub.CfnAutomationRule.AutomationRulesActionProperty(
                     finding_fields_update=securityhub.CfnAutomationRule.AutomationRulesFindingFieldsUpdateProperty(
                         confidence=123,
                         criticality=123,
                         note=securityhub.CfnAutomationRule.NoteUpdateProperty(
                             text="text",
-                            updated_by=updated_by
+                            updated_by="updatedBy"
                         ),
                         related_findings=[securityhub.CfnAutomationRule.RelatedFindingProperty(
-                            id=id,
+                            id="id",
                             product_arn="productArn"
                         )],
                         severity=securityhub.CfnAutomationRule.SeverityUpdateProperty(
@@ -701,18 +695,15 @@ class CfnAutomationRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_securityhub as securityhub
                 
-                # id: Any
-                # updated_by: Any
-                
                 automation_rules_finding_fields_update_property = securityhub.CfnAutomationRule.AutomationRulesFindingFieldsUpdateProperty(
                     confidence=123,
                     criticality=123,
                     note=securityhub.CfnAutomationRule.NoteUpdateProperty(
                         text="text",
-                        updated_by=updated_by
+                        updated_by="updatedBy"
                     ),
                     related_findings=[securityhub.CfnAutomationRule.RelatedFindingProperty(
-                        id=id,
+                        id="id",
                         product_arn="productArn"
                     )],
                     severity=securityhub.CfnAutomationRule.SeverityUpdateProperty(
@@ -2036,7 +2027,7 @@ class CfnAutomationRule(
         name_mapping={"text": "text", "updated_by": "updatedBy"},
     )
     class NoteUpdateProperty:
-        def __init__(self, *, text: builtins.str, updated_by: typing.Any) -> None:
+        def __init__(self, *, text: builtins.str, updated_by: builtins.str) -> None:
             '''The updated note.
 
             :param text: The updated note text.
@@ -2051,11 +2042,9 @@ class CfnAutomationRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_securityhub as securityhub
                 
-                # updated_by: Any
-                
                 note_update_property = securityhub.CfnAutomationRule.NoteUpdateProperty(
                     text="text",
-                    updated_by=updated_by
+                    updated_by="updatedBy"
                 )
             '''
             if __debug__:
@@ -2078,14 +2067,14 @@ class CfnAutomationRule(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def updated_by(self) -> typing.Any:
+        def updated_by(self) -> builtins.str:
             '''The principal that updated the note.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityhub-automationrule-noteupdate.html#cfn-securityhub-automationrule-noteupdate-updatedby
             '''
             result = self._values.get("updated_by")
             assert result is not None, "Required property 'updated_by' is missing"
-            return typing.cast(typing.Any, result)
+            return typing.cast(builtins.str, result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2189,7 +2178,7 @@ class CfnAutomationRule(
         name_mapping={"id": "id", "product_arn": "productArn"},
     )
     class RelatedFindingProperty:
-        def __init__(self, *, id: typing.Any, product_arn: builtins.str) -> None:
+        def __init__(self, *, id: builtins.str, product_arn: builtins.str) -> None:
             '''Provides details about a list of findings that the current finding relates to.
 
             :param id: The product-generated identifier for a related finding. Array Members: Minimum number of 1 item. Maximum number of 20 items.
@@ -2204,10 +2193,8 @@ class CfnAutomationRule(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_securityhub as securityhub
                 
-                # id: Any
-                
                 related_finding_property = securityhub.CfnAutomationRule.RelatedFindingProperty(
-                    id=id,
+                    id="id",
                     product_arn="productArn"
                 )
             '''
@@ -2221,7 +2208,7 @@ class CfnAutomationRule(
             }
 
         @builtins.property
-        def id(self) -> typing.Any:
+        def id(self) -> builtins.str:
             '''The product-generated identifier for a related finding.
 
             Array Members: Minimum number of 1 item. Maximum number of 20 items.
@@ -2230,7 +2217,7 @@ class CfnAutomationRule(
             '''
             result = self._values.get("id")
             assert result is not None, "Required property 'id' is missing"
-            return typing.cast(typing.Any, result)
+            return typing.cast(builtins.str, result)
 
         @builtins.property
         def product_arn(self) -> builtins.str:
@@ -2567,9 +2554,6 @@ class CfnAutomationRuleProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_securityhub as securityhub
             
-            # id: Any
-            # updated_by: Any
-            
             cfn_automation_rule_props = securityhub.CfnAutomationRuleProps(
                 actions=[securityhub.CfnAutomationRule.AutomationRulesActionProperty(
                     finding_fields_update=securityhub.CfnAutomationRule.AutomationRulesFindingFieldsUpdateProperty(
@@ -2577,10 +2561,10 @@ class CfnAutomationRuleProps:
                         criticality=123,
                         note=securityhub.CfnAutomationRule.NoteUpdateProperty(
                             text="text",
-                            updated_by=updated_by
+                            updated_by="updatedBy"
                         ),
                         related_findings=[securityhub.CfnAutomationRule.RelatedFindingProperty(
-                            id=id,
+                            id="id",
                             product_arn="productArn"
                         )],
                         severity=securityhub.CfnAutomationRule.SeverityUpdateProperty(
@@ -10633,7 +10617,7 @@ def _typecheckingstub__91f36875bd267215fe022e63a4ce087a699536cdc1b9f8b3c84b53aa8
 def _typecheckingstub__1f01ce6428aaccb76a4dd3111c6a58270f1129efa37f87f346378055261a8a01(
     *,
     text: builtins.str,
-    updated_by: typing.Any,
+    updated_by: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10649,7 +10633,7 @@ def _typecheckingstub__000b578e595fbfb6609bb2cf3b90f42c91b01240906d31c22b9f1dd98
 
 def _typecheckingstub__9df6b75e5070bcb08d999a08b3bd84da05079be466527b5ce60bbe470f59dd64(
     *,
-    id: typing.Any,
+    id: builtins.str,
     product_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""

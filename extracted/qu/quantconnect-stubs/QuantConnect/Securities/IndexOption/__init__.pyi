@@ -13,6 +13,66 @@ import System
 import System.Collections.Generic
 
 
+class IndexOptionPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
+    """The index option price variation model"""
+
+    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+        """
+        Get the minimum price variation from a security
+        
+        :param parameters: An object containing the method parameters
+        :returns: Decimal minimum price variation of a given security.
+        """
+        ...
+
+
+class IndexOptionSymbol(System.Object):
+    """Index Option Symbol"""
+
+    SUPPORTED_INDEX_OPTION_TICKERS: System.Collections.Generic.HashSet[str] = ...
+    """Supported index option tickers"""
+
+    @staticmethod
+    def get_expiry_date(ticker: str, last_trading_date: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """Returns the expiry date for the given index option ticker and last trading date"""
+        ...
+
+    @staticmethod
+    def get_last_trading_date(ticker: str, expiration_date: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        """Returns the last trading date for the given index option ticker and expiration date"""
+        ...
+
+    @staticmethod
+    def is_index_option(ticker: str) -> bool:
+        """
+        Checks if the ticker provided is a supported Index Option
+        
+        :param ticker: Ticker of the index option
+        :returns: true if the ticker matches an index option's ticker.
+        """
+        ...
+
+    @staticmethod
+    def is_standard(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Determines if the Index Option Symbol is for a monthly contract
+        
+        :param symbol: Index Option Symbol
+        :returns: True if monthly contract, false otherwise.
+        """
+        ...
+
+    @staticmethod
+    def map_to_underlying(index_option: str) -> str:
+        """
+        Maps an index option ticker to its underlying index ticker
+        
+        :param index_option: Index option ticker to map to the underlying
+        :returns: Index ticker.
+        """
+        ...
+
+
 class IndexOptionSymbolProperties(QuantConnect.Securities.Option.OptionSymbolProperties):
     """Index Option Symbol Properties"""
 
@@ -71,66 +131,6 @@ class IndexOption(QuantConnect.Securities.Option.Option):
         This method is protected.
         
         :param data: Market price data
-        """
-        ...
-
-
-class IndexOptionSymbol(System.Object):
-    """Index Option Symbol"""
-
-    SUPPORTED_INDEX_OPTION_TICKERS: System.Collections.Generic.HashSet[str] = ...
-    """Supported index option tickers"""
-
-    @staticmethod
-    def get_expiry_date(ticker: str, last_trading_date: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """Returns the expiry date for the given index option ticker and last trading date"""
-        ...
-
-    @staticmethod
-    def get_last_trading_date(ticker: str, expiration_date: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        """Returns the last trading date for the given index option ticker and expiration date"""
-        ...
-
-    @staticmethod
-    def is_index_option(ticker: str) -> bool:
-        """
-        Checks if the ticker provided is a supported Index Option
-        
-        :param ticker: Ticker of the index option
-        :returns: true if the ticker matches an index option's ticker.
-        """
-        ...
-
-    @staticmethod
-    def is_standard(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
-        """
-        Determines if the Index Option Symbol is for a monthly contract
-        
-        :param symbol: Index Option Symbol
-        :returns: True if monthly contract, false otherwise.
-        """
-        ...
-
-    @staticmethod
-    def map_to_underlying(index_option: str) -> str:
-        """
-        Maps an index option ticker to its underlying index ticker
-        
-        :param index_option: Index option ticker to map to the underlying
-        :returns: Index ticker.
-        """
-        ...
-
-
-class IndexOptionPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
-    """The index option price variation model"""
-
-    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
-        """
-        Get the minimum price variation from a security
-        
-        :param parameters: An object containing the method parameters
-        :returns: Decimal minimum price variation of a given security.
         """
         ...
 

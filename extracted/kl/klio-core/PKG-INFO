@@ -1,0 +1,115 @@
+Metadata-Version: 2.1
+Name: klio-core
+Version: 22.3.0
+Summary: Core klio library for common functionality
+Home-page: https://github.com/spotify/klio
+Author: The klio developers
+Author-email: opensource+klio@spotify.com
+Maintainer: The klio developers
+Maintainer-email: opensource+klio@spotify.com
+License: UNKNOWN
+Project-URL: Documentation, https://docs.klio.io
+Project-URL: Bug Tracker, https://github.com/spotify/klio/issues
+Project-URL: Source Code, https://github.com/spotify/klio
+Keywords: klio,apache,beam,audio
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Multimedia
+Classifier: Topic :: Multimedia :: Graphics
+Classifier: Topic :: Multimedia :: Sound/Audio
+Classifier: Topic :: Multimedia :: Video
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Image Processing
+Requires-Python: >=3.6, <3.9
+Description-Content-Type: text/x-rst
+Provides-Extra: docs
+Provides-Extra: tests
+Provides-Extra: dev
+
+The ``klio-core`` Package
+=========================
+
+.. image:: https://img.shields.io/pypi/v/klio-core?color=%2300aa55&label=klio-core
+   :target: https://pypi.org/project/klio-core
+   :alt: Latest version of klio-core on PyPI
+
+.. image:: https://github.com/spotify/klio/workflows/klio-core%20unit%20tests/badge.svg
+   :target: https://github.com/spotify/klio/actions?query=workflow%3A%22klio-core+unit+tests%22
+   :alt: Status of klio-core unit tests
+
+.. start-klio-core-intro
+
+A library of common utilities, including the Klio `protobuf definitions <https://docs.klio.io/en/latest/userguide/pipeline/message.html>`_ and configuration parsing.
+
+As the ``klio-core`` package is **not** meant to be installed directly, check out the `installation guide <https://docs.klio.io/en/latest/quickstart/installation.html>`_ for how to setup installation.
+There is also the `user guide <https://docs.klio.io/en/latest/userguide/index.html>`_ and the `API documentation <https://docs.klio.io/en/latest/reference/core/index.html>`_ for more information.
+
+
+
+.. role:: violetemph
+
+
+What is Klio?
+-------------
+
+.. start-intro
+
+Klio is an :violetemph:`ecosystem` that allows you to process audio files – or any binary files – easily and at scale.
+
+Klio jobs are :violetemph:`opinionated` data pipelines in Python (streaming or batch) built upon `Apache Beam <https://beam.apache.org/>`_ and tuned for audio and binary file processing.
+
+Klio was built by Spotify to run our large-scale :violetemph:`audio intelligence systems` and is used by teams of engineers and audio researchers to help develop and deploy next generation audio algorithms.
+
+.. end-intro
+
+Read more about Klio `here <https://docs.klio.io/en/latest/userguide/index.html>`_.
+
+Get Started
+-----------
+
+Check out our `Quick Start <https://docs.klio.io/en/latest/userguide/quickstart/index.html>`_ guide on how to start using Klio.
+
+
+Resources
+---------
+
+.. start-resources
+
+* Have a look at our `complete documentation <https://docs.klio.io/en/latest/index.html>`_.
+* Check out our `contributors' guide <https://docs.klio.io/en/latest/contributors.html>`_.
+* Join the ``#klio`` channel in the `Spotify FOSS Slack organization <https://slackin.spotify.com>`_.
+* Read up on some of our `FAQs <https://docs.klio.io/en/latest/faqs/index.html>`_.
+* Review our `Code of Conduct <https://github.com/spotify/klio/blob/master/CODE_OF_CONDUCT.rst>`_ - this is how we roll.
+
+.. end-resources
+
+Release Information
+===================
+
+22.3.0 (2022-03-04)
+--------------------
+
+.. start-22.3.0
+
+No changes - bump version to sync with ``22.3.0`` release.
+
+.. end-22.3.0
+
+.. _core-21.12.0:
+
+
+`Full Changelog <https://docs.klio.io/en/latest/reference/core/changelog.html>`_.
+
+
+

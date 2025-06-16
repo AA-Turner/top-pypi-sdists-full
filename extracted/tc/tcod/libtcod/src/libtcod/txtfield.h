@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,8 +29,9 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef _TCOD_TEXT_H_
-#define _TCOD_TEXT_H_
+#pragma once
+#ifndef TCOD_TEXT_H_
+#define TCOD_TEXT_H_
 
 #include "color.h"
 #include "console_types.h"
@@ -57,4 +58,4 @@ TCODLIB_API void TCOD_text_delete(TCOD_text_t txt);
 }
 #endif
 
-#endif /* _TCOD_TEXT_H_ */
+#endif  // TCOD_TEXT_H_

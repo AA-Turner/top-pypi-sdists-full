@@ -5524,6 +5524,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_WORK_SPACES_THIN_CLIENT_MONITORING_SERVICE_ROLE_POLICY = "AMAZON_WORK_SPACES_THIN_CLIENT_MONITORING_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    NETWORK_SECURITY_DIRECTOR_SERVICE_LINKED_ROLE_POLICY = "NETWORK_SECURITY_DIRECTOR_SERVICE_LINKED_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

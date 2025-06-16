@@ -63,6 +63,7 @@ class _Sandbox(modal._object._Object):
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         enable_snapshot: bool = False,
+        verbose: bool = False,
     ) -> _Sandbox: ...
     @staticmethod
     async def create(
@@ -90,6 +91,7 @@ class _Sandbox(modal._object._Object):
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
+        verbose: bool = False,
         _experimental_enable_snapshot: bool = False,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         client: typing.Optional[modal.client._Client] = None,
@@ -124,6 +126,7 @@ class _Sandbox(modal._object._Object):
         _experimental_enable_snapshot: bool = False,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         client: typing.Optional[modal.client._Client] = None,
+        verbose: bool = False,
     ): ...
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
     @staticmethod
@@ -236,6 +239,7 @@ class Sandbox(modal.object.Object):
         proxy: typing.Optional[modal.proxy.Proxy] = None,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         enable_snapshot: bool = False,
+        verbose: bool = False,
     ) -> Sandbox: ...
 
     class __create_spec(typing_extensions.Protocol):
@@ -268,6 +272,7 @@ class Sandbox(modal.object.Object):
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
+            verbose: bool = False,
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
@@ -301,6 +306,7 @@ class Sandbox(modal.object.Object):
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
+            verbose: bool = False,
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
@@ -342,6 +348,7 @@ class Sandbox(modal.object.Object):
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
+            verbose: bool = False,
         ): ...
         async def aio(
             self,
@@ -376,6 +383,7 @@ class Sandbox(modal.object.Object):
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
+            verbose: bool = False,
         ): ...
 
     _create: ___create_spec

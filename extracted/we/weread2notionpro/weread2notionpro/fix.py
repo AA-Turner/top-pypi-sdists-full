@@ -74,7 +74,7 @@ def insert_book_to_notion(books, index, bookId,status):
             properties,
             pendulum.from_timestamp(book.get("时间"), tz="Asia/Shanghai"),
         )
-
+    book["封面"] = book.get("cover")
     print(
         f"正在插入《{book.get('title')}》,一共{len(books)}本，当前是第{index+1}本 {status}。"
     )
@@ -163,11 +163,7 @@ def main():
         json.dump(notion_books, f, ensure_ascii=False, indent=2)
     not_need_sync = []
     for key, value in bookshelf_books_dict.items():
-        if ((key in notion_books)
-             and (value.get("status") == notion_books.get(key).get("status"))             
-             and (notion_books.get(key).get("cover") is not None)
-            and (notion_books.get(key).get("price") is not None)
-            and (notion_books.get(key).get("wordCount") is not None)):
+        if ((key in notion_books) and (value.get("status") == notion_books.get(key).get("status"))):
             not_need_sync.append(key)
     books = [item for item in books if item.get("bookId") not in not_need_sync]
     for index, book in enumerate(books):

@@ -1,0 +1,119 @@
+[project]
+authors = [{ name = "Kitware, Inc.", email = "kitware@kitware.com" }]
+name = "zarr-checksum"
+version = "0.4.7"
+description = "Checksum support for zarrs stored in various backends"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.7"
+dependencies = ["click>=8.1.8", "tqdm>=4.67.1"]
+
+[project.optional-dependencies]
+boto = ["boto3>=1.24"]
+test = ["pytest>=7.2.1", "minio", "faker"]
+format = ["ruff>=0.11.2"]
+lint = ["ruff>=0.11.2"]
+dev = ["ruff>=0.11.2", "boto3-stubs>=1.24"]
+
+
+[project.urls]
+homepage = "https://github.com/dandi/zarr_checksum"
+repository = "https://github.com/dandi/zarr_checksum"
+
+
+[project.scripts]
+zarrsum = "zarr_checksum.cli:cli"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+# Providing these values here is deprecated, and is only duplicated here to support python versions 3.7 and 3.8
+[tool.poetry]
+package-mode = true
+authors = ["Kitware, Inc. <kitware@kitware.com>"]
+name = "zarr-checksum"
+version = "0.4.7"
+description = "Checksum support for zarrs stored in various backends"
+
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # Incompatible with formatter
+    # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "COM812", # missing-trailing-comma
+    "COM819", # prohibited-trailing-comma
+    "D206",   # indent-with-spaces
+    "D300",   # triple-single-quotes
+    "E111",   # indentation-with-invalid-multiple
+    "E114",   # indentation-with-invalid-multiple-comment
+    "E117",   # over-indented
+    "ISC001", # single-line-implicit-string-concatenation
+    "ISC002", # multi-line-implicit-string-concatenation
+    "Q",      # flake8-quotes
+    "W191",   # tab-indentation
+
+    "A003",   # Class attribute is shadowing a Python builtin
+    "ANN",    # flake8-annotations
+    "ARG001", # Unused function argument
+    "ARG002", # Unused method argument
+    "D1",     # Missing docstring
+    "EM101",  # Exception must not use a string literal, assign to variable first
+    "EM102",  # Exception must not use an f-string literal, assign to variable first
+    "ERA001", # Found commented-out code
+    "FIX",    # flake8-fixme
+    "TD002",  # Missing author in TODO
+    "TD003",  # Missing issue link on the line following this TODO
+    "TRY003", # Avoid specifying long messages outside the exception class
+
+    # Try to fix upstream
+    "RUF012", #  Mutable class attributes should be annotated with `typing.ClassVar`
+
+    "D203",   # incorrect-blank-line-before-class
+    "D212",   # multi-line-summary-first-line
+    "PTH118", # os-path-join
+    "PTH123", # builtin-open
+
+    # We intentionally use md5 to conform to S3
+    "S324", # hashlib-insecure-hash-function
+
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = [
+    "DJ007",   # Do not use `__all__`
+    "DJ008",   # Model does not define `__str__` method
+    "PLR0913", # Too many arguments to function call
+    "PLR2004", # Magic value used in comparison
+    "S",       # flake8-bandit
+    "SLF001",  # Private member accessed
+]
+
+[tool.codespell]
+skip = '.git,*.pdf,*.svg,poetry.lock'
+#
+# ignore-words-list = ''
+
+[tool.mypy]
+allow_incomplete_defs = false
+allow_untyped_defs = false
+ignore_missing_imports = false
+# <https://github.com/python/mypy/issues/7773>:
+no_implicit_optional = true
+implicit_reexport = false
+local_partial_types = true
+pretty = true
+show_error_codes = true
+show_traceback = true
+strict_equality = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true

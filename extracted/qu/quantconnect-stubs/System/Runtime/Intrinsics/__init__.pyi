@@ -6,43 +6,43 @@ import System
 import System.Numerics
 import System.Runtime.Intrinsics
 
-System_Runtime_Intrinsics_Vector128 = typing.Any
+System_Runtime_Intrinsics_Vector512 = typing.Any
 System_Runtime_Intrinsics_Vector256 = typing.Any
 System_Runtime_Intrinsics_Vector64 = typing.Any
-System_Runtime_Intrinsics_Vector512 = typing.Any
+System_Runtime_Intrinsics_Vector128 = typing.Any
 
-System_Runtime_Intrinsics_Vector128_T = typing.TypeVar("System_Runtime_Intrinsics_Vector128_T")
+System_Runtime_Intrinsics_Vector512_T = typing.TypeVar("System_Runtime_Intrinsics_Vector512_T")
 System_Runtime_Intrinsics_Vector256_T = typing.TypeVar("System_Runtime_Intrinsics_Vector256_T")
 System_Runtime_Intrinsics_Vector64_T = typing.TypeVar("System_Runtime_Intrinsics_Vector64_T")
-System_Runtime_Intrinsics_Vector512_T = typing.TypeVar("System_Runtime_Intrinsics_Vector512_T")
+System_Runtime_Intrinsics_Vector128_T = typing.TypeVar("System_Runtime_Intrinsics_Vector128_T")
 
 
-class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Runtime.Intrinsics.ISimdVector[System_Runtime_Intrinsics_Vector128, System_Runtime_Intrinsics_Vector128_T]):
-    """Represents a 128-bit vector of a specified numeric type that is suitable for low-level optimization of parallel algorithms."""
+class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Runtime.Intrinsics.ISimdVector[System_Runtime_Intrinsics_Vector512, System_Runtime_Intrinsics_Vector512_T]):
+    """Represents a 512-bit vector of a specified numeric type that is suitable for low-level optimization of parallel algorithms."""
 
-    ALL_BITS_SET: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]
-    """Gets a new Vector128{T} with all bits set to 1."""
+    ALL_BITS_SET: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
+    """Gets a new Vector512{T} with all bits set to 1."""
 
     COUNT: int
-    """Gets the number of T that are in a Vector128{T}."""
+    """Gets the number of T that are in a Vector512{T}."""
 
-    INDICES: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]
-    """Gets a new Vector128{T} with the elements set to their index."""
+    INDICES: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
+    """Gets a new Vector512{T} with the elements set to their index."""
 
     IS_SUPPORTED: bool
     """Gets true if T is supported; otherwise, false."""
 
-    ONE: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]
-    """Gets a new Vector128{T} with all elements initialized to one."""
+    ONE: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
+    """Gets a new Vector512{T} with all elements initialized to one."""
 
-    ZERO: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]
-    """Gets a new Vector128{T} with all elements initialized to zero."""
+    ZERO: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
+    """Gets a new Vector512{T} with all elements initialized to zero."""
 
     IS_HARDWARE_ACCELERATED: bool
-    """Gets a value that indicates whether 128-bit vector operations are subject to hardware acceleration through JIT intrinsic support."""
+    """Gets a value that indicates whether 512-bit vector operations are subject to hardware acceleration through JIT intrinsic support."""
 
     @overload
-    def __add__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __add__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Adds two vectors to compute their sum.
         
@@ -53,7 +53,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __add__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __add__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Returns a given vector unchanged.
         
@@ -61,7 +61,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __and__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __and__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Computes the bitwise-and of two vectors.
         
@@ -71,7 +71,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __eq__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> bool:
+    def __eq__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> bool:
         """
         Compares two vectors to determine if all elements are equal.
         
@@ -81,7 +81,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __getitem__(self, index: int) -> System_Runtime_Intrinsics_Vector128_T:
+    def __getitem__(self, index: int) -> System_Runtime_Intrinsics_Vector512_T:
         """
         Gets the element at the specified index.
         
@@ -91,7 +91,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __iadd__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __iadd__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Adds two vectors to compute their sum.
         
@@ -102,7 +102,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __iadd__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __iadd__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Returns a given vector unchanged.
         
@@ -110,7 +110,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __iand__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __iand__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Computes the bitwise-and of two vectors.
         
@@ -120,7 +120,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __ilshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __ilshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -131,7 +131,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __imul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Multiplies two vectors to compute their element-wise product.
         
@@ -142,7 +142,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __imul__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __imul__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Multiplies a vector by a scalar to compute their product.
         
@@ -153,7 +153,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __imul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Multiplies a vector by a scalar to compute their product.
         
@@ -163,7 +163,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __invert__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __invert__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Computes the ones-complement of a vector.
         
@@ -172,7 +172,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __ior__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __ior__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Computes the bitwise-or of two vectors.
         
@@ -182,7 +182,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __irshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __irshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Shifts (signed) each element of a vector right by the specified amount.
         
@@ -193,7 +193,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __isub__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __isub__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Subtracts two vectors to compute their difference.
         
@@ -204,7 +204,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __isub__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __isub__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Computes the unary negation of a vector.
         
@@ -214,7 +214,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __itruediv__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __itruediv__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Divides two vectors to compute their quotient.
         
@@ -225,7 +225,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __itruediv__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __itruediv__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Divides a vector by a scalar to compute the per-element quotient.
         
@@ -235,7 +235,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __ixor__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __ixor__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Computes the exclusive-or of two vectors.
         
@@ -245,7 +245,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __lshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __lshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -256,7 +256,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __mul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Multiplies two vectors to compute their element-wise product.
         
@@ -267,7 +267,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __mul__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __mul__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Multiplies a vector by a scalar to compute their product.
         
@@ -278,7 +278,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __mul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Multiplies a vector by a scalar to compute their product.
         
@@ -288,7 +288,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __ne__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> bool:
+    def __ne__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> bool:
         """
         Compares two vectors to determine if any elements are not equal.
         
@@ -298,7 +298,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __or__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __or__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Computes the bitwise-or of two vectors.
         
@@ -308,7 +308,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __rshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __rshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Shifts (signed) each element of a vector right by the specified amount.
         
@@ -319,7 +319,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __sub__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __sub__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Subtracts two vectors to compute their difference.
         
@@ -330,7 +330,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __sub__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __sub__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Computes the unary negation of a vector.
         
@@ -340,7 +340,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __truediv__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __truediv__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Divides two vectors to compute their quotient.
         
@@ -351,7 +351,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @overload
-    def __truediv__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __truediv__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Divides a vector by a scalar to compute the per-element quotient.
         
@@ -361,7 +361,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         """
         ...
 
-    def __xor__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
+    def __xor__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         """
         Computes the exclusive-or of two vectors.
         
@@ -372,134 +372,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def as_plane(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Plane:
-        """
-        Reinterprets a Vector128<Single> as a new Plane.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Plane.
-        """
-        ...
-
-    @staticmethod
-    def as_quaternion(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Quaternion:
-        """
-        Reinterprets a Vector128<Single> as a new Quaternion.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Quaternion.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Plane) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Reinterprets a Plane as a new Vector128<Single>.
-        
-        :param value: The plane to reinterpret.
-        :returns: reinterpreted as a new Vector128<Single>.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Quaternion) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Reinterprets a Quaternion as a new Vector128<Single>.
-        
-        :param value: The quaternion to reinterpret.
-        :returns: reinterpreted as a new Vector128<Single>.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Vector2) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Reinterprets a Vector2 as a new Vector128<Single> with the new elements zeroed.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Vector128<Single> with the new elements zeroed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Vector3) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Reinterprets a Vector3 as a new Vector128<Single> with the new elements zeroed.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Vector128<Single> with the new elements zeroed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128(value: System.Numerics.Vector4) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Reinterprets a Vector4 as a new Vector128<Single>.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Vector128<Single>.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128_unsafe(value: System.Numerics.Vector2) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Reinterprets a Vector2 as a new Vector128<Single>, leaving the new elements undefined.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Vector128<Single>.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_vector_128_unsafe(value: System.Numerics.Vector3) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Reinterprets a Vector3 as a new Vector128<Single>, leaving the new elements undefined.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Vector128<Single>.
-        """
-        ...
-
-    @staticmethod
-    def as_vector_2(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Vector2:
-        """
-        Reinterprets a Vector128<Single> as a new Vector2.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Vector2.
-        """
-        ...
-
-    @staticmethod
-    def as_vector_3(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Vector3:
-        """
-        Reinterprets a Vector128<Single> as a new Vector3.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Vector3.
-        """
-        ...
-
-    @staticmethod
-    def as_vector_4(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Vector4:
-        """
-        Reinterprets a Vector128<Single> as a new Vector4.
-        
-        :param value: The vector to reinterpret.
-        :returns: reinterpreted as a new Vector4.
-        """
-        ...
-
-    @staticmethod
-    def ceiling(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def ceiling(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         """
         Computes the ceiling of each element in a vector.
         
@@ -509,9 +382,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_double(vector: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def convert_to_double(vector: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
         """
-        Converts a Vector128<Int64> to a Vector128<Double>.
+        Converts a Vector512<Int64> to a Vector512<Double>.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -519,9 +392,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_int_32(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_int_32(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Converts a Vector128<Single> to a Vector128<Int32> using saturation on overflow.
+        Converts a Vector512<Single> to a Vector512<Int32> using saturation on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -529,9 +402,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_int_32_native(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_int_32_native(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Converts a Vector128<Single> to a Vector128<Int32> platform specific behavior on overflow.
+        Converts a Vector512<Single> to a Vector512<Int32> using platform specific behavior on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -539,9 +412,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_int_64(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_int_64(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Converts a Vector128<Double> to a Vector128<Int64> using saturation on overflow.
+        Converts a Vector512<Double> to a Vector512<Int64> using saturation on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -549,9 +422,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_int_64_native(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_int_64_native(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Converts a Vector128<Double> to a Vector128<Int64> using platform specific behavior on overflow.
+        Converts a Vector512<Double> to a Vector512<Int64> using platform specific behavior on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -559,9 +432,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_single(vector: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def convert_to_single(vector: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
         """
-        Converts a Vector128<Int32> to a Vector128<Single>.
+        Converts a Vector512<Int32> to a Vector512<Single>.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -569,9 +442,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_u_int_32(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_u_int_32(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Converts a Vector128<Single> to a Vector128<UInt32> using saturation on overflow.
+        Converts a Vector512<Single> to a Vector512<UInt32> using saturation on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -579,9 +452,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_u_int_32_native(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_u_int_32_native(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Converts a Vector128<Single> to a Vector128<UInt32> using platform specific behavior on overflow.
+        Converts a Vector512<Single> to a Vector512<UInt32> using platform specific behavior on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -589,9 +462,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_u_int_64(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_u_int_64(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Converts a Vector128<Double> to a Vector128<UInt64> using saturation on overflow.
+        Converts a Vector512<Double> to a Vector512<UInt64> using saturation on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -599,9 +472,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_u_int_64_native(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def convert_to_u_int_64_native(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Converts a Vector128<Double> to a Vector128<UInt64> using platform specific behavior on overflow.
+        Converts a Vector512<Double> to a Vector512<UInt64> using platform specific behavior on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -609,58 +482,58 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def cos(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def cos(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
     @overload
-    def create(value: int) -> System.Runtime.Intrinsics.Vector128[int]:
+    def create(value: int) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Creates a new Vector128<Byte> instance with all elements initialized to the specified value.
+        Creates a new Vector512<Byte> instance with all elements initialized to the specified value.
         
         :param value: The value that all elements will be initialized to.
-        :returns: A new Vector128<Byte> with all elements initialized to .
+        :returns: A new Vector512<Byte> with all elements initialized to .
         """
         ...
 
     @staticmethod
     @overload
-    def create(value: float) -> System.Runtime.Intrinsics.Vector128[float]:
+    def create(value: float) -> System.Runtime.Intrinsics.Vector512[float]:
         """
-        Creates a new Vector128<Double> instance with all elements initialized to the specified value.
+        Creates a new Vector512<Double> instance with all elements initialized to the specified value.
         
         :param value: The value that all elements will be initialized to.
-        :returns: A new Vector128<Double> with all elements initialized to .
+        :returns: A new Vector512<Double> with all elements initialized to .
         """
         ...
 
     @staticmethod
     @overload
-    def create(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
+    def create(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
         """
-        Creates a new Vector128<IntPtr> instance with all elements initialized to the specified value.
+        Creates a new Vector512<IntPtr> instance with all elements initialized to the specified value.
         
         :param value: The value that all elements will be initialized to.
-        :returns: A new Vector128<IntPtr> with all elements initialized to .
+        :returns: A new Vector512<IntPtr> with all elements initialized to .
         """
         ...
 
     @staticmethod
     @overload
-    def create(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
+    def create(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
         """
-        Creates a new Vector128<UIntPtr> instance with all elements initialized to the specified value.
+        Creates a new Vector512<UIntPtr> instance with all elements initialized to the specified value.
         
         :param value: The value that all elements will be initialized to.
-        :returns: A new Vector128<UIntPtr> with all elements initialized to .
+        :returns: A new Vector512<UIntPtr> with all elements initialized to .
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int, e_8: int, e_9: int, e_10: int, e_11: int, e_12: int, e_13: int, e_14: int, e_15: int) -> System.Runtime.Intrinsics.Vector128[int]:
+    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int, e_8: int, e_9: int, e_10: int, e_11: int, e_12: int, e_13: int, e_14: int, e_15: int, e_16: int, e_17: int, e_18: int, e_19: int, e_20: int, e_21: int, e_22: int, e_23: int, e_24: int, e_25: int, e_26: int, e_27: int, e_28: int, e_29: int, e_30: int, e_31: int, e_32: int, e_33: int, e_34: int, e_35: int, e_36: int, e_37: int, e_38: int, e_39: int, e_40: int, e_41: int, e_42: int, e_43: int, e_44: int, e_45: int, e_46: int, e_47: int, e_48: int, e_49: int, e_50: int, e_51: int, e_52: int, e_53: int, e_54: int, e_55: int, e_56: int, e_57: int, e_58: int, e_59: int, e_60: int, e_61: int, e_62: int, e_63: int) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Creates a new Vector128<Byte> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector512<Byte> instance with each element initialized to the corresponding specified value.
         
         :param e_0: The value that element 0 will be initialized to.
         :param e_1: The value that element 1 will be initialized to.
@@ -678,27 +551,63 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         :param e_13: The value that element 13 will be initialized to.
         :param e_14: The value that element 14 will be initialized to.
         :param e_15: The value that element 15 will be initialized to.
-        :returns: A new Vector128<Byte> with each element initialized to corresponding specified value.
+        :param e_16: The value that element 16 will be initialized to.
+        :param e_17: The value that element 17 will be initialized to.
+        :param e_18: The value that element 18 will be initialized to.
+        :param e_19: The value that element 19 will be initialized to.
+        :param e_20: The value that element 20 will be initialized to.
+        :param e_21: The value that element 21 will be initialized to.
+        :param e_22: The value that element 22 will be initialized to.
+        :param e_23: The value that element 23 will be initialized to.
+        :param e_24: The value that element 24 will be initialized to.
+        :param e_25: The value that element 25 will be initialized to.
+        :param e_26: The value that element 26 will be initialized to.
+        :param e_27: The value that element 27 will be initialized to.
+        :param e_28: The value that element 28 will be initialized to.
+        :param e_29: The value that element 29 will be initialized to.
+        :param e_30: The value that element 30 will be initialized to.
+        :param e_31: The value that element 31 will be initialized to.
+        :param e_32: The value that element 32 will be initialized to.
+        :param e_33: The value that element 33 will be initialized to.
+        :param e_34: The value that element 34 will be initialized to.
+        :param e_35: The value that element 35 will be initialized to.
+        :param e_36: The value that element 36 will be initialized to.
+        :param e_37: The value that element 37 will be initialized to.
+        :param e_38: The value that element 38 will be initialized to.
+        :param e_39: The value that element 39 will be initialized to.
+        :param e_40: The value that element 40 will be initialized to.
+        :param e_41: The value that element 41 will be initialized to.
+        :param e_42: The value that element 42 will be initialized to.
+        :param e_43: The value that element 43 will be initialized to.
+        :param e_44: The value that element 44 will be initialized to.
+        :param e_45: The value that element 45 will be initialized to.
+        :param e_46: The value that element 46 will be initialized to.
+        :param e_47: The value that element 47 will be initialized to.
+        :param e_48: The value that element 48 will be initialized to.
+        :param e_49: The value that element 49 will be initialized to.
+        :param e_50: The value that element 50 will be initialized to.
+        :param e_51: The value that element 51 will be initialized to.
+        :param e_52: The value that element 52 will be initialized to.
+        :param e_53: The value that element 53 will be initialized to.
+        :param e_54: The value that element 54 will be initialized to.
+        :param e_55: The value that element 55 will be initialized to.
+        :param e_56: The value that element 56 will be initialized to.
+        :param e_57: The value that element 57 will be initialized to.
+        :param e_58: The value that element 58 will be initialized to.
+        :param e_59: The value that element 59 will be initialized to.
+        :param e_60: The value that element 60 will be initialized to.
+        :param e_61: The value that element 61 will be initialized to.
+        :param e_62: The value that element 62 will be initialized to.
+        :param e_63: The value that element 63 will be initialized to.
+        :returns: A new Vector512<Byte> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: float, e_1: float) -> System.Runtime.Intrinsics.Vector128[float]:
+    def create(e_0: float, e_1: float, e_2: float, e_3: float, e_4: float, e_5: float, e_6: float, e_7: float) -> System.Runtime.Intrinsics.Vector512[float]:
         """
-        Creates a new Vector128<Double> instance with each element initialized to the corresponding specified value.
-        
-        :param e_0: The value that element 0 will be initialized to.
-        :param e_1: The value that element 1 will be initialized to.
-        :returns: A new Vector128<Double> with each element initialized to corresponding specified value.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        """
-        Creates a new Vector128<Int16> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector512<Double> instance with each element initialized to the corresponding specified value.
         
         :param e_0: The value that element 0 will be initialized to.
         :param e_1: The value that element 1 will be initialized to.
@@ -708,188 +617,260 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         :param e_5: The value that element 5 will be initialized to.
         :param e_6: The value that element 6 will be initialized to.
         :param e_7: The value that element 7 will be initialized to.
-        :returns: A new Vector128<Int16> with each element initialized to corresponding specified value.
+        :returns: A new Vector512<Double> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: int, e_1: int, e_2: int, e_3: int) -> System.Runtime.Intrinsics.Vector128[int]:
+    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int, e_8: int, e_9: int, e_10: int, e_11: int, e_12: int, e_13: int, e_14: int, e_15: int, e_16: int, e_17: int, e_18: int, e_19: int, e_20: int, e_21: int, e_22: int, e_23: int, e_24: int, e_25: int, e_26: int, e_27: int, e_28: int, e_29: int, e_30: int, e_31: int) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Creates a new Vector128<Int32> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector512<Int16> instance with each element initialized to the corresponding specified value.
         
         :param e_0: The value that element 0 will be initialized to.
         :param e_1: The value that element 1 will be initialized to.
         :param e_2: The value that element 2 will be initialized to.
         :param e_3: The value that element 3 will be initialized to.
-        :returns: A new Vector128<Int32> with each element initialized to corresponding specified value.
+        :param e_4: The value that element 4 will be initialized to.
+        :param e_5: The value that element 5 will be initialized to.
+        :param e_6: The value that element 6 will be initialized to.
+        :param e_7: The value that element 7 will be initialized to.
+        :param e_8: The value that element 8 will be initialized to.
+        :param e_9: The value that element 9 will be initialized to.
+        :param e_10: The value that element 10 will be initialized to.
+        :param e_11: The value that element 11 will be initialized to.
+        :param e_12: The value that element 12 will be initialized to.
+        :param e_13: The value that element 13 will be initialized to.
+        :param e_14: The value that element 14 will be initialized to.
+        :param e_15: The value that element 15 will be initialized to.
+        :param e_16: The value that element 16 will be initialized to.
+        :param e_17: The value that element 17 will be initialized to.
+        :param e_18: The value that element 18 will be initialized to.
+        :param e_19: The value that element 19 will be initialized to.
+        :param e_20: The value that element 20 will be initialized to.
+        :param e_21: The value that element 21 will be initialized to.
+        :param e_22: The value that element 22 will be initialized to.
+        :param e_23: The value that element 23 will be initialized to.
+        :param e_24: The value that element 24 will be initialized to.
+        :param e_25: The value that element 25 will be initialized to.
+        :param e_26: The value that element 26 will be initialized to.
+        :param e_27: The value that element 27 will be initialized to.
+        :param e_28: The value that element 28 will be initialized to.
+        :param e_29: The value that element 29 will be initialized to.
+        :param e_30: The value that element 30 will be initialized to.
+        :param e_31: The value that element 31 will be initialized to.
+        :returns: A new Vector512<Int16> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: int, e_1: int) -> System.Runtime.Intrinsics.Vector128[int]:
+    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int, e_8: int, e_9: int, e_10: int, e_11: int, e_12: int, e_13: int, e_14: int, e_15: int) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Creates a new Vector128<Int64> instance with each element initialized to the corresponding specified value.
-        
-        :param e_0: The value that element 0 will be initialized to.
-        :param e_1: The value that element 1 will be initialized to.
-        :returns: A new Vector128<Int64> with each element initialized to corresponding specified value.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(e_0: float, e_1: float, e_2: float, e_3: float) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Creates a new Vector128<Single> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector512<Int32> instance with each element initialized to the corresponding specified value.
         
         :param e_0: The value that element 0 will be initialized to.
         :param e_1: The value that element 1 will be initialized to.
         :param e_2: The value that element 2 will be initialized to.
         :param e_3: The value that element 3 will be initialized to.
-        :returns: A new Vector128<Single> with each element initialized to corresponding specified value.
+        :param e_4: The value that element 4 will be initialized to.
+        :param e_5: The value that element 5 will be initialized to.
+        :param e_6: The value that element 6 will be initialized to.
+        :param e_7: The value that element 7 will be initialized to.
+        :param e_8: The value that element 8 will be initialized to.
+        :param e_9: The value that element 9 will be initialized to.
+        :param e_10: The value that element 10 will be initialized to.
+        :param e_11: The value that element 11 will be initialized to.
+        :param e_12: The value that element 12 will be initialized to.
+        :param e_13: The value that element 13 will be initialized to.
+        :param e_14: The value that element 14 will be initialized to.
+        :param e_15: The value that element 15 will be initialized to.
+        :returns: A new Vector512<Int32> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(lower: System.Runtime.Intrinsics.Vector64[int], upper: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Creates a new Vector128<Byte> instance from two Vector64<Byte> instances.
+        Creates a new Vector512<Int64> instance with each element initialized to the corresponding specified value.
         
-        :param lower: The value that the lower 64-bits will be initialized to.
-        :param upper: The value that the upper 64-bits will be initialized to.
-        :returns: A new Vector128<Byte> initialized from  and .
+        :param e_0: The value that element 0 will be initialized to.
+        :param e_1: The value that element 1 will be initialized to.
+        :param e_2: The value that element 2 will be initialized to.
+        :param e_3: The value that element 3 will be initialized to.
+        :param e_4: The value that element 4 will be initialized to.
+        :param e_5: The value that element 5 will be initialized to.
+        :param e_6: The value that element 6 will be initialized to.
+        :param e_7: The value that element 7 will be initialized to.
+        :returns: A new Vector512<Int64> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(lower: System.Runtime.Intrinsics.Vector64[float], upper: System.Runtime.Intrinsics.Vector64[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def create(e_0: float, e_1: float, e_2: float, e_3: float, e_4: float, e_5: float, e_6: float, e_7: float, e_8: float, e_9: float, e_10: float, e_11: float, e_12: float, e_13: float, e_14: float, e_15: float) -> System.Runtime.Intrinsics.Vector512[float]:
         """
-        Creates a new Vector128<Double> instance from two Vector64<Double> instances.
+        Creates a new Vector512<Single> instance with each element initialized to the corresponding specified value.
         
-        :param lower: The value that the lower 64-bits will be initialized to.
-        :param upper: The value that the upper 64-bits will be initialized to.
-        :returns: A new Vector128<Double> initialized from  and .
+        :param e_0: The value that element 0 will be initialized to.
+        :param e_1: The value that element 1 will be initialized to.
+        :param e_2: The value that element 2 will be initialized to.
+        :param e_3: The value that element 3 will be initialized to.
+        :param e_4: The value that element 4 will be initialized to.
+        :param e_5: The value that element 5 will be initialized to.
+        :param e_6: The value that element 6 will be initialized to.
+        :param e_7: The value that element 7 will be initialized to.
+        :param e_8: The value that element 8 will be initialized to.
+        :param e_9: The value that element 9 will be initialized to.
+        :param e_10: The value that element 10 will be initialized to.
+        :param e_11: The value that element 11 will be initialized to.
+        :param e_12: The value that element 12 will be initialized to.
+        :param e_13: The value that element 13 will be initialized to.
+        :param e_14: The value that element 14 will be initialized to.
+        :param e_15: The value that element 15 will be initialized to.
+        :returns: A new Vector512<Single> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(lower: System.Runtime.Intrinsics.Vector64[System.IntPtr], upper: System.Runtime.Intrinsics.Vector64[System.IntPtr]) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
+    def create(lower: System.Runtime.Intrinsics.Vector256[int], upper: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Creates a new Vector128<IntPtr> instance from two Vector64<IntPtr> instances.
+        Creates a new Vector512<Byte> instance from two Vector256<Byte> instances.
         
-        :param lower: The value that the lower 64-bits will be initialized to.
-        :param upper: The value that the upper 64-bits will be initialized to.
-        :returns: A new Vector128<IntPtr> initialized from  and .
+        :param lower: The value that the lower 256-bits will be initialized to.
+        :param upper: The value that the upper 256-bits will be initialized to.
+        :returns: A new Vector512<Byte> initialized from  and .
         """
         ...
 
     @staticmethod
     @overload
-    def create(lower: System.Runtime.Intrinsics.Vector64[System.UIntPtr], upper: System.Runtime.Intrinsics.Vector64[System.UIntPtr]) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
+    def create(lower: System.Runtime.Intrinsics.Vector256[float], upper: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         """
-        Creates a new Vector128<UIntPtr> instance from two Vector64<UIntPtr> instances.
+        Creates a new Vector512<Double> instance from two Vector256<Double> instances.
         
-        :param lower: The value that the lower 64-bits will be initialized to.
-        :param upper: The value that the upper 64-bits will be initialized to.
-        :returns: A new Vector128<UIntPtr> initialized from  and .
+        :param lower: The value that the lower 256-bits will be initialized to.
+        :param upper: The value that the upper 256-bits will be initialized to.
+        :returns: A new Vector512<Double> initialized from  and .
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar(value: int) -> System.Runtime.Intrinsics.Vector128[int]:
+    def create(lower: System.Runtime.Intrinsics.Vector256[System.IntPtr], upper: System.Runtime.Intrinsics.Vector256[System.IntPtr]) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
         """
-        Creates a new Vector128<Byte> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
+        Creates a new Vector512<IntPtr> instance from two Vector256<IntPtr> instances.
         
-        :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector128<Byte> instance with the first element initialized to  and the remaining elements initialized to zero.
+        :param lower: The value that the lower 256-bits will be initialized to.
+        :param upper: The value that the upper 256-bits will be initialized to.
+        :returns: A new Vector512<IntPtr> initialized from  and .
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar(value: float) -> System.Runtime.Intrinsics.Vector128[float]:
+    def create(lower: System.Runtime.Intrinsics.Vector256[System.UIntPtr], upper: System.Runtime.Intrinsics.Vector256[System.UIntPtr]) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
         """
-        Creates a new Vector128<Double> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
+        Creates a new Vector512<UIntPtr> instance from two Vector256<UIntPtr> instances.
         
-        :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector128<Double> instance with the first element initialized to  and the remaining elements initialized to zero.
+        :param lower: The value that the lower 256-bits will be initialized to.
+        :param upper: The value that the upper 256-bits will be initialized to.
+        :returns: A new Vector512<UIntPtr> initialized from  and .
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
+    def create_scalar(value: int) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Creates a new Vector128<IntPtr> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
-        
-        :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector128<IntPtr> instance with the first element initialized to  and the remaining elements initialized to zero.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scalar(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
-        """
-        Creates a new Vector128<UIntPtr> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
-        
-        :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector128<UIntPtr> instance with the first element initialized to  and the remaining elements initialized to zero.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scalar_unsafe(value: int) -> System.Runtime.Intrinsics.Vector128[int]:
-        """
-        Creates a new Vector128<Byte> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
-        
-        :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector128<Byte> instance with the first element initialized to  and the remaining elements left uninitialized.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scalar_unsafe(value: float) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Creates a new Vector128<Double> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
-        
-        :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector128<Double> instance with the first element initialized to  and the remaining elements left uninitialized.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scalar_unsafe(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
-        """
-        Creates a new Vector128<IntPtr> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        Creates a new Vector512<Byte> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector128<IntPtr> instance with the first element initialized to  and the remaining elements left uninitialized.
+        :returns: A new Vector512<Byte> instance with the first element initialized to  and the remaining elements initialized to zero.
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar_unsafe(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
+    def create_scalar(value: float) -> System.Runtime.Intrinsics.Vector512[float]:
         """
-        Creates a new Vector128<UIntPtr> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        Creates a new Vector512<Double> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector128<UIntPtr> instance with the first element initialized to  and the remaining elements left uninitialized.
+        :returns: A new Vector512<Double> instance with the first element initialized to  and the remaining elements initialized to zero.
         """
         ...
 
     @staticmethod
-    def degrees_to_radians(degrees: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    @overload
+    def create_scalar(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
+        """
+        Creates a new Vector512<IntPtr> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
+        
+        :param value: The value that element 0 will be initialized to.
+        :returns: A new Vector512<IntPtr> instance with the first element initialized to  and the remaining elements initialized to zero.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scalar(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
+        """
+        Creates a new Vector512<UIntPtr> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
+        
+        :param value: The value that element 0 will be initialized to.
+        :returns: A new Vector512<UIntPtr> instance with the first element initialized to  and the remaining elements initialized to zero.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scalar_unsafe(value: int) -> System.Runtime.Intrinsics.Vector512[int]:
+        """
+        Creates a new Vector512<Byte> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        
+        :param value: The value that element 0 will be initialized to.
+        :returns: A new Vector512<Byte> instance with the first element initialized to  and the remaining elements left uninitialized.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scalar_unsafe(value: float) -> System.Runtime.Intrinsics.Vector512[float]:
+        """
+        Creates a new Vector512<Double> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        
+        :param value: The value that element 0 will be initialized to.
+        :returns: A new Vector512<Double> instance with the first element initialized to  and the remaining elements left uninitialized.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scalar_unsafe(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
+        """
+        Creates a new Vector512<IntPtr> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        
+        :param value: The value that element 0 will be initialized to.
+        :returns: A new Vector512<IntPtr> instance with the first element initialized to  and the remaining elements left uninitialized.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create_scalar_unsafe(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
+        """
+        Creates a new Vector512<UIntPtr> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        
+        :param value: The value that element 0 will be initialized to.
+        :returns: A new Vector512<UIntPtr> instance with the first element initialized to  and the remaining elements left uninitialized.
+        """
+        ...
+
+    @staticmethod
+    def degrees_to_radians(degrees: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @overload
@@ -898,26 +879,26 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         Determines whether the specified object is equal to the current instance.
         
         :param obj: The object to compare with the current instance.
-        :returns: true if  is a Vector128{T} and is equal to the current instance; otherwise, false.
+        :returns: true if  is a Vector512{T} and is equal to the current instance; otherwise, false.
         """
         ...
 
     @overload
-    def equals(self, other: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> bool:
+    def equals(self, other: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> bool:
         """
-        Determines whether the specified Vector128{T} is equal to the current instance.
+        Determines whether the specified Vector512{T} is equal to the current instance.
         
-        :param other: The Vector128{T} to compare with the current instance.
+        :param other: The Vector512{T} to compare with the current instance.
         :returns: true if  is equal to the current instance; otherwise, false.
         """
         ...
 
     @staticmethod
-    def exp(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def exp(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
-    def floor(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def floor(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         """
         Computes the floor of each element in a vector.
         
@@ -927,7 +908,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def fused_multiply_add(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], addend: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def fused_multiply_add(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float], addend: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     def get_hash_code(self) -> int:
@@ -939,90 +920,62 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def hypot(x: System.Runtime.Intrinsics.Vector128[float], y: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def hypot(x: System.Runtime.Intrinsics.Vector512[float], y: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
-    def lerp(x: System.Runtime.Intrinsics.Vector128[float], y: System.Runtime.Intrinsics.Vector128[float], amount: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def lerp(x: System.Runtime.Intrinsics.Vector512[float], y: System.Runtime.Intrinsics.Vector512[float], amount: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
-    def log(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def log(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
-    def log_2(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def log_2(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
-    def multiply_add_estimate(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], addend: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def narrow(lower: System.Runtime.Intrinsics.Vector128[float], upper: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Narrows two vector of double instances into one vector of float.
-        
-        :param lower: The vector that will be narrowed to the lower half of the result vector.
-        :param upper: The vector that will be narrowed to the upper half of the result vector.
-        :returns: A vector of float containing elements narrowed from  and .
-        """
+    def multiply_add_estimate(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float], addend: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
     @overload
-    def narrow(lower: System.Runtime.Intrinsics.Vector128[int], upper: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """
-        Narrows two vector of short instances into one vector of sbyte.
-        
-        :param lower: The vector that will be narrowed to the lower half of the result vector.
-        :param upper: The vector that will be narrowed to the upper half of the result vector.
-        :returns: A vector of sbyte containing elements narrowed from  and .
-        """
+    def narrow(lower: System.Runtime.Intrinsics.Vector512[float], upper: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
     @overload
-    def narrow_with_saturation(lower: System.Runtime.Intrinsics.Vector128[float], upper: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
-        """
-        Narrows two vector of double instances into one vector of float using a saturating conversion.
-        
-        :param lower: The vector that will be narrowed to the lower half of the result vector.
-        :param upper: The vector that will be narrowed to the upper half of the result vector.
-        :returns: A vector of float containing elements narrowed with saturation from  and .
-        """
+    def narrow(lower: System.Runtime.Intrinsics.Vector512[int], upper: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
         ...
 
     @staticmethod
     @overload
-    def narrow_with_saturation(lower: System.Runtime.Intrinsics.Vector128[int], upper: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """
-        Narrows two vector of short instances into one vector of sbyte using a saturating conversion.
-        
-        :param lower: The vector that will be narrowed to the lower half of the result vector.
-        :param upper: The vector that will be narrowed to the upper half of the result vector.
-        :returns: A vector of sbyte containing elements narrowed with saturation from  and .
-        """
-        ...
-
-    @staticmethod
-    def radians_to_degrees(radians: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def narrow_with_saturation(lower: System.Runtime.Intrinsics.Vector512[float], upper: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
     @overload
-    def round(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def narrow_with_saturation(lower: System.Runtime.Intrinsics.Vector512[int], upper: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
     @overload
-    def round(vector: System.Runtime.Intrinsics.Vector128[float], mode: System.MidpointRounding) -> System.Runtime.Intrinsics.Vector128[float]:
+    def round(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
     @overload
-    def shift_left(vector: System.Runtime.Intrinsics.Vector128[int], shift_count: int) -> System.Runtime.Intrinsics.Vector128[int]:
+    def round(vector: System.Runtime.Intrinsics.Vector512[float], mode: System.MidpointRounding) -> System.Runtime.Intrinsics.Vector512[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def shift_left(vector: System.Runtime.Intrinsics.Vector512[int], shift_count: int) -> System.Runtime.Intrinsics.Vector512[int]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -1034,7 +987,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_left(vector: System.Runtime.Intrinsics.Vector128[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
+    def shift_left(vector: System.Runtime.Intrinsics.Vector512[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -1046,7 +999,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_left(vector: System.Runtime.Intrinsics.Vector128[System.UIntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
+    def shift_left(vector: System.Runtime.Intrinsics.Vector512[System.UIntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -1058,7 +1011,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_arithmetic(vector: System.Runtime.Intrinsics.Vector128[int], shift_count: int) -> System.Runtime.Intrinsics.Vector128[int]:
+    def shift_right_arithmetic(vector: System.Runtime.Intrinsics.Vector512[int], shift_count: int) -> System.Runtime.Intrinsics.Vector512[int]:
         """
         Shifts (signed) each element of a vector right by the specified amount.
         
@@ -1070,7 +1023,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_arithmetic(vector: System.Runtime.Intrinsics.Vector128[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
+    def shift_right_arithmetic(vector: System.Runtime.Intrinsics.Vector512[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
         """
         Shifts (signed) each element of a vector right by the specified amount.
         
@@ -1082,7 +1035,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector128[int], shift_count: int) -> System.Runtime.Intrinsics.Vector128[int]:
+    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector512[int], shift_count: int) -> System.Runtime.Intrinsics.Vector512[int]:
         """
         Shifts (unsigned) each element of a vector right by the specified amount.
         
@@ -1094,7 +1047,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector128[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
+    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector512[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
         """
         Shifts (unsigned) each element of a vector right by the specified amount.
         
@@ -1106,7 +1059,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector128[System.UIntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
+    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector512[System.UIntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
         """
         Shifts (unsigned) each element of a vector right by the specified amount.
         
@@ -1118,7 +1071,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shuffle(vector: System.Runtime.Intrinsics.Vector128[int], indices: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def shuffle(vector: System.Runtime.Intrinsics.Vector512[int], indices: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
         Creates a new vector by selecting values from an input vector using a set of indices.
         
@@ -1130,7 +1083,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shuffle(vector: System.Runtime.Intrinsics.Vector128[float], indices: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def shuffle(vector: System.Runtime.Intrinsics.Vector512[float], indices: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
         """
         Creates a new vector by selecting values from an input vector using a set of indices.
         
@@ -1142,7 +1095,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shuffle_native(vector: System.Runtime.Intrinsics.Vector128[int], indices: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def shuffle_native(vector: System.Runtime.Intrinsics.Vector512[int], indices: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
         Creates a new vector by selecting values from an input vector using a set of indices.
         Behavior is platform-dependent for out-of-range indices.
@@ -1155,7 +1108,7 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def shuffle_native(vector: System.Runtime.Intrinsics.Vector128[float], indices: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def shuffle_native(vector: System.Runtime.Intrinsics.Vector512[float], indices: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
         """
         Creates a new vector by selecting values from an input vector using a set of indices.
         
@@ -1166,11 +1119,11 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def sin(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def sin(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
-    def sin_cos(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector128[float], System.Runtime.Intrinsics.Vector128[float]]:
+    def sin_cos(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector512[float], System.Runtime.Intrinsics.Vector512[float]]:
         ...
 
     def to_string(self) -> str:
@@ -1182,14 +1135,14 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
         ...
 
     @staticmethod
-    def truncate(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def truncate(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         ...
 
     @staticmethod
     @overload
-    def widen(source: System.Runtime.Intrinsics.Vector128[int]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector128[int], System.Runtime.Intrinsics.Vector128[int]]:
+    def widen(source: System.Runtime.Intrinsics.Vector512[int]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector512[int], System.Runtime.Intrinsics.Vector512[int]]:
         """
-        Widens a Vector128<Byte> into two Vector128{UInt16} .
+        Widens a Vector512<Byte> into two Vector512{UInt16} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A pair of vectors that contain the widened lower and upper halves of .
@@ -1198,9 +1151,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def widen(source: System.Runtime.Intrinsics.Vector128[float]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector128[float], System.Runtime.Intrinsics.Vector128[float]]:
+    def widen(source: System.Runtime.Intrinsics.Vector512[float]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector512[float], System.Runtime.Intrinsics.Vector512[float]]:
         """
-        Widens a Vector128<Single> into two Vector128{Double} .
+        Widens a Vector512<Single> into two Vector512{Double} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A pair of vectors that contain the widened lower and upper halves of .
@@ -1209,9 +1162,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def widen_lower(source: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def widen_lower(source: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Widens the lower half of a Vector128<Byte> into a Vector128{UInt16} .
+        Widens the lower half of a Vector512<Byte> into a Vector512{UInt16} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A vector that contain the widened lower half of .
@@ -1220,9 +1173,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def widen_lower(source: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def widen_lower(source: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         """
-        Widens the lower half of a Vector128<Single> into a Vector128{Double} .
+        Widens the lower half of a Vector512<Single> into a Vector512{Double} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A vector that contain the widened lower half of .
@@ -1231,9 +1184,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def widen_upper(source: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+    def widen_upper(source: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
         """
-        Widens the upper half of a Vector128<Byte> into a Vector128{UInt16} .
+        Widens the upper half of a Vector512<Byte> into a Vector512{UInt16} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A vector that contain the widened upper half of .
@@ -1242,9 +1195,9 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
     @staticmethod
     @overload
-    def widen_upper(source: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+    def widen_upper(source: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
         """
-        Widens the upper half of a Vector128<Single> into a Vector128{Double} .
+        Widens the upper half of a Vector512<Single> into a Vector512{Double} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A vector that contain the widened upper half of .
@@ -1254,9 +1207,6 @@ class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Ru
 
 class Vector256(typing.Generic[System_Runtime_Intrinsics_Vector256_T], System.Runtime.Intrinsics.ISimdVector[System_Runtime_Intrinsics_Vector256, System_Runtime_Intrinsics_Vector256_T]):
     """Represents a 256-bit vector of a specified numeric type that is suitable for low-level optimization of parallel algorithms."""
-
-    IS_HARDWARE_ACCELERATED: bool
-    """Gets a value that indicates whether 256-bit vector operations are subject to hardware acceleration through JIT intrinsic support."""
 
     ALL_BITS_SET: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]
     """Gets a new Vector256{T} with all bits set to 1."""
@@ -1275,6 +1225,9 @@ class Vector256(typing.Generic[System_Runtime_Intrinsics_Vector256_T], System.Ru
 
     ZERO: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]
     """Gets a new Vector256{T} with all elements initialized to zero."""
+
+    IS_HARDWARE_ACCELERATED: bool
+    """Gets a value that indicates whether 256-bit vector operations are subject to hardware acceleration through JIT intrinsic support."""
 
     @overload
     def __add__(self, right: System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]) -> System.Runtime.Intrinsics.Vector256[System_Runtime_Intrinsics_Vector256_T]:
@@ -3446,32 +3399,32 @@ class Vector64(typing.Generic[System_Runtime_Intrinsics_Vector64_T], System.Runt
         ...
 
 
-class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Runtime.Intrinsics.ISimdVector[System_Runtime_Intrinsics_Vector512, System_Runtime_Intrinsics_Vector512_T]):
-    """Represents a 512-bit vector of a specified numeric type that is suitable for low-level optimization of parallel algorithms."""
+class Vector128(typing.Generic[System_Runtime_Intrinsics_Vector128_T], System.Runtime.Intrinsics.ISimdVector[System_Runtime_Intrinsics_Vector128, System_Runtime_Intrinsics_Vector128_T]):
+    """Represents a 128-bit vector of a specified numeric type that is suitable for low-level optimization of parallel algorithms."""
 
-    ALL_BITS_SET: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
-    """Gets a new Vector512{T} with all bits set to 1."""
+    ALL_BITS_SET: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]
+    """Gets a new Vector128{T} with all bits set to 1."""
 
     COUNT: int
-    """Gets the number of T that are in a Vector512{T}."""
+    """Gets the number of T that are in a Vector128{T}."""
 
-    INDICES: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
-    """Gets a new Vector512{T} with the elements set to their index."""
+    INDICES: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]
+    """Gets a new Vector128{T} with the elements set to their index."""
 
     IS_SUPPORTED: bool
     """Gets true if T is supported; otherwise, false."""
 
-    ONE: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
-    """Gets a new Vector512{T} with all elements initialized to one."""
+    ONE: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]
+    """Gets a new Vector128{T} with all elements initialized to one."""
 
-    ZERO: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
-    """Gets a new Vector512{T} with all elements initialized to zero."""
+    ZERO: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]
+    """Gets a new Vector128{T} with all elements initialized to zero."""
 
     IS_HARDWARE_ACCELERATED: bool
-    """Gets a value that indicates whether 512-bit vector operations are subject to hardware acceleration through JIT intrinsic support."""
+    """Gets a value that indicates whether 128-bit vector operations are subject to hardware acceleration through JIT intrinsic support."""
 
     @overload
-    def __add__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __add__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Adds two vectors to compute their sum.
         
@@ -3482,7 +3435,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __add__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __add__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Returns a given vector unchanged.
         
@@ -3490,7 +3443,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __and__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __and__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Computes the bitwise-and of two vectors.
         
@@ -3500,7 +3453,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __eq__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> bool:
+    def __eq__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> bool:
         """
         Compares two vectors to determine if all elements are equal.
         
@@ -3510,7 +3463,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __getitem__(self, index: int) -> System_Runtime_Intrinsics_Vector512_T:
+    def __getitem__(self, index: int) -> System_Runtime_Intrinsics_Vector128_T:
         """
         Gets the element at the specified index.
         
@@ -3520,7 +3473,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __iadd__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __iadd__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Adds two vectors to compute their sum.
         
@@ -3531,7 +3484,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __iadd__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __iadd__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Returns a given vector unchanged.
         
@@ -3539,7 +3492,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __iand__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __iand__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Computes the bitwise-and of two vectors.
         
@@ -3549,7 +3502,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __ilshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __ilshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -3560,7 +3513,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __imul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Multiplies two vectors to compute their element-wise product.
         
@@ -3571,7 +3524,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __imul__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __imul__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Multiplies a vector by a scalar to compute their product.
         
@@ -3582,7 +3535,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __imul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __imul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Multiplies a vector by a scalar to compute their product.
         
@@ -3592,7 +3545,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __invert__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __invert__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Computes the ones-complement of a vector.
         
@@ -3601,7 +3554,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __ior__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __ior__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Computes the bitwise-or of two vectors.
         
@@ -3611,7 +3564,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __irshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __irshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Shifts (signed) each element of a vector right by the specified amount.
         
@@ -3622,7 +3575,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __isub__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __isub__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Subtracts two vectors to compute their difference.
         
@@ -3633,7 +3586,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __isub__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __isub__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Computes the unary negation of a vector.
         
@@ -3643,7 +3596,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __itruediv__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __itruediv__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Divides two vectors to compute their quotient.
         
@@ -3654,7 +3607,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __itruediv__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __itruediv__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Divides a vector by a scalar to compute the per-element quotient.
         
@@ -3664,7 +3617,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __ixor__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __ixor__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Computes the exclusive-or of two vectors.
         
@@ -3674,7 +3627,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __lshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __lshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -3685,7 +3638,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __mul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Multiplies two vectors to compute their element-wise product.
         
@@ -3696,7 +3649,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __mul__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __mul__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Multiplies a vector by a scalar to compute their product.
         
@@ -3707,7 +3660,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __mul__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __mul__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Multiplies a vector by a scalar to compute their product.
         
@@ -3717,7 +3670,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __ne__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> bool:
+    def __ne__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> bool:
         """
         Compares two vectors to determine if any elements are not equal.
         
@@ -3727,7 +3680,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __or__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __or__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Computes the bitwise-or of two vectors.
         
@@ -3737,7 +3690,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __rshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __rshift__(self, shift_count: int) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Shifts (signed) each element of a vector right by the specified amount.
         
@@ -3748,7 +3701,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __sub__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __sub__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Subtracts two vectors to compute their difference.
         
@@ -3759,7 +3712,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __sub__(self) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __sub__(self) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Computes the unary negation of a vector.
         
@@ -3769,7 +3722,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __truediv__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __truediv__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Divides two vectors to compute their quotient.
         
@@ -3780,7 +3733,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @overload
-    def __truediv__(self, right: System_Runtime_Intrinsics_Vector512_T) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __truediv__(self, right: System_Runtime_Intrinsics_Vector128_T) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Divides a vector by a scalar to compute the per-element quotient.
         
@@ -3790,7 +3743,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         """
         ...
 
-    def __xor__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
+    def __xor__(self, right: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]:
         """
         Computes the exclusive-or of two vectors.
         
@@ -3801,7 +3754,134 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def ceiling(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def as_plane(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Plane:
+        """
+        Reinterprets a Vector128<Single> as a new Plane.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Plane.
+        """
+        ...
+
+    @staticmethod
+    def as_quaternion(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Quaternion:
+        """
+        Reinterprets a Vector128<Single> as a new Quaternion.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Quaternion.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_128(value: System.Numerics.Plane) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Reinterprets a Plane as a new Vector128<Single>.
+        
+        :param value: The plane to reinterpret.
+        :returns: reinterpreted as a new Vector128<Single>.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_128(value: System.Numerics.Quaternion) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Reinterprets a Quaternion as a new Vector128<Single>.
+        
+        :param value: The quaternion to reinterpret.
+        :returns: reinterpreted as a new Vector128<Single>.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_128(value: System.Numerics.Vector2) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Reinterprets a Vector2 as a new Vector128<Single> with the new elements zeroed.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Vector128<Single> with the new elements zeroed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_128(value: System.Numerics.Vector3) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Reinterprets a Vector3 as a new Vector128<Single> with the new elements zeroed.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Vector128<Single> with the new elements zeroed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_128(value: System.Numerics.Vector4) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Reinterprets a Vector4 as a new Vector128<Single>.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Vector128<Single>.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_128_unsafe(value: System.Numerics.Vector2) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Reinterprets a Vector2 as a new Vector128<Single>, leaving the new elements undefined.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Vector128<Single>.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_vector_128_unsafe(value: System.Numerics.Vector3) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Reinterprets a Vector3 as a new Vector128<Single>, leaving the new elements undefined.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Vector128<Single>.
+        """
+        ...
+
+    @staticmethod
+    def as_vector_2(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Vector2:
+        """
+        Reinterprets a Vector128<Single> as a new Vector2.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Vector2.
+        """
+        ...
+
+    @staticmethod
+    def as_vector_3(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Vector3:
+        """
+        Reinterprets a Vector128<Single> as a new Vector3.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Vector3.
+        """
+        ...
+
+    @staticmethod
+    def as_vector_4(value: System.Runtime.Intrinsics.Vector128[float]) -> System.Numerics.Vector4:
+        """
+        Reinterprets a Vector128<Single> as a new Vector4.
+        
+        :param value: The vector to reinterpret.
+        :returns: reinterpreted as a new Vector4.
+        """
+        ...
+
+    @staticmethod
+    def ceiling(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         """
         Computes the ceiling of each element in a vector.
         
@@ -3811,9 +3891,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_double(vector: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def convert_to_double(vector: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
         """
-        Converts a Vector512<Int64> to a Vector512<Double>.
+        Converts a Vector128<Int64> to a Vector128<Double>.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3821,9 +3901,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_int_32(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def convert_to_int_32(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Converts a Vector512<Single> to a Vector512<Int32> using saturation on overflow.
+        Converts a Vector128<Single> to a Vector128<Int32> using saturation on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3831,9 +3911,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_int_32_native(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def convert_to_int_32_native(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Converts a Vector512<Single> to a Vector512<Int32> using platform specific behavior on overflow.
+        Converts a Vector128<Single> to a Vector128<Int32> platform specific behavior on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3841,9 +3921,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_int_64(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def convert_to_int_64(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Converts a Vector512<Double> to a Vector512<Int64> using saturation on overflow.
+        Converts a Vector128<Double> to a Vector128<Int64> using saturation on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3851,9 +3931,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_int_64_native(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def convert_to_int_64_native(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Converts a Vector512<Double> to a Vector512<Int64> using platform specific behavior on overflow.
+        Converts a Vector128<Double> to a Vector128<Int64> using platform specific behavior on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3861,9 +3941,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_single(vector: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def convert_to_single(vector: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
         """
-        Converts a Vector512<Int32> to a Vector512<Single>.
+        Converts a Vector128<Int32> to a Vector128<Single>.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3871,9 +3951,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_u_int_32(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def convert_to_u_int_32(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Converts a Vector512<Single> to a Vector512<UInt32> using saturation on overflow.
+        Converts a Vector128<Single> to a Vector128<UInt32> using saturation on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3881,9 +3961,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_u_int_32_native(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def convert_to_u_int_32_native(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Converts a Vector512<Single> to a Vector512<UInt32> using platform specific behavior on overflow.
+        Converts a Vector128<Single> to a Vector128<UInt32> using platform specific behavior on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3891,9 +3971,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_u_int_64(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def convert_to_u_int_64(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Converts a Vector512<Double> to a Vector512<UInt64> using saturation on overflow.
+        Converts a Vector128<Double> to a Vector128<UInt64> using saturation on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3901,9 +3981,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def convert_to_u_int_64_native(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def convert_to_u_int_64_native(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Converts a Vector512<Double> to a Vector512<UInt64> using platform specific behavior on overflow.
+        Converts a Vector128<Double> to a Vector128<UInt64> using platform specific behavior on overflow.
         
         :param vector: The vector to convert.
         :returns: The converted vector.
@@ -3911,58 +3991,58 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def cos(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def cos(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
     @overload
-    def create(value: int) -> System.Runtime.Intrinsics.Vector512[int]:
+    def create(value: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Creates a new Vector512<Byte> instance with all elements initialized to the specified value.
+        Creates a new Vector128<Byte> instance with all elements initialized to the specified value.
         
         :param value: The value that all elements will be initialized to.
-        :returns: A new Vector512<Byte> with all elements initialized to .
+        :returns: A new Vector128<Byte> with all elements initialized to .
         """
         ...
 
     @staticmethod
     @overload
-    def create(value: float) -> System.Runtime.Intrinsics.Vector512[float]:
+    def create(value: float) -> System.Runtime.Intrinsics.Vector128[float]:
         """
-        Creates a new Vector512<Double> instance with all elements initialized to the specified value.
+        Creates a new Vector128<Double> instance with all elements initialized to the specified value.
         
         :param value: The value that all elements will be initialized to.
-        :returns: A new Vector512<Double> with all elements initialized to .
+        :returns: A new Vector128<Double> with all elements initialized to .
         """
         ...
 
     @staticmethod
     @overload
-    def create(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
+    def create(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
         """
-        Creates a new Vector512<IntPtr> instance with all elements initialized to the specified value.
+        Creates a new Vector128<IntPtr> instance with all elements initialized to the specified value.
         
         :param value: The value that all elements will be initialized to.
-        :returns: A new Vector512<IntPtr> with all elements initialized to .
+        :returns: A new Vector128<IntPtr> with all elements initialized to .
         """
         ...
 
     @staticmethod
     @overload
-    def create(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
+    def create(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
         """
-        Creates a new Vector512<UIntPtr> instance with all elements initialized to the specified value.
+        Creates a new Vector128<UIntPtr> instance with all elements initialized to the specified value.
         
         :param value: The value that all elements will be initialized to.
-        :returns: A new Vector512<UIntPtr> with all elements initialized to .
+        :returns: A new Vector128<UIntPtr> with all elements initialized to .
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int, e_8: int, e_9: int, e_10: int, e_11: int, e_12: int, e_13: int, e_14: int, e_15: int, e_16: int, e_17: int, e_18: int, e_19: int, e_20: int, e_21: int, e_22: int, e_23: int, e_24: int, e_25: int, e_26: int, e_27: int, e_28: int, e_29: int, e_30: int, e_31: int, e_32: int, e_33: int, e_34: int, e_35: int, e_36: int, e_37: int, e_38: int, e_39: int, e_40: int, e_41: int, e_42: int, e_43: int, e_44: int, e_45: int, e_46: int, e_47: int, e_48: int, e_49: int, e_50: int, e_51: int, e_52: int, e_53: int, e_54: int, e_55: int, e_56: int, e_57: int, e_58: int, e_59: int, e_60: int, e_61: int, e_62: int, e_63: int) -> System.Runtime.Intrinsics.Vector512[int]:
+    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int, e_8: int, e_9: int, e_10: int, e_11: int, e_12: int, e_13: int, e_14: int, e_15: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Creates a new Vector512<Byte> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector128<Byte> instance with each element initialized to the corresponding specified value.
         
         :param e_0: The value that element 0 will be initialized to.
         :param e_1: The value that element 1 will be initialized to.
@@ -3980,63 +4060,27 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         :param e_13: The value that element 13 will be initialized to.
         :param e_14: The value that element 14 will be initialized to.
         :param e_15: The value that element 15 will be initialized to.
-        :param e_16: The value that element 16 will be initialized to.
-        :param e_17: The value that element 17 will be initialized to.
-        :param e_18: The value that element 18 will be initialized to.
-        :param e_19: The value that element 19 will be initialized to.
-        :param e_20: The value that element 20 will be initialized to.
-        :param e_21: The value that element 21 will be initialized to.
-        :param e_22: The value that element 22 will be initialized to.
-        :param e_23: The value that element 23 will be initialized to.
-        :param e_24: The value that element 24 will be initialized to.
-        :param e_25: The value that element 25 will be initialized to.
-        :param e_26: The value that element 26 will be initialized to.
-        :param e_27: The value that element 27 will be initialized to.
-        :param e_28: The value that element 28 will be initialized to.
-        :param e_29: The value that element 29 will be initialized to.
-        :param e_30: The value that element 30 will be initialized to.
-        :param e_31: The value that element 31 will be initialized to.
-        :param e_32: The value that element 32 will be initialized to.
-        :param e_33: The value that element 33 will be initialized to.
-        :param e_34: The value that element 34 will be initialized to.
-        :param e_35: The value that element 35 will be initialized to.
-        :param e_36: The value that element 36 will be initialized to.
-        :param e_37: The value that element 37 will be initialized to.
-        :param e_38: The value that element 38 will be initialized to.
-        :param e_39: The value that element 39 will be initialized to.
-        :param e_40: The value that element 40 will be initialized to.
-        :param e_41: The value that element 41 will be initialized to.
-        :param e_42: The value that element 42 will be initialized to.
-        :param e_43: The value that element 43 will be initialized to.
-        :param e_44: The value that element 44 will be initialized to.
-        :param e_45: The value that element 45 will be initialized to.
-        :param e_46: The value that element 46 will be initialized to.
-        :param e_47: The value that element 47 will be initialized to.
-        :param e_48: The value that element 48 will be initialized to.
-        :param e_49: The value that element 49 will be initialized to.
-        :param e_50: The value that element 50 will be initialized to.
-        :param e_51: The value that element 51 will be initialized to.
-        :param e_52: The value that element 52 will be initialized to.
-        :param e_53: The value that element 53 will be initialized to.
-        :param e_54: The value that element 54 will be initialized to.
-        :param e_55: The value that element 55 will be initialized to.
-        :param e_56: The value that element 56 will be initialized to.
-        :param e_57: The value that element 57 will be initialized to.
-        :param e_58: The value that element 58 will be initialized to.
-        :param e_59: The value that element 59 will be initialized to.
-        :param e_60: The value that element 60 will be initialized to.
-        :param e_61: The value that element 61 will be initialized to.
-        :param e_62: The value that element 62 will be initialized to.
-        :param e_63: The value that element 63 will be initialized to.
-        :returns: A new Vector512<Byte> with each element initialized to corresponding specified value.
+        :returns: A new Vector128<Byte> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: float, e_1: float, e_2: float, e_3: float, e_4: float, e_5: float, e_6: float, e_7: float) -> System.Runtime.Intrinsics.Vector512[float]:
+    def create(e_0: float, e_1: float) -> System.Runtime.Intrinsics.Vector128[float]:
         """
-        Creates a new Vector512<Double> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector128<Double> instance with each element initialized to the corresponding specified value.
+        
+        :param e_0: The value that element 0 will be initialized to.
+        :param e_1: The value that element 1 will be initialized to.
+        :returns: A new Vector128<Double> with each element initialized to corresponding specified value.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int) -> System.Runtime.Intrinsics.Vector128[int]:
+        """
+        Creates a new Vector128<Int16> instance with each element initialized to the corresponding specified value.
         
         :param e_0: The value that element 0 will be initialized to.
         :param e_1: The value that element 1 will be initialized to.
@@ -4046,260 +4090,188 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         :param e_5: The value that element 5 will be initialized to.
         :param e_6: The value that element 6 will be initialized to.
         :param e_7: The value that element 7 will be initialized to.
-        :returns: A new Vector512<Double> with each element initialized to corresponding specified value.
+        :returns: A new Vector128<Int16> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int, e_8: int, e_9: int, e_10: int, e_11: int, e_12: int, e_13: int, e_14: int, e_15: int, e_16: int, e_17: int, e_18: int, e_19: int, e_20: int, e_21: int, e_22: int, e_23: int, e_24: int, e_25: int, e_26: int, e_27: int, e_28: int, e_29: int, e_30: int, e_31: int) -> System.Runtime.Intrinsics.Vector512[int]:
+    def create(e_0: int, e_1: int, e_2: int, e_3: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Creates a new Vector512<Int16> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector128<Int32> instance with each element initialized to the corresponding specified value.
         
         :param e_0: The value that element 0 will be initialized to.
         :param e_1: The value that element 1 will be initialized to.
         :param e_2: The value that element 2 will be initialized to.
         :param e_3: The value that element 3 will be initialized to.
-        :param e_4: The value that element 4 will be initialized to.
-        :param e_5: The value that element 5 will be initialized to.
-        :param e_6: The value that element 6 will be initialized to.
-        :param e_7: The value that element 7 will be initialized to.
-        :param e_8: The value that element 8 will be initialized to.
-        :param e_9: The value that element 9 will be initialized to.
-        :param e_10: The value that element 10 will be initialized to.
-        :param e_11: The value that element 11 will be initialized to.
-        :param e_12: The value that element 12 will be initialized to.
-        :param e_13: The value that element 13 will be initialized to.
-        :param e_14: The value that element 14 will be initialized to.
-        :param e_15: The value that element 15 will be initialized to.
-        :param e_16: The value that element 16 will be initialized to.
-        :param e_17: The value that element 17 will be initialized to.
-        :param e_18: The value that element 18 will be initialized to.
-        :param e_19: The value that element 19 will be initialized to.
-        :param e_20: The value that element 20 will be initialized to.
-        :param e_21: The value that element 21 will be initialized to.
-        :param e_22: The value that element 22 will be initialized to.
-        :param e_23: The value that element 23 will be initialized to.
-        :param e_24: The value that element 24 will be initialized to.
-        :param e_25: The value that element 25 will be initialized to.
-        :param e_26: The value that element 26 will be initialized to.
-        :param e_27: The value that element 27 will be initialized to.
-        :param e_28: The value that element 28 will be initialized to.
-        :param e_29: The value that element 29 will be initialized to.
-        :param e_30: The value that element 30 will be initialized to.
-        :param e_31: The value that element 31 will be initialized to.
-        :returns: A new Vector512<Int16> with each element initialized to corresponding specified value.
+        :returns: A new Vector128<Int32> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int, e_8: int, e_9: int, e_10: int, e_11: int, e_12: int, e_13: int, e_14: int, e_15: int) -> System.Runtime.Intrinsics.Vector512[int]:
+    def create(e_0: int, e_1: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Creates a new Vector512<Int32> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector128<Int64> instance with each element initialized to the corresponding specified value.
+        
+        :param e_0: The value that element 0 will be initialized to.
+        :param e_1: The value that element 1 will be initialized to.
+        :returns: A new Vector128<Int64> with each element initialized to corresponding specified value.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(e_0: float, e_1: float, e_2: float, e_3: float) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Creates a new Vector128<Single> instance with each element initialized to the corresponding specified value.
         
         :param e_0: The value that element 0 will be initialized to.
         :param e_1: The value that element 1 will be initialized to.
         :param e_2: The value that element 2 will be initialized to.
         :param e_3: The value that element 3 will be initialized to.
-        :param e_4: The value that element 4 will be initialized to.
-        :param e_5: The value that element 5 will be initialized to.
-        :param e_6: The value that element 6 will be initialized to.
-        :param e_7: The value that element 7 will be initialized to.
-        :param e_8: The value that element 8 will be initialized to.
-        :param e_9: The value that element 9 will be initialized to.
-        :param e_10: The value that element 10 will be initialized to.
-        :param e_11: The value that element 11 will be initialized to.
-        :param e_12: The value that element 12 will be initialized to.
-        :param e_13: The value that element 13 will be initialized to.
-        :param e_14: The value that element 14 will be initialized to.
-        :param e_15: The value that element 15 will be initialized to.
-        :returns: A new Vector512<Int32> with each element initialized to corresponding specified value.
+        :returns: A new Vector128<Single> with each element initialized to corresponding specified value.
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: int, e_1: int, e_2: int, e_3: int, e_4: int, e_5: int, e_6: int, e_7: int) -> System.Runtime.Intrinsics.Vector512[int]:
+    def create(lower: System.Runtime.Intrinsics.Vector64[int], upper: System.Runtime.Intrinsics.Vector64[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Creates a new Vector512<Int64> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector128<Byte> instance from two Vector64<Byte> instances.
         
-        :param e_0: The value that element 0 will be initialized to.
-        :param e_1: The value that element 1 will be initialized to.
-        :param e_2: The value that element 2 will be initialized to.
-        :param e_3: The value that element 3 will be initialized to.
-        :param e_4: The value that element 4 will be initialized to.
-        :param e_5: The value that element 5 will be initialized to.
-        :param e_6: The value that element 6 will be initialized to.
-        :param e_7: The value that element 7 will be initialized to.
-        :returns: A new Vector512<Int64> with each element initialized to corresponding specified value.
+        :param lower: The value that the lower 64-bits will be initialized to.
+        :param upper: The value that the upper 64-bits will be initialized to.
+        :returns: A new Vector128<Byte> initialized from  and .
         """
         ...
 
     @staticmethod
     @overload
-    def create(e_0: float, e_1: float, e_2: float, e_3: float, e_4: float, e_5: float, e_6: float, e_7: float, e_8: float, e_9: float, e_10: float, e_11: float, e_12: float, e_13: float, e_14: float, e_15: float) -> System.Runtime.Intrinsics.Vector512[float]:
+    def create(lower: System.Runtime.Intrinsics.Vector64[float], upper: System.Runtime.Intrinsics.Vector64[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         """
-        Creates a new Vector512<Single> instance with each element initialized to the corresponding specified value.
+        Creates a new Vector128<Double> instance from two Vector64<Double> instances.
         
-        :param e_0: The value that element 0 will be initialized to.
-        :param e_1: The value that element 1 will be initialized to.
-        :param e_2: The value that element 2 will be initialized to.
-        :param e_3: The value that element 3 will be initialized to.
-        :param e_4: The value that element 4 will be initialized to.
-        :param e_5: The value that element 5 will be initialized to.
-        :param e_6: The value that element 6 will be initialized to.
-        :param e_7: The value that element 7 will be initialized to.
-        :param e_8: The value that element 8 will be initialized to.
-        :param e_9: The value that element 9 will be initialized to.
-        :param e_10: The value that element 10 will be initialized to.
-        :param e_11: The value that element 11 will be initialized to.
-        :param e_12: The value that element 12 will be initialized to.
-        :param e_13: The value that element 13 will be initialized to.
-        :param e_14: The value that element 14 will be initialized to.
-        :param e_15: The value that element 15 will be initialized to.
-        :returns: A new Vector512<Single> with each element initialized to corresponding specified value.
+        :param lower: The value that the lower 64-bits will be initialized to.
+        :param upper: The value that the upper 64-bits will be initialized to.
+        :returns: A new Vector128<Double> initialized from  and .
         """
         ...
 
     @staticmethod
     @overload
-    def create(lower: System.Runtime.Intrinsics.Vector256[int], upper: System.Runtime.Intrinsics.Vector256[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def create(lower: System.Runtime.Intrinsics.Vector64[System.IntPtr], upper: System.Runtime.Intrinsics.Vector64[System.IntPtr]) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
         """
-        Creates a new Vector512<Byte> instance from two Vector256<Byte> instances.
+        Creates a new Vector128<IntPtr> instance from two Vector64<IntPtr> instances.
         
-        :param lower: The value that the lower 256-bits will be initialized to.
-        :param upper: The value that the upper 256-bits will be initialized to.
-        :returns: A new Vector512<Byte> initialized from  and .
+        :param lower: The value that the lower 64-bits will be initialized to.
+        :param upper: The value that the upper 64-bits will be initialized to.
+        :returns: A new Vector128<IntPtr> initialized from  and .
         """
         ...
 
     @staticmethod
     @overload
-    def create(lower: System.Runtime.Intrinsics.Vector256[float], upper: System.Runtime.Intrinsics.Vector256[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def create(lower: System.Runtime.Intrinsics.Vector64[System.UIntPtr], upper: System.Runtime.Intrinsics.Vector64[System.UIntPtr]) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
         """
-        Creates a new Vector512<Double> instance from two Vector256<Double> instances.
+        Creates a new Vector128<UIntPtr> instance from two Vector64<UIntPtr> instances.
         
-        :param lower: The value that the lower 256-bits will be initialized to.
-        :param upper: The value that the upper 256-bits will be initialized to.
-        :returns: A new Vector512<Double> initialized from  and .
+        :param lower: The value that the lower 64-bits will be initialized to.
+        :param upper: The value that the upper 64-bits will be initialized to.
+        :returns: A new Vector128<UIntPtr> initialized from  and .
         """
         ...
 
     @staticmethod
     @overload
-    def create(lower: System.Runtime.Intrinsics.Vector256[System.IntPtr], upper: System.Runtime.Intrinsics.Vector256[System.IntPtr]) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
+    def create_scalar(value: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Creates a new Vector512<IntPtr> instance from two Vector256<IntPtr> instances.
-        
-        :param lower: The value that the lower 256-bits will be initialized to.
-        :param upper: The value that the upper 256-bits will be initialized to.
-        :returns: A new Vector512<IntPtr> initialized from  and .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(lower: System.Runtime.Intrinsics.Vector256[System.UIntPtr], upper: System.Runtime.Intrinsics.Vector256[System.UIntPtr]) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
-        """
-        Creates a new Vector512<UIntPtr> instance from two Vector256<UIntPtr> instances.
-        
-        :param lower: The value that the lower 256-bits will be initialized to.
-        :param upper: The value that the upper 256-bits will be initialized to.
-        :returns: A new Vector512<UIntPtr> initialized from  and .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_scalar(value: int) -> System.Runtime.Intrinsics.Vector512[int]:
-        """
-        Creates a new Vector512<Byte> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
+        Creates a new Vector128<Byte> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector512<Byte> instance with the first element initialized to  and the remaining elements initialized to zero.
+        :returns: A new Vector128<Byte> instance with the first element initialized to  and the remaining elements initialized to zero.
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar(value: float) -> System.Runtime.Intrinsics.Vector512[float]:
+    def create_scalar(value: float) -> System.Runtime.Intrinsics.Vector128[float]:
         """
-        Creates a new Vector512<Double> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
+        Creates a new Vector128<Double> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector512<Double> instance with the first element initialized to  and the remaining elements initialized to zero.
+        :returns: A new Vector128<Double> instance with the first element initialized to  and the remaining elements initialized to zero.
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
+    def create_scalar(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
         """
-        Creates a new Vector512<IntPtr> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
+        Creates a new Vector128<IntPtr> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector512<IntPtr> instance with the first element initialized to  and the remaining elements initialized to zero.
+        :returns: A new Vector128<IntPtr> instance with the first element initialized to  and the remaining elements initialized to zero.
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
+    def create_scalar(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
         """
-        Creates a new Vector512<UIntPtr> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
+        Creates a new Vector128<UIntPtr> instance with the first element initialized to the specified value and the remaining elements initialized to zero.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector512<UIntPtr> instance with the first element initialized to  and the remaining elements initialized to zero.
+        :returns: A new Vector128<UIntPtr> instance with the first element initialized to  and the remaining elements initialized to zero.
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar_unsafe(value: int) -> System.Runtime.Intrinsics.Vector512[int]:
+    def create_scalar_unsafe(value: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Creates a new Vector512<Byte> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        Creates a new Vector128<Byte> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector512<Byte> instance with the first element initialized to  and the remaining elements left uninitialized.
+        :returns: A new Vector128<Byte> instance with the first element initialized to  and the remaining elements left uninitialized.
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar_unsafe(value: float) -> System.Runtime.Intrinsics.Vector512[float]:
+    def create_scalar_unsafe(value: float) -> System.Runtime.Intrinsics.Vector128[float]:
         """
-        Creates a new Vector512<Double> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        Creates a new Vector128<Double> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector512<Double> instance with the first element initialized to  and the remaining elements left uninitialized.
+        :returns: A new Vector128<Double> instance with the first element initialized to  and the remaining elements left uninitialized.
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar_unsafe(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
+    def create_scalar_unsafe(value: System.IntPtr) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
         """
-        Creates a new Vector512<IntPtr> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        Creates a new Vector128<IntPtr> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector512<IntPtr> instance with the first element initialized to  and the remaining elements left uninitialized.
+        :returns: A new Vector128<IntPtr> instance with the first element initialized to  and the remaining elements left uninitialized.
         """
         ...
 
     @staticmethod
     @overload
-    def create_scalar_unsafe(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
+    def create_scalar_unsafe(value: System.UIntPtr) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
         """
-        Creates a new Vector512<UIntPtr> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
+        Creates a new Vector128<UIntPtr> instance with the first element initialized to the specified value and the remaining elements left uninitialized.
         
         :param value: The value that element 0 will be initialized to.
-        :returns: A new Vector512<UIntPtr> instance with the first element initialized to  and the remaining elements left uninitialized.
+        :returns: A new Vector128<UIntPtr> instance with the first element initialized to  and the remaining elements left uninitialized.
         """
         ...
 
     @staticmethod
-    def degrees_to_radians(degrees: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def degrees_to_radians(degrees: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @overload
@@ -4308,26 +4280,26 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         Determines whether the specified object is equal to the current instance.
         
         :param obj: The object to compare with the current instance.
-        :returns: true if  is a Vector512{T} and is equal to the current instance; otherwise, false.
+        :returns: true if  is a Vector128{T} and is equal to the current instance; otherwise, false.
         """
         ...
 
     @overload
-    def equals(self, other: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> bool:
+    def equals(self, other: System.Runtime.Intrinsics.Vector128[System_Runtime_Intrinsics_Vector128_T]) -> bool:
         """
-        Determines whether the specified Vector512{T} is equal to the current instance.
+        Determines whether the specified Vector128{T} is equal to the current instance.
         
-        :param other: The Vector512{T} to compare with the current instance.
+        :param other: The Vector128{T} to compare with the current instance.
         :returns: true if  is equal to the current instance; otherwise, false.
         """
         ...
 
     @staticmethod
-    def exp(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def exp(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
-    def floor(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def floor(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         """
         Computes the floor of each element in a vector.
         
@@ -4337,7 +4309,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def fused_multiply_add(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float], addend: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def fused_multiply_add(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], addend: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     def get_hash_code(self) -> int:
@@ -4349,62 +4321,90 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def hypot(x: System.Runtime.Intrinsics.Vector512[float], y: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def hypot(x: System.Runtime.Intrinsics.Vector128[float], y: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
-    def lerp(x: System.Runtime.Intrinsics.Vector512[float], y: System.Runtime.Intrinsics.Vector512[float], amount: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def lerp(x: System.Runtime.Intrinsics.Vector128[float], y: System.Runtime.Intrinsics.Vector128[float], amount: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
-    def log(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def log(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
-    def log_2(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def log_2(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
-    def multiply_add_estimate(left: System.Runtime.Intrinsics.Vector512[float], right: System.Runtime.Intrinsics.Vector512[float], addend: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def narrow(lower: System.Runtime.Intrinsics.Vector512[float], upper: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def multiply_add_estimate(left: System.Runtime.Intrinsics.Vector128[float], right: System.Runtime.Intrinsics.Vector128[float], addend: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
     @overload
-    def narrow(lower: System.Runtime.Intrinsics.Vector512[int], upper: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def narrow(lower: System.Runtime.Intrinsics.Vector128[float], upper: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Narrows two vector of double instances into one vector of float.
+        
+        :param lower: The vector that will be narrowed to the lower half of the result vector.
+        :param upper: The vector that will be narrowed to the upper half of the result vector.
+        :returns: A vector of float containing elements narrowed from  and .
+        """
         ...
 
     @staticmethod
     @overload
-    def narrow_with_saturation(lower: System.Runtime.Intrinsics.Vector512[float], upper: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def narrow(lower: System.Runtime.Intrinsics.Vector128[int], upper: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """
+        Narrows two vector of short instances into one vector of sbyte.
+        
+        :param lower: The vector that will be narrowed to the lower half of the result vector.
+        :param upper: The vector that will be narrowed to the upper half of the result vector.
+        :returns: A vector of sbyte containing elements narrowed from  and .
+        """
         ...
 
     @staticmethod
     @overload
-    def narrow_with_saturation(lower: System.Runtime.Intrinsics.Vector512[int], upper: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
-        ...
-
-    @staticmethod
-    def radians_to_degrees(radians: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def round(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
-        ...
-
-    @staticmethod
-    @overload
-    def round(vector: System.Runtime.Intrinsics.Vector512[float], mode: System.MidpointRounding) -> System.Runtime.Intrinsics.Vector512[float]:
+    def narrow_with_saturation(lower: System.Runtime.Intrinsics.Vector128[float], upper: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        """
+        Narrows two vector of double instances into one vector of float using a saturating conversion.
+        
+        :param lower: The vector that will be narrowed to the lower half of the result vector.
+        :param upper: The vector that will be narrowed to the upper half of the result vector.
+        :returns: A vector of float containing elements narrowed with saturation from  and .
+        """
         ...
 
     @staticmethod
     @overload
-    def shift_left(vector: System.Runtime.Intrinsics.Vector512[int], shift_count: int) -> System.Runtime.Intrinsics.Vector512[int]:
+    def narrow_with_saturation(lower: System.Runtime.Intrinsics.Vector128[int], upper: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """
+        Narrows two vector of short instances into one vector of sbyte using a saturating conversion.
+        
+        :param lower: The vector that will be narrowed to the lower half of the result vector.
+        :param upper: The vector that will be narrowed to the upper half of the result vector.
+        :returns: A vector of sbyte containing elements narrowed with saturation from  and .
+        """
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def round(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def round(vector: System.Runtime.Intrinsics.Vector128[float], mode: System.MidpointRounding) -> System.Runtime.Intrinsics.Vector128[float]:
+        ...
+
+    @staticmethod
+    @overload
+    def shift_left(vector: System.Runtime.Intrinsics.Vector128[int], shift_count: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -4416,7 +4416,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_left(vector: System.Runtime.Intrinsics.Vector512[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
+    def shift_left(vector: System.Runtime.Intrinsics.Vector128[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -4428,7 +4428,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_left(vector: System.Runtime.Intrinsics.Vector512[System.UIntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
+    def shift_left(vector: System.Runtime.Intrinsics.Vector128[System.UIntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
         """
         Shifts each element of a vector left by the specified amount.
         
@@ -4440,7 +4440,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_arithmetic(vector: System.Runtime.Intrinsics.Vector512[int], shift_count: int) -> System.Runtime.Intrinsics.Vector512[int]:
+    def shift_right_arithmetic(vector: System.Runtime.Intrinsics.Vector128[int], shift_count: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """
         Shifts (signed) each element of a vector right by the specified amount.
         
@@ -4452,7 +4452,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_arithmetic(vector: System.Runtime.Intrinsics.Vector512[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
+    def shift_right_arithmetic(vector: System.Runtime.Intrinsics.Vector128[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
         """
         Shifts (signed) each element of a vector right by the specified amount.
         
@@ -4464,7 +4464,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector512[int], shift_count: int) -> System.Runtime.Intrinsics.Vector512[int]:
+    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector128[int], shift_count: int) -> System.Runtime.Intrinsics.Vector128[int]:
         """
         Shifts (unsigned) each element of a vector right by the specified amount.
         
@@ -4476,7 +4476,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector512[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.IntPtr]:
+    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector128[System.IntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.IntPtr]:
         """
         Shifts (unsigned) each element of a vector right by the specified amount.
         
@@ -4488,7 +4488,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector512[System.UIntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector512[System.UIntPtr]:
+    def shift_right_logical(vector: System.Runtime.Intrinsics.Vector128[System.UIntPtr], shift_count: int) -> System.Runtime.Intrinsics.Vector128[System.UIntPtr]:
         """
         Shifts (unsigned) each element of a vector right by the specified amount.
         
@@ -4500,7 +4500,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shuffle(vector: System.Runtime.Intrinsics.Vector512[int], indices: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def shuffle(vector: System.Runtime.Intrinsics.Vector128[int], indices: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
         Creates a new vector by selecting values from an input vector using a set of indices.
         
@@ -4512,7 +4512,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shuffle(vector: System.Runtime.Intrinsics.Vector512[float], indices: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def shuffle(vector: System.Runtime.Intrinsics.Vector128[float], indices: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
         """
         Creates a new vector by selecting values from an input vector using a set of indices.
         
@@ -4524,7 +4524,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shuffle_native(vector: System.Runtime.Intrinsics.Vector512[int], indices: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def shuffle_native(vector: System.Runtime.Intrinsics.Vector128[int], indices: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
         Creates a new vector by selecting values from an input vector using a set of indices.
         Behavior is platform-dependent for out-of-range indices.
@@ -4537,7 +4537,7 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def shuffle_native(vector: System.Runtime.Intrinsics.Vector512[float], indices: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def shuffle_native(vector: System.Runtime.Intrinsics.Vector128[float], indices: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[float]:
         """
         Creates a new vector by selecting values from an input vector using a set of indices.
         
@@ -4548,11 +4548,11 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def sin(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def sin(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
-    def sin_cos(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector512[float], System.Runtime.Intrinsics.Vector512[float]]:
+    def sin_cos(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector128[float], System.Runtime.Intrinsics.Vector128[float]]:
         ...
 
     def to_string(self) -> str:
@@ -4564,14 +4564,14 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
         ...
 
     @staticmethod
-    def truncate(vector: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def truncate(vector: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         ...
 
     @staticmethod
     @overload
-    def widen(source: System.Runtime.Intrinsics.Vector512[int]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector512[int], System.Runtime.Intrinsics.Vector512[int]]:
+    def widen(source: System.Runtime.Intrinsics.Vector128[int]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector128[int], System.Runtime.Intrinsics.Vector128[int]]:
         """
-        Widens a Vector512<Byte> into two Vector512{UInt16} .
+        Widens a Vector128<Byte> into two Vector128{UInt16} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A pair of vectors that contain the widened lower and upper halves of .
@@ -4580,9 +4580,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def widen(source: System.Runtime.Intrinsics.Vector512[float]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector512[float], System.Runtime.Intrinsics.Vector512[float]]:
+    def widen(source: System.Runtime.Intrinsics.Vector128[float]) -> System.ValueTuple[System.Runtime.Intrinsics.Vector128[float], System.Runtime.Intrinsics.Vector128[float]]:
         """
-        Widens a Vector512<Single> into two Vector512{Double} .
+        Widens a Vector128<Single> into two Vector128{Double} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A pair of vectors that contain the widened lower and upper halves of .
@@ -4591,9 +4591,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def widen_lower(source: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def widen_lower(source: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Widens the lower half of a Vector512<Byte> into a Vector512{UInt16} .
+        Widens the lower half of a Vector128<Byte> into a Vector128{UInt16} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A vector that contain the widened lower half of .
@@ -4602,9 +4602,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def widen_lower(source: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def widen_lower(source: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         """
-        Widens the lower half of a Vector512<Single> into a Vector512{Double} .
+        Widens the lower half of a Vector128<Single> into a Vector128{Double} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A vector that contain the widened lower half of .
@@ -4613,9 +4613,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def widen_upper(source: System.Runtime.Intrinsics.Vector512[int]) -> System.Runtime.Intrinsics.Vector512[int]:
+    def widen_upper(source: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         """
-        Widens the upper half of a Vector512<Byte> into a Vector512{UInt16} .
+        Widens the upper half of a Vector128<Byte> into a Vector128{UInt16} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A vector that contain the widened upper half of .
@@ -4624,9 +4624,9 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 
     @staticmethod
     @overload
-    def widen_upper(source: System.Runtime.Intrinsics.Vector512[float]) -> System.Runtime.Intrinsics.Vector512[float]:
+    def widen_upper(source: System.Runtime.Intrinsics.Vector128[float]) -> System.Runtime.Intrinsics.Vector128[float]:
         """
-        Widens the upper half of a Vector512<Single> into a Vector512{Double} .
+        Widens the upper half of a Vector128<Single> into a Vector128{Double} .
         
         :param source: The vector whose elements are to be widened.
         :returns: A vector that contain the widened upper half of .

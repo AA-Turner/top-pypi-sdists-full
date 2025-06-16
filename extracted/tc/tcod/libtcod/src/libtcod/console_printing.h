@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2023, Jice and the libtcod contributors.
+ * Copyright © 2008-2025, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 #ifndef TCOD_CONSOLE_PRINTING_H_
 #define TCOD_CONSOLE_PRINTING_H_
 
@@ -237,6 +238,7 @@ TCODLIB_API void TCOD_console_set_color_control(TCOD_colctrl_t con, TCOD_color_t
         Now returns a negative error code on failure.
     \endrst
  */
+TCOD_DEPRECATED("Use TCOD_printf_rgb instead.")
 TCODLIB_API TCODLIB_FORMAT(4, 5) TCOD_Error
     TCOD_console_printf(TCOD_Console* __restrict con, int x, int y, const char* __restrict fmt, ...);
 /**
@@ -248,6 +250,7 @@ TCODLIB_API TCODLIB_FORMAT(4, 5) TCOD_Error
         Now returns a negative error code on failure.
     \endrst
  */
+TCOD_DEPRECATED("Use TCOD_printf_rgb instead.")
 TCODLIB_API TCODLIB_FORMAT(6, 7) TCOD_Error TCOD_console_printf_ex(
     TCOD_Console* __restrict con,
     int x,
@@ -265,6 +268,7 @@ TCODLIB_API TCODLIB_FORMAT(6, 7) TCOD_Error TCOD_console_printf_ex(
         Now returns a negative error code on failure.
     \endrst
  */
+TCOD_DEPRECATED("Use TCOD_printf_rgb instead.")
 TCODLIB_API TCODLIB_FORMAT(6, 7) int TCOD_console_printf_rect(
     TCOD_Console* __restrict con, int x, int y, int w, int h, const char* __restrict fmt, ...);
 /**
@@ -276,6 +280,7 @@ TCODLIB_API TCODLIB_FORMAT(6, 7) int TCOD_console_printf_rect(
         Now returns a negative error code on failure.
     \endrst
  */
+TCOD_DEPRECATED("Use TCOD_printf_rgb instead.")
 TCODLIB_API TCODLIB_FORMAT(8, 9) int TCOD_console_printf_rect_ex(
     TCOD_Console* __restrict con,
     int x,
@@ -299,6 +304,7 @@ TCODLIB_API TCODLIB_FORMAT(8, 9) int TCOD_console_printf_rect_ex(
         Now returns a negative error code on failure.
     \endrst
  */
+TCOD_DEPRECATED("Print function TCOD_printf_rgb and TCOD_console_draw_frame_rgb should be called separately.")
 TCODLIB_API TCODLIB_FORMAT(8, 9) TCOD_Error TCOD_console_printf_frame(
     TCOD_Console* __restrict con,
     int x,
@@ -415,7 +421,7 @@ TCOD_PUBLIC int TCOD_console_get_height_rect_n(
     \endrst
  */
 TCOD_PUBLIC int TCOD_console_get_height_rect_wn(int width, size_t n, const char* __restrict str);
-// Deprecated function.
+TCOD_DEPRECATED("Print function TCOD_printn_rgb and TCOD_console_draw_frame_rgb should be called separately.")
 TCOD_PUBLIC TCOD_Error TCOD_console_printn_frame(
     TCOD_Console* __restrict console,
     int x,
@@ -448,6 +454,7 @@ TCOD_PUBLIC TCOD_Error TCOD_console_printn_frame(
     .. versionadded:: 1.19
     \endrst
  */
+TCOD_DEPRECATED("Use TCOD_vprintf_rgb instead.")
 TCOD_PUBLIC TCOD_Error TCOD_console_vprintf(
     TCOD_Console* __restrict console,
     int x,
@@ -480,6 +487,7 @@ TCOD_PUBLIC TCOD_Error TCOD_console_vprintf(
     .. versionadded:: 1.19
     \endrst
  */
+TCOD_DEPRECATED("Use TCOD_vprintf_rgb instead.")
 TCOD_PUBLIC int TCOD_console_vprintf_rect(
     TCOD_Console* __restrict console,
     int x,

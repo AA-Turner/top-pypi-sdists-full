@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a9x_webstatistics
-Version: 1.7.5
+Version: 1.7.8
 Summary: Web Statistics and Analytics Package
 Home-page: https://github.com/ava007/a9x-webstatistics
 Author: André von Arx
@@ -56,7 +56,7 @@ This package produces web statistics and analytical output based on nginx access
 
 Visit the live examples on [logikfabrik.com](https://www.logikfabrik.com/aboutwebstats.html).
 
-<img src="https://github.com/ava007/a9x-webstatistics/blob/main/a9x-webstatistics_20241123.png">
+<img src="https://github.com/ava007/a9x-webstatistics/blob/main/a9x_webstats_20250612.png">
 
 ## Installation
 

@@ -2605,6 +2605,12 @@ components:
         success:
           type: boolean
           description: Whether the license was successfully downgraded
+        reason:
+          type: string
+          description: |-
+            A message providing additional information about the downgrade status,
+            optional, but if the status was not successful, this should contain
+            details about the failure.
       description: Details about the released resources
     EmptyButCreateAnyway:
       type: object
@@ -4057,6 +4063,12 @@ components:
         success:
           type: boolean
           description: Whether the resources were successfully released
+        reason:
+          type: string
+          description: |-
+            A message providing additional information about the release status,
+            optional, but if the status was not successful, this should contain
+            details about the failure.
       description: Details about the released resources
     ResourceType:
       type: object
@@ -4240,6 +4252,12 @@ components:
         success:
           type: boolean
           description: Whether the data was successfully transferred
+        reason:
+          type: string
+          description: |-
+            A message providing additional information about the transfer status,
+            optional, but if the status was not successful, this should contain
+            details about the failure.
       description: Details about the transfer
     UnassignEntitlement:
       type: object

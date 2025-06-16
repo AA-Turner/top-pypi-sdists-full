@@ -510,6 +510,59 @@ class RESTfulVideoModelHandle(RESTfulModelHandle):
         response_data = response.json()
         return response_data
 
+    def flf_to_video(
+        self,
+        first_frame: Union[str, bytes],
+        last_frame: Union[str, bytes],
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        n: int = 1,
+        **kwargs,
+    ) -> "VideoList":
+        """
+        Creates a video by the first frame, last frame and text.
+
+        Parameters
+        ----------
+        first_frame: `Union[str, bytes]`
+            The first frame to condition the generation on.
+        last_frame: `Union[str, bytes]`
+            The last frame to condition the generation on.
+        prompt: `str` or `List[str]`
+            The prompt or prompts to guide video generation. If not defined, you need to pass `prompt_embeds`.
+        negative_prompt (`str` or `List[str]`, *optional*):
+            The prompt or prompts not to guide the image generation.
+        n: `int`, defaults to 1
+            The number of videos to generate per prompt. Must be between 1 and 10.
+        Returns
+        -------
+        VideoList
+            A list of video objects.
+        """
+        url = f"{self._base_url}/v1/video/generations/flf"
+        params = {
+            "model": self._model_uid,
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "n": n,
+            "kwargs": json.dumps(kwargs),
+        }
+        files: List[Any] = []
+        for key, value in params.items():
+            files.append((key, (None, value)))
+        files.append(
+            ("first_frame", ("image", first_frame, "application/octet-stream"))
+        )
+        files.append(("last_frame", ("image", last_frame, "application/octet-stream")))
+        response = requests.post(url, files=files, headers=self.auth_headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to create the video from image, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data
+
 
 class RESTfulGenerateModelHandle(RESTfulModelHandle):
     def generate(
@@ -637,6 +690,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
         response_format: Optional[str] = "json",
         temperature: Optional[float] = 0,
         timestamp_granularities: Optional[List[str]] = None,
+        **kwargs,
     ):
         """
         Transcribes audio into the input language.
@@ -678,6 +732,7 @@ class RESTfulAudioModelHandle(RESTfulModelHandle):
             "response_format": response_format,
             "temperature": temperature,
             "timestamp_granularities[]": timestamp_granularities,
+            "kwargs": json.dumps(kwargs),
         }
         files: List[Any] = []
         files.append(("file", ("file", audio, "application/octet-stream")))
@@ -1502,7 +1557,9 @@ class Client:
         response_data = response.json()
         return response_data
 
-    def query_engine_by_model_name(self, model_name: str):
+    def query_engine_by_model_name(
+        self, model_name: str, model_type: Optional[str] = "LLM"
+    ):
         """
         Get the engine parameters with the model name registered on the server.
 
@@ -1510,12 +1567,17 @@ class Client:
         ----------
         model_name: str
             The name of the model.
+        model_type: str
+            Model type, LLM by default.
         Returns
         -------
         Dict[str, List[Dict[str, Any]]]
             The supported engine parameters of registered models on the server.
         """
-        url = f"{self.base_url}/v1/engines/{model_name}"
+        if not model_type:
+            url = f"{self.base_url}/v1/engines/{model_name}"
+        else:
+            url = f"{self.base_url}/v1/engines/{model_type}/{model_name}"
         response = requests.get(url, headers=self._headers)
         if response.status_code != 200:
             raise RuntimeError(

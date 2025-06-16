@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=65.5.1", "setuptools-scm", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fastled"
+readme = "README.md"
+description = "FastLED Wasm Compiler"
+requires-python = ">=3.10"
+keywords = ["template-python-cmd"]
+license = { text = "BSD 3-Clause License" }
+classifiers = ["Programming Language :: Python :: 3"]
+dependencies = [
+    "httpx>=0.28.1",
+    "watchdog>=6.0.0",
+    ########## Begin Docker Manager Dependencies
+    "docker>=7.1.0",
+    "filelock>=3.16.1",
+    "appdirs>=1.4.4",
+    "rapidfuzz>=3.10.1",
+    "progress>=1.6",
+    ########## End Docker Manager Dependencies
+    "watchfiles>=1.0.5",
+    "Flask>=3.0.0",
+    "livereload",
+    "disklru>=2.0.4",
+]
+
+dynamic = ["version"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.dynamic]
+version = { attr = "fastled.__version__" }
+
+[tool.ruff]
+line-length = 200
+
+[tool.pylint."MESSAGES CONTROL"]
+good-names = [
+    "c",
+    "i",
+    "ok",
+    "id",
+    "e",
+    "f"
+]
+disable = [
+    "missing-function-docstring",
+    "missing-module-docstring"
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
+
+[project.scripts]
+fastled-wasm = "fastled.cli:main"
+fled = "fastled.cli:main"
+fastled = "fastled.cli:main"

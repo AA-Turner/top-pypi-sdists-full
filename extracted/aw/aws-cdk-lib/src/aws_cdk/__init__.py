@@ -10715,12 +10715,14 @@ class ContextProvider(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.ContextPro
         scope: _constructs_77d1e7e8.Construct,
         *,
         provider: builtins.str,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         include_environment: typing.Optional[builtins.bool] = None,
         props: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> "GetContextKeyResult":
         '''
         :param scope: -
         :param provider: The context provider to query.
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param include_environment: Whether to include the stack's account and region automatically. Default: true
         :param props: Provider-specific properties.
 
@@ -10730,7 +10732,10 @@ class ContextProvider(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.ContextPro
             type_hints = typing.get_type_hints(_typecheckingstub__43574b9eb91c9a4b6203c6c4dae8ace9123c2746c25560e39a6b8a8db6ca67ff)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = GetContextKeyOptions(
-            provider=provider, include_environment=include_environment, props=props
+            provider=provider,
+            additional_cache_key=additional_cache_key,
+            include_environment=include_environment,
+            props=props,
         )
 
         return typing.cast("GetContextKeyResult", jsii.sinvoke(cls, "getKey", [scope, options]))
@@ -10745,6 +10750,7 @@ class ContextProvider(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.ContextPro
         ignore_error_on_missing_context: typing.Optional[builtins.bool] = None,
         must_exist: typing.Optional[builtins.bool] = None,
         provider: builtins.str,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         include_environment: typing.Optional[builtins.bool] = None,
         props: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> "GetContextValueResult":
@@ -10754,6 +10760,7 @@ class ContextProvider(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.ContextPro
         :param ignore_error_on_missing_context: (deprecated) Ignore a lookup failure and return the ``dummyValue`` instead. ``mustExist`` is the recommended alias for this deprecated property (note that its value is reversed). Default: false
         :param must_exist: Whether the resource must exist. If this is set (the default), the query fails if the value or resource we tried to look up doesn't exist. If this is ``false`` and the value we tried to look up could not be found, the failure is suppressed and ``dummyValue`` is officially returned instead. When this happens, ``dummyValue`` is encoded into cached context and it will never be refreshed anymore until the user runs ``cdk context --reset <key>``. Note that it is not possible for the CDK app code to make a distinction between "the lookup has not been performed yet" and "the lookup didn't find anything and we returned a default value instead". Context providers This feature must explicitly be supported by context providers. It is currently supported by: - KMS key provider - SSM parameter provider Note to implementors The dummy value should not be returned for all SDK lookup failures. For example, "no network" or "no credentials" or "malformed query" should not lead to the dummy value being returned. Only the case of "no such resource" should. Default: true
         :param provider: The context provider to query.
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param include_environment: Whether to include the stack's account and region automatically. Default: true
         :param props: Provider-specific properties.
         '''
@@ -10765,6 +10772,7 @@ class ContextProvider(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.ContextPro
             ignore_error_on_missing_context=ignore_error_on_missing_context,
             must_exist=must_exist,
             provider=provider,
+            additional_cache_key=additional_cache_key,
             include_environment=include_environment,
             props=props,
         )
@@ -13667,6 +13675,21 @@ class Errors(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Errors"):
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isAssertionError", [x]))
 
+    @jsii.member(jsii_name="isAssumptionError")
+    @builtins.classmethod
+    def is_assumption_error(cls, x: typing.Any) -> builtins.bool:
+        '''Test whether the given error is an AssumptionError.
+
+        An AssumptionError is thrown when a construct made an assumption somewhere that doesn't hold true.
+        This error always indicates a bug in the construct.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c1f003fc36fb573df38915f709b99bb9c1a74aac84c52ba7fe12c54cf2cae8d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isAssumptionError", [x]))
+
     @jsii.member(jsii_name="isCloudAssemblyError")
     @builtins.classmethod
     def is_cloud_assembly_error(cls, x: typing.Any) -> builtins.bool:
@@ -13695,6 +13718,20 @@ class Errors(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Errors"):
             type_hints = typing.get_type_hints(_typecheckingstub__0c62bc5a6fe032556ae3c32e105ddaad3f4ca89286fd26884af6347d3364c5ae)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isConstructError", [x]))
+
+    @jsii.member(jsii_name="isExecutionError")
+    @builtins.classmethod
+    def is_execution_error(cls, x: typing.Any) -> builtins.bool:
+        '''Test whether the given error is an ExecutionError.
+
+        An ExecutionError is thrown if an externally executed script or code failed.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2bf053437a17fa72244a5b0342af56acbb0f4ad4bc7fc877ac3974df0b811d3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isExecutionError", [x]))
 
     @jsii.member(jsii_name="isValidationError")
     @builtins.classmethod
@@ -15279,6 +15316,7 @@ class Fn(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Fn"):
     jsii_struct_bases=[],
     name_mapping={
         "provider": "provider",
+        "additional_cache_key": "additionalCacheKey",
         "include_environment": "includeEnvironment",
         "props": "props",
     },
@@ -15288,11 +15326,13 @@ class GetContextKeyOptions:
         self,
         *,
         provider: builtins.str,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         include_environment: typing.Optional[builtins.bool] = None,
         props: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> None:
         '''
         :param provider: The context provider to query.
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param include_environment: Whether to include the stack's account and region automatically. Default: true
         :param props: Provider-specific properties.
 
@@ -15310,6 +15350,7 @@ class GetContextKeyOptions:
                 provider="provider",
             
                 # the properties below are optional
+                additional_cache_key="additionalCacheKey",
                 include_environment=False,
                 props={
                     "props_key": props
@@ -15319,11 +15360,14 @@ class GetContextKeyOptions:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a3bc64bd38ef14ad5ebdf5807563d2355b26f4f0c446c315782c9818b76192a)
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
+            check_type(argname="argument additional_cache_key", value=additional_cache_key, expected_type=type_hints["additional_cache_key"])
             check_type(argname="argument include_environment", value=include_environment, expected_type=type_hints["include_environment"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "provider": provider,
         }
+        if additional_cache_key is not None:
+            self._values["additional_cache_key"] = additional_cache_key
         if include_environment is not None:
             self._values["include_environment"] = include_environment
         if props is not None:
@@ -15335,6 +15379,15 @@ class GetContextKeyOptions:
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def additional_cache_key(self) -> typing.Optional[builtins.str]:
+        '''Adds an additional discriminator to the ``cdk.context.json`` cache key.
+
+        :default: - no additional cache key
+        '''
+        result = self._values.get("additional_cache_key")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def include_environment(self) -> typing.Optional[builtins.bool]:
@@ -15434,6 +15487,7 @@ class GetContextKeyResult:
     jsii_struct_bases=[GetContextKeyOptions],
     name_mapping={
         "provider": "provider",
+        "additional_cache_key": "additionalCacheKey",
         "include_environment": "includeEnvironment",
         "props": "props",
         "dummy_value": "dummyValue",
@@ -15446,6 +15500,7 @@ class GetContextValueOptions(GetContextKeyOptions):
         self,
         *,
         provider: builtins.str,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         include_environment: typing.Optional[builtins.bool] = None,
         props: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         dummy_value: typing.Any,
@@ -15454,6 +15509,7 @@ class GetContextValueOptions(GetContextKeyOptions):
     ) -> None:
         '''
         :param provider: The context provider to query.
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param include_environment: Whether to include the stack's account and region automatically. Default: true
         :param props: Provider-specific properties.
         :param dummy_value: The value to return if the lookup has not yet been performed. Upon first synthesis, the lookups has not yet been performed. The ``getValue()`` operation returns this value instead, so that synthesis can proceed. After synthesis completes the first time, the actual lookup will be performed and synthesis will run again with the *real* value. Dummy values should preferably have valid shapes so that downstream consumers of lookup values don't throw validation exceptions if they encounter a dummy value (or all possible downstream consumers need to effectively check for the well-known shape of the dummy value); throwing an exception would error out the synthesis operation and prevent the lookup and the second, real, synthesis from happening. Connection to mustExist ``dummyValue`` is also used as the official value to return if the lookup has failed and ``mustExist == false``.
@@ -15476,6 +15532,7 @@ class GetContextValueOptions(GetContextKeyOptions):
                 provider="provider",
             
                 # the properties below are optional
+                additional_cache_key="additionalCacheKey",
                 ignore_error_on_missing_context=False,
                 include_environment=False,
                 must_exist=False,
@@ -15487,6 +15544,7 @@ class GetContextValueOptions(GetContextKeyOptions):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16ea3024419c210903405ca05f7de1bb3fad517c101a7a84926fb5e09ac784ec)
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
+            check_type(argname="argument additional_cache_key", value=additional_cache_key, expected_type=type_hints["additional_cache_key"])
             check_type(argname="argument include_environment", value=include_environment, expected_type=type_hints["include_environment"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
             check_type(argname="argument dummy_value", value=dummy_value, expected_type=type_hints["dummy_value"])
@@ -15496,6 +15554,8 @@ class GetContextValueOptions(GetContextKeyOptions):
             "provider": provider,
             "dummy_value": dummy_value,
         }
+        if additional_cache_key is not None:
+            self._values["additional_cache_key"] = additional_cache_key
         if include_environment is not None:
             self._values["include_environment"] = include_environment
         if props is not None:
@@ -15511,6 +15571,15 @@ class GetContextValueOptions(GetContextKeyOptions):
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def additional_cache_key(self) -> typing.Optional[builtins.str]:
+        '''Adds an additional discriminator to the ``cdk.context.json`` cache key.
+
+        :default: - no additional cache key
+        '''
+        result = self._values.get("additional_cache_key")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def include_environment(self) -> typing.Optional[builtins.bool]:
@@ -19900,20 +19969,25 @@ class RemovalPolicy(enum.Enum):
 
     Example::
 
-        # my_role: iam.Role
+        import aws_cdk as cdk
         
-        cr.AwsCustomResource(self, "Customized",
-            role=my_role,  # must be assumable by the `lambda.amazonaws.com` service principal
-            timeout=Duration.minutes(10),  # defaults to 2 minutes
-            memory_size=1025,  # defaults to 512 if installLatestAwsSdk is true
-            log_group=logs.LogGroup(self, "AwsCustomResourceLogs",
-                retention=logs.RetentionDays.ONE_DAY
-            ),
-            function_name="my-custom-name",  # defaults to a CloudFormation generated name
-            removal_policy=RemovalPolicy.RETAIN,  # defaults to `RemovalPolicy.DESTROY`
-            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
-                resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
+        
+        app = cdk.App()
+        stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
+        
+        global_table = dynamodb.TableV2(stack, "GlobalTable",
+            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+            removal_policy=cdk.RemovalPolicy.DESTROY,
+            deletion_protection=True,
+            # only the replica in us-east-1 will be deleted during stack deletion
+            replicas=[dynamodb.ReplicaTableProps(
+                region="us-east-1",
+                deletion_protection=False
+            ), dynamodb.ReplicaTableProps(
+                region="us-east-2",
+                deletion_protection=True
             )
+            ]
         )
     '''
 
@@ -37720,6 +37794,7 @@ __all__ = [
     "aws_events_targets",
     "aws_eventschemas",
     "aws_evidently",
+    "aws_evs",
     "aws_finspace",
     "aws_fis",
     "aws_fms",
@@ -38018,6 +38093,7 @@ from . import aws_events
 from . import aws_events_targets
 from . import aws_eventschemas
 from . import aws_evidently
+from . import aws_evs
 from . import aws_finspace
 from . import aws_fis
 from . import aws_fms
@@ -39240,6 +39316,7 @@ def _typecheckingstub__43574b9eb91c9a4b6203c6c4dae8ace9123c2746c25560e39a6b8a8db
     scope: _constructs_77d1e7e8.Construct,
     *,
     provider: builtins.str,
+    additional_cache_key: typing.Optional[builtins.str] = None,
     include_environment: typing.Optional[builtins.bool] = None,
     props: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
@@ -39253,6 +39330,7 @@ def _typecheckingstub__cbcd83febe5237c988f26712b8a838ca5d2e34ea47490d008757c21a6
     ignore_error_on_missing_context: typing.Optional[builtins.bool] = None,
     must_exist: typing.Optional[builtins.bool] = None,
     provider: builtins.str,
+    additional_cache_key: typing.Optional[builtins.str] = None,
     include_environment: typing.Optional[builtins.bool] = None,
     props: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
@@ -39541,6 +39619,12 @@ def _typecheckingstub__4b06766267738419297aaf93a2368e0c38c274adc14053ce29fd653d6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1c1f003fc36fb573df38915f709b99bb9c1a74aac84c52ba7fe12c54cf2cae8d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1cadecf7c75d3f55ff2fcddf8a0d000d9f8e54b48218f1336d97358901d38c0b(
     x: typing.Any,
 ) -> None:
@@ -39548,6 +39632,12 @@ def _typecheckingstub__1cadecf7c75d3f55ff2fcddf8a0d000d9f8e54b48218f1336d9735890
     pass
 
 def _typecheckingstub__0c62bc5a6fe032556ae3c32e105ddaad3f4ca89286fd26884af6347d3364c5ae(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2bf053437a17fa72244a5b0342af56acbb0f4ad4bc7fc877ac3974df0b811d3(
     x: typing.Any,
 ) -> None:
     """Type checking stubs"""
@@ -39887,6 +39977,7 @@ def _typecheckingstub__1aa84b6f7c7da29afeaf8cce6ea2a4aee978df497c5cb6d4432224b24
 def _typecheckingstub__4a3bc64bd38ef14ad5ebdf5807563d2355b26f4f0c446c315782c9818b76192a(
     *,
     provider: builtins.str,
+    additional_cache_key: typing.Optional[builtins.str] = None,
     include_environment: typing.Optional[builtins.bool] = None,
     props: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
@@ -39904,6 +39995,7 @@ def _typecheckingstub__8870c87947d551a1842549591423e81e319fe3185c0ae81f67b67b1bf
 def _typecheckingstub__16ea3024419c210903405ca05f7de1bb3fad517c101a7a84926fb5e09ac784ec(
     *,
     provider: builtins.str,
+    additional_cache_key: typing.Optional[builtins.str] = None,
     include_environment: typing.Optional[builtins.bool] = None,
     props: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     dummy_value: typing.Any,

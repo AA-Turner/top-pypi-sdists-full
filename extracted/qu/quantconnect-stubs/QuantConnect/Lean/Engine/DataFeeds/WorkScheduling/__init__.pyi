@@ -9,38 +9,6 @@ import QuantConnect.Lean.Engine.DataFeeds.WorkScheduling
 import System
 
 
-class WorkItem(System.Object):
-    """Class to represent a work item"""
-
-    @property
-    def weight(self) -> int:
-        """The current weight"""
-        ...
-
-    @property
-    def work(self) -> typing.Callable[[int], bool]:
-        """The work function to execute"""
-        ...
-
-    def __init__(self, work: typing.Callable[[int], bool], weight_func: typing.Callable[[], int]) -> None:
-        """
-        Creates a new instance
-        
-        :param work: The work function, takes an int, the amount of work to do and returns a bool, false if this work item is finished
-        :param weight_func: The function used to determine the current weight
-        """
-        ...
-
-    @staticmethod
-    def compare(obj: QuantConnect.Lean.Engine.DataFeeds.WorkScheduling.WorkItem, other: QuantConnect.Lean.Engine.DataFeeds.WorkScheduling.WorkItem) -> int:
-        """Compares two work items based on their weights"""
-        ...
-
-    def update_weight(self) -> int:
-        """Updates the weight of this work item"""
-        ...
-
-
 class WorkScheduler(System.Object, metaclass=abc.ABCMeta):
     """Base work scheduler abstraction"""
 
@@ -88,6 +56,38 @@ class WeightedWorkScheduler(QuantConnect.Lean.Engine.DataFeeds.WorkScheduling.Wo
         :param work_func: The work function to run
         :param weight_func: The weight function. Work will be sorted in ascending order based on this weight
         """
+        ...
+
+
+class WorkItem(System.Object):
+    """Class to represent a work item"""
+
+    @property
+    def weight(self) -> int:
+        """The current weight"""
+        ...
+
+    @property
+    def work(self) -> typing.Callable[[int], bool]:
+        """The work function to execute"""
+        ...
+
+    def __init__(self, work: typing.Callable[[int], bool], weight_func: typing.Callable[[], int]) -> None:
+        """
+        Creates a new instance
+        
+        :param work: The work function, takes an int, the amount of work to do and returns a bool, false if this work item is finished
+        :param weight_func: The function used to determine the current weight
+        """
+        ...
+
+    @staticmethod
+    def compare(obj: QuantConnect.Lean.Engine.DataFeeds.WorkScheduling.WorkItem, other: QuantConnect.Lean.Engine.DataFeeds.WorkScheduling.WorkItem) -> int:
+        """Compares two work items based on their weights"""
+        ...
+
+    def update_weight(self) -> int:
+        """Updates the weight of this work item"""
         ...
 
 

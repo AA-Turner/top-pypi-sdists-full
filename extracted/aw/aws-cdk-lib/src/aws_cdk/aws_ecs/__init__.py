@@ -174,6 +174,23 @@ auto_scaling_group = autoscaling.AutoScalingGroup(self, "ASG",
 )
 ```
 
+To customize the cache key, use the `additionalCacheKey` parameter.
+This allows you to have multiple lookups with the same parameters
+cache their values separately. This can be useful if you want to
+scope the context variable to a construct (ie, using `additionalCacheKey: this.node.path`),
+so that if the value in the cache needs to be updated, it does not need to be updated
+for all constructs at the same time.
+
+```python
+# vpc: ec2.Vpc
+
+auto_scaling_group = autoscaling.AutoScalingGroup(self, "ASG",
+    machine_image=ecs.EcsOptimizedImage.amazon_linux(cached_in_context=True, additional_cache_key=self.node.path),
+    vpc=vpc,
+    instance_type=ec2.InstanceType("t2.micro")
+)
+```
+
 To use `LaunchTemplate` with `AsgCapacityProvider`, make sure to specify the `userData` in the `LaunchTemplate`:
 
 ```python
@@ -5848,17 +5865,20 @@ class BottleRocketImage(
     def __init__(
         self,
         *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         architecture: typing.Optional[_InstanceArchitecture_7721cb36] = None,
         cached_in_context: typing.Optional[builtins.bool] = None,
         variant: typing.Optional["BottlerocketEcsVariant"] = None,
     ) -> None:
         '''Constructs a new instance of the BottleRocketImage class.
 
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param architecture: The CPU architecture. Default: - x86_64
         :param cached_in_context: Whether the AMI ID is cached to be stable between deployments. By default, the newest image is used on each deployment. This will cause instances to be replaced whenever a new version is released, and may cause downtime if there aren't enough running instances in the AutoScalingGroup to reschedule the tasks on. If set to true, the AMI ID will be cached in ``cdk.context.json`` and the same value will be used on future runs. Your instances will not be replaced but your AMI version will grow old over time. To refresh the AMI lookup, you will have to evict the value from the cache using the ``cdk context`` command. See https://docs.aws.amazon.com/cdk/latest/guide/context.html for more information. Can not be set to ``true`` in environment-agnostic stacks. Default: false
         :param variant: The Amazon ECS variant to use. Default: - BottlerocketEcsVariant.AWS_ECS_1
         '''
         props = BottleRocketImageProps(
+            additional_cache_key=additional_cache_key,
             architecture=architecture,
             cached_in_context=cached_in_context,
             variant=variant,
@@ -5897,6 +5917,7 @@ class BottleRocketImage(
     jsii_type="aws-cdk-lib.aws_ecs.BottleRocketImageProps",
     jsii_struct_bases=[],
     name_mapping={
+        "additional_cache_key": "additionalCacheKey",
         "architecture": "architecture",
         "cached_in_context": "cachedInContext",
         "variant": "variant",
@@ -5906,12 +5927,14 @@ class BottleRocketImageProps:
     def __init__(
         self,
         *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         architecture: typing.Optional[_InstanceArchitecture_7721cb36] = None,
         cached_in_context: typing.Optional[builtins.bool] = None,
         variant: typing.Optional["BottlerocketEcsVariant"] = None,
     ) -> None:
         '''Properties for BottleRocketImage.
 
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param architecture: The CPU architecture. Default: - x86_64
         :param cached_in_context: Whether the AMI ID is cached to be stable between deployments. By default, the newest image is used on each deployment. This will cause instances to be replaced whenever a new version is released, and may cause downtime if there aren't enough running instances in the AutoScalingGroup to reschedule the tasks on. If set to true, the AMI ID will be cached in ``cdk.context.json`` and the same value will be used on future runs. Your instances will not be replaced but your AMI version will grow old over time. To refresh the AMI lookup, you will have to evict the value from the cache using the ``cdk context`` command. See https://docs.aws.amazon.com/cdk/latest/guide/context.html for more information. Can not be set to ``true`` in environment-agnostic stacks. Default: false
         :param variant: The Amazon ECS variant to use. Default: - BottlerocketEcsVariant.AWS_ECS_1
@@ -5932,16 +5955,28 @@ class BottleRocketImageProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1888954247daafe3322b2fa144458be6e77f5b9d04b3406207497f8b279b2cf6)
+            check_type(argname="argument additional_cache_key", value=additional_cache_key, expected_type=type_hints["additional_cache_key"])
             check_type(argname="argument architecture", value=architecture, expected_type=type_hints["architecture"])
             check_type(argname="argument cached_in_context", value=cached_in_context, expected_type=type_hints["cached_in_context"])
             check_type(argname="argument variant", value=variant, expected_type=type_hints["variant"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_cache_key is not None:
+            self._values["additional_cache_key"] = additional_cache_key
         if architecture is not None:
             self._values["architecture"] = architecture
         if cached_in_context is not None:
             self._values["cached_in_context"] = cached_in_context
         if variant is not None:
             self._values["variant"] = variant
+
+    @builtins.property
+    def additional_cache_key(self) -> typing.Optional[builtins.str]:
+        '''Adds an additional discriminator to the ``cdk.context.json`` cache key.
+
+        :default: - no additional cache key
+        '''
+        result = self._values.get("additional_cache_key")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def architecture(self) -> typing.Optional[_InstanceArchitecture_7721cb36]:
@@ -13368,7 +13403,7 @@ class CfnTaskDefinition(
             :param command: The command that's passed to the container. This parameter maps to ``Cmd`` in the docker container create command and the ``COMMAND`` parameter to docker run. If there are multiple arguments, each argument is a separated string in the array.
             :param cpu: The number of ``cpu`` units reserved for the container. This parameter maps to ``CpuShares`` in the docker container create commandand the ``--cpu-shares`` option to docker run. This field is optional for tasks using the Fargate launch type, and the only requirement is that the total amount of CPU reserved for all containers within a task be lower than the task-level ``cpu`` value. .. epigraph:: You can determine the number of CPU units that are available per EC2 instance type by multiplying the vCPUs listed for that instance type on the `Amazon EC2 Instances <https://docs.aws.amazon.com/ec2/instance-types/>`_ detail page by 1,024. Linux containers share unallocated CPU units with other containers on the container instance with the same ratio as their allocated amount. For example, if you run a single-container task on a single-core instance type with 512 CPU units specified for that container, and that's the only task running on the container instance, that container could use the full 1,024 CPU unit share at any given time. However, if you launched another copy of the same task on that container instance, each task is guaranteed a minimum of 512 CPU units when needed. Moreover, each container could float to higher CPU usage if the other container was not using it. If both tasks were 100% active all of the time, they would be limited to 512 CPU units. On Linux container instances, the Docker daemon on the container instance uses the CPU value to calculate the relative CPU share ratios for running containers. The minimum valid CPU share value that the Linux kernel allows is 2, and the maximum valid CPU share value that the Linux kernel allows is 262144. However, the CPU parameter isn't required, and you can use CPU values below 2 or above 262144 in your container definitions. For CPU values below 2 (including null) or above 262144, the behavior varies based on your Amazon ECS container agent version: - *Agent versions less than or equal to 1.1.0:* Null and zero CPU values are passed to Docker as 0, which Docker then converts to 1,024 CPU shares. CPU values of 1 are passed to Docker as 1, which the Linux kernel converts to two CPU shares. - *Agent versions greater than or equal to 1.2.0:* Null, zero, and CPU values of 1 are passed to Docker as 2. - *Agent versions greater than or equal to 1.84.0:* CPU values greater than 256 vCPU are passed to Docker as 256, which is equivalent to 262144 CPU shares. On Windows container instances, the CPU limit is enforced as an absolute limit, or a quota. Windows containers only have access to the specified amount of CPU that's described in the task definition. A null or zero CPU value is passed to Docker as ``0`` , which Windows interprets as 1% of one CPU.
             :param credential_specs: A list of ARNs in SSM or Amazon S3 to a credential spec ( ``CredSpec`` ) file that configures the container for Active Directory authentication. We recommend that you use this parameter instead of the ``dockerSecurityOptions`` . The maximum number of ARNs is 1. There are two formats for each ARN. - **credentialspecdomainless:MyARN** - You use ``credentialspecdomainless:MyARN`` to provide a ``CredSpec`` with an additional section for a secret in AWS Secrets Manager . You provide the login credentials to the domain in the secret. Each task that runs on any container instance can join different domains. You can use this format without joining the container instance to a domain. - **credentialspec:MyARN** - You use ``credentialspec:MyARN`` to provide a ``CredSpec`` for a single domain. You must join the container instance to the domain before you start any tasks that use this task definition. In both formats, replace ``MyARN`` with the ARN in SSM or Amazon S3. If you provide a ``credentialspecdomainless:MyARN`` , the ``credspec`` must provide a ARN in AWS Secrets Manager for a secret containing the username, password, and the domain to connect to. For better security, the instance isn't joined to the domain for domainless authentication. Other applications on the instance can't use the domainless credentials. You can use this parameter to run tasks on the same instance, even it the tasks need to join different domains. For more information, see `Using gMSAs for Windows Containers <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/windows-gmsa.html>`_ and `Using gMSAs for Linux Containers <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/linux-gmsa.html>`_ .
-            :param depends_on: The dependencies defined for container startup and shutdown. A container can contain multiple dependencies. When a dependency is defined for container startup, for container shutdown it is reversed. For tasks using the EC2 launch type, the container instances require at least version 1.26.0 of the container agent to turn on container dependencies. However, we recommend using the latest container agent version. For information about checking your agent version and updating to the latest version, see `Updating the Amazon ECS Container Agent <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html>`_ in the *Amazon Elastic Container Service Developer Guide* . If you're using an Amazon ECS-optimized Linux AMI, your instance needs at least version 1.26.0-1 of the ``ecs-init`` package. If your container instances are launched from version ``20190301`` or later, then they contain the required versions of the container agent and ``ecs-init`` . For more information, see `Amazon ECS-optimized Linux AMI <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html>`_ in the *Amazon Elastic Container Service Developer Guide* . For tasks using the Fargate launch type, the task or service requires the following platforms: - Linux platform version ``1.3.0`` or later. - Windows platform version ``1.0.0`` or later. If the task definition is used in a blue/green deployment that uses `AWS::CodeDeploy::DeploymentGroup BlueGreenDeploymentConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-bluegreendeploymentconfiguration.html>`_ , the ``dependsOn`` parameter is not supported. For more information see `Issue #680 <https://docs.aws.amazon.com/https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/680>`_ on the on the GitHub website.
+            :param depends_on: The dependencies defined for container startup and shutdown. A container can contain multiple dependencies. When a dependency is defined for container startup, for container shutdown it is reversed. For tasks using the EC2 launch type, the container instances require at least version 1.26.0 of the container agent to turn on container dependencies. However, we recommend using the latest container agent version. For information about checking your agent version and updating to the latest version, see `Updating the Amazon ECS Container Agent <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-update.html>`_ in the *Amazon Elastic Container Service Developer Guide* . If you're using an Amazon ECS-optimized Linux AMI, your instance needs at least version 1.26.0-1 of the ``ecs-init`` package. If your container instances are launched from version ``20190301`` or later, then they contain the required versions of the container agent and ``ecs-init`` . For more information, see `Amazon ECS-optimized Linux AMI <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html>`_ in the *Amazon Elastic Container Service Developer Guide* . For tasks using the Fargate launch type, the task or service requires the following platforms: - Linux platform version ``1.3.0`` or later. - Windows platform version ``1.0.0`` or later. If the task definition is used in a blue/green deployment that uses `AWS::CodeDeploy::DeploymentGroup BlueGreenDeploymentConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-bluegreendeploymentconfiguration.html>`_ , the ``dependsOn`` parameter is not supported.
             :param disable_networking: When this parameter is true, networking is off within the container. This parameter maps to ``NetworkDisabled`` in the docker container create command. .. epigraph:: This parameter is not supported for Windows containers.
             :param dns_search_domains: A list of DNS search domains that are presented to the container. This parameter maps to ``DnsSearch`` in the docker container create command and the ``--dns-search`` option to docker run. .. epigraph:: This parameter is not supported for Windows containers.
             :param dns_servers: A list of DNS servers that are presented to the container. This parameter maps to ``Dns`` in the docker container create command and the ``--dns`` option to docker run. .. epigraph:: This parameter is not supported for Windows containers.
@@ -13790,7 +13825,7 @@ class CfnTaskDefinition(
             - Linux platform version ``1.3.0`` or later.
             - Windows platform version ``1.0.0`` or later.
 
-            If the task definition is used in a blue/green deployment that uses `AWS::CodeDeploy::DeploymentGroup BlueGreenDeploymentConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-bluegreendeploymentconfiguration.html>`_ , the ``dependsOn`` parameter is not supported. For more information see `Issue #680 <https://docs.aws.amazon.com/https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/680>`_ on the on the GitHub website.
+            If the task definition is used in a blue/green deployment that uses `AWS::CodeDeploy::DeploymentGroup BlueGreenDeploymentConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codedeploy-deploymentgroup-bluegreendeploymentconfiguration.html>`_ , the ``dependsOn`` parameter is not supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-containerdefinition.html#cfn-ecs-taskdefinition-containerdefinition-dependson
             '''
@@ -25302,13 +25337,18 @@ class EcsOptimizedImage(
     def amazon_linux(
         cls,
         *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         cached_in_context: typing.Optional[builtins.bool] = None,
     ) -> "EcsOptimizedImage":
         '''Construct an Amazon Linux AMI image from the latest ECS Optimized AMI published in SSM.
 
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param cached_in_context: Whether the AMI ID is cached to be stable between deployments. By default, the newest image is used on each deployment. This will cause instances to be replaced whenever a new version is released, and may cause downtime if there aren't enough running instances in the AutoScalingGroup to reschedule the tasks on. If set to true, the AMI ID will be cached in ``cdk.context.json`` and the same value will be used on future runs. Your instances will not be replaced but your AMI version will grow old over time. To refresh the AMI lookup, you will have to evict the value from the cache using the ``cdk context`` command. See https://docs.aws.amazon.com/cdk/latest/guide/context.html for more information. Can not be set to ``true`` in environment-agnostic stacks. Default: false
         '''
-        options = EcsOptimizedImageOptions(cached_in_context=cached_in_context)
+        options = EcsOptimizedImageOptions(
+            additional_cache_key=additional_cache_key,
+            cached_in_context=cached_in_context,
+        )
 
         return typing.cast("EcsOptimizedImage", jsii.sinvoke(cls, "amazonLinux", [options]))
 
@@ -25318,17 +25358,22 @@ class EcsOptimizedImage(
         cls,
         hardware_type: typing.Optional[AmiHardwareType] = None,
         *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         cached_in_context: typing.Optional[builtins.bool] = None,
     ) -> "EcsOptimizedImage":
         '''Construct an Amazon Linux 2 image from the latest ECS Optimized AMI published in SSM.
 
         :param hardware_type: ECS-optimized AMI variant to use.
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param cached_in_context: Whether the AMI ID is cached to be stable between deployments. By default, the newest image is used on each deployment. This will cause instances to be replaced whenever a new version is released, and may cause downtime if there aren't enough running instances in the AutoScalingGroup to reschedule the tasks on. If set to true, the AMI ID will be cached in ``cdk.context.json`` and the same value will be used on future runs. Your instances will not be replaced but your AMI version will grow old over time. To refresh the AMI lookup, you will have to evict the value from the cache using the ``cdk context`` command. See https://docs.aws.amazon.com/cdk/latest/guide/context.html for more information. Can not be set to ``true`` in environment-agnostic stacks. Default: false
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5924678ba20215bbadbd6bba47ff2a6c9af00997d08c131de1b7efc2701d95cd)
             check_type(argname="argument hardware_type", value=hardware_type, expected_type=type_hints["hardware_type"])
-        options = EcsOptimizedImageOptions(cached_in_context=cached_in_context)
+        options = EcsOptimizedImageOptions(
+            additional_cache_key=additional_cache_key,
+            cached_in_context=cached_in_context,
+        )
 
         return typing.cast("EcsOptimizedImage", jsii.sinvoke(cls, "amazonLinux2", [hardware_type, options]))
 
@@ -25338,17 +25383,22 @@ class EcsOptimizedImage(
         cls,
         hardware_type: typing.Optional[AmiHardwareType] = None,
         *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         cached_in_context: typing.Optional[builtins.bool] = None,
     ) -> "EcsOptimizedImage":
         '''Construct an Amazon Linux 2023 image from the latest ECS Optimized AMI published in SSM.
 
         :param hardware_type: ECS-optimized AMI variant to use.
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param cached_in_context: Whether the AMI ID is cached to be stable between deployments. By default, the newest image is used on each deployment. This will cause instances to be replaced whenever a new version is released, and may cause downtime if there aren't enough running instances in the AutoScalingGroup to reschedule the tasks on. If set to true, the AMI ID will be cached in ``cdk.context.json`` and the same value will be used on future runs. Your instances will not be replaced but your AMI version will grow old over time. To refresh the AMI lookup, you will have to evict the value from the cache using the ``cdk context`` command. See https://docs.aws.amazon.com/cdk/latest/guide/context.html for more information. Can not be set to ``true`` in environment-agnostic stacks. Default: false
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc44eec88f6aaee7e170f453974183a08768efc2af4f04d00c94c131fb83f5da)
             check_type(argname="argument hardware_type", value=hardware_type, expected_type=type_hints["hardware_type"])
-        options = EcsOptimizedImageOptions(cached_in_context=cached_in_context)
+        options = EcsOptimizedImageOptions(
+            additional_cache_key=additional_cache_key,
+            cached_in_context=cached_in_context,
+        )
 
         return typing.cast("EcsOptimizedImage", jsii.sinvoke(cls, "amazonLinux2023", [hardware_type, options]))
 
@@ -25358,17 +25408,22 @@ class EcsOptimizedImage(
         cls,
         windows_version: "WindowsOptimizedVersion",
         *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         cached_in_context: typing.Optional[builtins.bool] = None,
     ) -> "EcsOptimizedImage":
         '''Construct a Windows image from the latest ECS Optimized AMI published in SSM.
 
         :param windows_version: Windows Version to use.
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param cached_in_context: Whether the AMI ID is cached to be stable between deployments. By default, the newest image is used on each deployment. This will cause instances to be replaced whenever a new version is released, and may cause downtime if there aren't enough running instances in the AutoScalingGroup to reschedule the tasks on. If set to true, the AMI ID will be cached in ``cdk.context.json`` and the same value will be used on future runs. Your instances will not be replaced but your AMI version will grow old over time. To refresh the AMI lookup, you will have to evict the value from the cache using the ``cdk context`` command. See https://docs.aws.amazon.com/cdk/latest/guide/context.html for more information. Can not be set to ``true`` in environment-agnostic stacks. Default: false
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b2ecfae2d485e25e72afeff56a0440720bb0614429d89d481532900bc2f7e9c)
             check_type(argname="argument windows_version", value=windows_version, expected_type=type_hints["windows_version"])
-        options = EcsOptimizedImageOptions(cached_in_context=cached_in_context)
+        options = EcsOptimizedImageOptions(
+            additional_cache_key=additional_cache_key,
+            cached_in_context=cached_in_context,
+        )
 
         return typing.cast("EcsOptimizedImage", jsii.sinvoke(cls, "windows", [windows_version, options]))
 
@@ -25390,16 +25445,21 @@ class EcsOptimizedImage(
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ecs.EcsOptimizedImageOptions",
     jsii_struct_bases=[],
-    name_mapping={"cached_in_context": "cachedInContext"},
+    name_mapping={
+        "additional_cache_key": "additionalCacheKey",
+        "cached_in_context": "cachedInContext",
+    },
 )
 class EcsOptimizedImageOptions:
     def __init__(
         self,
         *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
         cached_in_context: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Additional configuration properties for EcsOptimizedImage factory functions.
 
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
         :param cached_in_context: Whether the AMI ID is cached to be stable between deployments. By default, the newest image is used on each deployment. This will cause instances to be replaced whenever a new version is released, and may cause downtime if there aren't enough running instances in the AutoScalingGroup to reschedule the tasks on. If set to true, the AMI ID will be cached in ``cdk.context.json`` and the same value will be used on future runs. Your instances will not be replaced but your AMI version will grow old over time. To refresh the AMI lookup, you will have to evict the value from the cache using the ``cdk context`` command. See https://docs.aws.amazon.com/cdk/latest/guide/context.html for more information. Can not be set to ``true`` in environment-agnostic stacks. Default: false
 
         :exampleMetadata: infused
@@ -25416,10 +25476,22 @@ class EcsOptimizedImageOptions:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f6d1e17c4feb37d3005e6450986d1ae7d39c1536289b88ce7b0be3440b3e132f)
+            check_type(argname="argument additional_cache_key", value=additional_cache_key, expected_type=type_hints["additional_cache_key"])
             check_type(argname="argument cached_in_context", value=cached_in_context, expected_type=type_hints["cached_in_context"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_cache_key is not None:
+            self._values["additional_cache_key"] = additional_cache_key
         if cached_in_context is not None:
             self._values["cached_in_context"] = cached_in_context
+
+    @builtins.property
+    def additional_cache_key(self) -> typing.Optional[builtins.str]:
+        '''Adds an additional discriminator to the ``cdk.context.json`` cache key.
+
+        :default: - no additional cache key
+        '''
+        result = self._values.get("additional_cache_key")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def cached_in_context(self) -> typing.Optional[builtins.bool]:
@@ -27790,9 +27862,9 @@ class FargateTaskDefinitionProps(CommonTaskDefinitionProps):
         :param proxy_configuration: The configuration details for the App Mesh proxy. Default: - No proxy configuration.
         :param task_role: The name of the IAM role that grants containers in the task permission to call AWS APIs on your behalf. Default: - A task role is automatically created for you.
         :param volumes: The list of volume definitions for the task. For more information, see `Task Definition Parameter Volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide//task_definition_parameters.html#volumes>`_. Default: - No volumes are passed to the Docker daemon on a container instance.
-        :param cpu: The number of cpu units used by the task. For tasks using the Fargate launch type, this field is required and you must use one of the following values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) 512 (.5 vCPU) - Available memory values: 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) 1024 (1 vCPU) - Available memory values: 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) 2048 (2 vCPU) - Available memory values: Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) 4096 (4 vCPU) - Available memory values: Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) 8192 (8 vCPU) - Available memory values: Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) 16384 (16 vCPU) - Available memory values: Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) Default: 256
+        :param cpu: The number of cpu units used by the task. For tasks using the Fargate launch type, this field is required and you must use one of the following values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) 512 (.5 vCPU) - Available memory values: 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) 1024 (1 vCPU) - Available memory values: 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) 2048 (2 vCPU) - Available memory values: Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) 4096 (4 vCPU) - Available memory values: Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) 8192 (8 vCPU) - Available memory values: Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) 16384 (16 vCPU) - Available memory values: Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) Note: For windows platforms, this field is not enforced at runtime. However, it is still required as it is used to determine the instance type and size that tasks run on. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The maximum supported value is 200 GiB. NOTE: This parameter is only supported for tasks hosted on AWS Fargate using platform version 1.4.0 or later. Default: 20
-        :param memory_limit_mib: The amount (in MiB) of memory used by the task. For tasks using the Fargate launch type, this field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) Default: 512
+        :param memory_limit_mib: The amount (in MiB) of memory used by the task. For tasks using the Fargate launch type, this field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) Note: For windows platforms, this field is not enforced at runtime. However, it is still required as it is used to determine the instance type and size that tasks run on. Default: 512
         :param pid_mode: The process namespace to use for the containers in the task. Only supported for tasks that are hosted on AWS Fargate if the tasks are using platform version 1.4.0 or later (Linux). Only the TASK option is supported for Linux-based Fargate containers. Not supported in Windows containers. If pidMode is specified for a Fargate task, then runtimePlatform.operatingSystemFamily must also be specified. For more information, see `Task Definition Parameters <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_definition_pidmode>`_. Default: - PidMode used by the task is not specified
         :param runtime_platform: The operating system that your task definitions are running on. A runtimePlatform is supported only for tasks using the Fargate launch type. Default: - Undefined.
 
@@ -27940,6 +28012,9 @@ class FargateTaskDefinitionProps(CommonTaskDefinitionProps):
 
         16384 (16 vCPU) - Available memory values: Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB)
 
+        Note: For windows platforms, this field is not enforced at runtime. However, it is still required as it is used to determine
+        the instance type and size that tasks run on.
+
         :default: 256
         '''
         result = self._values.get("cpu")
@@ -27978,6 +28053,9 @@ class FargateTaskDefinitionProps(CommonTaskDefinitionProps):
         Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU)
 
         Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU)
+
+        Note: For windows platforms, this field is not enforced at runtime. However, it is still required as it is used to determine
+        the instance type and size that tasks run on.
 
         :default: 512
         '''
@@ -43006,9 +43084,9 @@ class FargateTaskDefinition(
 
         :param scope: -
         :param id: -
-        :param cpu: The number of cpu units used by the task. For tasks using the Fargate launch type, this field is required and you must use one of the following values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) 512 (.5 vCPU) - Available memory values: 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) 1024 (1 vCPU) - Available memory values: 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) 2048 (2 vCPU) - Available memory values: Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) 4096 (4 vCPU) - Available memory values: Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) 8192 (8 vCPU) - Available memory values: Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) 16384 (16 vCPU) - Available memory values: Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) Default: 256
+        :param cpu: The number of cpu units used by the task. For tasks using the Fargate launch type, this field is required and you must use one of the following values, which determines your range of valid values for the memory parameter: 256 (.25 vCPU) - Available memory values: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) 512 (.5 vCPU) - Available memory values: 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) 1024 (1 vCPU) - Available memory values: 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) 2048 (2 vCPU) - Available memory values: Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) 4096 (4 vCPU) - Available memory values: Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) 8192 (8 vCPU) - Available memory values: Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) 16384 (16 vCPU) - Available memory values: Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) Note: For windows platforms, this field is not enforced at runtime. However, it is still required as it is used to determine the instance type and size that tasks run on. Default: 256
         :param ephemeral_storage_gib: The amount (in GiB) of ephemeral storage to be allocated to the task. The maximum supported value is 200 GiB. NOTE: This parameter is only supported for tasks hosted on AWS Fargate using platform version 1.4.0 or later. Default: 20
-        :param memory_limit_mib: The amount (in MiB) of memory used by the task. For tasks using the Fargate launch type, this field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) Default: 512
+        :param memory_limit_mib: The amount (in MiB) of memory used by the task. For tasks using the Fargate launch type, this field is required and you must use one of the following values, which determines your range of valid values for the cpu parameter: 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available cpu values: 256 (.25 vCPU) 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available cpu values: 512 (.5 vCPU) 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available cpu values: 1024 (1 vCPU) Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available cpu values: 2048 (2 vCPU) Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available cpu values: 4096 (4 vCPU) Between 16384 (16 GB) and 61440 (60 GB) in increments of 4096 (4 GB) - Available cpu values: 8192 (8 vCPU) Between 32768 (32 GB) and 122880 (120 GB) in increments of 8192 (8 GB) - Available cpu values: 16384 (16 vCPU) Note: For windows platforms, this field is not enforced at runtime. However, it is still required as it is used to determine the instance type and size that tasks run on. Default: 512
         :param pid_mode: The process namespace to use for the containers in the task. Only supported for tasks that are hosted on AWS Fargate if the tasks are using platform version 1.4.0 or later (Linux). Only the TASK option is supported for Linux-based Fargate containers. Not supported in Windows containers. If pidMode is specified for a Fargate task, then runtimePlatform.operatingSystemFamily must also be specified. For more information, see `Task Definition Parameters <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_definition_pidmode>`_. Default: - PidMode used by the task is not specified
         :param runtime_platform: The operating system that your task definitions are running on. A runtimePlatform is supported only for tasks using the Fargate launch type. Default: - Undefined.
         :param enable_fault_injection: Enables fault injection and allows for fault injection requests to be accepted from the task's containers. Fault injection only works with tasks using the {@link NetworkMode.AWS_VPC} or {@link NetworkMode.HOST} network modes. Default: undefined - ECS default setting is false
@@ -43606,6 +43684,7 @@ def _typecheckingstub__df65d4c374c4639217ff804e4aa42cc012373c9a3f00da061302e69d7
 
 def _typecheckingstub__1888954247daafe3322b2fa144458be6e77f5b9d04b3406207497f8b279b2cf6(
     *,
+    additional_cache_key: typing.Optional[builtins.str] = None,
     architecture: typing.Optional[_InstanceArchitecture_7721cb36] = None,
     cached_in_context: typing.Optional[builtins.bool] = None,
     variant: typing.Optional[BottlerocketEcsVariant] = None,
@@ -45656,6 +45735,7 @@ def _typecheckingstub__fab36262ca737cd3c6183fc747e6857871155404a9c640644f728a317
 def _typecheckingstub__5924678ba20215bbadbd6bba47ff2a6c9af00997d08c131de1b7efc2701d95cd(
     hardware_type: typing.Optional[AmiHardwareType] = None,
     *,
+    additional_cache_key: typing.Optional[builtins.str] = None,
     cached_in_context: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -45664,6 +45744,7 @@ def _typecheckingstub__5924678ba20215bbadbd6bba47ff2a6c9af00997d08c131de1b7efc27
 def _typecheckingstub__fc44eec88f6aaee7e170f453974183a08768efc2af4f04d00c94c131fb83f5da(
     hardware_type: typing.Optional[AmiHardwareType] = None,
     *,
+    additional_cache_key: typing.Optional[builtins.str] = None,
     cached_in_context: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -45672,6 +45753,7 @@ def _typecheckingstub__fc44eec88f6aaee7e170f453974183a08768efc2af4f04d00c94c131f
 def _typecheckingstub__2b2ecfae2d485e25e72afeff56a0440720bb0614429d89d481532900bc2f7e9c(
     windows_version: WindowsOptimizedVersion,
     *,
+    additional_cache_key: typing.Optional[builtins.str] = None,
     cached_in_context: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -45685,6 +45767,7 @@ def _typecheckingstub__70bdec536e3fd23816fd4d3da1060a574387bc536371bed24c38516e3
 
 def _typecheckingstub__f6d1e17c4feb37d3005e6450986d1ae7d39c1536289b88ce7b0be3440b3e132f(
     *,
+    additional_cache_key: typing.Optional[builtins.str] = None,
     cached_in_context: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

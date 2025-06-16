@@ -1,0 +1,46 @@
+Metadata-Version: 2.1
+Name: mdformat-config
+Version: 0.2.1
+Summary: Mdformat plugin to beautify configuration and data-serialization formats
+Home-page: https://github.com/hukkin/mdformat-config
+License: MIT
+Keywords: mdformat,json,yaml,toml,markdown,commonmark,formatter
+Author: Taneli Hukkinen
+Author-email: hukkin@users.noreply.github.com
+Requires-Python: >=3.9
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Documentation
+Classifier: Topic :: Text Processing :: Markup
+Requires-Dist: mdformat (>=0.3.0)
+Requires-Dist: ruamel.yaml (>=0.16.0)
+Requires-Dist: taplo (>=0.9.3)
+Project-URL: Repository, https://github.com/hukkin/mdformat-config
+Description-Content-Type: text/markdown
+
+[![Build Status](https://github.com/hukkin/mdformat-config/actions/workflows/tests.yaml/badge.svg?branch=master)](<https://github.com/hukkin/mdformat-config/actions?query=workflow%3ATests+branch%3Amaster+event%3Apush>)
+[![PyPI version](https://img.shields.io/pypi/v/mdformat-config)](https://pypi.org/project/mdformat-config)
+
+# mdformat-config
+> Mdformat plugin to beautify configuration and data-serialization formats
+
+## Description
+mdformat-config is an [mdformat](https://github.com/executablebooks/mdformat) plugin
+that makes mdformat beautify configuration and data-serialization formats.
+Currently supported formats are JSON, TOML and YAML.
+
+## Installing
+```bash
+pip install mdformat-config
+```
+
+## Usage
+```bash
+mdformat YOUR_MARKDOWN_FILE.md
+```
+

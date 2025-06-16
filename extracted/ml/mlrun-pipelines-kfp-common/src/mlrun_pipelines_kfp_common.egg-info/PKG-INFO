@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: mlrun-pipelines-kfp-common
+Version: 0.5.5
+Summary: MLRun Pipelines adapter package for providing KFP common functionality
+Author-email: Yaron Haviv <yaronh@iguazio.com>
+License: Apache License 2.0
+Project-URL: homepage, https://github.com/mlrun/mlrun
+Keywords: mlrun,kfp
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: kfp_server_api>=1.8.5
+Requires-Dist: kubernetes>=25.3
+Provides-Extra: ipython
+Requires-Dist: graphviz>=0.20; extra == "ipython"
+Requires-Dist: ipython>=8.10; extra == "ipython"

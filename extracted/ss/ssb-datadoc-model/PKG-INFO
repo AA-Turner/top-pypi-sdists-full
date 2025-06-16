@@ -1,0 +1,29 @@
+Metadata-Version: 2.4
+Name: ssb-datadoc-model
+Version: 7.0.1
+Summary: Data Model for use in Statistics Norway's Metadata system
+Project-URL: Homepage, https://github.com/statisticsnorway/ssb-datadoc-model
+Project-URL: Repository, https://github.com/statisticsnorway/ssb-datadoc-model
+Project-URL: Changelog, https://github.com/statisticsnorway/ssb-datadoc-model/releases
+Author-email: Statistics Norway <metadata@ssb.no>
+License-Expression: MIT
+Requires-Python: >=3.10
+Requires-Dist: pydantic>=2.5.2
+Description-Content-Type: text/markdown
+
+# ssb-datadoc-model
+
+Data Model for use in Statistics Norway's Metadata system
+
+## Purpose
+
+This package contains pydantic models defining the fields and data types used in Statistics Norway's metadata system. The purpose of these models is to:
+
+- Enable validation of user data
+- Enable serialization and deserialization of metadata files
+- Support versioning of the metadata format
+- Enforce consistency across multiple tools
+
+## Release
+
+To release this package, create a branch and run `uv version --bump [patch | minor | major]` depending on your change. Once the branch is merged, a GitHub Actions workflow handles the rest.

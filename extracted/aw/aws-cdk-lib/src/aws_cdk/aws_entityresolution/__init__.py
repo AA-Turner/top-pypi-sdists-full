@@ -2147,9 +2147,12 @@ class CfnMatchingWorkflow(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_entityresolution.CfnMatchingWorkflow",
 ):
-    '''Creates a ``MatchingWorkflow`` object which stores the configuration of the data processing job to be run.
+    '''Creates a matching workflow that defines the configuration for a data processing job.
 
-    It is important to note that there should not be a pre-existing ``MatchingWorkflow`` with the same name. To modify an existing workflow, utilize the ``UpdateMatchingWorkflow`` API.
+    The workflow name must be unique. To modify an existing workflow, use ``UpdateMatchingWorkflow`` .
+    .. epigraph::
+
+       For workflows where ``resolutionType`` is ML_MATCHING, incremental processing is not supported.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html
     :cloudformationResource: AWS::EntityResolution::MatchingWorkflow
@@ -2244,7 +2247,7 @@ class CfnMatchingWorkflow(
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
         :param workflow_name: The name of the workflow. There can't be multiple ``MatchingWorkflows`` with the same name.
         :param description: A description of the workflow.
-        :param incremental_run_config: An object which defines an incremental run type and has only ``incrementalRunType`` as a field.
+        :param incremental_run_config: Optional. An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
         :param tags: The tags used to organize, track, or control access for this resource.
         '''
         if __debug__:
@@ -2430,7 +2433,7 @@ class CfnMatchingWorkflow(
     def incremental_run_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.IncrementalRunConfigProperty"]]:
-        '''An object which defines an incremental run type and has only ``incrementalRunType`` as a field.'''
+        '''Optional.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMatchingWorkflow.IncrementalRunConfigProperty"]], jsii.get(self, "incrementalRunConfig"))
 
     @incremental_run_config.setter
@@ -2463,9 +2466,14 @@ class CfnMatchingWorkflow(
     )
     class IncrementalRunConfigProperty:
         def __init__(self, *, incremental_run_type: builtins.str) -> None:
-            '''An object which defines an incremental run type and has only ``incrementalRunType`` as a field.
+            '''Optional.
 
-            :param incremental_run_type: The type of incremental run. It takes only one value: ``IMMEDIATE`` .
+            An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console.
+            .. epigraph::
+
+               For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
+
+            :param incremental_run_type: The type of incremental run. The only valid value is ``IMMEDIATE`` . This appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-incrementalrunconfig.html
             :exampleMetadata: fixture=_generated
@@ -2489,9 +2497,11 @@ class CfnMatchingWorkflow(
 
         @builtins.property
         def incremental_run_type(self) -> builtins.str:
-            '''The type of incremental run.
+            '''The type of incremental run. The only valid value is ``IMMEDIATE`` . This appears as "Automatic" in the console.
 
-            It takes only one value: ``IMMEDIATE`` .
+            .. epigraph::
+
+               For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-entityresolution-matchingworkflow-incrementalrunconfig.html#cfn-entityresolution-matchingworkflow-incrementalrunconfig-incrementalruntype
             '''
@@ -3298,7 +3308,7 @@ class CfnMatchingWorkflowProps:
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role. AWS Entity Resolution assumes this role to create resources on your behalf as part of workflow execution.
         :param workflow_name: The name of the workflow. There can't be multiple ``MatchingWorkflows`` with the same name.
         :param description: A description of the workflow.
-        :param incremental_run_config: An object which defines an incremental run type and has only ``incrementalRunType`` as a field.
+        :param incremental_run_config: Optional. An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console. .. epigraph:: For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
         :param tags: The tags used to organize, track, or control access for this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html
@@ -3466,7 +3476,12 @@ class CfnMatchingWorkflowProps:
     def incremental_run_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnMatchingWorkflow.IncrementalRunConfigProperty]]:
-        '''An object which defines an incremental run type and has only ``incrementalRunType`` as a field.
+        '''Optional.
+
+        An object that defines the incremental run type. This object contains only the ``incrementalRunType`` field, which appears as "Automatic" in the console.
+        .. epigraph::
+
+           For workflows where ``resolutionType`` is ``ML_MATCHING`` , incremental processing is not supported.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-entityresolution-matchingworkflow.html#cfn-entityresolution-matchingworkflow-incrementalrunconfig
         '''

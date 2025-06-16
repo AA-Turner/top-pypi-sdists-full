@@ -19,14 +19,14 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, Union
 
 import agate
-import dbt.clients.agate_helper
-import dbt.exceptions
+import dbt_common.clients.agate_helper
+import dbt_common.exceptions
+import dbt.adapters.sql.connections
 import requests
 import vertica_python
-from dbt.adapters.base import Credentials
-from dbt.adapters.sql import SQLConnectionManager
-from dbt.contracts.connection import AdapterResponse
-from dbt.events import AdapterLogger
+from dbt.adapters.contracts.connection import Credentials, AdapterResponse
+from dbt.adapters.sql.connections import SQLConnectionManager
+from dbt.adapters.events.logging import AdapterLogger
 
 logger = AdapterLogger("vertica")
 
@@ -41,6 +41,7 @@ class verticaCredentials(Credentials):
     port: int = 5433
     timeout: int = 3600
     oauth_access_token: str = ""
+    autocommit: Optional[bool]= False
     withMaterialization: bool = False
     ssl_env_cafile: Optional[str] = None
     ssl_uri: Optional[str] = None
@@ -68,7 +69,7 @@ class verticaCredentials(Credentials):
 
     def _connection_keys(self):
         # return an iterator of keys to pretty-print in 'dbt debug'
-        return ('host','port','database','username','schema', 'connection_load_balance')
+        return ('host','port','database','username','schema', 'connection_load_balance', 'autocommit')
 
 class verticaConnectionManager(SQLConnectionManager):
     TYPE = 'vertica'
@@ -90,9 +91,10 @@ class verticaConnectionManager(SQLConnectionManager):
                 'database': credentials.database,
                 'connection_timeout': credentials.timeout,
                 'connection_load_balance':credentials.connection_load_balance,
-                'session_label': f'dbt_{credentials.username}',
+                'session_label': credentials.username,
                 'retries': credentials.retries,
                 'oauth_access_token': credentials.oauth_access_token,
+                'autocommit': credentials.autocommit,
                 'backup_server_node':credentials.backup_server_node,
                 
             }
@@ -130,7 +132,7 @@ class verticaConnectionManager(SQLConnectionManager):
             logger.debug(f':P Error connecting to database: {exc}')
             connection.state = 'fail'
             connection.handle = None
-            raise dbt.exceptions.DbtFailedToConnectErroe(str(exc))
+            raise dbt.adapters.exceptions.connection.FailedToConnectError(str(exc))
 
         # This is here mainly to support dbt-integration-tests.
         # It globally enables WITH materialization for every connection dbt
@@ -151,7 +153,7 @@ class verticaConnectionManager(SQLConnectionManager):
 
         retryable_exceptions = [
         Exception,
-        dbt.exceptions.FailedToConnectError
+        dbt.adapters.exceptions.connection.FailedToConnectError
         ]
 
         return cls.retry_connection(
@@ -197,11 +199,11 @@ class verticaConnectionManager(SQLConnectionManager):
                 if isinstance(check, vertica_python.vertica.messages.ErrorResponse):
                     logger.debug(f'Cursor message is: {check}')
                     self.release()
-                    raise dbt.exceptions.DbtDatabaseError(str(check))
+                    raise dbt_common.exceptions.DbtDatabaseError(str(check))
 
             data = cls.process_results(column_names, rows)
 
-        return dbt.clients.agate_helper.table_from_data_flat(data, column_names)
+        return dbt_common.clients.agate_helper.table_from_data_flat(data, column_names)
 
     def execute(
         self, sql: str, auto_begin: bool = False, fetch: bool = False, limit: Optional[int] = None
@@ -212,13 +214,13 @@ class verticaConnectionManager(SQLConnectionManager):
         if fetch:
             table = self.get_result_from_cursor(cursor,limit)
         else:
-            table = dbt.clients.agate_helper.empty_table()
+            table = dbt_common.clients.agate_helper.empty_table()
             while cursor.nextset():
                 check = cursor._message
                 if isinstance(check, vertica_python.vertica.messages.ErrorResponse):
                     logger.debug(f'Cursor message is: {check}')
                     self.release()
-                    raise dbt.exceptions.DbtDatabaseError(str(check))
+                    raise dbt_common.exceptions.DbtDatabaseError(str(check))
         return response, table
 
     @contextmanager
@@ -228,11 +230,11 @@ class verticaConnectionManager(SQLConnectionManager):
         except vertica_python.DatabaseError as exc:
             logger.debug(f':P Database error: {exc}')
             self.release()
-            raise dbt.exceptions.DbtDatabaseError(str(exc))
+            raise dbt_common.exceptions.DbtDatabaseError(str(exc))
         except Exception as exc:
             logger.debug(f':P Error: {exc}')
             self.release()
-            raise dbt.exceptions.DbtRuntimeError(str(exc))
+            raise dbt_common.exceptions.DbtRuntimeError(str(exc))
 
     @classmethod
     def data_type_code_to_name(cls, type_code: Union[int, str]) -> str:

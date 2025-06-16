@@ -1,0 +1,122 @@
+Metadata-Version: 2.4
+Name: passagemath-environment
+Version: 10.5.42
+Summary: passagemath: System and software environment
+Author-email: The Sage Developers <sage-support@googlegroups.com>
+Maintainer: Matthias Köppe, passagemath contributors
+License-Expression: GPL-2.0-or-later
+Project-URL: release notes, https://github.com/passagemath/passagemath/releases
+Project-URL: repo (upstream), https://github.com/sagemath/sage
+Project-URL: repo, https://github.com/passagemath/passagemath
+Project-URL: documentation, https://doc.sagemath.org
+Project-URL: homepage (upstream), https://www.sagemath.org
+Project-URL: discourse, https://passagemath.discourse.group
+Project-URL: tracker (upstream), https://github.com/sagemath/sage/issues
+Project-URL: tracker, https://github.com/passagemath/passagemath/issues
+Classifier: Development Status :: 6 - Mature
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Requires-Python: <3.14,>=3.9
+Description-Content-Type: text/x-rst
+Provides-Extra: conf
+Requires-Dist: passagemath-conf~=10.5.42.0; extra == "conf"
+Provides-Extra: docbuild
+Requires-Dist: passagemath-docbuild~=10.5.42.0; extra == "docbuild"
+Provides-Extra: sage
+Requires-Dist: passagemath-standard~=10.5.42.0; extra == "sage"
+Provides-Extra: cython
+Requires-Dist: cython!=3.0.3,<4.0,>=3.0; extra == "cython"
+Requires-Dist: cython<3.1.0,>=3.0.8; extra == "cython"
+Provides-Extra: pytest
+Requires-Dist: pytest; extra == "pytest"
+Provides-Extra: rst2ipynb
+Requires-Dist: rst2ipynb>=0.2.2; extra == "rst2ipynb"
+Provides-Extra: tox
+Requires-Dist: tox>=4.11; extra == "tox"
+Provides-Extra: sws2rst
+Requires-Dist: passagemath-sws2rst~=10.5.42.0; extra == "sws2rst"
+
+=========================================================================
+ passagemath: System and software environment
+=========================================================================
+
+`passagemath <https://github.com/passagemath/passagemath>`__ is open
+source mathematical software in Python, released under the GNU General
+Public Licence GPLv2+.
+
+It is a fork of `SageMath <https://www.sagemath.org/>`__, which has been
+developed 2005-2025 under the motto “Creating a Viable Open Source
+Alternative to Magma, Maple, Mathematica, and MATLAB”.
+
+The passagemath fork was created in October 2024 with the following
+goals:
+
+-  providing modularized installation with pip, thus completing a `major
+   project started in 2020 in the Sage
+   codebase <https://github.com/sagemath/sage/issues/29705>`__,
+-  establishing first-class membership in the scientific Python
+   ecosystem,
+-  giving `clear attribution of upstream
+   projects <https://groups.google.com/g/sage-devel/c/6HO1HEtL1Fs/m/G002rPGpAAAJ>`__,
+-  providing independently usable Python interfaces to upstream
+   libraries,
+-  providing `platform portability and integration testing
+   services <https://github.com/passagemath/passagemath/issues/704>`__
+   to upstream projects,
+-  inviting collaborations with upstream projects,
+-  `building a professional, respectful, inclusive
+   community <https://groups.google.com/g/sage-devel/c/xBzaINHWwUQ>`__,
+-  developing a port to `Pyodide <https://pyodide.org/en/stable/>`__ for
+   serverless deployment with Javascript,
+-  developing a native Windows port.
+
+`Full documentation <https://doc.sagemath.org/html/en/index.html>`__ is
+available online.
+
+passagemath attempts to support all major Linux distributions and recent versions of
+macOS. Use on Windows currently requires the use of Windows Subsystem for Linux or
+virtualization.
+
+Complete sets of binary wheels are provided on PyPI for Python versions 3.9.x-3.12.x.
+Python 3.13.x is also supported, but some third-party packages are still missing wheels,
+so compilation from source is triggered for those.
+
+
+About this pip-installable distribution package
+-----------------------------------------------
+
+The pip-installable distribution package `sagemath-environment` is a
+distribution of a small part of the Sage Library.
+
+It provides a small, fundamental subset of the modules of the Sage
+library ("sagelib", `sagemath-standard`), providing the connection to the
+system and software environment.
+
+
+What is included
+----------------
+
+* `sage` script for launching the Sage REPL and accessing various developer tools
+  (see `sage --help`, `Invoking Sage <https://doc.sagemath.org/html/en/reference/repl/options.html>`_).
+
+* sage.env
+
+* `sage.features <https://doc.sagemath.org/html/en/reference/misc/sage/features.html>`_: Testing for features of the environment at runtime
+
+* `sage.misc.package <https://doc.sagemath.org/html/en/reference/misc/sage/misc/package.html>`_: Listing packages of the Sage distribution
+
+* `sage.misc.package_dir <https://doc.sagemath.org/html/en/reference/misc/sage/misc/package_dir.html>`_
+
+* `sage.misc.temporary_file <https://doc.sagemath.org/html/en/reference/misc/sage/misc/temporary_file.html>`_
+
+* `sage.misc.viewer <https://doc.sagemath.org/html/en/reference/misc/sage/misc/viewer.html>`_

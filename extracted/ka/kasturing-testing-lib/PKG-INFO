@@ -1,0 +1,25 @@
+Metadata-Version: 2.4
+Name: kasturing_testing_lib
+Version: 2.0.6
+Summary: A helpful library for setting up data collection for the ML pipeline
+Home-page: https://github.com/RohitRaj654487/kasturing_lib
+Author: Rohit Raj
+License: Apache Software License 2.0
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.18
+Requires-Dist: pandas>=1.0
+Requires-Dist: plotly>=5.0
+Dynamic: author
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# kasturing_lib
+All PyPi projects

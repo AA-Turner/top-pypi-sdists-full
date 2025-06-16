@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maleo-metadata"  # PyPI package name
+version = "0.1.22"
+description = "MaleoMetadata service package"
+authors = [
+    { name = "Agra Bima Yuda", email = "agra@nexmedis.com" }
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "maleo_foundation>=0.2.86"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["maleo_metadata*"]
+
+[tool.setuptools.package-data]
+maleo_metadata = ["*.json", "*.yaml"]
+
+[project.scripts]
+# Uncomment and modify if you have CLI tools
+# maleo-cli = "maleo_metadata.cli:main"

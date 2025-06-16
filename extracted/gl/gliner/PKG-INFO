@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gliner
-Version: 0.2.20
+Version: 0.2.21
 Summary: Generalist model for NER (Extract any entity types from texts)
 Author: Urchade Zaratiana, Nadi Tomeh, Pierre Holat, Thierry Charnois
 Maintainer: Urchade Zaratiana
@@ -18,6 +18,14 @@ Requires-Dist: onnxruntime
 Requires-Dist: sentencepiece
 Provides-Extra: gpu
 Requires-Dist: onnxruntime-gpu; extra == "gpu"
+Provides-Extra: tokenizers
+Requires-Dist: langdetect; extra == "tokenizers"
+Requires-Dist: python-mecab-ko; extra == "tokenizers"
+Requires-Dist: janome; extra == "tokenizers"
+Requires-Dist: jieba; extra == "tokenizers"
+Requires-Dist: camel_tools; extra == "tokenizers"
+Requires-Dist: indic-nlp-library; extra == "tokenizers"
+Requires-Dist: spacy; extra == "tokenizers"
 Dynamic: license-file
 
 # 👑 GLiNER: Generalist and Lightweight Model for Named Entity Recognition
@@ -106,7 +114,7 @@ European Championship => competitions
     <tr>
       <td align="center">
         <strong>Urchade Zaratiana</strong><br>
-        <em>PhD Student at LIPN</em><br>
+        <em>Member of technical staff at Fastino</em><br>
         <a href="https://www.linkedin.com/in/urchade-zaratiana/"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" /></a>
       </td>
       <td align="center">

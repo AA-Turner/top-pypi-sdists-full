@@ -1,4 +1,4 @@
-from pandas import CategoricalDtype, DataFrame
+from pandas import CategoricalDtype, DataFrame, Series
 from pandas.api.types import is_object_dtype
 from sklearn.base import clone, BaseEstimator, TransformerMixin
 try:
@@ -6,6 +6,11 @@ try:
 	from sklearn.base import OneToOneFeatureMixin
 except ImportError:
 	from sklearn.base import _OneToOneFeatureMixin as OneToOneFeatureMixin
+try:
+	# SkLearn 1.7.0+
+	from sklearn.utils.validation import _check_feature_names, _check_n_features
+except ImportError:
+	pass
 from sklearn2pmml import _is_pandas_categorical, _is_proto_pandas_categorical
 from sklearn2pmml.util import cast, common_dtype, is_1d, to_numpy
 
@@ -64,8 +69,14 @@ class MultiAlias(TransformerWrapper):
 		return numpy.asarray(self.names)
 
 def _check_input(estimator, X, reset):
-	estimator._check_n_features(X, reset = reset)
-	estimator._check_feature_names(X, reset = reset)
+	# SkLearn 1.6.1
+	if hasattr(estimator, "_check_feature_names") and hasattr(estimator, "_check_n_features"):
+		estimator._check_n_features(X, reset = reset)
+		estimator._check_feature_names(X, reset = reset)
+	# SkLearn 1.7.0+
+	else:
+		_check_n_features(estimator, X, reset = reset)
+		_check_feature_names(estimator, X, reset = reset)
 	return X
 
 def _check_cols(X, values):
@@ -273,6 +284,12 @@ class DiscreteDomain(Domain):
 		if self._empty_fit():
 			return self
 		X = to_numpy(X)
+
+		def _cast(x):
+			if self.dtype_ == "Int64":
+				x = to_numpy(Series(x, dtype = self.dtype_))
+			return x
+
 		if self.with_data:
 			if self.data_values is None:
 				missing_mask = self._missing_value_mask(X)
@@ -287,7 +304,7 @@ class DiscreteDomain(Domain):
 						data_values = numpy.unique(X[nonmissing_mask])
 				else:
 					data_values = numpy.asarray(self.data_values)
-				self.data_values_ = data_values
+				self.data_values_ = _cast(data_values)
 			else:
 				if self.data_values is None:
 					if _is_pandas_categorical(self.dtype_):
@@ -301,20 +318,20 @@ class DiscreteDomain(Domain):
 						data_values = numpy.unique(col_X[col_nonmissing_mask])
 					else:
 						data_values = numpy.asarray(self.data_values[col])
-					self.data_values_.append(data_values)
+					self.data_values_.append(_cast(data_values))
 		if self.with_statistics:
 			missing_mask, valid_mask, invalid_mask = self._compute_masks(X)
 			self.counts_ = _count(missing_mask, valid_mask, invalid_mask)
 			if is_1d(X):
 				values, counts = numpy.unique(X[valid_mask], return_counts = True)
-				self.discr_stats_ = (values, counts)
+				self.discr_stats_ = (_cast(values), counts)
 			else:
 				self.discr_stats_ = []
 				for col in range(X.shape[1]):
 					col_X = X[:, col]
 					col_valid_mask = valid_mask[:, col]
 					values, counts = numpy.unique(col_X[col_valid_mask], return_counts = True)
-					self.discr_stats_.append((values, counts))
+					self.discr_stats_.append((_cast(values), counts))
 		return self
 
 class CategoricalDomain(DiscreteDomain):

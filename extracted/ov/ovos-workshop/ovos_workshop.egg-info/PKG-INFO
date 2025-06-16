@@ -1,0 +1,15 @@
+Metadata-Version: 2.1
+Name: ovos-workshop
+Version: 7.0.4
+Summary: frameworks, templates and patches for the OpenVoiceOS universe
+Home-page: https://github.com/OpenVoiceOS/OVOS-workshop
+Author: jarbasAi
+Author-email: jarbasai@mailfence.com
+License: apache-2.0
+Description-Content-Type: text/markdown
+Provides-Extra: ocp
+License-File: LICENSE
+
+# OVOS Workshop
+OVOS Workshop contains skill base classes and supporting tools to build skills
+and applications for OpenVoiceOS systems.

@@ -18,6 +18,7 @@ import statistics
 import tempfile
 import threading
 
+prepared_setting_to_custom: bool = False
 whole_start_time: float = time.time()
 last_progress_bar_desc: str = ""
 job_submit_durations: list[float] = []
@@ -54,6 +55,9 @@ figlet_loaded: bool = False
 try:
     from rich.console import Console
 
+    from rich.panel import Panel
+    from rich.text import Text
+
     terminal_width = 150
 
     try:
@@ -61,7 +65,7 @@ try:
     except OSError:
         pass
 
-    console: Console = Console(
+    console = Console(
         force_interactive=True,
         soft_wrap=True,
         color_system="256",
@@ -127,14 +131,14 @@ try:
     with console.status("[bold green]Importing rich.table..."):
         from rich.table import Table
 
-    with console.status("[bold green]Importing rich.text..."):
-        from rich.text import Text
-
     with console.status("[bold green]Importing rich print..."):
         from rich import print
 
     with console.status("[bold green]Importing rich.pretty..."):
         from rich.pretty import pprint
+
+    with console.status("[bold green]Importing rich.prompt..."):
+        from rich.prompt import Prompt, FloatPrompt, IntPrompt
 
     with console.status("[bold green]Importing fcntl..."):
         import fcntl
@@ -485,6 +489,33 @@ def get_min_max_from_file(continue_path: str, n: int, _default_min_max: str) -> 
     print_yellow(f"Line {n} did not contain min/max, will be set to {_default_min_max}")
     return _default_min_max
 
+@beartype
+def set_max_eval(new_max_eval: int) -> None:
+    global max_eval
+
+    print_debug(f"set_max_eval({new_max_eval})")
+
+    max_eval = new_max_eval
+
+@beartype
+def set_random_steps(new_steps: int) -> None:
+    global random_steps
+
+    print_debug(f"Setting random_steps from {random_steps} to {new_steps}")
+
+    random_steps = new_steps
+
+_DEFAULT_SPECIALS: Dict[str, Any] = {
+    "epochs": 1,
+    "epoch": 1,
+    "steps": 1,
+    "batchsize": 1,
+    "batchsz": 1,
+    "bs": 1,
+    "lr": "min",
+    "learning_rate": "min",
+}
+
 class ConfigLoader:
     disable_previous_job_constraint: bool
     run_tests_that_fail_on_taurus: bool
@@ -559,6 +590,7 @@ class ConfigLoader:
     load_data_from_existing_jobs: List[str]
     time: str
     share_password: Optional[str]
+    prettyprint: bool
     generate_all_jobs_at_once: bool
     result_names: Optional[List[str]]
     verbose_break_run_search_table: bool
@@ -576,15 +608,19 @@ class ConfigLoader:
     no_transform_inputs: bool
     occ: bool
     force_choice_for_ranges: bool
+    dryrun: bool
+    just_return_defaults: bool
     run_mode: str
 
     @beartype
-    def __init__(self) -> None:
+    def __init__(self: Any, _parsing_arguments_loader: Any) -> None:
         self.parser = argparse.ArgumentParser(
             prog="omniopt",
             description='A hyperparameter optimizer for slurm-based HPC-systems',
             epilog=f"Example:\n\n{oo_call} --partition=alpha --experiment_name=neural_network ..."
         )
+
+        self._parsing_arguments_loader = _parsing_arguments_loader
 
         self.parser.add_argument('--config_yaml', help='YAML configuration file', type=str, default=None)
         self.parser.add_argument('--config_toml', help='TOML configuration file', type=str, default=None)
@@ -593,7 +629,7 @@ class ConfigLoader:
         self.add_arguments()
 
     @beartype
-    def add_arguments(self) -> None:
+    def add_arguments(self: Any) -> None:
         required = self.parser.add_argument_group('Required arguments', 'These options have to be set')
         required_but_choice = self.parser.add_argument_group('Required arguments that allow a choice', 'Of these arguments, one has to be set to continue')
         optional = self.parser.add_argument_group('Optional', 'These options are optional')
@@ -655,6 +691,7 @@ class ConfigLoader:
         optional.add_argument('--force_choice_for_ranges', help='Force float ranges to be converted to choice', action='store_true', default=False)
         optional.add_argument('--max_abandoned_retrial', help='Maximum number retrials to get when a job is abandoned post-generation', default=20, type=int)
         optional.add_argument('--share_password', help='Use this as a password for share. Default is none.', default=None, type=str)
+        optional.add_argument('--dryrun', help='Try to do a dry run, i.e. a run for very short running jobs to test the installation of OmniOpt2 and check if environment stuff and paths and so on works properly', action='store_true', default=False)
 
         speed.add_argument('--dont_warm_start_refitting', help='Do not keep Model weights, thus, refit for every generator (may be more accurate, but slower)', action='store_true', default=False)
         speed.add_argument('--refit_on_cv', help='Refit on Cross-Validation (helps in accuracy, but makes generating new points slower)', action='store_true', default=False)
@@ -696,10 +733,13 @@ class ConfigLoader:
         debug.add_argument('--raise_in_eval', help='Raise a signal in eval (only useful for debugging and testing)', action='store_true', default=False)
         debug.add_argument('--show_ram_every_n_seconds', help='Show RAM usage every n seconds (0 = disabled)', type=int, default=0)
         debug.add_argument('--show_generation_and_submission_sixel', help='Show sixel plots for generation and submission times', action='store_true', default=False)
+        debug.add_argument('--just_return_defaults', help='Just return defaults in dryrun', action='store_true', default=False)
+        debug.add_argument('--prettyprint', help='Shows stdout and stderr in a pretty printed format', action='store_true', default=False)
 
     @beartype
     def load_config(self: Any, config_path: str, file_format: str) -> dict:
         if not os.path.isfile(config_path):
+            self._parsing_arguments_loader.stop()
             print("Exit-Code: 5")
             sys.exit(5)
 
@@ -715,6 +755,7 @@ class ConfigLoader:
                     return json.load(file)
             except (Exception, json.decoder.JSONDecodeError) as e:
                 print_red(f"Error parsing {file_format} file '{config_path}': {e}")
+                self._parsing_arguments_loader.stop()
                 print("Exit-Code: 5")
                 sys.exit(5)
 
@@ -782,10 +823,52 @@ class ConfigLoader:
 
         _args = self.merge_args_with_config(config, _args)
 
+        if _args.dryrun:
+            print_yellow("--dryrun activated. This job will try to run only one job which should be running quickly.")
+
+            print_yellow("Setting max_eval to 1, ignoring your settings")
+            set_max_eval(1)
+
+            print_yellow("Setting random steps to 0")
+            set_random_steps(0)
+
+            print_yellow("Using generation strategy HUMAN_INTERVENTION_MINIMUM")
+            set_global_gs_to_HUMAN_INTERVENTION_MINIMUM()
+
+            print_yellow("Setting --force_local_execution to disable SLURM")
+            _args.force_local_execution = True
+
+            print_yellow("Disabling TQDM")
+            _args.disable_tqdm = True
+
+            print_yellow("Enabling pretty-print")
+            _args.prettyprint = True
+
+            if _args.live_share:
+                print_yellow("Disabling live-share")
+                _args.live_share = False
+
         return _args
 
-with console.status("[bold green]Parsing arguments..."):
-    loader = ConfigLoader()
+@beartype
+def set_global_gs_to_HUMAN_INTERVENTION_MINIMUM() -> None:
+    global prepared_setting_to_custom
+
+    if not prepared_setting_to_custom:
+        prepared_setting_to_custom = True
+        return
+
+    global global_gs
+
+    node = InteractiveCLIGenerationNode()
+
+    global_gs = GenerationStrategy(
+        name="HUMAN_INTERVENTION_MINIMUM",
+        nodes=[node]
+    )
+
+with console.status("[bold green]Parsing arguments...") as parsing_arguments_loader:
+    loader = ConfigLoader(parsing_arguments_loader)
     args = loader.parse_arguments()
 
 original_result_names = args.result_names
@@ -1239,6 +1322,201 @@ def warn_if_param_outside_of_valid_params(param: dict, _res: Any, keyname: str) 
             print_yellow(f"The result by the external generator for the axis '{keyname}' (FIXED) is not the specified fixed value '{param['value']}' {_res}")
 
 @dataclass(init=False)
+class InteractiveCLIGenerationNode(ExternalGenerationNode):
+    """
+    A GenerationNode that queries the user on the command line (via *rich*)
+    for the next candidate hyper‑parameter set instead of spawning an external
+    program.  All prompts come pre‑filled with sensible defaults:
+
+    • If the parameter name matches a key in `_DEFAULT_SPECIALS`, the associated
+      value is used:
+        – literal ``"min"`` → lower bound of the RangeParameter
+        – any other literal  → taken verbatim
+
+    • Otherwise:
+        – RangeParameter(INT/FLOAT) ⇒ midpoint (cast to int for INT)
+        – ChoiceParameter          ⇒ first element of ``param.values``
+        – FixedParameter           ⇒ its fixed value (prompt is skipped)
+
+    The user can simply press *Enter* to accept the default or type a new
+    value (validated & casted to the correct type automatically).
+    """
+    seed: int
+    parameters: Optional[Dict[str, Any]]
+    minimize: Optional[bool]
+    data: Optional[Any]
+    constraints: Optional[Any]
+    fit_time_since_gen: float
+
+    @beartype
+    def __init__(                  # identical signature to the original class
+        self: Any,
+        node_name: str = "INTERACTIVE_GENERATOR",
+    ) -> None:
+        t0 = time.monotonic()
+        super().__init__(node_name=node_name)
+        self.parameters = None
+        self.minimize = None
+        self.data = None
+        self.constraints = None
+        self.seed = int(time.time())  # deterministic seeds are pointless here
+        self.fit_time_since_gen = time.monotonic() - t0
+
+    @beartype
+    def update_generator_state(self: Any, experiment: Any, data: Any) -> None:
+        self.data = data
+        search_space = experiment.search_space
+        self.parameters = search_space.parameters
+        self.constraints = search_space.parameter_constraints
+
+    @staticmethod
+    def _ptype_to_str(param_type: Any) -> str:
+        return {
+            ParameterType.INT: "INT",
+            ParameterType.FLOAT: "FLOAT",
+            ParameterType.STRING: "STRING",
+        }.get(param_type, "<UNKNOWN>")
+
+    @beartype
+    def _default_for_param(self: Any, name: str, param: Any) -> Any:
+        # 1. explicit override
+        if name.lower() in _DEFAULT_SPECIALS:
+            override = _DEFAULT_SPECIALS[name.lower()]
+            if override == "max" and isinstance(param, RangeParameter):
+                return param.upper
+            if override == "min" and isinstance(param, RangeParameter):
+                return param.lower
+            return override
+
+        # 2. generic rules
+        if isinstance(param, FixedParameter):
+            return param.value
+        if isinstance(param, RangeParameter):
+            mid = (param.lower + param.upper) / 2
+            return int(mid) if param.parameter_type == ParameterType.INT else mid
+        if isinstance(param, ChoiceParameter):
+            return param.values[0]
+
+        # fall back
+        return None
+
+    @beartype
+    def _ask_user(self: Any, name: str, param: Any, default: Any) -> Any:
+        if args.just_return_defaults:
+            print_yellow("Just returning defaults for _ask_user in InteractiveCLIGenerationNode")
+            return default
+
+        if not console.is_terminal:
+            print_red(f"Cannot prompt for {name!r}: no interactive terminal attached.")
+            return default
+
+        prompt_msg = f"{name} ({self._ptype_to_str(param.parameter_type)})"
+
+        if isinstance(param, FixedParameter):
+            try:
+                return self._handle_fixed(param)
+            except Exception as e:
+                print_red(f"Error #1: {e}")
+
+        elif isinstance(param, ChoiceParameter):
+            try:
+                return self._handle_choice(param, default, prompt_msg)
+            except Exception as e:
+                print_red(f"Error #2: {e}")
+
+        elif isinstance(param, RangeParameter):
+            try:
+                return self._handle_range(param, default, prompt_msg)
+            except Exception as e:
+                print_red(f"Error #3: {e}")
+
+        return self._handle_fallback(prompt_msg, default, param)
+
+    @beartype
+    def _handle_fixed(self, param: Any) -> Any:
+        return param.value
+
+    @beartype
+    def _handle_choice(self, param: Any, default: Any, prompt_msg: str) -> Any:
+        choices_str = ", ".join(f"{v}" for v in param.values)
+        console.print(f"{prompt_msg} choices → {choices_str}")
+        user_val = Prompt.ask("Pick choice", default=str(default))
+        return param.values[int(user_val)] if user_val.isdigit() else user_val
+
+    @beartype
+    def _handle_range(self, param: Any, default: Any, prompt_msg: str) -> Any:
+        low, high = param.lower, param.upper
+        console.print(f"{prompt_msg} range → [{low}, {high}]")
+
+        if param.parameter_type == ParameterType.FLOAT:
+            user_val = FloatPrompt.ask("Enter float", default=str(default))
+            try:
+                val = float(user_val)
+            except ValueError:
+                val = default
+        else:
+            user_val = IntPrompt.ask("Enter int", default=str(default))
+            try:
+                val = int(user_val)
+            except ValueError:
+                val = default
+
+        return min(max(val, low), high)
+
+    @beartype
+    def _handle_fallback(self, prompt_msg: str, default: Any, param: Any) -> Any:
+        print_red(f"Unknown type detected: {param}")
+        return Prompt.ask(prompt_msg, default=str(default))
+
+    @beartype
+    def get_next_candidate(
+        self: Any,
+        pending_parameters: List[TParameterization],
+    ) -> Dict[str, Any]:
+        """
+        Build the next candidate by querying the user for **each** parameter.
+        Raises RuntimeError if `update_generator_state` has not been called.
+        """
+        if self.parameters is None:
+            raise RuntimeError(
+                "Parameters are not initialized – call update_generator_state() first."
+            )
+
+        console.rule("[bold magenta]Enter values for evaluation point, or press enter to accept the default[/]")
+
+        candidate: Dict[str, Any] = {}
+        for name, param in self.parameters.items():
+            default_val = self._default_for_param(name, param)
+            value = self._ask_user(name, param, default_val)
+            candidate[name] = value
+
+        # ── simple constraint check (optional) ──────────────────────────
+
+        if self.constraints:
+            console.rule("[bold magenta]Checking constraints[/]")
+            violations = [
+                c
+                for c in self.constraints
+                if not c.check(candidate)  # Ax Constraint objects support .check
+            ]
+            if violations:
+                console.print(
+                    "[red]WARNING:[/] The candidate violates "
+                    f"{len(violations)} constraint(s): {violations}"
+                )
+
+        # show summary table
+        tbl = Table(title="Chosen Hyperparameters", show_lines=True)
+        tbl.add_column("Name", style="cyan", no_wrap=True)
+        tbl.add_column("Value", style="green")
+        for k, v in candidate.items():
+            tbl.add_row(k, str(v))
+        console.print(tbl)
+
+        console.rule()
+        return candidate
+
+@dataclass(init=False)
 class ExternalProgramGenerationNode(ExternalGenerationNode):
     @beartype
     def __init__(self: Any, external_generator: str = args.external_generator, node_name: str = "EXTERNAL_GENERATOR") -> None:
@@ -1502,14 +1780,15 @@ def live_share(force: bool = False) -> bool:
         if not get_current_run_folder():
             return False
 
-        stdout, stderr = run_live_share_command(force)
+        if SHOWN_LIVE_SHARE_COUNTER == 0:
+            stdout, stderr = run_live_share_command(force)
 
-        if SHOWN_LIVE_SHARE_COUNTER == 0 and stderr:
-            print_green(stderr)
+            if stderr:
+                print_green(stderr)
 
-            extract_and_print_qr(stderr)
-
-            time.sleep(1)
+                extract_and_print_qr(stderr)
+        else:
+            stdout, stderr = run_live_share_command(force)
 
         SHOWN_LIVE_SHARE_COUNTER = SHOWN_LIVE_SHARE_COUNTER + 1
     except KeyboardInterrupt:
@@ -1756,14 +2035,6 @@ def set_nr_inserted_jobs(new_nr_inserted_jobs: int) -> None:
     print_debug(f"set_nr_inserted_jobs({new_nr_inserted_jobs})")
 
     NR_INSERTED_JOBS = new_nr_inserted_jobs
-
-@beartype
-def set_max_eval(new_max_eval: int) -> None:
-    global max_eval
-
-    print_debug(f"set_max_eval({new_max_eval})")
-
-    max_eval = new_max_eval
 
 @beartype
 def write_worker_usage() -> None:
@@ -2315,9 +2586,18 @@ def create_folder_and_file(folder: str) -> str:
 @beartype
 def get_program_code_from_out_file(f: str) -> str:
     if not os.path.exists(f):
-        print_debug(f"{f} not found")
-        print_red(f"\n{f} not found")
-        return ""
+        if f.endswith(".err"):
+            alt = f[:-4] + ".out"
+        elif f.endswith(".out"):
+            alt = f[:-4] + ".err"
+        else:
+            alt = ""
+
+        if alt and os.path.exists(alt):
+            f = alt
+        else:
+            print_red(f"\nget_program_code_from_out_file: {f} not found")
+            return ""
 
     fs = get_file_as_string(f)
 
@@ -3021,22 +3301,28 @@ def find_file_paths_and_print_infos(_text: str, program_code: str) -> str:
     return string
 
 @beartype
-def write_failed_logs(data_dict: dict, error_description: str = "") -> None:
-    headers = list(data_dict.keys())
-    data = [list(data_dict.values())]
+def write_failed_logs(data_dict: Optional[dict], error_description: str = "") -> None:
+    headers = []
+    data = []
+
+    if data_dict is not None:
+        headers = list(data_dict.keys())
+        data = [list(data_dict.values())]
+    else:
+        print_debug("No data_dict provided, writing only error description.")
+        data = [[]]  # leeres Datenfeld, nur error_description kommt dazu
 
     if error_description:
         headers.append('error_description')
         for row in data:
             row.append(error_description)
 
-    failed_logs_dir = os.path.join(get_current_run_folder(), 'failed_logs')
-
-    data_file_path = os.path.join(failed_logs_dir, 'parameters.csv')
-    header_file_path = os.path.join(failed_logs_dir, 'headers.csv')
-
     try:
+        failed_logs_dir = os.path.join(get_current_run_folder(), 'failed_logs')
         makedirs(failed_logs_dir)
+
+        header_file_path = os.path.join(failed_logs_dir, 'headers.csv')
+        data_file_path = os.path.join(failed_logs_dir, 'parameters.csv')
 
         if not os.path.exists(header_file_path):
             try:
@@ -3048,11 +3334,10 @@ def write_failed_logs(data_dict: dict, error_description: str = "") -> None:
                 print_red(f"Failed to write header file: {e}")
 
         try:
-            with open(data_file_path, mode='a', encoding="utf-8", newline='') as data_file:
+            with open(data_file_path, mode='a', encoding='utf-8', newline='') as data_file:
                 writer = csv.writer(data_file)
                 writer.writerows(data)
                 print_debug(f"Data appended to file: {data_file_path}")
-
         except Exception as e:
             print_red(f"Failed to append data to file: {e}")
 
@@ -3334,7 +3619,15 @@ def _write_job_infos_csv_build_values(start_time: Union[int, float], end_time: U
 
 @beartype
 def _write_job_infos_csv_replace_none_with_str(elements: Optional[List[str]]) -> List[str]:
-    return ['None' if element is None else element for element in elements]
+    if elements is None:
+        return []
+    result = []
+    for element in elements:
+        if element is None:
+            result.append('None')
+        else:
+            result.append(element)
+    return result
 
 @beartype
 def print_evaluate_times() -> None:
@@ -3523,8 +3816,8 @@ def _evaluate_create_signal_map() -> Dict[str, type[BaseException]]:
 @beartype
 def _evaluate_handle_result(
     stdout: str,
-    result: Union[int, float, dict, list],
-    parameters: dict
+    result: Optional[Union[int, float, dict, list]],
+    parameters: Optional[dict]
 ) -> Dict[str, Optional[Union[float, Tuple]]]:
     final_result: Dict[str, Optional[Union[float, Tuple]]] = {}
 
@@ -3545,6 +3838,51 @@ def _evaluate_handle_result(
         write_failed_logs(parameters, "No Result")
 
     return final_result
+
+@beartype
+def pretty_process_output(stdout_path: str, stderr_path: str, exit_code: Optional[int]) -> None:
+    global console
+
+    console = Console(
+        force_interactive=True,
+        soft_wrap=True,
+        color_system="256",
+        force_terminal=not ci_env,
+        width=max(200, terminal_width)
+    )
+
+    def _read(p: str) -> Optional[str]:
+        try:
+            return Path(p).read_text(encoding="utf-8", errors="replace")
+        except FileNotFoundError:
+            print_debug(f"[file not found: {p}]")
+
+            return None
+
+    stdout_txt = _read(stdout_path)
+    stderr_txt = _read(stderr_path)
+
+    # -------- header -------- #
+    outcome = "SUCCESS" if (exit_code is not None and exit_code == 0) else "FAILURE"
+    header_style = "bold white on green" if exit_code == 0 else "bold white on red"
+    console.rule(Text(f" {outcome}  (exit {exit_code}) ", style=header_style))
+
+    def is_nonempty(s: Optional[str]) -> bool:
+        return bool(s and s.strip())
+
+    if is_nonempty(stdout_txt) and stdout_txt is not None:
+        console.rule(Text(f" {stdout_path} ", style=header_style))
+        panel = Panel(stdout_txt, title="STDOUT", border_style="cyan", padding=(0, 1))
+        console.print(panel)
+
+    if is_nonempty(stderr_txt) and stderr_txt is not None:
+        console.rule(Text(f" {stderr_path} ", style=header_style))
+        panel = Panel(stderr_txt, title="STDERR", border_style="magenta", padding=(0, 1))
+        console.print(panel)
+
+    if not (is_nonempty(stdout_txt) or is_nonempty(stderr_txt)):
+        print("\n")
+        console.print("[dim]No output captured.[/dim]")
 
 @beartype
 def evaluate(parameters: dict) -> Optional[Union[int, float, Dict[str, Optional[Union[int, float, Tuple]]], List[float]]]:
@@ -4247,7 +4585,8 @@ def show_end_table_and_save_end_files() -> int:
 
     best_result_exit: int = print_best_result()
 
-    print_evaluate_times()
+    if not args.dryrun:
+        print_evaluate_times()
 
     if best_result_exit > 0:
         _exit = best_result_exit
@@ -4294,6 +4633,10 @@ def abandon_all_jobs() -> None:
 
 @beartype
 def show_pareto_or_error_msg(path_to_calculate: str, res_names: list = arg_result_names, disable_sixel_and_table: bool = False) -> None:
+    if args.dryrun:
+        print_debug("Not showing pareto-frontier data with --dryrun")
+        return None
+
     if len(res_names) > 1:
         try:
             show_pareto_frontier_data(path_to_calculate, res_names, disable_sixel_and_table)
@@ -4301,6 +4644,7 @@ def show_pareto_or_error_msg(path_to_calculate: str, res_names: list = arg_resul
             print_red(f"show_pareto_frontier_data() failed with exception '{e}'")
     else:
         print_debug(f"show_pareto_frontier_data will NOT be executed because len(arg_result_names) is {len(arg_result_names)}")
+    return None
 
 @beartype
 def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None) -> None:
@@ -4492,12 +4836,21 @@ def set_torch_device_to_experiment_args(experiment_args: Union[None, dict]) -> T
             gpu_string = "No CUDA devices found."
             gpu_color = "yellow"
         else:
-            if torch.cuda.device_count() >= 1:
-                torch_device = torch.cuda.current_device()
-                gpu_string = f"Using CUDA device {torch.cuda.get_device_name(0)}."
-                gpu_color = "green"
+            if args.gpus >= 1:
+                if torch.cuda.device_count() >= 1:
+                    try:
+                        torch_device = torch.cuda.current_device()
+                        gpu_string = f"Using CUDA device {torch.cuda.get_device_name(0)}."
+                        gpu_color = "green"
+                    except torch.cuda.DeferredCudaCallError as e:
+                        print_red(f"Could not load GPU: {e}")
+                        gpu_string = "Error loading the CUDA device."
+                        gpu_color = "red"
+                else:
+                    gpu_string = "No CUDA devices found."
+                    gpu_color = "yellow"
             else:
-                gpu_string = "No CUDA devices found."
+                gpu_string = "No CUDA devices searched."
                 gpu_color = "yellow"
     except ModuleNotFoundError:
         print_red("Cannot load torch and thus, cannot use gpus")
@@ -5983,6 +6336,7 @@ def get_python_errors() -> List[List[str]]:
         ["NameError", synerr],
         ["ValueError", synerr],
         ["TypeError", synerr],
+        ["FileNotFoundError", "This can happen when you don't have absolute paths for your data, or you haven't used the SCRIPT_PATH variable. See the documentation for the run.sh file."],
         ["AssertionError", "Assertion failed"],
         ["AttributeError", "Attribute Error"],
         ["EOFError", "End of file Error"],
@@ -6004,11 +6358,49 @@ def get_python_errors() -> List[List[str]]:
         ["error: argument", "Wrong argparse argument"],
         ["error: unrecognized arguments", "Wrong argparse argument"],
         ["CUDNN_STATUS_INTERNAL_ERROR", "Cuda had a problem. Try to delete ~/.nv and try again."],
-        ["CUDNN_STATUS_NOT_INITIALIZED", "Cuda had a problem. Try to delete ~/.nv and try again."]
+        ["CUDNN_STATUS_NOT_INITIALIZED", "Cuda had a problem. Try to delete ~/.nv and try again."],
+        ["BrokenPipeError", "Broken pipe: This usually happens when piping output to a process that closes early (e.g., head)"],
+        ["ConnectionError", "Network connection failed. Check your internet or the remote server status."],
+        ["TimeoutError", "An operation took too long to complete. Could be a network or file issue."],
+        ["PermissionError", "You don't have permission to access this file or resource."],
+        ["IsADirectoryError", "A directory was used where a file was expected."],
+        ["NotADirectoryError", "A file was used where a directory was expected."],
+        ["StopIteration", "An iterator was exhausted. Happens e.g. in loops over generators."],
+        ["UnboundLocalError", "A local variable was referenced before it was assigned."],
+        ["FloatingPointError", "A floating-point error occurred. This is rare and depends on system config."],
+        ["json.decoder.JSONDecodeError", "Invalid JSON format. Check your JSON syntax."],
+        ["SystemExit", "The program requested a system exit."],
+        ["FloatingPointError", "A floating-point calculation failed fatally."],
+        ["BrokenProcessPool", "A subprocess died unexpectedly."],
+        ["zlib.error", "Compression/decompression failed (zlib)."],
+        ["binascii.Error", "Binary/ASCII conversion failed. Often due to malformed base64 or hex."],
+        ["SSL.SSLError", "A fatal SSL error occurred. Possibly a certificate or protocol problem."],
+        ["socket.gaierror", "Address-related error in socket connection (e.g., DNS failure)."],
+        ["socket.timeout", "Socket operation timed out fatally."],
+        ["http.client.RemoteDisconnected", "The remote host closed the connection unexpectedly."],
+        ["multiprocessing.ProcessError", "A multiprocessing error occurred, possibly a crash."],
+        ["cudaErrorMemoryAllocation", "CUDA ran out of memory. Consider reducing batch size or model size."],
+        ["cudaErrorIllegalAddress", "Illegal memory access by CUDA kernel. Could be a bug in kernel or index out-of-bounds."],
+        ["cudaErrorLaunchFailure", "CUDA kernel launch failed. Often due to memory or driver issues."],
+        ["cudaErrorUnknown", "Unknown fatal CUDA error. Could be hardware or driver related."],
+        ["CUBLAS_STATUS_ALLOC_FAILED", "cuBLAS could not allocate GPU memory."],
+        ["CUBLAS_STATUS_INTERNAL_ERROR", "cuBLAS encountered a fatal internal error."],
+        ["CUBLAS_STATUS_EXECUTION_FAILED", "cuBLAS failed during execution. Usually a hardware/driver issue."],
+        ["OpenBLAS blas_thread_init: pthread_create failed", "OpenBLAS failed to initialize threads. Could be OS/thread limit."],
+        ["libc++abi.dylib: terminating", "The C++ runtime aborted due to a fatal exception."],
+        ["terminate called after throwing an instance of", "Uncaught C++ exception crashed the program."],
+        ["Segmentation fault", "Your program tried to access invalid memory. Often due to C extensions or CUDA."],
+        ["Bus error", "Hardware-level memory error. Possibly caused by alignment issues or failed RAM."],
+        ["Illegal instruction", "The CPU tried to execute an invalid or unsupported instruction. Possible binary mismatch."],
+        ["Killed", "Your process was forcefully killed (e.g., OOM killer or SIGKILL)."],
+        ["OOMKilled", "Out-of-memory killer terminated your process. Try reducing memory usage."],
+        ["core dumped", "The program crashed and dumped a core file for debugging."],
+        ["fatal error", "A general fatal error occurred (non-specific). See logs."],
     ]
 
 @beartype
 def get_first_line_of_file_that_contains_string(stdout_path: str, s: str) -> str:
+    stdout_path = check_alternate_path(stdout_path)
     if not os.path.exists(stdout_path):
         print_debug(f"File {stdout_path} not found")
         return ""
@@ -6036,6 +6428,7 @@ def get_first_line_of_file_that_contains_string(stdout_path: str, s: str) -> str
 
 @beartype
 def check_for_python_errors(stdout_path: str, file_as_string: str) -> List[str]:
+    stdout_path = check_alternate_path(stdout_path)
     errors: List[str] = []
 
     for search_array in get_python_errors():
@@ -6053,6 +6446,7 @@ def check_for_python_errors(stdout_path: str, file_as_string: str) -> List[str]:
 
 @beartype
 def get_errors_from_outfile(stdout_path: str) -> List[str]:
+    stdout_path = check_alternate_path(stdout_path)
     file_as_string = get_file_as_string(stdout_path)
 
     program_code = get_program_code_from_out_file(stdout_path)
@@ -6089,6 +6483,7 @@ def get_errors_from_outfile(stdout_path: str) -> List[str]:
 
 @beartype
 def print_outfile_analyzed(stdout_path: str) -> None:
+    stdout_path = check_alternate_path(stdout_path)
     errors = get_errors_from_outfile(stdout_path)
 
     _strs: List[str] = []
@@ -6120,6 +6515,7 @@ def print_outfile_analyzed(stdout_path: str) -> None:
 
 @beartype
 def get_parameters_from_outfile(stdout_path: str) -> Union[None, dict, str]:
+    stdout_path = check_alternate_path(stdout_path)
     try:
         with open(stdout_path, mode='r', encoding="utf-8") as file:
             for line in file:
@@ -6297,6 +6693,7 @@ def _finish_previous_jobs_helper_handle_failed_job(job: Any, trial_index: int) -
             print(f"ERROR in line {get_line_info()}: {e}")
         job.cancel()
         orchestrate_job(job, trial_index)
+
     failed_jobs(1)
     print_debug(f"finish_previous_jobs: removing job {job}, trial_index: {trial_index}")
 
@@ -6321,6 +6718,9 @@ def _finish_previous_jobs_helper_handle_exception(job: Any, trial_index: int, er
 def _finish_previous_jobs_helper_process_job(job: Any, trial_index: int, this_jobs_finished: int) -> int:
     try:
         this_jobs_finished = finish_job_core(job, trial_index, this_jobs_finished)
+
+        if args.prettyprint:
+            pretty_print_job_output(job)
     except (SignalINT, SignalUSR, SignalCONT) as e:
         print_red(f"Cancelled finish_job_core: {e}")
     except (FileNotFoundError, submitit.core.utils.UncompletedJobError, ax.exceptions.core.UserInputError) as error:
@@ -6391,6 +6791,7 @@ def finish_previous_jobs(new_msgs: List[str]) -> None:
 
 @beartype
 def get_alt_path_for_orchestrator(stdout_path: str) -> Optional[str]:
+    stdout_path = check_alternate_path(stdout_path)
     alt_path = None
     if stdout_path.endswith(".err"):
         alt_path = stdout_path[:-4] + ".out"
@@ -6401,6 +6802,7 @@ def get_alt_path_for_orchestrator(stdout_path: str) -> Optional[str]:
 
 @beartype
 def check_orchestrator(stdout_path: str, trial_index: int) -> Optional[List[str]]:
+    stdout_path = check_alternate_path(stdout_path)
     if not orchestrator or "errors" not in orchestrator:
         return []
 
@@ -6412,6 +6814,7 @@ def check_orchestrator(stdout_path: str, trial_index: int) -> Optional[List[str]
 
 @beartype
 def _check_orchestrator_read_stdout_with_fallback(stdout_path: str, trial_index: int) -> Optional[str]:
+    stdout_path = check_alternate_path(stdout_path)
     try:
         return Path(stdout_path).read_text("UTF-8")
     except FileNotFoundError:
@@ -6428,6 +6831,7 @@ def _check_orchestrator_read_stdout_with_fallback(stdout_path: str, trial_index:
 
 @beartype
 def _check_orchestrator_register_missing_file(stdout_path: str, trial_index: int) -> None:
+    stdout_path = check_alternate_path(stdout_path)
     if stdout_path not in ORCHESTRATE_TODO:
         ORCHESTRATE_TODO[stdout_path] = trial_index
         print_red(f"File not found: {stdout_path}, will try again later")
@@ -6453,21 +6857,53 @@ def _check_orchestrator_find_behaviors(stdout: str, errors: List[Dict[str, Any]]
     return behaviors
 
 @beartype
+def get_exit_code_from_stderr_or_stdout_path(stderr_path: str, stdout_path: str) -> Optional[int]:
+    def extract_last_exit_code(path: str) -> Optional[int]:
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                matches = re.findall(r"EXIT_CODE:\s*(-?\d+)", f.read())
+                if matches:
+                    return int(matches[-1])
+        except Exception:
+            pass
+        return None
+
+    code = extract_last_exit_code(stdout_path)
+    if code is not None:
+        return code
+
+    return extract_last_exit_code(stderr_path)
+
+@beartype
+def pretty_print_job_output(job: Job) -> None:
+    stdout_path = get_stderr_or_stdout_from_job(job, "stdout")
+    stderr_path = get_stderr_or_stdout_from_job(job, "stderr")
+    exit_code = get_exit_code_from_stderr_or_stdout_path(stderr_path, stdout_path)
+
+    pretty_process_output(stdout_path, stderr_path, exit_code)
+
+@beartype
+def get_stderr_or_stdout_from_job(job: Job, path_type: str) -> str:
+    if path_type == "stderr":
+        _path = str(job.paths.stderr.resolve())
+    elif path_type == "stdout":
+        _path = str(job.paths.stdout.resolve())
+    else:
+        print_red(f"ERROR: path_type {path_type} was neither stdout nor stderr. Using stdout")
+        _path = str(job.paths.stdout.resolve())
+
+    _path = _path.replace('\n', ' ').replace('\r', '')
+    _path = _path.rstrip('\r\n')
+    _path = _path.rstrip('\n')
+    _path = _path.rstrip('\r')
+    _path = _path.rstrip(' ')
+
+    return _path
+
+@beartype
 def orchestrate_job(job: Job, trial_index: int) -> None:
-    stdout_path = str(job.paths.stdout.resolve())
-    stderr_path = str(job.paths.stderr.resolve())
-
-    stdout_path = stdout_path.replace('\n', ' ').replace('\r', '')
-    stdout_path = stdout_path.rstrip('\r\n')
-    stdout_path = stdout_path.rstrip('\n')
-    stdout_path = stdout_path.rstrip('\r')
-    stdout_path = stdout_path.rstrip(' ')
-
-    stderr_path = stderr_path.replace('\n', ' ').replace('\r', '')
-    stderr_path = stderr_path.rstrip('\r\n')
-    stderr_path = stderr_path.rstrip('\n')
-    stderr_path = stderr_path.rstrip('\r')
-    stderr_path = stderr_path.rstrip(' ')
+    stdout_path = get_stderr_or_stdout_from_job(job, "stdout")
+    stderr_path = get_stderr_or_stdout_from_job(job, "stderr")
 
     print_outfile_analyzed(stdout_path)
     print_outfile_analyzed(stderr_path)
@@ -6523,6 +6959,7 @@ def orchestrator_start_trial(params_from_out_file: Union[dict, str], trial_index
 
 @beartype
 def handle_exclude_node(stdout_path: str, hostname_from_out_file: Union[None, str]) -> None:
+    stdout_path = check_alternate_path(stdout_path)
     if hostname_from_out_file:
         if not is_already_in_defective_nodes(hostname_from_out_file):
             print_yellow(f"\nExcludeNode was triggered for node {hostname_from_out_file}")
@@ -6534,29 +6971,30 @@ def handle_exclude_node(stdout_path: str, hostname_from_out_file: Union[None, st
 
 @beartype
 def handle_restart(stdout_path: str, trial_index: int) -> None:
+    stdout_path = check_alternate_path(stdout_path)
     params_from_out_file = get_parameters_from_outfile(stdout_path)
     if params_from_out_file:
         orchestrator_start_trial(params_from_out_file, trial_index)
     else:
         print(f"Could not determine parameters from outfile {stdout_path} for restarting job")
 
-#@beartype
-#def check_alternate_path(path: str) -> str:
-#    if os.path.exists(path):
-#        return path
-#    if path.endswith('.out'):
-#        alt_path = path[:-4] + '.err'
-#    elif path.endswith('.err'):
-#        alt_path = path[:-4] + '.out'
-#    else:
-#        alt_path = None
-#    if alt_path and os.path.exists(alt_path):
-#        return alt_path
-#    # Wenn auch der alternative Pfad nicht existiert, gib den Originalpfad zurück
-#    return path
+@beartype
+def check_alternate_path(path: str) -> str:
+    if os.path.exists(path):
+        return path
+    if path.endswith('.out'):
+        alt_path = path[:-4] + '.err'
+    elif path.endswith('.err'):
+        alt_path = path[:-4] + '.out'
+    else:
+        alt_path = None
+    if alt_path and os.path.exists(alt_path):
+        return alt_path
+    return path
 
 @beartype
 def handle_restart_on_different_node(stdout_path: str, hostname_from_out_file: Union[None, str], trial_index: int) -> None:
+    stdout_path = check_alternate_path(stdout_path)
     if hostname_from_out_file:
         if not is_already_in_defective_nodes(hostname_from_out_file):
             print_yellow(f"\nRestartOnDifferentNode was triggered for node {hostname_from_out_file}. Adding node to defective hosts list and restarting on another host.")
@@ -6569,7 +7007,7 @@ def handle_restart_on_different_node(stdout_path: str, hostname_from_out_file: U
 
 @beartype
 def _orchestrate(stdout_path: str, trial_index: int) -> None:
-    #stdout_path = check_alternate_path(stdout_path)
+    stdout_path = check_alternate_path(stdout_path)
 
     behavs = check_orchestrator(stdout_path, trial_index)
 
@@ -6941,7 +7379,7 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
     return batched_arms
 
 @beartype
-def _fetch_next_trials(nr_of_jobs_to_get: int, recursion: bool = False) -> Optional[Tuple[Dict[int, Any], bool]]:
+def _fetch_next_trials(nr_of_jobs_to_get: int, recursion: bool = False) -> Tuple[Dict[int, Any], bool]:
     die_101_if_no_ax_client_or_experiment_or_gs()
 
     if not ax_client:
@@ -7150,11 +7588,12 @@ def save_table_as_text(table: Table, filepath: str) -> None:
 
 @beartype
 def show_time_debugging_table() -> None:
-    generate_time_table_rich()
-    generate_job_submit_table_rich()
-    plot_times_for_creation_and_submission()
+    if not args.dryrun:
+        generate_time_table_rich()
+        generate_job_submit_table_rich()
+        plot_times_for_creation_and_submission()
 
-    live_share()
+        live_share()
 
 @beartype
 def generate_time_table_rich() -> None:
@@ -8024,7 +8463,8 @@ def get_number_of_steps(_max_eval: int) -> Tuple[int, int]:
         if second_step_steps != original_second_steps:
             original_print(f"? original_second_steps: {original_second_steps} = max_eval {_max_eval} - _random_steps {_random_steps}")
         if second_step_steps == 0:
-            print_yellow("This is basically a random search. Increase --max_eval or reduce --num_random_steps")
+            if not args.dryrun:
+                print_yellow("This is basically a random search. Increase --max_eval or reduce --num_random_steps")
 
         second_step_steps = second_step_steps - already_done_random_steps
 
@@ -9399,6 +9839,9 @@ def main() -> None:
 
     write_result_min_max_file()
 
+    if args.dryrun:
+        set_max_eval(1)
+
     if os.getenv("CI"):
         data_dict: dict = {
             "param1": "value1",
@@ -9437,6 +9880,9 @@ def main() -> None:
     handle_random_steps()
 
     set_global_generation_strategy()
+
+    if args.dryrun:
+        set_global_gs_to_HUMAN_INTERVENTION_MINIMUM()
 
     initialize_ax_client()
 
@@ -9489,12 +9935,18 @@ def log_worker_creation() -> None:
 def set_run_folder() -> None:
     with console.status("[bold green]Setting run folder..."):
         global CURRENT_RUN_FOLDER
-        RUN_FOLDER_NUMBER: int = 0
-        CURRENT_RUN_FOLDER = f"{args.run_dir}/{global_vars['experiment_name']}/{RUN_FOLDER_NUMBER}"
 
-        while os.path.exists(f"{CURRENT_RUN_FOLDER}"):
+        # Ensure run_dir is an absolute path
+        run_dir = args.run_dir
+        if not os.path.isabs(run_dir):
+            run_dir = os.path.abspath(run_dir)
+
+        RUN_FOLDER_NUMBER: int = 0
+        CURRENT_RUN_FOLDER = f"{run_dir}/{global_vars['experiment_name']}/{RUN_FOLDER_NUMBER}"
+
+        while os.path.exists(CURRENT_RUN_FOLDER):
             RUN_FOLDER_NUMBER += 1
-            CURRENT_RUN_FOLDER = f"{args.run_dir}/{global_vars['experiment_name']}/{RUN_FOLDER_NUMBER}"
+            CURRENT_RUN_FOLDER = f"{run_dir}/{global_vars['experiment_name']}/{RUN_FOLDER_NUMBER}"
 
 @beartype
 def print_run_info() -> None:
@@ -9515,14 +9967,6 @@ def write_ui_url_if_present() -> None:
         if args.ui_url:
             with open(f"{get_current_run_folder()}/ui_url.txt", mode="a", encoding="utf-8") as myfile:
                 myfile.write(decode_if_base64(args.ui_url))
-
-@beartype
-def set_random_steps(new_steps: int) -> None:
-    global random_steps
-
-    print_debug(f"Setting random_steps from {random_steps} to {new_steps}")
-
-    random_steps = new_steps
 
 @beartype
 def handle_random_steps() -> None:

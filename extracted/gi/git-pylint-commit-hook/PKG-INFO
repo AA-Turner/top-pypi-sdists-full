@@ -1,0 +1,19 @@
+Metadata-Version: 2.1
+Name: git-pylint-commit-hook
+Version: 2.6.1
+Summary: Git commit hook that checks Python files with pylint
+Home-page: https://github.com/sebdah/git-pylint-commit-hook
+Author: Sebastian Dahlgren
+Author-email: sebastian.dahlgren@gmail.com
+License: Apache License, Version 2.0
+Keywords: git commit pre-commit hook pylint python
+Platform: Any
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+License-File: LICENSE
+
+UNKNOWN
+

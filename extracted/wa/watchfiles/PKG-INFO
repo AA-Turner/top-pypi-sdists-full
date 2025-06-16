@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: watchfiles
-Version: 1.0.5
+Version: 1.1.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Programming Language :: Python
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
@@ -61,17 +62,13 @@ see [the migration guide](https://watchfiles.helpmanual.io/migrating/) for more 
 
 ## Installation
 
-**watchfiles** requires Python 3.8 - 3.13.
+**watchfiles** requires Python 3.9 - 3.14.
 
 ```bash
 pip install watchfiles
 ```
 
-Binaries are available for:
-
-* **Linux**: `x86_64`, `aarch64`, `i686`, `armv7l`, `musl-x86_64` & `musl-aarch64`
-* **MacOS**: `x86_64` & `arm64`
-* **Windows**: `amd64` & `win32`
+Binaries are available for most architectures on Linux, MacOS and Windows ([learn more](https://watchfiles.helpmanual.io/#installation)).
 
 Otherwise, you can install from source which requires Rust stable to be installed.
 

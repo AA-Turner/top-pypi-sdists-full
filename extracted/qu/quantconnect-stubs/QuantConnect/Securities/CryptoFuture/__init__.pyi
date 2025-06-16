@@ -10,67 +10,6 @@ import QuantConnect.Securities.CryptoFuture
 import System
 
 
-class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
-    """The crypto future margin model which supports both Coin and USDT futures"""
-
-    def __init__(self, leverage: float = 25, maintenance_margin_rate: float = 0.05, maintenance_amount: float = 0) -> None:
-        """
-        Creates a new instance
-        
-        :param leverage: The leverage to use, used on initial margin requirements, default 25x
-        :param maintenance_margin_rate: The maintenance margin rate, default 5%
-        :param maintenance_amount: The maintenance amount which will reduce maintenance margin requirements, default 0
-        """
-        ...
-
-    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
-        """
-        The margin that must be held in order to increase the position by the provided quantity
-        
-        :param parameters: An object containing the security and quantity of shares
-        :returns: The initial margin required for the option (i.e. the equity required to enter a position for this option).
-        """
-        ...
-
-    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
-        """
-        Gets the margin currently alloted to the specified holding.
-        
-        :param parameters: An object containing the security
-        :returns: The maintenance margin required for the option.
-        """
-        ...
-
-    def get_margin_remaining(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> float:
-        """
-        Gets the margin cash available for a trade
-        
-        This method is protected.
-        
-        :param portfolio: The algorithm's portfolio
-        :param security: The security to be traded
-        :param direction: The direction of the trade
-        :returns: The margin available for the trade.
-        """
-        ...
-
-
-class BinanceFutureMarginInterestRateModel(System.Object, QuantConnect.Securities.IMarginInterestRateModel):
-    """The responsability of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
-
-    def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
-        """
-        Apply margin interest rates to the portfolio
-        
-        :param margin_interest_rate_parameters: The parameters to use
-        """
-        ...
-
-
-class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
-    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
-
-
 class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
     """Crypto Future holdings implementation of the base securities class"""
 
@@ -127,6 +66,67 @@ class CryptoFuture(QuantConnect.Securities.Security, QuantConnect.Securities.IBa
         Checks whether the security is a crypto coin future
         
         :returns: True if the security is a crypto coin future.
+        """
+        ...
+
+
+class BinanceFutureMarginInterestRateModel(System.Object, QuantConnect.Securities.IMarginInterestRateModel):
+    """The responsability of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
+
+    def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
+        """
+        Apply margin interest rates to the portfolio
+        
+        :param margin_interest_rate_parameters: The parameters to use
+        """
+        ...
+
+
+class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
+    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
+
+
+class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
+    """The crypto future margin model which supports both Coin and USDT futures"""
+
+    def __init__(self, leverage: float = 25, maintenance_margin_rate: float = 0.05, maintenance_amount: float = 0) -> None:
+        """
+        Creates a new instance
+        
+        :param leverage: The leverage to use, used on initial margin requirements, default 25x
+        :param maintenance_margin_rate: The maintenance margin rate, default 5%
+        :param maintenance_amount: The maintenance amount which will reduce maintenance margin requirements, default 0
+        """
+        ...
+
+    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
+        """
+        The margin that must be held in order to increase the position by the provided quantity
+        
+        :param parameters: An object containing the security and quantity of shares
+        :returns: The initial margin required for the option (i.e. the equity required to enter a position for this option).
+        """
+        ...
+
+    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
+        """
+        Gets the margin currently alloted to the specified holding.
+        
+        :param parameters: An object containing the security
+        :returns: The maintenance margin required for the option.
+        """
+        ...
+
+    def get_margin_remaining(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, security: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> float:
+        """
+        Gets the margin cash available for a trade
+        
+        This method is protected.
+        
+        :param portfolio: The algorithm's portfolio
+        :param security: The security to be traded
+        :param direction: The direction of the trade
+        :returns: The margin available for the trade.
         """
         ...
 

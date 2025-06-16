@@ -1,0 +1,232 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - master
+      - backports-v0.7.x
+      - backports-v0.6.x
+    tags:
+      - v*.*.*
+  pull_request:
+    branches:
+      - master
+      - backports-v0.7.x
+      - backports-v0.6.x
+  # Run daily at 0:01 UTC
+  schedule:
+    - cron:  '1 0 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - uses: pre-commit/action@v3.0.1
+      with:
+        extra_args: --hook-stage manual --all-files
+
+  test:
+    runs-on: ${{ matrix.os }}
+    needs: pre-commit
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        java-version: [17]
+        java-distribution: ["corretto"]
+        python-version: ["3.9", "3.13"]
+        dask-client: ["with", "without"]
+
+    name: Test (${{ matrix.os }}) - py ${{ matrix.python-version }}, JDK${{ matrix.java-version }}, ${{ matrix.dask-client }} dask
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Set up JDK ${{ matrix.java-distribution }}/${{ matrix.java-version }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java-version }}
+        distribution: ${{ matrix.java-distribution }}
+
+    - name: Set python test settings
+      run: |
+        echo "INSTALL_EXTRAS='[dev,parsl,dask]'" >> $GITHUB_ENV
+
+    - name: Install uv
+      run: python -m pip install --upgrade uv
+
+    - name: Install dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        # mltool installs
+        # c.f. https://github.com/astral-sh/uv/issues/3437
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        uv pip install --system xgboost
+        uv pip install --system 'tritonclient[grpc,http]!=2.41.0'
+        # install checked out coffea
+        uv pip install --system -q '.[dev,parsl,dask,spark]' --upgrade
+        uv pip list --system
+        java -version
+    - name: Install dependencies (MacOS)
+      if: matrix.os == 'macOS-latest'
+      run: |
+        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        # mltool installs
+        # c.f. https://github.com/astral-sh/uv/issues/3437
+        python -m pip install torch
+        uv pip install --system xgboost
+        # install checked out coffea
+        uv pip install --system -q '.[dev,dask,spark]' --upgrade
+        uv pip list --system
+        java -version
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        # mltool installs
+        # c.f. https://github.com/astral-sh/uv/issues/3437
+        python -m pip install torch
+        uv pip install --system xgboost
+        # install checked out coffea
+        uv pip install --system -q '.[dev,dask]' --upgrade
+        uv pip list --system
+        java -version
+
+    - name: Start triton server with example model
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        docker run -d --rm -p 8000:8000 -p 8001:8001 -p 8002:8002 -v ${{ github.workspace }}/tests/samples/triton_models_test:/models nvcr.io/nvidia/tritonserver:23.04-pyt-python-py3 tritonserver --model-repository=/models
+
+    - name: Test with pytest (${{ matrix.dask-client }} dask Client - run in parallel)
+      if: matrix.dask-client == 'without'
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
+    - name: Test with pytest (${{ matrix.dask-client }} dask Client)
+      if: matrix.dask-client == 'with'
+      run: |
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "dask_client"
+    - name: Upload codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+      uses: codecov/codecov-action@v5
+    - name: Install graphviz
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+      uses: ts-graphviz/setup-graphviz@v2
+    - name: Install pandoc
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+      uses: r-lib/actions/setup-pandoc@v2
+    - name: Build documentation
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+      run: |
+        cd docs && make html
+        touch build/html/.nojekyll
+    # - name: Deploy documentation
+    #   if: github.event_name == 'push' && matrix.os == 'ubuntu-latest' && matrix.python-version == 3.13
+    #   uses: crazy-max/ghaction-github-pages@v4
+    #   with:
+    #     target_branch: gh-pages
+    #     build_dir: docs/build/html
+    #   env:
+    #     GH_PAT: ${{ secrets.GITHUB_OAUTH }}
+
+  test-vine:
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    name: test coffea-taskvine
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Conda
+      uses: conda-incubator/setup-miniconda@v3
+      env:
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      with:
+        auto-update-conda: true
+        python-version: ${{ matrix.python-version }}
+        channels: conda-forge
+    - name: Construct conda environment
+      shell: bash -l {0}
+      run: |
+        conda create --yes --prefix ./coffea-conda-test-env -c conda-forge python=${{ matrix.python-version }} ndcctools uv
+        conda activate ./coffea-conda-test-env
+        uv pip install --system . 'dask<2025.1.0'
+        uv pip install --system pytest
+    - name: Test with pytest
+      run: |
+        conda run --prefix ./coffea-conda-test-env pytest tests/test_taskvine.py
+
+#  testskyhookjob:
+#    runs-on: ubuntu-latest
+#    needs: pre-commit
+#    name: test coffea-skyhook-job
+#
+#    steps:
+#    - uses: actions/checkout@3
+#    - name: Test Coffea Skyhook Bindings
+#      shell: bash -l {0}
+#      run: |
+#        docker build -t coffea-skyhook-test \
+#          --file docker/skyhook/Dockerfile \
+#          .
+#        docker run \
+#        -v $(pwd):/w \
+#        -w /w \
+#        -e IS_CI=true \
+#        --privileged \
+#        coffea-skyhook-test \
+#        ./docker/skyhook/script.sh
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: [test, test-vine]
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    name: deploy release
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Build package for PyPI
+      run: |
+        pipx run hatch build -t sdist -t wheel
+    - name: Verify the distribution
+      run: pipx run twine check --strict dist/*
+    - name: Generate artifact attestation for sdist and wheel
+      uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
+      with:
+        subject-path: "dist/coffea-*"
+    - name: Publish package to PyPI
+      uses: pypa/gh-action-pypi-publish@v1.12.4
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_TOKEN }}
+
+  pass:
+    needs: [test, test-vine]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All jobs passed"

@@ -105,6 +105,24 @@ def age(x, *args, **kwargs):
 def age_groups(x, *args, **kwargs):
     """Please see our website of the R package for the full manual: https://amr-for-r.org"""
     return convert_to_python(amr_r.age_groups(x, *args, **kwargs))
+def all_mic(*args, **kwargs):
+    """Please see our website of the R package for the full manual: https://amr-for-r.org"""
+    return convert_to_python(amr_r.all_mic(*args, **kwargs))
+def all_mic_predictors(*args, **kwargs):
+    """Please see our website of the R package for the full manual: https://amr-for-r.org"""
+    return convert_to_python(amr_r.all_mic_predictors(*args, **kwargs))
+def all_sir(*args, **kwargs):
+    """Please see our website of the R package for the full manual: https://amr-for-r.org"""
+    return convert_to_python(amr_r.all_sir(*args, **kwargs))
+def all_sir_predictors(*args, **kwargs):
+    """Please see our website of the R package for the full manual: https://amr-for-r.org"""
+    return convert_to_python(amr_r.all_sir_predictors(*args, **kwargs))
+def step_mic_log2(recipe, *args, **kwargs):
+    """Please see our website of the R package for the full manual: https://amr-for-r.org"""
+    return convert_to_python(amr_r.step_mic_log2(recipe, *args, **kwargs))
+def step_sir_numeric(recipe, *args, **kwargs):
+    """Please see our website of the R package for the full manual: https://amr-for-r.org"""
+    return convert_to_python(amr_r.step_sir_numeric(recipe, *args, **kwargs))
 def antibiogram(x, *args, **kwargs):
     """Please see our website of the R package for the full manual: https://amr-for-r.org"""
     return convert_to_python(amr_r.antibiogram(x, *args, **kwargs))

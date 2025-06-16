@@ -546,7 +546,7 @@ class MONAIEnvVars:
 
     @staticmethod
     def algo_hash() -> str | None:
-        return os.environ.get("MONAI_ALGO_HASH", "e4cf5a1")
+        return os.environ.get("MONAI_ALGO_HASH", "21ed8e5")
 
     @staticmethod
     def trace_transform() -> str | None:
@@ -887,7 +887,7 @@ def run_cmd(cmd_list: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
     if kwargs.pop("run_cmd_verbose", False):
         import monai
 
-        monai.apps.utils.get_logger("run_cmd").info(f"{cmd_list}")  # type: ignore[attr-defined]
+        monai.apps.utils.get_logger("monai.utils.run_cmd").info(f"{cmd_list}")  # type: ignore[attr-defined]
     try:
         return subprocess.run(cmd_list, **kwargs)
     except subprocess.CalledProcessError as e:
@@ -916,3 +916,16 @@ def unsqueeze_right(arr: NT, ndim: int) -> NT:
 def unsqueeze_left(arr: NT, ndim: int) -> NT:
     """Prepend 1-sized dimensions to `arr` to create a result with `ndim` dimensions."""
     return arr[(None,) * (ndim - arr.ndim)]
+
+
+def flatten_dict(metrics: dict[str, Any]) -> dict[str, Any]:
+    """
+    Flatten the nested dictionary to a flat dictionary.
+    """
+    result = {}
+    for key, value in metrics.items():
+        if isinstance(value, dict):
+            result.update(flatten_dict(value))
+        else:
+            result[key] = value
+    return result

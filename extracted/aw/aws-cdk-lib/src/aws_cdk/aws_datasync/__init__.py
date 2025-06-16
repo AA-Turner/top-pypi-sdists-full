@@ -458,9 +458,9 @@ class CfnLocationAzureBlob(
 ):
     '''Creates a transfer *location* for a Microsoft Azure Blob Storage container.
 
-    AWS DataSync can use this location as a transfer source or destination.
+    AWS DataSync can use this location as a transfer source or destination. You can make transfers with or without a `DataSync agent <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-creating-agent>`_ that connects to your container.
 
-    Before you begin, make sure you know `how DataSync accesses Azure Blob Storage <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access>`_ and works with `access tiers <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access-tiers>`_ and `blob types <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#blob-types>`_ . You also need a `DataSync agent <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-creating-agent>`_ that can connect to your container.
+    Before you begin, make sure you know `how DataSync accesses Azure Blob Storage <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access>`_ and works with `access tiers <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access-tiers>`_ and `blob types <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#blob-types>`_ .
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html
     :cloudformationResource: AWS::DataSync::LocationAzureBlob
@@ -519,13 +519,13 @@ class CfnLocationAzureBlob(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param azure_blob_authentication_type: Specifies the authentication method DataSync uses to access your Azure Blob Storage. DataSync can access blob storage using a shared access signature (SAS). Default: - "SAS"
-        :param agent_arns: Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container. You can specify more than one agent. For more information, see `Using multiple agents for your transfer <https://docs.aws.amazon.com/datasync/latest/userguide/multiple-agents.html>`_ .
+        :param agent_arns: (Optional) Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container. If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter. You can specify more than one agent. For more information, see `Using multiple agents for your transfer <https://docs.aws.amazon.com/datasync/latest/userguide/multiple-agents.html>`_ . .. epigraph:: Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
         :param azure_access_tier: Specifies the access tier that you want your objects or files transferred into. This only applies when using the location as a transfer destination. For more information, see `Access tiers <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access-tiers>`_ . Default: - "HOT"
         :param azure_blob_container_url: Specifies the URL of the Azure Blob Storage container involved in your transfer.
-        :param azure_blob_sas_configuration: Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage.
+        :param azure_blob_sas_configuration: Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage. .. epigraph:: If you provide an authentication token using ``SasConfiguration`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's secrets manager secret.
         :param azure_blob_type: Specifies the type of blob that you want your objects or files to be when transferring them into Azure Blob Storage. Currently, DataSync only supports moving data into Azure Blob Storage as block blobs. For more information on blob types, see the `Azure Blob Storage documentation <https://docs.aws.amazon.com/https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs>`_ . Default: - "BLOCK"
-        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
-        :param custom_secret_config: Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
         :param subdirectory: Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).
         :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your transfer location.
         '''
@@ -581,7 +581,9 @@ class CfnLocationAzureBlob(
     @builtins.property
     @jsii.member(jsii_name="attrCmkSecretConfigSecretArn")
     def attr_cmk_secret_config_secret_arn(self) -> builtins.str:
-        '''Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+        '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
+
+        This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
 
         :cloudformationAttribute: CmkSecretConfig.SecretArn
         '''
@@ -643,7 +645,7 @@ class CfnLocationAzureBlob(
     @builtins.property
     @jsii.member(jsii_name="agentArns")
     def agent_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container.'''
+        '''(Optional) Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container.'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "agentArns"))
 
     @agent_arns.setter
@@ -715,7 +717,7 @@ class CfnLocationAzureBlob(
     def cmk_secret_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CmkSecretConfigProperty"]]:
-        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.'''
+        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CmkSecretConfigProperty"]], jsii.get(self, "cmkSecretConfig"))
 
     @cmk_secret_config.setter
@@ -733,7 +735,7 @@ class CfnLocationAzureBlob(
     def custom_secret_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CustomSecretConfigProperty"]]:
-        '''Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.'''
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationAzureBlob.CustomSecretConfigProperty"]], jsii.get(self, "customSecretConfig"))
 
     @custom_secret_config.setter
@@ -842,10 +844,14 @@ class CfnLocationAzureBlob(
             kms_key_arn: typing.Optional[builtins.str] = None,
             secret_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
 
-            :param kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
-            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+            .. epigraph::
+
+               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+            :param kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` . DataSync provides this key to AWS Secrets Manager .
+            :param secret_arn: Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location. This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-cmksecretconfig.html
             :exampleMetadata: fixture=_generated
@@ -873,9 +879,9 @@ class CfnLocationAzureBlob(
 
         @builtins.property
         def kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn.
+            '''Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` .
 
-            DataSync provides this key to AWS Secrets Manager.
+            DataSync provides this key to AWS Secrets Manager .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-cmksecretconfig.html#cfn-datasync-locationazureblob-cmksecretconfig-kmskeyarn
             '''
@@ -884,7 +890,9 @@ class CfnLocationAzureBlob(
 
         @builtins.property
         def secret_arn(self) -> typing.Optional[builtins.str]:
-            '''Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+            '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
+
+            This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-cmksecretconfig.html#cfn-datasync-locationazureblob-cmksecretconfig-secretarn
             '''
@@ -917,10 +925,15 @@ class CfnLocationAzureBlob(
             secret_access_role_arn: builtins.str,
             secret_arn: builtins.str,
         ) -> None:
-            '''Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+            '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text.
 
-            :param secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
-            :param secret_arn: Specifies the ARN for a customer created AWS Secrets Manager secret.
+            This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
+            .. epigraph::
+
+               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+            :param secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
+            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-customsecretconfig.html
             :exampleMetadata: fixture=_generated
@@ -947,7 +960,7 @@ class CfnLocationAzureBlob(
 
         @builtins.property
         def secret_access_role_arn(self) -> builtins.str:
-            '''Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
+            '''Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-customsecretconfig.html#cfn-datasync-locationazureblob-customsecretconfig-secretaccessrolearn
             '''
@@ -957,7 +970,7 @@ class CfnLocationAzureBlob(
 
         @builtins.property
         def secret_arn(self) -> builtins.str:
-            '''Specifies the ARN for a customer created AWS Secrets Manager secret.
+            '''Specifies the ARN for an AWS Secrets Manager secret.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationazureblob-customsecretconfig.html#cfn-datasync-locationazureblob-customsecretconfig-secretarn
             '''
@@ -985,7 +998,7 @@ class CfnLocationAzureBlob(
         def __init__(self, *, secret_arn: builtins.str) -> None:
             '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location.
 
-            DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+            DataSync uses the default AWS -managed KMS key to encrypt this secret in AWS Secrets Manager .
 
             :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
 
@@ -1065,13 +1078,13 @@ class CfnLocationAzureBlobProps:
         '''Properties for defining a ``CfnLocationAzureBlob``.
 
         :param azure_blob_authentication_type: Specifies the authentication method DataSync uses to access your Azure Blob Storage. DataSync can access blob storage using a shared access signature (SAS). Default: - "SAS"
-        :param agent_arns: Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container. You can specify more than one agent. For more information, see `Using multiple agents for your transfer <https://docs.aws.amazon.com/datasync/latest/userguide/multiple-agents.html>`_ .
+        :param agent_arns: (Optional) Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container. If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter. You can specify more than one agent. For more information, see `Using multiple agents for your transfer <https://docs.aws.amazon.com/datasync/latest/userguide/multiple-agents.html>`_ . .. epigraph:: Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
         :param azure_access_tier: Specifies the access tier that you want your objects or files transferred into. This only applies when using the location as a transfer destination. For more information, see `Access tiers <https://docs.aws.amazon.com/datasync/latest/userguide/creating-azure-blob-location.html#azure-blob-access-tiers>`_ . Default: - "HOT"
         :param azure_blob_container_url: Specifies the URL of the Azure Blob Storage container involved in your transfer.
-        :param azure_blob_sas_configuration: Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage.
+        :param azure_blob_sas_configuration: Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage. .. epigraph:: If you provide an authentication token using ``SasConfiguration`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's secrets manager secret.
         :param azure_blob_type: Specifies the type of blob that you want your objects or files to be when transferring them into Azure Blob Storage. Currently, DataSync only supports moving data into Azure Blob Storage as block blobs. For more information on blob types, see the `Azure Blob Storage documentation <https://docs.aws.amazon.com/https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs>`_ . Default: - "BLOCK"
-        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
-        :param custom_secret_config: Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key . .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
         :param subdirectory: Specifies path segments if you want to limit your transfer to a virtual directory in your container (for example, ``/my/images`` ).
         :param tags: Specifies labels that help you categorize, filter, and search for your AWS resources. We recommend creating at least a name tag for your transfer location.
 
@@ -1160,9 +1173,14 @@ class CfnLocationAzureBlobProps:
 
     @builtins.property
     def agent_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container.
+        '''(Optional) Specifies the Amazon Resource Name (ARN) of the DataSync agent that can connect with your Azure Blob Storage container.
+
+        If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter.
 
         You can specify more than one agent. For more information, see `Using multiple agents for your transfer <https://docs.aws.amazon.com/datasync/latest/userguide/multiple-agents.html>`_ .
+        .. epigraph::
+
+           Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html#cfn-datasync-locationazureblob-agentarns
         '''
@@ -1197,6 +1215,10 @@ class CfnLocationAzureBlobProps:
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLocationAzureBlob.AzureBlobSasConfigurationProperty]]:
         '''Specifies the SAS configuration that allows DataSync to access your Azure Blob Storage.
 
+        .. epigraph::
+
+           If you provide an authentication token using ``SasConfiguration`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's secrets manager secret.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html#cfn-datasync-locationazureblob-azureblobsasconfiguration
         '''
         result = self._values.get("azure_blob_sas_configuration")
@@ -1219,7 +1241,11 @@ class CfnLocationAzureBlobProps:
     def cmk_secret_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLocationAzureBlob.CmkSecretConfigProperty]]:
-        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
+
+        .. epigraph::
+
+           You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html#cfn-datasync-locationazureblob-cmksecretconfig
         '''
@@ -1230,7 +1256,12 @@ class CfnLocationAzureBlobProps:
     def custom_secret_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLocationAzureBlob.CustomSecretConfigProperty]]:
-        '''Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text.
+
+        This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
+        .. epigraph::
+
+           You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationazureblob.html#cfn-datasync-locationazureblob-customsecretconfig
         '''
@@ -5092,15 +5123,15 @@ class CfnLocationObjectStorage(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param access_key: Specifies the access key (for example, a user name) if credentials are required to authenticate with the object storage server.
-        :param agent_arns: Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system.
+        :param agent_arns: (Optional) Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system. If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter. .. epigraph:: Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
         :param bucket_name: Specifies the name of the object storage bucket involved in the transfer.
-        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
-        :param custom_secret_config: Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
-        :param secret_key: Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server.
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key . When you include this paramater as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials. Make sure the DataSync has permission to access the KMS key that you specify. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param secret_key: Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server. .. epigraph:: If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
         :param server_certificate: Specifies a certificate chain for DataSync to authenticate with your object storage system if the system uses a private or self-signed certificate authority (CA). You must specify a single ``.pem`` file with a full certificate chain (for example, ``file:///home/user/.ssh/object_storage_certificates.pem`` ). The certificate chain might include: - The object storage system's certificate - All intermediate certificates (if there are any) - The root certificate of the signing CA You can concatenate your certificates into a ``.pem`` file (which can be up to 32768 bytes before base64 encoding). The following example ``cat`` command creates an ``object_storage_certificates.pem`` file that includes three certificates: ``cat object_server_certificate.pem intermediate_certificate.pem ca_root_certificate.pem > object_storage_certificates.pem`` To use this parameter, configure ``ServerProtocol`` to ``HTTPS`` .
         :param server_hostname: Specifies the domain name or IP version 4 (IPv4) address of the object storage server that your DataSync agent connects to.
         :param server_port: Specifies the port that your object storage server accepts inbound network traffic on (for example, port 443).
-        :param server_protocol: Specifies the protocol that your object storage server uses to communicate.
+        :param server_protocol: Specifies the protocol that your object storage server uses to communicate. If not specified, the default value is ``HTTPS`` .
         :param subdirectory: Specifies the object prefix for your object storage server. If this is a source location, DataSync only copies objects with this prefix. If this is a destination location, DataSync writes all objects with this prefix.
         :param tags: Specifies the key-value pair that represents a tag that you want to add to the resource. Tags can help you manage, filter, and search for your resources. We recommend creating a name tag for your location.
         '''
@@ -5158,7 +5189,9 @@ class CfnLocationObjectStorage(
     @builtins.property
     @jsii.member(jsii_name="attrCmkSecretConfigSecretArn")
     def attr_cmk_secret_config_secret_arn(self) -> builtins.str:
-        '''Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+        '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
+
+        This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
 
         :cloudformationAttribute: CmkSecretConfig.SecretArn
         '''
@@ -5220,7 +5253,7 @@ class CfnLocationObjectStorage(
     @builtins.property
     @jsii.member(jsii_name="agentArns")
     def agent_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system.'''
+        '''(Optional) Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system.'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "agentArns"))
 
     @agent_arns.setter
@@ -5248,7 +5281,7 @@ class CfnLocationObjectStorage(
     def cmk_secret_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CmkSecretConfigProperty"]]:
-        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.'''
+        '''Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key .'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CmkSecretConfigProperty"]], jsii.get(self, "cmkSecretConfig"))
 
     @cmk_secret_config.setter
@@ -5266,7 +5299,7 @@ class CfnLocationObjectStorage(
     def custom_secret_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CustomSecretConfigProperty"]]:
-        '''Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.'''
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLocationObjectStorage.CustomSecretConfigProperty"]], jsii.get(self, "customSecretConfig"))
 
     @custom_secret_config.setter
@@ -5382,10 +5415,14 @@ class CfnLocationObjectStorage(
             kms_key_arn: typing.Optional[builtins.str] = None,
             secret_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+            '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or secret key that DataSync uses to access a specific storage location, with a customer-managed AWS KMS key .
 
-            :param kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn. DataSync provides this key to AWS Secrets Manager.
-            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+            .. epigraph::
+
+               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+            :param kms_key_arn: Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` . DataSync provides this key to AWS Secrets Manager .
+            :param secret_arn: Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location. This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-cmksecretconfig.html
             :exampleMetadata: fixture=_generated
@@ -5413,9 +5450,9 @@ class CfnLocationObjectStorage(
 
         @builtins.property
         def kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''Specifies the ARN for the customer-managed AWS KMS key used to encrypt the secret specified for SecretArn.
+            '''Specifies the ARN for the customer-managed AWS KMS key that DataSync uses to encrypt the DataSync-managed secret stored for ``SecretArn`` .
 
-            DataSync provides this key to AWS Secrets Manager.
+            DataSync provides this key to AWS Secrets Manager .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-cmksecretconfig.html#cfn-datasync-locationobjectstorage-cmksecretconfig-kmskeyarn
             '''
@@ -5424,7 +5461,9 @@ class CfnLocationObjectStorage(
 
         @builtins.property
         def secret_arn(self) -> typing.Optional[builtins.str]:
-            '''Specifies the ARN for an AWS Secrets Manager secret, managed by DataSync.
+            '''Specifies the ARN for the DataSync-managed AWS Secrets Manager secret that that is used to access a specific storage location.
+
+            This property is generated by DataSync and is read-only. DataSync encrypts this secret with the KMS key that you specify for ``KmsKeyArn`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-cmksecretconfig.html#cfn-datasync-locationobjectstorage-cmksecretconfig-secretarn
             '''
@@ -5457,10 +5496,15 @@ class CfnLocationObjectStorage(
             secret_access_role_arn: builtins.str,
             secret_arn: builtins.str,
         ) -> None:
-            '''Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+            '''Specifies configuration information for a customer-managed Secrets Manager secret where a storage location authentication token or secret key is stored in plain text.
 
-            :param secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
-            :param secret_arn: Specifies the ARN for a customer created AWS Secrets Manager secret.
+            This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
+            .. epigraph::
+
+               You can use either ``CmkSecretConfig`` or ``CustomSecretConfig`` to provide credentials for a ``CreateLocation`` request. Do not provide both parameters for the same request.
+
+            :param secret_access_role_arn: Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
+            :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-customsecretconfig.html
             :exampleMetadata: fixture=_generated
@@ -5487,7 +5531,7 @@ class CfnLocationObjectStorage(
 
         @builtins.property
         def secret_access_role_arn(self) -> builtins.str:
-            '''Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for SecretArn.
+            '''Specifies the ARN for the AWS Identity and Access Management role that DataSync uses to access the secret specified for ``SecretArn`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-customsecretconfig.html#cfn-datasync-locationobjectstorage-customsecretconfig-secretaccessrolearn
             '''
@@ -5497,7 +5541,7 @@ class CfnLocationObjectStorage(
 
         @builtins.property
         def secret_arn(self) -> builtins.str:
-            '''Specifies the ARN for a customer created AWS Secrets Manager secret.
+            '''Specifies the ARN for an AWS Secrets Manager secret.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-locationobjectstorage-customsecretconfig.html#cfn-datasync-locationobjectstorage-customsecretconfig-secretarn
             '''
@@ -5525,7 +5569,7 @@ class CfnLocationObjectStorage(
         def __init__(self, *, secret_arn: builtins.str) -> None:
             '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location.
 
-            DataSync uses the default AWS-managed KMS key to encrypt this secret in AWS Secrets Manager.
+            DataSync uses the default AWS -managed KMS key to encrypt this secret in AWS Secrets Manager .
 
             :param secret_arn: Specifies the ARN for an AWS Secrets Manager secret.
 
@@ -5609,15 +5653,15 @@ class CfnLocationObjectStorageProps:
         '''Properties for defining a ``CfnLocationObjectStorage``.
 
         :param access_key: Specifies the access key (for example, a user name) if credentials are required to authenticate with the object storage server.
-        :param agent_arns: Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system.
+        :param agent_arns: (Optional) Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system. If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter. .. epigraph:: Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
         :param bucket_name: Specifies the name of the object storage bucket involved in the transfer.
-        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
-        :param custom_secret_config: Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
-        :param secret_key: Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server.
+        :param cmk_secret_config: Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key . When you include this paramater as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials. Make sure the DataSync has permission to access the KMS key that you specify. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param custom_secret_config: Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text. This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret. .. epigraph:: You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
+        :param secret_key: Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server. .. epigraph:: If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
         :param server_certificate: Specifies a certificate chain for DataSync to authenticate with your object storage system if the system uses a private or self-signed certificate authority (CA). You must specify a single ``.pem`` file with a full certificate chain (for example, ``file:///home/user/.ssh/object_storage_certificates.pem`` ). The certificate chain might include: - The object storage system's certificate - All intermediate certificates (if there are any) - The root certificate of the signing CA You can concatenate your certificates into a ``.pem`` file (which can be up to 32768 bytes before base64 encoding). The following example ``cat`` command creates an ``object_storage_certificates.pem`` file that includes three certificates: ``cat object_server_certificate.pem intermediate_certificate.pem ca_root_certificate.pem > object_storage_certificates.pem`` To use this parameter, configure ``ServerProtocol`` to ``HTTPS`` .
         :param server_hostname: Specifies the domain name or IP version 4 (IPv4) address of the object storage server that your DataSync agent connects to.
         :param server_port: Specifies the port that your object storage server accepts inbound network traffic on (for example, port 443).
-        :param server_protocol: Specifies the protocol that your object storage server uses to communicate.
+        :param server_protocol: Specifies the protocol that your object storage server uses to communicate. If not specified, the default value is ``HTTPS`` .
         :param subdirectory: Specifies the object prefix for your object storage server. If this is a source location, DataSync only copies objects with this prefix. If this is a destination location, DataSync writes all objects with this prefix.
         :param tags: Specifies the key-value pair that represents a tag that you want to add to the resource. Tags can help you manage, filter, and search for your resources. We recommend creating a name tag for your location.
 
@@ -5705,7 +5749,12 @@ class CfnLocationObjectStorageProps:
 
     @builtins.property
     def agent_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system.
+        '''(Optional) Specifies the Amazon Resource Names (ARNs) of the DataSync agents that can connect with your object storage system.
+
+        If you are setting up an agentless cross-cloud transfer, you do not need to specify a value for this parameter.
+        .. epigraph::
+
+           Make sure you configure this parameter correctly when you first create your storage location. You cannot add or remove agents from a storage location after you create it.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-agentarns
         '''
@@ -5725,7 +5774,14 @@ class CfnLocationObjectStorageProps:
     def cmk_secret_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLocationObjectStorage.CmkSecretConfigProperty]]:
-        '''Specifies configuration information for a DataSync-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and a customer-managed AWS KMS key.
+        '''Specifies configuration information for a DataSync-managed secret, which includes the ``SecretKey`` that DataSync uses to access a specific object storage location, with a customer-managed AWS KMS key .
+
+        When you include this paramater as part of a ``CreateLocationObjectStorage`` request, you provide only the KMS key ARN. DataSync uses this KMS key together with the value you specify for the ``SecretKey`` parameter to create a DataSync-managed secret to store the location access credentials.
+
+        Make sure the DataSync has permission to access the KMS key that you specify.
+        .. epigraph::
+
+           You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-cmksecretconfig
         '''
@@ -5736,7 +5792,12 @@ class CfnLocationObjectStorageProps:
     def custom_secret_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLocationObjectStorage.CustomSecretConfigProperty]]:
-        '''Specifies configuration information for a customer-managed secret, such as an authentication token or set of credentials that DataSync uses to access a specific transfer location, and an IAM role that DataSync can assume and access the customer-managed secret.
+        '''Specifies configuration information for a customer-managed Secrets Manager secret where the secret key for a specific object storage location is stored in plain text.
+
+        This configuration includes the secret ARN, and the ARN for an IAM role that provides access to the secret.
+        .. epigraph::
+
+           You can use either ``CmkSecretConfig`` (with ``SecretKey`` ) or ``CustomSecretConfig`` (without ``SecretKey`` ) to provide credentials for a ``CreateLocationObjectStorage`` request. Do not provide both parameters for the same request.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-customsecretconfig
         '''
@@ -5746,6 +5807,10 @@ class CfnLocationObjectStorageProps:
     @builtins.property
     def secret_key(self) -> typing.Optional[builtins.str]:
         '''Specifies the secret key (for example, a password) if credentials are required to authenticate with the object storage server.
+
+        .. epigraph::
+
+           If you provide a secret using ``SecretKey`` , but do not provide secret configuration details using ``CmkSecretConfig`` or ``CustomSecretConfig`` , then DataSync stores the token using your AWS account's Secrets Manager secret.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-secretkey
         '''
@@ -5796,6 +5861,8 @@ class CfnLocationObjectStorageProps:
     @builtins.property
     def server_protocol(self) -> typing.Optional[builtins.str]:
         '''Specifies the protocol that your object storage server uses to communicate.
+
+        If not specified, the default value is ``HTTPS`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationobjectstorage.html#cfn-datasync-locationobjectstorage-serverprotocol
         '''
@@ -6306,12 +6373,12 @@ class CfnLocationSMB(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param agent_arns: Specifies the DataSync agent (or agents) that can connect to your SMB file server. You specify an agent by using its Amazon Resource Name (ARN).
-        :param authentication_type: Specifies the authentication protocol that DataSync uses to connect to your SMB file server. DataSync supports ``NTLM`` (default) and ``KERBEROS`` authentication. For more information, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
-        :param dns_ip_addresses: Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to. This parameter applies only if ``AuthenticationType`` is set to ``KERBEROS`` . If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
+        :param authentication_type: The authentication mode used to determine identity of user.
+        :param dns_ip_addresses: Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to. This parameter applies only if AuthenticationType is set to KERBEROS. If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
         :param domain: Specifies the Windows domain name that your SMB file server belongs to. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` . If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right file server.
-        :param kerberos_keytab: Specifies your Kerberos key table (keytab) file, which includes mappings between your Kerberos principal and encryption keys. The file must be base64 encoded. To avoid task execution errors, make sure that the Kerberos principal that you use to create the keytab file matches exactly what you specify for ``KerberosPrincipal`` .
-        :param kerberos_krb5_conf: Specifies a Kerberos configuration file ( ``krb5.conf`` ) that defines your Kerberos realm configuration. The file must be base64 encoded.
-        :param kerberos_principal: Specifies a Kerberos prinicpal, which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server. A Kerberos principal might look like ``HOST/kerberosuser@MYDOMAIN.ORG`` . Principal names are case sensitive. Your DataSync task execution will fail if the principal that you specify for this parameter doesn’t exactly match the principal that you use to create the keytab file.
+        :param kerberos_keytab: The Base64 string representation of the Keytab file. Specifies your Kerberos key table (keytab) file, which includes mappings between your service principal name (SPN) and encryption keys. To avoid task execution errors, make sure that the SPN in the keytab file matches exactly what you specify for KerberosPrincipal and in your krb5.conf file.
+        :param kerberos_krb5_conf: The string representation of the Krb5Conf file, or the presigned URL to access the Krb5.conf file within an S3 bucket. Specifies a Kerberos configuration file (krb5.conf) that defines your Kerberos realm configuration. To avoid task execution errors, make sure that the service principal name (SPN) in the krb5.conf file matches exactly what you specify for KerberosPrincipal and in your keytab file.
+        :param kerberos_principal: Specifies a service principal name (SPN), which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server. SPNs are case sensitive and must include a prepended cifs/. For example, an SPN might look like cifs/kerberosuser@EXAMPLE.COM. Your task execution will fail if the SPN that you provide for this parameter doesn't match exactly what's in your keytab or krb5.conf files.
         :param mount_options: Specifies the version of the SMB protocol that DataSync uses to access your SMB file server.
         :param password: Specifies the password of the user who can mount your SMB file server and has permission to access the files and folders involved in your transfer. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
         :param server_hostname: Specifies the domain name or IP address of the SMB file server that your DataSync agent connects to. Remember the following when configuring this parameter: - You can't specify an IP version 6 (IPv6) address. - If you're using Kerberos authentication, you must specify a domain name.
@@ -6416,7 +6483,7 @@ class CfnLocationSMB(
     @builtins.property
     @jsii.member(jsii_name="authenticationType")
     def authentication_type(self) -> typing.Optional[builtins.str]:
-        '''Specifies the authentication protocol that DataSync uses to connect to your SMB file server.'''
+        '''The authentication mode used to determine identity of user.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "authenticationType"))
 
     @authentication_type.setter
@@ -6458,7 +6525,7 @@ class CfnLocationSMB(
     @builtins.property
     @jsii.member(jsii_name="kerberosKeytab")
     def kerberos_keytab(self) -> typing.Optional[builtins.str]:
-        '''Specifies your Kerberos key table (keytab) file, which includes mappings between your Kerberos principal and encryption keys.'''
+        '''The Base64 string representation of the Keytab file.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kerberosKeytab"))
 
     @kerberos_keytab.setter
@@ -6471,7 +6538,7 @@ class CfnLocationSMB(
     @builtins.property
     @jsii.member(jsii_name="kerberosKrb5Conf")
     def kerberos_krb5_conf(self) -> typing.Optional[builtins.str]:
-        '''Specifies a Kerberos configuration file ( ``krb5.conf`` ) that defines your Kerberos realm configuration.'''
+        '''The string representation of the Krb5Conf file, or the presigned URL to access the Krb5.conf file within an S3 bucket. Specifies a Kerberos configuration file (krb5.conf) that defines your Kerberos realm configuration. To avoid task execution errors, make sure that the service principal name (SPN) in the krb5.conf file matches exactly what you specify for KerberosPrincipal and in your keytab file.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kerberosKrb5Conf"))
 
     @kerberos_krb5_conf.setter
@@ -6484,7 +6551,7 @@ class CfnLocationSMB(
     @builtins.property
     @jsii.member(jsii_name="kerberosPrincipal")
     def kerberos_principal(self) -> typing.Optional[builtins.str]:
-        '''Specifies a Kerberos prinicpal, which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server.'''
+        '''Specifies a service principal name (SPN), which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kerberosPrincipal"))
 
     @kerberos_principal.setter
@@ -6686,12 +6753,12 @@ class CfnLocationSMBProps:
         '''Properties for defining a ``CfnLocationSMB``.
 
         :param agent_arns: Specifies the DataSync agent (or agents) that can connect to your SMB file server. You specify an agent by using its Amazon Resource Name (ARN).
-        :param authentication_type: Specifies the authentication protocol that DataSync uses to connect to your SMB file server. DataSync supports ``NTLM`` (default) and ``KERBEROS`` authentication. For more information, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
-        :param dns_ip_addresses: Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to. This parameter applies only if ``AuthenticationType`` is set to ``KERBEROS`` . If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
+        :param authentication_type: The authentication mode used to determine identity of user.
+        :param dns_ip_addresses: Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to. This parameter applies only if AuthenticationType is set to KERBEROS. If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
         :param domain: Specifies the Windows domain name that your SMB file server belongs to. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` . If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right file server.
-        :param kerberos_keytab: Specifies your Kerberos key table (keytab) file, which includes mappings between your Kerberos principal and encryption keys. The file must be base64 encoded. To avoid task execution errors, make sure that the Kerberos principal that you use to create the keytab file matches exactly what you specify for ``KerberosPrincipal`` .
-        :param kerberos_krb5_conf: Specifies a Kerberos configuration file ( ``krb5.conf`` ) that defines your Kerberos realm configuration. The file must be base64 encoded.
-        :param kerberos_principal: Specifies a Kerberos prinicpal, which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server. A Kerberos principal might look like ``HOST/kerberosuser@MYDOMAIN.ORG`` . Principal names are case sensitive. Your DataSync task execution will fail if the principal that you specify for this parameter doesn’t exactly match the principal that you use to create the keytab file.
+        :param kerberos_keytab: The Base64 string representation of the Keytab file. Specifies your Kerberos key table (keytab) file, which includes mappings between your service principal name (SPN) and encryption keys. To avoid task execution errors, make sure that the SPN in the keytab file matches exactly what you specify for KerberosPrincipal and in your krb5.conf file.
+        :param kerberos_krb5_conf: The string representation of the Krb5Conf file, or the presigned URL to access the Krb5.conf file within an S3 bucket. Specifies a Kerberos configuration file (krb5.conf) that defines your Kerberos realm configuration. To avoid task execution errors, make sure that the service principal name (SPN) in the krb5.conf file matches exactly what you specify for KerberosPrincipal and in your keytab file.
+        :param kerberos_principal: Specifies a service principal name (SPN), which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server. SPNs are case sensitive and must include a prepended cifs/. For example, an SPN might look like cifs/kerberosuser@EXAMPLE.COM. Your task execution will fail if the SPN that you provide for this parameter doesn't match exactly what's in your keytab or krb5.conf files.
         :param mount_options: Specifies the version of the SMB protocol that DataSync uses to access your SMB file server.
         :param password: Specifies the password of the user who can mount your SMB file server and has permission to access the files and folders involved in your transfer. This parameter applies only if ``AuthenticationType`` is set to ``NTLM`` .
         :param server_hostname: Specifies the domain name or IP address of the SMB file server that your DataSync agent connects to. Remember the following when configuring this parameter: - You can't specify an IP version 6 (IPv6) address. - If you're using Kerberos authentication, you must specify a domain name.
@@ -6788,11 +6855,7 @@ class CfnLocationSMBProps:
 
     @builtins.property
     def authentication_type(self) -> typing.Optional[builtins.str]:
-        '''Specifies the authentication protocol that DataSync uses to connect to your SMB file server.
-
-        DataSync supports ``NTLM`` (default) and ``KERBEROS`` authentication.
-
-        For more information, see `Providing DataSync access to SMB file servers <https://docs.aws.amazon.com/datasync/latest/userguide/create-smb-location.html#configuring-smb-permissions>`_ .
+        '''The authentication mode used to determine identity of user.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-authenticationtype
         '''
@@ -6803,9 +6866,7 @@ class CfnLocationSMBProps:
     def dns_ip_addresses(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies the IPv4 addresses for the DNS servers that your SMB file server belongs to.
 
-        This parameter applies only if ``AuthenticationType`` is set to ``KERBEROS`` .
-
-        If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
+        This parameter applies only if AuthenticationType is set to KERBEROS. If you have multiple domains in your environment, configuring this parameter makes sure that DataSync connects to the right SMB file server.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-dnsipaddresses
         '''
@@ -6827,11 +6888,9 @@ class CfnLocationSMBProps:
 
     @builtins.property
     def kerberos_keytab(self) -> typing.Optional[builtins.str]:
-        '''Specifies your Kerberos key table (keytab) file, which includes mappings between your Kerberos principal and encryption keys.
+        '''The Base64 string representation of the Keytab file.
 
-        The file must be base64 encoded.
-
-        To avoid task execution errors, make sure that the Kerberos principal that you use to create the keytab file matches exactly what you specify for ``KerberosPrincipal`` .
+        Specifies your Kerberos key table (keytab) file, which includes mappings between your service principal name (SPN) and encryption keys. To avoid task execution errors, make sure that the SPN in the keytab file matches exactly what you specify for KerberosPrincipal and in your krb5.conf file.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-kerberoskeytab
         '''
@@ -6840,9 +6899,7 @@ class CfnLocationSMBProps:
 
     @builtins.property
     def kerberos_krb5_conf(self) -> typing.Optional[builtins.str]:
-        '''Specifies a Kerberos configuration file ( ``krb5.conf`` ) that defines your Kerberos realm configuration.
-
-        The file must be base64 encoded.
+        '''The string representation of the Krb5Conf file, or the presigned URL to access the Krb5.conf file within an S3 bucket. Specifies a Kerberos configuration file (krb5.conf) that defines your Kerberos realm configuration. To avoid task execution errors, make sure that the service principal name (SPN) in the krb5.conf file matches exactly what you specify for KerberosPrincipal and in your keytab file.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-kerberoskrb5conf
         '''
@@ -6851,11 +6908,9 @@ class CfnLocationSMBProps:
 
     @builtins.property
     def kerberos_principal(self) -> typing.Optional[builtins.str]:
-        '''Specifies a Kerberos prinicpal, which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server.
+        '''Specifies a service principal name (SPN), which is an identity in your Kerberos realm that has permission to access the files, folders, and file metadata in your SMB file server.
 
-        A Kerberos principal might look like ``HOST/kerberosuser@MYDOMAIN.ORG`` .
-
-        Principal names are case sensitive. Your DataSync task execution will fail if the principal that you specify for this parameter doesn’t exactly match the principal that you use to create the keytab file.
+        SPNs are case sensitive and must include a prepended cifs/. For example, an SPN might look like cifs/kerberosuser@EXAMPLE.COM. Your task execution will fail if the SPN that you provide for this parameter doesn't match exactly what's in your keytab or krb5.conf files.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-locationsmb.html#cfn-datasync-locationsmb-kerberosprincipal
         '''
@@ -7084,8 +7139,8 @@ class CfnTask(
         :param options: Specifies your task's settings, such as preserving file metadata, verifying data integrity, among other options.
         :param schedule: Specifies a schedule for when you want your task to run. For more information, see `Scheduling your task <https://docs.aws.amazon.com/datasync/latest/userguide/task-scheduling.html>`_ .
         :param tags: Specifies the tags that you want to apply to your task. *Tags* are key-value pairs that help you manage, filter, and search for your DataSync resources.
-        :param task_mode: Specifies one of the following task modes for your data transfer:. - ``ENHANCED`` - Transfer virtually unlimited numbers of objects with higher performance than Basic mode. Enhanced mode tasks optimize the data transfer process by listing, preparing, transferring, and verifying data in parallel. Enhanced mode is currently available for transfers between Amazon S3 locations. .. epigraph:: To create an Enhanced mode task, the IAM role that you use to call the ``CreateTask`` operation must have the ``iam:CreateServiceLinkedRole`` permission. - ``BASIC`` (default) - Transfer files or objects between AWS storage and all other supported DataSync locations. Basic mode tasks are subject to `quotas <https://docs.aws.amazon.com/datasync/latest/userguide/datasync-limits.html>`_ on the number of files, objects, and directories in a dataset. Basic mode sequentially prepares, transfers, and verifies data, making it slower than Enhanced mode for most workloads. For more information, see `Understanding task mode differences <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html#task-mode-differences>`_ .
-        :param task_report_config: Specifies how you want to configure a task report, which provides detailed information about your DataSync transfer. For more information, see `Monitoring your DataSync transfers with task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ . When using this parameter, your caller identity (the role that you're using DataSync with) must have the ``iam:PassRole`` permission. The `AWSDataSyncFullAccess <https://docs.aws.amazon.com/datasync/latest/userguide/security-iam-awsmanpol.html#security-iam-awsmanpol-awsdatasyncfullaccess>`_ policy includes this permission.
+        :param task_mode: The task mode that you're using. For more information, see `Choosing a task mode for your data transfer <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html>`_ .
+        :param task_report_config: The configuration of your task report, which provides detailed information about your DataSync transfer. For more information, see `Monitoring your DataSync transfers with task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9add9673a1f0ceb078949e967bce91066ff7e0441dae95d55c11c4a503a397a6)
@@ -7343,7 +7398,7 @@ class CfnTask(
     @builtins.property
     @jsii.member(jsii_name="taskMode")
     def task_mode(self) -> typing.Optional[builtins.str]:
-        '''Specifies one of the following task modes for your data transfer:.'''
+        '''The task mode that you're using.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "taskMode"))
 
     @task_mode.setter
@@ -7358,7 +7413,7 @@ class CfnTask(
     def task_report_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskReportConfigProperty"]]:
-        '''Specifies how you want to configure a task report, which provides detailed information about your DataSync transfer.'''
+        '''The configuration of your task report, which provides detailed information about your DataSync transfer.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TaskReportConfigProperty"]], jsii.get(self, "taskReportConfig"))
 
     @task_report_config.setter
@@ -7382,9 +7437,11 @@ class CfnTask(
             *,
             report_level: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The reporting level for the deleted section of your DataSync task report.
+            '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to delete in your destination location.
 
-            :param report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't. - ``ERRORS_ONLY`` : A report shows what DataSync was unable to delete. - ``SUCCESSES_AND_ERRORS`` : A report shows what DataSync was able and unable to delete.
+            This only applies if you configure your task to delete data in the destination that isn't in the source.
+
+            :param report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-deleted.html
             :exampleMetadata: fixture=_generated
@@ -7409,9 +7466,6 @@ class CfnTask(
         @builtins.property
         def report_level(self) -> typing.Optional[builtins.str]:
             '''Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
-
-            - ``ERRORS_ONLY`` : A report shows what DataSync was unable to delete.
-            - ``SUCCESSES_AND_ERRORS`` : A report shows what DataSync was able and unable to delete.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-deleted.html#cfn-datasync-task-deleted-reportlevel
             '''
@@ -7440,7 +7494,7 @@ class CfnTask(
             *,
             s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.S3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''Specifies where DataSync uploads your `task report <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ .
+            '''Specifies where DataSync uploads your task report.
 
             :param s3: Specifies the Amazon S3 bucket where DataSync uploads your task report.
 
@@ -7692,11 +7746,9 @@ class CfnTask(
         ) -> None:
             '''Specifies the S3 bucket where you're hosting the manifest that you want AWS DataSync to use.
 
-            For more information and configuration examples, see `Specifying what DataSync transfers by using a manifest <https://docs.aws.amazon.com/datasync/latest/userguide/transferring-with-manifest.html>`_ .
-
-            :param bucket_access_role_arn: Specifies the AWS Identity and Access Management (IAM) role that allows DataSync to access your manifest. For more information, see `Providing DataSync access to your manifest <https://docs.aws.amazon.com/datasync/latest/userguide/transferring-with-manifest.html#transferring-with-manifest-access>`_ .
-            :param manifest_object_path: Specifies the Amazon S3 object key of your manifest. This can include a prefix (for example, ``prefix/my-manifest.csv`` ).
-            :param manifest_object_version_id: Specifies the object version ID of the manifest that you want DataSync to use. If you don't set this, DataSync uses the latest version of the object.
+            :param bucket_access_role_arn: Specifies the AWS Identity and Access Management (IAM) role that allows DataSync to access your manifest.
+            :param manifest_object_path: Specifies the Amazon S3 object key of your manifest.
+            :param manifest_object_version_id: Specifies the object version ID of the manifest that you want DataSync to use.
             :param s3_bucket_arn: Specifies the Amazon Resource Name (ARN) of the S3 bucket where you're hosting your manifest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-manifestconfigsources3.html
@@ -7735,8 +7787,6 @@ class CfnTask(
         def bucket_access_role_arn(self) -> typing.Optional[builtins.str]:
             '''Specifies the AWS Identity and Access Management (IAM) role that allows DataSync to access your manifest.
 
-            For more information, see `Providing DataSync access to your manifest <https://docs.aws.amazon.com/datasync/latest/userguide/transferring-with-manifest.html#transferring-with-manifest-access>`_ .
-
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-manifestconfigsources3.html#cfn-datasync-task-manifestconfigsources3-bucketaccessrolearn
             '''
             result = self._values.get("bucket_access_role_arn")
@@ -7746,8 +7796,6 @@ class CfnTask(
         def manifest_object_path(self) -> typing.Optional[builtins.str]:
             '''Specifies the Amazon S3 object key of your manifest.
 
-            This can include a prefix (for example, ``prefix/my-manifest.csv`` ).
-
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-manifestconfigsources3.html#cfn-datasync-task-manifestconfigsources3-manifestobjectpath
             '''
             result = self._values.get("manifest_object_path")
@@ -7756,8 +7804,6 @@ class CfnTask(
         @builtins.property
         def manifest_object_version_id(self) -> typing.Optional[builtins.str]:
             '''Specifies the object version ID of the manifest that you want DataSync to use.
-
-            If you don't set this, DataSync uses the latest version of the object.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-manifestconfigsources3.html#cfn-datasync-task-manifestconfigsources3-manifestobjectversionid
             '''
@@ -8211,12 +8257,12 @@ class CfnTask(
         ) -> None:
             '''Customizes the reporting level for aspects of your task report.
 
-            For example, your report might generally only include errors, but you could specify that you want a list of successes and errors just for the files that DataSync attempted to delete in your destination location.
+            For example, your report might generally only include errors, but you could specify that you want a list of successes and errors just for the files that Datasync attempted to delete in your destination location.
 
-            :param deleted: Specifies the level of reporting for the files, objects, and directories that DataSync attempted to delete in your destination location. This only applies if you `configure your task <https://docs.aws.amazon.com/datasync/latest/userguide/configure-metadata.html>`_ to delete data in the destination that isn't in the source.
-            :param skipped: Specifies the level of reporting for the files, objects, and directories that DataSync attempted to skip during your transfer.
-            :param transferred: Specifies the level of reporting for the files, objects, and directories that DataSync attempted to transfer.
-            :param verified: Specifies the level of reporting for the files, objects, and directories that DataSync attempted to verify during your transfer.
+            :param deleted: Specifies the level of reporting for the files, objects, and directories that Datasync attempted to delete in your destination location. This only applies if you configure your task to delete data in the destination that isn't in the source.
+            :param skipped: Specifies the level of reporting for the files, objects, and directories that Datasync attempted to skip during your transfer.
+            :param transferred: Specifies the level of reporting for the files, objects, and directories that Datasync attempted to transfer.
+            :param verified: Specifies the level of reporting for the files, objects, and directories that Datasync attempted to verify at the end of your transfer. This only applies if you configure your task to verify data during and after the transfer (which Datasync does by default)
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-overrides.html
             :exampleMetadata: fixture=_generated
@@ -8262,9 +8308,9 @@ class CfnTask(
         def deleted(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.DeletedProperty"]]:
-            '''Specifies the level of reporting for the files, objects, and directories that DataSync attempted to delete in your destination location.
+            '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to delete in your destination location.
 
-            This only applies if you `configure your task <https://docs.aws.amazon.com/datasync/latest/userguide/configure-metadata.html>`_ to delete data in the destination that isn't in the source.
+            This only applies if you configure your task to delete data in the destination that isn't in the source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-overrides.html#cfn-datasync-task-overrides-deleted
             '''
@@ -8275,7 +8321,7 @@ class CfnTask(
         def skipped(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.SkippedProperty"]]:
-            '''Specifies the level of reporting for the files, objects, and directories that DataSync attempted to skip during your transfer.
+            '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to skip during your transfer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-overrides.html#cfn-datasync-task-overrides-skipped
             '''
@@ -8286,7 +8332,7 @@ class CfnTask(
         def transferred(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.TransferredProperty"]]:
-            '''Specifies the level of reporting for the files, objects, and directories that DataSync attempted to transfer.
+            '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to transfer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-overrides.html#cfn-datasync-task-overrides-transferred
             '''
@@ -8297,7 +8343,9 @@ class CfnTask(
         def verified(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.VerifiedProperty"]]:
-            '''Specifies the level of reporting for the files, objects, and directories that DataSync attempted to verify during your transfer.
+            '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to verify at the end of your transfer.
+
+            This only applies if you configure your task to verify data during and after the transfer (which Datasync does by default)
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-overrides.html#cfn-datasync-task-overrides-verified
             '''
@@ -8411,9 +8459,9 @@ class CfnTask(
             *,
             report_level: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The reporting level for the skipped section of your DataSync task report.
+            '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to skip during your transfer.
 
-            :param report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't. - ``ERRORS_ONLY`` : A report shows what DataSync was unable to skip. - ``SUCCESSES_AND_ERRORS`` : A report shows what DataSync was able and unable to skip.
+            :param report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-skipped.html
             :exampleMetadata: fixture=_generated
@@ -8438,9 +8486,6 @@ class CfnTask(
         @builtins.property
         def report_level(self) -> typing.Optional[builtins.str]:
             '''Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
-
-            - ``ERRORS_ONLY`` : A report shows what DataSync was unable to skip.
-            - ``SUCCESSES_AND_ERRORS`` : A report shows what DataSync was able and unable to skip.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-skipped.html#cfn-datasync-task-skipped-reportlevel
             '''
@@ -8469,11 +8514,9 @@ class CfnTask(
             *,
             s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTask.ManifestConfigSourceS3Property", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''Specifies the manifest that you want AWS DataSync to use and where it's hosted.
+            '''Specifies the manifest that you want DataSync to use and where it's hosted.
 
-            For more information and configuration examples, see `Specifying what DataSync transfers by using a manifest <https://docs.aws.amazon.com/datasync/latest/userguide/transferring-with-manifest.html>`_ .
-
-            :param s3: Specifies the S3 bucket where you're hosting your manifest.
+            :param s3: Specifies the S3 bucket where you're hosting the manifest that you want AWS DataSync to use.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-source.html
             :exampleMetadata: fixture=_generated
@@ -8504,7 +8547,7 @@ class CfnTask(
         def s3(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTask.ManifestConfigSourceS3Property"]]:
-            '''Specifies the S3 bucket where you're hosting your manifest.
+            '''Specifies the S3 bucket where you're hosting the manifest that you want AWS DataSync to use.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-source.html#cfn-datasync-task-source-s3
             '''
@@ -8698,7 +8741,7 @@ class CfnTask(
             '''Configures your AWS DataSync task to run on a `schedule <https://docs.aws.amazon.com/datasync/latest/userguide/task-scheduling.html>`_ (at a minimum interval of 1 hour).
 
             :param schedule_expression: Specifies your task schedule by using a cron or rate expression. Use cron expressions for task schedules that run on a specific time and day. For example, the following cron expression creates a task schedule that runs at 8 AM on the first Wednesday of every month: ``cron(0 8 * * 3#1)`` Use rate expressions for task schedules that run on a regular interval. For example, the following rate expression creates a task schedule that runs every 12 hours: ``rate(12 hours)`` For information about cron and rate expression syntax, see the `*Amazon EventBridge User Guide* <https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-scheduled-rule-pattern.html>`_ .
-            :param status: Specifies whether to enable or disable your task schedule. Your schedule is enabled by default, but there can be situations where you need to disable it. For example, you might need to perform maintenance on a storage system before you can begin a recurring DataSync transfer. DataSync might disable your schedule automatically if your task fails repeatedly with the same error. For more information, see the `*DataSync User Guide* <https://docs.aws.amazon.com/datasync/latest/userguide/task-scheduling.html#pause-task-schedule>`_ .
+            :param status: Specifies whether to enable or disable your task schedule. Your schedule is enabled by default, but there can be situations where you need to disable it. For example, you might need to pause a recurring transfer to fix an issue with your task or perform maintenance on your storage system. DataSync might disable your schedule automatically if your task fails repeatedly with the same error. For more information, see `TaskScheduleDetails <https://docs.aws.amazon.com/datasync/latest/userguide/API_TaskScheduleDetails.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-taskschedule.html
             :exampleMetadata: fixture=_generated
@@ -8747,9 +8790,9 @@ class CfnTask(
         def status(self) -> typing.Optional[builtins.str]:
             '''Specifies whether to enable or disable your task schedule.
 
-            Your schedule is enabled by default, but there can be situations where you need to disable it. For example, you might need to perform maintenance on a storage system before you can begin a recurring DataSync transfer.
+            Your schedule is enabled by default, but there can be situations where you need to disable it. For example, you might need to pause a recurring transfer to fix an issue with your task or perform maintenance on your storage system.
 
-            DataSync might disable your schedule automatically if your task fails repeatedly with the same error. For more information, see the `*DataSync User Guide* <https://docs.aws.amazon.com/datasync/latest/userguide/task-scheduling.html#pause-task-schedule>`_ .
+            DataSync might disable your schedule automatically if your task fails repeatedly with the same error. For more information, see `TaskScheduleDetails <https://docs.aws.amazon.com/datasync/latest/userguide/API_TaskScheduleDetails.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-taskschedule.html#cfn-datasync-task-taskschedule-status
             '''
@@ -8778,9 +8821,9 @@ class CfnTask(
             *,
             report_level: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The reporting level for the transferred section of your DataSync task report.
+            '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to transfer.
 
-            :param report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't. - ``ERRORS_ONLY`` : A report shows what DataSync was unable to transfer. - ``SUCCESSES_AND_ERRORS`` : A report shows what DataSync was able and unable to transfer.
+            :param report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-transferred.html
             :exampleMetadata: fixture=_generated
@@ -8805,9 +8848,6 @@ class CfnTask(
         @builtins.property
         def report_level(self) -> typing.Optional[builtins.str]:
             '''Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
-
-            - ``ERRORS_ONLY`` : A report shows what DataSync was unable to transfer.
-            - ``SUCCESSES_AND_ERRORS`` : A report shows what DataSync was able and unable to transfer.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-transferred.html#cfn-datasync-task-transferred-reportlevel
             '''
@@ -8836,9 +8876,11 @@ class CfnTask(
             *,
             report_level: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The reporting level for the verified section of your DataSync task report.
+            '''Specifies the level of reporting for the files, objects, and directories that Datasync attempted to verify at the end of your transfer.
 
-            :param report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't. - ``ERRORS_ONLY`` : A report shows what DataSync was unable to verify. - ``SUCCESSES_AND_ERRORS`` : A report shows what DataSync was able and unable to verify.
+            This only applies if you configure your task to verify data during and after the transfer (which Datasync does by default)
+
+            :param report_level: Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-verified.html
             :exampleMetadata: fixture=_generated
@@ -8863,9 +8905,6 @@ class CfnTask(
         @builtins.property
         def report_level(self) -> typing.Optional[builtins.str]:
             '''Specifies whether you want your task report to include only what went wrong with your transfer or a list of what succeeded and didn't.
-
-            - ``ERRORS_ONLY`` : A report shows what DataSync was unable to verify.
-            - ``SUCCESSES_AND_ERRORS`` : A report shows what DataSync was able and unable to verify.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datasync-task-verified.html#cfn-datasync-task-verified-reportlevel
             '''
@@ -8931,8 +8970,8 @@ class CfnTaskProps:
         :param options: Specifies your task's settings, such as preserving file metadata, verifying data integrity, among other options.
         :param schedule: Specifies a schedule for when you want your task to run. For more information, see `Scheduling your task <https://docs.aws.amazon.com/datasync/latest/userguide/task-scheduling.html>`_ .
         :param tags: Specifies the tags that you want to apply to your task. *Tags* are key-value pairs that help you manage, filter, and search for your DataSync resources.
-        :param task_mode: Specifies one of the following task modes for your data transfer:. - ``ENHANCED`` - Transfer virtually unlimited numbers of objects with higher performance than Basic mode. Enhanced mode tasks optimize the data transfer process by listing, preparing, transferring, and verifying data in parallel. Enhanced mode is currently available for transfers between Amazon S3 locations. .. epigraph:: To create an Enhanced mode task, the IAM role that you use to call the ``CreateTask`` operation must have the ``iam:CreateServiceLinkedRole`` permission. - ``BASIC`` (default) - Transfer files or objects between AWS storage and all other supported DataSync locations. Basic mode tasks are subject to `quotas <https://docs.aws.amazon.com/datasync/latest/userguide/datasync-limits.html>`_ on the number of files, objects, and directories in a dataset. Basic mode sequentially prepares, transfers, and verifies data, making it slower than Enhanced mode for most workloads. For more information, see `Understanding task mode differences <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html#task-mode-differences>`_ .
-        :param task_report_config: Specifies how you want to configure a task report, which provides detailed information about your DataSync transfer. For more information, see `Monitoring your DataSync transfers with task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ . When using this parameter, your caller identity (the role that you're using DataSync with) must have the ``iam:PassRole`` permission. The `AWSDataSyncFullAccess <https://docs.aws.amazon.com/datasync/latest/userguide/security-iam-awsmanpol.html#security-iam-awsmanpol-awsdatasyncfullaccess>`_ policy includes this permission.
+        :param task_mode: The task mode that you're using. For more information, see `Choosing a task mode for your data transfer <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html>`_ .
+        :param task_report_config: The configuration of your task report, which provides detailed information about your DataSync transfer. For more information, see `Monitoring your DataSync transfers with task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html
         :exampleMetadata: fixture=_generated
@@ -9185,17 +9224,9 @@ class CfnTaskProps:
 
     @builtins.property
     def task_mode(self) -> typing.Optional[builtins.str]:
-        '''Specifies one of the following task modes for your data transfer:.
+        '''The task mode that you're using.
 
-        - ``ENHANCED`` - Transfer virtually unlimited numbers of objects with higher performance than Basic mode. Enhanced mode tasks optimize the data transfer process by listing, preparing, transferring, and verifying data in parallel. Enhanced mode is currently available for transfers between Amazon S3 locations.
-
-        .. epigraph::
-
-           To create an Enhanced mode task, the IAM role that you use to call the ``CreateTask`` operation must have the ``iam:CreateServiceLinkedRole`` permission.
-
-        - ``BASIC`` (default) - Transfer files or objects between AWS storage and all other supported DataSync locations. Basic mode tasks are subject to `quotas <https://docs.aws.amazon.com/datasync/latest/userguide/datasync-limits.html>`_ on the number of files, objects, and directories in a dataset. Basic mode sequentially prepares, transfers, and verifies data, making it slower than Enhanced mode for most workloads.
-
-        For more information, see `Understanding task mode differences <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html#task-mode-differences>`_ .
+        For more information, see `Choosing a task mode for your data transfer <https://docs.aws.amazon.com/datasync/latest/userguide/choosing-task-mode.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-taskmode
         '''
@@ -9206,11 +9237,9 @@ class CfnTaskProps:
     def task_report_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTask.TaskReportConfigProperty]]:
-        '''Specifies how you want to configure a task report, which provides detailed information about your DataSync transfer.
+        '''The configuration of your task report, which provides detailed information about your DataSync transfer.
 
         For more information, see `Monitoring your DataSync transfers with task reports <https://docs.aws.amazon.com/datasync/latest/userguide/task-reports.html>`_ .
-
-        When using this parameter, your caller identity (the role that you're using DataSync with) must have the ``iam:PassRole`` permission. The `AWSDataSyncFullAccess <https://docs.aws.amazon.com/datasync/latest/userguide/security-iam-awsmanpol.html#security-iam-awsmanpol-awsdatasyncfullaccess>`_ policy includes this permission.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datasync-task.html#cfn-datasync-task-taskreportconfig
         '''

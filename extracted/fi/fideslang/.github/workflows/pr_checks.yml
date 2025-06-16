@@ -1,0 +1,137 @@
+name: Static Checks
+
+on:
+  pull_request:
+    branches:
+      - "*"
+
+env:
+  CONTAINER: fideslang-local
+  IMAGE: ethyca/fideslang:local
+  DEFAULT_PYTHON_VERSION: "3.10.11"
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build fideslang container
+        uses: docker/build-push-action@v2
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          target: prod
+          outputs: type=docker,dest=/tmp/${{ env.CONTAINER }}.tar
+          push: false
+          tags: ${{ env.IMAGE }}
+
+      - name: Upload fideslang container
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.CONTAINER }}
+          path: /tmp/${{ env.CONTAINER }}.tar
+          retention-days: 1
+
+  Export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10.11"
+          cache: "pip"
+
+      - name: Pin Cython
+        run: |
+          echo 'Cython < 3.0' > /tmp/constraint.txt
+          PIP_CONSTRAINT=/tmp/constraint.txt pip wheel PyYAML==5.4.1
+          pip install 'PyYAML==5.4.1'
+
+      - name: Install Package
+        run: pip install .
+
+      - name: Run Export
+        run: python scripts/export_default_taxonomy.py
+
+  Static-Checks:
+    continue-on-error: true
+    strategy:
+      matrix:
+        session_name: ["black", "mypy", "pylint", "xenon"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Pin Cython
+        run: |
+          echo 'Cython < 3.0' > /tmp/constraint.txt
+          PIP_CONSTRAINT=/tmp/constraint.txt pip wheel PyYAML==5.4.1
+          pip install 'PyYAML==5.4.1'
+
+      - name: Install Nox
+        run: pip install nox
+
+      - name: Run Static Check
+        run: nox -s ${{ matrix.session_name }}
+
+  Pytest-Matrix:
+    strategy:
+      matrix:
+        python_version: ["3.9", "3.10", "3.11"]
+        pydantic_version: ["2.3.0", "2.4.2",  "2.5.3", "2.6.4", "2.7.1"]
+        pyyaml_version: ["5.4.1", "6.0.1"]
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python_version }}
+          cache: "pip"
+
+      - name: Pin Cython
+        run: |
+          echo 'Cython < 3.0' > /tmp/constraint.txt
+          PIP_CONSTRAINT=/tmp/constraint.txt pip wheel PyYAML==5.4.1
+          pip install 'PyYAML==5.4.1'
+
+      - name: Install Nox
+        run: pip install nox
+
+      - name: Run Tests
+        run: nox -s "tests-${{ matrix.python_version }}(pyyaml_version='${{ matrix.pyyaml_version }}', pydantic_version='${{ matrix.pydantic_version }}')"
+
+  CSV-Checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Check CSV Files
+        run: |
+          echo "Check all data_files/*.csv for any empty lines..."
+          ls -l data_files/*.csv
+          if grep -n -E '^$' data_files/*.csv; then
+            echo "Error: empty lines found (see grep matches above)"
+            exit 1
+          fi
+          echo "Success!"

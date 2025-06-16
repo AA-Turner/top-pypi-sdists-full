@@ -24,3 +24,14 @@ releases:
       - 6-type.yml
       - python-3.13.yml
     release_date: '2024-12-14'
+  1.2.0:
+    changes:
+      minor_changes:
+        - Add helper ``antsibull_docutils.rst_code_finder.find_code_blocks()`` that
+          allows to find code blocks in RST files. This is useful for linters and
+          also code that wants to modify the code block's contents. (https://github.com/ansible-community/antsibull-docutils/pull/12).
+      release_summary: Feature release.
+    fragments:
+      - 1.2.0.yml
+      - 12-rst-find-code.yml
+    release_date: '2025-06-16'

@@ -107,7 +107,7 @@ def create_file_after_timeout_and_setpgrp(path, timeout):
 def launch_process_within_worker_and_store_pid(path, timeout):
     p = subprocess.Popen(['sleep', str(timeout)])
     with open(path, 'w') as f:
-        f.write('{}'.format(p.pid))
+        f.write(f'{p.pid}')
     p.wait()
 
 
@@ -179,7 +179,12 @@ def save_key_ttl(key):
     job.save_meta()
 
 
-def long_running_job(timeout=10):
+def long_running_job(timeout=10, horse_pid_key=None):
+
+    job = get_current_job()
+    if horse_pid_key:
+        # Store the PID of the worker horse in a key
+        job.connection.set(horse_pid_key, os.getpid(), ex=60)
     time.sleep(timeout)
     return 'Done sleeping...'
 
@@ -203,13 +208,29 @@ def run_dummy_heroku_worker(sandbox, _imminent_shutdown_delay, connection):
             for i in range(20):
                 time.sleep(0.1)
             create_file(os.path.join(sandbox, 'finished'))
+            return True
 
     w = TestHerokuWorker(Queue('dummy', connection=connection), connection=connection)
-    w.main_work_horse(None, None)
+    w.main_work_horse(None, None)  # type: ignore[no-untyped-call]
 
 
 class DummyQueue:
     pass
+
+
+def kill_horse(horse_pid_key: str, connection_kwargs: dict, interval: float = 1.5):
+    """
+    Kill the worker horse process by its PID stored in a Redis key.
+    :param horse_pid_key: Redis key where the horse PID is stored
+    :param connection_kwargs: Connection parameters for Redis
+    :param interval: Time to wait before sending the kill signal
+    """
+    time.sleep(interval)
+    redis = Redis(**connection_kwargs)
+    value = redis.get(horse_pid_key)
+    if value:
+        pid = int(value)
+        os.kill(pid, signal.SIGKILL)
 
 
 def kill_worker(pid: int, double_kill: bool, interval: float = 1.5):

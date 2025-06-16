@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "pydid"
+version = "0.5.2"
+description = "Python library for validating, constructing, and representing DIDs and DID Documents"
+authors = ["Daniel Bluhm <dbluhm@pm.me>"]
+license = "Apache 2.0"
+readme = "README.md"
+homepage = "https://github.com/Indicio-tech/pydid"
+repository = "https://github.com/Indicio-tech/pydid"
+keywords = [
+    "decentralized", "identity", "ssi", "DID", "DID Document"
+]
+
+[build-system]
+requires = ["setuptools", "poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.dependencies]
+python = "^3.9.0"
+pydantic = "^2.7.0"
+typing-extensions = "^4.7.0"
+inflection = "^0.5.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.3.4"
+poetry = "^1.8.5"
+pre-commit = "^4.0.1"
+ruff = "^0.8.4"
+pytest-coverage = "^0.0"
+aiohttp = "^3.11.11"
+pytest-asyncio = "^0.25.0"
+coverage = {extras = ["toml"], version = "^7.6.10"}
+
+[tool.pytest.ini_options]
+addopts = "-p no:warnings --cov pydid --doctest-modules"
+markers = "int: integration tests"
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@abstract"
+]
+precision = 2
+show_missing = true
+
+[tool.ruff]
+lint.select = ["E", "F", "C", "D"]
+
+lint.ignore = [
+    # Google Python Doc Style
+    "D203", "D204", "D213", "D215", "D400", "D401", "D404", "D406", "D407",
+    "D408", "D409", "D413",
+    "D202", # Allow blank line after docstring
+    "D104", # Don't require docstring in public package
+]
+
+line-length = 90
+
+[tool.ruff.lint.per-file-ignores]
+"**/{tests}/*" = ["F841", "D", "E501"]

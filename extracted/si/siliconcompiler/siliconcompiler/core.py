@@ -18,9 +18,9 @@ import csv
 import yaml
 from inspect import getfullargspec
 from siliconcompiler import Schema
-from siliconcompiler.schema import SCHEMA_VERSION, PerNode, JournalingSchema, EditableSchema
+from siliconcompiler.schema import SCHEMA_VERSION, PerNode, Journal, EditableSchema
 from siliconcompiler.schema.parametertype import NodeType
-from siliconcompiler.schema.parametervalue import FileNodeValue, PathNodeValue
+from siliconcompiler.schema.parametervalue import FileNodeValue
 from siliconcompiler.schema import utils as schema_utils
 from siliconcompiler import utils
 from siliconcompiler.utils.logging import SCColorLoggerFormatter, \
@@ -34,9 +34,8 @@ from siliconcompiler.report import _generate_summary_image, _open_summary_image
 from siliconcompiler.report.dashboard.web import WebDashboard
 from siliconcompiler.report.dashboard.cli import CliDashboard
 from siliconcompiler.report.dashboard import DashboardType
-from siliconcompiler import package as sc_package
 import glob
-from siliconcompiler.scheduler import run as sc_runner
+from siliconcompiler.scheduler.scheduler import Scheduler
 from siliconcompiler.utils.flowgraph import _check_flowgraph_io, _get_flowgraph_information
 from siliconcompiler.tools._common import get_tool_task
 from types import FunctionType, ModuleType
@@ -1102,7 +1101,8 @@ class Chip:
         '''
 
         if package:
-            filename = os.path.join(sc_package.path(self, package), filename)
+            resolvers = self.get("package", field="schema").get_resolvers()
+            filename = os.path.join(resolvers[package](), filename)
 
         if not os.path.isfile(filename):
             raise FileNotFoundError(filename)
@@ -1110,10 +1110,16 @@ class Chip:
         package_name = f'flist-{os.path.basename(filename)}'
         package_dir = os.path.dirname(os.path.abspath(filename))
 
-        env_vars = utils.get_env_vars(self, None, None)
-
         def __make_path(rel, path):
-            path = PathNodeValue.resolve_env_vars(path, envvars=env_vars)
+            env_save = os.environ.copy()
+            schema_env = {}
+            for env in self.getkeys('option', 'env'):
+                schema_env[env] = self.get('option', 'env', env)
+            os.environ.update(schema_env)
+            path = os.path.expandvars(path)
+            path = os.path.expanduser(path)
+            os.environ.clear()
+            os.environ.update(env_save)
             if os.path.isabs(path):
                 if path.startswith(rel):
                     return os.path.relpath(path, rel), package_name
@@ -1380,18 +1386,17 @@ class Chip:
         else:
             search_paths = [self.cwd]
 
-        env_vars = utils.get_env_vars(self, step, index)
+        resolvers = self.get("package", field="schema").get_resolvers()
         for (dependency, path) in zip(dependencies, paths):
             faux_param = FileNodeValue()
             faux_param.set(path)
             try:
                 if dependency:
                     faux_param.set(dependency, field='package')
-                    faux_search = [os.path.abspath(os.path.join(sc_package.path(self, dependency)))]
+                    faux_search = [resolvers[dependency]()]
                 else:
                     faux_search = search_paths
                 resolved = faux_param.resolve_path(
-                    envvars=env_vars,
                     search=faux_search,
                     collection_dir=collection_dir)
             except FileNotFoundError:
@@ -1547,39 +1552,19 @@ class Chip:
             True if all file paths are valid, otherwise False.
         '''
 
-        allkeys = self.allkeys()
-        error = False
-        for keypath in allkeys:
-            paramtype = self.get(*keypath, field='type')
-            is_file = 'file' in paramtype
-            is_dir = 'dir' in paramtype
-            is_list = paramtype.startswith('[')
+        ignore_keys = []
+        for keypath in self.allkeys():
+            if keypath[-2:] == ('option', 'builddir'):
+                ignore_keys.append(keypath)
 
-            if is_file or is_dir:
-                if keypath[-2:] == ('option', 'builddir'):
-                    # Skip ['option', 'builddir'] since it will get created by run() if it doesn't
-                    # exist
-                    continue
+        package_map = self.get("package", field="schema").get_resolvers()
 
-                for check_files, step, index in self.schema.get(*keypath, field=None).getvalues():
-                    if not check_files:
-                        continue
-
-                    if not is_list:
-                        check_files = [check_files]
-
-                    for idx, check_file in enumerate(check_files):
-                        found_file = self.__find_files(*keypath,
-                                                       missing_ok=True,
-                                                       step=step, index=index,
-                                                       list_index=idx)
-                        if is_list:
-                            found_file = found_file[0]
-                        if not found_file:
-                            self.logger.error(f"Parameter {keypath} path {check_file} is invalid")
-                            error = True
-
-        return not error
+        return self.schema.check_filepaths(
+            ignore_keys=ignore_keys,
+            logger=self.logger,
+            packages=package_map,
+            collection_dir=self._getcollectdir(),
+            cwd=self.cwd)
 
     ###########################################################################
     def check_manifest(self):
@@ -1796,10 +1781,7 @@ class Chip:
             schema.write_manifest(filepath)
             return
 
-        tcl_record = False
-        if isinstance(schema, JournalingSchema):
-            tcl_record = "get" in schema.get_journaling_types()
-            schema = schema.get_base_schema()
+        tcl_record = "get" in Journal.access(schema).get_types()
 
         is_csv = re.search(r'(\.csv)(\.gz)*$', filepath)
 
@@ -3201,9 +3183,14 @@ class Chip:
             >>> run()
             Runs the execution flow defined by the flowgraph dictionary.
         '''
+        from siliconcompiler.remote.client import ClientScheduler
 
         try:
-            sc_runner(self)
+            if self.get('option', 'remote'):
+                scheduler = ClientScheduler(self)
+            else:
+                scheduler = Scheduler(self)
+            scheduler.run()
         except Exception as e:
             if raise_exception:
                 raise e

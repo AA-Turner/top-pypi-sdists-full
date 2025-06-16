@@ -5,7 +5,7 @@ import sys
 # Constants
 MAX_VALUE = sys.maxsize / 2
 
-__all__ = ["jittered", "exponential", "fixed"]
+__all__ = ["exponential", "fixed", "jittered"]
 
 
 def from_iterable(iterable):
@@ -31,27 +31,29 @@ def from_iterable_factory(iterable_factory):
     return IterableRetryBackoff()
 
 
-class RetryBackoff(object):
+class RetryBackoff:
     """
     Base class for a strategy that calculates the timeout between
     retry attempts.
 
-    You can compose two ``RetryBackoff`` instances by using the ``|``
-    operator::
+    You can compose two `RetryBackoff` instances by using the `|`
+    operator:
 
-        CustomBackoffA() | CustomBackoffB()
+    ```python
+    CustomBackoffA() | CustomBackoffB()
+    ```
 
     The resulting backoff strategy will first compute the timeout using
-    the left-hand instance. If that timeout is ``None``, the strategy
+    the left-hand instance. If that timeout is `None`, the strategy
     will try to compute a fallback using the right-hand instance. If
-    both instances return ``None``, the resulting strategy will also
-    return ``None``.
+    both instances return `None`, the resulting strategy will also
+    return `None`.
     """
 
     def get_timeout_after_response(self, request, response):
         """
         Returns the number of seconds to wait before retrying the
-        request, or ``None`` to indicate that the given response should
+        request, or `None` to indicate that the given response should
         be returned.
         """
         raise NotImplementedError  # pragma: no cover
@@ -73,9 +75,7 @@ class RetryBackoff(object):
 
     def __or__(self, other):
         """Composes the current strategy with another."""
-        assert isinstance(
-            other, RetryBackoff
-        ), "Both objects should be backoffs."
+        assert isinstance(other, RetryBackoff), "Both objects should be backoffs."
         return _Or(self, other)
 
 
@@ -137,8 +137,8 @@ class jittered(_IterableBackoff):
     """
     Waits using capped exponential backoff and full jitter.
 
-    The implementation is discussed in `this AWS Architecture Blog
-    post <https://amzn.to/2xc2nK2>`_, which recommends this approach
+    The implementation is discussed in [this AWS Architecture Blog
+    post](https://amzn.to/2xc2nK2), which recommends this approach
     for any remote clients, as it minimizes the total completion
     time of competing clients in a distributed system experiencing
     high contention.
@@ -155,8 +155,8 @@ class jittered(_IterableBackoff):
 class exponential(_IterableBackoff):
     """
     Waits using capped exponential backoff, meaning that the delay
-    is multiplied by a constant ``base`` after each attempt, up to
-    an optional ``maximum`` value.
+    is multiplied by a constant `base` after each attempt, up to
+    an optional `maximum` value.
     """
 
     def __init__(self, base=2, multiplier=1, minimum=0, maximum=MAX_VALUE):
@@ -175,7 +175,7 @@ class exponential(_IterableBackoff):
 
 
 class fixed(_IterableBackoff):
-    """Waits for a fixed number of ``seconds`` before each retry."""
+    """Waits for a fixed number of `seconds` before each retry."""
 
     def __init__(self, seconds):
         self._seconds = seconds

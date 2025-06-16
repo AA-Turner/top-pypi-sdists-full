@@ -16,17 +16,10 @@ class BearerAuth(httpx.Auth):
     def _build_auth_header(self, token:str) -> str:
         return f"Bearer {token}"
 
-class URL(BaseModel):
-    base:str = Field(..., description="Base URL")
-
-    @property
-    def api(self) -> str:
-        return f"{self.base}/api"
-
 class ClientHTTPControllerManager:
     def __init__(self, url:str) -> None:
         self._client = httpx.AsyncClient()
-        self._url = URL(base=url)
+        self._url = url
 
     async def _client_handler(self) -> AsyncGenerator[httpx.AsyncClient, None]:
         """Reusable generator for client handling."""
@@ -51,7 +44,7 @@ class ClientHTTPControllerManager:
         return self._client
 
     @property
-    def url(self) -> URL:
+    def url(self) -> str:
         return self._url
 
     async def dispose(self) -> None:

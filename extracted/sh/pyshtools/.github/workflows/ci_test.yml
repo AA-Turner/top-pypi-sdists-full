@@ -1,0 +1,65 @@
+name: Continuous Integration Tests
+
+on:
+  pull_request:
+    branches: [master, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.9', '3.12']
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 250
+        fetch-tags: true
+
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+        mamba-version: "*"
+        channels: conda-forge
+        channel-priority: strict
+        auto-update-conda: true
+        miniconda-version: "latest"
+        activate-environment: ci_test
+        environment-file: environment.yml
+
+    - name: Set up Conda environment
+      shell: bash -l {0}
+      run: |
+        conda list -n ci_test
+
+    - name: Install gcc for macOS
+      shell: bash -l {0}
+      if: ${{ matrix.os == 'macos-latest' }}
+      run: |
+        brew reinstall gcc
+
+    - name: Build using pip
+      shell: bash -l {0}
+      run: |
+        conda env list
+        pip install --no-deps .
+
+    - name: Run tests
+      shell: bash -l {0}
+      run: |
+        conda env list
+        python examples/notebooks/test_notebooks.py
+        export MPLBACKEND=Agg
+        make -C examples/python -f Makefile no-timing
+        mkdir empty && cd empty
+        python -c "import pyshtools"

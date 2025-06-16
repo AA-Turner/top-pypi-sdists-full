@@ -2,6 +2,8 @@
 import shutil
 import textwrap
 
+from rich.markup import escape
+
 from mcli.utils.utils_date import format_timestamp
 from mcli.utils.utils_event_type import EventType
 
@@ -28,6 +30,7 @@ def format_event_message(event_message, event_type, max_line_width, indent_size=
     formatted_lines = []
 
     for idx, line in enumerate(lines):
+        line = escape(line)
         if idx == 0:
             line = f"[red]{line}[/]"
 

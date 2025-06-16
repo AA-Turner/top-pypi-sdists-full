@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import builtins
 import concurrent.futures
 import copy
 import inspect
@@ -27,6 +28,8 @@ from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
 
 from numpy.exceptions import ComplexWarning
+
+from . import exceptions
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -277,8 +280,9 @@ class LazyArray(ABC):
         Parameters
         ----------
         item: slice, list of slices, optional
-            If not None, only the chunks that intersect with the slices
-            in items will be evaluated.
+            If provided, item is used to slice the operands *prior* to computation; not to retrieve specified slices of
+            the evaluated result. This difference between slicing operands and slicing the final expression
+            is important when reductions or a where clause are used in the expression.
 
         kwargs: Any, optional
             Keyword arguments that are supported by the :func:`empty` constructor.
@@ -327,7 +331,9 @@ class LazyArray(ABC):
         Parameters
         ----------
         item: int, slice or sequence of slices
-            The slice(s) to be retrieved. Note that step parameter is not yet honored.
+            If provided, item is used to slice the operands *prior* to computation; not to retrieve specified slices of
+            the evaluated result. This difference between slicing operands and slicing the final expression
+            is important when reductions or a where clause are used in the expression.
 
         Returns
         -------
@@ -464,6 +470,10 @@ class LazyArray(ABC):
             "data": self[()],
             "version": 3,
         }
+
+    # Provide a way to serialize the LazyArray
+    def to_cframe(self):
+        return self.compute().to_cframe()
 
 
 def convert_inputs(inputs):
@@ -1373,7 +1383,8 @@ def slices_eval(  # noqa: C901
             for i, (c, s) in enumerate(zip(coords, chunks, strict=True))
         )
         # Check whether current slice_ intersects with _slice
-        if _slice is not None and _slice != ():
+        checker = _slice.item() if hasattr(_slice, "item") else _slice  # can't use != when _slice is np.int
+        if checker is not None and checker != ():
             # Ensure that _slice is of type slice
             key = ndindex.ndindex(_slice).expand(shape).raw
             _slice = tuple(k if isinstance(k, slice) else slice(k, k + 1, None) for k in key)
@@ -1503,19 +1514,7 @@ def slices_eval(  # noqa: C901
         else:
             raise ValueError("The where condition must be a tuple with one or two elements")
 
-    if orig_slice is not None:
-        if isinstance(out, np.ndarray):
-            out = out[orig_slice]
-            if _order is not None:
-                indices_ = indices_[orig_slice]
-        elif isinstance(out, blosc2.NDArray):
-            # It *seems* better to choose an automatic chunks and blocks for the output array
-            # out = out.slice(orig_slice, chunks=out.chunks, blocks=out.blocks)
-            out = out.slice(orig_slice)
-        else:
-            raise ValueError("The output array is not a NumPy array or a NDArray")
-
-    if where is not None and len(where) < 2:
+    if where is not None and len(where) < 2:  # Don't need to take orig_slice since filled up from 0 index
         if _order is not None:
             # argsort the result following _order
             new_order = np.argsort(out[:lenout])
@@ -1526,6 +1525,19 @@ def slices_eval(  # noqa: C901
             out = out[:lenout]
         else:
             out.resize((lenout,))
+
+    else:  # Need to take orig_slice since filled up array according to slice_ for each chunk
+        if orig_slice is not None:
+            if isinstance(out, np.ndarray):
+                out = out[orig_slice]
+                if _order is not None:
+                    indices_ = indices_[orig_slice]
+            elif isinstance(out, blosc2.NDArray):
+                # It *seems* better to choose an automatic chunks and blocks for the output array
+                # out = out.slice(orig_slice, chunks=out.chunks, blocks=out.blocks)
+                out = out.slice(orig_slice)
+            else:
+                raise ValueError("The output array is not a NumPy array or a NDArray")
 
     return out
 
@@ -1822,7 +1834,8 @@ def chunked_eval(  # noqa: C901
     operands: dict
         A dictionary containing the operands for the expression.
     item: int, slice or sequence of slices, optional
-        The slice(s) to be retrieved. Note that step parameter is not honored yet.
+        The slice(s) of the operands to be used in computation. Note that step parameter is not honored yet.
+        Item is used to slice the operands PRIOR to computation.
     kwargs: Any, optional
         Additional keyword arguments supported by the :func:`empty` constructor.  In addition,
         the following keyword arguments are supported:
@@ -2597,7 +2610,7 @@ class LazyExpr(LazyArray):
             _globals = get_expr_globals(self.expression)
             lazy_expr = eval(self.expression, _globals, self.operands)
             if not isinstance(lazy_expr, blosc2.LazyExpr):
-                key, _ = process_key(item, self.shape)
+                key, mask = process_key(item, self.shape)
                 # An immediate evaluation happened (e.g. all operands are numpy arrays)
                 if hasattr(self, "_where_args"):
                     # We need to apply the where() operation
@@ -2614,7 +2627,11 @@ class LazyExpr(LazyArray):
                     # This is not exactly optimized, but it works for now
                     self._output[:] = lazy_expr[key]
                     return self._output
-                return lazy_expr[key]
+                arr = lazy_expr[key]
+                if builtins.sum(mask) > 0:
+                    # Correct shape to adjust to NumPy convention
+                    arr.shape = tuple(arr.shape[i] for i in range(len(mask)) if not mask[i])
+                return arr
 
             return chunked_eval(lazy_expr.expression, lazy_expr.operands, item, **kwargs)
 
@@ -2713,6 +2730,9 @@ class LazyExpr(LazyArray):
     def __getitem__(self, item):
         kwargs = {"_getitem": True}
         return self.compute(item, **kwargs)
+
+    def slice(self, item):
+        return self.compute(item)  # should do a slice since _getitem = False
 
     def __str__(self):
         return f"{self.expression}"
@@ -3276,14 +3296,16 @@ def _open_lazyarray(array):
     operands = lazyarray["operands"]
     parent_path = Path(array.schunk.urlpath).parent
     operands_dict = {}
+    missing_ops = {}
     for key, value in operands.items():
         if isinstance(value, str):
             value = parent_path / value
             try:
                 op = blosc2.open(value)
             except FileNotFoundError:
-                op = None
-            operands_dict[key] = op
+                missing_ops[key] = value
+            else:
+                operands_dict[key] = op
         elif isinstance(value, dict):
             # C2Array
             operands_dict[key] = blosc2.C2Array(
@@ -3294,16 +3316,17 @@ def _open_lazyarray(array):
             raise TypeError("Error when retrieving the operands")
 
     expr = lazyarray["expression"]
-    try:
-        new_expr = LazyExpr._new_expr(expr, operands_dict, guess=True, out=None, where=None)
-        # Make the array info available for the user (only available when opened from disk)
-        new_expr.array = array
-        # We want to expose schunk too, so that .info() can be used on the LazyArray
-        new_expr.schunk = array.schunk
-    except RuntimeError:
-        # Something unexpected happened. Avoid guessing and return something that
-        # can be introspected.
-        new_expr = LazyExpr._new_expr(expr, operands_dict, guess=False, out=None, where=None)
+    if missing_ops:
+        exc = exceptions.MissingOperands(expr, missing_ops)
+        exc.expr = expr
+        exc.missing_ops = missing_ops
+        raise exc
+
+    new_expr = LazyExpr._new_expr(expr, operands_dict, guess=True, out=None, where=None)
+    # Make the array info available for the user (only available when opened from disk)
+    new_expr.array = array
+    # We want to expose schunk too, so that .info() can be used on the LazyArray
+    new_expr.schunk = array.schunk
     return new_expr
 
 

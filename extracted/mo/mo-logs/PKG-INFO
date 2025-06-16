@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: mo-logs
-Version: 8.678.25061
+Version: 8.685.25166
 Summary: More Logs! Structured Logging and Exception Handling
 Home-page: https://github.com/klahnakoski/mo-logs
 Author: Kyle Lahnakoski
@@ -18,18 +18,18 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mo-dots==10.678.25061
-Requires-Dist: mo-future==7.678.25061
-Requires-Dist: mo-imports==7.678.25061
-Requires-Dist: mo-kwargs==7.678.25061
+Requires-Dist: mo-dots==10.685.25166
+Requires-Dist: mo-future==7.685.25166
+Requires-Dist: mo-imports==7.685.25166
+Requires-Dist: mo-kwargs==7.685.25166
 Provides-Extra: tests
-Requires-Dist: mo-json>=6.637.24140; extra == "tests"
-Requires-Dist: mo-threads>=6.634.24139; extra == "tests"
-Requires-Dist: mo-testing>=8.667.25032; extra == "tests"
-Requires-Dist: mo-kwargs>=7.632.24139; extra == "tests"
-Requires-Dist: jx-python>=4.626.24125; extra == "tests"
+Requires-Dist: mo-json>=6.672.25036; extra == "tests"
+Requires-Dist: mo-threads>=6.672.25036; extra == "tests"
+Requires-Dist: mo-testing>=8.674.25037; extra == "tests"
+Requires-Dist: mo-kwargs>=7.672.25036; extra == "tests"
+Requires-Dist: jx-python>=4.673.25037; extra == "tests"
 Requires-Dist: boto>=2.49.0; extra == "tests"
-Requires-Dist: beautifulsoup4>=4.13.3; extra == "tests"
+Requires-Dist: beautifulsoup4>=4.13.4; extra == "tests"
 Requires-Dist: graypy>=2.1.0; extra == "tests"
 Dynamic: author
 Dynamic: author-email
@@ -38,6 +38,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary

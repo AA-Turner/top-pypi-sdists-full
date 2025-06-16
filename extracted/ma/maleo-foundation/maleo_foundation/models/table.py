@@ -11,12 +11,7 @@ class BaseTable:
     def __tablename__(cls) -> str:
         return CaseFormatter.to_snake_case(cls.__name__)
 
-    #* ----- ----- Common columns definition ----- ----- *#
-
-    #* Identifiers
-    id = Column(Integer, primary_key=True)
-    uuid = Column(UUID, default=uuid4, unique=True, nullable=False)
-
+class DataMixin:
     #* Timestamps
     created_at = Column(
         TIMESTAMP(timezone=True),
@@ -44,3 +39,34 @@ class BaseTable:
         default=BaseEnums.StatusType.ACTIVE,
         nullable=False
     )
+
+class DataIdentifiers:
+    #* Identifiers
+    id = Column(Integer, primary_key=True)
+    uuid = Column(UUID, default=uuid4, unique=True, nullable=False)
+
+class DataTable(
+    DataMixin,
+    DataIdentifiers
+): pass
+
+class AccessIdentifiers:
+    #* Identifiers
+    access_id = Column(Integer, primary_key=True)
+    access_uuid = Column(UUID, default=uuid4, unique=True, nullable=False)
+    accessed_at = Column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+    accessed_by = Column(Integer, default=0, nullable=False)
+
+class AccessMixin:
+    id = Column(Integer)
+    uuid = Column(UUID)
+
+class AccessTable(
+    DataMixin,
+    AccessMixin,
+    AccessIdentifiers
+): pass

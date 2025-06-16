@@ -1,72 +1,67 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: s3pathlib
-Version: 2.3.2
-Summary: Objective Oriented Interface for AWS S3, similar to pathlib.
-Home-page: https://github.com/aws-samples/s3pathlib-project
-Download-URL: https://pypi.python.org/pypi/s3pathlib/2.3.2#downloads
+Version: 2.3.3
+Summary: s3pathlib is the python package provides the Pythonic objective oriented programming (OOP) interface to manipulate AWS S3 object / directory. The api is similar to the pathlib standard library and very intuitive for human.
+License: Apache-2.0
 Author: Sanhe Hu
-Author-email: husanhe@gmail.com
+Author-email: husanhe@email.com
 Maintainer: Sanhe Hu
-Maintainer-email: sanhehu@amazon.com
-License: Apache License 2.0
-Platform: Windows
-Platform: MacOS
-Platform: Unix
-Classifier: Development Status :: 4 - Beta
-Classifier: Intended Audience :: Developers
+Maintainer-email: husanhe@email.com
+Requires-Python: >=3.9,<4.0
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Intended Audience :: Developers
-Classifier: Natural Language :: English
-Classifier: Operating System :: Microsoft :: Windows
-Classifier: Operating System :: MacOS
-Classifier: Operating System :: Unix
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.7
-License-File: LICENSE
-License-File: NOTICE
-License-File: AUTHORS.rst
-Requires-Dist: boto3
-Requires-Dist: iterproxy<1.0.0,>=0.2.1
-Requires-Dist: func_args<1.0.0,>=0.1.1
-Requires-Dist: pathlib_mate<2.0.0,>=1.0.1
-Requires-Dist: boto_session_manager<2.0.0,>=1.5.1
-Requires-Dist: smart_open<8.0.0,>=5.1.0
-Requires-Dist: cached-property>=1.5.2; python_version < "3.8"
-Provides-Extra: tests
-Requires-Dist: pytest; extra == "tests"
-Requires-Dist: pytest-cov; extra == "tests"
-Requires-Dist: decorator; extra == "tests"
-Requires-Dist: moto<6.0.0,>=5.0.28; extra == "tests"
-Requires-Dist: rich; extra == "tests"
-Provides-Extra: docs
-Requires-Dist: Sphinx==5.3.0; extra == "docs"
-Requires-Dist: sphinx-jinja==2.0.2; extra == "docs"
-Requires-Dist: sphinx-copybutton==0.5.1; extra == "docs"
-Requires-Dist: sphinx-design==0.5.0; extra == "docs"
-Requires-Dist: furo==2023.03.27; extra == "docs"
-Requires-Dist: nbsphinx==0.8.12; extra == "docs"
-Requires-Dist: rstobj==1.2.1; extra == "docs"
-Requires-Dist: pygments==2.15.1; extra == "docs"
-Requires-Dist: ipython==8.10.0; extra == "docs"
-Requires-Dist: docfly==2.0.3; extra == "docs"
+Provides-Extra: auto
+Provides-Extra: dev
+Provides-Extra: doc
+Provides-Extra: test
+Requires-Dist: Sphinx (>=7.4.7,<8.0.0) ; extra == "doc"
+Requires-Dist: boto3 (>=1.33.0,<2.0.0)
+Requires-Dist: boto3-stubs[s3,sts] (>=1.33.0,<2.0.0) ; extra == "dev"
+Requires-Dist: boto_session_manager (>=1.5.1,<2.0.0)
+Requires-Dist: build (>=1.2.1,<2.0.0) ; extra == "dev"
+Requires-Dist: decorator (>=5.0.5,<6.0.0) ; extra == "test"
+Requires-Dist: docfly (==3.0.0) ; extra == "doc"
+Requires-Dist: func_args (>=0.1.1,<2.0.0)
+Requires-Dist: furo (==2024.8.6) ; extra == "doc"
+Requires-Dist: ipython (>=8.18.1,<8.19.0) ; extra == "doc"
+Requires-Dist: iterproxy (>=0.3.1,<1.0.0)
+Requires-Dist: moto (>=5.0.28,<6.0.0) ; extra == "test"
+Requires-Dist: nbsphinx (>=0.8.12,<1.0.0) ; extra == "doc"
+Requires-Dist: pathlib_mate (>=1.0.1,<2.0.0)
+Requires-Dist: pygments (>=2.18.0,<3.0.0) ; extra == "doc"
+Requires-Dist: pytest (>=8.2.2,<9.0.0) ; extra == "test"
+Requires-Dist: pytest-cov (>=6.0.0,<7.0.0) ; extra == "test"
+Requires-Dist: rich (>=13.8.1,<14.0.0) ; extra == "dev"
+Requires-Dist: rich (>=13.8.1,<14.0.0) ; extra == "test"
+Requires-Dist: rstobj (==1.2.1) ; extra == "doc"
+Requires-Dist: smart_open (>=5.1.0,<8.0.0)
+Requires-Dist: sphinx-copybutton (>=0.5.2,<1.0.0) ; extra == "doc"
+Requires-Dist: sphinx-design (>=0.6.1,<1.0.0) ; extra == "doc"
+Requires-Dist: sphinx-jinja (>=2.0.2,<3.0.0) ; extra == "doc"
+Requires-Dist: twine (>=6.0.0,<7.0.0) ; extra == "dev"
+Requires-Dist: wheel (>=0.45.0,<1.0.0) ; extra == "dev"
+Project-URL: Changelog, https://github.com/MacHu-GWU/s3pathlib-project/blob/main/release-history.rst
+Project-URL: Documentation, https://s3pathlib.readthedocs.io/en/latest/
+Project-URL: Download, https://pypi.org/pypi/s3pathlib#files
+Project-URL: Homepage, https://github.com/MacHu-GWU/s3pathlib-project
+Project-URL: Issues, https://github.com/MacHu-GWU/s3pathlib-project/issues
+Project-URL: Repository, https://github.com/MacHu-GWU/s3pathlib-project
+Description-Content-Type: text/x-rst
 
 .. image:: https://readthedocs.org/projects/s3pathlib/badge/?version=latest
     :target: https://s3pathlib.readthedocs.io/en/latest/
     :alt: Documentation Status
 
-.. image:: https://github.com/aws-samples/s3pathlib-project/workflows/CI/badge.svg
-    :target: https://github.com/aws-samples/s3pathlib-project/actions?query=workflow:CI
+.. image:: https://github.com/MacHu-GWU/s3pathlib-project/actions/workflows/main.yml/badge.svg
+    :target: https://github.com/MacHu-GWU/s3pathlib-project/actions?query=workflow:CI
 
-.. image:: https://img.shields.io/badge/codecov-100%25-brightgreen
-    :target: https://github.com/aws-samples/s3pathlib-project/actions?query=workflow:CI
+.. image:: https://codecov.io/gh/MacHu-GWU/s3pathlib-project/branch/main/graph/badge.svg
+    :target: https://codecov.io/gh/MacHu-GWU/s3pathlib-project
 
 .. image:: https://img.shields.io/pypi/v/s3pathlib.svg
     :target: https://pypi.python.org/pypi/s3pathlib
@@ -80,13 +75,13 @@ Requires-Dist: docfly==2.0.3; extra == "docs"
 .. image:: https://img.shields.io/pypi/dm/s3pathlib.svg
     :target: https://pypi.python.org/pypi/s3pathlib
 
-.. image:: https://img.shields.io/badge/STAR_Me_on_GitHub!--None.svg?style=social
+.. image:: https://img.shields.io/badge/✍️_Release_History!--None.svg?style=social&logo=github
+    :target: https://github.com/MacHu-GWU/s3pathlib-project/blob/main/release-history.rst
+
+.. image:: https://img.shields.io/badge/⭐_Star_me_on_GitHub!--None.svg?style=social&logo=github
     :target: https://github.com/aws-samples/s3pathlib-project
 
 ------
-
-.. image:: https://img.shields.io/badge/Link-Document-orange.svg
-    :target: https://s3pathlib.readthedocs.io/en/latest/
 
 .. image:: https://img.shields.io/badge/Link-API-blue.svg
     :target: https://s3pathlib.readthedocs.io/en/latest/py-modindex.html
@@ -264,3 +259,4 @@ Please see the `Contribution Guidelines <https://github.com/aws-samples/s3pathli
 Copyright
 ------------------------------------------------------------------------------
 s3pathlib is an open source project. See the `LICENSE <https://github.com/aws-samples/s3pathlib-project/blob/main/LICENSE>`_ file for more information.
+

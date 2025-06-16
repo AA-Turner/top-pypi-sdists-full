@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio_core
-Version: 0.7.17
+Version: 0.7.18
 Summary: Core package to act as a bridge between composio platform and other services.
 Home-page: https://github.com/composiohq/composio
 Author: Utkarsh

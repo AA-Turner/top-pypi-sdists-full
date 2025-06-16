@@ -1,0 +1,187 @@
+Metadata-Version: 2.1
+Name: aiosfstream
+Version: 0.5.0
+Summary: Salesforce Streaming API client for asyncio
+Home-page: https://github.com/robertmrk/aiosfstream
+Author: Róbert Márki
+Author-email: gsmiko@gmail.com
+License: MIT
+Project-URL: CI, https://travis-ci.org/robertmrk/aiosfstream
+Project-URL: Coverage, https://coveralls.io/github/robertmrk/aiosfstream
+Project-URL: Docs, http://aiosfstream.readthedocs.io/
+Description: aiosfstream
+        ===========
+        
+        .. image:: https://badge.fury.io/py/aiosfstream.svg
+            :target: https://badge.fury.io/py/aiosfstream
+            :alt: PyPI package
+        
+        .. image:: https://readthedocs.org/projects/aiosfstream/badge/?version=latest
+            :target: http://aiosfstream.readthedocs.io/en/latest/?badge=latest
+            :alt: Documentation Status
+        
+        .. image:: https://travis-ci.org/robertmrk/aiosfstream.svg?branch=develop
+            :target: https://travis-ci.org/robertmrk/aiosfstream
+            :alt: Build status
+        
+        .. image:: https://coveralls.io/repos/github/robertmrk/aiosfstream/badge.svg
+            :target: https://coveralls.io/github/robertmrk/aiosfstream
+            :alt: Coverage
+        
+        .. image:: https://img.shields.io/badge/License-MIT-yellow.svg
+            :target: https://opensource.org/licenses/MIT
+            :alt: MIT license
+        
+        aiosfstream is a `Salesforce Streaming API <api_>`_ client for asyncio_. It can
+        be used to receive push notifications about changes on Salesforce objects or
+        notifications of general events sent through the `Streaming API <api_>`_.
+        
+        For detailed guidance on how to work with `PushTopics <PushTopic_>`_ or how
+        to create `Generic Streaming Channels <GenericStreaming_>`_ please consult the
+        `Streaming API documentation <api_>`_.
+        For working with `Platform Events <PlatformEvents_>`_ or
+        `Change Data Capture events <ChangeDataCapture_>`_ check out the linked
+        documentation.
+        
+        Features
+        --------
+        
+        - Supported authentication types:
+           - using a username and password
+           - using a refresh token
+        - Subscribe to and receive messages on:
+            - `PushTopics <PushTopic_>`_
+            - `Generic Streaming Channels <GenericStreaming_>`_
+            - `Platform Events <PlatformEvents_>`_
+            - `Change Data Capture events <ChangeDataCapture_>`_
+        - Support for `durable messages and replay of events <replay_>`_
+        - Automatic recovery from replay errors
+        
+        Usage
+        -----
+        
+        .. code-block:: python
+        
+            import asyncio
+        
+            from aiosfstream import SalesforceStreamingClient
+        
+        
+            async def stream_events():
+                # connect to Streaming API
+                async with SalesforceStreamingClient(
+                        consumer_key="<consumer key>",
+                        consumer_secret="<consumer secret>",
+                        username="<username>",
+                        password="<password>") as client:
+        
+                    # subscribe to topics
+                    await client.subscribe("/topic/one")
+                    await client.subscribe("/topic/two")
+        
+                    # listen for incoming messages
+                    async for message in client:
+                        topic = message["channel"]
+                        data = message["data"]
+                        print(f"{topic}: {data}")
+        
+            if __name__ == "__main__":
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(stream_events())
+        
+        Documentation
+        -------------
+        
+        http://aiosfstream.readthedocs.io/
+        
+        .. _aiohttp: https://github.com/aio-libs/aiohttp/
+        .. _asyncio: https://docs.python.org/3/library/asyncio.html
+        .. _api: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/intro_stream.htm
+        .. _PushTopic: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/working_with_pushtopics.htm
+        .. _GenericStreaming: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/generic_streaming_intro.htm#generic_streaming_intro
+        .. _replay: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/using_streaming_api_durability.htm
+        .. _PlatformEvents: https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm
+        .. _ChangeDataCapture: https://developer.salesforce.com/docs/atlas.en-us.change_data_capture.meta/change_data_capture/cdc_intro.htm
+        
+        Changelog
+        =========
+        
+        0.5.0 (2019-03-08)
+        ------------------
+        
+        - Add support for Change Data Capture events
+        - Fix some typos in the documentation
+        
+        0.4.0 (2019-01-06)
+        ------------------
+        
+        - Add type hints
+        - Configurable replay storage behavior
+        
+        0.3.0 (2018-11-07)
+        ------------------
+        
+        - Add support for sandbox orgs
+        
+        0.2.5 (2018-11-06)
+        ------------------
+        
+        - Add missing changelog entries
+        
+        0.2.4 (2018-11-06)
+        ------------------
+        
+        - Fix platform event message creation date extraction issue
+        
+        0.2.3 (2018-09-19)
+        ------------------
+        
+        - Fix asynchronous iterator bug in python 3.7
+        
+        0.2.2 (2018-06-15)
+        ------------------
+        
+        - Update aiocometd dependency to 0.3.1
+        
+        0.2.1 (2018-05-25)
+        ------------------
+        
+        - Fix replay issues on mass record delete operations
+        - Improve the documentation of the Client.publish method
+        
+        0.2.0 (2018-05-05)
+        ------------------
+        
+        - Enable the usage of third party JSON libraries
+        - Expose authentication results as public attributes in Authenticator classes
+        
+        0.1.0 (2018-04-26)
+        ------------------
+        
+        - Supported authentication types:
+           - using a username and password
+           - using a refresh token
+        - Subscribe to and receive messages on:
+            - `PushTopics <PushTopic_>`_
+            - `Generic Streaming Channels <GenericStreaming_>`_
+        - Support for `durable messages and replay of events <replay_>`_
+        - Automatic recovery from replay errors
+        
+        .. _aiohttp: https://github.com/aio-libs/aiohttp/
+        .. _asyncio: https://docs.python.org/3/library/asyncio.html
+        .. _api: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/intro_stream.htm
+        .. _PushTopic: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/working_with_pushtopics.htm
+        .. _GenericStreaming: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/generic_streaming_intro.htm#generic_streaming_intro
+        .. _replay: https://developer.salesforce.com/docs/atlas.en-us.api_streaming.meta/api_streaming/using_streaming_api_durability.htm
+Keywords: salesforce asyncio aiohttp comet cometd bayeux push streaming
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Framework :: AsyncIO
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.6.0
+Provides-Extra: docs
+Provides-Extra: tests
+Provides-Extra: dev

@@ -1,0 +1,55 @@
+Metadata-Version: 2.1
+Name: security
+Version: 1.3.1
+Summary: The security toolkit for the Python community
+Author-email: Pixee <python@pixee.ai>
+License: MIT License
+        
+        Copyright (c) 2023 Dani Litovsky Alcala and others at Pixee
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/pixee/python-security
+Project-URL: Repository, https://github.com/pixee/python-security
+Keywords: security,appsec
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: requests
+
+# security
+Security toolkit for the Python community
+
+This library includes a number of code security controls for various application security vulnerability categories. It can be used directly by programmers, but you may have been introduced to it by having it directly added to your code by automation.
+
+Many of the APIs provided are meant to be drop-in replacements that either offer more secure defaults, harden against common attacks, or at least surface the security questions developers should answer when using risky APIs.
+
+## Installation
+
+To install this package from PyPI, use the following command:
+
+`pip install security`
+
+## Running tests
+
+DO NOT RUN TESTS LOCALLY WITHOUT A VM/CONTAINER.
+
+Tests will try to run "dangerous" commands (i.e. curl, netcat, etc.) and try to access sensitive files (i.e. sudoers, passwd, etc.). We do so to test the our abilities to detect and filter these types of attacks.
+
+While all these commands are devised as innocuous, it is still not a good idea to risk exposure. They also require a specific environment to pass. We recommend using something like [act](https://github.com/nektos/act) to run the github workflow locally within a container for local development.

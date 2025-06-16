@@ -1,5 +1,0 @@
----
-roles:
-   - src: git@git.ku.dk:ku-it/ansible/forsk/roles/selinux_agent.git
-     scm: git
-     version: "main"
