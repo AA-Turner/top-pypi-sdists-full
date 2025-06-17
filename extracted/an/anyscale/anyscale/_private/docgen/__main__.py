@@ -436,12 +436,14 @@ ALL_MODULES = [
             cloud_commands.add_collaborators,
             cloud_commands.get_cloud,
             cloud_commands.get_default_cloud,
+            cloud_commands.terminate_system_cluster,
         ],
         sdk_prefix="anyscale.cloud",
         sdk_commands=[
             anyscale.cloud.add_collaborators,
             anyscale.cloud.get,
             anyscale.cloud.get_default,
+            anyscale.cloud.terminate_system_cluster,
         ],
         models=[
             CloudPermissionLevel,

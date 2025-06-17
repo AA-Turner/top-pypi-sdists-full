@@ -38,11 +38,9 @@ from firebirdsql.utils import *     # noqa
 from firebirdsql import srp
 from firebirdsql import tz_utils
 
-DEBUG = False
-
 
 def DEBUG_OUTPUT(*argv):
-    if not DEBUG:
+    if debug_level() < 2:
         return
     for s in argv:
         print(s, end=' ', file=sys.stderr)
@@ -70,11 +68,11 @@ def get_crypt(plain):
         from passlib.hash import des_crypt
         return des_crypt.using(salt='9z').hash(plain)[2:]
     except ImportError as e:
-        try:
+        if PYTHON_MAJOR_VER == 3:
+            raise e
+        else:
             import crypt
             return crypt.crypt(plain, '9z')[2:]
-        except ImportError:
-            raise e
 
 
 def convert_date(v):  # Convert datetime.date to BLR format data
@@ -114,11 +112,11 @@ def convert_timestamp_tz(v):   # Convert datetime.datetime to BLR format timesta
 
 
 def wire_operation(fn):
-    if not DEBUG:
-        return fn
-
     def f(*args, **kwargs):
-        DEBUG_OUTPUT('<--', fn, '-->')
+        if kwargs:
+            DEBUG_OUTPUT(fn.__name__, id(args[0]), args[0].db_handle, args[1:], kwargs)
+        else:
+            DEBUG_OUTPUT(fn.__name__, id(args[0]), args[0].db_handle, args[1:])
         r = fn(*args, **kwargs)
         return r
     return f
@@ -141,7 +139,7 @@ class Packer(object):
         return self.buf
 
 
-class WireProtocolMixin(object):
+class WireProtocol(object):
     buffer_length = 1024
 
     op_connect = 1
@@ -169,7 +167,7 @@ class WireProtocolMixin(object):
     op_commit_retaining = 50
     op_event = 52
     op_connect_request = 53
-    op_aux_connect = 53
+    op_open_blob2 = 56
     op_create_blob2 = 57
     op_allocate_statement = 62
     op_execute = 63
@@ -753,6 +751,14 @@ class WireProtocolMixin(object):
     def _op_open_blob(self, blob_id, trans_handle):
         p = Packer()
         p.pack_int(self.op_open_blob)
+        p.pack_int(trans_handle)
+        self.sock.send(p.get_buffer() + blob_id)
+
+    @wire_operation
+    def _op_open_blob2(self, blob_id, trans_handle):
+        p = Packer()
+        p.pack_int(self.op_open_blob2)
+        p.pack_int(0)
         p.pack_int(trans_handle)
         self.sock.send(p.get_buffer() + blob_id)
 

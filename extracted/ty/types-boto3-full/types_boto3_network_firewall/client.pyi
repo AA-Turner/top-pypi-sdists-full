@@ -38,6 +38,10 @@ from .paginator import (
     ListVpcEndpointAssociationsPaginator,
 )
 from .type_defs import (
+    AcceptNetworkFirewallTransitGatewayAttachmentRequestTypeDef,
+    AcceptNetworkFirewallTransitGatewayAttachmentResponseTypeDef,
+    AssociateAvailabilityZonesRequestTypeDef,
+    AssociateAvailabilityZonesResponseTypeDef,
     AssociateFirewallPolicyRequestTypeDef,
     AssociateFirewallPolicyResponseTypeDef,
     AssociateSubnetsRequestTypeDef,
@@ -56,6 +60,8 @@ from .type_defs import (
     DeleteFirewallPolicyResponseTypeDef,
     DeleteFirewallRequestTypeDef,
     DeleteFirewallResponseTypeDef,
+    DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef,
+    DeleteNetworkFirewallTransitGatewayAttachmentResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteRuleGroupRequestTypeDef,
     DeleteRuleGroupResponseTypeDef,
@@ -83,6 +89,8 @@ from .type_defs import (
     DescribeTLSInspectionConfigurationResponseTypeDef,
     DescribeVpcEndpointAssociationRequestTypeDef,
     DescribeVpcEndpointAssociationResponseTypeDef,
+    DisassociateAvailabilityZonesRequestTypeDef,
+    DisassociateAvailabilityZonesResponseTypeDef,
     DisassociateSubnetsRequestTypeDef,
     DisassociateSubnetsResponseTypeDef,
     GetAnalysisReportResultsRequestTypeDef,
@@ -106,6 +114,8 @@ from .type_defs import (
     ListVpcEndpointAssociationsRequestTypeDef,
     ListVpcEndpointAssociationsResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
+    RejectNetworkFirewallTransitGatewayAttachmentRequestTypeDef,
+    RejectNetworkFirewallTransitGatewayAttachmentResponseTypeDef,
     StartAnalysisReportRequestTypeDef,
     StartAnalysisReportResponseTypeDef,
     StartFlowCaptureRequestTypeDef,
@@ -114,6 +124,8 @@ from .type_defs import (
     StartFlowFlushResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAvailabilityZoneChangeProtectionRequestTypeDef,
+    UpdateAvailabilityZoneChangeProtectionResponseTypeDef,
     UpdateFirewallAnalysisSettingsRequestTypeDef,
     UpdateFirewallAnalysisSettingsResponseTypeDef,
     UpdateFirewallDeleteProtectionRequestTypeDef,
@@ -197,6 +209,27 @@ class NetworkFirewallClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/generate_presigned_url.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#generate_presigned_url)
+        """
+
+    def accept_network_firewall_transit_gateway_attachment(
+        self, **kwargs: Unpack[AcceptNetworkFirewallTransitGatewayAttachmentRequestTypeDef]
+    ) -> AcceptNetworkFirewallTransitGatewayAttachmentResponseTypeDef:
+        """
+        Accepts a transit gateway attachment request for Network Firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/accept_network_firewall_transit_gateway_attachment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#accept_network_firewall_transit_gateway_attachment)
+        """
+
+    def associate_availability_zones(
+        self, **kwargs: Unpack[AssociateAvailabilityZonesRequestTypeDef]
+    ) -> AssociateAvailabilityZonesResponseTypeDef:
+        """
+        Associates the specified Availability Zones with a transit gateway-attached
+        firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/associate_availability_zones.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#associate_availability_zones)
         """
 
     def associate_firewall_policy(
@@ -289,6 +322,16 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_firewall_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#delete_firewall_policy)
+        """
+
+    def delete_network_firewall_transit_gateway_attachment(
+        self, **kwargs: Unpack[DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef]
+    ) -> DeleteNetworkFirewallTransitGatewayAttachmentResponseTypeDef:
+        """
+        Deletes a transit gateway attachment from a Network Firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_network_firewall_transit_gateway_attachment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#delete_network_firewall_transit_gateway_attachment)
         """
 
     def delete_resource_policy(
@@ -435,6 +478,17 @@ class NetworkFirewallClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#describe_vpc_endpoint_association)
         """
 
+    def disassociate_availability_zones(
+        self, **kwargs: Unpack[DisassociateAvailabilityZonesRequestTypeDef]
+    ) -> DisassociateAvailabilityZonesResponseTypeDef:
+        """
+        Removes the specified Availability Zone associations from a transit
+        gateway-attached firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/disassociate_availability_zones.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#disassociate_availability_zones)
+        """
+
     def disassociate_subnets(
         self, **kwargs: Unpack[DisassociateSubnetsRequestTypeDef]
     ) -> DisassociateSubnetsResponseTypeDef:
@@ -559,6 +613,16 @@ class NetworkFirewallClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#put_resource_policy)
         """
 
+    def reject_network_firewall_transit_gateway_attachment(
+        self, **kwargs: Unpack[RejectNetworkFirewallTransitGatewayAttachmentRequestTypeDef]
+    ) -> RejectNetworkFirewallTransitGatewayAttachmentResponseTypeDef:
+        """
+        Rejects a transit gateway attachment request for Network Firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/reject_network_firewall_transit_gateway_attachment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#reject_network_firewall_transit_gateway_attachment)
+        """
+
     def start_analysis_report(
         self, **kwargs: Unpack[StartAnalysisReportRequestTypeDef]
     ) -> StartAnalysisReportResponseTypeDef:
@@ -605,6 +669,17 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#untag_resource)
+        """
+
+    def update_availability_zone_change_protection(
+        self, **kwargs: Unpack[UpdateAvailabilityZoneChangeProtectionRequestTypeDef]
+    ) -> UpdateAvailabilityZoneChangeProtectionResponseTypeDef:
+        """
+        Modifies the <code>AvailabilityZoneChangeProtection</code> setting for a
+        transit gateway-attached firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_availability_zone_change_protection.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#update_availability_zone_change_protection)
         """
 
     def update_firewall_analysis_settings(

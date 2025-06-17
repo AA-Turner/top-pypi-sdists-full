@@ -2,8 +2,11 @@
 #
 # Copyright (c) 2015-2025 ODC Contributors
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
+
 import logging
 from collections.abc import Iterable, Mapping
+from typing import TYPE_CHECKING
 
 from cachetools.func import lru_cache
 from typing_extensions import override
@@ -21,14 +24,15 @@ from datacube.utils.changes import (
 )
 from datacube.utils.documents import JsonDict
 
+if TYPE_CHECKING:
+    from datacube.drivers.postgres import PostgresDb
+    from datacube.index.postgres.index import Index
+
 _LOG: logging.Logger = logging.getLogger(__name__)
 
 
 class MetadataTypeResource(AbstractMetadataTypeResource, IndexResourceAddIn):
-    def __init__(self, db, index) -> None:
-        """
-        :type db: datacube.drivers.postgres._connections.PostgresDb
-        """
+    def __init__(self, db: PostgresDb, index: Index) -> None:
         self._db = db
         self._index = index
 
@@ -50,23 +54,23 @@ class MetadataTypeResource(AbstractMetadataTypeResource, IndexResourceAddIn):
     @override
     def from_doc(self, definition: JsonDict) -> MetadataType:
         """
-        :param dict definition:
-        :rtype: datacube.model.MetadataType
+        :param definition:
         """
         MetadataType.validate(definition)  # type: ignore[attr-defined]
         return self._make(definition)
 
     @override
-    def add(self, metadata_type: MetadataType, allow_table_lock: bool = False):
+    def add(
+        self, metadata_type: MetadataType, allow_table_lock: bool = False
+    ) -> MetadataType:
         """
-        :param datacube.model.MetadataType metadata_type:
+        :param metadata_type:
         :param allow_table_lock:
             Allow an exclusive lock to be taken on the table while creating the indexes.
             This will halt other user's requests until completed.
 
             If false (and a transaction is not already active), creation will be slightly slower
             and cannot be done in a transaction.
-        :rtype: datacube.model.MetadataType
         """
         # This column duplication is getting out of hand:
         MetadataType.validate(metadata_type.definition)  # type: ignore[attr-defined]
@@ -74,117 +78,142 @@ class MetadataTypeResource(AbstractMetadataTypeResource, IndexResourceAddIn):
         existing = self.get_by_name(metadata_type.name)
         if existing:
             # They've passed us the same one again. Make sure it matches what is stored.
-            _LOG.warning(f"Metadata Type {metadata_type.name} is already in the database, checking for differences")
+            _LOG.warning(
+                f"Metadata Type {metadata_type.name} is already in the database, checking for differences"
+            )
             check_doc_unchanged(
                 existing.definition,
                 jsonify_document(metadata_type.definition),
-                f'Metadata Type {metadata_type.name}'
+                f"Metadata Type {metadata_type.name}",
             )
-        else:
-            with self._db_connection(transaction=allow_table_lock) as connection:
-                connection.insert_metadata_type(
-                    name=metadata_type.name,
-                    definition=metadata_type.definition,
-                    concurrently=not allow_table_lock
-                )
-        return self.get_by_name(metadata_type.name)
+            return existing
+        with self._db_connection(transaction=allow_table_lock) as connection:
+            connection.insert_metadata_type(
+                name=metadata_type.name,
+                definition=metadata_type.definition,
+                concurrently=not allow_table_lock,
+            )
+        return self.get_by_name_unsafe(metadata_type.name)
 
     @override
-    def can_update(self, metadata_type: MetadataType, allow_unsafe_updates: bool = False
-                   ) -> tuple[bool, Iterable[Change], Iterable[Change]]:
+    def can_update(
+        self, metadata_type: MetadataType, allow_unsafe_updates: bool = False
+    ) -> tuple[bool, Iterable[Change], Iterable[Change]]:
         """
         Check if metadata type can be updated. Return bool,safe_changes,unsafe_changes
 
         Safe updates currently allow new search fields to be added, description to be changed.
 
-        :param datacube.model.MetadataType metadata_type: updated MetadataType
-        :param bool allow_unsafe_updates: Allow unsafe changes. Use with caution.
-        :rtype: bool,list[change],list[change]
+        :param metadata_type: updated MetadataType
+        :param allow_unsafe_updates: Allow unsafe changes. Use with caution.
         """
         MetadataType.validate(metadata_type.definition)  # type: ignore[attr-defined]
 
         existing = self.get_by_name(metadata_type.name)
         if not existing:
-            raise ValueError(f'Unknown metadata type {metadata_type.name}, cannot update - '
-                             'did you intend to add it?')
+            raise ValueError(
+                f"Unknown metadata type {metadata_type.name}, cannot update - "
+                "did you intend to add it?"
+            )
 
         updates_allowed: Mapping[Offset, AllowPolicy] = {
-            ('description',): changes.allow_any,
+            ("description",): changes.allow_any,
             # You can add new fields safely but not modify existing ones.
-            ('dataset',): changes.allow_extension,
-            ('dataset', 'search_fields'): changes.allow_extension
+            ("dataset",): changes.allow_extension,
+            ("dataset", "search_fields"): changes.allow_extension,
         }
 
-        doc_changes = get_doc_changes(existing.definition, jsonify_document(metadata_type.definition))
-        good_changes, bad_changes = changes.classify_changes(doc_changes, updates_allowed)
+        doc_changes = get_doc_changes(
+            existing.definition, jsonify_document(metadata_type.definition)
+        )
+        good_changes, bad_changes = changes.classify_changes(
+            doc_changes, updates_allowed
+        )
 
         for offset, old_val, new_val in good_changes:
-            _LOG.info("Safe change in %s from %r to %r", _readable_offset(offset), old_val, new_val)
+            _LOG.info(
+                "Safe change in %s from %r to %r",
+                _readable_offset(offset),
+                old_val,
+                new_val,
+            )
 
         for offset, old_val, new_val in bad_changes:
-            _LOG.warning("Unsafe change in %s from %r to %r", _readable_offset(offset), old_val, new_val)
+            _LOG.warning(
+                "Unsafe change in %s from %r to %r",
+                _readable_offset(offset),
+                old_val,
+                new_val,
+            )
 
         return allow_unsafe_updates or not bad_changes, good_changes, bad_changes
 
     @override
-    def update(self, metadata_type: MetadataType, allow_unsafe_updates: bool = False,
-               allow_table_lock: bool = False):
+    def update(
+        self,
+        metadata_type: MetadataType,
+        allow_unsafe_updates: bool = False,
+        allow_table_lock: bool = False,
+    ) -> MetadataType:
         """
         Update a metadata type from the document. Unsafe changes will throw a ValueError by default.
 
         Safe updates currently allow new search fields to be added, description to be changed.
 
-        :param datacube.model.MetadataType metadata_type: updated MetadataType
-        :param bool allow_unsafe_updates: Allow unsafe changes. Use with caution.
+        :param metadata_type: updated MetadataType
+        :param allow_unsafe_updates: Allow unsafe changes. Use with caution.
         :param allow_table_lock:
             Allow an exclusive lock to be taken on the table while creating the indexes.
             This will halt other user's requests until completed.
 
             If false, creation will be slower and cannot be done in a transaction.
-        :rtype: datacube.model.MetadataType
         """
-        can_update, safe_changes, unsafe_changes = self.can_update(metadata_type, allow_unsafe_updates)
+        can_update, safe_changes, unsafe_changes = self.can_update(
+            metadata_type, allow_unsafe_updates
+        )
 
         if not safe_changes and not unsafe_changes:
             _LOG.warning("No changes detected for metadata type %s", metadata_type.name)
-            return self.get_by_name(metadata_type.name)
-
-        if not can_update:
-            raise ValueError(f"Unsafe changes in {metadata_type.name}: " + (
-                ", ".join(
-                    _readable_offset(offset)
-                    for offset, _, _ in unsafe_changes
+        elif not can_update:
+            raise ValueError(
+                f"Unsafe changes in {metadata_type.name}: "
+                + (
+                    ", ".join(
+                        _readable_offset(offset) for offset, _, _ in unsafe_changes
+                    )
                 )
-            ))
-
-        _LOG.info("Updating metadata type %s", metadata_type.name)
-
-        with self._db_connection(transaction=allow_table_lock) as connection:
-            connection.update_metadata_type(
-                name=metadata_type.name,
-                definition=metadata_type.definition,
-                concurrently=not allow_table_lock
             )
+        else:
+            _LOG.info("Updating metadata type %s", metadata_type.name)
 
-        self.get_by_name_unsafe.cache_clear()   # type: ignore[attr-defined]
-        self.get_unsafe.cache_clear()           # type: ignore[attr-defined]
-        return self.get_by_name(metadata_type.name)
+            with self._db_connection(transaction=allow_table_lock) as connection:
+                connection.update_metadata_type(
+                    name=metadata_type.name,
+                    definition=metadata_type.definition,
+                    concurrently=not allow_table_lock,
+                )
+
+            self.get_by_name_unsafe.cache_clear()  # type: ignore[attr-defined]
+            self.get_unsafe.cache_clear()  # type: ignore[attr-defined]
+        return self.get_by_name_unsafe(metadata_type.name)
 
     @override
-    def update_document(self,
-                        definition: JsonDict,
-                        allow_unsafe_updates: bool = False,
-                        ) -> MetadataType:
+    def update_document(
+        self,
+        definition: JsonDict,
+        allow_unsafe_updates: bool = False,
+    ) -> MetadataType:
         """
         Update a metadata type from the document. Unsafe changes will throw a ValueError by default.
 
         Safe updates currently allow new search fields to be added, description to be changed.
 
-        :param dict definition: Updated definition
-        :param bool allow_unsafe_updates: Allow unsafe changes. Use with caution.
-        :rtype: datacube.model.MetadataType
+        :param definition: Updated definition
+        :param allow_unsafe_updates: Allow unsafe changes. Use with caution.
         """
-        return self.update(self.from_doc(definition), allow_unsafe_updates=allow_unsafe_updates)
+        return self.update(
+            self.from_doc(definition), allow_unsafe_updates=allow_unsafe_updates
+        )
 
     # This is memoized in the constructor
     # pylint: disable=method-hidden
@@ -193,7 +222,7 @@ class MetadataTypeResource(AbstractMetadataTypeResource, IndexResourceAddIn):
         with self._db_connection() as connection:
             record = connection.get_metadata_type(id_)
         if record is None:
-            raise KeyError('%s is not a valid MetadataType id')
+            raise KeyError("%s is not a valid MetadataType id")
         return self._make_from_query_row(record)
 
     # This is memoized in the constructor
@@ -203,12 +232,16 @@ class MetadataTypeResource(AbstractMetadataTypeResource, IndexResourceAddIn):
         with self._db_connection() as connection:
             record = connection.get_metadata_type_by_name(name)
         if not record:
-            raise KeyError(f'{name} is not a valid MetadataType name')
+            raise KeyError(f"{name} is not a valid MetadataType name")
         return self._make_from_query_row(record)
 
     @override
-    def check_field_indexes(self, allow_table_lock: bool = False,
-                            rebuild_views: bool = False, rebuild_indexes: bool = False) -> None:
+    def check_field_indexes(
+        self,
+        allow_table_lock: bool = False,
+        rebuild_views: bool = False,
+        rebuild_indexes: bool = False,
+    ) -> None:
         """
         Create or replace per-field indexes and views.
         :param allow_table_lock:
@@ -228,8 +261,6 @@ class MetadataTypeResource(AbstractMetadataTypeResource, IndexResourceAddIn):
     def get_all(self) -> Iterable[MetadataType]:
         """
         Retrieve all Metadata Types
-
-        :rtype: iter[datacube.model.MetadataType]
         """
         with self._db_connection() as connection:
             return self._make_many(connection.get_all_metadata_types())
@@ -241,25 +272,18 @@ class MetadataTypeResource(AbstractMetadataTypeResource, IndexResourceAddIn):
                 yield row[0]
 
     def _make_many(self, query_rows) -> list[MetadataType]:
-        """
-        :rtype: list[datacube.model.MetadataType]
-        """
         return [self._make_from_query_row(c) for c in query_rows]
 
     def _make_from_query_row(self, query_row) -> MetadataType:
-        """
-        :rtype: datacube.model.MetadataType
-        """
         return self._make(query_row.definition, query_row.id)
 
     def _make(self, definition: dict, id_: int | None = None) -> MetadataType:
         """
-        :param dict definition:
-        :param int id_:
-        :rtype: datacube.model.MetadataType
+        :param definition:
+        :param id_:
         """
         return MetadataType(
             definition,
             dataset_search_fields=self._db.get_dataset_fields(definition),
-            id_=id_
+            id_=id_,
         )

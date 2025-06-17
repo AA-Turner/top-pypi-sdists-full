@@ -25,7 +25,7 @@ with open(os.path.join(this_directory, "README.md")) as f:
 
 
 package_name = "dbt-core"
-package_version = "1.10.0"
+package_version = "1.10.1"
 description = """With dbt, data analysts and engineers can build analytics \
 the way engineers build applications."""
 
@@ -56,6 +56,7 @@ setup(
         # dbt-core uses these packages in standard ways. Pin to the major version, and check compatibility
         # with major versions in each new minor version of dbt-core.
         "click>=8.0.2,<9.0",
+        "jsonschema>=4.19.1,<5.0",
         "networkx>=2.3,<4.0",
         "protobuf>=5.0,<6.0",
         "requests<3.0.0",  # should match dbt-common

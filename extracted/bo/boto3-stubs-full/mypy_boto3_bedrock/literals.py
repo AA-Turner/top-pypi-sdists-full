@@ -68,6 +68,7 @@ __all__ = (
     "ModelImportJobStatusType",
     "ModelInvocationJobStatusType",
     "ModelModalityType",
+    "ModelStatusType",
     "PaginatorName",
     "PerformanceConfigLatencyType",
     "PromptRouterStatusType",
@@ -90,7 +91,7 @@ __all__ = (
 
 ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
 CommitmentDurationType = Literal["OneMonth", "SixMonths"]
-CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING"]
+CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED"]
 EvaluationJobStatusType = Literal[
     "Completed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
 ]
@@ -185,6 +186,7 @@ ModelInvocationJobStatusType = Literal[
     "Validating",
 ]
 ModelModalityType = Literal["EMBEDDING", "IMAGE", "TEXT"]
+ModelStatusType = Literal["Active", "Creating", "Failed"]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
 PromptRouterStatusType = Literal["AVAILABLE"]
 PromptRouterTypeType = Literal["custom", "default"]

@@ -19,7 +19,13 @@ jobs:
         python-version: 3.9
 
     - name: Install dependencies
-      run: pip install wheel
+      run: pip install tox wheel
+
+    - name: Build man page if not present
+      run: |
+        if [ ! -f doc/build/man/bandit.1 ]; then
+          tox run -e manpage
+        fi
 
     - name: Build a binary wheel and a source tarball
       run: |

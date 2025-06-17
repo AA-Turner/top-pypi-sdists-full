@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import List, Dict, Tuple, Union, Optional
 
 from fakeredis import _msgs as msgs
@@ -15,7 +16,7 @@ class TimeSeries:
         duplicate_policy: bytes = b"block",
         ignore_max_time_diff: int = 0,
         ignore_max_val_diff: int = 0,
-        labels: Dict[str, str] = None,
+        labels: Optional[Dict[bytes, bytes]] = None,
         source_key: Optional[bytes] = None,
     ):
         super().__init__()
@@ -28,15 +29,13 @@ class TimeSeries:
         self.ts_ind_map: Dict[int, int] = dict()  # Map from timestamp to index in sorted_list
         self.sorted_list: List[Tuple[int, float]] = list()
         self.max_timestamp: int = 0
-        self.labels = labels or {}
+        self.labels: Dict[bytes, bytes] = labels or {}
         self.source_key = source_key
         self.ignore_max_time_diff = ignore_max_time_diff
         self.ignore_max_val_diff = ignore_max_val_diff
         self.rules: List[TimeSeriesRule] = list()
 
-    def add(
-        self, timestamp: int, value: float, duplicate_policy: Optional[bytes] = None
-    ) -> Union[int, None, List[None]]:
+    def add(self, timestamp: int, value: float, duplicate_policy: Optional[bytes] = None) -> Union[int, None]:
         if self.retention != 0 and self.max_timestamp - timestamp > self.retention:
             raise SimpleError(msgs.TIMESERIES_TIMESTAMP_OLDER_THAN_RETENTION)
         if duplicate_policy is None:
@@ -182,14 +181,14 @@ class Aggregators:
 
     @staticmethod
     def std_p(values: List[float]) -> float:
-        return Aggregators.var_p(values) ** 0.5
+        return float(Aggregators.var_p(values) ** 0.5)
 
     @staticmethod
     def std_s(values: List[float]) -> float:
-        return Aggregators.var_s(values) ** 0.5
+        return float(Aggregators.var_s(values) ** 0.5)
 
 
-AGGREGATORS = {
+AGGREGATORS: Dict[bytes, Callable[[List[float]], float]] = {
     b"avg": lambda x: sum(x) / len(x),
     b"sum": sum,
     b"min": min,
@@ -222,7 +221,7 @@ def apply_aggregator(
 
         return total / bucket_duration
 
-    relevant_values = [x[1] for x in bucket]
+    relevant_values: List[float] = [x[1] for x in bucket]
     return AGGREGATORS[aggregator](relevant_values)
 
 

@@ -42,6 +42,8 @@ from .paginator import (
 from .type_defs import (
     BatchDeleteEvaluationJobRequestTypeDef,
     BatchDeleteEvaluationJobResponseTypeDef,
+    CreateCustomModelRequestTypeDef,
+    CreateCustomModelResponseTypeDef,
     CreateEvaluationJobRequestTypeDef,
     CreateEvaluationJobResponseTypeDef,
     CreateGuardrailRequestTypeDef,
@@ -213,6 +215,17 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/batch_delete_evaluation_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#batch_delete_evaluation_job)
+        """
+
+    def create_custom_model(
+        self, **kwargs: Unpack[CreateCustomModelRequestTypeDef]
+    ) -> CreateCustomModelResponseTypeDef:
+        """
+        Creates a new custom model in Amazon Bedrock from an existing SageMaker
+        AI-trained Amazon Nova model stored in an Amazon-managed Amazon S3 bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_custom_model.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#create_custom_model)
         """
 
     def create_evaluation_job(
@@ -421,10 +434,7 @@ class BedrockClient(BaseClient):
     ) -> GetCustomModelResponseTypeDef:
         """
         Get the properties associated with a Amazon Bedrock custom model that you have
-        created.For more information, see <a
-        href="https://docs.aws.amazon.com/bedrock/latest/userguide/custom-models.html">Custom
-        models</a> in the <a
-        href="https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-service...
+        created.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_custom_model.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_custom_model)

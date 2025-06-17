@@ -20,6 +20,7 @@ class Task(BaseModel):
     _response: Any = None
     context: Any = None
     price_id_: Optional[str] = None
+    task_id_: Optional[str] = None
     not_main_task: bool = False
     start_time: Optional[int] = None
     end_time: Optional[int] = None
@@ -38,6 +39,7 @@ class Task(BaseModel):
         response: Any = None,
         context: Any = None,
         price_id_: Optional[str] = None,
+        task_id_: Optional[str] = None,
         not_main_task: bool = False,
         start_time: Optional[int] = None,
         end_time: Optional[int] = None,
@@ -58,6 +60,7 @@ class Task(BaseModel):
             "_response": response,
             "context": context,
             "price_id_": price_id_,
+            "task_id_": task_id_,
             "not_main_task": not_main_task,
             "start_time": start_time,
             "end_time": end_time,
@@ -129,6 +132,16 @@ class Task(BaseModel):
             import uuid
             self.price_id_ = str(uuid.uuid4())
         return self.price_id_
+
+    @property
+    def task_id(self):
+        if self.task_id_ is None:
+            import uuid
+            self.task_id_ = str(uuid.uuid4())
+        return self.task_id_
+    
+    def get_task_id(self):
+        return f"Task_{self.task_id[:8]}"
 
     @property
     def response(self):
@@ -209,3 +222,30 @@ class Task(BaseModel):
                 Should include 'tool_name', 'params', and 'tool_result' keys.
         """
         self._tool_calls.append(tool_call)
+
+
+
+    def canvas_agent_description(self):
+        return "You are a canvas agent. You have tools. You can edit the canvas and get the current text of the canvas."
+
+    def add_canvas(self, canvas):
+        # Check if canvas tools have already been added to prevent duplicates
+        canvas_functions = canvas.functions()
+        canvas_description = self.canvas_agent_description()
+        
+        # Check if canvas tools are already present
+        canvas_already_added = False
+        if canvas_functions:
+            # Check if any of the canvas functions are already in tools
+            for canvas_func in canvas_functions:
+                if canvas_func in self.tools:
+                    canvas_already_added = True
+                    break
+        
+        # Only add canvas tools if they haven't been added before
+        if not canvas_already_added:
+            self.tools += canvas_functions
+            
+        # Check if canvas description is already in the task description
+        if canvas_description not in self.description:
+            self.description += canvas_description

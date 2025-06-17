@@ -190,7 +190,7 @@ class CollectionDocument(utils.PayloadWrapper, abc.ABC):
             identity_id=identity_id,
             info_link=info_link,
             organization=organization,
-            restrict_transfers_to_high_assuranc=restrict_transfers_to_high_assurance,
+            restrict_transfers_to_high_assurance=restrict_transfers_to_high_assurance,
             user_message=user_message,
             user_message_link=user_message_link,
         )

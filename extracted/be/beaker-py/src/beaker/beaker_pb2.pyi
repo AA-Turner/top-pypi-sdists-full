@@ -1187,7 +1187,7 @@ class Budget(_message.Message):
     def __init__(self, id: _Optional[str] = ..., organization_id: _Optional[str] = ..., name: _Optional[str] = ..., organization_name: _Optional[str] = ...) -> None: ...
 
 class Queue(_message.Message):
-    __slots__ = ("id", "name", "created", "workspace_id", "author_id", "input_schema", "output_schema", "batch_size", "max_claimed_entries", "wait_timeout")
+    __slots__ = ("id", "name", "created", "workspace_id", "author_id", "input_schema", "output_schema", "batch_size", "max_claimed_entries", "wait_timeout", "full_name")
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     CREATED_FIELD_NUMBER: _ClassVar[int]
@@ -1198,6 +1198,7 @@ class Queue(_message.Message):
     BATCH_SIZE_FIELD_NUMBER: _ClassVar[int]
     MAX_CLAIMED_ENTRIES_FIELD_NUMBER: _ClassVar[int]
     WAIT_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     created: _timestamp_pb2.Timestamp
@@ -1208,7 +1209,8 @@ class Queue(_message.Message):
     batch_size: int
     max_claimed_entries: int
     wait_timeout: _duration_pb2.Duration
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., workspace_id: _Optional[str] = ..., author_id: _Optional[str] = ..., input_schema: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., output_schema: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., batch_size: _Optional[int] = ..., max_claimed_entries: _Optional[int] = ..., wait_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...
+    full_name: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., workspace_id: _Optional[str] = ..., author_id: _Optional[str] = ..., input_schema: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., output_schema: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., batch_size: _Optional[int] = ..., max_claimed_entries: _Optional[int] = ..., wait_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., full_name: _Optional[str] = ...) -> None: ...
 
 class QueueWorker(_message.Message):
     __slots__ = ("id", "name", "created", "queue_id", "heartbeat")
@@ -1862,6 +1864,16 @@ class DeleteNodeRequest(_message.Message):
     def __init__(self, node_id: _Optional[str] = ...) -> None: ...
 
 class DeleteNodeResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class FinalizeJobForUnavailableNodeRequest(_message.Message):
+    __slots__ = ("job_id",)
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    def __init__(self, job_id: _Optional[str] = ...) -> None: ...
+
+class FinalizeJobForUnavailableNodeResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 

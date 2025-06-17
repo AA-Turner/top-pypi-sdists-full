@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: requests-sse
-Version: 0.5.1
+Version: 0.5.2
 Summary: server-sent events python client library based on requests
-Home-page: https://github.com/overcat/requests-sse
 License: Apache-2.0
 Keywords: server-sent events,sse,stream,requests
 Author: overcat
@@ -32,6 +31,7 @@ Classifier: Typing :: Typed
 Requires-Dist: requests (>=2.0.0,<3.0.0)
 Project-URL: Bug Tracker, https://github.com/overcat/requests-sse/issues
 Project-URL: Documentation, https://github.com/overcat/requests-sse
+Project-URL: Homepage, https://github.com/overcat/requests-sse
 Project-URL: Repository, https://github.com/overcat/requests-sse
 Description-Content-Type: text/x-rst
 

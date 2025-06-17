@@ -18,13 +18,7 @@ if TYPE_CHECKING:
 
 
 class UserResource(AbstractUserResource, IndexResourceAddIn):
-    def __init__(self,
-                 db: PostgresDb,
-                 index: Index
-                ) -> None:
-        """
-        :type db: datacube.drivers.postgres._connections.PostgresDb
-        """
+    def __init__(self, db: PostgresDb, index: Index) -> None:
         self._db = db
         self._index = index
 
@@ -37,8 +31,9 @@ class UserResource(AbstractUserResource, IndexResourceAddIn):
             connection.grant_role(role, usernames)
 
     @override
-    def create_user(self, username: str, password: str,
-                    role: str, description: str | None = None) -> None:
+    def create_user(
+        self, username: str, password: str, role: str, description: str | None = None
+    ) -> None:
         """
         Create a new user.
         """
@@ -57,7 +52,6 @@ class UserResource(AbstractUserResource, IndexResourceAddIn):
     def list_users(self) -> Iterable[tuple[str, str, str | None]]:
         """
         :return: list of (role, user, description)
-        :rtype: list[(str, str, str)]
         """
         with self._db_connection() as connection:
             yield from connection.list_users()

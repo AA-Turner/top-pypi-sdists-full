@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: MyLLM
-Version: 4.19.13
+Version: 4.19.14
 Summary: A python package to interact with llm model supported by g4f and langchain.
 Author-email: mraniki <8766259+mraniki@users.noreply.github.com>
 License-Expression: MIT
@@ -21,13 +21,13 @@ Requires-Dist: uvicorn>=0.22.0
 Requires-Dist: dynaconf>=3.2.0
 Requires-Dist: loguru>=0.6.0
 Requires-Dist: httpx>=0.24.1
-Requires-Dist: g4f==0.5.3.2
+Requires-Dist: g4f==0.5.4.6
 Requires-Dist: js2py~=0.74
 Requires-Dist: PyExecJS2==1.6.1
-Requires-Dist: curl_cffi==0.11.1
+Requires-Dist: curl_cffi==0.11.3
 Requires-Dist: Brotli==1.1.0
-Requires-Dist: openai==1.84.0
-Requires-Dist: groq==0.26.0
+Requires-Dist: openai==1.86.0
+Requires-Dist: groq==0.28.0
 Requires-Dist: playwright==1.52.0
 Provides-Extra: dev
 Requires-Dist: python-semantic-release>=8.0.8; extra == "dev"

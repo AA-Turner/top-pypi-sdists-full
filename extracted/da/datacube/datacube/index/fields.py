@@ -15,12 +15,12 @@ from datacube.model import Not, Range
 from datacube.model.fields import Expression, Field
 
 __all__ = [
-    'Expression',
-    'Field',
-    'OrExpression',
-    'UnknownFieldError',
-    'as_expression',
-    'to_expressions',
+    "Expression",
+    "Field",
+    "OrExpression",
+    "UnknownFieldError",
+    "as_expression",
+    "to_expressions",
 ]
 
 
@@ -67,8 +67,8 @@ def as_expression(field: Field, value) -> Expression:
             field,
             Range(
                 datetime.combine(value, time.min.replace(tzinfo=tz.tzutc())),
-                datetime.combine(value, time.max.replace(tzinfo=tz.tzutc()))
-            )
+                datetime.combine(value, time.max.replace(tzinfo=tz.tzutc())),
+            ),
         )
     return field == value
 
@@ -76,7 +76,7 @@ def as_expression(field: Field, value) -> Expression:
 def _to_expression(get_field, name: str, value) -> Expression:
     field = get_field(name)
     if field is None:
-        raise UnknownFieldError(f'Unknown field {name!r}')
+        raise UnknownFieldError(f"Unknown field {name!r}")
 
     return as_expression(field, value)
 
@@ -84,7 +84,5 @@ def _to_expression(get_field, name: str, value) -> Expression:
 def to_expressions(get_field, **query) -> list[Expression]:
     """
     Convert a simple query (dict of param names and values) to expression objects.
-    :type get_field: (str) -> Field
-    :type query: dict[str,str|float|datacube.model.Range]
     """
     return [_to_expression(get_field, name, value) for name, value in query.items()]

@@ -38,16 +38,16 @@ if sys.platform == 'darwin':
 
 setuptools.setup(
   name="connected-components-3d",
-  version="3.23.0",
+  version="3.24.0",
   setup_requires=['pbr', 'numpy', 'cython'],
   install_requires=['numpy'],
-  python_requires=">=3.8,<4.0",
-  extras_requires={
+  python_requires=">=3.9,<4.0",
+  extras_require={
     "stack": [ "crackle-codec", "fastremap" ],
   },
   ext_modules=[
     setuptools.Extension(
-      'fastcc3d',
+      'cc3d.fastcc3d',
       sources=[ 'cc3d/fastcc3d.pyx' ],
       language='c++',
       include_dirs=[ 'cc3d', str(NumpyImport()) ],
@@ -66,16 +66,14 @@ setuptools.setup(
   description="Connected components on discrete and continuous multilabel 3D and 2D images. Handles 26, 18, and 6 connected variants; periodic boundaries (4, 8, & 6).",
   long_description=read('README.md'),
   long_description_content_type="text/markdown",
-  license = "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+  license = "LGPL-3.0-or-later",
   keywords = "connected-components CCL volumetric-data numpy connectomics image-processing biomedical-image-processing decision-tree union-find sauf 2d 3d",
   url = "https://github.com/seung-lab/connected-components-3d/",
   classifiers=[
     "Intended Audience :: Developers",
     "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

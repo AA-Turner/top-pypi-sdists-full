@@ -114,3 +114,38 @@ def get_default(*, _private_sdk: Optional[PrivateCloudSDK] = None) -> Optional[C
     :return: The default `Cloud` object if it exists, otherwise `None`.
     """
     return _private_sdk.get_default()  # type: ignore
+
+
+_TERMINATE_SYSTEM_CLUSTER_EXAMPLE = """
+import anyscale
+
+# Terminate the system cluster for the cloud with the specified ID
+anyscale.cloud.terminate_system_cluster(cloud_id="cloud_id", wait=True)
+"""
+
+_TERMINATE_SYSTEM_CLUSTER_ARG_DOCSTRINGS = {
+    "cloud_id": "The ID of the cloud whose system cluster should be terminated.",
+    "wait": "If True, wait for the system cluster to be terminated before returning. Defaults to False.",
+}
+
+
+@sdk_command(
+    _CLOUD_SDK_SINGLETON_KEY,
+    PrivateCloudSDK,
+    doc_py_example=_TERMINATE_SYSTEM_CLUSTER_EXAMPLE,
+    arg_docstrings=_TERMINATE_SYSTEM_CLUSTER_ARG_DOCSTRINGS,
+)
+def terminate_system_cluster(
+    cloud_id: str,
+    wait: Optional[bool] = False,
+    *,
+    _private_sdk: Optional[PrivateCloudSDK] = None,
+) -> str:
+    """
+    Terminate the system cluster for the specified cloud.
+
+    :param cloud: The name of the cloud whose system cluster should be terminated.
+    :param wait: If True, wait for the system cluster to be terminated before returning. Defaults to False.
+    :return: ID of the terminated system cluster.
+    """
+    return _private_sdk.terminate_system_cluster(cloud_id, wait)  # type: ignore

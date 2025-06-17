@@ -450,8 +450,12 @@ def convert_pathname_to_posix(json_dict: Dict[str, Any], entry: str, smart_contr
             if path_obj.is_file():
                 json_dict_posix_paths[path_obj.as_posix()] = json_dict[entry][file_path]
             else:
+                json_dict_str = str(json_dict)
+                # protecting against long strings
+                if len(json_dict_str) > 200:
+                    json_dict_str = json_dict_str[:200] + '...'
                 fatal_error(compiler_logger, f"The path of the source file {file_path}"
-                                             f"in the standard json file {json_dict} does not exist")
+                                             f"in the standard json file {json_dict_str} does not exist")
         json_dict[entry] = json_dict_posix_paths
 
 
@@ -1361,14 +1365,15 @@ class CertoraBuildGenerator:
 
         return bytecode
 
-    def _handle_via_ir(self, contract_file_path: str, settings_dict: Dict[str, Any]) -> None:
+    def get_via_ir_value(self, contract_file_path: str) -> bool:
         if not self.context.solc_via_ir_map and not self.context.solc_via_ir:
-            return
+            return False
         if self.context.solc_via_ir_map:
-            match = Util.match_path_to_mapping_key(Path(contract_file_path), self.context.solc_via_ir_map)
-            if match:
-                settings_dict["viaIR"] = match
-        elif self.context.solc_via_ir:
+            return bool(Util.match_path_to_mapping_key(Path(contract_file_path), self.context.solc_via_ir_map))
+        return self.context.solc_via_ir
+
+    def _handle_via_ir(self, contract_file_path: str, settings_dict: Dict[str, Any]) -> None:
+        if self.get_via_ir_value(contract_file_path):
             settings_dict["viaIR"] = True
 
     def _handle_evm_version(self, contract_file_path: str, settings_dict: Dict[str, Any]) -> None:
@@ -1400,7 +1405,7 @@ class CertoraBuildGenerator:
         optimizer = settings_dict.get("optimizer")
         if optimizer and isinstance(optimizer, dict) and optimizer.get('enabled'):
             # if we are not disabling finder friendly optimizer specifically, enable it whenever viaIR is also enabled
-            if not self.context.strict_solc_optimizer and self.context.solc_via_ir:
+            if not self.context.strict_solc_optimizer and self.get_via_ir_value(contract_file_path):
                 # The default optimizer steps (taken from libsolidity/interface/OptimiserSettings.h) but with the
                 # full inliner step removed
                 solc0_8_26_to_0_8_30 = ("dhfoDgvulfnTUtnIfxa[r]EscLMVcul[j]Trpeulxa[r]cLCTUca[r]LSsTFOtfDnca[r]" +
@@ -2416,7 +2421,7 @@ class CertoraBuildGenerator:
                 # if no function finder mode set, determine based on viaIR enabled or not:
                 if self.context.function_finder_mode is None:
                     # in via-ir, should not compress
-                    if self.context.solc_via_ir:
+                    if self.get_via_ir_value(contract_file):
                         should_compress = False
                     else:
                         should_compress = True

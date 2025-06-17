@@ -28,6 +28,7 @@ from . import (
     result,
     usage as _usage,
 )
+from ._agent_graph import HistoryProcessor
 from .models.instrumented import InstrumentationSettings, InstrumentedModel, instrument_model
 from .result import FinalResult, OutputDataT, StreamedRunResult
 from .settings import ModelSettings, merge_model_settings
@@ -179,6 +180,7 @@ class Agent(Generic[AgentDepsT, OutputDataT]):
         defer_model_check: bool = False,
         end_strategy: EndStrategy = 'early',
         instrument: InstrumentationSettings | bool | None = None,
+        history_processors: Sequence[HistoryProcessor] | None = None,
     ) -> None: ...
 
     @overload
@@ -208,6 +210,7 @@ class Agent(Generic[AgentDepsT, OutputDataT]):
         defer_model_check: bool = False,
         end_strategy: EndStrategy = 'early',
         instrument: InstrumentationSettings | bool | None = None,
+        history_processors: Sequence[HistoryProcessor] | None = None,
     ) -> None: ...
 
     def __init__(
@@ -232,6 +235,7 @@ class Agent(Generic[AgentDepsT, OutputDataT]):
         defer_model_check: bool = False,
         end_strategy: EndStrategy = 'early',
         instrument: InstrumentationSettings | bool | None = None,
+        history_processors: Sequence[HistoryProcessor] | None = None,
         **_deprecated_kwargs: Any,
     ):
         """Create an agent.
@@ -275,6 +279,9 @@ class Agent(Generic[AgentDepsT, OutputDataT]):
                 [`Agent.instrument_all()`][pydantic_ai.Agent.instrument_all]
                 will be used, which defaults to False.
                 See the [Debugging and Monitoring guide](https://ai.pydantic.dev/logfire/) for more info.
+            history_processors: Optional list of callables to process the message history before sending it to the model.
+                Each processor takes a list of messages and returns a modified list of messages.
+                Processors can be sync or async and are applied in sequence.
         """
         if model is None or defer_model_check:
             self.model = model
@@ -343,6 +350,7 @@ class Agent(Generic[AgentDepsT, OutputDataT]):
         self._max_result_retries = output_retries if output_retries is not None else retries
         self._mcp_servers = mcp_servers
         self._prepare_tools = prepare_tools
+        self.history_processors = history_processors or []
         for tool in tools:
             if isinstance(tool, Tool):
                 self._register_tool(tool)
@@ -669,10 +677,11 @@ class Agent(Generic[AgentDepsT, OutputDataT]):
             if self._instructions is None and not self._instructions_functions:
                 return None
 
-            instructions = self._instructions or ''
+            instructions = [self._instructions] if self._instructions else []
             for instructions_runner in self._instructions_functions:
-                instructions += '\n' + await instructions_runner.run(run_context)
-            return instructions.strip()
+                instructions.append(await instructions_runner.run(run_context))
+            concatenated_instructions = '\n'.join(instruction for instruction in instructions if instruction)
+            return concatenated_instructions.strip() if concatenated_instructions else None
 
         # Copy the function tools so that retry state is agent-run-specific
         # Note that the retry count is reset to 0 when this happens due to the `default=0` and `init=False`.
@@ -689,6 +698,7 @@ class Agent(Generic[AgentDepsT, OutputDataT]):
             end_strategy=self.end_strategy,
             output_schema=output_schema,
             output_validators=output_validators,
+            history_processors=self.history_processors,
             function_tools=run_function_tools,
             mcp_servers=self._mcp_servers,
             default_retries=self._default_retries,

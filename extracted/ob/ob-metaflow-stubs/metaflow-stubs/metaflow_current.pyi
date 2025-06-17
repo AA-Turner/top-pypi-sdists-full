@@ -1,21 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.15.17.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-13T18:34:09.311171                                                            #
+# Generated on 2025-06-16T20:11:03.039759                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.events
-    import typing
-    import metaflow.metaflow_current
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import metaflow.plugins.cards.component_serializer
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
     import metaflow
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import metaflow.events
+    import metaflow.metaflow_current
+    import metaflow.plugins.cards.component_serializer
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import typing
 
 
 TYPE_CHECKING: bool
@@ -289,21 +289,64 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
         """
-        (only in the presence of the @card decorator)
+        (only in the presence of the @checkpoint decorator)
         
-        The `@card` decorator makes the cards available through the `current.card`
-        object. If multiple `@card` decorators are present, you can add an `ID` to
-        distinguish between them using `@card(id=ID)` as the decorator. You will then
-        be able to access that specific card using `current.card[ID].
+        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
+        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
         
-        Methods available are `append` and `extend`
+        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
+        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
+        where the checkpoint maybe loaded or saved.
+        
+        Usage (Saving Checkpoints):
+        -------
+        ```
+        @checkpoint
+        @step
+        def train(self):
+            model = create_model(self.parameters, checkpoint_path = None)
+            for i in range(self.epochs):
+                # some training logic
+                loss = model.train(self.dataset)
+                if i % 10 == 0:
+                    model.save(
+                        current.checkpoint.directory,
+                    )
+                    # saves the contents of the `current.checkpoint.directory` as a checkpoint
+                    # and returns a reference dictionary to the checkpoint saved in the datastore
+                    self.latest_checkpoint = current.checkpoint.save(
+                        name="epoch_checkpoint",
+                        metadata={
+                            "epoch": i,
+                            "loss": loss,
+                        }
+                    )
+        ```
+        Usage (Using Loaded Checkpoints):
+        -------
+        ```
+        @retry(times=3)
+        @checkpoint
+        @step
+        def train(self):
+            # Assume that the task has restarted and the previous attempt of the task
+            # saved a checkpoint
+            checkpoint_path = None
+            if current.checkpoint.is_loaded: # Check if a checkpoint is loaded
+                print("Loaded checkpoint from the previous attempt")
+                checkpoint_path = current.checkpoint.directory
+        
+            model = create_model(self.parameters, checkpoint_path = checkpoint_path)
+            for i in range(self.epochs):
+                ...
+        ```
         
         Returns
         -------
-        CardComponentCollector
-            The or one of the cards attached to this step.
+        CurrentCheckpointer
+            The object for handling checkpointing within a step.
         """
         ...
     @property
@@ -376,67 +419,6 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
-        """
-        (only in the presence of the @checkpoint decorator)
-        
-        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
-        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
-        
-        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
-        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
-        where the checkpoint maybe loaded or saved.
-        
-        Usage (Saving Checkpoints):
-        -------
-        ```
-        @checkpoint
-        @step
-        def train(self):
-            model = create_model(self.parameters, checkpoint_path = None)
-            for i in range(self.epochs):
-                # some training logic
-                loss = model.train(self.dataset)
-                if i % 10 == 0:
-                    model.save(
-                        current.checkpoint.directory,
-                    )
-                    # saves the contents of the `current.checkpoint.directory` as a checkpoint
-                    # and returns a reference dictionary to the checkpoint saved in the datastore
-                    self.latest_checkpoint = current.checkpoint.save(
-                        name="epoch_checkpoint",
-                        metadata={
-                            "epoch": i,
-                            "loss": loss,
-                        }
-                    )
-        ```
-        Usage (Using Loaded Checkpoints):
-        -------
-        ```
-        @retry(times=3)
-        @checkpoint
-        @step
-        def train(self):
-            # Assume that the task has restarted and the previous attempt of the task
-            # saved a checkpoint
-            checkpoint_path = None
-            if current.checkpoint.is_loaded: # Check if a checkpoint is loaded
-                print("Loaded checkpoint from the previous attempt")
-                checkpoint_path = current.checkpoint.directory
-        
-            model = create_model(self.parameters, checkpoint_path = checkpoint_path)
-            for i in range(self.epochs):
-                ...
-        ```
-        
-        Returns
-        -------
-        CurrentCheckpointer
-            The object for handling checkpointing within a step.
-        """
-        ...
-    @property
     def parallel(self) -> "metaflow.metaflow_current.Parallel":
         """
         (only in the presence of the @parallel decorator)
@@ -463,6 +445,37 @@ class Current(object, metaclass=type):
         (only in the presence of the @parallel decorator)
         
         True if the current step is a @parallel step.
+        """
+        ...
+    @property
+    def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
+        """
+        (only in the presence of the @card decorator)
+        
+        The `@card` decorator makes the cards available through the `current.card`
+        object. If multiple `@card` decorators are present, you can add an `ID` to
+        distinguish between them using `@card(id=ID)` as the decorator. You will then
+        be able to access that specific card using `current.card[ID].
+        
+        Methods available are `append` and `extend`
+        
+        Returns
+        -------
+        CardComponentCollector
+            The or one of the cards attached to this step.
+        """
+        ...
+    @property
+    def trigger(self) -> "metaflow.events.Trigger":
+        """
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
+        
+        Returns `Trigger` if the current run is triggered by an event
+        
+        Returns
+        -------
+        Trigger
+            `Trigger` if triggered by an event
         """
         ...
     @property
@@ -530,19 +543,6 @@ class Current(object, metaclass=type):
         -------
         bool
             True if the flow is deployed with `--production`.
-        """
-        ...
-    @property
-    def trigger(self) -> "metaflow.events.Trigger":
-        """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
-        
-        Returns `Trigger` if the current run is triggered by an event
-        
-        Returns
-        -------
-        Trigger
-            `Trigger` if triggered by an event
         """
         ...
     ...

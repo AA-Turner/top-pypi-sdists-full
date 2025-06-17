@@ -673,6 +673,12 @@ is_default: true
 compute_stack: VM
 """
 
+CLOUD_TERMINATE_SYSTEM_CLUSTER_EXAMPLE = """\
+$ anyscale cloud terminate-system-cluster --cloud-id cloud_id --wait
+(anyscale +1.3s) Waiting for system cluster termination............
+(anyscale +1m22.9s) System cluster for cloud 'cloud_id' is Terminated.
+"""
+
 SERVICE_ARCHIVE_EXAMPLE = """\
 $ anyscale service archive --name my_service
 """

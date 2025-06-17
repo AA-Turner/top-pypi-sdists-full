@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: snowflake_ingest
-Version: 1.0.10
+Version: 1.0.11
 Summary: Official SnowflakeDB File Ingest SDK
 Home-page: https://www.snowflake.net
 Author: Snowflake Computing
@@ -13,10 +13,20 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: Database
 License-File: LICENSE
 Requires-Dist: pyjwt
-Requires-Dist: snowflake-connector-python>=3.0.3
+Requires-Dist: snowflake-connector-python>=3.12.0
 Requires-Dist: furl
 Requires-Dist: cryptography
 Requires-Dist: requests<=2.32.3
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 This package includes the Snowpipe python SDK
 
@@ -27,6 +37,11 @@ Source code is also available at: https://github.com/snowflakedb/snowflake-inges
 
 Release Notes
 -------------------------------------------------------------------------------
+- v1.0.11 (June 17, 2025)
+
+      - Better handling to retry connection errors
+      - Pin dependency package to newer version (snowflake-connector-python)
+
 - v1.0.10 (November 14, 2024)
 
       - Update readme for artifact validation using cosign

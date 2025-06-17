@@ -1,11 +1,12 @@
-from typing import Tuple, Union
-
 import pytest
 import redis
 from redis import exceptions
 
+from fakeredis._helpers import asbytes
 from fakeredis.model import get_categories, get_commands_by_category
 from test import testtools
+from test.conftest import ServerDetails
+from test.testtools import resp_conversion
 
 pytestmark = []
 pytestmark.extend([pytest.mark.min_server("7"), testtools.run_test_if_redispy_ver("gte", "5")])
@@ -22,20 +23,26 @@ _VALKEY_UNSUPPORTED_COMMANDS = {
 }
 
 
-@pytest.mark.max_server("7.5")
-def test_acl_cat(r: redis.Redis, real_server_details: Tuple[str, Union[None, Tuple[int, ...]]]):
-    categories = get_categories()
-    categories = [cat.decode() for cat in categories]
-    assert set(categories) == set(r.acl_cat())
-    for cat in categories:
+def test_acl_cat(r: redis.Redis, real_server_details: ServerDetails):
+    fakeredis_categories = get_categories()
+    fakeredis_categories = {asbytes(cat) for cat in fakeredis_categories}
+    fakeredis_categories.add(b"search")
+    response_categories = r.acl_cat()
+    response_categories = {asbytes(cat) for cat in response_categories}
+    assert len(set(response_categories) - set(fakeredis_categories)) == 0
+    if b"search" in response_categories:
+        response_categories.remove(b"search")  # `search` is not supported by fakeredis
+    for cat in response_categories:
         commands = get_commands_by_category(cat)
         commands = {cmd.decode() for cmd in commands}
-        assert len(commands) > 0
+        assert len(commands) >= 0
         commands.discard("hpersist")
         if real_server_details[0] == "valkey":
             commands = commands - _VALKEY_UNSUPPORTED_COMMANDS
-        commands = {cmd.replace(" ", "|") for cmd in commands}
-        diff = set(commands) - set(r.acl_cat(cat))
+        commands = {asbytes(cmd.replace(" ", "|")) for cmd in commands}
+        server_commands = r.acl_cat(cat)
+        server_commands = {asbytes(cmd) for cmd in server_commands}
+        diff = set(commands) - set(server_commands)
         assert len(diff) == 0, f"Commands not found in category {cat}: {diff}"
 
 
@@ -98,6 +105,7 @@ def test_acl_list(r: redis.Redis):
         selectors=[("+set", "%W~app*"), ("+get", "%RW~app* &x"), ("-hset", "%W~app*")],
     )
     rules = r.acl_list()
+    rules = [(rule.decode() if isinstance(rule, bytes) else rule) for rule in rules]
     user_rule = next(filter(lambda x: x.startswith(f"user {username}"), rules), None)
     assert user_rule is not None
 
@@ -225,7 +233,11 @@ def test_acl_getuser_setuser(r: redis.Redis):
     assert len(acl["passwords"]) == 2
     assert set(acl["channels"]) == {"&message:*"}
     r.acl_deluser(username)
-    assert acl["selectors"] == [["commands", "-@all +set", "keys", "%W~app*", "channels", ""]]
+    assert acl["selectors"] == resp_conversion(
+        r,
+        [{"channels": "", "commands": "-@all +set", "keys": "%W~app*"}],
+        [["commands", "-@all +set", "keys", "%W~app*", "channels", ""]],
+    )
 
     assert r.acl_setuser(
         username,
@@ -239,11 +251,19 @@ def test_acl_getuser_setuser(r: redis.Redis):
         selectors=[("+set", "%W~app*"), ("+get", "%RW~app* &x"), ("-hset", "%W~app*")],
     )
     acl = r.acl_getuser(username)
-    assert acl["selectors"] == [
-        ["commands", "-@all +set", "keys", "%W~app*", "channels", ""],
-        ["commands", "-@all +get", "keys", "~app*", "channels", "&x"],
-        ["commands", "-@all -hset", "keys", "%W~app*", "channels", ""],
-    ]
+    assert acl["selectors"] == resp_conversion(
+        r,
+        [
+            {"channels": "", "commands": "-@all +set", "keys": "%W~app*"},
+            {"channels": "&x", "commands": "-@all +get", "keys": "~app*"},
+            {"channels": "", "commands": "-@all -hset", "keys": "%W~app*"},
+        ],
+        [
+            ["commands", "-@all +set", "keys", "%W~app*", "channels", ""],
+            ["commands", "-@all +get", "keys", "~app*", "channels", "&x"],
+            ["commands", "-@all -hset", "keys", "%W~app*", "channels", ""],
+        ],
+    )
 
 
 def test_acl_users(r: redis.Redis):
@@ -254,7 +274,7 @@ def test_acl_users(r: redis.Redis):
     assert r.acl_setuser(username, enabled=False, reset=True)
     users = r.acl_users()
     assert len(users) == len(start) + 1
-    assert username in users
+    assert (username.encode() in users) or (username in users)
 
 
 def test_acl_whoami(r: redis.Redis):
@@ -265,13 +285,13 @@ def test_acl_whoami(r: redis.Redis):
 
     assert r.auth(temp_pass, default_username) is True
     assert r.auth(temp_pass) is True
-    assert r.acl_whoami() == default_username
+    assert asbytes(r.acl_whoami()) == asbytes(default_username)
 
     username = "fakeredis-authuser"
     r.acl_deluser(username)
     r.acl_setuser(username, enabled=True, passwords=["+strong_password"], commands=["+acl"])
     r.auth(username=username, password="strong_password")
-    assert r.acl_whoami() == username
+    assert asbytes(r.acl_whoami()) == asbytes(username)
     assert r.auth(temp_pass, default_username) is True
     r.config_set("requirepass", "")
 

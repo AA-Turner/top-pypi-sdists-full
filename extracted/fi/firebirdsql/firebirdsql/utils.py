@@ -40,6 +40,22 @@ from firebirdsql.err import InternalError
 
 PYTHON_MAJOR_VER = sys.version_info[0]
 
+DEBUG_LEVEL = 0
+
+
+def enable_debug_print(verbose=False):
+    global DEBUG_LEVEL
+    DEBUG_LEVEL = 2 if verbose else 1
+
+
+def disable_debug_print():
+    global DEBUG
+    DEBUG_LEVEL = 0
+
+
+def debug_level():
+    return DEBUG_LEVEL
+
 
 def bs(byte_array):
     if PYTHON_MAJOR_VER == 2:

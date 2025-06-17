@@ -1,7 +1,8 @@
-import itertools
-import math
 import random
-from typing import Callable, List, Tuple, Any, Optional, Sequence
+from collections.abc import Mapping
+from typing import Callable, List, Any, Optional, Sequence, Union
+
+import math
 
 from fakeredis import _msgs as msgs
 from fakeredis._command_args_parsing import extract_args
@@ -19,13 +20,17 @@ class HashCommandsMixin:
         bytes,
     ]
     _encodefloat: Callable[[float, bool], bytes]
-    _scan: Callable[[CommandItem, int, bytes, bytes], Tuple[int, List[bytes]]]
+    _scan: Callable[[Sequence[bytes], int, bytes, ...], List[Union[bytes, List[bytes]]]]
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super(HashCommandsMixin, self).__init__(*args, **kwargs)
+        self.protocol_version: int
 
     def _hset(self, key: CommandItem, *args: bytes) -> int:
         h = key.value
-        keys_count = len(h.keys())
+        previous_keys_count = len(h.keys())
         h.update(dict(zip(*[iter(args)] * 2)), clear_expiration=True)  # type: ignore  # https://stackoverflow.com/a/12739974/1056460
-        created = len(h.keys()) - keys_count
+        created = len(h.keys()) - previous_keys_count
 
         key.updated()
         return created
@@ -50,8 +55,8 @@ class HashCommandsMixin:
         return key.value.get(field)
 
     @command((Key(Hash),))
-    def hgetall(self, key: CommandItem) -> List[bytes]:
-        return list(itertools.chain(*key.value.items()))
+    def hgetall(self, key: CommandItem) -> Mapping[str, str]:
+        return key.value.getall()
 
     @command(fixed=(Key(Hash), bytes, bytes))
     def hincrby(self, key: CommandItem, field: bytes, amount_bytes: bytes) -> int:
@@ -95,7 +100,7 @@ class HashCommandsMixin:
         if no_values:
             args = [arg for arg in args if not casematch(arg, b"novalues")]
         cursor, keys = self._scan(key.value, cursor, *args)
-        keys = [(key.encode("utf-8") if isinstance(key, str) else key) for key in keys]
+        keys = [key.encode("utf-8") for key in keys if isinstance(key, str)]
         if no_values:
             return [cursor, keys]
         items = []
@@ -123,7 +128,7 @@ class HashCommandsMixin:
         return list(key.value.values())
 
     @command(name="HRANDFIELD", fixed=(Key(Hash),), repeat=(bytes,))
-    def hrandfield(self, key: CommandItem, *args: bytes) -> Optional[List[bytes]]:
+    def hrandfield(self, key: CommandItem, *args: bytes) -> Union[List[List[str]], List[str], None]:
         if len(args) > 2:
             raise SimpleError(msgs.SYNTAX_ERROR_MSG)
         if key.value is None or len(key.value) == 0:
@@ -131,7 +136,7 @@ class HashCommandsMixin:
         count = min(Int.decode(args[0]) if len(args) >= 1 else 1, len(key.value))
         withvalues = casematch(args[1], b"withvalues") if len(args) >= 2 else False
         if count == 0:
-            return list()
+            return dict()
 
         if count < 0:  # Allow repetitions
             res = random.choices(sorted(key.value.items()), k=-count)
@@ -139,7 +144,10 @@ class HashCommandsMixin:
             res = random.sample(sorted(key.value.items()), count)
 
         if withvalues:
-            res = [item for t in res for item in t]
+            if self.protocol_version == 2:
+                res = [item for t in res for item in t]
+            else:
+                res = [list(t) for t in res]
         else:
             res = [t[0] for t in res]
         return res

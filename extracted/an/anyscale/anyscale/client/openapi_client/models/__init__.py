@@ -129,12 +129,15 @@ from openapi_client.models.cluster_event import ClusterEvent
 from openapi_client.models.cluster_event_source import ClusterEventSource
 from openapi_client.models.cluster_events_output import ClusterEventsOutput
 from openapi_client.models.cluster_management_stack_versions import ClusterManagementStackVersions
+from openapi_client.models.cluster_operation import ClusterOperation
+from openapi_client.models.cluster_operation_type import ClusterOperationType
 from openapi_client.models.cluster_state import ClusterState
 from openapi_client.models.cluster_status import ClusterStatus
 from openapi_client.models.cluster_status_details import ClusterStatusDetails
 from openapi_client.models.clusterauthresponse_response import ClusterauthresponseResponse
 from openapi_client.models.clusterevent_list_response import ClustereventListResponse
 from openapi_client.models.clustereventsoutput_response import ClustereventsoutputResponse
+from openapi_client.models.clusteroperation_response import ClusteroperationResponse
 from openapi_client.models.compute_node_type import ComputeNodeType
 from openapi_client.models.compute_stack import ComputeStack
 from openapi_client.models.compute_template import ComputeTemplate
@@ -385,6 +388,9 @@ from openapi_client.models.notification_channel_email_config import Notification
 from openapi_client.models.notification_channel_slack_config import NotificationChannelSlackConfig
 from openapi_client.models.notification_channel_webhook_config import NotificationChannelWebhookConfig
 from openapi_client.models.object_storage import ObjectStorage
+from openapi_client.models.operation_error import OperationError
+from openapi_client.models.operation_progress import OperationProgress
+from openapi_client.models.operation_result import OperationResult
 from openapi_client.models.operator_branch import OperatorBranch
 from openapi_client.models.operator_id import OperatorId
 from openapi_client.models.operator_metrics import OperatorMetrics

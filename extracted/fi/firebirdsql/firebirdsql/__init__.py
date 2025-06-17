@@ -32,9 +32,10 @@ from firebirdsql.consts import *    # noqa
 from firebirdsql.fbcore import Connection
 import firebirdsql.services
 from firebirdsql.err import (
-    Error, InterfaceError, DatabaseError, DisconnectByPeer, InternalError,
+    Warning, Error, InterfaceError, DatabaseError, DisconnectByPeer, InternalError,
     OperationalError, ProgrammingError, IntegrityError, DataError, NotSupportedError
 )
+
 
 if sys.version_info[0] > 2:
     from firebirdsql import aio
@@ -80,25 +81,25 @@ if PYTHON_MAJOR_VER == 3:
 else:
     BINARY = DBAPITypeObject(str)
 NUMBER = DBAPITypeObject(int, decimal.Decimal)
-DATETIME = DBAPITypeObject(datetime.datetime, datetime.date, datetime.time)
 DATE = DBAPITypeObject(datetime.date)
+DATETIME = DBAPITypeObject(datetime.datetime, datetime.date, datetime.time)
+TIMESTAMP = DBAPITypeObject(datetime.datetime)
 TIME = DBAPITypeObject(datetime.time)
 ROWID = DBAPITypeObject()
 
 
-__version__ = '1.3.5'
+__version__ = '1.4.0'
 apilevel = '2.0'
 threadsafety = 1
 paramstyle = 'qmark'
 
 
-
-def connect(**kwargs):
-    conn = Connection(**kwargs)
-    conn._initialize_socket()
+def connect(*args, **kwargs):
+    conn = Connection(*args, **kwargs)
+    conn._initialize()
     return conn
 
 
-def create_database(**kwargs):
+def create_database(*args, **kwargs):
     kwargs['create_new'] = True
-    return connect(**kwargs)
+    return connect(*args, **kwargs)

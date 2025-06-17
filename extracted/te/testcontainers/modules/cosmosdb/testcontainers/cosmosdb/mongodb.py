@@ -27,7 +27,7 @@ class CosmosDBMongoEndpointContainer(CosmosDBEmulatorContainer):
         self,
         mongodb_version: str,
         image: str = os.getenv(
-            "AZURE_COSMOS_EMULATOR_IMAGE", "mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest"
+            "AZURE_COSMOS_EMULATOR_IMAGE", "mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:mongodb"
         ),
         **other_kwargs,
     ):

@@ -34,25 +34,16 @@ from firebirdsql.fberrmsgs import messages
 from firebirdsql.err import InternalError, OperationalError, NotSupportedError, IntegrityError, DataError
 from firebirdsql.consts import *    # noqa
 from firebirdsql.utils import *     # noqa
-from firebirdsql.wireprotocol import WireProtocolMixin, get_crypt
+from firebirdsql.wireprotocol import WireProtocol, get_crypt
 from firebirdsql.stream import SocketStream
 from firebirdsql.xsqlvar import calc_blr, parse_xsqlda
 from firebirdsql.event_conduit import EventConduit
 from firebirdsql import srp
-try:
-    from Crypto.Cipher import ARC4
-except ImportError:
-    from firebirdsql.arc4 import ARC4
-try:
-    from Crypto.Cipher import ChaCha20
-except ImportError:
-    from firebirdsql.chacha import ChaCha20
-
-DEBUG = False
-
+from firebirdsql.arc4 import ARC4
+from firebirdsql.chacha import ChaCha20
 
 def DEBUG_OUTPUT(*argv):
-    if not DEBUG:
+    if debug_level() == 0:
         return
     for s in argv:
         print(s, end=' ', file=sys.stderr)
@@ -66,11 +57,7 @@ class Statement(object):
     def __init__(self, trans):
         DEBUG_OUTPUT("Statement::__init__()")
         self.trans = trans
-        self._allocate_stmt()
-        self._is_open = False
-        self.stmt_type = None
 
-    def _allocate_stmt(self):
         self.trans.connection._op_allocate_statement()
         if (self.trans.connection.accept_type & ptype_MASK) == ptype_lazy_send:
             self.trans.connection.lazy_response_count += 1
@@ -79,15 +66,13 @@ class Statement(object):
             (h, oid, buf) = self.trans.connection._op_response()
             self.handle = h
 
-    def fetch_generator(self):
-        DEBUG_OUTPUT("Statement::_fetch_generator()", self.handle, self.trans._trans_handle)
+        self._is_open = False
+        self.stmt_type = None
+
+    def fetch_generator(self, rows, more_data):
+        DEBUG_OUTPUT("Statement::_fetch_generator()", self.handle, self.trans._trans_handle, self.trans.connection.db_handle)
         connection = self.trans.connection
-        more_data = True
-        while more_data:
-            if not self.is_opened:
-                return
-            connection._op_fetch(self.handle, calc_blr(self.xsqlda))
-            (rows, more_data) = connection._op_fetch_response(self.handle, self.xsqlda)
+        while rows:
             for r in rows:
                 # Convert BLOB handle to data
                 for i in range(len(self.xsqlda)):
@@ -95,8 +80,12 @@ class Statement(object):
                     if x.sqltype == SQL_TYPE_BLOB:
                         if not r[i]:
                             continue
-                        connection._op_open_blob(r[i], self.trans.trans_handle)
-                        (h, oid, buf) = connection._op_response()
+                        connection._op_open_blob2(r[i], self.trans.trans_handle)
+                        if (connection.accept_type & ptype_MASK)== ptype_lazy_send:
+                            connection.lazy_response_count += 1
+                            h = -1
+                        else:
+                            (h, oid, buf) = connection._op_response()
                         v = bs([])
                         n = 1   # 0,1:mora data 2:no more data
                         while n != 2:
@@ -118,6 +107,12 @@ class Statement(object):
                             else:
                                 r[i] = connection.bytes_to_str(r[i])
                 yield tuple(r)
+            if more_data:
+                connection._op_fetch(self.handle, calc_blr(self.xsqlda))
+                (rows, more_data) = connection._op_fetch_response(self.handle, self.xsqlda)
+            else:
+                break
+
         return
 
     def prepare(self, sql, explain_plan=False):
@@ -131,7 +126,7 @@ class Statement(object):
                 self.handle, self.trans.trans_handle, sql)
             self.plan = None
 
-        if self.trans.connection.lazy_response_count:
+        while self.trans.connection.lazy_response_count:
             self.trans.connection.lazy_response_count -= 1
             (h, oid, buf) = self.trans.connection._op_response()
             self.handle = h
@@ -159,7 +154,7 @@ class Statement(object):
 
     def drop(self):
         DEBUG_OUTPUT("Statement::drop()", self.handle)
-        if self.handle != -1 and self._is_open:
+        if self.handle != -1:
             self.trans.connection._op_free_statement(self.handle, DSQL_drop)
             if (self.trans.connection.accept_type & ptype_MASK) == ptype_lazy_send:
                 self.trans.connection.lazy_response_count += 1
@@ -197,6 +192,7 @@ class PreparedStatement(object):
         raise AttributeError
 
     def close(self):
+        DEBUG_OUTPUT("PreparedStatement::close()")
         self.stmt.close()
 
 
@@ -257,7 +253,6 @@ class Cursor(object):
     def _execute(self, query, params):
         if params is None:
             params = []
-        DEBUG_OUTPUT("Cursor::execute()", query, params)
         self.transaction.check_trans_handle()
         stmt = self._get_stmt(query)
         cooked_params = self._convert_params(params)
@@ -270,15 +265,14 @@ class Cursor(object):
             self.transaction.connection._op_response()
             self._fetch_records = None
         else:
-            DEBUG_OUTPUT(
-                "Cursor::execute() _op_execute()",
-                stmt.handle, self.transaction.trans_handle)
             self.transaction.connection._op_execute(
                 stmt.handle, self.transaction.trans_handle, cooked_params)
             (h, oid, buf) = self.transaction.connection._op_response()
 
             if stmt.stmt_type == isc_info_sql_stmt_select:
-                self._fetch_records = stmt.fetch_generator()
+                self.transaction.connection._op_fetch(stmt.handle, calc_blr(stmt.xsqlda))
+                (rows, more_data) = self.transaction.connection._op_fetch_response(stmt.handle, stmt.xsqlda)
+                self._fetch_records = stmt.fetch_generator(rows, more_data)
             else:
                 self._fetch_records = None
             self._callproc_result = None
@@ -286,6 +280,7 @@ class Cursor(object):
         return self
 
     def execute(self, query, params=None):
+        DEBUG_OUTPUT("Cursor::execute()", query, params)
         try:
             return self._execute(query, params)
         finally:
@@ -305,22 +300,26 @@ class Cursor(object):
 
     def fetchone(self):
         if not self.transaction.is_dirty:
+            DEBUG_OUTPUT("Cursor::fetchone() not dirty")
             return None
         # callproc or not select statement
         if not self._fetch_records:
             if self._callproc_result:
                 r = self._callproc_result
                 self._callproc_result = None
+                DEBUG_OUTPUT("Cursor::fetchone()", r)
                 return r
             return None
         # select statement
         try:
             if PYTHON_MAJOR_VER == 3:
-                return tuple(next(self._fetch_records))
+                result = tuple(next(self._fetch_records))
             else:
-                return tuple(self._fetch_records.next())
+                result = tuple(self._fetch_records.next())
         except StopIteration:
-            return None
+            result = None
+        DEBUG_OUTPUT("Cursor::fetchone()", result)
+        return result
 
     def __iter__(self):
         return self
@@ -345,7 +344,9 @@ class Cursor(object):
                 return proc_r
             return []
         # select statement
-        return [tuple(r) for r in self._fetch_records]
+        results = [tuple(r) for r in self._fetch_records]
+        DEBUG_OUTPUT("Cursor::fetchall()", results)
+        return results
 
     def fetchmany(self, size=None):
         if not size:
@@ -358,7 +359,9 @@ class Cursor(object):
                 return r
             return []
         # select statement
-        return list(itertools.islice(self._fetch_records, size))
+        results_list = list(itertools.islice(self._fetch_records, size))
+        DEBUG_OUTPUT("Cursor::fetchmany()", results_list)
+        return results_list
 
     # kinterbasdb extended API
     def fetchonemap(self):
@@ -422,7 +425,6 @@ class Cursor(object):
         else:
             # insert count + update count + delete count
             count = bytes_to_int(buf[27:31]) + bytes_to_int(buf[6:10]) + bytes_to_int(buf[13:17])
-        DEBUG_OUTPUT("Cursor::rowcount()", self.stmt.stmt_type, count)
         return count
 
 
@@ -448,21 +450,23 @@ class Transaction(object):
         self._isolation_level = isolation_level
 
     def _begin(self):
-        tpb = self.transaction_parameter_block[self._isolation_level if self._isolation_level is not None else self.connection.isolation_level]
+        isolation_level = self._isolation_level if self._isolation_level is not None else self.connection.isolation_level
+        tpb = self.transaction_parameter_block[isolation_level]
         if self._autocommit:
             tpb += bs([isc_tpb_autocommit])
         self.connection._op_transaction(tpb)
         (h, oid, buf) = self.connection._op_response()
         self._trans_handle = None if h < 0 else h
         DEBUG_OUTPUT(
-            "Transaction::_begin()", self._trans_handle, self.connection)
+            "Transaction::_begin()", self.connection.db_handle, isolation_level, self._autocommit, self._trans_handle)
         self.is_dirty = False
 
-    def _cleanup(self):
+    def close(self):
         if self._trans_handle is None:
             return
         if not self.is_dirty:
             return
+        DEBUG_OUTPUT("Transaction::close()", self._trans_handle, self.connection.db_handle)
         self.connection._op_rollback(self._trans_handle)
         (h, oid, buf) = self.connection._op_response()
         self._trans_handle = None
@@ -473,6 +477,7 @@ class Transaction(object):
         self._begin()
 
     def savepoint(self, name):
+        DEBUG_OUTPUT("Transaction::savepoint()", name)
         if self._trans_handle is None:
             return
         self.connection._op_exec_immediate(self._trans_handle, query='SAVEPOINT '+name)
@@ -480,7 +485,7 @@ class Transaction(object):
 
     def commit(self, retaining=False):
         DEBUG_OUTPUT(
-            "Transaction::commit()", self._trans_handle, self, self.connection, retaining)
+            "Transaction::commit()", self._trans_handle, self.connection.db_handle, retaining)
         if self._trans_handle is None:
             return
         if not self.is_dirty:
@@ -496,8 +501,8 @@ class Transaction(object):
 
     def rollback(self, retaining=False, savepoint=None):
         DEBUG_OUTPUT(
-            "Transaction::rollback()", self._trans_handle, self,
-            self.connection, retaining, savepoint)
+            "Transaction::rollback()", self._trans_handle,
+            self.connection.db_handle, retaining, savepoint)
         if self._trans_handle is None:
             return
         if savepoint:
@@ -890,7 +895,7 @@ class ConnectionResponseMixin:
         return rows, status != 100
 
 
-class ConnectionBase:
+class ConnectionBase(WireProtocol):
     def cursor(self, factory=Cursor):
         DEBUG_OUTPUT("Connection::cursor()")
         if self._transaction is None:
@@ -913,6 +918,7 @@ class ConnectionBase:
             self._transaction.commit(retaining=retaining)
 
     def savepoint(self, name):
+        DEBUG_OUTPUT("Connection::savepoint()", name)
         return self._transaction.savepoint(name)
 
     def rollback(self, retaining=False, savepoint=None):
@@ -930,10 +936,15 @@ class ConnectionBase:
         (h, oid, buf) = self._op_response()
         self._transaction.is_dirty = True
 
-    def ping(self):
-        self._op_ping()
-        (h, oid, buf) = self._op_response()
-        return h == 0
+    def ping(self, reconnect=True):
+        try:
+            self._op_ping()
+            (h, oid, buf) = self._op_response()
+            return h == 0
+        except:
+            if reconnect:
+                self.reconnect()
+                return self.ping(False)
 
     def __init__(
         self, dsn=None, user=None, password=None, role=None, host=None,
@@ -943,7 +954,7 @@ class ConnectionBase:
         auth_plugin_name=None, wire_crypt=True, create_new=False,
         timezone=None
     ):
-        DEBUG_OUTPUT("Connection::__init__()")
+        DEBUG_OUTPUT("Connection::__init__()", id(self))
         self.accept_plugin_name = ''
         self.auth_data = b''
         if auth_plugin_name is None:
@@ -968,13 +979,14 @@ class ConnectionBase:
             self.isolation_level = int(isolation_level)
         self.use_unicode = use_unicode
         self.timezone = timezone
-        self.last_event_id = 0
 
+
+    def _initialize(self):
+        self.last_event_id = 0
         self._autocommit = False
         self._transaction = None
         self._cursors = {}
 
-    def _initialize_socket(self):
         self.sock = SocketStream(self.hostname, self.port, self.timeout, self.cloexec)
 
         self._op_connect(self.auth_plugin_name, self.wire_crypt)
@@ -992,6 +1004,7 @@ class ConnectionBase:
             self._op_attach(self.timezone)
         (h, oid, buf) = self._op_response()
         self.db_handle = h
+        DEBUG_OUTPUT("Connection::_initialize()", id(self), self.db_handle)
 
     def __enter__(self):
         return self
@@ -1003,6 +1016,10 @@ class ConnectionBase:
         else:
             self.commit()
         self.close()
+
+    def reconnect(self):
+        self._close()
+        self._initialize()
 
     def set_isolation_level(self, isolation_level):
         self.isolation_level = int(isolation_level)
@@ -1148,14 +1165,13 @@ class ConnectionBase:
             return self._transaction.trans_info(info_requests)
         return {}
 
-    def close(self):
-        DEBUG_OUTPUT("Connection::close()")
+    def _close(self):
         if self.sock is None:
             return
         if self.db_handle is not None:
             # cleanup transaction
             for trans in self._cursors.keys():
-                trans._cleanup()
+                trans.close()
             if self.is_services:
                 self._op_service_detach()
             else:
@@ -1164,6 +1180,10 @@ class ConnectionBase:
         self.sock.close()
         self.sock = None
         self.db_handle = None
+
+    def close(self):
+        DEBUG_OUTPUT("Connection::close()", id(self), self.db_handle)
+        self._close()
 
     def drop_database(self):
         DEBUG_OUTPUT("Connection::drop_database()")
@@ -1184,5 +1204,6 @@ class ConnectionBase:
         return self.sock is None
 
 
-class Connection(ConnectionBase, WireProtocolMixin, ConnectionResponseMixin):
-    pass
+class Connection(ConnectionBase, ConnectionResponseMixin):
+    def __init__(self, *args, **kwargs):
+        ConnectionBase.__init__(self, *args, **kwargs)

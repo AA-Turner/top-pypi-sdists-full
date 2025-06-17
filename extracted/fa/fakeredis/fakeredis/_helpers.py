@@ -4,7 +4,7 @@ import time
 import weakref
 from collections import defaultdict
 from collections.abc import MutableMapping
-from typing import Any, Set, Callable, Dict, Optional, Iterator
+from typing import Any, Set, Callable, Dict, Optional, Iterator, AnyStr
 
 
 class SimpleString:
@@ -16,7 +16,7 @@ class SimpleString:
     def decode(cls, value: bytes) -> bytes:
         return value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.value!r})"
 
 
@@ -59,6 +59,12 @@ def casematch(a: bytes, b: bytes) -> bool:
 
 def decode_command_bytes(s: bytes) -> str:
     return s.decode(encoding="utf-8", errors="replace").lower()
+
+
+def asbytes(value: AnyStr) -> bytes:
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    return value
 
 
 def compile_pattern(pattern_bytes: bytes) -> re.Pattern:  # type: ignore
@@ -207,13 +213,18 @@ class Database(MutableMapping):  # type: ignore
         return super(object, self) == other
 
 
-def valid_response_type(value: Any, nested: bool = False) -> bool:
+_VALID_RESPONSE_TYPES_RESP2 = (bytes, SimpleString, SimpleError, float, int, list)
+_VALID_RESPONSE_TYPES_RESP3 = (bytes, SimpleString, SimpleError, float, int, list, dict, str)
+
+
+def valid_response_type(value: Any, protocol_version: int, nested: bool = False) -> bool:
     if isinstance(value, NoResponse) and not nested:
         return True
-    if value is not None and not isinstance(value, (bytes, SimpleString, SimpleError, float, int, list)):
+    allowed_types = _VALID_RESPONSE_TYPES_RESP2 if protocol_version == 2 else _VALID_RESPONSE_TYPES_RESP3
+    if value is not None and not isinstance(value, allowed_types):
         return False
     if isinstance(value, list):
-        if any(not valid_response_type(item, True) for item in value):
+        if any(not valid_response_type(item, protocol_version, True) for item in value):
             return False
     return True
 

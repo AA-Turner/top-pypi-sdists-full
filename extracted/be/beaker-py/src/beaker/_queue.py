@@ -402,7 +402,7 @@ class QueueClient(ServiceClient):
 
                 rx.put(None)
                 return
-            except BeakerStreamConnectionClosedError as err:
+            except (BeakerStreamConnectionClosedError, BeakerServerUnavailableError) as err:
                 # These errors are expected, see https://github.com/allenai/beaker/issues/6532
                 iter_canceled = True
                 self._log_and_wait(1, err, log_level=logging.DEBUG)

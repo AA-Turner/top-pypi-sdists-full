@@ -344,6 +344,7 @@ STEP_DECORATORS_DESC = [
     ("gpu_profile", ".profilers.gpu_profile_decorator.GPUProfileDecorator"),
     ("nim", ".nim.nim_decorator.NimDecorator"),
     ("ollama", ".ollama.OllamaDecorator"),
+    ("vllm", ".vllm.VLLMDecorator"),
     ("app_deploy", ".apps.deploy_decorator.WorkstationAppDeployDecorator"),
 ]
 

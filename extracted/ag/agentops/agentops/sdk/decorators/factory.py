@@ -7,13 +7,12 @@ from typing import Any, Dict, Callable, Optional, Union
 import wrapt  # type: ignore
 
 from agentops.logging import logger
-from agentops.sdk.core import TracingCore, TraceContext
+from agentops.sdk.core import TraceContext, tracer
 from agentops.semconv.span_kinds import SpanKind
 from agentops.semconv import SpanAttributes, CoreAttributes
 
-from .utility import (
+from agentops.sdk.decorators.utility import (
     _create_as_current_span,
-    _make_span,
     _process_async_generator,
     _process_sync_generator,
     _record_entity_input,
@@ -34,9 +33,10 @@ def create_entity_decorator(entity_kind: str) -> Callable[..., Any]:
         version: Optional[Any] = None,
         tags: Optional[Union[list, dict]] = None,
         cost=None,
+        spec=None,
     ) -> Callable[..., Any]:
         if wrapped is None:
-            return functools.partial(decorator, name=name, version=version, tags=tags, cost=cost)
+            return functools.partial(decorator, name=name, version=version, tags=tags, cost=cost, spec=spec)
 
         if inspect.isclass(wrapped):
             # Class decoration wraps __init__ and aenter/aexit for context management.
@@ -81,7 +81,7 @@ def create_entity_decorator(entity_kind: str) -> Callable[..., Any]:
         def wrapper(
             wrapped_func: Callable[..., Any], instance: Optional[Any], args: tuple, kwargs: Dict[str, Any]
         ) -> Any:
-            if not TracingCore.get_instance().initialized:
+            if not tracer.initialized:
                 return wrapped_func(*args, **kwargs)
 
             operation_name = name or wrapped_func.__name__
@@ -100,7 +100,7 @@ def create_entity_decorator(entity_kind: str) -> Callable[..., Any]:
                     async def _wrapped_session_async() -> Any:
                         trace_context: Optional[TraceContext] = None
                         try:
-                            trace_context = TracingCore.get_instance().start_trace(trace_name=operation_name, tags=tags)
+                            trace_context = tracer.start_trace(trace_name=operation_name, tags=tags)
                             if not trace_context:
                                 logger.error(
                                     f"Failed to start trace for @trace '{operation_name}'. Executing without trace."
@@ -115,24 +115,24 @@ def create_entity_decorator(entity_kind: str) -> Callable[..., Any]:
                                 _record_entity_output(trace_context.span, result)
                             except Exception as e:
                                 logger.warning(f"Output recording failed for @trace '{operation_name}': {e}")
-                            TracingCore.get_instance().end_trace(trace_context, "Success")
+                            tracer.end_trace(trace_context, "Success")
                             return result
                         except Exception:
                             if trace_context:
-                                TracingCore.get_instance().end_trace(trace_context, "Failure")
+                                tracer.end_trace(trace_context, "Indeterminate")
                             raise
                         finally:
                             if trace_context and trace_context.span.is_recording():
                                 logger.warning(
                                     f"Trace for @trace '{operation_name}' not explicitly ended. Ending as 'Unknown'."
                                 )
-                                TracingCore.get_instance().end_trace(trace_context, "Unknown")
+                                tracer.end_trace(trace_context, "Unknown")
 
                     return _wrapped_session_async()
                 else:  # Sync function for SpanKind.SESSION
                     trace_context: Optional[TraceContext] = None
                     try:
-                        trace_context = TracingCore.get_instance().start_trace(trace_name=operation_name, tags=tags)
+                        trace_context = tracer.start_trace(trace_name=operation_name, tags=tags)
                         if not trace_context:
                             logger.error(
                                 f"Failed to start trace for @trace '{operation_name}'. Executing without trace."
@@ -147,48 +147,54 @@ def create_entity_decorator(entity_kind: str) -> Callable[..., Any]:
                             _record_entity_output(trace_context.span, result)
                         except Exception as e:
                             logger.warning(f"Output recording failed for @trace '{operation_name}': {e}")
-                        TracingCore.get_instance().end_trace(trace_context, "Success")
+                        tracer.end_trace(trace_context, "Success")
                         return result
                     except Exception:
                         if trace_context:
-                            TracingCore.get_instance().end_trace(trace_context, "Failure")
+                            tracer.end_trace(trace_context, "Indeterminate")
                         raise
                     finally:
                         if trace_context and trace_context.span.is_recording():
                             logger.warning(
                                 f"Trace for @trace '{operation_name}' not explicitly ended. Ending as 'Unknown'."
                             )
-                            TracingCore.get_instance().end_trace(trace_context, "Unknown")
+                            tracer.end_trace(trace_context, "Unknown")
 
             # Logic for non-SESSION kinds or generators under @trace (as per fallthrough)
             elif is_generator:
-                span, _, token = _make_span(
+                span, _, token = tracer.make_span(
                     operation_name,
                     entity_kind,
                     version=version,
                     attributes={CoreAttributes.TAGS: tags} if tags else None,
                 )
                 try:
-                    _record_entity_input(span, args, kwargs)
+                    _record_entity_input(span, args, kwargs, entity_kind=entity_kind)
                     # Set cost attribute if tool
                     if entity_kind == "tool" and cost is not None:
                         span.set_attribute(SpanAttributes.LLM_USAGE_TOOL_COST, cost)
+                    # Set spec attribute if guardrail
+                    if entity_kind == "guardrail" and (spec == "input" or spec == "output"):
+                        span.set_attribute(SpanAttributes.AGENTOPS_DECORATOR_SPEC.format(entity_kind=entity_kind), spec)
                 except Exception as e:
                     logger.warning(f"Input recording failed for '{operation_name}': {e}")
                 result = wrapped_func(*args, **kwargs)
                 return _process_sync_generator(span, result)
             elif is_async_generator:
-                span, _, token = _make_span(
+                span, _, token = tracer.make_span(
                     operation_name,
                     entity_kind,
                     version=version,
                     attributes={CoreAttributes.TAGS: tags} if tags else None,
                 )
                 try:
-                    _record_entity_input(span, args, kwargs)
+                    _record_entity_input(span, args, kwargs, entity_kind=entity_kind)
                     # Set cost attribute if tool
                     if entity_kind == "tool" and cost is not None:
                         span.set_attribute(SpanAttributes.LLM_USAGE_TOOL_COST, cost)
+                    # Set spec attribute if guardrail
+                    if entity_kind == "guardrail" and (spec == "input" or spec == "output"):
+                        span.set_attribute(SpanAttributes.AGENTOPS_DECORATOR_SPEC.format(entity_kind=entity_kind), spec)
                 except Exception as e:
                     logger.warning(f"Input recording failed for '{operation_name}': {e}")
                 result = wrapped_func(*args, **kwargs)
@@ -203,16 +209,21 @@ def create_entity_decorator(entity_kind: str) -> Callable[..., Any]:
                         attributes={CoreAttributes.TAGS: tags} if tags else None,
                     ) as span:
                         try:
-                            _record_entity_input(span, args, kwargs)
+                            _record_entity_input(span, args, kwargs, entity_kind=entity_kind)
                             # Set cost attribute if tool
                             if entity_kind == "tool" and cost is not None:
                                 span.set_attribute(SpanAttributes.LLM_USAGE_TOOL_COST, cost)
+                            # Set spec attribute if guardrail
+                            if entity_kind == "guardrail" and (spec == "input" or spec == "output"):
+                                span.set_attribute(
+                                    SpanAttributes.AGENTOPS_DECORATOR_SPEC.format(entity_kind=entity_kind), spec
+                                )
                         except Exception as e:
                             logger.warning(f"Input recording failed for '{operation_name}': {e}")
                         try:
                             result = await wrapped_func(*args, **kwargs)
                             try:
-                                _record_entity_output(span, result)
+                                _record_entity_output(span, result, entity_kind=entity_kind)
                             except Exception as e:
                                 logger.warning(f"Output recording failed for '{operation_name}': {e}")
                             return result
@@ -230,16 +241,21 @@ def create_entity_decorator(entity_kind: str) -> Callable[..., Any]:
                     attributes={CoreAttributes.TAGS: tags} if tags else None,
                 ) as span:
                     try:
-                        _record_entity_input(span, args, kwargs)
+                        _record_entity_input(span, args, kwargs, entity_kind=entity_kind)
                         # Set cost attribute if tool
                         if entity_kind == "tool" and cost is not None:
                             span.set_attribute(SpanAttributes.LLM_USAGE_TOOL_COST, cost)
+                        # Set spec attribute if guardrail
+                        if entity_kind == "guardrail" and (spec == "input" or spec == "output"):
+                            span.set_attribute(
+                                SpanAttributes.AGENTOPS_DECORATOR_SPEC.format(entity_kind=entity_kind), spec
+                            )
                     except Exception as e:
                         logger.warning(f"Input recording failed for '{operation_name}': {e}")
                     try:
                         result = wrapped_func(*args, **kwargs)
                         try:
-                            _record_entity_output(span, result)
+                            _record_entity_output(span, result, entity_kind=entity_kind)
                         except Exception as e:
                             logger.warning(f"Output recording failed for '{operation_name}': {e}")
                         return result

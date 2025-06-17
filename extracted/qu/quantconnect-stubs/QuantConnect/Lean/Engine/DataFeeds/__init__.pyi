@@ -2593,6 +2593,9 @@ class DataPermissionManager(System.Object, QuantConnect.Interfaces.IDataPermissi
         """The data channel provider instance"""
         ...
 
+    def __init__(self) -> None:
+        ...
+
     def assert_configuration(self, subscription_request: QuantConnect.Data.SubscriptionDataConfig, start_time_local: typing.Union[datetime.datetime, datetime.date], end_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
         Will assert the requested configuration is valid for the current job

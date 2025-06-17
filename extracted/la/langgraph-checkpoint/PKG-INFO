@@ -1,19 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: langgraph-checkpoint
-Version: 2.0.26
+Version: 2.1.0
 Summary: Library with base interfaces for LangGraph checkpoint savers.
-License: MIT
-Requires-Python: >=3.9
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: langchain-core (>=0.2.38) ; python_version < "4.0"
-Requires-Dist: ormsgpack (>=1.8.0,<2.0.0)
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: >=3.9
+Requires-Dist: langchain-core>=0.2.38
+Requires-Dist: ormsgpack>=1.10.0
 Description-Content-Type: text/markdown
 
 # LangGraph Checkpoint
@@ -69,7 +63,7 @@ read_config = {"configurable": {"thread_id": "1"}}
 
 checkpointer = MemorySaver()
 checkpoint = {
-    "v": 2,
+    "v": 4,
     "ts": "2024-07-31T20:14:19.804150+00:00",
     "id": "1ef4f797-8335-6428-8001-8a1503f9b875",
     "channel_values": {
@@ -91,7 +85,6 @@ checkpoint = {
         "start:node": 2
       }
     },
-    "pending_sends": [],
 }
 
 # store checkpoint
@@ -103,4 +96,3 @@ checkpointer.get(read_config)
 # list checkpoints
 list(checkpointer.list(read_config))
 ```
-

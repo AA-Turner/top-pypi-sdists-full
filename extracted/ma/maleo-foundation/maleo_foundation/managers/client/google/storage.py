@@ -51,7 +51,7 @@ class GoogleCloudStorage(GoogleClientManager):
             self._client = None
             self._logger.info("Client manager disposed successfully")
 
-    def upload(
+    async def upload(
         self,
         content:bytes,
         location:str,
@@ -59,7 +59,7 @@ class GoogleCloudStorage(GoogleClientManager):
         make_public:bool=False,
         expiration:BaseEnums=BaseEnums.Expiration.EXP_15MN,
         root_location_override:BaseTypes.OptionalString=None,
-        set_in_redis:bool=False
+        set_in_redis:bool=True
     ) -> str:
         """
         Upload a file to Google Cloud Storage.
@@ -93,18 +93,18 @@ class GoogleCloudStorage(GoogleClientManager):
 
         if set_in_redis:
             if make_public:
-                self._redis.set(f"{self.key}:{blob_name}", url)
+                await self._redis.set(f"{self.key}:{blob_name}", url)
             else:
-                self._redis.set(f"{self.key}:{blob_name}", url, ex=int(expiration))
+                await self._redis.set(f"{self.key}:{blob_name}", url, ex=int(expiration))
 
         return url
 
-    def generate_signed_url(
+    async def generate_signed_url(
         self,
         location:str,
         expiration:BaseEnums=BaseEnums.Expiration.EXP_15MN,
         root_location_override:BaseTypes.OptionalString=None,
-        use_redis:bool=False
+        use_redis:bool=True
     ) -> str:
         """
         generate signed URL of a file in the bucket based on its location.
@@ -134,7 +134,7 @@ class GoogleCloudStorage(GoogleClientManager):
         if use_redis:
             if self._redis is None:
                 raise ValueError("Can not use redis. Redis is not initialized")
-            url = self._redis.get(blob_name)
+            url = await self._redis.get(blob_name)
             if url is not None:
                 return url
 
@@ -143,5 +143,5 @@ class GoogleCloudStorage(GoogleClientManager):
             expiration=timedelta(seconds=int(expiration)),
             method="GET"
         )
-        self._redis.set(f"{self.key}:{blob_name}", url, ex=int(expiration))
+        await self._redis.set(f"{self.key}:{blob_name}", url, ex=int(expiration))
         return url

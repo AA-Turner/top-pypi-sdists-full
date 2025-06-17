@@ -31,8 +31,9 @@ class ReaderDriverCache:
         key = (uri_scheme.lower(), fmt.lower())
         return self._lookup.get(key)
 
-    def __call__(self, uri_scheme: str, fmt: str,
-                 fallback: DatasourceFactory | None = None) -> DatasourceFactory:
+    def __call__(
+        self, uri_scheme: str, fmt: str, fallback: DatasourceFactory | None = None
+    ) -> DatasourceFactory:
         """
         Lookup `new_datasource` constructor method from the driver. Returns
         `fallback` method if no driver is found.
@@ -60,9 +61,9 @@ def rdr_cache() -> ReaderDriverCache:
     """
     Singleton for ReaderDriverCache
     """
-    return singleton_setup(rdr_cache, '_instance',
-                           ReaderDriverCache,
-                           'datacube.plugins.io.read')
+    return singleton_setup(
+        rdr_cache, "_instance", ReaderDriverCache, "datacube.plugins.io.read"
+    )
 
 
 def reader_drivers() -> list[str]:
@@ -85,9 +86,9 @@ def choose_datasource(band: BandInfo) -> DatasourceFactory:
     - Available IO plugins
 
     NOTE: we assume that all bands can be loaded with the same implementation.
-
     """
     from datacube.storage._rio import RasterDatasetDataSource
+
     return rdr_cache()(band.uri_scheme, band.format, fallback=RasterDatasetDataSource)
 
 
@@ -106,9 +107,7 @@ def new_datasource(band: BandInfo) -> DataSource | None:
     ``DataSource`` can be found.
 
     :param band: The band to choose data source from.
-
     """
-
     source_type = choose_datasource(band)
 
     if source_type is None:

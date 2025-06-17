@@ -4221,7 +4221,11 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 status=RpaHistoricoStatusEnum.Falha, 
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
+
         
+        with open(f"{path_to_txt}.pdf", 'rb') as file:
+            file_bytes = io.BytesIO(file.read())
+
 
         desArquivo = f"CAIXA 13 DEVOLUCAO {numero_cupom_fiscal}.pdf"
         try:

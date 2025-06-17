@@ -46,6 +46,7 @@ from anyscale.client.openapi_client.models import (
     CloudDataBucketPresignedUrlResponse,
     CloudDataBucketPresignedUrlScheme,
     CloudNameOptions,
+    ClusteroperationResponse,
     ComputeTemplate,
     ComputeTemplateConfig,
     ComputeTemplateQuery,
@@ -82,6 +83,7 @@ from anyscale.client.openapi_client.models import (
     SessionState,
     StartSessionOptions,
     StopSessionOptions,
+    SystemWorkloadName,
     WorkspaceDataplaneProxiedArtifacts,
 )
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
@@ -595,6 +597,19 @@ class AnyscaleClient(AnyscaleClientInterface):
         self._internal_api_client.batch_create_cloud_collaborators_api_v2_clouds_cloud_id_collaborators_users_batch_create_post(
             cloud_id, collaborators
         )
+
+    @handle_api_exceptions
+    def terminate_system_cluster(self, cloud_id: str) -> ClusteroperationResponse:
+        return self._internal_api_client.terminate_system_cluster_api_v2_system_workload_cloud_id_terminate_post(
+            cloud_id
+        )
+
+    @handle_api_exceptions
+    def describe_system_workload_get_status(self, cloud_id: str) -> str:
+        res = self._internal_api_client.describe_system_workload_api_v2_system_workload_cloud_id_describe_post(
+            cloud_id, SystemWorkloadName.RAY_OBS_EVENTS_API_SERVICE, start_cluster=False
+        ).result
+        return res.status
 
     @handle_api_exceptions
     def create_compute_config(

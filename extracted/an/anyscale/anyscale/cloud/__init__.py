@@ -14,9 +14,12 @@ from anyscale.cloud.commands import (
     _GET_ARG_DOCSTRINGS,
     _GET_DEFAULT_EXAMPLE,
     _GET_EXAMPLE,
+    _TERMINATE_SYSTEM_CLUSTER_ARG_DOCSTRINGS,
+    _TERMINATE_SYSTEM_CLUSTER_EXAMPLE,
     add_collaborators,
     get,
     get_default,
+    terminate_system_cluster,
 )
 from anyscale.cloud.models import Cloud, CreateCloudCollaborator
 from anyscale.connect import ClientBuilder
@@ -73,6 +76,18 @@ class CloudSDK:
         """
         return self._private_sdk.get_default()
 
+    @sdk_docs(
+        doc_py_example=_TERMINATE_SYSTEM_CLUSTER_EXAMPLE,
+        arg_docstrings=_TERMINATE_SYSTEM_CLUSTER_ARG_DOCSTRINGS,
+    )
+    def terminate_system_cluster(self, cloud_id: str, wait: bool = False) -> str:
+        """
+        Terminate the system cluster for a given cloud.
+
+        :return: ID of the terminated system cluster.
+        """
+        return self._private_sdk.terminate_system_cluster(cloud_id, wait)
+
 
 # Note: indentation here matches that of connect.py::ClientBuilder.
 BUILDER_HELP_FOOTER = """
@@ -94,6 +109,7 @@ class CloudModule(ModuleType):
         self.add_collaborators = add_collaborators
         self.get = get
         self.get_default = get_default
+        self.terminate_system_cluster = terminate_system_cluster
 
         # Expose Anyscale connect
         self.new_builder = self._new_builder()

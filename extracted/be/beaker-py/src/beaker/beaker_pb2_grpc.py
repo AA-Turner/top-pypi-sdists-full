@@ -236,6 +236,11 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.StreamJobLogsRequest.SerializeToString,
                 response_deserializer=beaker__pb2.JobLog.FromString,
                 _registered_method=True)
+        self.FinalizeJobForUnavailableNode = channel.unary_unary(
+                '/allenai.beaker.Beaker/FinalizeJobForUnavailableNode',
+                request_serializer=beaker__pb2.FinalizeJobForUnavailableNodeRequest.SerializeToString,
+                response_deserializer=beaker__pb2.FinalizeJobForUnavailableNodeResponse.FromString,
+                _registered_method=True)
         self.CreateJobEvents = channel.unary_unary(
                 '/allenai.beaker.Beaker/CreateJobEvents',
                 request_serializer=beaker__pb2.CreateJobEventsRequest.SerializeToString,
@@ -688,6 +693,12 @@ class BeakerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def StreamJobLogs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FinalizeJobForUnavailableNode(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1147,6 +1158,11 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.StreamJobLogs,
                     request_deserializer=beaker__pb2.StreamJobLogsRequest.FromString,
                     response_serializer=beaker__pb2.JobLog.SerializeToString,
+            ),
+            'FinalizeJobForUnavailableNode': grpc.unary_unary_rpc_method_handler(
+                    servicer.FinalizeJobForUnavailableNode,
+                    request_deserializer=beaker__pb2.FinalizeJobForUnavailableNodeRequest.FromString,
+                    response_serializer=beaker__pb2.FinalizeJobForUnavailableNodeResponse.SerializeToString,
             ),
             'CreateJobEvents': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateJobEvents,
@@ -2441,6 +2457,33 @@ class Beaker(object):
             '/allenai.beaker.Beaker/StreamJobLogs',
             beaker__pb2.StreamJobLogsRequest.SerializeToString,
             beaker__pb2.JobLog.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def FinalizeJobForUnavailableNode(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/FinalizeJobForUnavailableNode',
+            beaker__pb2.FinalizeJobForUnavailableNodeRequest.SerializeToString,
+            beaker__pb2.FinalizeJobForUnavailableNodeResponse.FromString,
             options,
             channel_credentials,
             insecure,

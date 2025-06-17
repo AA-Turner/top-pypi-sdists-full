@@ -63,6 +63,7 @@ __all__ = (
     "StreamExceptionPolicyType",
     "TCPFlagType",
     "TargetTypeType",
+    "TransitGatewayAttachmentStatusType",
 )
 
 AttachmentStatusType = Literal["CREATING", "DELETING", "ERROR", "FAILED", "READY", "SCALING"]
@@ -105,6 +106,7 @@ StatefulRuleProtocolType = Literal[
     "DNS",
     "FTP",
     "HTTP",
+    "HTTP2",
     "ICMP",
     "IKEV2",
     "IMAP",
@@ -112,6 +114,7 @@ StatefulRuleProtocolType = Literal[
     "KRB5",
     "MSN",
     "NTP",
+    "QUIC",
     "SMB",
     "SMTP",
     "SSH",
@@ -123,6 +126,17 @@ StatefulRuleProtocolType = Literal[
 StreamExceptionPolicyType = Literal["CONTINUE", "DROP", "REJECT"]
 TCPFlagType = Literal["ACK", "CWR", "ECE", "FIN", "PSH", "RST", "SYN", "URG"]
 TargetTypeType = Literal["HTTP_HOST", "TLS_SNI"]
+TransitGatewayAttachmentStatusType = Literal[
+    "CREATING",
+    "DELETED",
+    "DELETING",
+    "ERROR",
+    "FAILED",
+    "PENDING_ACCEPTANCE",
+    "READY",
+    "REJECTED",
+    "REJECTING",
+]
 NetworkFirewallServiceName = Literal["network-firewall"]
 ServiceName = Literal[
     "accessanalyzer",

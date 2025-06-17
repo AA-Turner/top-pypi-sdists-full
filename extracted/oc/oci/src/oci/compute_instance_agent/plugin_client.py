@@ -119,11 +119,13 @@ class PluginClient(object):
 
     def get_instance_agent_plugin(self, instanceagent_id, compartment_id, plugin_name, **kwargs):
         """
-        The API to get information for a plugin.
+        Gets information about a specific Oracle Cloud Agent plugin on a compute instance.
 
 
         :param str instanceagent_id: (required)
-            The OCID of the instance.
+            The `OCID`__ of the instance.
+
+            __ https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm
 
         :param str compartment_id: (required)
             The `OCID`__ of the compartment.
@@ -153,7 +155,7 @@ class PluginClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.1/computeinstanceagent/get_instance_agent_plugin.py.html>`__ to see an example of how to use get_instance_agent_plugin API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.2/computeinstanceagent/get_instance_agent_plugin.py.html>`__ to see an example of how to use get_instance_agent_plugin API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['instanceagentId', 'pluginName', 'compartmentId']
@@ -232,7 +234,8 @@ class PluginClient(object):
 
     def list_instance_agent_plugins(self, compartment_id, instanceagent_id, **kwargs):
         """
-        The API to get one or more plugin information.
+        Gets information about the Oracle Cloud Agent plugins that are available on a specific
+        compute instance.
 
 
         :param str compartment_id: (required)
@@ -241,14 +244,16 @@ class PluginClient(object):
             __ https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm
 
         :param str instanceagent_id: (required)
-            The OCID of the instance.
+            The `OCID`__ of the instance.
+
+            __ https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm
 
         :param str opc_request_id: (optional)
             Unique Oracle-assigned identifier for the request. If you need to contact Oracle about a particular request,
             please provide the request ID.
 
         :param str status: (optional)
-            The plugin status
+            The plugin status.
 
             Allowed values are: "RUNNING", "STOPPED", "NOT_SUPPORTED", "INVALID"
 
@@ -284,7 +289,7 @@ class PluginClient(object):
             Allowed values are: "ASC", "DESC"
 
         :param str name: (optional)
-            The plugin name
+            The plugin name.
 
         :param obj retry_strategy: (optional)
             A retry strategy to apply to this specific operation/call. This will override any retry strategy set at the client-level.
@@ -302,7 +307,7 @@ class PluginClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.1/computeinstanceagent/list_instance_agent_plugins.py.html>`__ to see an example of how to use list_instance_agent_plugins API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.154.2/computeinstanceagent/list_instance_agent_plugins.py.html>`__ to see an example of how to use list_instance_agent_plugins API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['instanceagentId', 'compartmentId']

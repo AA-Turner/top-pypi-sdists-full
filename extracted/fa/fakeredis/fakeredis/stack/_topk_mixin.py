@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Dict
 
 from fakeredis import _msgs as msgs
 from fakeredis._command_args_parsing import extract_args
@@ -58,21 +58,17 @@ class TopkCommandsMixin:
         return res
 
     @command(name="TOPK.INFO", fixed=(Key(),), repeat=(), flags=msgs.FLAG_DO_NOT_CREATE)
-    def topk_info(self, key: CommandItem) -> List[Any]:
+    def topk_info(self, key: CommandItem) -> Dict[bytes, Any]:
         if key.value is None:
             raise SimpleError("TOPK: key does not exist")
         if not isinstance(key.value, HeavyKeeper):
             raise SimpleError("TOPK: key is not a HeavyKeeper")
-        return [
-            b"k",
-            key.value.k,
-            b"width",
-            key.value.width,
-            b"depth",
-            key.value.depth,
-            b"decay",
-            key.value.decay,
-        ]
+        return {
+            b"k": key.value.k,
+            b"width": key.value.width,
+            b"depth": key.value.depth,
+            b"decay": key.value.decay,
+        }
 
     @command(name="TOPK.LIST", fixed=(Key(),), repeat=(bytes,), flags=msgs.FLAG_DO_NOT_CREATE)
     def topk_list(self, key: CommandItem, *args: Any) -> List[Any]:

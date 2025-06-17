@@ -92,7 +92,7 @@ class JobClient(ServiceClient):
                     continue
 
                 return
-            except BeakerStreamConnectionClosedError as err:
+            except (BeakerStreamConnectionClosedError, BeakerServerUnavailableError) as err:
                 # These errors are expected, see https://github.com/allenai/beaker/issues/6532
                 self._log_and_wait(1, err, log_level=logging.DEBUG)
                 update_request()

@@ -555,7 +555,10 @@ class ServiceClient:
             RequestException,
             BeakerServerError,
         ),
-        expected_errors: tuple[Type[Exception], ...] = (BeakerStreamConnectionClosedError,),
+        expected_errors: tuple[Type[Exception], ...] = (
+            BeakerStreamConnectionClosedError,
+            BeakerServerUnavailableError,
+        ),
     ):
         """
         Use to make a service client method more robust by allowing retries.

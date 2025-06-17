@@ -1269,3 +1269,38 @@ def generate_jobs_report(
         )
     except ValueError as e:
         log.error(f"Error generating jobs report: {e}")
+
+
+@cloud_cli.command(
+    name="terminate-system-cluster",
+    help="Terminate the system cluster for a specific given cloud.",
+    cls=AnyscaleCommand,
+    example=command_examples.CLOUD_TERMINATE_SYSTEM_CLUSTER_EXAMPLE,
+)
+@click.option(
+    "--cloud-id",
+    "--id",
+    help="ID of the cloud to terminate the system cluster for.",
+    type=str,
+    required=True,
+)
+@click.option(
+    "-w",
+    "--wait",
+    required=False,
+    default=False,
+    type=bool,
+    is_flag=True,
+    help="Block this CLI command and print logs until the job finishes.",
+)
+def terminate_system_cluster(cloud_id: str, wait: Optional[bool]) -> None:
+    """
+    Terminate the system cluster for a specific cloud.
+
+    :param cloud_id: The ID of the cloud to terminate the system cluster for.
+    :param wait: If True, wait for the system cluster to be terminated before returning. Defaults to False.
+    """
+    try:
+        anyscale.cloud.terminate_system_cluster(cloud_id, wait)
+    except ValueError as e:
+        log.error(f"Error terminating system cluster: {e}")

@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import typing
 from collections import OrderedDict
-from collections.abc import Generator, Hashable
+from collections.abc import Generator, Hashable, Iterable
 
 import numpy as np
 import pandas as pd
@@ -29,6 +29,7 @@ if typing.TYPE_CHECKING:
 
     from datacube.index import Index
     from datacube.model import Product
+
 
 class GridWorkflowException(DatacubeException):
     """An ODC Exception raised while building or running Grid Workflows"""
@@ -72,37 +73,33 @@ class Tile:
     the entire `Tile` at once.
     """
 
-    def __init__(self, sources: xr.DataArray, geobox: GeoBox):
+    def __init__(self, sources: xr.DataArray, geobox: GeoBox) -> None:
         """Create a Tile representing a dataset that can be loaded.
 
-        :param xr.DataArray sources: An array of non-spatial dimensions of the request, holding lists of
+        :param sources: An array of non-spatial dimensions of the request, holding lists of
             datacube.storage.DatasetSource objects.
-        :param model.GeoBox geobox: The spatial footprint of the Tile
+        :param geobox: The spatial footprint of the Tile
         """
         self.sources: xr.DataArray = sources
         self.geobox: GeoBox = geobox
 
     @property
     def dims(self) -> tuple[Hashable, ...]:
-        """Names of the dimensions, eg ``('time', 'y', 'x')``
-        """
+        """Names of the dimensions, eg ``('time', 'y', 'x')``"""
         return self.sources.dims + self.geobox.dimensions
 
     @property
     def shape(self) -> tuple[int, ...]:
-        """Lengths of each dimension, eg ``(285, 4000, 4000)``
-        """
+        """Lengths of each dimension, eg ``(285, 4000, 4000)``"""
         return self.sources.shape + self.geobox.shape
 
     @property
     def product(self) -> Product:
-        """
-        """
         return self.sources.values[0][0].product
 
     def __getitem__(self, chunk):
         sources = _fast_slice(self.sources, chunk[: len(self.sources.shape)])
-        geobox = self.geobox[chunk[len(self.sources.shape):]]
+        geobox = self.geobox[chunk[len(self.sources.shape) :]]
         return Tile(sources, geobox)
 
     # TODO(csiro) Split on time range
@@ -120,7 +117,9 @@ class Tile:
             indexer[axis] = slice(i, min(size, i + step))
             yield self.sources[dim].values[i], self[tuple(indexer)]
 
-    def split_by_time(self, freq: str = "A", time_dim: str = "time", **kwargs) -> Generator[tuple[str, Tile]]:
+    def split_by_time(
+        self, freq: str = "A", time_dim: str = "time", **kwargs
+    ) -> Generator[tuple[str, Tile]]:
         """
         Splits along the `time` dimension, into periods, using pandas offsets, such as:
         :
@@ -175,11 +174,11 @@ class GridWorkflow:
 
         Either grid_spec or product must be supplied.
 
-        :param datacube.index.Index index: The database index to use.
-        :param GridSpec grid_spec: The grid projection and resolution
-        :param str product: The name of an existing product, if no grid_spec is supplied.
+        :param index: The database index to use.
+        :param grid_spec: The grid projection and resolution
+        :param product: The name of an existing product, if no grid_spec is supplied.
         """
-        self.index: Index = index
+        self.index = index
 
         # If available, use the provided grid_spec
         if grid_spec is not None:
@@ -188,7 +187,9 @@ class GridWorkflow:
             # Otherwise, attempt to get the grid_spec by the provided product
             # which may or may not have one.
             if product is None:
-                raise GridWorkflowException("Have to supply either grid_spec or product")
+                raise GridWorkflowException(
+                    "Have to supply either grid_spec or product"
+                )
 
             if isinstance(product, str):
                 product = self.index.products.get_by_name(product)
@@ -203,14 +204,13 @@ class GridWorkflow:
 
             self.grid_spec = product.grid_spec
 
-
     def cell_observations(
         self,
-        cell_index: tuple[int, int]|None = None,
-        geopolygon: Geometry|None =None,
-        tile_buffer: tuple[float, float]|None = None,
-        **indexers: QueryField
-    ) -> dict[tuple[int, int], dict[str, Dataset|GeoBox]]:
+        cell_index: tuple[int, int] | None = None,
+        geopolygon: Geometry | None = None,
+        tile_buffer: tuple[float, float] | None = None,
+        **indexers: QueryField,
+    ) -> dict[tuple[int, int], dict[str, Dataset | GeoBox]]:
         """
         List datasets, grouped by cell.
 
@@ -234,8 +234,10 @@ class GridWorkflow:
         # TODO: split this method into 3: cell/polygon/unconstrained querying
 
         if tile_buffer is not None and geopolygon is not None:
-            raise GridWorkflowException("Cannot process tile_buffering and geopolygon together.")
-        cells: dict[tuple[int, int], dict[str, Dataset|GeoBox]] = {}
+            raise GridWorkflowException(
+                "Cannot process tile_buffering and geopolygon together."
+            )
+        cells: dict[tuple[int, int], dict[str, Dataset | GeoBox]] = {}
 
         def add_dataset_to_cells(tile_index, tile_geobox, dataset_):
             cells.setdefault(tile_index, {"datasets": [], "geobox": tile_geobox})[
@@ -303,13 +305,14 @@ class GridWorkflow:
         return datasets, query
 
     @staticmethod
-    def group_into_cells(observations, group_by) -> dict[tuple[int, int], Tile]:
+    def group_into_cells(
+        observations, group_by: GroupBy
+    ) -> dict[tuple[int, int], Tile]:
         """
         Group observations into a stack of source tiles.
 
         :param observations: datasets grouped by cell index, like from :py:meth:`cell_observations`
         :param group_by: grouping method, as returned by :py:meth:`datacube.api.query.query_group_by`
-        :type group_by: :py:class:`datacube.api.query.GroupBy`
         :return: tiles grouped by cell index
 
         .. seealso::
@@ -324,15 +327,15 @@ class GridWorkflow:
         return cells
 
     @staticmethod
-    def tile_sources(observations, group_by: GroupBy):
+    def tile_sources(
+        observations, group_by: GroupBy
+    ) -> dict[tuple[int, int, np.datetime64], Tile]:
         """
         Split observations into tiles and group into source tiles
 
         :param observations: datasets grouped by cell index, like from :meth:`cell_observations`
         :param group_by: grouping method, as returned by :py:meth:`datacube.api.query.query_group_by`
-        :type group_by: :py:class:`datacube.api.query.GroupBy`
         :return: tiles grouped by cell index and time
-        :rtype: dict[tuple(int, int, numpy.datetime64), :py:class:`.Tile`]
 
         .. seealso::
             :meth:`load`
@@ -348,11 +351,13 @@ class GridWorkflow:
             coord = sources[sources.dims[0]]
             for i in range(coord.size):
                 tile_index = cell_index + (coord.values[i],)
-                tiles[tile_index] = Tile(sources[i:i + 1], geobox)
+                tiles[tile_index] = Tile(sources[i : i + 1], geobox)
 
         return tiles
 
-    def list_cells(self, cell_index: tuple[int, int]|None =None, **query) -> dict[tuple[int, int], Tile]:
+    def list_cells(
+        self, cell_index: tuple[int, int] | None = None, **query
+    ) -> dict[tuple[int, int], Tile]:
         """
         List cells that match the query.
 
@@ -372,7 +377,9 @@ class GridWorkflow:
         observations = self.cell_observations(cell_index, **query)
         return self.group_into_cells(observations, query_group_by(**query))
 
-    def list_tiles(self, cell_index: tuple[int, int]|None=None, **query) -> dict[tuple[int, int, np.datetime64], Tile]:
+    def list_tiles(
+        self, cell_index: tuple[int, int] | None = None, **query
+    ) -> dict[tuple[int, int, np.datetime64], Tile]:
         """
         List tiles of data, sorted by cell.
         ::
@@ -392,13 +399,13 @@ class GridWorkflow:
 
     @staticmethod
     def load(
-        tile,
-        measurements=None,
-        dask_chunks=None,
+        tile: Tile,
+        measurements: Iterable[str] | None = None,
+        dask_chunks: dict[str, str | int] | None = None,
         fuse_func=None,
-        resampling=None,
-        skip_broken_datasets=False,
-    ):
+        resampling: str | dict | None = None,
+        skip_broken_datasets: bool = False,
+    ) -> xr.Dataset:
         """
         Load data for a cell/tile.
 
@@ -410,11 +417,11 @@ class GridWorkflow:
         See the documentation on using `xr with dask <http://xr.pydata.org/en/stable/dask.html>`_
         for more information.
 
-        :param `.Tile` tile: The tile to load.
+        :param tile: The tile to load.
 
-        :param list(str) measurements: The names of measurements to load
+        :param measurements: The names of measurements to load
 
-        :param dict dask_chunks: If the data should be loaded as needed using :py:class:`dask.array.Array`,
+        :param dask_chunks: If the data should be loaded as needed using :py:class:`dask.array.Array`,
             specify the chunk size in each output direction.
 
             See the documentation on using `xr with dask <http://xr.pydata.org/en/stable/dask.html>`_
@@ -423,7 +430,7 @@ class GridWorkflow:
         :param fuse_func: Function to fuse together a tile that has been pre-grouped by calling
             :meth:`list_cells` with a ``group_by`` parameter.
 
-        :param str|dict resampling:
+        :param resampling:
 
             The resampling method to use if re-projection is required, could be
             configured per band using a dictionary (:meth: `load_data`)
@@ -432,10 +439,9 @@ class GridWorkflow:
 
             Defaults to ``'nearest'``.
 
-        :param bool skip_broken_datasets: If True, ignore broken datasets and continue processing with the data
+        :param skip_broken_datasets: If True, ignore broken datasets and continue processing with the data
              that can be loaded. If False, an exception will be raised on a broken dataset. Defaults to False.
 
-        :rtype: :py:class:`xr.Dataset`
 
         .. seealso::
             :meth:`list_tiles` :meth:`list_cells`

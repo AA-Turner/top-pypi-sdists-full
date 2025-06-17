@@ -1,3 +1,5 @@
+import uuid
+from ..canvas.canvas import Canvas
 from ..tasks.tasks import Task
 from ..models.model_registry import ModelNames
 from ..utils.printing import print_price_id_summary, call_end
@@ -21,9 +23,9 @@ class Direct:
     """Static methods for making direct LLM calls using the Upsonic."""
 
     def __init__(self, 
+                 name: str | None = None, 
                  model: ModelNames | None = None, 
                  debug: bool = False, 
-                 name: str | None = None, 
                  company_url: str | None = None, 
                  company_objective: str | None = None,
                  company_description: str | None = None,
@@ -33,12 +35,32 @@ class Direct:
                  compress_context: bool = False,
                  reliability_layer = None,
                  agent_id_: str | None = None,
+                 canvas: Canvas | None = None,
                  ):
         model = model_set(model)
+        self.canvas = canvas
 
         self.model = model
         self.debug = debug
         self.default_llm_model = model
+        self.agent_id_ = agent_id_
+        self.name = name
+        self.company_url = company_url
+        self.company_objective = company_objective
+        self.company_description = company_description
+        self.system_prompt = system_prompt
+        
+
+    @property
+    def agent_id(self):
+        if self.agent_id_ is None:
+            self.agent_id_ = str(uuid.uuid4())
+        return self.agent_id_
+    
+    def get_agent_id(self):
+        if self.name:
+            return self.name
+        return f"Agent_{self.agent_id[:8]}"
 
     def _build_agent_input(self, task: Task):
         """
@@ -109,7 +131,7 @@ class Direct:
                 llm_model = self.default_llm_model
 
             # Start Time For Task
-            task_start(single_task)
+            task_start(single_task, self)
 
             # Get the model from registry
             agent_model, error = get_agent_model(llm_model)

@@ -52,6 +52,7 @@ from .literals import (
     ModelImportJobStatusType,
     ModelInvocationJobStatusType,
     ModelModalityType,
+    ModelStatusType,
     PerformanceConfigLatencyType,
     PromptRouterTypeType,
     ProvisionedModelStatusType,
@@ -88,6 +89,8 @@ __all__ = (
     "ByteContentDocOutputTypeDef",
     "ByteContentDocTypeDef",
     "CloudWatchConfigTypeDef",
+    "CreateCustomModelRequestTypeDef",
+    "CreateCustomModelResponseTypeDef",
     "CreateEvaluationJobRequestTypeDef",
     "CreateEvaluationJobResponseTypeDef",
     "CreateGuardrailRequestTypeDef",
@@ -393,12 +396,12 @@ class S3ConfigTypeDef(TypedDict):
     bucketName: str
     keyPrefix: NotRequired[str]
 
-class EvaluationOutputDataConfigTypeDef(TypedDict):
-    s3Uri: str
-
 class TagTypeDef(TypedDict):
     key: str
     value: str
+
+class EvaluationOutputDataConfigTypeDef(TypedDict):
+    s3Uri: str
 
 class GuardrailCrossRegionConfigTypeDef(TypedDict):
     guardrailProfileIdentifier: str
@@ -431,6 +434,7 @@ class CustomModelSummaryTypeDef(TypedDict):
     baseModelName: str
     customizationType: NotRequired[CustomizationTypeType]
     ownerAccountId: NotRequired[str]
+    modelStatus: NotRequired[ModelStatusType]
 
 class CustomModelUnitsTypeDef(TypedDict):
     customModelUnitsPerModelCopy: NotRequired[int]
@@ -900,6 +904,10 @@ class BatchDeleteEvaluationJobResponseTypeDef(TypedDict):
     evaluationJobs: List[BatchDeleteEvaluationJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateCustomModelResponseTypeDef(TypedDict):
+    modelArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateEvaluationJobResponseTypeDef(TypedDict):
     jobArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1306,6 +1314,7 @@ class ListCustomModelsRequestPaginateTypeDef(TypedDict):
     sortBy: NotRequired[Literal["CreationTime"]]
     sortOrder: NotRequired[SortOrderType]
     isOwned: NotRequired[bool]
+    modelStatus: NotRequired[ModelStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListCustomModelsRequestTypeDef(TypedDict):
@@ -1319,6 +1328,7 @@ class ListCustomModelsRequestTypeDef(TypedDict):
     sortBy: NotRequired[Literal["CreationTime"]]
     sortOrder: NotRequired[SortOrderType]
     isOwned: NotRequired[bool]
+    modelStatus: NotRequired[ModelStatusType]
 
 class ListEvaluationJobsRequestPaginateTypeDef(TypedDict):
     creationTimeAfter: NotRequired[TimestampTypeDef]
@@ -1689,6 +1699,14 @@ class GenerationConfigurationTypeDef(TypedDict):
     kbInferenceConfig: NotRequired[KbInferenceConfigTypeDef]
     additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
 
+class CreateCustomModelRequestTypeDef(TypedDict):
+    modelName: str
+    modelSourceConfig: ModelDataSourceTypeDef
+    modelKmsKeyArn: NotRequired[str]
+    roleArn: NotRequired[str]
+    modelTags: NotRequired[Sequence[TagTypeDef]]
+    clientRequestToken: NotRequired[str]
+
 class GetImportedModelResponseTypeDef(TypedDict):
     modelArn: str
     modelName: str
@@ -1804,8 +1822,8 @@ class ModelCustomizationJobSummaryTypeDef(TypedDict):
     jobName: str
     status: ModelCustomizationJobStatusType
     creationTime: datetime
-    lastModifiedTime: NotRequired[datetime]
     statusDetails: NotRequired[StatusDetailsTypeDef]
+    lastModifiedTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
     customModelArn: NotRequired[str]
     customModelName: NotRequired[str]
@@ -1952,6 +1970,8 @@ class GetCustomModelResponseTypeDef(TypedDict):
     validationMetrics: List[ValidatorMetricTypeDef]
     creationTime: datetime
     customizationConfig: CustomizationConfigTypeDef
+    modelStatus: ModelStatusType
+    failureMessage: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetModelCustomizationJobResponseTypeDef(TypedDict):
@@ -1962,8 +1982,8 @@ class GetModelCustomizationJobResponseTypeDef(TypedDict):
     clientRequestToken: str
     roleArn: str
     status: ModelCustomizationJobStatusType
-    failureMessage: str
     statusDetails: StatusDetailsTypeDef
+    failureMessage: str
     creationTime: datetime
     lastModifiedTime: datetime
     endTime: datetime

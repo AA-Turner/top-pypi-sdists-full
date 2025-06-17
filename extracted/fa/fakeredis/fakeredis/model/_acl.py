@@ -8,7 +8,7 @@ from .._helpers import SimpleError, current_time
 
 
 class Selector:
-    def __init__(self, command: bytes, allowed: bool, keys: bytes, channels: bytes):
+    def __init__(self, command: bytes, allowed: bool, keys: bytes, channels: bytes) -> None:
         self.command: bytes = command
         self.allowed: bool = allowed
         self.keys: bytes = keys
@@ -114,7 +114,7 @@ class UserAccessControlList:
         self._passwords.clear()
 
     def check_password(self, password: Optional[bytes]) -> bool:
-        password_provided = password is not None and password != b""
+        password_provided: bool = password is not None and password != b""
         if self._nopass:
             return not password_provided
         elif not password_provided:
@@ -165,11 +165,15 @@ class UserAccessControlList:
         selector = Selector.from_bytes(selector)
         self._selectors[selector.command] = selector
 
-    def _get_selectors(self) -> List[List[bytes]]:
-        results = []
+    def _get_selectors(self) -> List[Dict[str, str]]:
+        results: List[Dict[str, str]] = []
         for command, selector in self._selectors.items():
-            s = b"-@all " + (b"+" if selector.allowed else b"-") + command
-            results.append([b"commands", s, b"keys", selector.keys, b"channels", selector.channels])
+            s: Dict[str, str] = {
+                "commands": "-@all " + ("+" if selector.allowed else "-") + command.decode(),
+                "keys": selector.keys,
+                "channels": selector.channels,
+            }
+            results.append(s)
         return results
 
     def _get_commands(self) -> List[bytes]:
@@ -263,34 +267,24 @@ class AclLogRecord:
         self.client_info: bytes = client_info
         self.entry_id: int = entry_id
 
-    def as_array(self) -> List[bytes]:
+    def as_dict(self) -> Dict[str, str]:
         age_seconds = (current_time() - self.created_ts) / 1000
-        return [
-            b"count",
-            str(self.count).encode(),
-            b"reason",
-            self.reason,
-            b"context",
-            self.context,
-            b"object",
-            self.object,
-            b"username",
-            self.username,
-            b"age-seconds",
-            f"{age_seconds:.3f}".encode(),
-            b"client-info",
-            self.client_info,
-            b"entry-id",
-            str(self.entry_id).encode(),
-            b"timestamp-created",
-            str(self.created_ts).encode(),
-            b"timestamp-last-updated",
-            str(self.updated_ts).encode(),
-        ]
+        return {
+            "count": str(self.count).encode(),
+            "reason": self.reason,
+            "context": self.context,
+            "object": self.object,
+            "username": self.username,
+            "age-seconds": f"{age_seconds:.3f}",
+            "client-info": self.client_info,
+            "entry-id": str(self.entry_id),
+            "timestamp-created": str(self.created_ts),
+            "timestamp-last-updated": str(self.updated_ts),
+        }
 
 
 class AccessControlList:
-    def __init__(self):
+    def __init__(self) -> None:
         default_user_acl = UserAccessControlList(nopass=True)
         default_user_acl.add_key_pattern(b"*")
         default_user_acl.add_channel_pattern(b"*")
@@ -317,10 +311,10 @@ class AccessControlList:
     def reset_log(self) -> None:
         self._log.clear()
 
-    def log(self, count: int) -> List[List[bytes]]:
+    def log(self, count: int) -> List[Dict[str, str]]:
         if count > len(self._log) or count < 0:
             count = 0
-        res = [x.as_array() for x in self._log[-count:]]
+        res = [x.as_dict() for x in self._log[-count:]]
         res.reverse()
         return res
 

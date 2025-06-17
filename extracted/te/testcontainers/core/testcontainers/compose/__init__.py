@@ -1,8 +1,8 @@
-# flake8: noqa: F401
+# flake8: noqa
 from testcontainers.compose.compose import (
-    ComposeContainer,
     ContainerIsNotRunning,
-    DockerCompose,
     NoSuchPortExposed,
     PublishedPort,
+    ComposeContainer,
+    DockerCompose,
 )

@@ -26,7 +26,10 @@ from strawberry.http import (
 )
 from strawberry.http.ides import GraphQL_IDE
 from strawberry.schema.base import BaseSchema
-from strawberry.schema.exceptions import InvalidOperationTypeError
+from strawberry.schema.exceptions import (
+    CannotGetOperationTypeError,
+    InvalidOperationTypeError,
+)
 from strawberry.subscriptions import GRAPHQL_TRANSPORT_WS_PROTOCOL, GRAPHQL_WS_PROTOCOL
 from strawberry.subscriptions.protocols.graphql_transport_ws.handlers import (
     BaseGraphQLTransportWSHandler,
@@ -248,7 +251,7 @@ class AsyncBaseHTTPView(
     async def run(
         self,
         request: Request,
-        context: Optional[Context] = UNSET,
+        context: Context = UNSET,
         root_value: Optional[RootValue] = UNSET,
     ) -> Response: ...
 
@@ -256,14 +259,14 @@ class AsyncBaseHTTPView(
     async def run(
         self,
         request: WebSocketRequest,
-        context: Optional[Context] = UNSET,
+        context: Context = UNSET,
         root_value: Optional[RootValue] = UNSET,
     ) -> WebSocketResponse: ...
 
     async def run(
         self,
         request: Union[Request, WebSocketRequest],
-        context: Optional[Context] = UNSET,
+        context: Context = UNSET,
         root_value: Optional[RootValue] = UNSET,
     ) -> Union[Response, WebSocketResponse]:
         root_value = (
@@ -287,7 +290,7 @@ class AsyncBaseHTTPView(
                 await self.graphql_transport_ws_handler_class(
                     view=self,
                     websocket=websocket,
-                    context=context,  # type: ignore
+                    context=context,
                     root_value=root_value,  # type: ignore
                     schema=self.schema,
                     debug=self.debug,
@@ -297,7 +300,7 @@ class AsyncBaseHTTPView(
                 await self.graphql_ws_handler_class(
                     view=self,
                     websocket=websocket,
-                    context=context,  # type: ignore
+                    context=context,
                     root_value=root_value,  # type: ignore
                     schema=self.schema,
                     debug=self.debug,
@@ -318,8 +321,6 @@ class AsyncBaseHTTPView(
             else context
         )
 
-        assert context
-
         if not self.is_request_allowed(request_adapter):
             raise HTTPException(405, "GraphQL only supports GET and POST requests.")
 
@@ -332,6 +333,8 @@ class AsyncBaseHTTPView(
             result = await self.execute_operation(
                 request=request, context=context, root_value=root_value
             )
+        except CannotGetOperationTypeError as e:
+            raise HTTPException(400, e.as_http_error_reason()) from e
         except InvalidOperationTypeError as e:
             raise HTTPException(
                 400, e.as_http_error_reason(request_adapter.method)

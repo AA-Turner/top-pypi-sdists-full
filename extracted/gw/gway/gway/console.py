@@ -35,8 +35,8 @@ def cli_main():
     add("-m", dest="memory", action="store_true", help="Memory mode: Save or reuse last arguments")
     add("-n", dest="namespace", type=str, help="Default unknown functions to this project")
     add("-o", dest="outfile", type=str, help="Write text output(s) to this file")
-    add("-p", dest="project_path", type=str, help="Root project path for custom functions.")
-    add("-q", dest="quantity", type=int, default=1, help="Max items from generator outputs")
+    add("-p", dest="projects", type=str, help="Root project path for custom functions.")
+    # -q pending
     add("-r", dest="recipe", type=str, help="Execute a GWAY recipe (.gwr) file.")
     add("-s", dest="server", type=str, help="Override server environment configuration")
     add("-t", dest="timed", action="store_true", help="Enable timing of operations")
@@ -44,6 +44,7 @@ def cli_main():
     add("-v", dest="verbose", action="store_true", help="Verbose mode (where supported)")
     add("-w", dest="wizard", action="store_true", help="Request wizard mode if available")
     add("-x", dest="callback", type=str, help="Execute a callback per command or standalone")
+    add("-y", dest="yes", type=str, help="Say yes to everything. Don't ask any questions.")
     add("-z", dest="silent", action="store_true", help="Suppress all non-critical output")
     add("commands", nargs=argparse.REMAINDER, help="Project/Function command(s)")
     
@@ -93,10 +94,9 @@ def cli_main():
         verbose=args.verbose,
         silent=args.silent,
         name=args.username or "gw",
-        project_path=args.project_path,
+        projects=args.projects,
         base_path=args.base_path,
         debug=args.debug,
-        quantity=args.quantity,
         wizard=args.wizard
     )
 
@@ -133,7 +133,7 @@ def cli_main():
     def realize(val):
         if hasattr(val, "__iter__") and not isinstance(val, (str, bytes, dict)):
             try:
-                return list(val)[:args.quantity] if args.quantity else list(val)
+                return list(val)  # Do not limit generator output
             except Exception:
                 return val
         return val
@@ -453,13 +453,30 @@ def get_arg_opts(arg_name, param, gw=None):
 
 # We keep recipe functions in console.py because anything that changes cli_main
 # typically has an impact in the recipe parsing, and must be reviewed together.
-
+# projects/console.py
 
 def load_recipe(recipe_filename):
-    """Load commands and comments from a .gwr file."""
+    """Load commands and comments from a .gwr file.
+    
+    Supports indented 'chained' lines: If a line begins with whitespace and its first
+    non-whitespace characters are `--`, prepend the last full non-indented command prefix.
+    
+    Example:
+        web app setup --home readme
+            --project vbox --home upload
+            --project conway --home board --path games/conway
+        web server start-app --host 127.0.0.1 --port 8888
+
+    This parses the indented lines as continuations of the previous non-indented command.
+    """
+    import os
+    from gway import gw
+
     commands = []
     comments = []
+    recipe_path = None
 
+    # --- Recipe file resolution (unchanged) ---
     if not os.path.isabs(recipe_filename):
         candidate_names = [recipe_filename]
         if not os.path.splitext(recipe_filename)[1]:
@@ -477,13 +494,40 @@ def load_recipe(recipe_filename):
 
     gw.info(f"Loading commands from recipe: {recipe_path}")
 
+    # --- Indented command parsing ---
+    deindented_lines = []
+    last_prefix = ""
     with open(recipe_path) as f:
-        for line in f:
-            stripped_line = line.strip()
+        for raw_line in f:
+            line = raw_line.rstrip("\n")
+            stripped_line = line.lstrip()
+            if not stripped_line:
+                continue  # skip blank lines
             if stripped_line.startswith("#"):
                 comments.append(stripped_line)
-            elif stripped_line:
-                commands.append(stripped_line.split())
+                continue
+            # Detect if line is indented and starts with '--'
+            if line[:1].isspace() and stripped_line.startswith("--"):
+                # Prepend previous prefix if available
+                if last_prefix:
+                    deindented_lines.append(last_prefix + " " + stripped_line)
+                else:
+                    # Malformed: indented line but no previous command
+                    deindented_lines.append(stripped_line)
+            else:
+                # New command: save everything up to the first '--' (including trailing spaces)
+                parts = line.split("--", 1)
+                if len(parts) == 2:
+                    last_prefix = parts[0].rstrip()
+                    deindented_lines.append(line)
+                else:
+                    last_prefix = ""
+                    deindented_lines.append(line)
+
+    # --- Split deindented lines into commands ---
+    for line in deindented_lines:
+        if line.strip() and not line.strip().startswith("#"):
+            commands.append(line.strip().split())
 
     return commands, comments
 

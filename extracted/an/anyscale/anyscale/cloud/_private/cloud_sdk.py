@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from anyscale._private.sdk.base_sdk import BaseSDK
+from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import (
     Cloud as CloudModel,
     CreateCloudCollaborator as CreateCloudCollaboratorModel,
@@ -11,6 +12,10 @@ from anyscale.cloud.models import (
     ComputeStack,
     CreateCloudCollaborator,
 )
+from anyscale.sdk.anyscale_client.models import ClusterState
+
+
+logger = BlockLogger()
 
 
 class PrivateCloudSDK(BaseSDK):
@@ -79,4 +84,32 @@ class PrivateCloudSDK(BaseSDK):
             created_at=openapi_cloud.created_at,
             is_default=openapi_cloud.is_default,
             compute_stack=compute_stack,
+        )
+
+    def terminate_system_cluster(self, cloud_id: str, wait: bool) -> str:
+        resp = self.client.terminate_system_cluster(cloud_id)
+        if wait:
+            self._wait_for_system_cluster_status(cloud_id, ClusterState.TERMINATED)
+        else:
+            logger.info(f"System cluster termination initiated for cloud {cloud_id}.")
+        return resp.result.cluster_id
+
+    def _wait_for_system_cluster_status(
+        self,
+        cloud_id: str,
+        goal_status: str,
+        timeout_s: int = 500,
+        interval_s: int = 10,
+    ) -> bool:
+        self.logger.info("Waiting for system cluster termination...", end="")
+        for _ in self.timer.poll(timeout_s=timeout_s, interval_s=interval_s):
+            status = self.client.describe_system_workload_get_status(cloud_id)
+            if status == goal_status:
+                print(".")
+                self.logger.info(f"System cluster for cloud '{cloud_id}' is {status}.")
+                return True
+            else:
+                print(".", end="")
+        raise TimeoutError(
+            f"Timed out waiting for system cluster termination for cloud '{cloud_id}'. Last seen status: {status}."
         )

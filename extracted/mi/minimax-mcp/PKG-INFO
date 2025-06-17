@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: minimax-mcp
-Version: 0.0.14
+Version: 0.0.15
 Summary: Minimax MCP Server
 Author-email: Roy Wu <zhengyu@minimax.chat>
 License: MIT License
@@ -30,29 +30,28 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.11
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mcp[cli]>=1.6.0
-Requires-Dist: fastapi==0.109.2
-Requires-Dist: uvicorn==0.27.1
-Requires-Dist: python-dotenv==1.0.1
+Requires-Dist: fastapi>=0.109.2
+Requires-Dist: uvicorn>=0.27.1
+Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: pydantic>=2.6.1
-Requires-Dist: httpx==0.28.1
-Requires-Dist: fuzzywuzzy==0.18.0
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: fuzzywuzzy>=0.18.0
 Requires-Dist: python-Levenshtein>=0.25.0
-Requires-Dist: sounddevice==0.5.1
-Requires-Dist: soundfile==0.13.1
-Requires-Dist: requests==2.31.0
+Requires-Dist: sounddevice>=0.5.1
+Requires-Dist: soundfile>=0.13.1
+Requires-Dist: requests>=2.31.0
 Provides-Extra: dev
-Requires-Dist: pre-commit==3.6.2; extra == "dev"
-Requires-Dist: ruff==0.3.0; extra == "dev"
-Requires-Dist: fastmcp==0.4.1; extra == "dev"
-Requires-Dist: pytest==8.0.0; extra == "dev"
-Requires-Dist: pytest-cov==4.1.0; extra == "dev"
-Requires-Dist: twine==6.1.0; extra == "dev"
+Requires-Dist: pre-commit>=3.6.2; extra == "dev"
+Requires-Dist: ruff>=0.3.0; extra == "dev"
+Requires-Dist: fastmcp>=0.4.1; extra == "dev"
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: twine>=6.1.0; extra == "dev"
 Requires-Dist: build>=1.0.3; extra == "dev"
 Dynamic: license-file
 
@@ -105,7 +104,7 @@ Dynamic: license-file
 |Region| Global  | Mainland  |
 |:--|:-----|:-----|
 |MINIMAX_API_KEY| go get from [MiniMax Global](https://www.minimax.io/platform/user-center/basic-information/interface-key) | go get from [MiniMax](https://platform.minimaxi.com/user-center/basic-information/interface-key) |
-|MINIMAX_API_HOST| ​https://api.minimaxi.chat (note the extra **"i"**) | ​https://api.minimax.chat |
+|MINIMAX_API_HOST| https://api.minimax.io | https://api.minimaxi.com |
 
 
 ### Claude Desktop
@@ -123,7 +122,7 @@ Go to `Claude > Settings > Developer > Edit Config > claude_desktop_config.json`
       "env": {
         "MINIMAX_API_KEY": "insert-your-api-key-here",
         "MINIMAX_MCP_BASE_PATH": "local-output-dir-path, such as /User/xxx/Desktop",
-        "MINIMAX_API_HOST": "api host, ​https://api.minimaxi.chat|https://api.minimax.chat",
+        "MINIMAX_API_HOST": "api host, https://api.minimax.io | https://api.minimaxi.com",
         "MINIMAX_API_RESOURCE_MODE": "optional, [url|local], url is default, audio/image/video are downloaded locally or provided in URL format"
       }
     }
@@ -132,8 +131,8 @@ Go to `Claude > Settings > Developer > Edit Config > claude_desktop_config.json`
 
 ```
 ⚠️ Warning: The API key needs to match the host. If an error "API Error: invalid api key" occurs, please check your api host:
-- Global Host：`​https://api.minimaxi.chat` (note the extra "i")
-- Mainland Host：​`https://api.minimax.chat`
+- Global Host：`https://api.minimax.io`
+- Mainland Host：`https://api.minimaxi.com`
 
 If you're using Windows, you will have to enable "Developer Mode" in Claude Desktop to use the MCP server. Click "Help" in the hamburger menu in the top left and select "Enable Developer Mode".
 
@@ -167,7 +166,7 @@ Please ensure your API key and API host are regionally aligned
 |Region| Global  | Mainland  |
 |:--|:-----|:-----|
 |MINIMAX_API_KEY| go get from [MiniMax Global](https://www.minimax.io/platform/user-center/basic-information/interface-key) | go get from [MiniMax](https://platform.minimaxi.com/user-center/basic-information/interface-key) |
-|MINIMAX_API_HOST| ​https://api.minimaxi.chat (note the extra **"i"**) | ​https://api.minimax.chat |
+|MINIMAX_API_HOST| https://api.minimax.io | https://api.minimaxi.com |
 
 ### 2. spawn uvx ENOENT
 Please confirm its absolute path by running this command in your terminal:

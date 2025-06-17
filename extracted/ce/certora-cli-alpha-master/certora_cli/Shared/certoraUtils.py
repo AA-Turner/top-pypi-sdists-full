@@ -44,6 +44,7 @@ import tempfile
 from datetime import datetime
 from rich.console import Console
 from rich.text import Text
+from wcmatch import glob
 
 CONSOLE = Console()
 
@@ -1197,7 +1198,7 @@ def match_path_to_mapping_key(path: Path, m: OrderedDict[str, str]) -> Optional[
     @return: the value from the map that best matches the path, None if not found.
     """
     for k, v in m.items():
-        if match_pattern_to_source(k, path):
+        if glob.globmatch(str(path), k, flags=glob.GLOBSTAR):
             return v
     return None  # No match
 
@@ -1481,20 +1482,3 @@ def file_in_source_tree(file_path: Path) -> bool:
         return True
     except ValueError:
         return False
-
-def match_pattern_to_source(pattern: str, file_path: Path) -> bool:
-
-    if file_in_source_tree(file_path):
-        base_dir = get_certora_sources_dir()
-    else:
-        base_dir = Path.cwd()
-
-    # Search for matches under base_dir
-    for candidate in base_dir.rglob(pattern):
-        try:
-            if os.path.samefile(candidate, file_path):
-                return True
-        except FileNotFoundError:
-            # candidate or file_path may not exist; skip safely
-            continue
-    return False

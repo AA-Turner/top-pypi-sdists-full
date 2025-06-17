@@ -19,6 +19,9 @@ from anyscale.client.openapi_client.models import (
     AnyscaleServiceAccount,
     Cloud,
     CloudProviders,
+    ClusterOperation,
+    ClusteroperationResponse,
+    ClusterState,
     ComputeTemplateConfig,
     CreateCloudCollaborator,
     CreateExperimentalWorkspace,
@@ -177,6 +180,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._organization_collaborators: List[OrganizationCollaborator] = []
         self._organization_invitations: Dict[str, OrganizationInvitation] = {}
         self._resource_quotas: Dict[str, ResourceQuota] = {}
+        self._system_cluster_status: Dict[str, str] = {}
 
         # Cloud ID -> Cloud.
         self._clouds: Dict[str, Cloud] = {
@@ -369,6 +373,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def add_cloud(self, cloud: Cloud):
         self._clouds[cloud.id] = cloud
+        self._system_cluster_status[cloud.id] = ClusterState.RUNNING
 
     def get_cloud(self, *, cloud_id: str) -> Optional[Cloud]:
         return self._clouds.get(cloud_id, None)
@@ -400,6 +405,25 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             self._cloud_collaborators[cloud_id] = collaborators
         else:
             self._cloud_collaborators[cloud_id].extend(collaborators)
+
+    def terminate_system_cluster(
+        self, cloud_id: str
+    ) -> Optional[ClusteroperationResponse]:
+        self._system_cluster_status[cloud_id] = ClusterState.TERMINATING
+        return ClusteroperationResponse(
+            result=ClusterOperation(
+                id="sop_123",
+                completed=False,
+                progress=None,
+                result=None,
+                cluster_id="fake-system-cluster-id",
+                cluster_operation_type="terminate",
+            )
+        )
+
+    def describe_system_workload_get_status(self, cloud_id: str) -> str:
+        self._system_cluster_status[cloud_id] = ClusterState.TERMINATED
+        return self._system_cluster_status[cloud_id]
 
     def add_compute_config(self, compute_config: DecoratedComputeTemplate) -> int:
         compute_config.version = (

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.15.17.1+obcheckpoint(0.2.1);ob(v1)                                                   #
-# Generated on 2025-06-13T18:34:09.227702                                                            #
+# Generated on 2025-06-16T20:11:02.929703                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.graph
     import metaflow.flowspec
     import metaflow.decorators
-    import metaflow.graph
 
 from ...metaflow_current import current as current
 from ...events import Trigger as Trigger

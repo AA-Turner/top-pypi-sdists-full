@@ -52,6 +52,7 @@ from .literals import (
     ModelImportJobStatusType,
     ModelInvocationJobStatusType,
     ModelModalityType,
+    ModelStatusType,
     PerformanceConfigLatencyType,
     PromptRouterTypeType,
     ProvisionedModelStatusType,
@@ -89,6 +90,8 @@ __all__ = (
     "ByteContentDocOutputTypeDef",
     "ByteContentDocTypeDef",
     "CloudWatchConfigTypeDef",
+    "CreateCustomModelRequestTypeDef",
+    "CreateCustomModelResponseTypeDef",
     "CreateEvaluationJobRequestTypeDef",
     "CreateEvaluationJobResponseTypeDef",
     "CreateGuardrailRequestTypeDef",
@@ -403,13 +406,13 @@ class S3ConfigTypeDef(TypedDict):
     keyPrefix: NotRequired[str]
 
 
-class EvaluationOutputDataConfigTypeDef(TypedDict):
-    s3Uri: str
-
-
 class TagTypeDef(TypedDict):
     key: str
     value: str
+
+
+class EvaluationOutputDataConfigTypeDef(TypedDict):
+    s3Uri: str
 
 
 class GuardrailCrossRegionConfigTypeDef(TypedDict):
@@ -450,6 +453,7 @@ class CustomModelSummaryTypeDef(TypedDict):
     baseModelName: str
     customizationType: NotRequired[CustomizationTypeType]
     ownerAccountId: NotRequired[str]
+    modelStatus: NotRequired[ModelStatusType]
 
 
 class CustomModelUnitsTypeDef(TypedDict):
@@ -1003,6 +1007,11 @@ class BatchDeleteEvaluationJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateCustomModelResponseTypeDef(TypedDict):
+    modelArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateEvaluationJobResponseTypeDef(TypedDict):
     jobArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1465,6 +1474,7 @@ class ListCustomModelsRequestPaginateTypeDef(TypedDict):
     sortBy: NotRequired[Literal["CreationTime"]]
     sortOrder: NotRequired[SortOrderType]
     isOwned: NotRequired[bool]
+    modelStatus: NotRequired[ModelStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1479,6 +1489,7 @@ class ListCustomModelsRequestTypeDef(TypedDict):
     sortBy: NotRequired[Literal["CreationTime"]]
     sortOrder: NotRequired[SortOrderType]
     isOwned: NotRequired[bool]
+    modelStatus: NotRequired[ModelStatusType]
 
 
 class ListEvaluationJobsRequestPaginateTypeDef(TypedDict):
@@ -1901,6 +1912,15 @@ class GenerationConfigurationTypeDef(TypedDict):
     additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
 
 
+class CreateCustomModelRequestTypeDef(TypedDict):
+    modelName: str
+    modelSourceConfig: ModelDataSourceTypeDef
+    modelKmsKeyArn: NotRequired[str]
+    roleArn: NotRequired[str]
+    modelTags: NotRequired[Sequence[TagTypeDef]]
+    clientRequestToken: NotRequired[str]
+
+
 class GetImportedModelResponseTypeDef(TypedDict):
     modelArn: str
     modelName: str
@@ -2027,8 +2047,8 @@ class ModelCustomizationJobSummaryTypeDef(TypedDict):
     jobName: str
     status: ModelCustomizationJobStatusType
     creationTime: datetime
-    lastModifiedTime: NotRequired[datetime]
     statusDetails: NotRequired[StatusDetailsTypeDef]
+    lastModifiedTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
     customModelArn: NotRequired[str]
     customModelName: NotRequired[str]
@@ -2204,6 +2224,8 @@ class GetCustomModelResponseTypeDef(TypedDict):
     validationMetrics: List[ValidatorMetricTypeDef]
     creationTime: datetime
     customizationConfig: CustomizationConfigTypeDef
+    modelStatus: ModelStatusType
+    failureMessage: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2215,8 +2237,8 @@ class GetModelCustomizationJobResponseTypeDef(TypedDict):
     clientRequestToken: str
     roleArn: str
     status: ModelCustomizationJobStatusType
-    failureMessage: str
     statusDetails: StatusDetailsTypeDef
+    failureMessage: str
     creationTime: datetime
     lastModifiedTime: datetime
     endTime: datetime

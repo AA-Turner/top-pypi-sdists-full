@@ -1,34 +1,22 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: webauthn
-Version: 2.5.2
+Version: 2.6.0
 Summary: Pythonic WebAuthn
-Home-page: https://github.com/duo-labs/py_webauthn
-Download-URL: https://github.com/duo-labs/py_webauthn/archive/2.5.2.tar.gz
-Author: Duo Labs
-Author-email: labs@duo.com
-License: BSD
-Keywords: webauthn fido2
+Author-email: Duo Labs <labs@duo.com>
+License-Expression: BSD-3-Clause
+Project-URL: Homepage, https://github.com/duo-labs/py_webauthn
+Keywords: webauthn,fido2
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: asn1crypto>=1.5.1
 Requires-Dist: cbor2>=5.6.5
 Requires-Dist: cryptography>=44.0.2
 Requires-Dist: pyOpenSSL>=25.0.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: requires-dist
-Dynamic: summary
+Dynamic: license-file
 
 # py_webauthn
 [![PyPI](https://img.shields.io/pypi/v/webauthn.svg)](https://pypi.python.org/pypi/webauthn) [![GitHub license](https://img.shields.io/badge/license-BSD-blue.svg)](https://raw.githubusercontent.com/duo-labs/py_webauthn/master/LICENSE) ![Pythonic WebAuthn](https://img.shields.io/badge/Pythonic-WebAuthn-brightgreen?logo=python&logoColor=white)

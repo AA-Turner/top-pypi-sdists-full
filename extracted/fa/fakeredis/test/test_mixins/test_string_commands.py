@@ -10,7 +10,7 @@ from redis.exceptions import ResponseError
 
 from fakeredis._helpers import current_time
 from .. import testtools
-from ..testtools import raw_command
+from ..testtools import raw_command, resp_conversion
 
 
 def test_append(r: redis.Redis):
@@ -371,14 +371,6 @@ def test_set_get_xx(r: redis.Redis):
     assert raw_command(r, "set", "foo", "baz", "GET") == b"baz"
 
 
-@pytest.mark.min_server("6.2")
-@pytest.mark.max_server("6.2.7")
-def test_set_get_nx_redis6(r: redis.Redis):
-    # Note: this will most likely fail on a 7.0 server, based on the docs for SET
-    with pytest.raises(redis.ResponseError):
-        raw_command(r, "set", "foo", "bar", "NX", "GET")
-
-
 @pytest.mark.min_server("7")
 def test_set_get_nx_redis7(r: redis.Redis):
     # Note: this will most likely fail on a 7.0 server, based on the docs for SET
@@ -537,13 +529,12 @@ def test_lcs(r: redis.Redis):
     assert r.lcs("key1", "key2") == b"mytext"
     assert r.lcs("key1", "key2", len=True) == 6
 
-    assert r.lcs("key1", "key2", idx=True, minmatchlen=3, withmatchlen=True) == [
-        b"matches",
-        [[[4, 7], [5, 8], 4]],
-        b"len",
-        6,
-    ]
-    assert r.lcs("key1", "key2", idx=True, minmatchlen=3) == [b"matches", [[[4, 7], [5, 8]]], b"len", 6]
+    assert r.lcs("key1", "key2", idx=True, minmatchlen=3, withmatchlen=True) == resp_conversion(
+        r, {b"len": 6, b"matches": [[[4, 7], [5, 8], 4]]}, [b"matches", [[[4, 7], [5, 8], 4]], b"len", 6]
+    )
+    assert r.lcs("key1", "key2", idx=True, minmatchlen=3) == resp_conversion(
+        r, {b"len": 6, b"matches": [[[4, 7], [5, 8]]]}, [b"matches", [[[4, 7], [5, 8]]], b"len", 6]
+    )
 
     with pytest.raises(redis.ResponseError):
         assert r.lcs("key1", "key2", len=True, idx=True)

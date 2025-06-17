@@ -1227,11 +1227,12 @@ class MetaData(object):
      - consistencySamplePercent
      - historicalBackfill
      - deprecationDate
+     - description
 
     """
 
 
-    def __init__(self, name=None, online=None, production=None, customJson=None, dependencies=None, tableProperties=None, outputNamespace=None, team=None, modeToEnvMap=None, consistencyCheck=None, samplePercent=None, offlineSchedule=None, consistencySamplePercent=None, historicalBackfill=None, deprecationDate=None,):
+    def __init__(self, name=None, online=None, production=None, customJson=None, dependencies=None, tableProperties=None, outputNamespace=None, team=None, modeToEnvMap=None, consistencyCheck=None, samplePercent=None, offlineSchedule=None, consistencySamplePercent=None, historicalBackfill=None, deprecationDate=None, description=None,):
         self.name = name
         self.online = online
         self.production = production
@@ -1247,6 +1248,7 @@ class MetaData(object):
         self.consistencySamplePercent = consistencySamplePercent
         self.historicalBackfill = historicalBackfill
         self.deprecationDate = deprecationDate
+        self.description = description
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -1355,6 +1357,11 @@ class MetaData(object):
                     self.deprecationDate = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
                 else:
                     iprot.skip(ftype)
+            elif fid == 16:
+                if ftype == TType.STRING:
+                    self.description = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -1439,6 +1446,10 @@ class MetaData(object):
         if self.deprecationDate is not None:
             oprot.writeFieldBegin('deprecationDate', TType.STRING, 15)
             oprot.writeString(self.deprecationDate.encode('utf-8') if sys.version_info[0] == 2 else self.deprecationDate)
+            oprot.writeFieldEnd()
+        if self.description is not None:
+            oprot.writeFieldBegin('description', TType.STRING, 16)
+            oprot.writeString(self.description.encode('utf-8') if sys.version_info[0] == 2 else self.description)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -1802,13 +1813,15 @@ class Derivation(object):
     Attributes:
      - name
      - expression
+     - metaData
 
     """
 
 
-    def __init__(self, name=None, expression=None,):
+    def __init__(self, name=None, expression=None, metaData=None,):
         self.name = name
         self.expression = expression
+        self.metaData = metaData
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -1829,6 +1842,12 @@ class Derivation(object):
                     self.expression = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
                 else:
                     iprot.skip(ftype)
+            elif fid == 3:
+                if ftype == TType.STRUCT:
+                    self.metaData = MetaData()
+                    self.metaData.read(iprot)
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -1846,6 +1865,10 @@ class Derivation(object):
         if self.expression is not None:
             oprot.writeFieldBegin('expression', TType.STRING, 2)
             oprot.writeString(self.expression.encode('utf-8') if sys.version_info[0] == 2 else self.expression)
+            oprot.writeFieldEnd()
+        if self.metaData is not None:
+            oprot.writeFieldBegin('metaData', TType.STRUCT, 3)
+            self.metaData.write(oprot)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -2656,6 +2679,7 @@ MetaData.thrift_spec = (
     (13, TType.DOUBLE, 'consistencySamplePercent', None, None, ),  # 13
     (14, TType.BOOL, 'historicalBackfill', None, None, ),  # 14
     (15, TType.STRING, 'deprecationDate', 'UTF8', None, ),  # 15
+    (16, TType.STRING, 'description', 'UTF8', None, ),  # 16
 )
 all_structs.append(GroupBy)
 GroupBy.thrift_spec = (
@@ -2688,6 +2712,7 @@ Derivation.thrift_spec = (
     None,  # 0
     (1, TType.STRING, 'name', 'UTF8', None, ),  # 1
     (2, TType.STRING, 'expression', 'UTF8', None, ),  # 2
+    (3, TType.STRUCT, 'metaData', [MetaData, None], None, ),  # 3
 )
 all_structs.append(Join)
 Join.thrift_spec = (

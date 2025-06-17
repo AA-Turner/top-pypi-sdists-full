@@ -8,6 +8,7 @@ from anyscale.client.openapi_client.models import (
     AdminCreateUser,
     AnyscaleServiceAccount,
     Cloud,
+    ClusteroperationResponse,
     ComputeTemplateConfig,
     CreateCloudCollaborator,
     CreateExperimentalWorkspace,
@@ -54,7 +55,7 @@ from anyscale.utils.workspace_notification import WorkspaceNotification
 # Maybe just make it part of the release process to update it, or fetch the
 # default builds and get the latest one. The best thing to do is probably
 # to populate this in the backend.
-DEFAULT_RAY_VERSION = "2.47.0"  # RAY_RELEASE_UPDATE: update to latest version.
+DEFAULT_RAY_VERSION = "2.47.1"  # RAY_RELEASE_UPDATE: update to latest version.
 DEFAULT_PYTHON_VERSION = "py311"
 RUNTIME_ENV_PACKAGE_FORMAT = "pkg_{content_hash}.zip"
 
@@ -173,6 +174,16 @@ class AnyscaleClientInterface(ABC):
         self, cloud_id: str, collaborators: List[CreateCloudCollaborator]
     ) -> None:
         """Batch add collaborators to a cloud."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def terminate_system_cluster(self, cloud_id: str) -> ClusteroperationResponse:
+        """Terminate the system cluster for the provided cloud ID."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def describe_system_workload_get_status(self, cloud_id: str) -> str:
+        """Get the status of the system cluster for the provided cloud ID."""
         raise NotImplementedError
 
     @abstractmethod

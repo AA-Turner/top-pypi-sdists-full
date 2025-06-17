@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: guidance-stitch
-Version: 0.1.4
+Version: 0.1.5
 Summary: Bidirectional comms for Jupyter and JavaScript.
 Project-URL: Homepage, https://github.com/guidance-ai/guidance
 Author-email: Guidance Maintainers <maintainers@guidance-ai.org>

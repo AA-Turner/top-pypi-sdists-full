@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacube
-Version: 1.9.4
+Version: 1.9.5
 Summary: An analysis environment for satellite and other earth observation data
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://opendatacube.org/
@@ -32,7 +32,7 @@ Requires-Dist: alembic
 Requires-Dist: antimeridian
 Requires-Dist: attrs>=18.1
 Requires-Dist: cachetools
-Requires-Dist: click>=5.0
+Requires-Dist: click>=8.2
 Requires-Dist: cloudpickle>=0.4
 Requires-Dist: dask[array]
 Requires-Dist: deprecat

@@ -2,7 +2,7 @@ import itertools
 import queue
 import time
 import weakref
-from typing import List, Any, Tuple, Optional, Callable, Union, Match, AnyStr, Generator, Dict
+from typing import List, Any, Tuple, Optional, Callable, Union, Match, AnyStr, Generator, Dict, Sequence
 from xmlrpc.client import ResponseError
 
 import redis
@@ -22,6 +22,20 @@ from ._helpers import (
     QUEUED,
     decode_command_bytes,
 )
+
+
+def _convert_to_resp2(val: Any) -> Any:
+    if isinstance(val, str):
+        return val.encode()
+    if isinstance(val, float):
+        return Float.encode(val, humanfriendly=False)
+    if isinstance(val, dict):
+        result = list(itertools.chain(*val.items()))
+        return [_convert_to_resp2(item) for item in result]
+    if isinstance(val, (list, tuple)):
+        res = [_convert_to_resp2(item) for item in val]
+        return res
+    return val
 
 
 def _extract_command(fields: List[bytes]) -> Tuple[Any, List[Any]]:
@@ -91,9 +105,9 @@ class BaseFakeSocket:
         self._server.sockets.append(self)
 
     @property
-    def client_info(self):
+    def client_info(self) -> Dict[str, Union[str, int]]:
         res = {k: v for k, v in self._client_info.items() if not k.startswith("-")}
-        res["age"] = int(time.time()) - self._client_info.get("-created", 0)
+        res["age"] = int(time.time()) - int(self._client_info.get("-created", 0))
         return res
 
     @property
@@ -102,11 +116,11 @@ class BaseFakeSocket:
 
     @property
     def current_user(self) -> bytes:
-        return self._client_info.get("user", "").encode()
+        return str(self._client_info.get("user", "")).encode()
 
     @property
     def protocol_version(self) -> int:
-        return self._client_info.get("resp", 2)
+        return int(self._client_info.get("resp", 2))
 
     @property
     def version(self) -> Tuple[int, ...]:
@@ -262,7 +276,10 @@ class BaseFakeSocket:
             else:
                 args, command_items = ret
                 result = func(*args)  # type: ignore
-                assert valid_response_type(result)
+                if self.protocol_version == 2 and msgs.FLAG_SKIP_CONVERT_TO_RESP2 not in sig.flags:
+                    result = _convert_to_resp2(result)
+                if msgs.FLAG_SKIP_CONVERT_TO_RESP2 not in sig.flags:
+                    assert valid_response_type(result, self.protocol_version), f"Invalid response type for {result}"
         except SimpleError as exc:
             result = exc
         for command_item in command_items:
@@ -329,7 +346,7 @@ class BaseFakeSocket:
             data = data.encode("ascii")  # type: ignore
         self._parser.send(data)
 
-    def _scan(self, keys, cursor, *args):
+    def _scan(self, keys: Sequence[bytes], cursor: int, *args: bytes) -> List[Union[bytes, List[bytes]]]:
         """This is the basis of most of the ``scan`` methods.
 
         This implementation is KNOWN to be un-performant, as it requires grabbing the full set of keys over which
@@ -365,16 +382,18 @@ class BaseFakeSocket:
         bits_len = (len(keys) - 1).bit_length()
         cursor = bin_reverse(cursor, bits_len)
         if cursor >= len(keys):
-            return [0, []]
+            return [b"0", []]
         result_cursor = cursor + count
         result_data = []
 
         regex = compile_pattern(pattern) if pattern is not None else None
 
         def match_key(key: bytes) -> Union[bool, Match[bytes], None]:
+            if isinstance(key, str):
+                key = key.encode("utf-8")
             return regex.match(key) if regex is not None else True
 
-        def match_type(key) -> bool:
+        def match_type(key: bytes) -> bool:
             return _type is None or casematch(BaseFakeSocket._key_value_type(self._db[key]).value, _type)
 
         if pattern is not None or _type is not None:

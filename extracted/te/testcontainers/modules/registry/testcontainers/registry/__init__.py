@@ -1,7 +1,7 @@
 import time
 from io import BytesIO
 from tarfile import TarFile, TarInfo
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 import bcrypt
 from requests import get
@@ -25,7 +25,7 @@ class DockerRegistryContainer(DockerContainer):
         port: int = 5000,
         username: Optional[str] = None,
         password: Optional[str] = None,
-        **kwargs: Any,
+        **kwargs,
     ) -> None:
         super().__init__(image=image, **kwargs)
         self.port: int = port
@@ -35,8 +35,6 @@ class DockerRegistryContainer(DockerContainer):
 
     def _copy_credentials(self) -> None:
         # Create credentials and write them to the container
-        if self.password is None:
-            raise ValueError("Password cannot be None")
         hashed_password: str = bcrypt.hashpw(
             self.password.encode("utf-8"),
             bcrypt.gensalt(rounds=12, prefix=b"2a"),
@@ -46,7 +44,7 @@ class DockerRegistryContainer(DockerContainer):
         with BytesIO() as tar_archive_object, TarFile(fileobj=tar_archive_object, mode="w") as tmp_tarfile:
             tarinfo: TarInfo = TarInfo(name=self.credentials_path)
             tarinfo.size = len(content)
-            tarinfo.mtime = int(time.time())
+            tarinfo.mtime = time.time()
 
             tmp_tarfile.addfile(tarinfo, BytesIO(content))
             tar_archive_object.seek(0)
@@ -56,13 +54,12 @@ class DockerRegistryContainer(DockerContainer):
     def _readiness_probe(self) -> None:
         url: str = f"http://{self.get_registry()}/v2"
         if self.username and self.password:
-            auth_response: Response = get(url, auth=HTTPBasicAuth(self.username, self.password), timeout=1)
-            auth_response.raise_for_status()
+            response: Response = get(url, auth=HTTPBasicAuth(self.username, self.password), timeout=1)
         else:
             response: Response = get(url, timeout=1)
-            response.raise_for_status()
+        response.raise_for_status()
 
-    def start(self) -> "DockerRegistryContainer":
+    def start(self):
         if self.username and self.password:
             self.with_env("REGISTRY_AUTH_HTPASSWD_REALM", "local-registry")
             self.with_env("REGISTRY_AUTH_HTPASSWD_PATH", self.credentials_path)

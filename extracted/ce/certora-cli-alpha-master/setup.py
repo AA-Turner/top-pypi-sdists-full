@@ -3,16 +3,16 @@ import setuptools
 
 setuptools.setup(
     name="certora-cli-alpha-master",
-    version="20250616.16.37.579569",
+    version="20250616.19.44.637068",
     author="Certora",
     author_email="support@certora.com",
     description="Runner for the Certora Prover",
-    long_description="Commit 07395db.                    Build and Run scripts for executing the Certora Prover on Solidity smart contracts.",
+    long_description="Commit 1d14b74.                    Build and Run scripts for executing the Certora Prover on Solidity smart contracts.",
     long_description_content_type="text/markdown",
     url="https://pypi.org/project/certora-cli-alpha-master",
     packages=setuptools.find_packages(),
     include_package_data=True,
-    install_requires=['click', 'json5', 'pycryptodome', 'requests', 'rich', 'sly', 'tabulate', 'tqdm', 'StrEnum', 'universalmutator', 'jinja2'],
+    install_requires=['click', 'json5', 'pycryptodome', 'requests', 'rich', 'sly', 'tabulate', 'tqdm', 'StrEnum', 'universalmutator', 'jinja2', 'wcmatch'],
     project_urls={
         'Documentation': 'https://docs.certora.com/en/latest/',
         'Source': 'https://github.com/Certora/CertoraProver',
